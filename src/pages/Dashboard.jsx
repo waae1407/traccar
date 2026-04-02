@@ -1,7 +1,7 @@
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock } from "lucide-react";
+import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock, Bell } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
@@ -36,6 +36,15 @@ export default function Dashboard() {
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: () => base44.entities.Booking.list() });
   const { data: payments = [] } = useQuery({ queryKey: ["payments"], queryFn: () => base44.entities.Payment.list() });
   const { data: contracts = [] } = useQuery({ queryKey: ["contracts"], queryFn: () => base44.entities.RentToOwnContract.list() });
+  const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin"], queryFn: () => base44.entities.BookingRequest.list("-created_date", 200), refetchInterval: 30_000 });
+
+  const pendingReviews = bookingRequests.filter((b) => b.booking_status === "pending_review");
+  const unopenedPending = pendingReviews.filter((b) => !b.viewed_by_admin);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const pendingToday = pendingReviews.filter((b) => {
+    const d = new Date(b.submitted_at || b.created_date); d.setHours(0,0,0,0);
+    return d.getTime() === today.getTime();
+  });
 
   const activeRentals = bookings.filter((b) => b.status === "Active").length;
   const availableVehicles = vehicles.filter((v) => v.status === "Available").length;
@@ -88,6 +97,39 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+
+      {/* Pending Reviews Alert Widget */}
+      {pendingReviews.length > 0 && (
+        <div className="rounded-2xl border-2 border-yellow-400/40 overflow-hidden"
+          style={{ background: "linear-gradient(135deg, hsl(45 95% 60% / 0.12) 0%, hsl(38 95% 54% / 0.08) 100%)" }}>
+          <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, hsl(45 95% 55%), hsl(38 95% 50%))" }} />
+          <div className="p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-yellow-400/20 border border-yellow-400/30 flex items-center justify-center flex-shrink-0">
+                <Bell className="h-6 w-6 text-yellow-400" />
+              </div>
+              <div>
+                <p className="font-bold text-yellow-300 text-base">
+                  {pendingReviews.length} Pending {pendingReviews.length === 1 ? "Booking" : "Bookings"} Awaiting Review
+                </p>
+                <div className="flex items-center gap-4 mt-1 text-xs text-white/50">
+                  <span>{unopenedPending.length} unopened</span>
+                  <span>·</span>
+                  <span>{pendingToday.length} new today</span>
+                </div>
+              </div>
+            </div>
+            <Link
+              to="/bookings-admin"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-black transition-all hover:opacity-90 active:scale-95 flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, hsl(45 95% 60%), hsl(38 95% 54%))" }}
+            >
+              Review Now <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {stats.map((s) => <StatCard key={s.title} {...s} />)}

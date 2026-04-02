@@ -53,6 +53,10 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
         booking_status: "pending_review",
         total_due_now: payAmount,
         checkout_step: "confirmation",
+        submitted_at: new Date().toISOString(),
+        viewed_by_admin: false,
+        pending_review_alert_active: true,
+        admin_attention_priority: "high",
       }, "confirmation");
 
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });

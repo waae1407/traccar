@@ -75,7 +75,10 @@
         "completed",
         "cancelled",
         "under_review",
-        "suspended"
+        "suspended",
+        "approved",
+        "rejected",
+        "more_info_requested"
       ],
       "default": "draft"
     },
@@ -207,6 +210,38 @@
     "abandoned_checkout": {
       "type": "boolean",
       "default": false
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When customer submitted the booking"
+    },
+    "viewed_by_admin": {
+      "type": "boolean",
+      "default": false,
+      "description": "Has an admin opened this booking"
+    },
+    "first_viewed_by_admin_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "pending_review_alert_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show in admin post-it alert area"
+    },
+    "admin_attention_priority": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "high",
+        "urgent"
+      ],
+      "default": "high"
+    },
+    "admin_notes": {
+      "type": "string",
+      "description": "Internal admin notes on this booking"
     }
   },
   "required": [
