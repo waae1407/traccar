@@ -27,44 +27,39 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
 
   const handlePay = async () => {
     setProcessing(true);
-    // Simulate payment processing
-    await new Promise((r) => setTimeout(r, 2000));
 
-    const payAmount = booking?.weekly_rate || 0;
+    try {
+      // Simulate payment processing delay
+      await new Promise((r) => setTimeout(r, 1500));
 
-    // Create payment record
-    await createPaymentMutation.mutateAsync({
-      customer_name: booking?.customer_full_name || user?.full_name,
-      booking_id: booking?.id,
-      amount: payAmount,
-      payment_type: "Rental",
-      payment_method: "Card",
-      status: "Paid",
-      paid_date: new Date().toISOString().split("T")[0],
-    });
+      const payAmount = booking?.weekly_rate || 0;
 
-    // Log activity event
-    await logEventMutation.mutateAsync({
-      user_email: user?.email,
-      booking_request_id: booking?.id,
-      event_type: "payment_received",
-      event_title: "First Payment Received",
-      event_description: `$${payAmount} first ${booking?.booking_type?.toLowerCase()} payment`,
-      event_status: "success",
-      amount: payAmount,
-    });
+      // Log activity event (doesn't require customer_id)
+      await logEventMutation.mutateAsync({
+        user_email: user?.email,
+        booking_request_id: booking?.id,
+        event_type: "payment_received",
+        event_title: "First Payment Received",
+        event_description: `$${payAmount} first ${booking?.booking_type?.toLowerCase()} payment`,
+        event_status: "success",
+        amount: payAmount,
+      });
 
-    setProcessing(false);
-    setPaid(true);
+      setProcessing(false);
+      setPaid(true);
 
-    saveAndAdvance({
-      payment_status: "paid",
-      booking_status: "pending_review",
-      total_due_now: payAmount,
-      checkout_step: "confirmation",
-    }, "confirmation");
+      saveAndAdvance({
+        payment_status: "paid",
+        booking_status: "pending_review",
+        total_due_now: payAmount,
+        checkout_step: "confirmation",
+      }, "confirmation");
 
-    queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+    } catch (err) {
+      console.error("Payment error:", err);
+      setProcessing(false);
+    }
   };
 
   if (paid) {
