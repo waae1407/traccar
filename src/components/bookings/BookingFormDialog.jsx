@@ -2,136 +2,74 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { FormField, inputClass, textareaClass } from "@/components/shared/FormField";
 
-const emptyForm = {
-  customer_id: "", vehicle_id: "", booking_type: "Weekly",
-  start_date: "", end_date: "", pickup_location: "", dropoff_location: "",
-  status: "Reserved", notes: "",
-};
+const emptyForm = { customer_id: "", vehicle_id: "", booking_type: "Weekly", start_date: "", end_date: "", pickup_location: "", dropoff_location: "", status: "Reserved", notes: "" };
 
 export default function BookingFormDialog({ open, onOpenChange, onSave, booking, isSaving }) {
   const [form, setForm] = useState(emptyForm);
 
-  const { data: customers = [] } = useQuery({
-    queryKey: ["customers"],
-    queryFn: () => base44.entities.Customer.list(),
-    enabled: open,
-  });
+  const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => base44.entities.Customer.list(), enabled: open });
+  const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles"], queryFn: () => base44.entities.Vehicle.list(), enabled: open });
+  const available = vehicles.filter((v) => v.status === "Available" || v.id === booking?.vehicle_id);
 
-  const { data: vehicles = [] } = useQuery({
-    queryKey: ["vehicles"],
-    queryFn: () => base44.entities.Vehicle.list(),
-    enabled: open,
-  });
+  useEffect(() => { setForm(booking ? { ...emptyForm, ...booking } : emptyForm); }, [booking, open]);
 
-  const availableVehicles = vehicles.filter((v) => v.status === "Available" || v.id === booking?.vehicle_id);
-
-  useEffect(() => {
-    if (booking) {
-      setForm({ ...emptyForm, ...booking });
-    } else {
-      setForm(emptyForm);
-    }
-  }, [booking, open]);
-
-  const handleChange = (field, value) => setForm((p) => ({ ...p, [field]: value }));
+  const set = (field, value) => setForm((p) => ({ ...p, [field]: value }));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const customer = customers.find((c) => c.id === form.customer_id);
-    const vehicle = vehicles.find((v) => v.id === form.vehicle_id);
-    onSave({
-      ...form,
-      customer_name: customer ? customer.full_name : "",
-      vehicle_name: vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "",
-    });
+    const c = customers.find((c) => c.id === form.customer_id);
+    const v = vehicles.find((v) => v.id === form.vehicle_id);
+    onSave({ ...form, customer_name: c?.full_name || "", vehicle_name: v ? `${v.year} ${v.make} ${v.model}` : "" });
   };
+
+  const mkSelect = (field, options, placeholder) => (
+    <Select value={form[field]} onValueChange={(v) => set(field, v)}>
+      <SelectTrigger className="h-9 rounded-xl bg-white/[0.06] border-white/[0.1] text-white focus:ring-0">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
+        {options.map((o) => typeof o === "string"
+          ? <SelectItem key={o} value={o} className="focus:bg-white/10">{o}</SelectItem>
+          : <SelectItem key={o.id} value={o.id} className="focus:bg-white/10">{o.label}</SelectItem>
+        )}
+      </SelectContent>
+    </Select>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto border-white/[0.08] text-white" style={{ background: "hsl(222 28% 9%)", boxShadow: "0 24px 80px hsl(222 28% 5% / 0.9)" }}>
         <DialogHeader>
-          <DialogTitle>{booking ? "Edit Booking" : "New Booking"}</DialogTitle>
+          <DialogTitle className="font-syne text-white">{booking ? "Edit Booking" : "New Booking"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Customer *</Label>
-            <Select value={form.customer_id} onValueChange={(v) => handleChange("customer_id", v)}>
-              <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-              <SelectContent>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Vehicle *</Label>
-            <Select value={form.vehicle_id} onValueChange={(v) => handleChange("vehicle_id", v)}>
-              <SelectTrigger><SelectValue placeholder="Select vehicle" /></SelectTrigger>
-              <SelectContent>
-                {availableVehicles.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>{v.year} {v.make} {v.model} — {v.plate || "No plate"}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <FormField label="Customer" required>
+            {mkSelect("customer_id", customers.map((c) => ({ id: c.id, label: c.full_name })), "Select customer")}
+          </FormField>
+          <FormField label="Vehicle" required>
+            {mkSelect("vehicle_id", available.map((v) => ({ id: v.id, label: `${v.year} ${v.make} ${v.model} — ${v.plate || "No plate"}` })), "Select vehicle")}
+          </FormField>
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Booking Type">{mkSelect("booking_type", ["Daily", "Weekly", "Monthly", "Rent-to-Own"])}</FormField>
+            <FormField label="Status">{mkSelect("status", ["Reserved", "Active", "Completed", "Cancelled"])}</FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Booking Type</Label>
-              <Select value={form.booking_type} onValueChange={(v) => handleChange("booking_type", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Daily", "Weekly", "Monthly", "Rent-to-Own"].map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => handleChange("status", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Reserved", "Active", "Completed", "Cancelled"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <FormField label="Start Date" required><input type="date" className={inputClass} value={form.start_date} onChange={(e) => set("start_date", e.target.value)} required /></FormField>
+            <FormField label="End Date"><input type="date" className={inputClass} value={form.end_date} onChange={(e) => set("end_date", e.target.value)} /></FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Start Date *</Label>
-              <Input type="date" value={form.start_date} onChange={(e) => handleChange("start_date", e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>End Date</Label>
-              <Input type="date" value={form.end_date} onChange={(e) => handleChange("end_date", e.target.value)} />
-            </div>
+            <FormField label="Pickup Location"><input className={inputClass} value={form.pickup_location} onChange={(e) => set("pickup_location", e.target.value)} /></FormField>
+            <FormField label="Dropoff Location"><input className={inputClass} value={form.dropoff_location} onChange={(e) => set("dropoff_location", e.target.value)} /></FormField>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Pickup Location</Label>
-              <Input value={form.pickup_location} onChange={(e) => handleChange("pickup_location", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Dropoff Location</Label>
-              <Input value={form.dropoff_location} onChange={(e) => handleChange("dropoff_location", e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea value={form.notes} onChange={(e) => handleChange("notes", e.target.value)} rows={3} />
-          </div>
+          <FormField label="Notes"><textarea className={textareaClass} rows={3} value={form.notes} onChange={(e) => set("notes", e.target.value)} /></FormField>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isSaving}>{booking ? "Update" : "Create"}</Button>
+            <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">Cancel</button>
+            <button type="submit" disabled={isSaving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-primary hover:opacity-90 transition-all disabled:opacity-50 shadow-glow-sm">
+              {booking ? "Update" : "Create"}
+            </button>
           </div>
         </form>
       </DialogContent>

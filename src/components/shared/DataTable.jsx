@@ -1,66 +1,61 @@
 import React from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DataTable({ columns, data, isLoading, onRowClick, emptyMessage }) {
   if (isLoading) {
     return (
-      <Card className="overflow-hidden shadow-sm">
-        <div className="p-4 space-y-3">
-          {Array(5).fill(0).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+      <div className="rounded-2xl border border-white/[0.07] overflow-hidden" style={{ background: "hsl(222 24% 11% / 0.8)" }}>
+        <div className="p-4 space-y-2">
+          {Array(6).fill(0).map((_, i) => (
+            <div key={i} className="h-12 rounded-xl bg-white/[0.04] animate-pulse" />
           ))}
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (!data || data.length === 0) {
     return (
-      <Card className="p-8 text-center shadow-sm">
-        <p className="text-muted-foreground">{emptyMessage || "No data found"}</p>
-      </Card>
+      <div className="rounded-2xl border border-white/[0.07] p-12 text-center" style={{ background: "hsl(222 24% 11% / 0.8)" }}>
+        <p className="text-white/30 text-sm">{emptyMessage || "No records found"}</p>
+      </div>
     );
   }
 
   return (
-    <Card className="overflow-hidden shadow-sm">
+    <div className="rounded-2xl border border-white/[0.07] overflow-hidden" style={{ boxShadow: "0 4px 32px hsl(222 28% 5% / 0.5)", background: "hsl(222 24% 10% / 0.9)" }}>
       <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/[0.06]" style={{ background: "hsl(222 28% 8% / 0.8)" }}>
               {columns.map((col) => (
-                <TableHead key={col.key} className="font-semibold text-foreground/80">
+                <th key={col.key} className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/35">
                   {col.label}
-                </TableHead>
+                </th>
               ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+            </tr>
+          </thead>
+          <tbody>
             {data.map((row, idx) => (
-              <TableRow
+              <tr
                 key={row.id || idx}
-                className={onRowClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}
                 onClick={() => onRowClick?.(row)}
+                className={cn(
+                  "border-b border-white/[0.04] last:border-0 transition-all duration-150",
+                  onRowClick && "cursor-pointer hover:bg-primary/[0.05]"
+                )}
               >
                 {columns.map((col) => (
-                  <TableCell key={col.key}>
+                  <td key={col.key} className="px-4 py-3.5 text-sm text-white/70">
                     {col.render ? col.render(row) : row[col.key]}
-                  </TableCell>
+                  </td>
                 ))}
-              </TableRow>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
-    </Card>
+    </div>
   );
 }

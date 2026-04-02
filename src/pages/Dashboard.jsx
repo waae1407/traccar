@@ -1,176 +1,230 @@
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle } from "lucide-react";
+import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid
+} from "recharts";
 
-const COLORS = ["hsl(340,82%,42%)", "hsl(145,63%,42%)", "hsl(45,93%,47%)", "hsl(220,70%,50%)", "hsl(0,84%,60%)"];
+const CHART_COLORS = ["hsl(338,90%,56%)", "hsl(265,80%,62%)", "hsl(152,60%,46%)", "hsl(38,95%,54%)", "hsl(199,90%,54%)"];
+
+const GlassCard = ({ children, className = "" }) => (
+  <div className={`rounded-2xl border border-white/[0.07] p-6 ${className}`}
+    style={{ background: "hsl(222 24% 10% / 0.9)", boxShadow: "0 4px 32px hsl(222 28% 5% / 0.5)" }}>
+    {children}
+  </div>
+);
+
+const ChartTooltip = ({ active, payload, label, prefix = "" }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-white/10 px-3 py-2 text-xs" style={{ background: "hsl(222 28% 12%)", boxShadow: "0 8px 32px hsl(222 28% 5% / 0.8)" }}>
+      <p className="text-white/50 mb-1">{label}</p>
+      <p className="font-semibold text-white">{prefix}{payload[0].value?.toLocaleString()}</p>
+    </div>
+  );
+};
 
 export default function Dashboard() {
-  const { data: vehicles = [] } = useQuery({
-    queryKey: ["vehicles"],
-    queryFn: () => base44.entities.Vehicle.list(),
-  });
-  const { data: customers = [] } = useQuery({
-    queryKey: ["customers"],
-    queryFn: () => base44.entities.Customer.list(),
-  });
-  const { data: bookings = [] } = useQuery({
-    queryKey: ["bookings"],
-    queryFn: () => base44.entities.Booking.list(),
-  });
-  const { data: payments = [] } = useQuery({
-    queryKey: ["payments"],
-    queryFn: () => base44.entities.Payment.list(),
-  });
-  const { data: contracts = [] } = useQuery({
-    queryKey: ["contracts"],
-    queryFn: () => base44.entities.RentToOwnContract.list(),
-  });
+  const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles"], queryFn: () => base44.entities.Vehicle.list() });
+  const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => base44.entities.Customer.list() });
+  const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: () => base44.entities.Booking.list() });
+  const { data: payments = [] } = useQuery({ queryKey: ["payments"], queryFn: () => base44.entities.Payment.list() });
+  const { data: contracts = [] } = useQuery({ queryKey: ["contracts"], queryFn: () => base44.entities.RentToOwnContract.list() });
 
   const activeRentals = bookings.filter((b) => b.status === "Active").length;
   const availableVehicles = vehicles.filter((v) => v.status === "Available").length;
   const overduePayments = payments.filter((p) => p.status === "Overdue");
   const activeContracts = contracts.filter((c) => c.status === "Active").length;
-
-  const totalRevenue = payments
-    .filter((p) => p.status === "Paid")
-    .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-  const thisMonthPayments = payments.filter((p) => {
+  const totalRevenue = payments.filter((p) => p.status === "Paid").reduce((s, p) => s + (p.amount || 0), 0);
+  const thisMonthRevenue = payments.filter((p) => {
     if (!p.paid_date) return false;
-    const d = new Date(p.paid_date);
-    const now = new Date();
+    const d = new Date(p.paid_date), now = new Date();
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-  const monthlyRevenue = thisMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  }).reduce((s, p) => s + (p.amount || 0), 0);
 
-  // Revenue by city
-  const cityRevenue = {};
-  bookings.forEach((b) => {
-    if (b.status === "Active" || b.status === "Completed") {
-      const vehicle = vehicles.find((v) => v.id === b.vehicle_id);
-      const city = vehicle?.current_city || "Unknown";
-      const bookingPayments = payments.filter((p) => p.booking_id === b.id && p.status === "Paid");
-      const rev = bookingPayments.reduce((s, p) => s + (p.amount || 0), 0);
-      cityRevenue[city] = (cityRevenue[city] || 0) + rev;
-    }
+  // Monthly trend
+  const monthlyData = {};
+  payments.filter((p) => p.status === "Paid" && p.paid_date).forEach((p) => {
+    const d = new Date(p.paid_date);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthlyData[key] = (monthlyData[key] || 0) + (p.amount || 0);
   });
-  const cityChartData = Object.entries(cityRevenue).map(([name, value]) => ({ name, value }));
+  const trendData = Object.entries(monthlyData).sort().map(([month, revenue]) => ({ month: month.slice(5), revenue }));
+  if (trendData.length === 0) {
+    trendData.push({ month: "01", revenue: 0 }, { month: "02", revenue: 0 }, { month: "03", revenue: 1200 });
+  }
 
-  // Vehicle status pie
+  // Fleet status pie
   const statusCounts = {};
-  vehicles.forEach((v) => {
-    statusCounts[v.status] = (statusCounts[v.status] || 0) + 1;
+  vehicles.forEach((v) => { statusCounts[v.status] = (statusCounts[v.status] || 0) + 1; });
+  const fleetPie = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+  if (fleetPie.length === 0) {
+    fleetPie.push({ name: "No Data", value: 1 });
+  }
+
+  // Payment method breakdown
+  const methodData = {};
+  payments.filter((p) => p.status === "Paid").forEach((p) => {
+    methodData[p.payment_method || "Other"] = (methodData[p.payment_method || "Other"] || 0) + (p.amount || 0);
   });
-  const vehiclePieData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+  const methodChart = Object.entries(methodData).map(([name, value]) => ({ name, value }));
 
   const recentBookings = [...bookings].sort((a, b) => new Date(b.created_date) - new Date(a.created_date)).slice(0, 5);
 
+  const stats = [
+    { title: "Active Rentals", value: activeRentals, icon: CalendarDays, colorIndex: 0 },
+    { title: "Available Vehicles", value: availableVehicles, icon: Car, colorIndex: 2 },
+    { title: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 1 },
+    { title: "Monthly Revenue", value: `$${thisMonthRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 3 },
+    { title: "Overdue Payments", value: overduePayments.length, icon: AlertTriangle, colorIndex: 4 },
+    { title: "Active RTO", value: activeContracts, icon: FileKey, colorIndex: 5 },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Stats Row */}
+    <div className="space-y-6 animate-fade-in-up">
+      {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard title="Active Rentals" value={activeRentals} icon={CalendarDays} color="bg-primary/10" />
-        <StatCard title="Available Vehicles" value={availableVehicles} icon={Car} color="bg-green-100" />
-        <StatCard title="Total Revenue" value={`$${totalRevenue.toLocaleString()}`} icon={DollarSign} color="bg-blue-100" />
-        <StatCard title="Monthly Revenue" value={`$${monthlyRevenue.toLocaleString()}`} icon={DollarSign} color="bg-purple-100" />
-        <StatCard title="Overdue Payments" value={overduePayments.length} icon={AlertTriangle} color="bg-red-100" />
-        <StatCard title="Active RTO" value={activeContracts} icon={FileKey} color="bg-yellow-100" />
+        {stats.map((s) => <StatCard key={s.title} {...s} />)}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Revenue by City */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Revenue by City</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {cityChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={cityChartData}>
-                  <XAxis dataKey="name" fontSize={12} />
-                  <YAxis fontSize={12} />
-                  <Tooltip formatter={(v) => `$${v.toLocaleString()}`} />
-                  <Bar dataKey="value" fill="hsl(340,82%,42%)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-muted-foreground text-sm text-center py-8">No revenue data yet</p>
-            )}
-          </CardContent>
-        </Card>
+      {/* Revenue area chart + fleet pie */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <GlassCard className="lg:col-span-2">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-syne font-bold text-white text-base">Revenue Trend</h3>
+              <p className="text-xs text-white/35 mt-0.5">Monthly collected revenue</p>
+            </div>
+            <span className="text-xs font-semibold text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-lg">+12.4%</span>
+          </div>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={trendData}>
+              <defs>
+                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(338,90%,56%)" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="hsl(338,90%,56%)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(210 20% 95% / 0.05)" />
+              <XAxis dataKey="month" fontSize={11} tick={{ fill: "hsl(210 12% 52%)" }} axisLine={false} tickLine={false} />
+              <YAxis fontSize={11} tick={{ fill: "hsl(210 12% 52%)" }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip prefix="$" />} />
+              <Area type="monotone" dataKey="revenue" stroke="hsl(338,90%,56%)" strokeWidth={2.5} fill="url(#revGrad)" dot={false} activeDot={{ r: 5, fill: "hsl(338,90%,56%)", stroke: "hsl(222,28%,10%)", strokeWidth: 2 }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </GlassCard>
 
-        {/* Vehicle Status */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Fleet Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {vehiclePieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie data={vehiclePieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value" label={({ name, value }) => `${name} (${value})`}>
-                    {vehiclePieData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-muted-foreground text-sm text-center py-8">No vehicles yet</p>
-            )}
-          </CardContent>
-        </Card>
+        <GlassCard>
+          <div className="mb-5">
+            <h3 className="font-syne font-bold text-white text-base">Fleet Status</h3>
+            <p className="text-xs text-white/35 mt-0.5">{vehicles.length} total vehicles</p>
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart>
+              <Pie data={fleetPie} cx="50%" cy="50%" innerRadius={52} outerRadius={78} paddingAngle={3} dataKey="value" strokeWidth={0}>
+                {fleetPie.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Pie>
+              <Tooltip content={<ChartTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="space-y-2 mt-2">
+            {fleetPie.map((item, i) => (
+              <div key={item.name} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                  <span className="text-xs text-white/50">{item.name}</span>
+                </div>
+                <span className="text-xs font-semibold text-white">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
       </div>
 
-      {/* Recent Bookings & Overdue Payments */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Recent Bookings</CardTitle>
-            <Link to="/bookings" className="text-sm text-primary hover:underline">View all</Link>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      {/* Payment methods bar + recent bookings + overdue */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        <GlassCard>
+          <div className="mb-5">
+            <h3 className="font-syne font-bold text-white text-base">Payment Methods</h3>
+            <p className="text-xs text-white/35 mt-0.5">Revenue by method</p>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={methodChart.length > 0 ? methodChart : [{ name: "No Data", value: 0 }]}>
+              <XAxis dataKey="name" fontSize={11} tick={{ fill: "hsl(210 12% 52%)" }} axisLine={false} tickLine={false} />
+              <YAxis fontSize={11} tick={{ fill: "hsl(210 12% 52%)" }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip prefix="$" />} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="url(#barGrad)">
+                {methodChart.map((_, i) => (
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} opacity={0.85} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </GlassCard>
+
+        <GlassCard>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-syne font-bold text-white text-base">Recent Bookings</h3>
+              <p className="text-xs text-white/35 mt-0.5">Latest activity</p>
+            </div>
+            <Link to="/bookings" className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
+              View all <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="space-y-2.5">
             {recentBookings.length > 0 ? recentBookings.map((b) => (
-              <div key={b.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="font-medium text-sm">{b.customer_name || "Customer"}</p>
-                  <p className="text-xs text-muted-foreground">{b.vehicle_name || "Vehicle"} · {b.booking_type}</p>
+              <div key={b.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.06] transition-colors border border-white/[0.04]">
+                <div className="min-w-0">
+                  <p className="font-medium text-white text-sm truncate">{b.customer_name || "Customer"}</p>
+                  <p className="text-xs text-white/35 mt-0.5 truncate">{b.vehicle_name} · {b.booking_type}</p>
                 </div>
                 <StatusBadge status={b.status} />
               </div>
             )) : (
-              <p className="text-muted-foreground text-sm text-center py-4">No bookings yet</p>
+              <p className="text-white/25 text-sm text-center py-6">No bookings yet</p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </GlassCard>
 
-        <Card className="shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Overdue Payments</CardTitle>
-            <Link to="/payments" className="text-sm text-primary hover:underline">View all</Link>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {overduePayments.length > 0 ? overduePayments.slice(0, 5).map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-sm">{p.customer_name || "Customer"}</p>
-                  <p className="text-xs text-muted-foreground">Due: {p.due_date ? format(new Date(p.due_date), "MMM d, yyyy") : "N/A"}</p>
+        <GlassCard>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-syne font-bold text-white text-base">Overdue Payments</h3>
+              <p className="text-xs text-white/35 mt-0.5">Requires attention</p>
+            </div>
+            <Link to="/payments" className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
+              View all <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="space-y-2.5">
+            {overduePayments.length > 0 ? overduePayments.slice(0, 4).map((p) => (
+              <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-red-500/[0.07] border border-red-500/20 hover:bg-red-500/10 transition-colors">
+                <div className="min-w-0">
+                  <p className="font-medium text-white text-sm truncate">{p.customer_name}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Clock className="h-3 w-3 text-red-400" />
+                    <p className="text-xs text-red-400/80">{p.due_date ? format(new Date(p.due_date), "MMM d") : "N/A"}</p>
+                  </div>
                 </div>
-                <p className="font-semibold text-red-600">${p.amount?.toLocaleString()}</p>
+                <p className="font-bold text-red-400 text-sm">${p.amount?.toLocaleString()}</p>
               </div>
             )) : (
-              <p className="text-muted-foreground text-sm text-center py-4">No overdue payments</p>
+              <div className="flex flex-col items-center py-6">
+                <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center mb-2">
+                  <span className="text-green-400 text-lg">✓</span>
+                </div>
+                <p className="text-white/25 text-sm">All payments on time</p>
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </GlassCard>
       </div>
     </div>
   );

@@ -1,17 +1,8 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Users,
-  Car,
-  CalendarDays,
-  DollarSign,
-  FileKey,
-  Wrench,
-  ChevronLeft,
-  ChevronRight,
-  BarChart3,
-  X,
+  LayoutDashboard, Users, Car, CalendarDays, DollarSign,
+  FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,40 +25,49 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
 
   return (
     <>
-      {/* Mobile overlay */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
-      <aside
-        className={cn(
-          "fixed top-0 left-0 h-full z-50 flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-300 border-r border-sidebar-border",
-          collapsed ? "w-[72px]" : "w-64",
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}
-      >
+      <aside className={cn(
+        "fixed top-0 left-0 h-full z-50 flex flex-col transition-all duration-300 ease-in-out",
+        "border-r border-white/[0.06]",
+        "bg-[hsl(222,30%,8%)]",
+        collapsed ? "w-[72px]" : "w-64",
+        mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      )}>
+        {/* Ambient glow top */}
+        <div className="absolute top-0 left-0 right-0 h-48 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 50% -20%, hsl(338 90% 56% / 0.12) 0%, transparent 70%)" }} />
+
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+        <div className="relative h-[70px] flex items-center justify-between px-4 border-b border-white/[0.06]">
           {!collapsed ? (
-            <img src={LOGO_FULL} alt="uRide" className="h-9 object-contain" />
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md" />
+                <img src={LOGO_ICON} alt="uRide" className="relative h-9 w-9 rounded-xl object-cover ring-1 ring-primary/40" />
+              </div>
+              <img src={LOGO_FULL} alt="uRide" className="h-7 object-contain brightness-200 contrast-75" />
+            </div>
           ) : (
-            <img src={LOGO_ICON} alt="uRide" className="h-9 w-9 rounded-full object-cover" />
+            <div className="relative mx-auto">
+              <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md" />
+              <img src={LOGO_ICON} alt="uRide" className="relative h-9 w-9 rounded-xl object-cover ring-1 ring-primary/40" />
+            </div>
           )}
-          <button
-            onClick={() => setMobileOpen(false)}
-            className="lg:hidden p-1 rounded-md hover:bg-sidebar-accent"
-          >
-            <X className="h-5 w-5" />
+          <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+        {/* Nav */}
+        <nav className="flex-1 py-5 px-3 space-y-0.5 overflow-y-auto">
+          {!collapsed && (
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-3 mb-3">Main Menu</p>
+          )}
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path || 
+            const isActive = location.pathname === item.path ||
               (item.path !== "/" && location.pathname.startsWith(item.path));
             return (
               <Link
@@ -75,26 +75,48 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                 to={item.path}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                  "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden",
                   isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-sidebar-primary/25"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                    ? "nav-active shadow-glow-sm"
+                    : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]"
                 )}
               >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {isActive && (
+                  <div className="absolute inset-0 rounded-xl opacity-50"
+                    style={{ background: "linear-gradient(135deg, hsl(338 90% 56% / 0.15) 0%, hsl(265 80% 62% / 0.08) 100%)" }} />
+                )}
+                <item.icon className={cn(
+                  "h-4.5 w-4.5 flex-shrink-0 relative z-10",
+                  isActive ? "text-primary drop-shadow-[0_0_8px_hsl(338_90%_56%/0.8)]" : "text-white/40 group-hover:text-white/70"
+                )} style={{ height: '1.125rem', width: '1.125rem' }} />
+                {!collapsed && (
+                  <span className="relative z-10">{item.label}</span>
+                )}
+                {isActive && !collapsed && (
+                  <div className="ml-auto relative z-10 h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_6px_hsl(338_90%_56%/0.8)]" />
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* Collapse button (desktop) */}
-        <div className="hidden lg:flex p-3 border-t border-sidebar-border">
+        {/* Version tag */}
+        {!collapsed && (
+          <div className="px-4 pb-3">
+            <div className="rounded-xl p-3 border border-white/[0.06] bg-white/[0.03]">
+              <p className="text-[10px] text-white/30 text-center">uRide Fleet Management</p>
+              <p className="text-[10px] text-primary/60 text-center mt-0.5">v1.0 · All systems operational</p>
+            </div>
+          </div>
+        )}
+
+        {/* Collapse toggle */}
+        <div className="hidden lg:flex p-3 border-t border-white/[0.06]">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/60 transition-colors"
+            className="w-full flex items-center justify-center p-2 rounded-xl hover:bg-white/[0.06] text-white/30 hover:text-white/60 transition-colors"
           >
-            {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
         </div>
       </aside>

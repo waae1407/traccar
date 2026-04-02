@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { FormField, inputClass } from "@/components/shared/FormField";
 
 const emptyForm = {
   vin: "", plate: "", make: "", model: "", year: "", color: "",
@@ -16,112 +13,68 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    if (vehicle) {
-      setForm({
-        ...emptyForm, ...vehicle,
-        year: vehicle.year || "",
-        purchase_price: vehicle.purchase_price || "",
-        mileage: vehicle.mileage || "",
-        weekly_rate: vehicle.weekly_rate || "",
-      });
-    } else {
-      setForm(emptyForm);
-    }
+    setForm(vehicle ? { ...emptyForm, ...vehicle, year: vehicle.year || "", purchase_price: vehicle.purchase_price || "", mileage: vehicle.mileage || "", weekly_rate: vehicle.weekly_rate || "" } : emptyForm);
   }, [vehicle, open]);
 
-  const handleChange = (field, value) => setForm((p) => ({ ...p, [field]: value }));
+  const set = (field, value) => setForm((p) => ({ ...p, [field]: value }));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const data = {
-      ...form,
-      year: form.year ? Number(form.year) : undefined,
-      purchase_price: form.purchase_price ? Number(form.purchase_price) : undefined,
-      mileage: form.mileage ? Number(form.mileage) : undefined,
-      weekly_rate: form.weekly_rate ? Number(form.weekly_rate) : undefined,
-    };
-    onSave(data);
+    onSave({ ...form, year: form.year ? Number(form.year) : undefined, purchase_price: form.purchase_price ? Number(form.purchase_price) : undefined, mileage: form.mileage ? Number(form.mileage) : undefined, weekly_rate: form.weekly_rate ? Number(form.weekly_rate) : undefined });
   };
+
+  const sel = (field, options, placeholder) => (
+    <Select value={form[field]} onValueChange={(v) => set(field, v)}>
+      <SelectTrigger className="h-9 rounded-xl bg-white/[0.06] border-white/[0.1] text-white focus:ring-0">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
+        {options.map((o) => <SelectItem key={o} value={o} className="focus:bg-white/10 focus:text-white">{o}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto border-white/[0.08] text-white" style={{ background: "hsl(222 28% 9%)", boxShadow: "0 24px 80px hsl(222 28% 5% / 0.9)" }}>
         <DialogHeader>
-          <DialogTitle>{vehicle ? "Edit Vehicle" : "Add Vehicle"}</DialogTitle>
+          <DialogTitle className="font-syne text-white">{vehicle ? "Edit Vehicle" : "Add Vehicle"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label>Make *</Label>
-              <Input value={form.make} onChange={(e) => handleChange("make", e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Model *</Label>
-              <Input value={form.model} onChange={(e) => handleChange("model", e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Year *</Label>
-              <Input type="number" value={form.year} onChange={(e) => handleChange("year", e.target.value)} required />
-            </div>
+            <FormField label="Make" required><input className={inputClass} value={form.make} onChange={(e) => set("make", e.target.value)} required /></FormField>
+            <FormField label="Model" required><input className={inputClass} value={form.model} onChange={(e) => set("model", e.target.value)} required /></FormField>
+            <FormField label="Year" required><input type="number" className={inputClass} value={form.year} onChange={(e) => set("year", e.target.value)} required /></FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>VIN</Label>
-              <Input value={form.vin} onChange={(e) => handleChange("vin", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Plate</Label>
-              <Input value={form.plate} onChange={(e) => handleChange("plate", e.target.value)} />
-            </div>
+            <FormField label="VIN"><input className={inputClass} value={form.vin} onChange={(e) => set("vin", e.target.value)} /></FormField>
+            <FormField label="Plate"><input className={inputClass} value={form.plate} onChange={(e) => set("plate", e.target.value)} /></FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Color</Label>
-              <Input value={form.color} onChange={(e) => handleChange("color", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Current City</Label>
-              <Input value={form.current_city} onChange={(e) => handleChange("current_city", e.target.value)} />
-            </div>
+            <FormField label="Color"><input className={inputClass} value={form.color} onChange={(e) => set("color", e.target.value)} /></FormField>
+            <FormField label="Current City"><input className={inputClass} value={form.current_city} onChange={(e) => set("current_city", e.target.value)} /></FormField>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label>Purchase Price</Label>
-              <Input type="number" value={form.purchase_price} onChange={(e) => handleChange("purchase_price", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Weekly Rate</Label>
-              <Input type="number" value={form.weekly_rate} onChange={(e) => handleChange("weekly_rate", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Mileage</Label>
-              <Input type="number" value={form.mileage} onChange={(e) => handleChange("mileage", e.target.value)} />
-            </div>
+            <FormField label="Purchase Price"><input type="number" className={inputClass} value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} /></FormField>
+            <FormField label="Weekly Rate"><input type="number" className={inputClass} value={form.weekly_rate} onChange={(e) => set("weekly_rate", e.target.value)} /></FormField>
+            <FormField label="Mileage"><input type="number" className={inputClass} value={form.mileage} onChange={(e) => set("mileage", e.target.value)} /></FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => handleChange("status", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {["Available", "Booked", "Maintenance", "Transferred"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Last Service Date</Label>
-              <Input type="date" value={form.last_service_date} onChange={(e) => handleChange("last_service_date", e.target.value)} />
-            </div>
+            <FormField label="Status">{sel("status", ["Available", "Booked", "Maintenance", "Transferred"])}</FormField>
+            <FormField label="Last Service"><input type="date" className={inputClass} value={form.last_service_date} onChange={(e) => set("last_service_date", e.target.value)} /></FormField>
           </div>
-          <div className="flex items-center gap-3">
-            <Switch checked={form.rent_to_own_eligible} onCheckedChange={(v) => handleChange("rent_to_own_eligible", v)} />
-            <Label>Rent-to-Own Eligible</Label>
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <button type="button" onClick={() => set("rent_to_own_eligible", !form.rent_to_own_eligible)}
+              className={`relative h-5 w-9 rounded-full transition-all flex-shrink-0 ${form.rent_to_own_eligible ? "bg-primary" : "bg-white/10"}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${form.rent_to_own_eligible ? "left-4" : "left-0.5"}`} />
+            </button>
+            <span className="text-sm text-white/60">Rent-to-Own Eligible</span>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isSaving}>{vehicle ? "Update" : "Create"}</Button>
+            <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">Cancel</button>
+            <button type="submit" disabled={isSaving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-primary hover:opacity-90 transition-all disabled:opacity-50 shadow-glow-sm">
+              {vehicle ? "Update" : "Create"}
+            </button>
           </div>
         </form>
       </DialogContent>

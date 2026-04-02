@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { base44 } from "@/api/base44Client";
-import { Upload } from "lucide-react";
+import { Upload, Check } from "lucide-react";
+import { FormField, inputClass, textareaClass } from "@/components/shared/FormField";
 
 const emptyForm = {
   full_name: "", phone: "", email: "", address: "", employer: "",
@@ -19,116 +17,100 @@ export default function CustomerFormDialog({ open, onOpenChange, onSave, custome
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (customer) {
-      setForm({ ...emptyForm, ...customer, weekly_income: customer.weekly_income || "" });
-    } else {
-      setForm(emptyForm);
-    }
+    setForm(customer ? { ...emptyForm, ...customer, weekly_income: customer.weekly_income || "" } : emptyForm);
   }, [customer, open]);
 
-  const handleChange = (field, value) => setForm((p) => ({ ...p, [field]: value }));
+  const set = (field, value) => setForm((p) => ({ ...p, [field]: value }));
 
   const handleUpload = async (field, file) => {
     setUploading(true);
     const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    handleChange(field, file_url);
+    set(field, file_url);
     setUploading(false);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const data = { ...form, weekly_income: form.weekly_income ? Number(form.weekly_income) : undefined };
-    onSave(data);
+    onSave({ ...form, weekly_income: form.weekly_income ? Number(form.weekly_income) : undefined });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto border-white/[0.08] text-white" style={{ background: "hsl(222 28% 9%)", boxShadow: "0 24px 80px hsl(222 28% 5% / 0.9)" }}>
         <DialogHeader>
-          <DialogTitle>{customer ? "Edit Customer" : "Add Customer"}</DialogTitle>
+          <DialogTitle className="font-syne text-white">{customer ? "Edit Customer" : "Add Customer"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Full Name *</Label>
-              <Input value={form.full_name} onChange={(e) => handleChange("full_name", e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Phone *</Label>
-              <Input value={form.phone} onChange={(e) => handleChange("phone", e.target.value)} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input type="email" value={form.email} onChange={(e) => handleChange("email", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Lead Source</Label>
-              <Select value={form.lead_source} onValueChange={(v) => handleChange("lead_source", v)}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
+            <FormField label="Full Name" required>
+              <input className={inputClass} value={form.full_name} onChange={(e) => set("full_name", e.target.value)} required />
+            </FormField>
+            <FormField label="Phone" required>
+              <input className={inputClass} value={form.phone} onChange={(e) => set("phone", e.target.value)} required />
+            </FormField>
+            <FormField label="Email">
+              <input type="email" className={inputClass} value={form.email} onChange={(e) => set("email", e.target.value)} />
+            </FormField>
+            <FormField label="Lead Source">
+              <Select value={form.lead_source} onValueChange={(v) => set("lead_source", v)}>
+                <SelectTrigger className="h-9 rounded-xl bg-white/[0.06] border-white/[0.1] text-white focus:ring-0">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
                   {["Turo", "Facebook", "Referral", "Website", "Other"].map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                    <SelectItem key={s} value={s} className="focus:bg-white/10 focus:text-white">{s}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
           </div>
-          <div className="space-y-1.5">
-            <Label>Address</Label>
-            <Input value={form.address} onChange={(e) => handleChange("address", e.target.value)} />
-          </div>
+          <FormField label="Address">
+            <input className={inputClass} value={form.address} onChange={(e) => set("address", e.target.value)} />
+          </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Employer</Label>
-              <Input value={form.employer} onChange={(e) => handleChange("employer", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Weekly Income</Label>
-              <Input type="number" value={form.weekly_income} onChange={(e) => handleChange("weekly_income", e.target.value)} />
-            </div>
+            <FormField label="Employer">
+              <input className={inputClass} value={form.employer} onChange={(e) => set("employer", e.target.value)} />
+            </FormField>
+            <FormField label="Weekly Income">
+              <input type="number" className={inputClass} value={form.weekly_income} onChange={(e) => set("weekly_income", e.target.value)} />
+            </FormField>
           </div>
-          <div className="space-y-1.5">
-            <Label>Status</Label>
-            <Select value={form.status} onValueChange={(v) => handleChange("status", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
+          <FormField label="Status">
+            <Select value={form.status} onValueChange={(v) => set("status", v)}>
+              <SelectTrigger className="h-9 rounded-xl bg-white/[0.06] border-white/[0.1] text-white focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
                 {["Lead", "Approved", "Active", "Completed", "Blocked"].map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                  <SelectItem key={s} value={s} className="focus:bg-white/10 focus:text-white">{s}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Driver License</Label>
-              {form.driver_license_url ? (
-                <p className="text-xs text-green-600">Uploaded ✓</p>
-              ) : (
-                <label className="flex items-center gap-2 p-2 border border-dashed rounded-lg cursor-pointer hover:bg-muted text-sm text-muted-foreground">
-                  <Upload className="h-4 w-4" /> Upload
-                  <input type="file" className="hidden" onChange={(e) => e.target.files[0] && handleUpload("driver_license_url", e.target.files[0])} />
-                </label>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label>ID Upload</Label>
-              {form.id_upload_url ? (
-                <p className="text-xs text-green-600">Uploaded ✓</p>
-              ) : (
-                <label className="flex items-center gap-2 p-2 border border-dashed rounded-lg cursor-pointer hover:bg-muted text-sm text-muted-foreground">
-                  <Upload className="h-4 w-4" /> Upload
-                  <input type="file" className="hidden" onChange={(e) => e.target.files[0] && handleUpload("id_upload_url", e.target.files[0])} />
-                </label>
-              )}
-            </div>
+            {[["driver_license_url", "Driver License"], ["id_upload_url", "ID Upload"]].map(([field, label]) => (
+              <FormField key={field} label={label}>
+                {form[field] ? (
+                  <div className="flex items-center gap-2 h-9 px-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+                    <Check className="h-4 w-4" /> Uploaded
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-2 h-9 px-3 rounded-xl bg-white/[0.06] border border-dashed border-white/[0.1] cursor-pointer hover:bg-white/[0.08] text-white/40 text-sm transition-all">
+                    <Upload className="h-4 w-4" /> Upload file
+                    <input type="file" className="hidden" onChange={(e) => e.target.files[0] && handleUpload(field, e.target.files[0])} />
+                  </label>
+                )}
+              </FormField>
+            ))}
           </div>
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea value={form.notes} onChange={(e) => handleChange("notes", e.target.value)} rows={3} />
-          </div>
+          <FormField label="Notes">
+            <textarea className={textareaClass} rows={3} value={form.notes} onChange={(e) => set("notes", e.target.value)} />
+          </FormField>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isSaving || uploading}>{customer ? "Update" : "Create"}</Button>
+            <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">Cancel</button>
+            <button type="submit" disabled={isSaving || uploading} className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-primary hover:opacity-90 transition-all disabled:opacity-50 shadow-glow-sm">
+              {customer ? "Update" : "Create"}
+            </button>
           </div>
         </form>
       </DialogContent>
