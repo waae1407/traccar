@@ -1,0 +1,71 @@
+{
+  "name": "Booking",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string",
+      "description": "Customer ID"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "Customer name (denormalized)"
+    },
+    "vehicle_id": {
+      "type": "string",
+      "description": "Vehicle ID"
+    },
+    "vehicle_name": {
+      "type": "string",
+      "description": "Vehicle description (denormalized)"
+    },
+    "booking_type": {
+      "type": "string",
+      "enum": [
+        "Daily",
+        "Weekly",
+        "Monthly",
+        "Rent-to-Own"
+      ],
+      "description": "Type of booking"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Booking start date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Booking end date"
+    },
+    "pickup_location": {
+      "type": "string",
+      "description": "Pickup location"
+    },
+    "dropoff_location": {
+      "type": "string",
+      "description": "Dropoff location"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Reserved",
+        "Active",
+        "Completed",
+        "Cancelled"
+      ],
+      "default": "Reserved",
+      "description": "Booking status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Booking notes"
+    }
+  },
+  "required": [
+    "customer_id",
+    "vehicle_id",
+    "booking_type",
+    "start_date"
+  ]
+}

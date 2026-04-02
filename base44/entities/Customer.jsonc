@@ -1,0 +1,69 @@
+{
+  "name": "Customer",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "description": "Customer full name"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Phone number"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email address"
+    },
+    "address": {
+      "type": "string",
+      "description": "Home address"
+    },
+    "driver_license_url": {
+      "type": "string",
+      "description": "Uploaded driver license file URL"
+    },
+    "id_upload_url": {
+      "type": "string",
+      "description": "Uploaded ID file URL"
+    },
+    "employer": {
+      "type": "string",
+      "description": "Employer name"
+    },
+    "weekly_income": {
+      "type": "number",
+      "description": "Weekly income amount"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Lead",
+        "Approved",
+        "Active",
+        "Completed",
+        "Blocked"
+      ],
+      "default": "Lead",
+      "description": "Customer status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Internal notes"
+    },
+    "lead_source": {
+      "type": "string",
+      "enum": [
+        "Turo",
+        "Facebook",
+        "Referral",
+        "Website",
+        "Other"
+      ],
+      "description": "How the customer found us"
+    }
+  },
+  "required": [
+    "full_name",
+    "phone"
+  ]
+}

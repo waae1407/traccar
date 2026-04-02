@@ -1,0 +1,17 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "booking_manager",
+        "payment_manager",
+        "maintenance_manager",
+        "support_agent"
+      ],
+      "default": "admin"
+    }
+  }
+}

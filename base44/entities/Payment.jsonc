@@ -1,0 +1,67 @@
+{
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string",
+      "description": "Customer ID"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "Customer name (denormalized)"
+    },
+    "booking_id": {
+      "type": "string",
+      "description": "Booking ID"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Payment amount"
+    },
+    "payment_type": {
+      "type": "string",
+      "enum": [
+        "Deposit",
+        "Rental",
+        "Late Fee"
+      ],
+      "description": "Type of payment"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "Card",
+        "Cash",
+        "Zelle",
+        "ACH"
+      ],
+      "description": "Payment method"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Paid",
+        "Pending",
+        "Failed",
+        "Overdue"
+      ],
+      "default": "Pending",
+      "description": "Payment status"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Payment due date"
+    },
+    "paid_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date payment was received"
+    }
+  },
+  "required": [
+    "customer_id",
+    "amount",
+    "payment_type"
+  ]
+}

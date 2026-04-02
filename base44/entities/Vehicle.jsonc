@@ -1,0 +1,76 @@
+{
+  "name": "Vehicle",
+  "type": "object",
+  "properties": {
+    "vin": {
+      "type": "string",
+      "description": "Vehicle identification number"
+    },
+    "plate": {
+      "type": "string",
+      "description": "License plate number"
+    },
+    "make": {
+      "type": "string",
+      "description": "Vehicle make"
+    },
+    "model": {
+      "type": "string",
+      "description": "Vehicle model"
+    },
+    "year": {
+      "type": "number",
+      "description": "Model year"
+    },
+    "color": {
+      "type": "string",
+      "description": "Vehicle color"
+    },
+    "purchase_price": {
+      "type": "number",
+      "description": "Purchase price"
+    },
+    "current_city": {
+      "type": "string",
+      "description": "Current city location"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Available",
+        "Booked",
+        "Maintenance",
+        "Transferred"
+      ],
+      "default": "Available",
+      "description": "Vehicle status"
+    },
+    "mileage": {
+      "type": "number",
+      "description": "Current mileage"
+    },
+    "last_service_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Last service date"
+    },
+    "weekly_rate": {
+      "type": "number",
+      "description": "Weekly rental rate"
+    },
+    "rent_to_own_eligible": {
+      "type": "boolean",
+      "default": false,
+      "description": "Eligible for rent-to-own"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Vehicle photo URL"
+    }
+  },
+  "required": [
+    "make",
+    "model",
+    "year"
+  ]
+}
