@@ -10,14 +10,15 @@ const LOGO_FULL = "https://media.base44.com/images/public/user_68d033161412d5b12
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
 const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/" },
+  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Customers", icon: Users, path: "/customers" },
   { label: "Vehicles", icon: Car, path: "/vehicles" },
-  { label: "Bookings", icon: CalendarDays, path: "/bookings" },
+  { label: "Bookings", icon: CalendarDays, path: "/bookings-admin" },
   { label: "Payments", icon: DollarSign, path: "/payments" },
   { label: "Rent-to-Own", icon: FileKey, path: "/rent-to-own" },
   { label: "Maintenance", icon: Wrench, path: "/maintenance" },
   { label: "Reports", icon: BarChart3, path: "/reports" },
+  { label: "Book Now ↗", icon: Car, path: "/", divider: true },
 ];
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
@@ -67,8 +68,19 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-3 mb-3">Main Menu</p>
           )}
           {navItems.map((item) => {
+            if (item.divider) return (
+              <React.Fragment key={item.path}>
+                <div className="my-2 border-t border-white/[0.06]" />
+                <Link to={item.path} onClick={() => setMobileOpen(false)}
+                  className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-pink-400/70 hover:text-pink-300 hover:bg-pink-500/[0.08]">
+                  <item.icon className="h-4 w-4 flex-shrink-0 text-pink-400/60" style={{ height: '1.125rem', width: '1.125rem' }} />
+                  {!collapsed && <span>{item.label}</span>}
+                </Link>
+              </React.Fragment>
+            );
             const isActive = location.pathname === item.path ||
-              (item.path !== "/" && location.pathname.startsWith(item.path));
+              (item.path !== "/" && item.path !== "/dashboard" && location.pathname.startsWith(item.path)) ||
+              (item.path === "/dashboard" && location.pathname === "/dashboard");
             return (
               <Link
                 key={item.path}

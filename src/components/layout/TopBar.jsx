@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { useLocation } from "react-router-dom";
 
 const pageMeta = {
-  "/": { title: "Dashboard", subtitle: "Fleet overview & analytics" },
+  "/dashboard": { title: "Dashboard", subtitle: "Fleet overview & analytics" },
   "/customers": { title: "Customers", subtitle: "Manage your customer base" },
   "/vehicles": { title: "Vehicles", subtitle: "Fleet inventory & status" },
-  "/bookings": { title: "Bookings", subtitle: "Active & upcoming rentals" },
+  "/bookings-admin": { title: "Bookings", subtitle: "Active & upcoming rentals" },
   "/payments": { title: "Payments", subtitle: "Revenue & payment tracking" },
   "/rent-to-own": { title: "Rent-to-Own", subtitle: "Ownership contracts" },
   "/maintenance": { title: "Maintenance", subtitle: "Service logs & schedules" },
