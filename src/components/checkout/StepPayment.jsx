@@ -7,7 +7,9 @@ import { useNavigate } from "react-router-dom";
 const inputCls = "w-full h-11 px-4 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all";
 
 export default function StepPayment({ booking, user, saveAndAdvance }) {
-  const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: "" });
+  // Auto-fill cardholder name from verified profile
+  const profileName = booking?.customer_full_name || user?.full_name || "";
+  const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: profileName });
   const [autopay, setAutopay] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [paid, setPaid] = useState(false);
@@ -28,12 +30,14 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
     // Simulate payment processing
     await new Promise((r) => setTimeout(r, 2000));
 
+    const payAmount = booking?.weekly_rate || 0;
+
     // Create payment record
     await createPaymentMutation.mutateAsync({
       customer_name: booking?.customer_full_name || user?.full_name,
       booking_id: booking?.id,
-      amount: booking?.total_due_now || 0,
-      payment_type: "Deposit",
+      amount: payAmount,
+      payment_type: "Rental",
       payment_method: "Card",
       status: "Paid",
       paid_date: new Date().toISOString().split("T")[0],
@@ -44,10 +48,10 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
       user_email: user?.email,
       booking_request_id: booking?.id,
       event_type: "payment_received",
-      event_title: "Payment Received",
-      event_description: `$${booking?.total_due_now || 0} deposit paid`,
+      event_title: "First Payment Received",
+      event_description: `$${payAmount} first ${booking?.booking_type?.toLowerCase()} payment`,
       event_status: "success",
-      amount: booking?.total_due_now || 0,
+      amount: payAmount,
     });
 
     setProcessing(false);
@@ -56,6 +60,7 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
     saveAndAdvance({
       payment_status: "paid",
       booking_status: "pending_review",
+      total_due_now: payAmount,
       checkout_step: "confirmation",
     }, "confirmation");
 
@@ -88,13 +93,9 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
 
       {/* Amount due */}
       <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl border border-pink-100 p-4 mb-5">
-        <p className="text-sm text-gray-500 mb-1">Total Due Now</p>
-        <p className="text-3xl font-bold text-gray-900">${(booking?.total_due_now || 0).toLocaleString()}</p>
-        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-          <span>Deposit: ${booking?.deposit_amount || 0}</span>
-          <span>+</span>
-          <span>First Payment: ${booking?.first_payment_amount || 0}</span>
-        </div>
+        <p className="text-sm text-gray-500 mb-1">First Payment Due Now</p>
+        <p className="text-3xl font-bold text-gray-900">${(booking?.weekly_rate || 0).toLocaleString()}</p>
+        <p className="text-xs text-gray-500 mt-2">{booking?.booking_type} rental · No deposit required</p>
       </div>
 
       {/* Card form */}
@@ -149,7 +150,7 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
         {processing ? (
           <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Processing…</>
         ) : (
-          <>Pay ${(booking?.total_due_now || 0).toLocaleString()} Securely</>
+          <>Pay ${(booking?.weekly_rate || 0).toLocaleString()} Securely</>  
         )}
       </button>
     </div>

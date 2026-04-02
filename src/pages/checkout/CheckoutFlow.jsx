@@ -79,9 +79,9 @@ export default function CheckoutFlow() {
           booking_type: bookingType,
           city: v.current_city,
           weekly_rate: v.weekly_rate,
-          deposit_amount: Math.round((v.weekly_rate || 0) * 0.5),
+          deposit_amount: 0,
           first_payment_amount: v.weekly_rate || 0,
-          total_due_now: Math.round((v.weekly_rate || 0) * 1.5),
+          total_due_now: v.weekly_rate || 0,
           booking_status: "draft",
           checkout_step: "account",
           user_email: user.email,
@@ -141,8 +141,8 @@ export default function CheckoutFlow() {
           createMutation.mutate({
             vehicle_id: v.id, vehicle_name: `${v.year} ${v.make} ${v.model}`,
             vehicle_image: v.image_url, booking_type: type, city: v.current_city,
-            weekly_rate: v.weekly_rate, deposit_amount: Math.round((v.weekly_rate || 0) * 0.5),
-            first_payment_amount: v.weekly_rate || 0, total_due_now: Math.round((v.weekly_rate || 0) * 1.5),
+            weekly_rate: v.weekly_rate, deposit_amount: 0,
+            first_payment_amount: v.weekly_rate || 0, total_due_now: v.weekly_rate || 0,
             booking_status: "draft", checkout_step: "account", user_email: user?.email, user_id: user?.id,
           });
           setCurrentStep("account");
