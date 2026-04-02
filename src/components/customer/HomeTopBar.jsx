@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Bell, User } from "lucide-react";
+import { User } from "lucide-react";
+import NotificationsPanel from "./NotificationsPanel";
 
 const LOGO = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -16,12 +17,8 @@ export default function HomeTopBar({ user, city, onCityChange }) {
       </div>
 
       {/* Right icons */}
-      <div className="flex items-center gap-1">
-        <button className="relative h-10 w-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">
-          <Bell className="h-5 w-5 text-white/70" />
-          {/* notification dot */}
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-pink-500 border-2 border-[#0d0718]" />
-        </button>
+      <div className="flex items-center gap-1 relative">
+        <NotificationsPanel user={user} />
 
         <Link to="/account">
           {user ? (

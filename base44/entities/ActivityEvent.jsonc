@@ -1,0 +1,59 @@
+{
+  "name": "ActivityEvent",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "User email"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "account_created",
+        "booking_started",
+        "id_uploaded",
+        "verification_submitted",
+        "verification_verified",
+        "contract_generated",
+        "contract_signed",
+        "payment_submitted",
+        "payment_received",
+        "booking_confirmed",
+        "booking_active",
+        "payment_due_soon",
+        "payment_overdue",
+        "under_review",
+        "booking_completed",
+        "profile_updated"
+      ]
+    },
+    "event_title": {
+      "type": "string"
+    },
+    "event_description": {
+      "type": "string"
+    },
+    "event_status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "pending",
+        "warning",
+        "error"
+      ],
+      "default": "success"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Amount if payment-related"
+    }
+  },
+  "required": [
+    "user_email",
+    "event_type",
+    "event_title"
+  ]
+}

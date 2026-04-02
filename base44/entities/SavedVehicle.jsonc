@@ -1,0 +1,22 @@
+{
+  "name": "SavedVehicle",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "vehicle_image": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_email",
+    "vehicle_id"
+  ]
+}

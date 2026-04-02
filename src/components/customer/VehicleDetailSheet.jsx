@@ -1,6 +1,5 @@
 import React from "react";
 import { X, MapPin, Star, Zap, ChevronRight, Check } from "lucide-react";
-import { base44 } from "@/api/base44Client";
 
 export default function VehicleDetailSheet({ vehicle, onClose, onBook, user }) {
   if (!vehicle) return null;

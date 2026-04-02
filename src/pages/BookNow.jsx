@@ -10,10 +10,13 @@ import RtoBanner from "@/components/customer/RtoBanner";
 import RecommendedVehicles from "@/components/customer/RecommendedVehicles";
 import CityInsightCard from "@/components/customer/CityInsightCard";
 import VehicleDetailSheet from "@/components/customer/VehicleDetailSheet";
+import ContinueBookingBanner from "@/components/customer/ContinueBookingBanner";
+import { useNavigate } from "react-router-dom";
 
 export default function BookNow() {
   const context = useOutletContext() || {};
   const { user, city = "", setCity } = context;
+  const navigate = useNavigate();
 
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [bookingType, setBookingType] = useState("Weekly");
@@ -31,13 +34,15 @@ export default function BookNow() {
 
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
-    alert(`Booking flow for ${vehicle.year} ${vehicle.make} ${vehicle.model} — coming soon!`);
+    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}`);
   };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Top Bar */}
       <HomeTopBar user={user} city={city} onCityChange={() => {}} />
+      {/* Continue Booking Banner */}
+      {user && <ContinueBookingBanner user={user} />}
 
       {/* Hero + Search */}
       <div

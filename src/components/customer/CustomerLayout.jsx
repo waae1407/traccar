@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import CustomerBottomNav from "./CustomerBottomNav";
 import CustomerTopBar from "./CustomerTopBar";
-import { useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import CityPicker from "./CityPicker";
 

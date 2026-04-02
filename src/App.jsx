@@ -16,6 +16,7 @@ import BookNow from '@/pages/BookNow';
 import MyBookings from '@/pages/customer/MyBookings';
 import ActivityPage from '@/pages/customer/ActivityPage';
 import AccountPage from '@/pages/customer/AccountPage';
+import CheckoutFlow from '@/pages/checkout/CheckoutFlow';
 
 // Admin CRM pages
 import Dashboard from '@/pages/Dashboard';
@@ -62,6 +63,9 @@ const AuthenticatedApp = () => {
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
       </Route>
+
+      {/* ── CHECKOUT (standalone, no customer layout chrome) ── */}
+      <Route path="/checkout" element={<CheckoutFlow />} />
 
       {/* ── ADMIN ROUTES (admin-only, uses dark CRM layout) ── */}
       <Route element={<AdminGuard><AppLayout /></AdminGuard>}>
