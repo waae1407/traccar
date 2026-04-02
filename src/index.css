@@ -91,6 +91,9 @@
 }
 
 @layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
   .glass {
     background: hsl(var(--card) / 0.7);
     backdrop-filter: blur(20px);

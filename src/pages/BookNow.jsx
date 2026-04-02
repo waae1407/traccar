@@ -2,130 +2,110 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useOutletContext } from "react-router-dom";
-import BookingSearchBox from "@/components/customer/BookingSearchBox";
-import ServiceCards from "@/components/customer/ServiceCards";
-import VehicleCarousel from "@/components/customer/VehicleCarousel";
-import PromoBanner from "@/components/customer/PromoBanner";
+import HomeTopBar from "@/components/customer/HomeTopBar";
+import BookingSearchBar from "@/components/customer/BookingSearchBar";
+import QuickActions from "@/components/customer/QuickActions";
+import PopularVehicles from "@/components/customer/PopularVehicles";
+import RtoBanner from "@/components/customer/RtoBanner";
+import RecommendedVehicles from "@/components/customer/RecommendedVehicles";
+import CityInsightCard from "@/components/customer/CityInsightCard";
 import VehicleDetailSheet from "@/components/customer/VehicleDetailSheet";
-import { Sparkles } from "lucide-react";
-
-const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
 export default function BookNow() {
   const context = useOutletContext() || {};
   const { user, city = "", setCity } = context;
 
   const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [searchParams, setSearchParams] = useState(null);
   const [bookingType, setBookingType] = useState("Weekly");
 
   const { data: vehicles = [], isLoading } = useQuery({
     queryKey: ["vehicles-public"],
     queryFn: () => base44.entities.Vehicle.list(),
+    staleTime: 60_000,
   });
 
   const available = vehicles.filter((v) => v.status === "Available");
-  const rtoEligible = vehicles.filter((v) => v.rent_to_own_eligible && v.status === "Available");
   const byCity = city ? available.filter((v) => v.current_city?.toLowerCase().includes(city.toLowerCase())) : available;
   const displayVehicles = byCity.length > 0 ? byCity : available;
-
-  const handleSearch = (params) => {
-    setSearchParams(params);
-    setBookingType(params.bookingType);
-  };
+  const rtoEligible = vehicles.filter((v) => v.rent_to_own_eligible && v.status === "Available");
 
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
-    // TODO: open full booking flow
-    alert(`Booking flow for ${vehicle.year} ${vehicle.make} ${vehicle.model} — coming next!`);
+    alert(`Booking flow for ${vehicle.year} ${vehicle.make} ${vehicle.model} — coming soon!`);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero banner */}
-      <div className="relative px-4 pt-5 pb-12"
-        style={{ background: "linear-gradient(160deg, hsl(338 90% 18%) 0%, hsl(265 80% 20%) 100%)" }}>
-        {/* Radial glow */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 right-0 h-48 w-48 rounded-full"
-            style={{ background: "radial-gradient(circle, hsl(338 90% 56% / 0.25) 0%, transparent 70%)" }} />
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Top Bar */}
+      <HomeTopBar user={user} city={city} onCityChange={() => {}} />
+
+      {/* Hero + Search */}
+      <div
+        className="relative px-4 pt-5 pb-16"
+        style={{ background: "linear-gradient(150deg, #1a0a12 0%, #130920 60%, #0d0718 100%)" }}
+      >
+        {/* Ambient glow */}
+        <div className="absolute top-0 right-0 h-56 w-56 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, hsl(338 90% 56% / 0.18) 0%, transparent 70%)" }} />
+        <div className="absolute bottom-0 left-0 h-32 w-32 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(circle, hsl(265 80% 62% / 0.12) 0%, transparent 70%)" }} />
+
+        {/* Greeting */}
+        <div className="relative mb-5">
+          {user ? (
+            <>
+              <p className="text-pink-400/80 text-sm font-medium">Good day,</p>
+              <h1 className="text-white text-[26px] font-bold leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+                {user.full_name?.split(" ")[0]} 👋
+              </h1>
+            </>
+          ) : (
+            <>
+              <p className="text-pink-400/80 text-sm">Premium rentals, your way</p>
+              <h1 className="text-white text-[26px] font-bold leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+                Find Your Ride 🚗
+              </h1>
+            </>
+          )}
+          <p className="text-white/35 text-xs mt-1">Daily · Weekly · Monthly · Rent-to-Own</p>
         </div>
 
-        {user ? (
-          <div className="relative mb-1">
-            <p className="text-pink-300 text-sm font-medium">Welcome back,</p>
-            <h1 className="text-white text-2xl font-bold font-syne">{user.full_name?.split(" ")[0]} 👋</h1>
-          </div>
-        ) : (
-          <div className="relative mb-1">
-            <p className="text-pink-300/80 text-sm">Premium car rentals, your way</p>
-            <h1 className="text-white text-2xl font-bold font-syne">Find Your Ride 🚗</h1>
-          </div>
-        )}
-        <p className="text-white/50 text-xs mt-1 relative">Daily · Weekly · Monthly · Rent-to-Own</p>
+        {/* Floating Search Bar */}
+        <BookingSearchBar
+          bookingType={bookingType}
+          onBookingTypeChange={setBookingType}
+          onTap={() => {}}
+        />
       </div>
 
-      {/* Search box floats over hero */}
-      <BookingSearchBox
-        onSearch={handleSearch}
-        city={city}
-        setCity={setCity}
-      />
+      {/* Quick Actions */}
+      <div className="-mt-2 bg-white pt-5 pb-1 shadow-sm">
+        <QuickActions onSelect={setBookingType} />
+      </div>
 
-      {/* Service cards */}
-      <ServiceCards onSelect={(type) => setBookingType(type)} />
-
-      {/* Promo banner */}
-      <PromoBanner />
-
-      {/* Available now */}
-      <VehicleCarousel
-        title="Available Now"
-        subtitle={city ? `In ${city}` : "Across all cities"}
-        vehicles={displayVehicles.slice(0, 8)}
+      {/* Popular Near You */}
+      <PopularVehicles
+        vehicles={displayVehicles}
         isLoading={isLoading}
-        onSelectVehicle={setSelectedVehicle}
-        onViewAll={() => {}}
+        city={city}
+        onSelect={setSelectedVehicle}
       />
 
-      {/* Weekly value picks */}
-      <VehicleCarousel
-        title="Best Weekly Value"
-        subtitle="Lowest weekly rates"
+      {/* RTO Banner */}
+      {rtoEligible.length > 0 && <RtoBanner count={rtoEligible.length} />}
+
+      {/* Recommended */}
+      <RecommendedVehicles
         vehicles={[...available].sort((a, b) => (a.weekly_rate || 9999) - (b.weekly_rate || 9999)).slice(0, 6)}
         isLoading={isLoading}
-        onSelectVehicle={setSelectedVehicle}
+        user={user}
+        onSelect={setSelectedVehicle}
       />
 
-      {/* Rent-to-Own eligible */}
-      {rtoEligible.length > 0 && (
-        <VehicleCarousel
-          title="Rent-to-Own"
-          subtitle="Drive it. Own it."
-          vehicles={rtoEligible.slice(0, 6)}
-          isLoading={isLoading}
-          onSelectVehicle={setSelectedVehicle}
-          onViewAll={() => {}}
-        />
-      )}
+      {/* City Insight */}
+      <CityInsightCard vehicles={available} city={city} />
 
-      {/* AI recommendation pill */}
-      <div className="mx-4 mt-6 mb-4">
-        <div className="flex items-center gap-3 p-4 rounded-2xl border border-purple-200 bg-purple-50">
-          <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
-            <Sparkles className="h-5 w-5 text-purple-600" />
-          </div>
-          <div>
-            <p className="font-semibold text-purple-900 text-sm">Smart Recommendations</p>
-            <p className="text-xs text-purple-600 mt-0.5">Sign in to get personalized car picks based on your history.</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom spacer for nav */}
-      <div className="h-4" />
-
-      {/* Vehicle detail sheet */}
+      {/* Vehicle sheet */}
       <VehicleDetailSheet
         vehicle={selectedVehicle}
         onClose={() => setSelectedVehicle(null)}
