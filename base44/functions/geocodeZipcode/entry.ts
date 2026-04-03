@@ -1,6 +1,9 @@
-// Common zipcode mappings as fallback
+// Common zipcode mappings as fallback (hand-curated corrections)
 const ZIPCODE_CACHE = {
   "91355": { city: "Castaic", state: "CA" },
+  "60409": { city: "Calumet City", state: "Illinois" },
+  "77037": { city: "Houston", state: "Texas" },
+  "77038": { city: "Houston", state: "Texas" },
 };
 
 Deno.serve(async (req) => {
@@ -44,19 +47,38 @@ Deno.serve(async (req) => {
       // Format: "91351, Santa Clarita, Los Angeles County, California, United States"
       const displayNameParts = (result.display_name || "").split(",").map(p => p.trim());
       
+      // Remove zipcode (first element)
+      if (displayNameParts[0] === zipcode) {
+        displayNameParts.shift();
+      }
+      
       // Remove country (last part is usually "United States")
       if (displayNameParts[displayNameParts.length - 1] === "United States") {
         displayNameParts.pop();
       }
       
-      // State is typically the second-to-last part (or last if no country)
-      const state = displayNameParts[displayNameParts.length - 1] || "US";
+      // State is the last remaining part
+      const state = displayNameParts.pop() || "US";
       
-      // City is typically one of the earlier parts (often the second item after zipcode)
+      // Now find the city: prioritize non-admin names, fallback to county if needed
       let city = "Unknown";
-      if (displayNameParts.length > 1) {
-        // Try the second item (usually the city name)
-        city = displayNameParts[1];
+      let fallbackCity = null;
+      const adminTerms = ["County", "Township", "Parish", "Borough", "Municipality"];
+      
+      for (const part of displayNameParts) {
+        const isAdmin = adminTerms.some(term => part.includes(term));
+        if (!isAdmin && !fallbackCity) {
+          city = part;
+          break;
+        } else if (isAdmin && !fallbackCity) {
+          // Save county/township as fallback
+          fallbackCity = part;
+        }
+      }
+      
+      // If no city found, use the fallback (county/township)
+      if (city === "Unknown" && fallbackCity) {
+        city = fallbackCity;
       }
 
       console.log(`Resolved: ${zipcode} -> ${city}, ${state}`);
