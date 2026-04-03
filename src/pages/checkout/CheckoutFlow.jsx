@@ -65,30 +65,28 @@ export default function CheckoutFlow() {
   });
 
   // Fetch user's previous booking requests for data pre-population
-  const { data: previousBookings = [] } = useQuery({
+  const { data: previousBookings = [], isLoading: loadingPrevious } = useQuery({
     queryKey: ["previous-booking-requests", user?.email],
     queryFn: () => base44.entities.BookingRequest.filter({ user_email: user?.email }),
     enabled: !!user?.email && !requestId,
     select: (data) =>
       [...data]
-        .filter((b) => b.customer_full_name) // only ones with profile data
+        .filter((b) => b.customer_full_name)
         .sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)),
   });
 
-  // Initialize
+  // Initialize — wait for previousBookings to finish loading before creating
   useEffect(() => {
     if (existingRequest) {
       setBooking(existingRequest);
       setCurrentStep(existingRequest.checkout_step || "select_vehicle");
-    } else if (vehicleId && !requestId && user) {
+    } else if (vehicleId && !requestId && user && !loadingPrevious) {
       const v = vehicles.find((v) => v.id === vehicleId);
-      if (v) {
-        // Find previous booking with profile data to pre-populate
+      if (v && !createMutation.isPending && !createMutation.isSuccess) {
         const prev = previousBookings[0];
         const oneMonthAgo = new Date();
         oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-        // Carry ID verification docs only if verified within the last month
         const verificationFresh =
           prev?.verification_status === "verified" &&
           prev?.updated_date &&
@@ -108,7 +106,6 @@ export default function CheckoutFlow() {
           checkout_step: "account",
           user_email: user.email,
           user_id: user.id,
-          // Pre-populate profile data from previous booking
           ...(prev && {
             customer_full_name: prev.customer_full_name,
             customer_phone: prev.customer_phone,
@@ -119,7 +116,6 @@ export default function CheckoutFlow() {
             employer: prev.employer,
             income_range: prev.income_range,
           }),
-          // Carry verification docs only if fresh
           ...(verificationFresh && {
             license_front_url: prev.license_front_url,
             license_back_url: prev.license_back_url,
@@ -133,7 +129,7 @@ export default function CheckoutFlow() {
     } else if (vehicleId && !requestId && !user) {
       setCurrentStep("account");
     }
-  }, [existingRequest, vehicleId, vehicles.length, user, previousBookings.length]);
+  }, [existingRequest, vehicleId, vehicles.length, user, loadingPrevious]);
 
   const saveAndAdvance = (stepData, nextStep) => {
     if (booking?.id) {
@@ -163,7 +159,7 @@ export default function CheckoutFlow() {
       {/* Header */}
       <div className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <button onClick={() => stepIndex > 0 ? setCurrentStep(STEPS[stepIndex - 1]) : navigate("/")}
+          <button onClick={() => stepIndex > 0 ? setCurrentStep(STEPS[stepIndex - 1]) : navigate(-1)}
             className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
             <ArrowLeft className="h-5 w-5 text-gray-700" />
           </button>
