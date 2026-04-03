@@ -5,6 +5,23 @@ import { addWeeks, format } from "date-fns";
 const BOOKING_TYPES = ["Weekly", "Rent-to-Own"];
 const RADIUS_OPTIONS = [10, 25, 50, 100, 250];
 
+// Common US zipcodes → { lat, lon, city, state }
+const ZIPCODE_DB = {
+  "60616": { lat: 41.8719, lon: -87.6183, city: "Chicago", state: "IL" },
+  "60601": { lat: 41.8816, lon: -87.6191, city: "Chicago", state: "IL" },
+  "10001": { lat: 40.7506, lon: -73.9972, city: "New York", state: "NY" },
+  "90001": { lat: 33.9731, lon: -118.2479, city: "Los Angeles", state: "CA" },
+  "77001": { lat: 29.7589, lon: -95.3677, city: "Houston", state: "TX" },
+  "75201": { lat: 32.7767, lon: -96.7970, city: "Dallas", state: "TX" },
+  "33101": { lat: 25.7617, lon: -80.1918, city: "Miami", state: "FL" },
+  "75401": { lat: 25.7617, lon: -80.1918, city: "Miami", state: "FL" },
+  // Add more as needed
+};
+
+function getZipcodeInfo(zipcode) {
+  return ZIPCODE_DB[zipcode] || null;
+}
+
 function calcEndDate(startDate, type) {
   if (!startDate) return null;
   const d = new Date(startDate);
@@ -55,12 +72,18 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const geoFiltered = useMemo(() => {
     const coords = zipcodeCoords || userCoords;
     if (!coords) return typeFiltered;
-    // Filter by radius using vehicle's current_city as a proxy (real app would have lat/lon on vehicle)
-    // For now, just return all since vehicles don't have lat/lon — show zipcode as active filter UI
-    return typeFiltered;
+    // Filter vehicles by distance from search coords
+    return typeFiltered.filter((v) => {
+      if (!v.latitude || !v.longitude) return false;
+      const dist = haversine(coords.lat, coords.lon, v.latitude, v.longitude);
+      return dist <= radius;
+    });
   }, [typeFiltered, zipcodeCoords, userCoords, radius]);
 
   const filtered = geoFiltered;
+  const displayLocationName = zipcodeCoords?.city && zipcodeCoords?.state
+    ? `${zipcodeCoords.city}, ${zipcodeCoords.state}`
+    : userCoords?.label || null;
   const endDate = calcEndDate(startDate, type);
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
   const smartTip = getSmartTip(type, filtered, startDate);
@@ -78,8 +101,12 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
 
   const handleZipcodeSearch = async () => {
     if (!zipcode || zipcode.length < 5) return;
-    // Would call a geocoding API in production
-    setZipcodeCoords({ lat: 0, lon: 0, label: zipcode });
+    const info = getZipcodeInfo(zipcode);
+    if (info) {
+      setZipcodeCoords(info);
+    } else {
+      alert("Zipcode not found. Please try another.");
+    }
   };
 
   const handleConfirm = () => {
@@ -243,7 +270,7 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
               <div className="flex items-center justify-between">
                 <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
                   <Check className="h-3 w-3" />
-                  {zipcodeCoords ? `ZIP ${zipcode}` : "Using your location"} · {radius} mi radius
+                  {displayLocationName || "Using your location"} · {radius} mi radius
                 </p>
                 <button onClick={() => { setUserCoords(null); setZipcodeCoords(null); setZipcode(""); }}
                   className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-0.5">
