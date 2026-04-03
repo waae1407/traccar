@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useMutation } from "@tanstack/react-query";
-import { User, Phone, Mail, LogOut, ChevronRight, Shield, CreditCard, HelpCircle, Bell, Check, X, Save } from "lucide-react";
+import { User, Phone, Mail, LogOut, ChevronRight, Shield, CreditCard, HelpCircle, Bell, Check, X, Save, Upload } from "lucide-react";
 
 // ── Personal Info Edit Sheet ─────────────────────────────────────────────────
 function PersonalInfoSheet({ user, onClose }) {
@@ -61,6 +61,79 @@ function PersonalInfoSheet({ user, onClose }) {
   );
 }
 
+// ── ID Verification Sheet ────────────────────────────────────────────────────
+function IDVerificationSheet({ user, onClose }) {
+  const [uploads, setUploads] = useState({
+    license_front: user.driver_license_url || "",
+    selfie: user.id_upload_url || "",
+  });
+  const [uploading, setUploading] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleUpload = async (field, file) => {
+    if (!file) return;
+    setUploading(p => ({ ...p, [field]: true }));
+    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    setUploads(p => ({ ...p, [field]: file_url }));
+    setUploading(p => ({ ...p, [field]: false }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await base44.auth.updateMe({
+      driver_license_url: uploads.license_front,
+      id_upload_url: uploads.selfie,
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => { setSaved(false); onClose(); }, 800);
+  };
+
+  const UploadBox = ({ field, label }) => (
+    <div className={`relative border-2 border-dashed rounded-2xl p-4 transition-colors ${uploads[field] ? "border-green-300 bg-green-50" : "border-gray-200 bg-gray-50"}`}>
+      <input type="file" accept="image/*" capture="environment" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+        onChange={(e) => handleUpload(field, e.target.files[0])} />
+      <div className="flex items-center gap-3">
+        <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${uploads[field] ? "bg-green-100" : "bg-white border border-gray-200"}`}>
+          {uploads[field] ? <Check className="h-5 w-5 text-green-600" /> : <Upload className="h-5 w-5 text-gray-400" />}
+        </div>
+        <div>
+          <p className="font-semibold text-gray-800 text-sm">{label}</p>
+          <p className="text-xs text-gray-400">{uploading[field] ? "Uploading…" : uploads[field] ? "Uploaded ✓" : "Tap to upload or take photo"}</p>
+        </div>
+      </div>
+      {uploads[field] && <img src={uploads[field]} alt="" className="mt-3 h-20 w-full object-cover rounded-xl" />}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg mx-auto bg-white rounded-t-3xl p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="font-bold text-gray-900 text-lg">ID Verification</h3>
+          <button onClick={onClose} className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
+            <X className="h-4 w-4 text-gray-600" />
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">Upload your driver's license and a selfie so we can verify your identity before your rental.</p>
+        <div className="space-y-3">
+          <UploadBox field="license_front" label="Driver's License (Front)" />
+          <UploadBox field="selfie" label="Live Selfie" />
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || saved || (!uploads.license_front && !uploads.selfie)}
+          className="w-full mt-5 h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          {saved ? <><Check className="h-4 w-4" /> Saved!</> : saving ? "Saving…" : <><Save className="h-4 w-4" /> Save Documents</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main AccountPage ─────────────────────────────────────────────────────────
 export default function AccountPage() {
   const { user } = useOutletContext() || {};
@@ -101,7 +174,7 @@ export default function AccountPage() {
           label: "ID Verification",
           sub: user.driver_license_url ? "Verified ✓" : "Upload required",
           badge: !user.driver_license_url ? "Action" : null,
-          onClick: () => navigate("/my-bookings"),
+          onClick: () => setSheet("id-verification"),
         },
         {
           icon: CreditCard,
@@ -197,6 +270,7 @@ export default function AccountPage() {
 
       {/* Sheets */}
       {sheet === "personal" && <PersonalInfoSheet user={user} onClose={() => setSheet(null)} />}
+      {sheet === "id-verification" && <IDVerificationSheet user={user} onClose={() => setSheet(null)} />}
     </div>
   );
 }
