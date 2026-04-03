@@ -107,7 +107,7 @@ export default function MyBookings() {
     const isDraft = booking.booking_status === "draft";
     return (
       <Link
-        to={isDraft ? `/checkout?request=${booking.id}` : "#"}
+        to={`/checkout?request=${booking.id}`}
         className="block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm active:scale-[0.98] transition-transform">
         {booking.vehicle_image && (
           <img src={booking.vehicle_image} alt="" className="w-full h-32 object-cover" />
