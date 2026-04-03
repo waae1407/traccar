@@ -64,6 +64,17 @@ export default function CheckoutFlow() {
     },
   });
 
+  // Fetch user's previous booking requests for data pre-population
+  const { data: previousBookings = [] } = useQuery({
+    queryKey: ["previous-booking-requests", user?.email],
+    queryFn: () => base44.entities.BookingRequest.filter({ user_email: user?.email }),
+    enabled: !!user?.email && !requestId,
+    select: (data) =>
+      [...data]
+        .filter((b) => b.customer_full_name) // only ones with profile data
+        .sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)),
+  });
+
   // Initialize
   useEffect(() => {
     if (existingRequest) {
@@ -72,6 +83,17 @@ export default function CheckoutFlow() {
     } else if (vehicleId && !requestId && user) {
       const v = vehicles.find((v) => v.id === vehicleId);
       if (v) {
+        // Find previous booking with profile data to pre-populate
+        const prev = previousBookings[0];
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+        // Carry ID verification docs only if verified within the last month
+        const verificationFresh =
+          prev?.verification_status === "verified" &&
+          prev?.updated_date &&
+          new Date(prev.updated_date) > oneMonthAgo;
+
         createMutation.mutate({
           vehicle_id: vehicleId,
           vehicle_name: `${v.year} ${v.make} ${v.model}`,
@@ -86,13 +108,32 @@ export default function CheckoutFlow() {
           checkout_step: "account",
           user_email: user.email,
           user_id: user.id,
+          // Pre-populate profile data from previous booking
+          ...(prev && {
+            customer_full_name: prev.customer_full_name,
+            customer_phone: prev.customer_phone,
+            customer_dob: prev.customer_dob,
+            customer_address: prev.customer_address,
+            emergency_contact_name: prev.emergency_contact_name,
+            emergency_contact_phone: prev.emergency_contact_phone,
+            employer: prev.employer,
+            income_range: prev.income_range,
+          }),
+          // Carry verification docs only if fresh
+          ...(verificationFresh && {
+            license_front_url: prev.license_front_url,
+            license_back_url: prev.license_back_url,
+            selfie_url: prev.selfie_url,
+            proof_of_income_url: prev.proof_of_income_url,
+            verification_status: "verified",
+          }),
         });
         setCurrentStep("account");
       }
     } else if (vehicleId && !requestId && !user) {
       setCurrentStep("account");
     }
-  }, [existingRequest, vehicleId, vehicles.length, user]);
+  }, [existingRequest, vehicleId, vehicles.length, user, previousBookings.length]);
 
   const saveAndAdvance = (stepData, nextStep) => {
     if (booking?.id) {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { User, Phone, MapPin, Heart } from "lucide-react";
+import { User, Phone, MapPin, Heart, Sparkles } from "lucide-react";
 
 const inputCls = "w-full h-11 px-4 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all";
 const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
@@ -17,14 +17,25 @@ export default function StepProfile({ booking, saveAndAdvance }) {
   });
 
   const isRTO = booking?.booking_type === "Rent-to-Own";
+  const isPreFilled = !!(booking?.customer_full_name && booking?.customer_phone);
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const isValid = form.customer_full_name && form.customer_phone && form.customer_address;
 
+  // Determine next step — skip verification if already verified
+  const nextStep = booking?.verification_status === "verified" ? "terms" : "verification";
+
   return (
     <div>
       <h2 className="font-bold text-gray-900 text-xl mb-1">Your Profile</h2>
-      <p className="text-gray-400 text-sm mb-5">We need your info to prepare your contract and verify your identity.</p>
+      <p className="text-gray-400 text-sm mb-3">We need your info to prepare your contract and verify your identity.</p>
+
+      {isPreFilled && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-green-50 border border-green-100 mb-4">
+          <Sparkles className="h-4 w-4 text-green-500 flex-shrink-0" />
+          <p className="text-xs text-green-700 font-medium">Pre-filled from your previous booking — review and update if needed.</p>
+        </div>
+      )}
 
       <div className="space-y-4">
         <div>
@@ -88,11 +99,15 @@ export default function StepProfile({ booking, saveAndAdvance }) {
 
       <button
         disabled={!isValid}
-        onClick={() => saveAndAdvance(form, "verification")}
+        onClick={() => saveAndAdvance(form, nextStep)}
         className="w-full mt-6 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-40"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         Save & Continue
       </button>
+
+      {booking?.verification_status === "verified" && (
+        <p className="text-center text-xs text-green-600 mt-2 font-medium">✓ ID verification carried over from your previous booking</p>
+      )}
     </div>
   );
 }
