@@ -62,8 +62,31 @@ export default function ActivityPage() {
     );
   }
 
-  const totalPaid = payments.filter((p) => p.status === "Paid").reduce((s, p) => s + (p.amount || 0), 0);
-  const activeBooking = bookings.find((b) => ["active", "confirmed", "pending_review"].includes(b.booking_status));
+  // Sum payment_received events for accurate total paid
+  const totalPaid = events
+    .filter((e) => e.event_type === "payment_received")
+    .reduce((s, e) => s + (e.amount || 0), 0);
+
+  // Deduplicate bookings by vehicle (same logic as MyBookings)
+  const STATUS_PRIORITY = {
+    active: 7, confirmed: 6, pending_review: 5, pending_payment: 4,
+    pending_contract: 3, pending_verification: 2, draft: 1,
+    completed: 0, cancelled: 0,
+  };
+  const dedupedBookings = Object.values(
+    bookings.reduce((acc, b) => {
+      const key = b.vehicle_id || b.id;
+      const existing = acc[key];
+      const bP = STATUS_PRIORITY[b.booking_status] ?? 0;
+      const eP = existing ? (STATUS_PRIORITY[existing.booking_status] ?? 0) : -1;
+      if (!existing || bP > eP || (bP === eP && new Date(b.updated_date) > new Date(existing.updated_date))) {
+        acc[key] = b;
+      }
+      return acc;
+    }, {})
+  ).filter((b) => b.booking_status !== "draft");
+
+  const activeBooking = dedupedBookings.find((b) => ["active", "confirmed", "pending_review"].includes(b.booking_status));
 
   return (
     <div className="px-4 py-5">
@@ -81,7 +104,7 @@ export default function ActivityPage() {
             <Car className="h-4 w-4 text-blue-600" />
           </div>
           <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Bookings</p>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">{bookings.length}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-0.5">{dedupedBookings.length}</p>
         </div>
       </div>
 
