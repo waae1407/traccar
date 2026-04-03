@@ -69,9 +69,6 @@ export default function Dashboard() {
     monthlyData[key] = (monthlyData[key] || 0) + (p.amount || 0);
   });
   const trendData = Object.entries(monthlyData).sort().map(([month, revenue]) => ({ month: month.slice(5), revenue }));
-  if (trendData.length === 0) {
-    trendData.push({ month: "01", revenue: 0 }, { month: "02", revenue: 0 }, { month: "03", revenue: 1200 });
-  }
 
   // Fleet status pie
   const statusCounts = {};
@@ -150,7 +147,7 @@ export default function Dashboard() {
             <span className="text-xs font-semibold text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-lg">+12.4%</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={trendData}>
+            <AreaChart data={trendData.length > 0 ? trendData : [{ month: "01", revenue: 0 }]}>
               <defs>
                 <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="hsl(338,90%,56%)" stopOpacity={0.3} />
