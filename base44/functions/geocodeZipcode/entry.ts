@@ -1,10 +1,18 @@
-// Common zipcode mappings as fallback (hand-curated corrections)
-const ZIPCODE_CACHE = {
-  "91355": { city: "Castaic", state: "CA" },
-  "60409": { city: "Calumet City", state: "Illinois" },
-  "77037": { city: "Houston", state: "Texas" },
-  "77038": { city: "Houston", state: "Texas" },
-};
+// Fallback: try online zipcode lookup via zippopotam.us
+async function lookupZipcodeOnline(zipcode) {
+  try {
+    const res = await fetch(`https://api.zippopotam.us/us/${zipcode}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.places && data.places.length > 0) {
+      const place = data.places[0];
+      return { city: place["place name"], state: data["state abbreviation"] };
+    }
+  } catch (err) {
+    console.error(`Zippopotam lookup failed for ${zipcode}:`, err.message);
+  }
+  return null;
+}
 
 Deno.serve(async (req) => {
   try {
@@ -17,18 +25,6 @@ Deno.serve(async (req) => {
     if (!zipcode || zipcode.length !== 5 || !/^\d+$/.test(zipcode)) {
       console.error("Invalid zipcode format:", zipcode);
       return Response.json({ error: "Invalid zipcode format" }, { status: 400 });
-    }
-
-    // Check cache first
-    if (ZIPCODE_CACHE[zipcode]) {
-      const data = ZIPCODE_CACHE[zipcode];
-      console.log(`Found in cache: ${zipcode} -> ${data.city}, ${data.state}`);
-      return Response.json({
-        zipcode,
-        city: data.city,
-        state: data.state,
-        displayName: `${data.city}, ${data.state}`,
-      });
     }
 
     // Try OpenStreetMap Nominatim API
@@ -60,25 +56,27 @@ Deno.serve(async (req) => {
       // State is the last remaining part
       const state = displayNameParts.pop() || "US";
       
-      // Now find the city: prioritize non-admin names, fallback to county if needed
-      let city = "Unknown";
-      let fallbackCity = null;
+      // Now find the city: prioritize non-admin names
+      let city = null;
       const adminTerms = ["County", "Township", "Parish", "Borough", "Municipality"];
       
       for (const part of displayNameParts) {
         const isAdmin = adminTerms.some(term => part.includes(term));
-        if (!isAdmin && !fallbackCity) {
+        if (!isAdmin) {
           city = part;
           break;
-        } else if (isAdmin && !fallbackCity) {
-          // Save county/township as fallback
-          fallbackCity = part;
         }
       }
-      
-      // If no city found, use the fallback (county/township)
-      if (city === "Unknown" && fallbackCity) {
-        city = fallbackCity;
+
+      // If still no city found, try online zipcode lookup
+      if (!city) {
+        console.log(`Nominatim didn't find city for ${zipcode}, trying zippopotam.us...`);
+        const onlineData = await lookupZipcodeOnline(zipcode);
+        if (onlineData) {
+          city = onlineData.city;
+        } else {
+          city = "Unknown";
+        }
       }
 
       console.log(`Resolved: ${zipcode} -> ${city}, ${state}`);
