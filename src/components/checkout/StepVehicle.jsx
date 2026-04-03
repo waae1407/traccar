@@ -7,15 +7,15 @@ const RADIUS_OPTIONS = [10, 25, 50, 100, 250];
 
 // Common US zipcodes → { lat, lon, city, state }
 const ZIPCODE_DB = {
-  "60616": { lat: 41.8719, lon: -87.6183, city: "Chicago", state: "IL" },
   "60601": { lat: 41.8816, lon: -87.6191, city: "Chicago", state: "IL" },
+  "60616": { lat: 41.8719, lon: -87.6183, city: "Chicago", state: "IL" },
+  "60617": { lat: 41.8386, lon: -87.5730, city: "Chicago", state: "IL" },
   "10001": { lat: 40.7506, lon: -73.9972, city: "New York", state: "NY" },
   "90001": { lat: 33.9731, lon: -118.2479, city: "Los Angeles", state: "CA" },
   "77001": { lat: 29.7589, lon: -95.3677, city: "Houston", state: "TX" },
   "75201": { lat: 32.7767, lon: -96.7970, city: "Dallas", state: "TX" },
   "33101": { lat: 25.7617, lon: -80.1918, city: "Miami", state: "FL" },
-  "75401": { lat: 25.7617, lon: -80.1918, city: "Miami", state: "FL" },
-  // Add more as needed
+  "33102": { lat: 25.7617, lon: -80.1918, city: "Miami", state: "FL" },
 };
 
 function getZipcodeInfo(zipcode) {
@@ -223,7 +223,7 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
                   value={zipcode}
                   onChange={(e) => setZipcode(e.target.value.replace(/\D/g, "").slice(0, 5))}
                   placeholder="Enter ZIP code"
-                  className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all"
+                  className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white placeholder-gray-400 focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all"
                 />
               </div>
               <button
