@@ -1,26 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { Car, Calendar, RefreshCw, AlertCircle, ChevronRight, Check, MapPin, Search, Zap, Star, SlidersHorizontal, X } from "lucide-react";
+import { Car, Calendar, RefreshCw, AlertCircle, ChevronRight, Check, MapPin, Search, Zap, Star, SlidersHorizontal, X, Loader } from "lucide-react";
 import { addWeeks, format } from "date-fns";
+import { base44 } from "@/api/base44Client";
 
 const BOOKING_TYPES = ["Weekly", "Rent-to-Own"];
 const RADIUS_OPTIONS = [10, 25, 50, 100, 250];
-
-// Common US zipcodes → { lat, lon, city, state }
-const ZIPCODE_DB = {
-  "60601": { lat: 41.8816, lon: -87.6191, city: "Chicago", state: "IL" },
-  "60616": { lat: 41.8719, lon: -87.6183, city: "Chicago", state: "IL" },
-  "60617": { lat: 41.8386, lon: -87.5730, city: "Chicago", state: "IL" },
-  "10001": { lat: 40.7506, lon: -73.9972, city: "New York", state: "NY" },
-  "90001": { lat: 33.9731, lon: -118.2479, city: "Los Angeles", state: "CA" },
-  "77001": { lat: 29.7589, lon: -95.3677, city: "Houston", state: "TX" },
-  "75201": { lat: 32.7767, lon: -96.7970, city: "Dallas", state: "TX" },
-  "33101": { lat: 25.7617, lon: -80.1918, city: "Miami", state: "FL" },
-  "33102": { lat: 25.7617, lon: -80.1918, city: "Miami", state: "FL" },
-};
-
-function getZipcodeInfo(zipcode) {
-  return ZIPCODE_DB[zipcode] || null;
-}
 
 function calcEndDate(startDate, type) {
   if (!startDate) return null;
@@ -62,6 +46,7 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const [radius, setRadius] = useState(50);
   const [showFilters, setShowFilters] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [userCoords, setUserCoords] = useState(null);
   const [zipcodeCoords, setZipcodeCoords] = useState(null);
 
@@ -100,12 +85,19 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   };
 
   const handleZipcodeSearch = async () => {
-    if (!zipcode || zipcode.length < 5) return;
-    const info = getZipcodeInfo(zipcode);
-    if (info) {
-      setZipcodeCoords(info);
-    } else {
-      alert("Zipcode not found. Please try another.");
+    if (!zipcode || zipcode.length !== 5) return;
+    setGeocoding(true);
+    try {
+      const res = await base44.functions.invoke("geocodeZipcode", { zipcode });
+      if (res.data.error) {
+        alert("Zipcode not found. Please try another.");
+      } else {
+        setZipcodeCoords(res.data);
+      }
+    } catch (err) {
+      alert("Error resolving zipcode. Try again.");
+    } finally {
+      setGeocoding(false);
     }
   };
 
@@ -228,10 +220,15 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
               </div>
               <button
                 onClick={handleZipcodeSearch}
-                className="px-3 h-10 rounded-xl font-semibold text-xs text-white flex items-center gap-1.5 flex-shrink-0"
+                disabled={geocoding || zipcode.length !== 5}
+                className="px-3 h-10 rounded-xl font-semibold text-xs text-white flex items-center gap-1.5 flex-shrink-0 disabled:opacity-50 transition-all"
                 style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
               >
-                <Search className="h-3.5 w-3.5" /> Search
+                {geocoding ? (
+                  <><Loader className="h-3.5 w-3.5 animate-spin" /> Searching...</>
+                ) : (
+                  <><Search className="h-3.5 w-3.5" /> Search</>
+                )}
               </button>
               <button
                 onClick={handleLocate}
