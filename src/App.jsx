@@ -29,6 +29,7 @@ import RentToOwn from '@/pages/RentToOwn';
 import MaintenancePage from '@/pages/MaintenancePage';
 import Reports from '@/pages/Reports';
 import CompanyManagement from '@/pages/CompanyManagement';
+import CustomerPreview from '@/pages/CustomerPreview';
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -83,6 +84,7 @@ const AuthenticatedApp = () => {
         <Route path="/maintenance" element={<MaintenancePage />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/companies" element={<CompanyManagement />} />
+        <Route path="/customer-preview" element={<CustomerPreview />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}
