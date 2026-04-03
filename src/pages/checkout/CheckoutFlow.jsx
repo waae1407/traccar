@@ -120,25 +120,24 @@ export default function CheckoutFlow() {
   const commonProps = { booking, vehicle: selectedVehicle, user, saveAndAdvance, updateMutation };
 
   return (
-    <div className={`min-h-screen pb-24 ${currentStep === "select_vehicle" ? "" : "bg-gray-50"}`}>
+    <div className="min-h-screen pb-24 bg-gray-50">
       {/* Header */}
-      <div className={`sticky top-0 z-40 border-b shadow-sm ${currentStep === "select_vehicle" ? "border-white/10" : "bg-white border-gray-100"}`}
-        style={currentStep === "select_vehicle" ? { background: "hsl(222 30% 9%)" } : {}}>
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
           <button onClick={() => stepIndex > 0 ? setCurrentStep(STEPS[stepIndex - 1]) : navigate("/", { replace: true })}
-            className={`h-9 w-9 flex items-center justify-center rounded-full transition-colors ${currentStep === "select_vehicle" ? "hover:bg-white/10" : "hover:bg-gray-100"}`}>
-            <ArrowLeft className={`h-5 w-5 ${currentStep === "select_vehicle" ? "text-white" : "text-gray-700"}`} />
+            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+            <ArrowLeft className="h-5 w-5 text-gray-700" />
           </button>
           <div className="flex-1">
-            <p className={`font-bold text-sm ${currentStep === "select_vehicle" ? "text-white" : "text-gray-900"}`}>Book Your Ride</p>
-            <p className={`text-xs ${currentStep === "select_vehicle" ? "text-white/40" : "text-gray-400"}`}>{booking?.vehicle_name || "Complete your booking"}</p>
+            <p className="font-bold text-gray-900 text-sm">Book Your Ride</p>
+            <p className="text-xs text-gray-400">{booking?.vehicle_name || "Complete your booking"}</p>
           </div>
-          <span className={`text-xs font-semibold ${currentStep === "select_vehicle" ? "text-white/40" : "text-gray-400"}`}>{stepIndex + 1}/{STEPS.length}</span>
+          <span className="text-xs font-semibold text-gray-400">{stepIndex + 1}/{STEPS.length}</span>
         </div>
         <CheckoutProgress steps={STEP_LABELS} currentIndex={stepIndex} />
       </div>
 
-      <div className={`max-w-lg mx-auto ${currentStep === "select_vehicle" ? "" : "px-4 py-5"}`}>
+      <div className="max-w-lg mx-auto px-4 py-5">
         {currentStep === "select_vehicle" && <StepVehicle {...commonProps} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} onSelect={(v, type, opts = {}) => {
           if (!user) { navigate(`/checkout?vehicle=${v.id}&type=${type}`); return; }
           createMutation.mutate({
