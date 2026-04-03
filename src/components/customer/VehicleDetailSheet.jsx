@@ -69,16 +69,21 @@ export default function VehicleDetailSheet({ vehicle, onClose, onBook, user }) {
           <div className="mt-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
             <p className="font-semibold text-gray-800 text-sm mb-2">Pricing Summary</p>
             <div className="space-y-1.5">
-              {[
-                { label: "Weekly rate", value: `$${weeklyRate}` },
-                { label: "Security deposit", value: `$${deposit}` },
-                { label: "Delivery fee", value: "Free" },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex justify-between text-sm">
-                  <span className="text-gray-500">{label}</span>
-                  <span className="font-semibold text-gray-800">{value}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Weekly rate</span>
+                <span className="font-semibold text-gray-800">${weeklyRate}</span>
+              </div>
+              <div className="flex justify-between text-sm items-center">
+                <span className="text-gray-500">Security deposit</span>
+                <div className="flex items-center gap-2">
+                  <span className="line-through text-gray-300 font-medium">${deposit}</span>
+                  <span className="bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full rotate-[-2deg] inline-block shadow-sm">$0 — No Deposit!</span>
                 </div>
-              ))}
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Delivery fee</span>
+                <span className="font-semibold text-gray-800">Free</span>
+              </div>
             </div>
           </div>
 
