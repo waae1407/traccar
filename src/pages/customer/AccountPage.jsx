@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { User, Phone, Mail, LogOut, ChevronRight, Shield, CreditCard, HelpCircle, Bell, Check, X, Save, Upload } from "lucide-react";
 
 // ── Personal Info Edit Sheet ─────────────────────────────────────────────────
@@ -62,8 +62,7 @@ function PersonalInfoSheet({ user, onClose }) {
 }
 
 // ── ID Verification Sheet ────────────────────────────────────────────────────
-function IDVerificationSheet({ user, onClose }) {
-  const isVerified = !!user.driver_license_url;
+function IDVerificationSheet({ user, isVerified, verifiedBooking, onClose }) {
   const [uploads, setUploads] = useState({
     license_front: user.driver_license_url || "",
     selfie: user.id_upload_url || "",
@@ -132,16 +131,16 @@ function IDVerificationSheet({ user, onClose }) {
               </div>
             </div>
             <div className="space-y-3">
-              {user.driver_license_url && (
+              {(user.driver_license_url || verifiedBooking?.license_front_url) && (
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Driver's License</p>
-                  <img src={user.driver_license_url} alt="Driver's License" className="w-full rounded-2xl object-cover border border-gray-100 shadow-sm" />
+                  <img src={user.driver_license_url || verifiedBooking?.license_front_url} alt="Driver's License" className="w-full rounded-2xl object-cover border border-gray-100 shadow-sm" />
                 </div>
               )}
-              {user.id_upload_url && (
+              {(user.id_upload_url || verifiedBooking?.selfie_url) && (
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Selfie</p>
-                  <img src={user.id_upload_url} alt="Selfie" className="w-full rounded-2xl object-cover border border-gray-100 shadow-sm" />
+                  <img src={user.id_upload_url || verifiedBooking?.selfie_url} alt="Selfie" className="w-full rounded-2xl object-cover border border-gray-100 shadow-sm" />
                 </div>
               )}
             </div>
@@ -175,7 +174,17 @@ function IDVerificationSheet({ user, onClose }) {
 export default function AccountPage() {
   const { user } = useOutletContext() || {};
   const navigate = useNavigate();
-  const [sheet, setSheet] = useState(null); // "personal" | null
+  const [sheet, setSheet] = useState(null);
+
+  // Check verification from booking requests (user may have verified during checkout)
+  const { data: bookingRequests = [] } = useQuery({
+    queryKey: ["my-bookings-verification", user?.email],
+    queryFn: () => base44.entities.BookingRequest.filter({ user_email: user.email }),
+    enabled: !!user?.email,
+  });
+
+  const isVerified = !!user?.driver_license_url ||
+    bookingRequests.some((b) => b.verification_status === "verified" && b.license_front_url);
 
   if (!user) {
     return (
@@ -209,8 +218,8 @@ export default function AccountPage() {
         {
           icon: Shield,
           label: "ID Verification",
-          sub: user.driver_license_url ? "Identity verified ✓" : "Upload required",
-          badge: !user.driver_license_url ? "Action" : null,
+          sub: isVerified ? "Identity verified ✓" : "Upload required",
+          badge: !isVerified ? "Action" : null,
           onClick: () => setSheet("id-verification"),
         },
         {
@@ -250,7 +259,7 @@ export default function AccountPage() {
               style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
               {user.full_name?.charAt(0) || "U"}
             </div>
-            {user.driver_license_url && (
+            {isVerified && (
               <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
                 <Check className="h-2.5 w-2.5 text-white" />
               </div>
@@ -307,7 +316,14 @@ export default function AccountPage() {
 
       {/* Sheets */}
       {sheet === "personal" && <PersonalInfoSheet user={user} onClose={() => setSheet(null)} />}
-      {sheet === "id-verification" && <IDVerificationSheet user={user} onClose={() => setSheet(null)} />}
+      {sheet === "id-verification" && (
+        <IDVerificationSheet
+          user={user}
+          isVerified={isVerified}
+          verifiedBooking={bookingRequests.find((b) => b.verification_status === "verified" && b.license_front_url)}
+          onClose={() => setSheet(null)}
+        />
+      )}
     </div>
   );
 }
