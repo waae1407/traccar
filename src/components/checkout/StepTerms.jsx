@@ -53,15 +53,15 @@ export default function StepTerms({ booking, vehicle, saveAndAdvance }) {
         </div>
         <div className="mt-4 pt-3 border-t border-gray-100 space-y-1.5">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Weekly rate</span>
-            <span className="font-semibold">${booking?.weekly_rate || 0}</span>
+            <span className="text-gray-600">Weekly rate</span>
+            <span className="font-semibold text-gray-900">${booking?.weekly_rate || 0}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Security deposit</span>
-            <span className="font-semibold">${booking?.deposit_amount || 0}</span>
+            <span className="text-gray-600">Security deposit</span>
+            <span className="font-semibold text-gray-900">${booking?.deposit_amount || 0}</span>
           </div>
-          <div className="flex justify-between text-sm font-bold border-t border-gray-100 pt-1.5 mt-1">
-            <span>Total Due Now</span>
+          <div className="flex justify-between text-sm font-bold border-t border-gray-200 pt-1.5 mt-1">
+            <span className="text-gray-900">Total Due Now</span>
             <span className="text-pink-600">${booking?.total_due_now || 0}</span>
           </div>
         </div>
