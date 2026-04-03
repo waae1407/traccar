@@ -13,6 +13,7 @@ import { AdminGuard } from '@/components/layout/RoleGuard';
 
 // Customer-facing pages
 import BookNow from '@/pages/BookNow';
+import LandingPage from '@/pages/LandingPage';
 import MyBookings from '@/pages/customer/MyBookings';
 import ActivityPage from '@/pages/customer/ActivityPage';
 import AccountPage from '@/pages/customer/AccountPage';
@@ -57,9 +58,12 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
+      {/* ── AUTO-ROUTING LANDING PAGE ── */}
+      <Route path="/" element={<LandingPage />} />
+
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>
-        <Route path="/" element={<BookNow />} />
+        <Route path="/book-now" element={<BookNow />} />
         <Route path="/my-bookings" element={<MyBookings />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
@@ -83,6 +87,9 @@ const AuthenticatedApp = () => {
 
       {/* Legacy /bookings redirect for admin */}
       <Route path="/bookings" element={isAdmin ? <Navigate to="/bookings-admin" replace /> : <Navigate to="/my-bookings" replace />} />
+
+      {/* Legacy root redirect (backward compat) */}
+      <Route path="/home" element={<Navigate to="/book-now" replace />} />
 
       <Route path="*" element={<PageNotFound />} />
     </Routes>
