@@ -63,6 +63,7 @@ function PersonalInfoSheet({ user, onClose }) {
 
 // ── ID Verification Sheet ────────────────────────────────────────────────────
 function IDVerificationSheet({ user, onClose }) {
+  const isVerified = !!user.driver_license_url;
   const [uploads, setUploads] = useState({
     license_front: user.driver_license_url || "",
     selfie: user.id_upload_url || "",
@@ -110,25 +111,61 @@ function IDVerificationSheet({ user, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg mx-auto bg-white rounded-t-3xl p-6 shadow-2xl">
+      <div className="relative w-full max-w-lg mx-auto bg-white rounded-t-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-bold text-gray-900 text-lg">ID Verification</h3>
           <button onClick={onClose} className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center">
             <X className="h-4 w-4 text-gray-600" />
           </button>
         </div>
-        <p className="text-xs text-gray-400 mb-4">Upload your driver's license and a selfie so we can verify your identity before your rental.</p>
-        <div className="space-y-3">
-          <UploadBox field="license_front" label="Driver's License (Front)" />
-          <UploadBox field="selfie" label="Live Selfie" />
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saving || saved || (!uploads.license_front && !uploads.selfie)}
-          className="w-full mt-5 h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-          {saved ? <><Check className="h-4 w-4" /> Saved!</> : saving ? "Saving…" : <><Save className="h-4 w-4" /> Save Documents</>}
-        </button>
+
+        {isVerified ? (
+          /* ── Verified view ── */
+          <>
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-green-50 border border-green-200 mb-5">
+              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <Check className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="font-bold text-green-800 text-sm">Identity Verified</p>
+                <p className="text-xs text-green-600 mt-0.5">Your documents have been submitted and verified.</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {user.driver_license_url && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Driver's License</p>
+                  <img src={user.driver_license_url} alt="Driver's License" className="w-full rounded-2xl object-cover border border-gray-100 shadow-sm" />
+                </div>
+              )}
+              {user.id_upload_url && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Selfie</p>
+                  <img src={user.id_upload_url} alt="Selfie" className="w-full rounded-2xl object-cover border border-gray-100 shadow-sm" />
+                </div>
+              )}
+            </div>
+            <button onClick={onClose} className="w-full mt-5 h-12 rounded-xl font-bold text-sm text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors">
+              Close
+            </button>
+          </>
+        ) : (
+          /* ── Upload view ── */
+          <>
+            <p className="text-xs text-gray-400 mb-4">Upload your driver's license and a selfie so we can verify your identity before your rental.</p>
+            <div className="space-y-3">
+              <UploadBox field="license_front" label="Driver's License (Front)" />
+              <UploadBox field="selfie" label="Live Selfie" />
+            </div>
+            <button
+              onClick={handleSave}
+              disabled={saving || saved || (!uploads.license_front && !uploads.selfie)}
+              className="w-full mt-5 h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              {saved ? <><Check className="h-4 w-4" /> Saved!</> : saving ? "Saving…" : <><Save className="h-4 w-4" /> Save Documents</>}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -172,7 +209,7 @@ export default function AccountPage() {
         {
           icon: Shield,
           label: "ID Verification",
-          sub: user.driver_license_url ? "Verified ✓" : "Upload required",
+          sub: user.driver_license_url ? "Identity verified ✓" : "Upload required",
           badge: !user.driver_license_url ? "Action" : null,
           onClick: () => setSheet("id-verification"),
         },
