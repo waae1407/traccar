@@ -30,14 +30,6 @@
     "current_city": {
       "type": "string"
     },
-    "latitude": {
-      "type": "number",
-      "description": "Vehicle location latitude"
-    },
-    "longitude": {
-      "type": "number",
-      "description": "Vehicle location longitude"
-    },
     "status": {
       "type": "string",
       "enum": [

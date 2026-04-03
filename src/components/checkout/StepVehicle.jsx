@@ -14,16 +14,7 @@ function calcEndDate(startDate, type) {
   return null;
 }
 
-// Haversine formula – returns miles between two lat/lon pairs
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 3958.8;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+
 
 // Smart recommendation engine
 function getSmartTip(type, filtered, startDate) {
@@ -55,15 +46,13 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
 
   // Geo-filter if coords are available
   const geoFiltered = useMemo(() => {
-    const coords = zipcodeCoords || userCoords;
-    if (!coords) return typeFiltered;
-    // Filter vehicles by distance from search coords
-    return typeFiltered.filter((v) => {
-      if (typeof v.latitude !== 'number' || typeof v.longitude !== 'number') return false;
-      const dist = haversine(coords.lat, coords.lon, v.latitude, v.longitude);
-      return dist <= radius;
-    });
-  }, [typeFiltered, zipcodeCoords, userCoords, radius]);
+    const searchCity = zipcodeCoords?.city || userCoords?.city;
+    if (!searchCity) return typeFiltered;
+    // Filter vehicles by city name match
+    return typeFiltered.filter((v) => 
+      v.current_city && v.current_city.toLowerCase() === searchCity.toLowerCase()
+    );
+  }, [typeFiltered, zipcodeCoords, userCoords]);
 
   const filtered = geoFiltered;
   // Display the actual zipcode search location (city, state) or user location label
