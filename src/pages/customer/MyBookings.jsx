@@ -156,6 +156,11 @@ export default function MyBookings() {
                 Continue Booking →
               </div>
             )}
+            {booking.booking_status === "pending_review" && (
+              <div className="mt-3 py-2 rounded-xl text-center text-xs font-semibold bg-yellow-50 text-yellow-700 border border-yellow-100">
+                Under Review — We'll notify you soon
+              </div>
+            )}
             {booking.total_due_now && booking.booking_status === "pending_payment" && (
               <div className="mt-3 flex items-center justify-between p-2.5 bg-orange-50 rounded-xl">
                 <span className="text-xs text-orange-700 font-semibold">Payment due</span>
