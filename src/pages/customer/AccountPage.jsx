@@ -222,6 +222,7 @@ export default function AccountPage() {
           icon: Shield,
           label: "ID Verification",
           sub: isVerified ? "Identity verified ✓" : "Upload required",
+          subColor: isVerified ? "text-green-500" : undefined,
           badge: !isVerified ? "Action" : null,
           onClick: () => setSheet("id-verification"),
         },
@@ -293,7 +294,7 @@ export default function AccountPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900 text-sm">{item.label}</p>
-                  <p className="text-xs text-gray-400 truncate">{item.sub}</p>
+                  <p className={`text-xs truncate ${item.subColor || "text-gray-400"}`}>{item.sub}</p>
                 </div>
                 {item.badge && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 flex-shrink-0">{item.badge}</span>
