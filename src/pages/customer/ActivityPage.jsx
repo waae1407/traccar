@@ -84,7 +84,7 @@ export default function ActivityPage() {
       }
       return acc;
     }, {})
-  ).filter((b) => b.booking_status !== "draft");
+  ).filter((b) => ["active", "confirmed"].includes(b.booking_status));
 
   const activeBooking = dedupedBookings.find((b) => ["active", "confirmed", "pending_review"].includes(b.booking_status));
 
