@@ -61,11 +61,32 @@ export default function MyBookings() {
     );
   }
 
-  const active = bookings.filter((b) => ["active", "confirmed", "pending_review", "pending_payment", "pending_verification", "pending_contract"].includes(b.booking_status));
-  const past = bookings.filter((b) => ["completed", "cancelled"].includes(b.booking_status));
-  const drafts = bookings.filter((b) => b.booking_status === "draft");
+  // Status priority: higher = more advanced/important
+  const STATUS_PRIORITY = {
+    active: 7, confirmed: 6, pending_review: 5, pending_payment: 4,
+    pending_contract: 3, pending_verification: 2, draft: 1,
+    completed: 0, cancelled: 0,
+  };
 
-  if (bookings.length === 0) {
+  // Deduplicate: per vehicle_id, keep the most advanced booking (highest priority, then most recent)
+  const deduplicated = Object.values(
+    bookings.reduce((acc, b) => {
+      const key = b.vehicle_id || b.id;
+      const existing = acc[key];
+      const bPriority = STATUS_PRIORITY[b.booking_status] ?? 0;
+      const ePriority = existing ? (STATUS_PRIORITY[existing.booking_status] ?? 0) : -1;
+      if (!existing || bPriority > ePriority || (bPriority === ePriority && new Date(b.updated_date) > new Date(existing.updated_date))) {
+        acc[key] = b;
+      }
+      return acc;
+    }, {})
+  );
+
+  const active = deduplicated.filter((b) => ["active", "confirmed", "pending_review", "pending_payment", "pending_verification", "pending_contract"].includes(b.booking_status));
+  const past = deduplicated.filter((b) => ["completed", "cancelled"].includes(b.booking_status));
+  const drafts = deduplicated.filter((b) => b.booking_status === "draft");
+
+  if (deduplicated.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
         <div className="h-16 w-16 rounded-2xl bg-pink-50 flex items-center justify-center mb-4">
