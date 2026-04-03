@@ -2,21 +2,20 @@
   "name": "Notification",
   "type": "object",
   "properties": {
+    "company_id": {
+      "type": "string"
+    },
     "user_id": {
-      "type": "string",
-      "description": "User ID"
+      "type": "string"
     },
     "user_email": {
-      "type": "string",
-      "description": "User email (denormalized)"
+      "type": "string"
     },
     "title": {
-      "type": "string",
-      "description": "Notification title"
+      "type": "string"
     },
     "body": {
-      "type": "string",
-      "description": "Notification body"
+      "type": "string"
     },
     "type": {
       "type": "string",
@@ -35,8 +34,7 @@
       "default": false
     },
     "action_link": {
-      "type": "string",
-      "description": "URL to navigate on tap"
+      "type": "string"
     },
     "booking_request_id": {
       "type": "string"

@@ -2,21 +2,21 @@
   "name": "Booking",
   "type": "object",
   "properties": {
-    "customer_id": {
+    "company_id": {
       "type": "string",
-      "description": "Customer ID"
+      "description": "Owning company"
+    },
+    "customer_id": {
+      "type": "string"
     },
     "customer_name": {
-      "type": "string",
-      "description": "Customer name (denormalized)"
+      "type": "string"
     },
     "vehicle_id": {
-      "type": "string",
-      "description": "Vehicle ID"
+      "type": "string"
     },
     "vehicle_name": {
-      "type": "string",
-      "description": "Vehicle description (denormalized)"
+      "type": "string"
     },
     "booking_type": {
       "type": "string",
@@ -25,26 +25,21 @@
         "Weekly",
         "Monthly",
         "Rent-to-Own"
-      ],
-      "description": "Type of booking"
+      ]
     },
     "start_date": {
       "type": "string",
-      "format": "date",
-      "description": "Booking start date"
+      "format": "date"
     },
     "end_date": {
       "type": "string",
-      "format": "date",
-      "description": "Booking end date"
+      "format": "date"
     },
     "pickup_location": {
-      "type": "string",
-      "description": "Pickup location"
+      "type": "string"
     },
     "dropoff_location": {
-      "type": "string",
-      "description": "Dropoff location"
+      "type": "string"
     },
     "status": {
       "type": "string",
@@ -54,12 +49,10 @@
         "Completed",
         "Cancelled"
       ],
-      "default": "Reserved",
-      "description": "Booking status"
+      "default": "Reserved"
     },
     "notes": {
-      "type": "string",
-      "description": "Booking notes"
+      "type": "string"
     }
   },
   "required": [

@@ -6,44 +6,34 @@
       "type": "string",
       "enum": [
         "customer",
-        "admin"
+        "admin",
+        "staff",
+        "manager",
+        "booking_manager",
+        "payment_manager",
+        "support_agent",
+        "maintenance_manager",
+        "company_owner"
       ],
-      "default": "customer",
-      "description": "User role - customer for public users, admin for CRM access"
+      "default": "customer"
+    },
+    "company_id": {
+      "type": "string",
+      "description": "The company this user belongs to"
+    },
+    "is_platform_superadmin": {
+      "type": "boolean",
+      "default": false,
+      "description": "Cross-tenant platform superadmin \u2014 can see all companies"
     },
     "phone": {
-      "type": "string",
-      "description": "Phone number"
-    },
-    "is_active": {
-      "type": "boolean",
-      "default": true,
-      "description": "Whether the account is active"
+      "type": "string"
     },
     "driver_license_url": {
-      "type": "string",
-      "description": "Uploaded driver license file URL"
+      "type": "string"
     },
     "id_upload_url": {
-      "type": "string",
-      "description": "Uploaded government ID file URL"
-    },
-    "customer_id": {
-      "type": "string",
-      "description": "Linked Customer entity ID"
-    },
-    "preferred_city": {
-      "type": "string",
-      "description": "Preferred rental city"
-    },
-    "saved_payment_method": {
-      "type": "string",
-      "description": "Saved payment method label"
-    },
-    "last_login_at": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Last login timestamp"
+      "type": "string"
     }
   }
 }

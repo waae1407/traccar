@@ -2,37 +2,33 @@
   "name": "Customer",
   "type": "object",
   "properties": {
-    "full_name": {
+    "company_id": {
       "type": "string",
-      "description": "Customer full name"
+      "description": "Owning company"
+    },
+    "full_name": {
+      "type": "string"
     },
     "phone": {
-      "type": "string",
-      "description": "Phone number"
+      "type": "string"
     },
     "email": {
-      "type": "string",
-      "description": "Email address"
+      "type": "string"
     },
     "address": {
-      "type": "string",
-      "description": "Home address"
+      "type": "string"
     },
     "driver_license_url": {
-      "type": "string",
-      "description": "Uploaded driver license file URL"
+      "type": "string"
     },
     "id_upload_url": {
-      "type": "string",
-      "description": "Uploaded ID file URL"
+      "type": "string"
     },
     "employer": {
-      "type": "string",
-      "description": "Employer name"
+      "type": "string"
     },
     "weekly_income": {
-      "type": "number",
-      "description": "Weekly income amount"
+      "type": "number"
     },
     "status": {
       "type": "string",
@@ -43,12 +39,10 @@
         "Completed",
         "Blocked"
       ],
-      "default": "Lead",
-      "description": "Customer status"
+      "default": "Lead"
     },
     "notes": {
-      "type": "string",
-      "description": "Internal notes"
+      "type": "string"
     },
     "lead_source": {
       "type": "string",
@@ -58,8 +52,7 @@
         "Referral",
         "Website",
         "Other"
-      ],
-      "description": "How the customer found us"
+      ]
     }
   },
   "required": [

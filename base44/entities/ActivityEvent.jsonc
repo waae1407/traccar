@@ -2,9 +2,11 @@
   "name": "ActivityEvent",
   "type": "object",
   "properties": {
+    "company_id": {
+      "type": "string"
+    },
     "user_email": {
-      "type": "string",
-      "description": "User email"
+      "type": "string"
     },
     "booking_request_id": {
       "type": "string"
@@ -47,8 +49,7 @@
       "default": "success"
     },
     "amount": {
-      "type": "number",
-      "description": "Amount if payment-related"
+      "type": "number"
     }
   },
   "required": [

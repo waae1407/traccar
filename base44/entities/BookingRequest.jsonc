@@ -2,29 +2,27 @@
   "name": "BookingRequest",
   "type": "object",
   "properties": {
-    "user_id": {
+    "company_id": {
       "type": "string",
-      "description": "User ID"
+      "description": "Owning company"
+    },
+    "user_id": {
+      "type": "string"
     },
     "user_email": {
-      "type": "string",
-      "description": "User email (denormalized)"
+      "type": "string"
     },
     "vehicle_id": {
-      "type": "string",
-      "description": "Vehicle ID"
+      "type": "string"
     },
     "vehicle_name": {
-      "type": "string",
-      "description": "Vehicle name (denormalized)"
+      "type": "string"
     },
     "vehicle_image": {
-      "type": "string",
-      "description": "Vehicle image URL"
+      "type": "string"
     },
     "city": {
-      "type": "string",
-      "description": "Pickup city"
+      "type": "string"
     },
     "booking_type": {
       "type": "string",
@@ -33,26 +31,21 @@
         "Weekly",
         "Monthly",
         "Rent-to-Own"
-      ],
-      "description": "Type of booking"
+      ]
     },
     "start_date": {
       "type": "string",
-      "format": "date",
-      "description": "Start date"
+      "format": "date"
     },
     "end_date": {
       "type": "string",
-      "format": "date",
-      "description": "End date"
+      "format": "date"
     },
     "pickup_location": {
-      "type": "string",
-      "description": "Pickup address or location"
+      "type": "string"
     },
     "dropoff_location": {
-      "type": "string",
-      "description": "Dropoff address or location"
+      "type": "string"
     },
     "delivery_requested": {
       "type": "boolean",
@@ -119,21 +112,45 @@
       ],
       "default": "select_vehicle"
     },
+    "assigned_admin_user_id": {
+      "type": "string"
+    },
+    "assigned_team": {
+      "type": "string"
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "unassigned",
+        "assigned",
+        "in_review",
+        "approved",
+        "rejected",
+        "more_info_requested"
+      ],
+      "default": "unassigned"
+    },
+    "reviewed_by_user_id": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approval_notes": {
+      "type": "string"
+    },
     "weekly_rate": {
-      "type": "number",
-      "description": "Weekly rate"
+      "type": "number"
     },
     "deposit_amount": {
-      "type": "number",
-      "description": "Deposit amount"
+      "type": "number"
     },
     "first_payment_amount": {
-      "type": "number",
-      "description": "First payment due now"
+      "type": "number"
     },
     "total_due_now": {
-      "type": "number",
-      "description": "Total due at checkout"
+      "type": "number"
     },
     "consent_esign": {
       "type": "boolean",
@@ -185,8 +202,7 @@
       "type": "string"
     },
     "contract_html": {
-      "type": "string",
-      "description": "Generated contract content"
+      "type": "string"
     },
     "signature_name": {
       "type": "string"
@@ -213,13 +229,11 @@
     },
     "submitted_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When customer submitted the booking"
+      "format": "date-time"
     },
     "viewed_by_admin": {
       "type": "boolean",
-      "default": false,
-      "description": "Has an admin opened this booking"
+      "default": false
     },
     "first_viewed_by_admin_at": {
       "type": "string",
@@ -227,8 +241,7 @@
     },
     "pending_review_alert_active": {
       "type": "boolean",
-      "default": true,
-      "description": "Show in admin post-it alert area"
+      "default": true
     },
     "admin_attention_priority": {
       "type": "string",
@@ -240,8 +253,7 @@
       "default": "high"
     },
     "admin_notes": {
-      "type": "string",
-      "description": "Internal admin notes on this booking"
+      "type": "string"
     }
   },
   "required": [

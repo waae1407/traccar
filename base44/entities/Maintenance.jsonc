@@ -2,35 +2,32 @@
   "name": "Maintenance",
   "type": "object",
   "properties": {
-    "vehicle_id": {
+    "company_id": {
       "type": "string",
-      "description": "Vehicle ID"
+      "description": "Owning company"
+    },
+    "vehicle_id": {
+      "type": "string"
     },
     "vehicle_name": {
-      "type": "string",
-      "description": "Vehicle description (denormalized)"
+      "type": "string"
     },
     "service_type": {
-      "type": "string",
-      "description": "Type of service performed"
+      "type": "string"
     },
     "cost": {
-      "type": "number",
-      "description": "Service cost"
+      "type": "number"
     },
     "date": {
       "type": "string",
-      "format": "date",
-      "description": "Service date"
+      "format": "date"
     },
     "notes": {
-      "type": "string",
-      "description": "Service notes"
+      "type": "string"
     },
     "next_service_due": {
       "type": "string",
-      "format": "date",
-      "description": "Next service due date"
+      "format": "date"
     }
   },
   "required": [

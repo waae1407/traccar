@@ -2,49 +2,43 @@
   "name": "RentToOwnContract",
   "type": "object",
   "properties": {
-    "customer_id": {
+    "company_id": {
       "type": "string",
-      "description": "Customer ID"
+      "description": "Owning company"
+    },
+    "customer_id": {
+      "type": "string"
     },
     "customer_name": {
-      "type": "string",
-      "description": "Customer name (denormalized)"
+      "type": "string"
     },
     "vehicle_id": {
-      "type": "string",
-      "description": "Vehicle ID"
+      "type": "string"
     },
     "vehicle_name": {
-      "type": "string",
-      "description": "Vehicle description (denormalized)"
+      "type": "string"
     },
     "start_date": {
       "type": "string",
-      "format": "date",
-      "description": "Contract start date"
+      "format": "date"
     },
     "weekly_payment": {
-      "type": "number",
-      "description": "Weekly payment amount"
+      "type": "number"
     },
     "total_contract_value": {
-      "type": "number",
-      "description": "Total contract value"
+      "type": "number"
     },
     "total_paid": {
       "type": "number",
-      "default": 0,
-      "description": "Total amount paid so far"
+      "default": 0
     },
     "total_payments_required": {
       "type": "number",
-      "default": 52,
-      "description": "Number of consistent payments required for ownership"
+      "default": 52
     },
     "consistent_payments_made": {
       "type": "number",
-      "default": 0,
-      "description": "Number of consistent on-time payments"
+      "default": 0
     },
     "status": {
       "type": "string",
@@ -54,8 +48,7 @@
         "Completed",
         "Cancelled"
       ],
-      "default": "Active",
-      "description": "Contract status"
+      "default": "Active"
     }
   },
   "required": [

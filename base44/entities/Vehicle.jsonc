@@ -2,37 +2,33 @@
   "name": "Vehicle",
   "type": "object",
   "properties": {
-    "vin": {
+    "company_id": {
       "type": "string",
-      "description": "Vehicle identification number"
+      "description": "Owning company"
+    },
+    "vin": {
+      "type": "string"
     },
     "plate": {
-      "type": "string",
-      "description": "License plate number"
+      "type": "string"
     },
     "make": {
-      "type": "string",
-      "description": "Vehicle make"
+      "type": "string"
     },
     "model": {
-      "type": "string",
-      "description": "Vehicle model"
+      "type": "string"
     },
     "year": {
-      "type": "number",
-      "description": "Model year"
+      "type": "number"
     },
     "color": {
-      "type": "string",
-      "description": "Vehicle color"
+      "type": "string"
     },
     "purchase_price": {
-      "type": "number",
-      "description": "Purchase price"
+      "type": "number"
     },
     "current_city": {
-      "type": "string",
-      "description": "Current city location"
+      "type": "string"
     },
     "status": {
       "type": "string",
@@ -42,30 +38,24 @@
         "Maintenance",
         "Transferred"
       ],
-      "default": "Available",
-      "description": "Vehicle status"
+      "default": "Available"
     },
     "mileage": {
-      "type": "number",
-      "description": "Current mileage"
+      "type": "number"
     },
     "last_service_date": {
       "type": "string",
-      "format": "date",
-      "description": "Last service date"
+      "format": "date"
     },
     "weekly_rate": {
-      "type": "number",
-      "description": "Weekly rental rate"
+      "type": "number"
     },
     "rent_to_own_eligible": {
       "type": "boolean",
-      "default": false,
-      "description": "Eligible for rent-to-own"
+      "default": false
     },
     "image_url": {
-      "type": "string",
-      "description": "Vehicle photo URL"
+      "type": "string"
     }
   },
   "required": [

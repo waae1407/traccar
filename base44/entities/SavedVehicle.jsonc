@@ -2,6 +2,9 @@
   "name": "SavedVehicle",
   "type": "object",
   "properties": {
+    "company_id": {
+      "type": "string"
+    },
     "user_email": {
       "type": "string"
     },

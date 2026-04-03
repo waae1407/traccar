@@ -2,21 +2,21 @@
   "name": "Payment",
   "type": "object",
   "properties": {
-    "customer_id": {
+    "company_id": {
       "type": "string",
-      "description": "Customer ID"
+      "description": "Owning company"
+    },
+    "customer_id": {
+      "type": "string"
     },
     "customer_name": {
-      "type": "string",
-      "description": "Customer name (denormalized)"
+      "type": "string"
     },
     "booking_id": {
-      "type": "string",
-      "description": "Booking ID"
+      "type": "string"
     },
     "amount": {
-      "type": "number",
-      "description": "Payment amount"
+      "type": "number"
     },
     "payment_type": {
       "type": "string",
@@ -24,8 +24,7 @@
         "Deposit",
         "Rental",
         "Late Fee"
-      ],
-      "description": "Type of payment"
+      ]
     },
     "payment_method": {
       "type": "string",
@@ -34,8 +33,7 @@
         "Cash",
         "Zelle",
         "ACH"
-      ],
-      "description": "Payment method"
+      ]
     },
     "status": {
       "type": "string",
@@ -45,18 +43,15 @@
         "Failed",
         "Overdue"
       ],
-      "default": "Pending",
-      "description": "Payment status"
+      "default": "Pending"
     },
     "due_date": {
       "type": "string",
-      "format": "date",
-      "description": "Payment due date"
+      "format": "date"
     },
     "paid_date": {
       "type": "string",
-      "format": "date",
-      "description": "Date payment was received"
+      "format": "date"
     }
   },
   "required": [
