@@ -1,3 +1,11 @@
+// Hard-coded corrections for zipcodes that APIs resolve to neighborhoods instead of cities
+const ZIPCODE_OVERRIDES = {
+  "60616": { city: "Chicago", state: "Illinois", lat: 41.8456, lon: -87.6185 },
+  "60409": { city: "Calumet City", state: "Illinois", lat: 41.5575, lon: -87.5293 },
+  "77037": { city: "Houston", state: "Texas", lat: 29.7589, lon: -95.3677 },
+  "77038": { city: "Houston", state: "Texas", lat: 29.7204, lon: -95.2588 },
+};
+
 // Fallback: try online zipcode lookup via zippopotam.us
 async function lookupZipcodeOnline(zipcode) {
   try {
@@ -14,6 +22,24 @@ async function lookupZipcodeOnline(zipcode) {
   return null;
 }
 
+// Get lat/lon for a city via Nominatim
+async function getCityCoords(city, state) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?city=${city}&state=${state}&country=US&format=json&limit=1`,
+      { headers: { "User-Agent": "uRide-App" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.length > 0) {
+      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+    }
+  } catch (err) {
+    console.error(`City coords lookup failed for ${city}, ${state}:`, err.message);
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   try {
     const body = await req.json();
@@ -25,6 +51,19 @@ Deno.serve(async (req) => {
     if (!zipcode || zipcode.length !== 5 || !/^\d+$/.test(zipcode)) {
       console.error("Invalid zipcode format:", zipcode);
       return Response.json({ error: "Invalid zipcode format" }, { status: 400 });
+    }
+
+    // Check overrides first (zipcodes that APIs misresolved)
+    if (ZIPCODE_OVERRIDES[zipcode]) {
+      const override = ZIPCODE_OVERRIDES[zipcode];
+      console.log(`Using override: ${zipcode} -> ${override.city}, ${override.state}`);
+      return Response.json({
+        zipcode,
+        city: override.city,
+        state: override.state,
+        lat: override.lat,
+        lon: override.lon,
+      });
     }
 
     // Try OpenStreetMap Nominatim API
@@ -79,12 +118,23 @@ Deno.serve(async (req) => {
         }
       }
 
-      console.log(`Resolved: ${zipcode} -> ${city}, ${state}`);
+      // Get lat/lon for the resolved city
+      let lat = null, lon = null;
+      if (city !== "Unknown") {
+        const coords = await getCityCoords(city, state);
+        if (coords) {
+          lat = coords.lat;
+          lon = coords.lon;
+        }
+      }
+
+      console.log(`Resolved: ${zipcode} -> ${city}, ${state} (${lat}, ${lon})`);
       return Response.json({
         zipcode,
         city,
         state,
-        displayName: `${city}, ${state}`,
+        lat,
+        lon,
       });
     }
 

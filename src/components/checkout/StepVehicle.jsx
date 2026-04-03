@@ -44,21 +44,33 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const available = vehicles.filter((v) => v.status === "Available");
   const typeFiltered = type === "Rent-to-Own" ? available.filter((v) => v.rent_to_own_eligible) : available;
 
-  // Geo-filter if coords are available
+  // Geo-filter by radius if coords are available
   const geoFiltered = useMemo(() => {
-    const searchCity = zipcodeCoords?.city || userCoords?.city;
-    if (!searchCity) return typeFiltered;
-    // Filter vehicles by city name match
-    return typeFiltered.filter((v) => 
-      v.current_city && v.current_city.toLowerCase() === searchCity.toLowerCase()
-    );
-  }, [typeFiltered, zipcodeCoords, userCoords]);
+    const searchCoords = zipcodeCoords || userCoords;
+    if (!searchCoords || !searchCoords.lat || !searchCoords.lon) return typeFiltered;
+    
+    // Calculate distance and filter by radius (in miles)
+    const radiusMiles = radius;
+    return typeFiltered.filter((v) => {
+      if (!v.vehicle_lat || !v.vehicle_lon) return false;
+      // Haversine formula for distance
+      const R = 3959; // Earth radius in miles
+      const dLat = (v.vehicle_lat - searchCoords.lat) * Math.PI / 180;
+      const dLon = (v.vehicle_lon - searchCoords.lon) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(searchCoords.lat * Math.PI / 180) * Math.cos(v.vehicle_lat * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+      return distance <= radiusMiles;
+    });
+  }, [typeFiltered, zipcodeCoords, userCoords, radius]);
 
   const filtered = geoFiltered;
   // Display the actual zipcode search location (city, state) or user location label
   const displayLocationName = zipcodeCoords
     ? `${zipcodeCoords.city || "Unknown"}, ${zipcodeCoords.state || "US"}`
-    : userCoords?.label || null;
+    : userCoords?.city || userCoords?.label || null;
   const endDate = calcEndDate(startDate, type);
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
   const smartTip = getSmartTip(type, filtered, startDate);
