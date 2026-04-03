@@ -78,9 +78,11 @@ export default function MyBookings() {
   };
 
   // Deduplicate: per vehicle_id, keep the most advanced booking (highest priority, then most recent)
+  // Use booking.id as key for drafts so all drafts are shown individually and can each be deleted
   const deduplicated = Object.values(
     bookings.reduce((acc, b) => {
-      const key = b.vehicle_id || b.id;
+      const isDraft = b.booking_status === "draft";
+      const key = isDraft ? b.id : (b.vehicle_id || b.id);
       const existing = acc[key];
       const bPriority = STATUS_PRIORITY[b.booking_status] ?? 0;
       const ePriority = existing ? (STATUS_PRIORITY[existing.booking_status] ?? 0) : -1;
@@ -116,8 +118,11 @@ export default function MyBookings() {
     const isDraft = booking.booking_status === "draft";
     const isDeletable = DELETABLE_STATUSES.includes(booking.booking_status);
 
+    const isDeleting = deleteMutation.isPending && deleteMutation.variables === booking.id;
+
     const handleDelete = (e) => {
       e.preventDefault();
+      e.stopPropagation();
       if (confirm("Remove this booking?")) {
         deleteMutation.mutate(booking.id);
       }
@@ -162,9 +167,12 @@ export default function MyBookings() {
         {isDeletable && (
           <button
             onClick={handleDelete}
-            className="absolute top-3 right-3 h-7 w-7 rounded-full bg-red-50 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors z-10"
+            disabled={isDeleting}
+            className="absolute top-3 right-3 h-7 w-7 rounded-full bg-red-50 border border-red-100 flex items-center justify-center hover:bg-red-100 transition-colors z-10 disabled:opacity-50"
           >
-            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+            {isDeleting
+              ? <div className="h-3.5 w-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+              : <Trash2 className="h-3.5 w-3.5 text-red-500" />}
           </button>
         )}
       </div>

@@ -124,7 +124,7 @@ export default function CheckoutFlow() {
       {/* Header */}
       <div className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
-          <button onClick={() => stepIndex > 0 ? setCurrentStep(STEPS[stepIndex - 1]) : navigate(-1)}
+          <button onClick={() => stepIndex > 0 ? setCurrentStep(STEPS[stepIndex - 1]) : navigate("/", { replace: true })}
             className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
             <ArrowLeft className="h-5 w-5 text-gray-700" />
           </button>
