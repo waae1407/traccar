@@ -40,9 +40,24 @@ Deno.serve(async (req) => {
 
     if (data && data.length > 0) {
       const result = data[0];
-      const address = result.address || {};
-      const city = address.city || address.town || address.village || address.county || "Unknown";
-      const state = address.state || "US";
+      // Extract city and state from display_name string
+      // Format: "91351, Santa Clarita, Los Angeles County, California, United States"
+      const displayNameParts = (result.display_name || "").split(",").map(p => p.trim());
+      
+      // Remove country (last part is usually "United States")
+      if (displayNameParts[displayNameParts.length - 1] === "United States") {
+        displayNameParts.pop();
+      }
+      
+      // State is typically the second-to-last part (or last if no country)
+      const state = displayNameParts[displayNameParts.length - 1] || "US";
+      
+      // City is typically one of the earlier parts (often the second item after zipcode)
+      let city = "Unknown";
+      if (displayNameParts.length > 1) {
+        // Try the second item (usually the city name)
+        city = displayNameParts[1];
+      }
 
       console.log(`Resolved: ${zipcode} -> ${city}, ${state}`);
       return Response.json({
