@@ -28,7 +28,7 @@ const statusLabel = {
 };
 
 // Statuses considered "not yet submitted" — deletable by user
-const DELETABLE_STATUSES = ["draft", "pending_verification", "pending_contract"];
+const DELETABLE_STATUSES = ["draft", "pending_verification", "pending_contract", "pending_payment"];
 
 export default function MyBookings() {
   const { user } = useOutletContext() || {};
