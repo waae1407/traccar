@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormField, inputClass } from "@/components/shared/FormField";
+import VehicleExpenseList from "./VehicleExpenseList";
+import { Loader } from "lucide-react";
 
 const emptyForm = {
   vin: "", plate: "", make: "", model: "", year: "", color: "",
@@ -11,12 +14,39 @@ const emptyForm = {
 
 export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving }) {
   const [form, setForm] = useState(emptyForm);
+  const [decodingVIN, setDecodingVIN] = useState(false);
+  const [vinError, setVinError] = useState("");
 
   useEffect(() => {
     setForm(vehicle ? { ...emptyForm, ...vehicle, year: vehicle.year || "", purchase_price: vehicle.purchase_price || "", mileage: vehicle.mileage || "", weekly_rate: vehicle.weekly_rate || "" } : emptyForm);
+    setVinError("");
   }, [vehicle, open]);
 
   const set = (field, value) => setForm((p) => ({ ...p, [field]: value }));
+
+  const handleDecodeVIN = async () => {
+    if (!form.vin || form.vin.length < 10) {
+      setVinError("VIN must be at least 10 characters");
+      return;
+    }
+
+    setDecodingVIN(true);
+    setVinError("");
+    try {
+      const res = await base44.functions.invoke("decodeVIN", { vin: form.vin });
+      if (res.data?.year && res.data?.make && res.data?.model) {
+        set("year", String(res.data.year));
+        set("make", res.data.make);
+        set("model", res.data.model);
+      } else {
+        setVinError("Could not decode VIN. Please enter manually.");
+      }
+    } catch (err) {
+      setVinError("VIN lookup failed. Please enter manually.");
+    } finally {
+      setDecodingVIN(false);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -46,8 +76,21 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             <FormField label="Model" required><input className={inputClass} value={form.model} onChange={(e) => set("model", e.target.value)} required /></FormField>
             <FormField label="Year" required><input type="number" className={inputClass} value={form.year} onChange={(e) => set("year", e.target.value)} required /></FormField>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="VIN"><input className={inputClass} value={form.vin} onChange={(e) => set("vin", e.target.value)} /></FormField>
+          <div className="space-y-2">
+            <FormField label="VIN">
+              <div className="flex gap-2">
+                <input className={inputClass} value={form.vin} onChange={(e) => { set("vin", e.target.value); setVinError(""); }} placeholder="Enter full VIN" />
+                <button
+                  type="button"
+                  onClick={handleDecodeVIN}
+                  disabled={decodingVIN || !form.vin}
+                  className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 transition-all text-sm font-medium whitespace-nowrap flex items-center gap-1"
+                >
+                  {decodingVIN ? <><Loader className="h-3 w-3 animate-spin" /> Decode</> : "Decode"}
+                </button>
+              </div>
+              {vinError && <p className="text-xs text-red-400 mt-1">{vinError}</p>}
+            </FormField>
             <FormField label="Plate"><input className={inputClass} value={form.plate} onChange={(e) => set("plate", e.target.value)} /></FormField>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -72,11 +115,15 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">Cancel</button>
-            <button type="submit" disabled={isSaving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-primary hover:opacity-90 transition-all disabled:opacity-50 shadow-glow-sm">
+            <button type="submit" disabled={isSaving || decodingVIN} className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-primary hover:opacity-90 transition-all disabled:opacity-50 shadow-glow-sm">
               {vehicle ? "Update" : "Create"}
             </button>
           </div>
         </form>
+
+        {vehicle && (
+          <VehicleExpenseList vehicle={vehicle} />
+        )}
       </DialogContent>
     </Dialog>
   );

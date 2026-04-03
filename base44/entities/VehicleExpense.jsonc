@@ -1,0 +1,57 @@
+{
+  "name": "VehicleExpense",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string",
+      "description": "Owning company"
+    },
+    "vehicle_id": {
+      "type": "string",
+      "description": "Associated vehicle"
+    },
+    "vehicle_name": {
+      "type": "string",
+      "description": "Vehicle name for reference"
+    },
+    "expense_type": {
+      "type": "string",
+      "enum": [
+        "purchase",
+        "repair",
+        "maintenance",
+        "insurance",
+        "registration",
+        "fuel",
+        "other"
+      ],
+      "description": "Type of expense"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Expense amount"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of expense"
+    },
+    "receipt_url": {
+      "type": "string",
+      "description": "URL to uploaded receipt image/document"
+    },
+    "expense_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of expense"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "expense_type",
+    "amount",
+    "expense_date"
+  ]
+}
