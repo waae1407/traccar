@@ -57,7 +57,7 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const filtered = geoFiltered;
   // Display the actual zipcode search location (city, state) or user location label
   const displayLocationName = zipcodeCoords
-    ? `${zipcodeCoords.city}, ${zipcodeCoords.state}`
+    ? `${zipcodeCoords.city || "Unknown"}, ${zipcodeCoords.state || "US"}`
     : userCoords?.label || null;
   const endDate = calcEndDate(startDate, type);
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
@@ -79,12 +79,14 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
     setGeocoding(true);
     try {
       const res = await base44.functions.invoke("geocodeZipcode", { zipcode });
+      console.log("Geocode response:", res.data);
       if (res.data.error) {
         alert("Zipcode not found. Please try another.");
       } else {
         setZipcodeCoords(res.data);
       }
     } catch (err) {
+      console.error("Geocode error:", err);
       alert("Error resolving zipcode. Try again.");
     } finally {
       setGeocoding(false);
