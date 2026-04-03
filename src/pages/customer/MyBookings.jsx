@@ -105,7 +105,7 @@ export default function MyBookings() {
         </div>
         <h3 className="font-bold text-gray-900 text-lg">No bookings yet</h3>
         <p className="text-gray-400 text-sm mt-2">Ready to hit the road? Book your first rental.</p>
-        <Link to="/" className="mt-5 px-6 py-2.5 rounded-xl font-bold text-sm text-white"
+        <Link to="/checkout" className="mt-5 px-6 py-2.5 rounded-xl font-bold text-sm text-white"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           Book Now
         </Link>

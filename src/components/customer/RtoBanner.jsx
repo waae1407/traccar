@@ -1,7 +1,14 @@
 import React from "react";
 import { Key, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function RtoBanner({ count }) {
+  const navigate = useNavigate();
+
+  const handleStart = () => {
+    navigate("/checkout?type=Rent-to-Own");
+  };
+
   return (
     <div className="mx-4 mt-6 rounded-2xl overflow-hidden relative"
       style={{ background: "linear-gradient(135deg, #1a0a12 0%, #130920 100%)" }}>
@@ -24,6 +31,7 @@ export default function RtoBanner({ count }) {
           </p>
         </div>
         <button
+          onClick={handleStart}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white flex-shrink-0 active:opacity-80 transition-opacity"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
         >
