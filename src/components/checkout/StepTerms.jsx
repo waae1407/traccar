@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { Car, MapPin, Calendar, DollarSign } from "lucide-react";
+import { Car, MapPin, Calendar, DollarSign, AlertCircle, RefreshCw } from "lucide-react";
 
 export default function StepTerms({ booking, vehicle, saveAndAdvance }) {
   const [consents, setConsents] = useState({
@@ -66,6 +66,26 @@ export default function StepTerms({ booking, vehicle, saveAndAdvance }) {
           </div>
         </div>
       </div>
+
+      {/* Auto-renew status reminder */}
+      {booking?.auto_renew === false && (
+        <div className="flex gap-2 p-3 rounded-xl bg-blue-50 border border-blue-100 mb-4">
+          <AlertCircle className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-700">
+            <strong>Auto-renew is off.</strong> Your rental expires on{" "}
+            <strong>{booking?.end_date ? format(new Date(booking.end_date), "MMM d, yyyy") : "the end date"}</strong>.
+            To extend, log in and manually renew your confirmed booking before it expires.
+          </p>
+        </div>
+      )}
+      {booking?.auto_renew && (
+        <div className="flex gap-2 p-3 rounded-xl bg-green-50 border border-green-100 mb-4">
+          <RefreshCw className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-green-700">
+            <strong>Auto-renew is on.</strong> Your rental will automatically renew each {booking?.booking_type === "Weekly" ? "week" : "period"} until you cancel.
+          </p>
+        </div>
+      )}
 
       {/* Consents */}
       <div className="space-y-3 mb-5">

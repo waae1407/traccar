@@ -41,6 +41,11 @@
       "type": "string",
       "format": "date"
     },
+    "auto_renew": {
+      "type": "boolean",
+      "default": false,
+      "description": "Automatically renew the rental on expiry"
+    },
     "pickup_location": {
       "type": "string"
     },

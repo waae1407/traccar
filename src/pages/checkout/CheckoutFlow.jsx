@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
-import StepVehicle from "@/components/checkout/StepVehicle";
+import StepVehicle from "@/components/checkout/StepVehicle.jsx";
 import StepAccount from "@/components/checkout/StepAccount";
 import StepProfile from "@/components/checkout/StepProfile";
 import StepVerification from "@/components/checkout/StepVerification";
@@ -186,7 +186,7 @@ export default function CheckoutFlow() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-5">
-        {currentStep === "select_vehicle" && <StepVehicle {...commonProps} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} onSelect={(v, type) => {
+        {currentStep === "select_vehicle" && <StepVehicle {...commonProps} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} onSelect={(v, type, opts = {}) => {
           if (!user) { navigate(`/checkout?vehicle=${v.id}&type=${type}`); return; }
           createMutation.mutate({
             vehicle_id: v.id, vehicle_name: `${v.year} ${v.make} ${v.model}`,
@@ -195,6 +195,9 @@ export default function CheckoutFlow() {
             first_payment_amount: v.weekly_rate || 0, total_due_now: v.weekly_rate || 0,
             booking_status: "draft", checkout_step: "account", user_email: user?.email, user_id: user?.id,
             ...(bookingCompanyId && { company_id: bookingCompanyId }),
+            ...(opts.startDate && { start_date: opts.startDate }),
+            ...(opts.endDate && { end_date: opts.endDate }),
+            ...(typeof opts.autoRenew !== "undefined" && { auto_renew: opts.autoRenew }),
           });
           setCurrentStep("account");
         }} />}

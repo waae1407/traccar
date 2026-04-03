@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Shield, Lock, Check } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 const inputCls = "w-full h-11 px-4 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all";
 
@@ -25,6 +24,10 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
     mutationFn: (data) => base44.entities.ActivityEvent.create(data),
   });
 
+  const markVehicleBookedMutation = useMutation({
+    mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }),
+  });
+
   const handlePay = async () => {
     setProcessing(true);
 
@@ -33,6 +36,11 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
       await new Promise((r) => setTimeout(r, 1500));
 
       const payAmount = booking?.weekly_rate || 0;
+
+      // Mark vehicle as Booked to prevent double booking
+      if (booking?.vehicle_id) {
+        await markVehicleBookedMutation.mutateAsync({ id: booking.vehicle_id });
+      }
 
       // Log activity event (doesn't require customer_id)
       await logEventMutation.mutateAsync({
