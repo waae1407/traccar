@@ -179,7 +179,10 @@ export default function AccountPage() {
   // Check verification from booking requests (user may have verified during checkout)
   const { data: bookingRequests = [] } = useQuery({
     queryKey: ["my-bookings-verification", user?.email],
-    queryFn: () => base44.entities.BookingRequest.filter({ user_email: user.email }),
+    queryFn: async () => {
+      const all = await base44.entities.BookingRequest.list("-created_date", 50);
+      return all.filter((b) => b.user_email === user.email || b.created_by === user.email);
+    },
     enabled: !!user?.email,
   });
 
