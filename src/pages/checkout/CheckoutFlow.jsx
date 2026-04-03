@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/AuthContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
-import StepVehicle from "@/components/checkout/StepVehicle.jsx";
+import StepVehicle from "@/components/checkout/StepVehicle";
 import StepAccount from "@/components/checkout/StepAccount";
 import StepProfile from "@/components/checkout/StepProfile";
 import StepVerification from "@/components/checkout/StepVerification";
