@@ -1,6 +1,7 @@
 import React from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
+import { useTenant } from "@/lib/useTenant";
 import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock, Bell } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -31,12 +32,15 @@ const ChartTooltip = ({ active, payload, label, prefix = "" }) => {
 };
 
 export default function Dashboard() {
-  const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles"], queryFn: () => base44.entities.Vehicle.list() });
-  const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => base44.entities.Customer.list() });
-  const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: () => base44.entities.Booking.list() });
-  const { data: payments = [] } = useQuery({ queryKey: ["payments"], queryFn: () => base44.entities.Payment.list() });
-  const { data: contracts = [] } = useQuery({ queryKey: ["contracts"], queryFn: () => base44.entities.RentToOwnContract.list() });
-  const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin"], queryFn: () => base44.entities.BookingRequest.list("-created_date", 200), refetchInterval: 30_000 });
+  const { tenantFilter, companyId, isSuperadmin, overrideCompanyId } = useTenant();
+  const scopeKey = companyId || "all";
+
+  const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles", scopeKey], queryFn: () => base44.entities.Vehicle.filter(tenantFilter()) });
+  const { data: customers = [] } = useQuery({ queryKey: ["customers", scopeKey], queryFn: () => base44.entities.Customer.filter(tenantFilter()) });
+  const { data: bookings = [] } = useQuery({ queryKey: ["bookings", scopeKey], queryFn: () => base44.entities.Booking.filter(tenantFilter()) });
+  const { data: payments = [] } = useQuery({ queryKey: ["payments", scopeKey], queryFn: () => base44.entities.Payment.filter(tenantFilter()) });
+  const { data: contracts = [] } = useQuery({ queryKey: ["contracts", scopeKey], queryFn: () => base44.entities.RentToOwnContract.filter(tenantFilter()) });
+  const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin", scopeKey], queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-created_date", 200), refetchInterval: 30_000 });
 
   const pendingReviews = bookingRequests.filter((b) => b.booking_status === "pending_review");
   const unopenedPending = pendingReviews.filter((b) => !b.viewed_by_admin);

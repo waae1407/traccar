@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTenant } from "@/lib/useTenant";
 import { Users, Phone, Mail } from "lucide-react";
 import DataTable from "@/components/shared/DataTable";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -12,19 +13,21 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const queryClient = useQueryClient();
+  const { tenantFilter, companyId } = useTenant();
+  const scopeKey = companyId || "all";
 
   const { data: customers = [], isLoading } = useQuery({
-    queryKey: ["customers"],
-    queryFn: () => base44.entities.Customer.list("-created_date"),
+    queryKey: ["customers", scopeKey],
+    queryFn: () => base44.entities.Customer.filter(tenantFilter(), "-created_date"),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Customer.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["customers"] }); setDialogOpen(false); },
+    mutationFn: (data) => base44.entities.Customer.create({ ...data, ...tenantFilter() }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["customers", scopeKey] }); setDialogOpen(false); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Customer.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["customers"] }); setDialogOpen(false); setEditingCustomer(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["customers", scopeKey] }); setDialogOpen(false); setEditingCustomer(null); },
   });
 
   const handleSave = (data) => {

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTenant } from "@/lib/useTenant";
 import { Car } from "lucide-react";
 import DataTable from "@/components/shared/DataTable";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -12,19 +13,21 @@ export default function Vehicles() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
   const queryClient = useQueryClient();
+  const { tenantFilter, companyId } = useTenant();
+  const scopeKey = companyId || "all";
 
   const { data: vehicles = [], isLoading } = useQuery({
-    queryKey: ["vehicles"],
-    queryFn: () => base44.entities.Vehicle.list("-created_date"),
+    queryKey: ["vehicles", scopeKey],
+    queryFn: () => base44.entities.Vehicle.filter(tenantFilter(), "-created_date"),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Vehicle.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["vehicles"] }); setDialogOpen(false); },
+    mutationFn: (data) => base44.entities.Vehicle.create({ ...data, ...tenantFilter() }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["vehicles", scopeKey] }); setDialogOpen(false); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Vehicle.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["vehicles"] }); setDialogOpen(false); setEditingVehicle(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["vehicles", scopeKey] }); setDialogOpen(false); setEditingVehicle(null); },
   });
 
   const handleSave = (data) => {

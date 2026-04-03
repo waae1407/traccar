@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTenant } from "@/lib/useTenant";
 import { Wrench } from "lucide-react";
 import DataTable from "@/components/shared/DataTable";
 import EmptyState from "@/components/shared/EmptyState";
@@ -12,19 +13,21 @@ export default function MaintenancePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const queryClient = useQueryClient();
+  const { tenantFilter, companyId } = useTenant();
+  const scopeKey = companyId || "all";
 
   const { data: records = [], isLoading } = useQuery({
-    queryKey: ["maintenance"],
-    queryFn: () => base44.entities.Maintenance.list("-created_date"),
+    queryKey: ["maintenance", scopeKey],
+    queryFn: () => base44.entities.Maintenance.filter(tenantFilter(), "-created_date"),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Maintenance.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["maintenance"] }); setDialogOpen(false); },
+    mutationFn: (data) => base44.entities.Maintenance.create({ ...data, ...tenantFilter() }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["maintenance", scopeKey] }); setDialogOpen(false); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Maintenance.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["maintenance"] }); setDialogOpen(false); setEditingRecord(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["maintenance", scopeKey] }); setDialogOpen(false); setEditingRecord(null); },
   });
 
   const handleSave = (data) => {

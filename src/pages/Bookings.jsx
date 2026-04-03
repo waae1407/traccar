@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTenant } from "@/lib/useTenant";
 import { CalendarDays, Clock } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
@@ -22,10 +23,12 @@ export default function Bookings() {
   const [activeTab, setActiveTab] = useState("pending_review");
   const [reviewBooking, setReviewBooking] = useState(null);
   const queryClient = useQueryClient();
+  const { tenantFilter, companyId } = useTenant();
+  const scopeKey = companyId || "all";
 
   const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ["booking-requests-admin"],
-    queryFn: () => base44.entities.BookingRequest.list("-created_date", 200),
+    queryKey: ["booking-requests-admin", scopeKey],
+    queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-created_date", 200),
     refetchInterval: 30_000,
   });
 

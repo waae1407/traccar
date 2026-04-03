@@ -26,6 +26,18 @@ export default function CheckoutFlow() {
   const vehicleId = searchParams.get("vehicle");
   const bookingType = searchParams.get("type") || "Weekly";
   const requestId = searchParams.get("request");
+  const companySlug = searchParams.get("company");
+
+  // Resolve company_id from slug param or user's company_id
+  const { data: companyBySlug } = useQuery({
+    queryKey: ["company-by-slug", companySlug],
+    queryFn: async () => {
+      const results = await base44.entities.Company.filter({ slug: companySlug });
+      return results[0] || null;
+    },
+    enabled: !!companySlug,
+  });
+  const bookingCompanyId = companyBySlug?.id || user?.company_id || null;
 
   const [booking, setBooking] = useState(null);
   const [currentStep, setCurrentStep] = useState("select_vehicle");
@@ -106,6 +118,7 @@ export default function CheckoutFlow() {
           checkout_step: "account",
           user_email: user.email,
           user_id: user.id,
+          ...(bookingCompanyId && { company_id: bookingCompanyId }),
           ...(prev && {
             customer_full_name: prev.customer_full_name,
             customer_phone: prev.customer_phone,
@@ -181,6 +194,7 @@ export default function CheckoutFlow() {
             weekly_rate: v.weekly_rate, deposit_amount: 0,
             first_payment_amount: v.weekly_rate || 0, total_due_now: v.weekly_rate || 0,
             booking_status: "draft", checkout_step: "account", user_email: user?.email, user_id: user?.id,
+            ...(bookingCompanyId && { company_id: bookingCompanyId }),
           });
           setCurrentStep("account");
         }} />}

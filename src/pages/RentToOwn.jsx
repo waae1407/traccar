@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTenant } from "@/lib/useTenant";
 import { FileKey } from "lucide-react";
 import DataTable from "@/components/shared/DataTable";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -12,19 +13,21 @@ export default function RentToOwn() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContract, setEditingContract] = useState(null);
   const queryClient = useQueryClient();
+  const { tenantFilter, companyId } = useTenant();
+  const scopeKey = companyId || "all";
 
   const { data: contracts = [], isLoading } = useQuery({
-    queryKey: ["contracts"],
-    queryFn: () => base44.entities.RentToOwnContract.list("-created_date"),
+    queryKey: ["contracts", scopeKey],
+    queryFn: () => base44.entities.RentToOwnContract.filter(tenantFilter(), "-created_date"),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.RentToOwnContract.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contracts"] }); setDialogOpen(false); },
+    mutationFn: (data) => base44.entities.RentToOwnContract.create({ ...data, ...tenantFilter() }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contracts", scopeKey] }); setDialogOpen(false); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.RentToOwnContract.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contracts"] }); setDialogOpen(false); setEditingContract(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contracts", scopeKey] }); setDialogOpen(false); setEditingContract(null); },
   });
 
   const handleSave = (data) => {

@@ -2,9 +2,11 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
-  FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X,
+  FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TenantSwitcher from "@/components/layout/TenantSwitcher";
+import { useTenant } from "@/lib/useTenant";
 
 const LOGO_FULL = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/860834ab2_A3BAE4B8-976F-4BA4-B14F-141A770ED30E.jpg";
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -21,8 +23,13 @@ const navItems = [
   { label: "Book Now ↗", icon: Car, path: "/", divider: true },
 ];
 
+const superadminNavItems = [
+  { label: "Companies", icon: Building2, path: "/companies" },
+];
+
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
+  const { isSuperadmin } = useTenant();
 
   return (
     <>
@@ -62,10 +69,32 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           </button>
         </div>
 
+        {/* Tenant Switcher for superadmin */}
+        <div className="pt-3">
+          <TenantSwitcher collapsed={collapsed} />
+        </div>
+
         {/* Nav */}
-        <nav className="flex-1 py-5 px-3 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 py-2 px-3 space-y-0.5 overflow-y-auto">
           {!collapsed && (
             <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-3 mb-3">Main Menu</p>
+          )}
+          {isSuperadmin && (
+            <>
+              {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-primary/50 px-3 mb-2 mt-3">Platform</p>}
+              {superadminNavItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
+                    className={cn("group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden",
+                      isActive ? "nav-active shadow-glow-sm" : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]")}>
+                    <item.icon className={cn("flex-shrink-0 relative z-10", isActive ? "text-primary" : "text-white/40 group-hover:text-white/70")} style={{ height: '1.125rem', width: '1.125rem' }} />
+                    {!collapsed && <span className="relative z-10">{item.label}</span>}
+                  </Link>
+                );
+              })}
+              {!collapsed && <div className="my-2 border-t border-white/[0.06]" />}
+            </>
           )}
           {navItems.map((item) => {
             if (item.divider) return (

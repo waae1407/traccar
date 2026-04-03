@@ -21,9 +21,23 @@ export default function BookNow() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [bookingType, setBookingType] = useState("Weekly");
 
+  // Support tenant context via ?company=slug
+  const companySlug = new URLSearchParams(window.location.search).get("company");
+  const { data: tenantCompany } = useQuery({
+    queryKey: ["company-by-slug", companySlug],
+    queryFn: async () => {
+      const results = await base44.entities.Company.filter({ slug: companySlug });
+      return results[0] || null;
+    },
+    enabled: !!companySlug,
+    staleTime: 5 * 60_000,
+  });
+
   const { data: vehicles = [], isLoading } = useQuery({
-    queryKey: ["vehicles-public"],
-    queryFn: () => base44.entities.Vehicle.list(),
+    queryKey: ["vehicles-public", tenantCompany?.id],
+    queryFn: () => tenantCompany?.id
+      ? base44.entities.Vehicle.filter({ company_id: tenantCompany.id })
+      : base44.entities.Vehicle.list(),
     staleTime: 60_000,
   });
 
@@ -34,7 +48,8 @@ export default function BookNow() {
 
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
-    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}`);
+    const companyParam = companySlug ? `&company=${companySlug}` : "";
+    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}${companyParam}`);
   };
 
   return (
