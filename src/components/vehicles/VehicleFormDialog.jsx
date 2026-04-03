@@ -8,7 +8,7 @@ import { Loader } from "lucide-react";
 
 const emptyForm = {
   vin: "", plate: "", make: "", model: "", year: "", color: "",
-  purchase_price: "", current_city: "", status: "Available",
+  purchase_price: "", city: "", state: "", status: "Available",
   mileage: "", last_service_date: "", weekly_rate: "", rent_to_own_eligible: false,
 };
 
@@ -18,7 +18,7 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
   const [vinError, setVinError] = useState("");
 
   useEffect(() => {
-    setForm(vehicle ? { ...emptyForm, ...vehicle, year: vehicle.year || "", purchase_price: vehicle.purchase_price || "", mileage: vehicle.mileage || "", weekly_rate: vehicle.weekly_rate || "" } : emptyForm);
+    setForm(vehicle ? { ...emptyForm, ...vehicle, year: vehicle.year || "", purchase_price: vehicle.purchase_price || "", mileage: vehicle.mileage || "", weekly_rate: vehicle.weekly_rate || "", city: vehicle.city || vehicle.current_city || "", state: vehicle.state || "" } : emptyForm);
     setVinError("");
   }, [vehicle, open]);
 
@@ -93,9 +93,10 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             </FormField>
             <FormField label="Plate"><input className={inputClass} value={form.plate} onChange={(e) => set("plate", e.target.value)} /></FormField>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <FormField label="Color"><input className={inputClass} value={form.color} onChange={(e) => set("color", e.target.value)} /></FormField>
-            <FormField label="Current City"><input className={inputClass} value={form.current_city} onChange={(e) => set("current_city", e.target.value)} /></FormField>
+            <FormField label="City"><input className={inputClass} value={form.city} onChange={(e) => set("city", e.target.value)} /></FormField>
+            <FormField label="State"><input className={inputClass} value={form.state} onChange={(e) => set("state", e.target.value)} placeholder="CA, TX, NY..." maxLength="2" /></FormField>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <FormField label="Purchase Price"><input type="number" className={inputClass} value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} /></FormField>
