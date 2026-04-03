@@ -59,14 +59,15 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
     if (!coords) return typeFiltered;
     // Filter vehicles by distance from search coords
     return typeFiltered.filter((v) => {
-      if (!v.latitude || !v.longitude) return false;
+      if (typeof v.latitude !== 'number' || typeof v.longitude !== 'number') return false;
       const dist = haversine(coords.lat, coords.lon, v.latitude, v.longitude);
       return dist <= radius;
     });
   }, [typeFiltered, zipcodeCoords, userCoords, radius]);
 
   const filtered = geoFiltered;
-  const displayLocationName = zipcodeCoords?.city && zipcodeCoords?.state
+  // Display the actual zipcode search location (city, state) or user location label
+  const displayLocationName = zipcodeCoords
     ? `${zipcodeCoords.city}, ${zipcodeCoords.state}`
     : userCoords?.label || null;
   const endDate = calcEndDate(startDate, type);
