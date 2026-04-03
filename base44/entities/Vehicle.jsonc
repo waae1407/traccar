@@ -30,6 +30,14 @@
     "current_city": {
       "type": "string"
     },
+    "vehicle_lat": {
+      "type": "number",
+      "description": "Vehicle location latitude (auto-geocoded from current_city)"
+    },
+    "vehicle_lon": {
+      "type": "number",
+      "description": "Vehicle location longitude (auto-geocoded from current_city)"
+    },
     "status": {
       "type": "string",
       "enum": [
