@@ -20,6 +20,7 @@ export default function BookNow() {
 
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [bookingType, setBookingType] = useState("Weekly");
+  // Only Weekly and Rent-to-Own are supported
 
   // Support tenant context via ?company=slug
   const companySlug = new URLSearchParams(window.location.search).get("company");
@@ -49,6 +50,7 @@ export default function BookNow() {
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
     const companyParam = companySlug ? `&company=${companySlug}` : "";
+    // Navigate to checkout with vehicle pre-selected — StepVehicle will handle type/date selection
     navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}${companyParam}`);
   };
 

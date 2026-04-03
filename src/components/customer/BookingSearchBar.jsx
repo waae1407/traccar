@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Search, CalendarDays, ChevronDown } from "lucide-react";
 
-const types = ["Daily", "Weekly", "Monthly", "Rent-to-Own"];
+const types = ["Weekly", "Rent-to-Own"];
 
 export default function BookingSearchBar({ bookingType, onBookingTypeChange, onTap }) {
   const [date, setDate] = useState("");

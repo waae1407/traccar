@@ -87,62 +87,14 @@ export default function CheckoutFlow() {
         .sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)),
   });
 
-  // Initialize — wait for previousBookings to finish loading before creating
+  // Initialize — if existing request, restore it; otherwise start at select_vehicle
   useEffect(() => {
     if (existingRequest) {
       setBooking(existingRequest);
       setCurrentStep(existingRequest.checkout_step || "select_vehicle");
-    } else if (vehicleId && !requestId && user && !loadingPrevious) {
-      const v = vehicles.find((v) => v.id === vehicleId);
-      if (v && !createMutation.isPending && !createMutation.isSuccess) {
-        const prev = previousBookings[0];
-        const oneMonthAgo = new Date();
-        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
-        const verificationFresh =
-          prev?.verification_status === "verified" &&
-          prev?.updated_date &&
-          new Date(prev.updated_date) > oneMonthAgo;
-
-        createMutation.mutate({
-          vehicle_id: vehicleId,
-          vehicle_name: `${v.year} ${v.make} ${v.model}`,
-          vehicle_image: v.image_url,
-          booking_type: bookingType,
-          city: v.current_city,
-          weekly_rate: v.weekly_rate,
-          deposit_amount: 0,
-          first_payment_amount: v.weekly_rate || 0,
-          total_due_now: v.weekly_rate || 0,
-          booking_status: "draft",
-          checkout_step: "account",
-          user_email: user.email,
-          user_id: user.id,
-          ...(bookingCompanyId && { company_id: bookingCompanyId }),
-          ...(prev && {
-            customer_full_name: prev.customer_full_name,
-            customer_phone: prev.customer_phone,
-            customer_dob: prev.customer_dob,
-            customer_address: prev.customer_address,
-            emergency_contact_name: prev.emergency_contact_name,
-            emergency_contact_phone: prev.emergency_contact_phone,
-            employer: prev.employer,
-            income_range: prev.income_range,
-          }),
-          ...(verificationFresh && {
-            license_front_url: prev.license_front_url,
-            license_back_url: prev.license_back_url,
-            selfie_url: prev.selfie_url,
-            proof_of_income_url: prev.proof_of_income_url,
-            verification_status: "verified",
-          }),
-        });
-        setCurrentStep("account");
-      }
-    } else if (vehicleId && !requestId && !user) {
-      setCurrentStep("account");
     }
-  }, [existingRequest, vehicleId, vehicles.length, user, loadingPrevious]);
+    // If coming in with ?vehicle=, stay on select_vehicle so user picks type/date/auto-renew
+  }, [existingRequest]);
 
   const saveAndAdvance = (stepData, nextStep) => {
     if (booking?.id) {
