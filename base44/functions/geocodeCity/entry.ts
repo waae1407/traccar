@@ -1,7 +1,7 @@
-// Get lat/lon for a city via Nominatim
+// Get lat/lon for a city via Nominatim (no auth required)
 Deno.serve(async (req) => {
   try {
-    const body = await req.json();
+    const body = await req.json?.() || {};
     const { city, state } = body;
 
     if (!city) {
