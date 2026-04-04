@@ -19,7 +19,7 @@ async function getStripePromise() {
 }
 
 // ─── Inner Stripe form ───────────────────────────────────────────────────────
-function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId }) {
+function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, clientSecret }) {
   const [autopay, setAutopay] = useState(booking?.autopay_enabled || false);
   const stripe = useStripe();
   const elements = useElements();
@@ -32,6 +32,8 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   const processingTimeoutRef = useRef(null);
   const queryClient = useQueryClient();
   const paymentElementContainerRef = useRef(null);
+  const paymentElementRef = useRef(null);
+  const mountAttemptedRef = useRef(false);
 
   // Freeze booking snapshot at mount — never update mid-payment to avoid re-render disruption
   const bookingRef = useRef(booking);
@@ -57,40 +59,40 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     return () => clearTimeout(processingTimeoutRef.current);
   }, [processing]);
 
-  // Monitor PaymentElement mounting with observer
+  // Create and mount PaymentElement
   useEffect(() => {
-    if (!stripe || !elements) {
-      console.log("[Payment] Stripe or elements not ready");
+    if (!stripe || !elements || !clientSecret || mountAttemptedRef.current) {
+      console.log("[Payment] Skipping mount:", { stripe: !!stripe, elements: !!elements, clientSecret: !!clientSecret, attempted: mountAttemptedRef.current });
       return;
     }
 
-    console.log("[Payment] Stripe and elements ready, waiting for PaymentElement DOM mount");
-    
-    // Check if payment element iframe has mounted by observing the DOM
-    const checkForPaymentElement = setInterval(() => {
-      const iframes = paymentElementContainerRef.current?.querySelectorAll("iframe");
-      if (iframes && iframes.length > 0) {
-        console.log("[Payment] PaymentElement iframe detected, marking as mounted");
+    mountAttemptedRef.current = true;
+    console.log("[Payment] Attempting to create and mount PaymentElement");
+
+    try {
+      // Create PaymentElement
+      paymentElementRef.current = elements.create('payment');
+      console.log("[Payment] PaymentElement created successfully");
+
+      // Mount it to the container
+      if (paymentElementContainerRef.current) {
+        paymentElementRef.current.mount(paymentElementContainerRef.current);
+        console.log("[Payment] PaymentElement mounted to DOM");
         setElementMounted(true);
         setInitError(null);
-        clearInterval(checkForPaymentElement);
+      } else {
+        console.error("[Payment] Container ref not available for mounting");
+        setInitError("Payment form container not found. Please refresh.");
       }
-    }, 100);
-
-    // If not mounted after 5 seconds, show error
-    const timeoutId = setTimeout(() => {
-      if (!elementMounted) {
-        console.error("[Payment] PaymentElement failed to mount after 5s");
-        setInitError("Secure payment form failed to load. Please refresh and try again.");
-        clearInterval(checkForPaymentElement);
-      }
-    }, 5000);
+    } catch (err) {
+      console.error("[Payment] Failed to create/mount PaymentElement:", err.message);
+      setInitError("Secure payment form failed to load. Please refresh and try again.");
+    }
 
     return () => {
-      clearInterval(checkForPaymentElement);
-      clearTimeout(timeoutId);
+      // Don't unmount on cleanup to prevent re-initialization
     };
-  }, [stripe, elements]);
+  }, [stripe, elements, clientSecret]);
 
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
@@ -209,7 +211,6 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
             </div>
           </div>
         )}
-        <PaymentElement options={{ layout: "tabs" }} />
       </div>
 
       {error && (
@@ -387,6 +388,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             onPaymentSuccess={onPaymentSuccess || saveAndAdvance}
             paymentIntentId={paymentIntentId}
             stripeCustomerId={stripeCustomerId}
+            clientSecret={clientSecret}
           />
         </Elements>
       ) : (
