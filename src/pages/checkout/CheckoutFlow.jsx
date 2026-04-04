@@ -115,7 +115,13 @@ export default function CheckoutFlow() {
     if (existingRequest && !initializedRef.current) {
       initializedRef.current = true;
       setBooking(existingRequest);
-      setCurrentStep(existingRequest.checkout_step || "select_vehicle");
+      // If booking is cancelled/completed, don't resume it — send to vehicle selection
+      const terminalStatuses = ["cancelled", "completed", "rejected"];
+      if (terminalStatuses.includes(existingRequest.booking_status)) {
+        setCurrentStep("select_vehicle");
+      } else {
+        setCurrentStep(existingRequest.checkout_step || "select_vehicle");
+      }
     }
   }, [existingRequest]);
 
