@@ -163,19 +163,17 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     );
   }
 
-  const stripeReady = !!stripe && !!elements;
   const canSubmit = elementMounted && !processing;
 
   return (
     <form onSubmit={handlePay}>
-      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[80px] flex items-center justify-center">
-        {!stripeReady ? (
-          <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
-        ) : (
-          <div className="w-full">
-            <PaymentElement options={{ layout: "tabs" }} />
+      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[80px] relative">
+        {!elementMounted && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-xl z-10">
+            <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
           </div>
         )}
+        <PaymentElement options={{ layout: "tabs" }} />
       </div>
 
       {error && (
