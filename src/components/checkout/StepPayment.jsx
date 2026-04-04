@@ -57,13 +57,13 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     return () => clearTimeout(processingTimeoutRef.current);
   }, [processing]);
 
-  // When elements become ready, give Stripe's iframe a moment to mount
+  // When elements become ready, give Stripe's iframe time to mount
   useEffect(() => {
     if (stripe && elements && !elementMounted) {
       clearTimeout(mountTimeoutRef.current);
       mountTimeoutRef.current = setTimeout(() => {
         setElementMounted(true);
-      }, 500);
+      }, 1500);
     }
     return () => clearTimeout(mountTimeoutRef.current);
   }, [stripe, elements, elementMounted]);
