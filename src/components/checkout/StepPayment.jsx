@@ -31,9 +31,6 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   const paidRef = useRef(modulePaymentSucceeded);
   const processingTimeoutRef = useRef(null);
   const queryClient = useQueryClient();
-  const paymentElementContainerRef = useRef(null);
-  const paymentElementRef = useRef(null);
-  const mountAttemptedRef = useRef(false);
 
   // Freeze booking snapshot at mount — never update mid-payment to avoid re-render disruption
   const bookingRef = useRef(booking);
@@ -59,39 +56,15 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     return () => clearTimeout(processingTimeoutRef.current);
   }, [processing]);
 
-  // Create and mount PaymentElement
+  // Mark as ready once Stripe & elements are initialized
   useEffect(() => {
-    if (!stripe || !elements || !clientSecret || mountAttemptedRef.current) {
-      console.log("[Payment] Skipping mount:", { stripe: !!stripe, elements: !!elements, clientSecret: !!clientSecret, attempted: mountAttemptedRef.current });
-      return;
+    if (stripe && elements && clientSecret) {
+      console.log("[Payment] Stripe and Elements ready with clientSecret");
+      setElementMounted(true);
+      setInitError(null);
+    } else {
+      console.log("[Payment] Waiting for Stripe:", { stripe: !!stripe, elements: !!elements, clientSecret: !!clientSecret });
     }
-
-    mountAttemptedRef.current = true;
-    console.log("[Payment] Attempting to create and mount PaymentElement");
-
-    try {
-      // Create PaymentElement
-      paymentElementRef.current = elements.create('payment');
-      console.log("[Payment] PaymentElement created successfully");
-
-      // Mount it to the container
-      if (paymentElementContainerRef.current) {
-        paymentElementRef.current.mount(paymentElementContainerRef.current);
-        console.log("[Payment] PaymentElement mounted to DOM");
-        setElementMounted(true);
-        setInitError(null);
-      } else {
-        console.error("[Payment] Container ref not available for mounting");
-        setInitError("Payment form container not found. Please refresh.");
-      }
-    } catch (err) {
-      console.error("[Payment] Failed to create/mount PaymentElement:", err.message);
-      setInitError("Secure payment form failed to load. Please refresh and try again.");
-    }
-
-    return () => {
-      // Don't unmount on cleanup to prevent re-initialization
-    };
   }, [stripe, elements, clientSecret]);
 
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
@@ -194,7 +167,7 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   return (
     <form onSubmit={handlePay}>
       {/* Payment Element Container */}
-      <div ref={paymentElementContainerRef} className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[100px] relative">
+      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[100px] relative">
         {!elementMounted && !initError && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-xl z-10">
             <div className="flex flex-col items-center gap-2">
@@ -211,6 +184,7 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
             </div>
           </div>
         )}
+        <PaymentElement options={{ layout: "tabs" }} />
       </div>
 
       {error && (
