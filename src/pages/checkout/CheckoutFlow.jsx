@@ -99,8 +99,8 @@ export default function CheckoutFlow() {
   // Statuses that TRULY block — user has a paid/approved/active rental, needs explicit cancellation
   const HARD_BLOCK_STATUSES = ["approved", "confirmed", "active"];
   // Statuses that are stale/pre-payment — can be auto-cancelled when user starts fresh
-  // NOTE: "draft" is intentionally excluded — drafts are only cancelled when user actively picks a new vehicle in onSelect
-  const STALE_STATUSES = ["pending_verification", "pending_contract", "pending_payment", "pending_review", "under_review"];
+  // NOTE: "draft" and "pending_payment" are intentionally excluded — handled separately in onSelect only
+  const STALE_STATUSES = ["pending_verification", "pending_contract", "pending_review", "under_review"];
 
   // Check if user already has another active booking (not the current one being resumed)
   const { data: allUserBookings = [], refetch: refetchAllBookings } = useQuery({
@@ -134,6 +134,9 @@ export default function CheckoutFlow() {
       const terminalStatuses = ["cancelled", "completed", "rejected"];
       if (terminalStatuses.includes(existingRequest.booking_status)) {
         setCurrentStep("select_vehicle");
+      } else if (existingRequest.booking_status === "pending_payment") {
+        // Always resume at payment step for pending_payment bookings
+        setCurrentStep("payment");
       } else {
         setCurrentStep(existingRequest.checkout_step || "select_vehicle");
       }
@@ -224,7 +227,7 @@ export default function CheckoutFlow() {
           if (hardBlockingBooking) return;
           // Auto-cancel any stale/draft bookings before creating the new one
           const allStaleToCancel = allUserBookings.filter(
-            (b) => [...STALE_STATUSES, "draft"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
+            (b) => [...STALE_STATUSES, "draft", "pending_payment"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
           );
           await Promise.all(allStaleToCancel.map((b) => cancelStaleMutation.mutateAsync(b.id)));
           createMutation.mutate({
