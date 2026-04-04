@@ -79,7 +79,7 @@ export default function CheckoutFlow() {
     },
   });
 
-  // Fetch user's previous booking requests for data pre-population
+  // Fetch user's previous booking requests for data pre-population AND duplicate detection
   // NOTE: must be enabled even when requestId exists (resuming a booking still needs prefill data)
   const { data: previousBookings = [] } = useQuery({
     queryKey: ["previous-booking-requests", user?.email],
@@ -94,6 +94,20 @@ export default function CheckoutFlow() {
   // Find the most recently verified booking to use for pre-fill (excluding current booking being edited)
   const recentVerifiedBooking = previousBookings.find(
     (b) => b.verification_status === "verified" && b.id !== booking?.id
+  );
+
+  // Statuses that are considered "active / in-progress" — block new bookings while one exists
+  const BLOCKING_STATUSES = ["draft", "pending_verification", "pending_contract", "pending_payment", "pending_review", "under_review", "approved"];
+
+  // Check if user already has another active booking (not the current one being resumed)
+  const { data: allUserBookings = [] } = useQuery({
+    queryKey: ["all-user-bookings", user?.email],
+    queryFn: () => base44.entities.BookingRequest.filter({ user_email: user?.email }),
+    enabled: !!user?.email,
+  });
+
+  const activeBlockingBooking = allUserBookings.find(
+    (b) => BLOCKING_STATUSES.includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
   );
 
   // Initialize — only hydrate step from DB on the FIRST load, never again
@@ -126,6 +140,34 @@ export default function CheckoutFlow() {
     );
   }
 
+  // Block starting a NEW booking if user already has one in progress
+  if (user && !requestId && activeBlockingBooking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-sm w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
+          <div className="h-14 w-14 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <h2 className="font-bold text-gray-900 text-lg mb-2">Active Booking In Progress</h2>
+          <p className="text-gray-500 text-sm mb-5">
+            You already have a booking in progress for <strong>{activeBlockingBooking.vehicle_name || "a vehicle"}</strong>.
+            Only one booking can be active at a time. Please complete or cancel your existing booking first.
+          </p>
+          <a
+            href="/my-bookings"
+            className="block w-full py-3 rounded-xl font-bold text-sm text-white text-center"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+          >
+            View My Booking
+          </a>
+          <a href="/" className="block w-full mt-2 py-3 rounded-xl font-bold text-sm text-gray-500 border border-gray-200 text-center">
+            Back to Home
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   const commonProps = { booking, vehicle: selectedVehicle, user, saveAndAdvance, updateMutation };
 
   return (
@@ -149,6 +191,7 @@ export default function CheckoutFlow() {
       <div className="max-w-lg mx-auto px-4 py-5">
         {currentStep === "select_vehicle" && <StepVehicle {...commonProps} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} onSelect={(v, type, opts = {}) => {
           if (!user) { navigate(`/checkout?vehicle=${v.id}&type=${type}`); return; }
+          if (activeBlockingBooking) return;
           createMutation.mutate({
             vehicle_id: v.id, vehicle_name: `${v.year} ${v.make} ${v.model}`,
             vehicle_image: v.image_url, booking_type: type, city: v.current_city,
