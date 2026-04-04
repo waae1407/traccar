@@ -99,14 +99,14 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           )}
           {navItems.map((item) => {
             if (item.divider) return (
-              <React.Fragment key={item.path}>
+              <div key={item.path}>
                 <div className="my-2 border-t border-white/[0.06]" />
                 <Link to={item.path} onClick={() => setMobileOpen(false)}
                   className="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 text-pink-400/70 hover:text-pink-300 hover:bg-pink-500/[0.08]">
                   <item.icon className="h-4 w-4 flex-shrink-0 text-pink-400/60" style={{ height: '1.125rem', width: '1.125rem' }} />
                   {!collapsed && <span>{item.label}</span>}
                 </Link>
-              </React.Fragment>
+              </div>
             );
             const isActive = location.pathname === item.path ||
               (item.path !== "/" && item.path !== "/dashboard" && location.pathname.startsWith(item.path)) ||
