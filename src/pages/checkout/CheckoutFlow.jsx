@@ -77,7 +77,7 @@ export default function CheckoutFlow() {
   });
 
   // Fetch user's previous booking requests for data pre-population
-  const { data: previousBookings = [], isLoading: loadingPrevious } = useQuery({
+  const { data: previousBookings = [] } = useQuery({
     queryKey: ["previous-booking-requests", user?.email],
     queryFn: () => base44.entities.BookingRequest.filter({ user_email: user?.email }),
     enabled: !!user?.email && !requestId,
@@ -86,6 +86,12 @@ export default function CheckoutFlow() {
         .filter((b) => b.customer_full_name)
         .sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)),
   });
+
+  // Find the most recent verified booking within 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const recentVerifiedBooking = previousBookings.find(
+    (b) => b.verification_status === "verified" && new Date(b.updated_date) >= thirtyDaysAgo
+  );
 
   // Initialize — if existing request, restore it; otherwise start at select_vehicle
   useEffect(() => {
@@ -155,7 +161,7 @@ export default function CheckoutFlow() {
         }} />}
 
         {currentStep === "account" && <StepAccount {...commonProps} booking={booking} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} />}
-        {currentStep === "profile" && <StepProfile {...commonProps} />}
+        {currentStep === "profile" && <StepProfile {...commonProps} recentVerifiedBooking={recentVerifiedBooking} />}
         {currentStep === "verification" && <StepVerification {...commonProps} />}
         {currentStep === "terms" && <StepTerms {...commonProps} />}
         {currentStep === "contract" && <StepContract {...commonProps} />}
