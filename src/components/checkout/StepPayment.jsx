@@ -3,9 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { CreditCard, Shield, Lock, Check, RefreshCw, Zap } from "lucide-react";
+import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lucide-react";
 
-// Cache the Stripe promise so we only load it once per session
+// ─── Module-level caches (survive component remounts) ───────────────────────
 let cachedStripePromise = null;
 async function getStripePromise() {
   if (cachedStripePromise) return cachedStripePromise;
@@ -16,17 +16,15 @@ async function getStripePromise() {
   return cachedStripePromise;
 }
 
-// Inner form — rendered inside <Elements>
+// ─── Inner Stripe form ───────────────────────────────────────────────────────
 function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, stripeCustomerId, autopay, setAutopay }) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(false);
-  // Use a ref so re-renders caused by parent state changes don't reset the paid state
   const paidRef = useRef(false);
   const queryClient = useQueryClient();
-  // Snapshot booking values at pay time so parent re-renders don't affect them
   const bookingRef = useRef(booking);
 
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
@@ -34,7 +32,7 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
 
   const handlePay = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements || paidRef.current) return;
+    if (!stripe || !elements || paidRef.current || processing) return;
     setProcessing(true);
     setError(null);
 
@@ -50,7 +48,6 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
     }
 
     if (paymentIntent?.status === "succeeded" || paymentIntent?.status === "requires_capture") {
-      // Mark as paid immediately to prevent any re-render from showing the spinner again
       paidRef.current = true;
       setPaid(true);
 
@@ -58,7 +55,7 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
       const payAmount = snap?.total_due_now || snap?.weekly_rate || 0;
 
       if (snap?.vehicle_id) {
-        await markBooked.mutateAsync({ id: snap.vehicle_id });
+        await markBooked.mutateAsync({ id: snap.vehicle_id }).catch(() => {});
       }
 
       await logEvent.mutateAsync({
@@ -69,7 +66,7 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
         event_description: `$${payAmount} initial payment via Stripe`,
         event_status: "success",
         amount: payAmount,
-      });
+      }).catch(() => {});
 
       saveAndAdvance({
         payment_status: "paid",
@@ -87,6 +84,10 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
       }, "confirmation");
 
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+    } else {
+      // Payment intent in unexpected state
+      setError(`Payment status: ${paymentIntent?.status || "unknown"}. Please try again.`);
+      setProcessing(false);
     }
   };
 
@@ -102,14 +103,25 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
     );
   }
 
+  const stripeReady = !!stripe && !!elements;
+
   return (
     <form onSubmit={handlePay}>
-      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white">
-        <PaymentElement options={{ layout: "tabs" }} />
+      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[80px] flex items-center justify-center">
+        {!stripeReady ? (
+          <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+        ) : (
+          <div className="w-full">
+            <PaymentElement options={{ layout: "tabs" }} />
+          </div>
+        )}
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{error}</div>
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          {error}
+        </div>
       )}
 
       {/* Autopay toggle */}
@@ -132,11 +144,13 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
 
       <button
         type="submit"
-        disabled={!stripe || processing}
+        disabled={!stripeReady || processing}
         className="w-full py-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         {processing
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
+          : !stripeReady
+          ? <><RefreshCw className="w-4 h-4 animate-spin" />Loading…</>
           : <><CreditCard className="w-4 h-4" />Pay ${(booking?.total_due_now || booking?.weekly_rate || 0).toLocaleString()} Securely</>
         }
       </button>
@@ -144,6 +158,7 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
   );
 }
 
+// ─── Outer wrapper ────────────────────────────────────────────────────────────
 export default function StepPayment({ booking, user, saveAndAdvance }) {
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
@@ -157,8 +172,20 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
   const amountDue = booking?.total_due_now || booking?.weekly_rate || 0;
   const amountCents = Math.round(amountDue * 100);
 
+  // If booking is already paid (e.g. page reload after payment), skip to confirmation
   useEffect(() => {
-    if (!booking?.id || amountCents < 50 || initialized.current) {
+    if (booking?.payment_status === "paid") {
+      saveAndAdvance({}, "confirmation");
+    }
+  }, [booking?.payment_status]);
+
+  useEffect(() => {
+    if (!booking?.id || initialized.current) {
+      setLoading(false);
+      return;
+    }
+    if (amountCents < 50) {
+      setError(`Amount too low ($${amountDue}). Please contact support.`);
       setLoading(false);
       return;
     }
@@ -183,10 +210,10 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
           setPaymentIntentId(piRes.data.payment_intent_id);
           setStripeCustomerId(piRes.data.stripe_customer_id);
         } else {
-          setError("Could not initialize payment. Please try again.");
+          setError("Could not initialize payment. Please refresh and try again.");
         }
       } catch (err) {
-        setError("Payment setup failed. Please try again.");
+        setError("Payment setup failed. Please refresh and try again.");
       } finally {
         setLoading(false);
       }
@@ -194,7 +221,7 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
     init();
   }, [booking?.id]);
 
-  // Memoize options so the clientSecret reference never changes once set (prevents Elements re-mount)
+  // Memoize options so Elements never re-mounts after clientSecret is set
   const stripeOptions = useMemo(() => clientSecret ? {
     clientSecret,
     appearance: {
@@ -233,7 +260,19 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
           <div className="w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
         </div>
       ) : error ? (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-600 mb-4">{error}</div>
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-600 mb-4 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold mb-1">Payment setup error</p>
+            <p>{error}</p>
+            <button
+              onClick={() => { initialized.current = false; setError(null); setLoading(true); }}
+              className="mt-2 text-xs font-bold text-pink-600 underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
       ) : clientSecret && stripeOptions && stripePromise ? (
         <Elements stripe={stripePromise} options={stripeOptions}>
           <StripePaymentForm
