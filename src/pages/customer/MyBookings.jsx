@@ -8,6 +8,7 @@ import { format } from "date-fns";
 const statusColors = {
   confirmed: "bg-green-100 text-green-700",
   active: "bg-green-100 text-green-700",
+  approved: "bg-green-100 text-green-700",
   pending_review: "bg-yellow-100 text-yellow-700",
   pending_payment: "bg-orange-100 text-orange-700",
   draft: "bg-gray-100 text-gray-600",
@@ -22,6 +23,7 @@ const statusLabel = {
   pending_payment: "Payment Due",
   pending_review: "Under Review",
   confirmed: "Confirmed",
+  approved: "Approved",
   active: "Active",
   completed: "Completed",
   cancelled: "Cancelled",
@@ -72,7 +74,7 @@ export default function MyBookings() {
 
   // Status priority: higher = more advanced/important
   const STATUS_PRIORITY = {
-    active: 7, confirmed: 6, pending_review: 5, pending_payment: 4,
+    active: 7, confirmed: 6, approved: 6, pending_review: 5, pending_payment: 4,
     pending_contract: 3, pending_verification: 2, draft: 1,
     completed: 0, cancelled: 0,
   };
@@ -93,7 +95,7 @@ export default function MyBookings() {
     }, {})
   );
 
-  const active = deduplicated.filter((b) => ["active", "confirmed", "pending_review", "pending_payment", "pending_verification", "pending_contract"].includes(b.booking_status));
+  const active = deduplicated.filter((b) => ["active", "confirmed", "approved", "pending_review", "pending_payment", "pending_verification", "pending_contract"].includes(b.booking_status));
   const past = deduplicated.filter((b) => ["completed", "cancelled"].includes(b.booking_status));
   const drafts = deduplicated.filter((b) => b.booking_status === "draft");
 
