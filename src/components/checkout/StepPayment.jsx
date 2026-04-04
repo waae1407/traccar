@@ -56,11 +56,17 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     return () => clearTimeout(processingTimeoutRef.current);
   }, [processing]);
 
-  // Ensure stripe/elements/clientSecret are all ready before allowing interaction
+  // Mark as ready once stripe, elements, and clientSecret are present
   useEffect(() => {
-    if (!stripe || !elements || !clientSecret) {
+    if (stripe && elements && clientSecret) {
+      console.log("[Payment] ✓ Stripe, elements, and clientSecret ready");
+      // Give DOM a tick to render PaymentElement before marking mounted
+      const timer = setTimeout(() => {
+        setElementMounted(true);
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
       setElementMounted(false);
-      console.log("[Payment] ⏳ Waiting for:", { stripe: !!stripe, elements: !!elements, clientSecret: !!clientSecret });
     }
   }, [stripe, elements, clientSecret]);
 
@@ -181,19 +187,7 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
             </div>
           </div>
         )}
-        <PaymentElement 
-          options={{ layout: "tabs" }}
-          onReady={() => {
-            console.log("[Payment] PaymentElement onReady fired");
-            setElementMounted(true);
-          }}
-          onChange={(e) => {
-            if (e.complete) {
-              console.log("[Payment] PaymentElement complete");
-              setElementMounted(true);
-            }
-          }}
-        />
+        <PaymentElement options={{ layout: "tabs" }} />
       </div>
 
       {error && (
