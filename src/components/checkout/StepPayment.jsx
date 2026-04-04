@@ -7,6 +7,8 @@ import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lu
 
 // ─── Module-level caches (survive component remounts) ───────────────────────
 let cachedStripePromise = null;
+// Module-level paid flag — survives parent re-renders that unmount/remount this component
+let modulePaymentSucceeded = false;
 async function getStripePromise() {
   if (cachedStripePromise) return cachedStripePromise;
   const res = await base44.functions.invoke("stripePublishableKey", {});
@@ -22,8 +24,8 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
-  const [paid, setPaid] = useState(false);
-  const paidRef = useRef(false);
+  const [paid, setPaid] = useState(modulePaymentSucceeded);
+  const paidRef = useRef(modulePaymentSucceeded);
   const queryClient = useQueryClient();
   const bookingRef = useRef(booking);
 
@@ -49,6 +51,7 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
 
     if (paymentIntent?.status === "succeeded" || paymentIntent?.status === "requires_capture") {
       paidRef.current = true;
+      modulePaymentSucceeded = true;
       setPaid(true);
 
       const snap = bookingRef.current;
@@ -169,15 +172,25 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
   const [error, setError] = useState(null);
   const initialized = useRef(false);
 
+  // Reset module-level flag when this is a fresh payment mount (no prior success)
+  useEffect(() => {
+    if (booking?.payment_status !== "paid") {
+      modulePaymentSucceeded = false;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const amountDue = booking?.total_due_now || booking?.weekly_rate || 0;
   const amountCents = Math.round(amountDue * 100);
 
-  // If booking is already paid (e.g. page reload after payment), skip to confirmation
+  // If booking is already paid on mount (e.g. page reload after payment), skip to confirmation
+  // Use a ref to only do this once, not on every re-render
+  const skippedRef = useRef(false);
   useEffect(() => {
-    if (booking?.payment_status === "paid") {
+    if (!skippedRef.current && booking?.payment_status === "paid") {
+      skippedRef.current = true;
       saveAndAdvance({}, "confirmation");
     }
-  }, [booking?.payment_status]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!booking?.id || initialized.current) {
