@@ -32,8 +32,8 @@ const statusLabel = {
   cancellation_requested: "Cancel Pending",
 };
 
-const DELETABLE_STATUSES = ["draft", "pending_verification", "pending_contract", "pending_payment"];
-const CANCELLABLE_STATUSES = ["pending_review", "approved", "confirmed", "active"];
+const DELETABLE_STATUSES = ["draft", "pending_verification", "pending_contract"];
+const CANCELLABLE_STATUSES = ["pending_payment", "pending_review", "approved", "confirmed", "active"];
 
 const STATUS_PRIORITY = {
   active: 7, confirmed: 6, approved: 6, pending_review: 5, pending_payment: 4,
@@ -45,6 +45,7 @@ const STATUS_PRIORITY = {
 function BookingCard({ booking, onDelete, onCancelRequest, isDeleting }) {
   const statusCls = statusColors[booking.booking_status] || "bg-gray-100 text-gray-500";
   const isDraft = booking.booking_status === "draft";
+  const isResumable = ["draft", "pending_verification", "pending_contract", "pending_payment"].includes(booking.booking_status);
   const isDeletable = DELETABLE_STATUSES.includes(booking.booking_status);
   const isCancellable = CANCELLABLE_STATUSES.includes(booking.booking_status);
   const isCancelPending = booking.booking_status === "cancellation_requested";
@@ -68,10 +69,10 @@ function BookingCard({ booking, onDelete, onCancelRequest, isDeleting }) {
           </span>
           <span className="font-semibold text-gray-600">{booking.booking_type}</span>
         </div>
-        {isDraft && (
+        {isResumable && (
           <div className="mt-3 py-2.5 rounded-xl text-center text-xs font-bold text-white"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-            Continue Booking →
+            {booking.booking_status === "pending_payment" ? "Complete Payment →" : "Continue Booking →"}
           </div>
         )}
         {booking.total_due_now && booking.booking_status === "pending_payment" && (
@@ -99,7 +100,7 @@ function BookingCard({ booking, onDelete, onCancelRequest, isDeleting }) {
 
   return (
     <div className="relative">
-      {isDraft ? (
+      {isResumable ? (
         <Link to={`/checkout?request=${booking.id}`}
           className="block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm active:scale-[0.98] transition-transform">
           {cardContent}
