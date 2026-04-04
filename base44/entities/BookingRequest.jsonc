@@ -99,7 +99,8 @@
         "paid",
         "failed",
         "overdue",
-        "due_soon"
+        "due_soon",
+        "refunded"
       ],
       "default": "unpaid"
     },
@@ -259,6 +260,39 @@
     },
     "admin_notes": {
       "type": "string"
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "description": "Stripe customer ID"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string",
+      "description": "Stripe PaymentIntent ID for initial charge"
+    },
+    "stripe_setup_intent_id": {
+      "type": "string",
+      "description": "Stripe SetupIntent ID for saved payment method"
+    },
+    "stripe_payment_method_id": {
+      "type": "string",
+      "description": "Stripe PaymentMethod ID (saved card)"
+    },
+    "stripe_subscription_id": {
+      "type": "string",
+      "description": "Stripe Subscription ID for recurring billing"
+    },
+    "receipt_url": {
+      "type": "string",
+      "description": "Stripe receipt URL"
+    },
+    "autopay_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Customer opted into autopay"
+    },
+    "payment_failure_reason": {
+      "type": "string",
+      "description": "Last payment failure message from Stripe"
     }
   },
   "required": [

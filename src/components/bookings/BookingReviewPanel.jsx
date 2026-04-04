@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+// BookingReviewPanel — shows Stripe payment references when available
 import { X, CheckCircle, XCircle, MessageCircle, User, Car, Shield } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -110,7 +111,23 @@ export default function BookingReviewPanel({ booking, onClose }) {
             <Row label="Start Date" value={booking.start_date ? format(new Date(booking.start_date), "MMM d, yyyy") : "—"} />
             <Row label="Weekly Rate" value={booking.weekly_rate ? `$${booking.weekly_rate}` : "—"} />
             <Row label="Payment" value={booking.payment_status || "—"} highlight={booking.payment_status === "paid" ? "green" : "yellow"} />
+            {booking.receipt_url && (
+              <a href={booking.receipt_url} target="_blank" rel="noreferrer"
+                className="text-xs text-primary underline">View Stripe Receipt ↗</a>
+            )}
           </Section>
+
+          {/* Stripe Payment References */}
+          {(booking.stripe_customer_id || booking.stripe_payment_intent_id) && (
+            <Section title="Stripe References" icon={Shield}>
+              {booking.stripe_customer_id && <Row label="Customer ID" value={booking.stripe_customer_id} />}
+              {booking.stripe_payment_intent_id && <Row label="Payment Intent" value={booking.stripe_payment_intent_id} />}
+              {booking.stripe_payment_method_id && <Row label="Payment Method" value={booking.stripe_payment_method_id} />}
+              {booking.stripe_subscription_id && <Row label="Subscription" value={booking.stripe_subscription_id} />}
+              <Row label="Autopay" value={booking.autopay_enabled ? "Enabled" : "Disabled"} highlight={booking.autopay_enabled ? "green" : null} />
+              {booking.payment_failure_reason && <Row label="Failure Reason" value={booking.payment_failure_reason} highlight="yellow" />}
+            </Section>
+          )}
 
           {/* Verification */}
           <Section title="Verification" icon={Shield}>

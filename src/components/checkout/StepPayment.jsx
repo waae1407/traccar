@@ -1,24 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, Shield, Lock, Check } from "lucide-react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { CreditCard, Shield, Lock, Check, RefreshCw, Zap } from "lucide-react";
 
-const inputCls = "w-full h-11 px-4 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all";
-
-export default function StepPayment({ booking, user, saveAndAdvance }) {
-  // Auto-fill cardholder name from verified profile
-  const profileName = booking?.customer_full_name || user?.full_name || "";
-  const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: profileName });
-  const [autopay, setAutopay] = useState(false);
+// Inner form using Stripe Elements
+function StripePaymentForm({ booking, user, saveAndAdvance, clientSecret, paymentIntentId, stripeCustomerId, autopay, setAutopay }) {
+  const stripe = useStripe();
+  const elements = useElements();
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState(null);
   const [paid, setPaid] = useState(false);
   const queryClient = useQueryClient();
-
-  const isValid = card.name && card.number.length >= 16 && card.expiry && card.cvv.length >= 3;
-
-  const createPaymentMutation = useMutation({
-    mutationFn: (data) => base44.entities.Payment.create(data),
-  });
 
   const logEventMutation = useMutation({
     mutationFn: (data) => base44.entities.ActivityEvent.create(data),
@@ -28,37 +22,49 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
     mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }),
   });
 
-  const handlePay = async () => {
+  const handlePay = async (e) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
     setProcessing(true);
+    setError(null);
 
-    try {
-      // Simulate payment processing delay
-      await new Promise((r) => setTimeout(r, 1500));
+    const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
 
-      const payAmount = booking?.weekly_rate || 0;
+    if (stripeError) {
+      setError(stripeError.message);
+      setProcessing(false);
+      return;
+    }
 
-      // Mark vehicle as Booked to prevent double booking
+    if (paymentIntent?.status === "succeeded" || paymentIntent?.status === "requires_capture") {
+      const payAmount = booking?.total_due_now || booking?.weekly_rate || 0;
+
       if (booking?.vehicle_id) {
         await markVehicleBookedMutation.mutateAsync({ id: booking.vehicle_id });
       }
 
-      // Log activity event (doesn't require customer_id)
       await logEventMutation.mutateAsync({
         user_email: user?.email,
         booking_request_id: booking?.id,
         event_type: "payment_received",
         event_title: "First Payment Received",
-        event_description: `$${payAmount} first ${booking?.booking_type?.toLowerCase()} payment`,
+        event_description: `$${payAmount} initial payment via Stripe`,
         event_status: "success",
         amount: payAmount,
       });
 
-      setProcessing(false);
       setPaid(true);
 
       saveAndAdvance({
         payment_status: "paid",
         booking_status: "pending_review",
+        stripe_payment_intent_id: paymentIntentId,
+        stripe_customer_id: stripeCustomerId,
+        stripe_payment_method_id: paymentIntent.payment_method || null,
+        autopay_enabled: autopay,
         total_due_now: payAmount,
         checkout_step: "confirmation",
         submitted_at: new Date().toISOString(),
@@ -68,9 +74,6 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
       }, "confirmation");
 
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-    } catch (err) {
-      console.error("Payment error:", err);
-      setProcessing(false);
     }
   };
 
@@ -87,79 +90,186 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-5">
-        <div className="h-12 w-12 rounded-2xl bg-green-50 flex items-center justify-center">
-          <CreditCard className="h-6 w-6 text-green-600" />
-        </div>
-        <div>
-          <h2 className="font-bold text-gray-900 text-xl">Secure Payment</h2>
-          <p className="text-gray-400 text-sm">Encrypted & secure checkout</p>
-        </div>
+    <form onSubmit={handlePay}>
+      {/* Stripe secure card entry */}
+      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white">
+        <PaymentElement options={{ layout: "tabs" }} />
       </div>
 
-      {/* Amount due */}
-      <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl border border-pink-100 p-4 mb-5">
-        <p className="text-sm text-gray-500 mb-1">First Payment Due Now</p>
-        <p className="text-3xl font-bold text-gray-900">${(booking?.weekly_rate || 0).toLocaleString()}</p>
-        <p className="text-xs text-gray-500 mt-2">{booking?.booking_type} rental · No deposit required</p>
-      </div>
+      {error && (
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">
+          {error}
+        </div>
+      )}
 
-      {/* Card form */}
-      <div className="space-y-3 mb-4">
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Cardholder Name</label>
-          <input className={inputCls} placeholder="Name as on card" value={card.name}
-            onChange={(e) => setCard((p) => ({ ...p, name: e.target.value }))} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Card Number</label>
-          <input className={inputCls} placeholder="1234 5678 9012 3456" maxLength={19} value={card.number}
-            onChange={(e) => setCard((p) => ({ ...p, number: e.target.value.replace(/\D/g, "").slice(0, 16) }))} />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Expiry</label>
-            <input className={inputCls} placeholder="MM/YY" value={card.expiry}
-              onChange={(e) => setCard((p) => ({ ...p, expiry: e.target.value }))} />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">CVV</label>
-            <input className={inputCls} placeholder="123" maxLength={4} value={card.cvv}
-              onChange={(e) => setCard((p) => ({ ...p, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) }))} />
-          </div>
-        </div>
-      </div>
-
-      {/* Autopay */}
-      <button onClick={() => setAutopay(!autopay)}
+      {/* Autopay toggle */}
+      <button type="button" onClick={() => setAutopay(!autopay)}
         className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50 text-left mb-5">
         <div className={`h-5 w-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${autopay ? "border-pink-500 bg-pink-500" : "border-gray-300"}`}>
           {autopay && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-700">Enable Autopay</p>
-          <p className="text-xs text-gray-400">Automatically charge weekly/monthly payments</p>
+          <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-pink-500" />Enable Autopay</p>
+          <p className="text-xs text-gray-400">Save card & auto-charge future payments</p>
         </div>
       </button>
 
       <div className="flex items-center gap-2 mb-4">
         <Shield className="h-4 w-4 text-green-600" />
         <Lock className="h-3 w-3 text-gray-400" />
-        <p className="text-xs text-gray-400">256-bit encrypted · PCI compliant · Your card is never stored unencrypted</p>
+        <p className="text-xs text-gray-400">Secured by Stripe · PCI DSS compliant · Card details never touch our servers</p>
       </div>
 
       <button
-        disabled={!isValid || processing}
-        onClick={handlePay}
+        type="submit"
+        disabled={!stripe || processing}
         className="w-full py-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         {processing ? (
-          <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Processing…</>
+          <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
         ) : (
-          <>Pay ${(booking?.weekly_rate || 0).toLocaleString()} Securely</>  
+          <><CreditCard className="w-4 h-4" />Pay ${(booking?.total_due_now || booking?.weekly_rate || 0).toLocaleString()} Securely</>
         )}
       </button>
+    </form>
+  );
+}
+
+// Saved card display
+function SavedCardBadge({ card }) {
+  const brandIcon = { visa: "💳", mastercard: "💳", amex: "💳" }[card.brand] || "💳";
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-xl mb-3">
+      <span className="text-lg">{brandIcon}</span>
+      <div>
+        <p className="text-xs font-semibold text-green-800 capitalize">{card.brand} •••• {card.last4}</p>
+        <p className="text-xs text-green-600">Expires {card.exp_month}/{card.exp_year}</p>
+      </div>
+      <span className="ml-auto text-xs text-green-600 font-medium">Saved</span>
+    </div>
+  );
+}
+
+export default function StepPayment({ booking, user, saveAndAdvance }) {
+  const [clientSecret, setClientSecret] = useState(null);
+  const [paymentIntentId, setPaymentIntentId] = useState(null);
+  const [stripeCustomerId, setStripeCustomerId] = useState(null);
+  const [stripePromise, setStripePromise] = useState(null);
+  const [savedCard, setSavedCard] = useState(null);
+  const [autopay, setAutopay] = useState(booking?.autopay_enabled || false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const amountDue = booking?.total_due_now || booking?.weekly_rate || 0;
+  const amountCents = Math.round(amountDue * 100);
+
+  useEffect(() => {
+    if (!booking?.id || amountCents < 50) {
+      setLoading(false);
+      return;
+    }
+
+    const init = async () => {
+      try {
+        // Load Stripe publishable key
+        const keyRes = await base44.functions.invoke("stripePublishableKey", {});
+        if (keyRes.data?.publishable_key) {
+          setStripePromise(loadStripe(keyRes.data.publishable_key));
+        }
+
+        // Check for saved payment method
+        const savedRes = await base44.functions.invoke("stripeGetSavedPaymentMethod", {});
+        if (savedRes.data?.payment_method) setSavedCard(savedRes.data.payment_method);
+
+        // Create PaymentIntent
+        const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
+          booking_request_id: booking.id,
+          amount_cents: amountCents,
+          booking_type: booking.booking_type,
+          setup_future_usage: autopay ? "off_session" : undefined,
+        });
+
+        if (piRes.data?.client_secret) {
+          setClientSecret(piRes.data.client_secret);
+          setPaymentIntentId(piRes.data.payment_intent_id);
+          setStripeCustomerId(piRes.data.stripe_customer_id);
+        } else {
+          setError("Could not initialize payment. Please try again.");
+        }
+      } catch (err) {
+        setError("Payment setup failed. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, [booking?.id]);
+
+  const stripeOptions = clientSecret ? {
+    clientSecret,
+    appearance: {
+      theme: "stripe",
+      variables: {
+        colorPrimary: "hsl(338, 90%, 56%)",
+        borderRadius: "12px",
+        fontFamily: "Inter, sans-serif",
+      },
+    },
+  } : null;
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="h-12 w-12 rounded-2xl bg-green-50 flex items-center justify-center">
+          <CreditCard className="h-6 w-6 text-green-600" />
+        </div>
+        <div>
+          <h2 className="font-bold text-gray-900 text-xl">Pay with Card</h2>
+          <p className="text-gray-400 text-sm">Powered by Stripe · Encrypted & secure</p>
+        </div>
+      </div>
+
+      {/* Amount summary */}
+      <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl border border-pink-100 p-4 mb-5">
+        <p className="text-sm text-gray-500 mb-1">Due Today</p>
+        <p className="text-3xl font-bold text-gray-900">${amountDue.toLocaleString()}</p>
+        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+          <span>{booking?.booking_type} rental</span>
+          {booking?.deposit_amount > 0 && <><span>·</span><span>Deposit: ${booking.deposit_amount}</span></>}
+          {booking?.weekly_rate && <><span>·</span><span>Weekly: ${booking.weekly_rate}</span></>}
+        </div>
+        <p className="text-xs text-gray-400 mt-1">Booking stays <strong>Pending Review</strong> until admin approves</p>
+      </div>
+
+      {/* Saved card */}
+      {savedCard && <SavedCardBadge card={savedCard} />}
+
+      {/* Stripe Elements or loading/error */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-600 mb-4">{error}</div>
+      ) : clientSecret && stripeOptions && stripePromise ? (
+        <Elements stripe={stripePromise} options={stripeOptions}>
+          <StripePaymentForm
+            booking={booking}
+            user={user}
+            saveAndAdvance={saveAndAdvance}
+            clientSecret={clientSecret}
+            paymentIntentId={paymentIntentId}
+            stripeCustomerId={stripeCustomerId}
+            autopay={autopay}
+            setAutopay={setAutopay}
+          />
+        </Elements>
+      ) : (
+        <div className="p-4 rounded-2xl bg-yellow-50 border border-yellow-100 text-sm text-yellow-700">
+          Unable to load payment form. Please refresh and try again.
+        </div>
+      )}
     </div>
   );
 }
