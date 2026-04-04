@@ -15,10 +15,13 @@ export default function CustomerLayout() {
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
       {!isHome && <CustomerTopBar user={user} city={city} onCityChange={() => setCityPickerOpen(true)} />}
-      <main className="max-w-lg mx-auto pb-20">
+      <main className="max-w-2xl mx-auto pb-20 md:pb-8">
         <Outlet context={{ user, city, setCity }} />
       </main>
-      <CustomerBottomNav />
+      {/* Bottom nav only on mobile */}
+      <div className="md:hidden">
+        <CustomerBottomNav />
+      </div>
       <CityPicker
         open={cityPickerOpen}
         onClose={() => setCityPickerOpen(false)}
