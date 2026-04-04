@@ -59,11 +59,17 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   // Mark as ready once Stripe & elements are initialized
   useEffect(() => {
     if (stripe && elements && clientSecret) {
-      console.log("[Payment] Stripe and Elements ready with clientSecret");
+      console.log("[Payment] ✓ Stripe and Elements ready with clientSecret");
       setElementMounted(true);
       setInitError(null);
     } else {
-      console.log("[Payment] Waiting for Stripe:", { stripe: !!stripe, elements: !!elements, clientSecret: !!clientSecret });
+      console.log("[Payment] ⏳ Waiting for Stripe:", { 
+        stripe: !!stripe, 
+        elements: !!elements, 
+        clientSecret: !!clientSecret,
+        stripeType: typeof stripe,
+        elementsType: typeof elements
+      });
     }
   }, [stripe, elements, clientSecret]);
 
@@ -262,10 +268,12 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
 
   useEffect(() => {
     if (!booking?.id || initialized.current) {
+      console.log("[Payment] Skipping init: booking?.id=", booking?.id, "initialized=", initialized.current);
       setLoading(false);
       return;
     }
     if (amountCents < 50) {
+      console.error("[Payment] Amount validation failed: amountCents=", amountCents);
       setError(`Amount too low ($${amountDue}). Please contact support.`);
       setLoading(false);
       return;
@@ -273,7 +281,9 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
     initialized.current = true;
 
     const init = async () => {
+      console.log("[Payment] Starting initialization: booking_id=", booking.id, "amount_cents=", amountCents);
       try {
+        console.log("[Payment] Loading Stripe promise and creating PaymentIntent...");
         const [sp, piRes] = await Promise.all([
           getStripePromise(),
           base44.functions.invoke("stripeCreatePaymentIntent", {
@@ -284,16 +294,22 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
           }),
         ]);
 
+        console.log("[Payment] Stripe promise loaded:", !!sp);
+        console.log("[Payment] PaymentIntent response:", piRes);
+
         setStripePromise(sp);
 
         if (piRes.data?.client_secret) {
+          console.log("[Payment] ✓ Setting client_secret:", piRes.data.client_secret.substring(0, 20) + "...");
           setClientSecret(piRes.data.client_secret);
           setPaymentIntentId(piRes.data.payment_intent_id);
           setStripeCustomerId(piRes.data.stripe_customer_id);
         } else {
+          console.error("[Payment] ✗ No client_secret in response:", piRes);
           setError("Could not initialize payment. Please refresh and try again.");
         }
       } catch (err) {
+        console.error("[Payment] ✗ Init error:", err);
         setError("Payment setup failed. Please refresh and try again.");
       } finally {
         setLoading(false);
@@ -310,6 +326,17 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
       variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
     },
   } : null, [clientSecret]);
+
+  // Debug log on every render
+  React.useEffect(() => {
+    console.log("[Payment] Render state:", {
+      loading,
+      error,
+      clientSecret: !!clientSecret,
+      stripePromise: !!stripePromise,
+      ready: !!clientSecret && !!stripePromise
+    });
+  });
 
   return (
     <div>
