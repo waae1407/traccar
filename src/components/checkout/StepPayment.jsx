@@ -26,7 +26,6 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(modulePaymentSucceeded);
-  const [elementReady, setElementReady] = useState(false);
   const paidRef = useRef(modulePaymentSucceeded);
   const processingTimeoutRef = useRef(null);
   const queryClient = useQueryClient();
@@ -151,17 +150,18 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     );
   }
 
-  const stripeReady = !!stripe && !!elements && elementReady;
+  const stripeReady = !!stripe && !!elements;
 
   return (
     <form onSubmit={handlePay}>
-      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[80px] relative flex items-center justify-center">
-        {!elementReady && (
+      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[80px] flex items-center justify-center">
+        {!stripeReady ? (
           <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+        ) : (
+          <div className="w-full">
+            <PaymentElement options={{ layout: "tabs" }} />
+          </div>
         )}
-        <div className={`w-full ${!elementReady ? "opacity-0 pointer-events-none" : ""}`}>
-          <PaymentElement options={{ layout: "tabs" }} onReady={() => setElementReady(true)} />
-        </div>
       </div>
 
       {error && (
