@@ -8,6 +8,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import PageHeader from "@/components/shared/PageHeader";
 import VehicleFormDialog from "@/components/vehicles/VehicleFormDialog";
+import { toast } from "sonner";
 
 export default function Vehicles() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -30,9 +31,45 @@ export default function Vehicles() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["vehicles", scopeKey] }); setDialogOpen(false); setEditingVehicle(null); },
   });
 
-  const handleSave = (data) => {
-    if (editingVehicle) updateMutation.mutate({ id: editingVehicle.id, data });
-    else createMutation.mutate(data);
+  const handleSave = async (data) => {
+    if (editingVehicle) {
+      const wasBooked = editingVehicle.status === "Booked";
+      const nowAvailable = data.status === "Available";
+
+      // If vehicle is being moved from Booked → Available, cancel the active booking and notify customer
+      if (wasBooked && nowAvailable) {
+        try {
+          const activeBookings = await base44.entities.BookingRequest.filter({
+            vehicle_id: editingVehicle.id,
+          });
+          const active = activeBookings.find((b) =>
+            ["active", "confirmed", "approved", "pending_review", "pending_payment"].includes(b.booking_status)
+          );
+          if (active) {
+            await base44.entities.BookingRequest.update(active.id, {
+              booking_status: "cancelled",
+              payment_status: active.payment_status === "paid" ? "refunded" : active.payment_status,
+            });
+            if (active.user_email) {
+              await base44.entities.Notification.create({
+                user_email: active.user_email,
+                title: "Booking Cancelled",
+                body: `Your booking for ${editingVehicle.year} ${editingVehicle.make} ${editingVehicle.model} has been cancelled by the admin. Please contact us if you have questions.`,
+                type: "booking",
+                booking_request_id: active.id,
+              });
+            }
+            toast.success("Booking cancelled and customer notified.");
+          }
+        } catch (err) {
+          toast.error("Vehicle updated but failed to notify customer.");
+        }
+      }
+
+      updateMutation.mutate({ id: editingVehicle.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
   };
 
   const columns = [
