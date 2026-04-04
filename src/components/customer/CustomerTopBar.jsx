@@ -7,7 +7,7 @@ const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b12
 export default function CustomerTopBar({ user, city, onCityChange }) {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100">
-      <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div className="w-full max-w-screen-xl mx-auto px-4 md:px-8 lg:px-16 h-14 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2">
           <img src={LOGO_ICON} alt="uRide" className="h-8 w-8 rounded-xl object-cover" />
