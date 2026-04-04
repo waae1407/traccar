@@ -27,10 +27,11 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(modulePaymentSucceeded);
   const [elementMounted, setElementMounted] = useState(false);
+  const [initError, setInitError] = useState(null);
   const paidRef = useRef(modulePaymentSucceeded);
   const processingTimeoutRef = useRef(null);
   const queryClient = useQueryClient();
-  const mountTimeoutRef = useRef(null);
+  const paymentElementContainerRef = useRef(null);
 
   // Freeze booking snapshot at mount — never update mid-payment to avoid re-render disruption
   const bookingRef = useRef(booking);
@@ -41,7 +42,6 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   const paymentIntentIdRef = useRef(paymentIntentId);
   const stripeCustomerIdRef = useRef(stripeCustomerId);
   const autopayRef = useRef(autopay);
-  // Keep autopayRef in sync for use inside handlePay callback
   autopayRef.current = autopay;
 
   // Safety valve: if processing stays true for >30s, reset it
@@ -57,16 +57,40 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     return () => clearTimeout(processingTimeoutRef.current);
   }, [processing]);
 
-  // When elements become ready, give Stripe's iframe time to mount
+  // Monitor PaymentElement mounting with observer
   useEffect(() => {
-    if (stripe && elements && !elementMounted) {
-      clearTimeout(mountTimeoutRef.current);
-      mountTimeoutRef.current = setTimeout(() => {
-        setElementMounted(true);
-      }, 1500);
+    if (!stripe || !elements) {
+      console.log("[Payment] Stripe or elements not ready");
+      return;
     }
-    return () => clearTimeout(mountTimeoutRef.current);
-  }, [stripe, elements, elementMounted]);
+
+    console.log("[Payment] Stripe and elements ready, waiting for PaymentElement DOM mount");
+    
+    // Check if payment element iframe has mounted by observing the DOM
+    const checkForPaymentElement = setInterval(() => {
+      const iframes = paymentElementContainerRef.current?.querySelectorAll("iframe");
+      if (iframes && iframes.length > 0) {
+        console.log("[Payment] PaymentElement iframe detected, marking as mounted");
+        setElementMounted(true);
+        setInitError(null);
+        clearInterval(checkForPaymentElement);
+      }
+    }, 100);
+
+    // If not mounted after 5 seconds, show error
+    const timeoutId = setTimeout(() => {
+      if (!elementMounted) {
+        console.error("[Payment] PaymentElement failed to mount after 5s");
+        setInitError("Secure payment form failed to load. Please refresh and try again.");
+        clearInterval(checkForPaymentElement);
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(checkForPaymentElement);
+      clearTimeout(timeoutId);
+    };
+  }, [stripe, elements]);
 
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
@@ -163,14 +187,26 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     );
   }
 
-  const canSubmit = elementMounted && !processing;
+  const canSubmit = elementMounted && !processing && !initError;
 
   return (
     <form onSubmit={handlePay}>
-      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[80px] relative">
-        {!elementMounted && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-xl z-10">
-            <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+      {/* Payment Element Container */}
+      <div ref={paymentElementContainerRef} className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white min-h-[100px] relative">
+        {!elementMounted && !initError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-xl z-10">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+              <p className="text-xs text-gray-500">Loading payment form...</p>
+            </div>
+          </div>
+        )}
+        {initError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-xl z-10">
+            <div className="text-center px-4">
+              <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-red-600">{initError}</p>
+            </div>
           </div>
         )}
         <PaymentElement options={{ layout: "tabs" }} />
@@ -208,8 +244,10 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         {processing
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
+          : initError
+          ? <>Unable to load payment form</>
           : !elementMounted
-          ? <><RefreshCw className="w-4 h-4 animate-spin" />Loading…</>
+          ? <><RefreshCw className="w-4 h-4 animate-spin" />Initializing payment…</>
           : <><CreditCard className="w-4 h-4" />Pay ${(booking?.total_due_now || booking?.weekly_rate || 0).toLocaleString()} Securely</>
         }
       </button>
