@@ -26,9 +26,11 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(modulePaymentSucceeded);
+  const [elementMounted, setElementMounted] = useState(false);
   const paidRef = useRef(modulePaymentSucceeded);
   const processingTimeoutRef = useRef(null);
   const queryClient = useQueryClient();
+  const mountTimeoutRef = useRef(null);
 
   // Freeze booking snapshot at mount — never update mid-payment to avoid re-render disruption
   const bookingRef = useRef(booking);
@@ -55,12 +57,23 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     return () => clearTimeout(processingTimeoutRef.current);
   }, [processing]);
 
+  // When elements become ready, give Stripe's iframe a moment to mount
+  useEffect(() => {
+    if (stripe && elements && !elementMounted) {
+      clearTimeout(mountTimeoutRef.current);
+      mountTimeoutRef.current = setTimeout(() => {
+        setElementMounted(true);
+      }, 500);
+    }
+    return () => clearTimeout(mountTimeoutRef.current);
+  }, [stripe, elements, elementMounted]);
+
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
 
   const handlePay = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements || paidRef.current || processing) return;
+    if (!stripe || !elements || !elementMounted || paidRef.current || processing) return;
     setProcessing(true);
     setError(null);
 
@@ -151,6 +164,7 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   }
 
   const stripeReady = !!stripe && !!elements;
+  const canSubmit = elementMounted && !processing;
 
   return (
     <form onSubmit={handlePay}>
@@ -191,12 +205,12 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
 
       <button
         type="submit"
-        disabled={!stripeReady || processing}
+        disabled={!canSubmit}
         className="w-full py-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         {processing
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
-          : !stripeReady
+          : !elementMounted
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Loading…</>
           : <><CreditCard className="w-4 h-4" />Pay ${(booking?.total_due_now || booking?.weekly_rate || 0).toLocaleString()} Securely</>
         }
