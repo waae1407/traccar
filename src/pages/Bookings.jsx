@@ -11,6 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 
 const TABS = [
   { key: "pending_review", label: "Pending Review", color: "text-yellow-400" },
+  { key: "cancellation_requested", label: "Cancel Requests", color: "text-red-400" },
   { key: "approved", label: "Approved", color: "text-green-400" },
   { key: "active", label: "Active", color: "text-blue-400" },
   { key: "completed", label: "Completed", color: "text-white/40" },
@@ -47,9 +48,9 @@ export default function Bookings() {
     }
   };
 
-  // Alert bookings = pending_review + alert active
+  // Alert bookings = pending_review OR cancellation_requested + alert active
   const alertBookings = bookings.filter(
-    (b) => b.booking_status === "pending_review" && b.pending_review_alert_active !== false
+    (b) => ["pending_review", "cancellation_requested"].includes(b.booking_status) && b.pending_review_alert_active !== false
   ).sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
 
   // Tab counts
@@ -120,7 +121,7 @@ export default function Bookings() {
               </thead>
               <tbody>
                 {filtered.map((row) => {
-                  const isNew = row.booking_status === "pending_review" && !row.viewed_by_admin;
+                  const isNew = ["pending_review", "cancellation_requested"].includes(row.booking_status) && !row.viewed_by_admin;
                   const timeAgo = row.submitted_at || row.created_date
                     ? formatDistanceToNow(new Date(row.submitted_at || row.created_date), { addSuffix: true })
                     : "—";
@@ -215,9 +216,10 @@ function BookingStatusBadge({ status }) {
     active:              "bg-blue-500/15 text-blue-300 border-blue-500/25",
     completed:           "bg-white/5 text-white/40 border-white/10",
     rejected:            "bg-red-500/15 text-red-300 border-red-500/25",
-    more_info_requested: "bg-orange-500/15 text-orange-300 border-orange-500/25",
-    draft:               "bg-white/5 text-white/30 border-white/10",
-    confirmed:           "bg-green-500/15 text-green-300 border-green-500/25",
+    more_info_requested:    "bg-orange-500/15 text-orange-300 border-orange-500/25",
+    draft:                  "bg-white/5 text-white/30 border-white/10",
+    confirmed:              "bg-green-500/15 text-green-300 border-green-500/25",
+    cancellation_requested: "bg-red-500/15 text-red-300 border-red-500/25",
   };
   const cls = map[status] || "bg-white/5 text-white/30 border-white/10";
   const label = (status || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());

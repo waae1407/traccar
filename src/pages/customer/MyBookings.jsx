@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useOutletContext, Link } from "react-router-dom";
-import { CalendarDays, MapPin, Clock, Car, Trash2 } from "lucide-react";
+import { CalendarDays, MapPin, Clock, Car, Trash2, XCircle } from "lucide-react";
 import { format } from "date-fns";
+import CancelBookingSheet from "@/components/customer/CancelBookingSheet";
 
 const statusColors = {
   confirmed: "bg-green-100 text-green-700",
@@ -14,6 +15,7 @@ const statusColors = {
   draft: "bg-gray-100 text-gray-600",
   completed: "bg-gray-100 text-gray-500",
   cancelled: "bg-red-100 text-red-600",
+  cancellation_requested: "bg-red-100 text-red-600",
 };
 
 const statusLabel = {
@@ -27,14 +29,19 @@ const statusLabel = {
   active: "Active",
   completed: "Completed",
   cancelled: "Cancelled",
+  cancellation_requested: "Cancel Pending",
 };
 
 // Statuses considered "not yet submitted" — deletable by user
 const DELETABLE_STATUSES = ["draft", "pending_verification", "pending_contract", "pending_payment"];
 
+// Statuses where customer can request cancellation
+const CANCELLABLE_STATUSES = ["pending_review", "approved", "confirmed", "active"];
+
 export default function MyBookings() {
   const { user } = useOutletContext() || {};
   const queryClient = useQueryClient();
+  const [cancelTarget, setCancelTarget] = useState(null);
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["my-booking-requests", user?.email],
@@ -95,7 +102,7 @@ export default function MyBookings() {
     }, {})
   );
 
-  const active = deduplicated.filter((b) => ["active", "confirmed", "approved", "pending_review", "pending_payment", "pending_verification", "pending_contract"].includes(b.booking_status));
+  const active = deduplicated.filter((b) => ["active", "confirmed", "approved", "pending_review", "pending_payment", "pending_verification", "pending_contract", "cancellation_requested"].includes(b.booking_status));
   const past = deduplicated.filter((b) => ["completed", "cancelled"].includes(b.booking_status));
   const drafts = deduplicated.filter((b) => b.booking_status === "draft");
 
@@ -119,6 +126,8 @@ export default function MyBookings() {
     const statusCls = statusColors[booking.booking_status] || "bg-gray-100 text-gray-500";
     const isDraft = booking.booking_status === "draft";
     const isDeletable = DELETABLE_STATUSES.includes(booking.booking_status);
+    const isCancellable = CANCELLABLE_STATUSES.includes(booking.booking_status);
+    const isCancelPending = booking.booking_status === "cancellation_requested";
 
     const isDeleting = deleteMutation.isPending && deleteMutation.variables === booking.id;
 
@@ -130,42 +139,72 @@ export default function MyBookings() {
       }
     };
 
+    const handleCancelClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setCancelTarget(booking);
+    };
+
+    const cardContent = (
+      <>
+        {booking.vehicle_image && (
+          <img src={booking.vehicle_image} alt="" className="w-full h-32 object-cover" />
+        )}
+        <div className="p-4">
+          <div className="flex items-start justify-between mb-2">
+            <p className="font-bold text-gray-900 pr-8">{booking.vehicle_name || "Vehicle"}</p>
+            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${statusCls}`}>
+              {statusLabel[booking.booking_status] || booking.booking_status}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-400">
+            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{booking.city || "—"}</span>
+            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />
+              {booking.start_date ? format(new Date(booking.start_date), "MMM d") : "TBD"}
+            </span>
+            <span className="font-semibold text-gray-600">{booking.booking_type}</span>
+          </div>
+          {isDraft && (
+            <div className="mt-3 py-2.5 rounded-xl text-center text-xs font-bold text-white"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              Continue Booking →
+            </div>
+          )}
+          {booking.total_due_now && booking.booking_status === "pending_payment" && (
+            <div className="mt-3 flex items-center justify-between p-2.5 bg-orange-50 rounded-xl">
+              <span className="text-xs text-orange-700 font-semibold">Payment due</span>
+              <span className="text-sm font-bold text-orange-700">${booking.total_due_now}</span>
+            </div>
+          )}
+          {isCancelPending && (
+            <div className="mt-3 p-2.5 bg-red-50 rounded-xl">
+              <p className="text-xs text-red-600 font-semibold">Cancellation request pending admin review</p>
+            </div>
+          )}
+          {isCancellable && (
+            <button
+              onClick={handleCancelClick}
+              className="mt-3 w-full py-2 rounded-xl text-xs font-bold text-red-500 border border-red-100 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <XCircle className="h-3.5 w-3.5" /> Request Cancellation
+            </button>
+          )}
+        </div>
+      </>
+    );
+
     return (
       <div className="relative">
-        <Link
-          to={`/checkout?request=${booking.id}`}
-          className="block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm active:scale-[0.98] transition-transform">
-          {booking.vehicle_image && (
-            <img src={booking.vehicle_image} alt="" className="w-full h-32 object-cover" />
-          )}
-          <div className="p-4">
-            <div className="flex items-start justify-between mb-2">
-              <p className="font-bold text-gray-900 pr-8">{booking.vehicle_name || "Vehicle"}</p>
-              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${statusCls}`}>
-                {statusLabel[booking.booking_status] || booking.booking_status}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-gray-400">
-              <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{booking.city || "—"}</span>
-              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />
-                {booking.start_date ? format(new Date(booking.start_date), "MMM d") : "TBD"}
-              </span>
-              <span className="font-semibold text-gray-600">{booking.booking_type}</span>
-            </div>
-            {isDraft && (
-              <div className="mt-3 py-2.5 rounded-xl text-center text-xs font-bold text-white"
-                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                Continue Booking →
-              </div>
-            )}
-            {booking.total_due_now && booking.booking_status === "pending_payment" && (
-              <div className="mt-3 flex items-center justify-between p-2.5 bg-orange-50 rounded-xl">
-                <span className="text-xs text-orange-700 font-semibold">Payment due</span>
-                <span className="text-sm font-bold text-orange-700">${booking.total_due_now}</span>
-              </div>
-            )}
+        {isDraft ? (
+          <Link to={`/checkout?request=${booking.id}`}
+            className="block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm active:scale-[0.98] transition-transform">
+            {cardContent}
+          </Link>
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+            {cardContent}
           </div>
-        </Link>
+        )}
         {isDeletable && (
           <button
             onClick={handleDelete}
@@ -183,6 +222,9 @@ export default function MyBookings() {
 
   return (
     <div className="px-4 py-5">
+      {cancelTarget && (
+        <CancelBookingSheet booking={cancelTarget} onClose={() => setCancelTarget(null)} />
+      )}
       {drafts.length > 0 && (
         <div className="mb-5">
           <h2 className="font-bold text-gray-700 text-sm uppercase tracking-wider mb-3">In Progress</h2>

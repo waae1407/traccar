@@ -76,9 +76,18 @@
         "suspended",
         "approved",
         "rejected",
-        "more_info_requested"
+        "more_info_requested",
+        "cancellation_requested"
       ],
       "default": "draft"
+    },
+    "cancellation_reason": {
+      "type": "string",
+      "description": "Customer's reason for cancellation request"
+    },
+    "cancellation_requested_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "verification_status": {
       "type": "string",

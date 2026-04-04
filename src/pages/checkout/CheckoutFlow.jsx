@@ -130,6 +130,15 @@ export default function CheckoutFlow() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Called by StepPayment after Stripe confirms — bypasses saveAndAdvance to avoid re-render loops
+  const onPaymentSuccess = (updateData) => {
+    if (booking?.id) {
+      updateMutation.mutate({ id: booking.id, data: { ...updateData, checkout_step: "confirmation" } });
+    }
+    setCurrentStep("confirmation");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const stepIndex = STEPS.indexOf(currentStep);
 
   if (loadingRequest) {
@@ -211,7 +220,7 @@ export default function CheckoutFlow() {
         {currentStep === "verification" && <StepVerification {...commonProps} />}
         {currentStep === "terms" && <StepTerms {...commonProps} />}
         {currentStep === "contract" && <StepContract {...commonProps} />}
-        {currentStep === "payment" && <StepPayment {...commonProps} />}
+        {currentStep === "payment" && <StepPayment {...commonProps} onPaymentSuccess={onPaymentSuccess} />}
         {currentStep === "confirmation" && <StepConfirmation {...commonProps} />}
       </div>
     </div>

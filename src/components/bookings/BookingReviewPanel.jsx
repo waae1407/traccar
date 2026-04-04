@@ -92,6 +92,8 @@ export default function BookingReviewPanel({ booking, onClose }) {
     }
   };
 
+  const isCancellationRequest = booking.booking_status === "cancellation_requested";
+
   const timeAgo = booking.submitted_at
     ? formatDistanceToNow(new Date(booking.submitted_at), { addSuffix: true })
     : formatDistanceToNow(new Date(booking.created_date), { addSuffix: true });
@@ -105,7 +107,9 @@ export default function BookingReviewPanel({ booking, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/[0.07] flex-shrink-0">
           <div>
-            <h2 className="font-syne font-bold text-white text-lg">Booking Review</h2>
+            <h2 className="font-syne font-bold text-white text-lg">
+              {isCancellationRequest ? "Cancellation Request" : "Booking Review"}
+            </h2>
             <p className="text-xs text-white/40 mt-0.5">Submitted {timeAgo}</p>
           </div>
           <button onClick={onClose} className="h-8 w-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.10] flex items-center justify-center transition-colors">
@@ -114,11 +118,21 @@ export default function BookingReviewPanel({ booking, onClose }) {
         </div>
 
         {/* Attention banner */}
-        <div className="mx-5 mt-5 p-4 rounded-2xl border border-yellow-400/30 flex-shrink-0"
-          style={{ background: "hsl(45 95% 60% / 0.08)" }}>
-          <p className="text-yellow-300 font-bold text-sm">⚠️ This booking is awaiting your review</p>
-          <p className="text-white/50 text-xs mt-1">Take action below to approve, reject, or request more information.</p>
-        </div>
+        {isCancellationRequest ? (
+          <div className="mx-5 mt-5 p-4 rounded-2xl border border-red-400/30 flex-shrink-0"
+            style={{ background: "hsl(0 72% 58% / 0.08)" }}>
+            <p className="text-red-300 font-bold text-sm">🚨 Customer has requested cancellation</p>
+            {booking.cancellation_reason && (
+              <p className="text-white/60 text-xs mt-1">Reason: <span className="text-white/80">{booking.cancellation_reason}</span></p>
+            )}
+          </div>
+        ) : (
+          <div className="mx-5 mt-5 p-4 rounded-2xl border border-yellow-400/30 flex-shrink-0"
+            style={{ background: "hsl(45 95% 60% / 0.08)" }}>
+            <p className="text-yellow-300 font-bold text-sm">⚠️ This booking is awaiting your review</p>
+            <p className="text-white/50 text-xs mt-1">Take action below to approve, reject, or request more information.</p>
+          </div>
+        )}
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -194,43 +208,91 @@ export default function BookingReviewPanel({ booking, onClose }) {
 
         {/* Action buttons */}
         <div className="p-5 border-t border-white/[0.07] flex-shrink-0 space-y-2">
-          <button
-            onClick={() => handleAction("approve")}
-            disabled={updateMutation.isPending}
-            className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
-            style={{ background: "linear-gradient(135deg, hsl(152 60% 46%), hsl(199 90% 54%))" }}
-          >
-            <CheckCircle className="h-4 w-4" /> Approve Booking
-          </button>
+          {isCancellationRequest ? (
+            <>
+              <button
+                onClick={() => {
+                  updateMutation.mutate({
+                    id: booking.id,
+                    data: { booking_status: "cancelled", pending_review_alert_active: false, viewed_by_admin: true, admin_notes: adminNote },
+                  });
+                  if (booking.user_email) {
+                    notifyMutation.mutate({
+                      user_email: booking.user_email,
+                      title: "Cancellation Approved",
+                      body: `Your cancellation request for ${booking.vehicle_name} has been approved.`,
+                      type: "booking",
+                      booking_request_id: booking.id,
+                    });
+                  }
+                }}
+                disabled={updateMutation.isPending}
+                className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 bg-red-500"
+              >
+                <CheckCircle className="h-4 w-4" /> Approve Cancellation
+              </button>
+              <button
+                onClick={() => {
+                  updateMutation.mutate({
+                    id: booking.id,
+                    data: { booking_status: "approved", pending_review_alert_active: false, viewed_by_admin: true, admin_notes: adminNote },
+                  });
+                  if (booking.user_email) {
+                    notifyMutation.mutate({
+                      user_email: booking.user_email,
+                      title: "Cancellation Denied",
+                      body: `Your cancellation request for ${booking.vehicle_name} was not approved. Your rental remains active.`,
+                      type: "booking",
+                      booking_request_id: booking.id,
+                    });
+                  }
+                }}
+                disabled={updateMutation.isPending}
+                className="w-full py-3 rounded-xl font-bold text-sm text-white/80 flex items-center justify-center gap-1.5 border border-white/[0.1] hover:bg-white/[0.06] disabled:opacity-40"
+              >
+                <XCircle className="h-4 w-4" /> Deny — Keep Rental Active
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => handleAction("approve")}
+                disabled={updateMutation.isPending}
+                className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg, hsl(152 60% 46%), hsl(199 90% 54%))" }}
+              >
+                <CheckCircle className="h-4 w-4" /> Approve Booking
+              </button>
 
-          {/* Charge saved card if autopay enabled */}
-          {booking.autopay_enabled && booking.stripe_payment_method_id && (
-            <button
-              onClick={handleChargeNow}
-              disabled={charging}
-              className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
-              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
-            >
-              {charging ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-              Charge ${booking.weekly_rate?.toLocaleString() || "—"} Now
-            </button>
+              {booking.autopay_enabled && booking.stripe_payment_method_id && (
+                <button
+                  onClick={handleChargeNow}
+                  disabled={charging}
+                  className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
+                  style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+                >
+                  {charging ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                  Charge ${booking.weekly_rate?.toLocaleString() || "—"} Now
+                </button>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleAction("more_info")}
+                  disabled={updateMutation.isPending}
+                  className="py-3 rounded-xl font-bold text-sm text-white/80 flex items-center justify-center gap-1.5 transition-all hover:bg-white/[0.06] border border-white/[0.1] disabled:opacity-40"
+                >
+                  <MessageCircle className="h-4 w-4" /> More Info
+                </button>
+                <button
+                  onClick={() => handleAction("reject")}
+                  disabled={updateMutation.isPending}
+                  className="py-3 rounded-xl font-bold text-sm text-red-400 flex items-center justify-center gap-1.5 transition-all hover:bg-red-500/[0.08] border border-red-500/20 disabled:opacity-40"
+                >
+                  <XCircle className="h-4 w-4" /> Reject
+                </button>
+              </div>
+            </>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => handleAction("more_info")}
-              disabled={updateMutation.isPending}
-              className="py-3 rounded-xl font-bold text-sm text-white/80 flex items-center justify-center gap-1.5 transition-all hover:bg-white/[0.06] border border-white/[0.1] disabled:opacity-40"
-            >
-              <MessageCircle className="h-4 w-4" /> More Info
-            </button>
-            <button
-              onClick={() => handleAction("reject")}
-              disabled={updateMutation.isPending}
-              className="py-3 rounded-xl font-bold text-sm text-red-400 flex items-center justify-center gap-1.5 transition-all hover:bg-red-500/[0.08] border border-red-500/20 disabled:opacity-40"
-            >
-              <XCircle className="h-4 w-4" /> Reject
-            </button>
-          </div>
         </div>
       </div>
     </div>

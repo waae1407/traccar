@@ -19,7 +19,7 @@ async function getStripePromise() {
 }
 
 // ─── Inner Stripe form ───────────────────────────────────────────────────────
-function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, stripeCustomerId, autopay, setAutopay }) {
+function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, autopay, setAutopay }) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -71,7 +71,7 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
         amount: payAmount,
       }).catch(() => {});
 
-      saveAndAdvance({
+      onPaymentSuccess({
         payment_status: "paid",
         booking_status: "pending_review",
         stripe_payment_intent_id: paymentIntentId,
@@ -79,12 +79,11 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
         stripe_payment_method_id: paymentIntent.payment_method || null,
         autopay_enabled: autopay,
         total_due_now: payAmount,
-        checkout_step: "confirmation",
         submitted_at: new Date().toISOString(),
         viewed_by_admin: false,
         pending_review_alert_active: true,
         admin_attention_priority: "high",
-      }, "confirmation");
+      });
 
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
     } else {
@@ -162,7 +161,7 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
 }
 
 // ─── Outer wrapper ────────────────────────────────────────────────────────────
-export default function StepPayment({ booking, user, saveAndAdvance }) {
+export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSuccess }) {
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripeCustomerId, setStripeCustomerId] = useState(null);
@@ -291,7 +290,7 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
           <StripePaymentForm
             booking={booking}
             user={user}
-            saveAndAdvance={saveAndAdvance}
+            onPaymentSuccess={onPaymentSuccess || saveAndAdvance}
             paymentIntentId={paymentIntentId}
             stripeCustomerId={stripeCustomerId}
             autopay={autopay}
