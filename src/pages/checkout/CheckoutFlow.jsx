@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -41,6 +41,8 @@ export default function CheckoutFlow() {
 
   const [booking, setBooking] = useState(null);
   const [currentStep, setCurrentStep] = useState("select_vehicle");
+  // Track whether we've done the initial hydration from the DB so we never override currentStep again
+  const initializedRef = React.useRef(false);
 
   // Load or create draft booking
   const { data: existingRequest, isLoading: loadingRequest } = useQuery({
@@ -71,8 +73,9 @@ export default function CheckoutFlow() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.BookingRequest.update(id, data),
     onSuccess: (updated) => {
+      // Only update local state — do NOT invalidate booking-request query or it re-fetches
+      // and the useEffect would reset currentStep back to the DB value (causing loops)
       setBooking(updated);
-      queryClient.invalidateQueries({ queryKey: ["booking-request", updated.id] });
     },
   });
 
@@ -93,13 +96,13 @@ export default function CheckoutFlow() {
     (b) => b.verification_status === "verified" && b.id !== booking?.id
   );
 
-  // Initialize — if existing request, restore it; otherwise start at select_vehicle
+  // Initialize — only hydrate step from DB on the FIRST load, never again
   useEffect(() => {
-    if (existingRequest) {
+    if (existingRequest && !initializedRef.current) {
+      initializedRef.current = true;
       setBooking(existingRequest);
       setCurrentStep(existingRequest.checkout_step || "select_vehicle");
     }
-    // If coming in with ?vehicle=, stay on select_vehicle so user picks type/date/auto-renew
   }, [existingRequest]);
 
   const saveAndAdvance = (stepData, nextStep) => {
