@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { loadStripe } from "@stripe/stripe-js";
@@ -23,14 +23,18 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(false);
+  // Use a ref so re-renders caused by parent state changes don't reset the paid state
+  const paidRef = useRef(false);
   const queryClient = useQueryClient();
+  // Snapshot booking values at pay time so parent re-renders don't affect them
+  const bookingRef = useRef(booking);
 
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
 
   const handlePay = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || paidRef.current) return;
     setProcessing(true);
     setError(null);
 
@@ -46,23 +50,26 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
     }
 
     if (paymentIntent?.status === "succeeded" || paymentIntent?.status === "requires_capture") {
-      const payAmount = booking?.total_due_now || booking?.weekly_rate || 0;
+      // Mark as paid immediately to prevent any re-render from showing the spinner again
+      paidRef.current = true;
+      setPaid(true);
 
-      if (booking?.vehicle_id) {
-        await markBooked.mutateAsync({ id: booking.vehicle_id });
+      const snap = bookingRef.current;
+      const payAmount = snap?.total_due_now || snap?.weekly_rate || 0;
+
+      if (snap?.vehicle_id) {
+        await markBooked.mutateAsync({ id: snap.vehicle_id });
       }
 
       await logEvent.mutateAsync({
         user_email: user?.email,
-        booking_request_id: booking?.id,
+        booking_request_id: snap?.id,
         event_type: "payment_received",
         event_title: "First Payment Received",
         event_description: `$${payAmount} initial payment via Stripe`,
         event_status: "success",
         amount: payAmount,
       });
-
-      setPaid(true);
 
       saveAndAdvance({
         payment_status: "paid",
@@ -83,7 +90,7 @@ function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, str
     }
   };
 
-  if (paid) {
+  if (paid || paidRef.current) {
     return (
       <div className="flex flex-col items-center py-12 text-center">
         <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
@@ -187,13 +194,14 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
     init();
   }, [booking?.id]);
 
-  const stripeOptions = clientSecret ? {
+  // Memoize options so the clientSecret reference never changes once set (prevents Elements re-mount)
+  const stripeOptions = useMemo(() => clientSecret ? {
     clientSecret,
     appearance: {
       theme: "stripe",
       variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
     },
-  } : null;
+  } : null, [clientSecret]);
 
   return (
     <div>
