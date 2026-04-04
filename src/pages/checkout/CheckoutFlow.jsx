@@ -99,7 +99,8 @@ export default function CheckoutFlow() {
   // Statuses that TRULY block — user has a paid/approved/active rental, needs explicit cancellation
   const HARD_BLOCK_STATUSES = ["approved", "confirmed", "active"];
   // Statuses that are stale/pre-payment — can be auto-cancelled when user starts fresh
-  const STALE_STATUSES = ["draft", "pending_verification", "pending_contract", "pending_payment", "pending_review", "under_review"];
+  // NOTE: "draft" is intentionally excluded — drafts are only cancelled when user actively picks a new vehicle in onSelect
+  const STALE_STATUSES = ["pending_verification", "pending_contract", "pending_payment", "pending_review", "under_review"];
 
   // Check if user already has another active booking (not the current one being resumed)
   const { data: allUserBookings = [], refetch: refetchAllBookings } = useQuery({
@@ -221,8 +222,11 @@ export default function CheckoutFlow() {
         {currentStep === "select_vehicle" && <StepVehicle {...commonProps} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} onSelect={async (v, type, opts = {}) => {
           if (!user) { navigate(`/checkout?vehicle=${v.id}&type=${type}`); return; }
           if (hardBlockingBooking) return;
-          // Auto-cancel any stale pre-payment bookings before creating the new one
-          await Promise.all(staleBookings.map((b) => cancelStaleMutation.mutateAsync(b.id)));
+          // Auto-cancel any stale/draft bookings before creating the new one
+          const allStaleToCancel = allUserBookings.filter(
+            (b) => [...STALE_STATUSES, "draft"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
+          );
+          await Promise.all(allStaleToCancel.map((b) => cancelStaleMutation.mutateAsync(b.id)));
           createMutation.mutate({
             vehicle_id: v.id, vehicle_name: `${v.year} ${v.make} ${v.model}`,
             vehicle_image: v.image_url, booking_type: type, city: v.current_city,
