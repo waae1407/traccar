@@ -323,13 +323,16 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   }, [booking?.id]);
 
   // Memoize options so Elements never re-mounts after clientSecret is set
-  const stripeOptions = useMemo(() => clientSecret ? {
-    clientSecret,
-    appearance: {
-      theme: "stripe",
-      variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
-    },
-  } : null, [clientSecret]);
+  const stripeOptions = useMemo(() => {
+    if (!clientSecret) return null;
+    return {
+      clientSecret,
+      appearance: {
+        theme: "stripe",
+        variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
+      },
+    };
+  }, [clientSecret]);
 
   // Debug log on every render
   React.useEffect(() => {
@@ -385,8 +388,12 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             </button>
           </div>
         </div>
-      ) : clientSecret && stripeOptions && stripePromise ? (
-        <Elements stripe={stripePromise} options={stripeOptions}>
+      ) : !clientSecret || !stripePromise || !stripeOptions ? (
+        <div className="p-4 rounded-2xl bg-yellow-50 border border-yellow-100 text-sm text-yellow-700">
+          Initializing payment form...
+        </div>
+      ) : (
+        <Elements stripe={stripePromise} options={stripeOptions} key={clientSecret}>
           <StripePaymentForm
             booking={booking}
             user={user}
@@ -396,10 +403,6 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             clientSecret={clientSecret}
           />
         </Elements>
-      ) : (
-        <div className="p-4 rounded-2xl bg-yellow-50 border border-yellow-100 text-sm text-yellow-700">
-          Unable to load payment form. Please refresh and try again.
-        </div>
       )}
     </div>
   );
