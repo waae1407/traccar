@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Upload, Check, AlertCircle, ShieldCheck, Loader2, XCircle } from "lucide-react";
 
@@ -67,6 +67,7 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
   const [verifyStatus, setVerifyStatus] = useState(null); // null | "checking" | "passed" | "failed"
   const [verifyMessage, setVerifyMessage] = useState("");
   const isRTO = booking?.booking_type === "Rent-to-Own";
+  const verifyingRef = React.useRef(false); // Prevent duplicate LLM calls
 
   const handleUpload = async (field, file) => {
     if (!file) return;
@@ -84,6 +85,10 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
   const allUploaded = uploads.license_front_url && uploads.license_back_url && uploads.selfie_url;
 
   const runVerification = async () => {
+    // Prevent duplicate verification calls
+    if (verifyingRef.current) return;
+    verifyingRef.current = true;
+    
     setVerifyStatus("checking");
     setVerifyMessage("");
 
@@ -152,6 +157,8 @@ Respond ONLY with valid JSON:
     } catch {
       setVerifyStatus("failed");
       setVerifyMessage("Verification service is temporarily unavailable. Please try again.");
+    } finally {
+      verifyingRef.current = false;
     }
   };
 

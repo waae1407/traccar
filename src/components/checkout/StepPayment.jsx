@@ -57,18 +57,22 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   }, [processing]);
 
   // Mark as ready once Stripe & elements are initialized
+  // Give PaymentElement time to mount before allowing user interaction
   useEffect(() => {
     if (stripe && elements && clientSecret) {
       console.log("[Payment] ✓ Stripe and Elements ready with clientSecret");
-      setElementMounted(true);
       setInitError(null);
+      // Wait a tick for PaymentElement to mount before marking ready
+      const timer = setTimeout(() => {
+        setElementMounted(true);
+      }, 100);
+      return () => clearTimeout(timer);
     } else {
+      setElementMounted(false);
       console.log("[Payment] ⏳ Waiting for Stripe:", { 
         stripe: !!stripe, 
         elements: !!elements, 
-        clientSecret: !!clientSecret,
-        stripeType: typeof stripe,
-        elementsType: typeof elements
+        clientSecret: !!clientSecret
       });
     }
   }, [stripe, elements, clientSecret]);
