@@ -26,6 +26,20 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(modulePaymentSucceeded);
   const paidRef = useRef(modulePaymentSucceeded);
+  const processingTimeoutRef = useRef(null);
+
+  // Safety valve: if processing stays true for >30s, reset it
+  useEffect(() => {
+    if (processing) {
+      processingTimeoutRef.current = setTimeout(() => {
+        setProcessing(false);
+        setError("Payment timed out. Please try again.");
+      }, 30_000);
+    } else {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    return () => clearTimeout(processingTimeoutRef.current);
+  }, [processing]);
   const queryClient = useQueryClient();
   const bookingRef = useRef(booking);
 
@@ -38,10 +52,19 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     setProcessing(true);
     setError(null);
 
-    const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      redirect: "if_required",
-    });
+    let stripeError, paymentIntent;
+    try {
+      const result = await stripe.confirmPayment({
+        elements,
+        redirect: "if_required",
+      });
+      stripeError = result.error;
+      paymentIntent = result.paymentIntent;
+    } catch (err) {
+      setError("Payment failed unexpectedly. Please try again.");
+      setProcessing(false);
+      return;
+    }
 
     if (stripeError) {
       setError(stripeError.message);
@@ -49,7 +72,9 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
       return;
     }
 
-    if (paymentIntent?.status === "succeeded" || paymentIntent?.status === "requires_capture") {
+    const status = paymentIntent?.status;
+
+    if (status === "succeeded" || status === "requires_capture") {
       paidRef.current = true;
       modulePaymentSucceeded = true;
       setPaid(true);
@@ -86,9 +111,16 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
       });
 
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+    } else if (status === "processing") {
+      // Stripe is still processing — poll for completion
+      setError("Payment is processing. Please wait a moment and check your bookings for confirmation.");
+      setProcessing(false);
+    } else if (status === "requires_action") {
+      // 3D Secure or bank redirect needed — Stripe should handle this automatically with redirect:"if_required"
+      setError("Additional authentication required. Please follow the prompts from your bank.");
+      setProcessing(false);
     } else {
-      // Payment intent in unexpected state
-      setError(`Payment status: ${paymentIntent?.status || "unknown"}. Please try again.`);
+      setError(`Payment could not be completed (status: ${status || "unknown"}). Please try again or use a different card.`);
       setProcessing(false);
     }
   };
