@@ -77,20 +77,20 @@ export default function CheckoutFlow() {
   });
 
   // Fetch user's previous booking requests for data pre-population
+  // NOTE: must be enabled even when requestId exists (resuming a booking still needs prefill data)
   const { data: previousBookings = [] } = useQuery({
     queryKey: ["previous-booking-requests", user?.email],
     queryFn: () => base44.entities.BookingRequest.filter({ user_email: user?.email }),
-    enabled: !!user?.email && !requestId,
+    enabled: !!user?.email,
     select: (data) =>
       [...data]
         .filter((b) => b.customer_full_name)
         .sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)),
   });
 
-  // Find the most recent verified booking within 30 days
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  // Find the most recently verified booking to use for pre-fill (excluding current booking being edited)
   const recentVerifiedBooking = previousBookings.find(
-    (b) => b.verification_status === "verified" && new Date(b.updated_date) >= thirtyDaysAgo
+    (b) => b.verification_status === "verified" && b.id !== booking?.id
   );
 
   // Initialize — if existing request, restore it; otherwise start at select_vehicle
