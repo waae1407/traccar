@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-// BookingReviewPanel — shows Stripe payment references when available
-import { X, CheckCircle, XCircle, MessageCircle, User, Car, Shield } from "lucide-react";
+import { X, CheckCircle, XCircle, MessageCircle, User, Car, Shield, Zap, RefreshCw } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { formatDistanceToNow, format } from "date-fns";
+import { toast } from "sonner";
 
 export default function BookingReviewPanel({ booking, onClose }) {
   const [adminNote, setAdminNote] = useState(booking?.admin_notes || "");
+  const [charging, setCharging] = useState(false);
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
@@ -21,6 +22,35 @@ export default function BookingReviewPanel({ booking, onClose }) {
   const notifyMutation = useMutation({
     mutationFn: (data) => base44.entities.Notification.create(data),
   });
+
+  const handleChargeNow = async () => {
+    if (!booking.stripe_customer_id || !booking.stripe_payment_method_id) {
+      toast.error("No saved payment method on file.");
+      return;
+    }
+    if (!confirm(`Charge $${booking.weekly_rate?.toLocaleString()} to ${booking.customer_full_name}?`)) return;
+    setCharging(true);
+    try {
+      const res = await base44.functions.invoke("stripeChargeCustomer", {
+        stripe_customer_id: booking.stripe_customer_id,
+        payment_method_id: booking.stripe_payment_method_id,
+        amount_cents: Math.round((booking.weekly_rate || 0) * 100),
+        booking_request_id: booking.id,
+        description: `uRide ${booking.booking_type} — ${booking.vehicle_name || ""}`,
+      });
+      if (res.data?.status === "succeeded") {
+        toast.success("Payment charged successfully!");
+        queryClient.invalidateQueries({ queryKey: ["booking-requests-admin"] });
+        queryClient.invalidateQueries({ queryKey: ["stripe-payments"] });
+      } else {
+        toast.error(`Charge failed: ${res.data?.error || "Unknown error"}`);
+      }
+    } catch {
+      toast.error("Charge failed. Please try again.");
+    } finally {
+      setCharging(false);
+    }
+  };
 
   if (!booking) return null;
 
@@ -172,6 +202,19 @@ export default function BookingReviewPanel({ booking, onClose }) {
           >
             <CheckCircle className="h-4 w-4" /> Approve Booking
           </button>
+
+          {/* Charge saved card if autopay enabled */}
+          {booking.autopay_enabled && booking.stripe_payment_method_id && (
+            <button
+              onClick={handleChargeNow}
+              disabled={charging}
+              className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+            >
+              {charging ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              Charge ${booking.weekly_rate?.toLocaleString() || "—"} Now
+            </button>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleAction("more_info")}

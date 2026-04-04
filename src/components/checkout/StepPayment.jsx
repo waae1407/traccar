@@ -1,12 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { CreditCard, Shield, Lock, Check, RefreshCw, Zap } from "lucide-react";
 
-// Inner form using Stripe Elements
-function StripePaymentForm({ booking, user, saveAndAdvance, clientSecret, paymentIntentId, stripeCustomerId, autopay, setAutopay }) {
+// Cache the Stripe promise so we only load it once per session
+let cachedStripePromise = null;
+async function getStripePromise() {
+  if (cachedStripePromise) return cachedStripePromise;
+  const res = await base44.functions.invoke("stripePublishableKey", {});
+  const key = res.data?.publishable_key;
+  if (!key) throw new Error("Missing Stripe publishable key");
+  cachedStripePromise = loadStripe(key);
+  return cachedStripePromise;
+}
+
+// Inner form — rendered inside <Elements>
+function StripePaymentForm({ booking, user, saveAndAdvance, paymentIntentId, stripeCustomerId, autopay, setAutopay }) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -14,13 +25,8 @@ function StripePaymentForm({ booking, user, saveAndAdvance, clientSecret, paymen
   const [paid, setPaid] = useState(false);
   const queryClient = useQueryClient();
 
-  const logEventMutation = useMutation({
-    mutationFn: (data) => base44.entities.ActivityEvent.create(data),
-  });
-
-  const markVehicleBookedMutation = useMutation({
-    mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }),
-  });
+  const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
+  const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
 
   const handlePay = async (e) => {
     e.preventDefault();
@@ -43,10 +49,10 @@ function StripePaymentForm({ booking, user, saveAndAdvance, clientSecret, paymen
       const payAmount = booking?.total_due_now || booking?.weekly_rate || 0;
 
       if (booking?.vehicle_id) {
-        await markVehicleBookedMutation.mutateAsync({ id: booking.vehicle_id });
+        await markBooked.mutateAsync({ id: booking.vehicle_id });
       }
 
-      await logEventMutation.mutateAsync({
+      await logEvent.mutateAsync({
         user_email: user?.email,
         booking_request_id: booking?.id,
         event_type: "payment_received",
@@ -91,15 +97,12 @@ function StripePaymentForm({ booking, user, saveAndAdvance, clientSecret, paymen
 
   return (
     <form onSubmit={handlePay}>
-      {/* Stripe secure card entry */}
       <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white">
         <PaymentElement options={{ layout: "tabs" }} />
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">
-          {error}
-        </div>
+        <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-600">{error}</div>
       )}
 
       {/* Autopay toggle */}
@@ -125,28 +128,12 @@ function StripePaymentForm({ booking, user, saveAndAdvance, clientSecret, paymen
         disabled={!stripe || processing}
         className="w-full py-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-        {processing ? (
-          <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
-        ) : (
-          <><CreditCard className="w-4 h-4" />Pay ${(booking?.total_due_now || booking?.weekly_rate || 0).toLocaleString()} Securely</>
-        )}
+        {processing
+          ? <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
+          : <><CreditCard className="w-4 h-4" />Pay ${(booking?.total_due_now || booking?.weekly_rate || 0).toLocaleString()} Securely</>
+        }
       </button>
     </form>
-  );
-}
-
-// Saved card display
-function SavedCardBadge({ card }) {
-  const brandIcon = { visa: "💳", mastercard: "💳", amex: "💳" }[card.brand] || "💳";
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-xl mb-3">
-      <span className="text-lg">{brandIcon}</span>
-      <div>
-        <p className="text-xs font-semibold text-green-800 capitalize">{card.brand} •••• {card.last4}</p>
-        <p className="text-xs text-green-600">Expires {card.exp_month}/{card.exp_year}</p>
-      </div>
-      <span className="ml-auto text-xs text-green-600 font-medium">Saved</span>
-    </div>
   );
 }
 
@@ -155,39 +142,34 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripeCustomerId, setStripeCustomerId] = useState(null);
   const [stripePromise, setStripePromise] = useState(null);
-  const [savedCard, setSavedCard] = useState(null);
   const [autopay, setAutopay] = useState(booking?.autopay_enabled || false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const initialized = useRef(false);
 
   const amountDue = booking?.total_due_now || booking?.weekly_rate || 0;
   const amountCents = Math.round(amountDue * 100);
 
   useEffect(() => {
-    if (!booking?.id || amountCents < 50) {
+    if (!booking?.id || amountCents < 50 || initialized.current) {
       setLoading(false);
       return;
     }
+    initialized.current = true;
 
     const init = async () => {
       try {
-        // Load Stripe publishable key
-        const keyRes = await base44.functions.invoke("stripePublishableKey", {});
-        if (keyRes.data?.publishable_key) {
-          setStripePromise(loadStripe(keyRes.data.publishable_key));
-        }
+        const [sp, piRes] = await Promise.all([
+          getStripePromise(),
+          base44.functions.invoke("stripeCreatePaymentIntent", {
+            booking_request_id: booking.id,
+            amount_cents: amountCents,
+            booking_type: booking.booking_type,
+            setup_future_usage: "off_session",
+          }),
+        ]);
 
-        // Check for saved payment method
-        const savedRes = await base44.functions.invoke("stripeGetSavedPaymentMethod", {});
-        if (savedRes.data?.payment_method) setSavedCard(savedRes.data.payment_method);
-
-        // Create PaymentIntent
-        const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
-          booking_request_id: booking.id,
-          amount_cents: amountCents,
-          booking_type: booking.booking_type,
-          setup_future_usage: autopay ? "off_session" : undefined,
-        });
+        setStripePromise(sp);
 
         if (piRes.data?.client_secret) {
           setClientSecret(piRes.data.client_secret);
@@ -209,11 +191,7 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
     clientSecret,
     appearance: {
       theme: "stripe",
-      variables: {
-        colorPrimary: "hsl(338, 90%, 56%)",
-        borderRadius: "12px",
-        fontFamily: "Inter, sans-serif",
-      },
+      variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
     },
   } : null;
 
@@ -242,10 +220,6 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
         <p className="text-xs text-gray-400 mt-1">Booking stays <strong>Pending Review</strong> until admin approves</p>
       </div>
 
-      {/* Saved card */}
-      {savedCard && <SavedCardBadge card={savedCard} />}
-
-      {/* Stripe Elements or loading/error */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
@@ -258,7 +232,6 @@ export default function StepPayment({ booking, user, saveAndAdvance }) {
             booking={booking}
             user={user}
             saveAndAdvance={saveAndAdvance}
-            clientSecret={clientSecret}
             paymentIntentId={paymentIntentId}
             stripeCustomerId={stripeCustomerId}
             autopay={autopay}
