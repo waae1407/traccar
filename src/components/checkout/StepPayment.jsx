@@ -19,7 +19,8 @@ async function getStripePromise() {
 }
 
 // ─── Inner Stripe form ───────────────────────────────────────────────────────
-function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, autopay, setAutopay }) {
+function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId }) {
+  const [autopay, setAutopay] = useState(booking?.autopay_enabled || false);
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -27,6 +28,19 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
   const [paid, setPaid] = useState(modulePaymentSucceeded);
   const paidRef = useRef(modulePaymentSucceeded);
   const processingTimeoutRef = useRef(null);
+  const queryClient = useQueryClient();
+
+  // Freeze booking snapshot at mount — never update mid-payment to avoid re-render disruption
+  const bookingRef = useRef(booking);
+
+  // Keep refs stable so callbacks always have latest values without causing re-renders
+  const onPaymentSuccessRef = useRef(onPaymentSuccess);
+  useEffect(() => { onPaymentSuccessRef.current = onPaymentSuccess; }, [onPaymentSuccess]);
+  const paymentIntentIdRef = useRef(paymentIntentId);
+  const stripeCustomerIdRef = useRef(stripeCustomerId);
+  const autopayRef = useRef(autopay);
+  // Keep autopayRef in sync for use inside handlePay callback
+  autopayRef.current = autopay;
 
   // Safety valve: if processing stays true for >30s, reset it
   useEffect(() => {
@@ -40,8 +54,6 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
     }
     return () => clearTimeout(processingTimeoutRef.current);
   }, [processing]);
-  const queryClient = useQueryClient();
-  const bookingRef = useRef(booking);
 
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
@@ -61,7 +73,8 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
       stripeError = result.error;
       paymentIntent = result.paymentIntent;
     } catch (err) {
-      setError("Payment failed unexpectedly. Please try again.");
+      console.error("stripe.confirmPayment threw:", err);
+      setError(err?.message || "Payment failed unexpectedly. Please try again.");
       setProcessing(false);
       return;
     }
@@ -96,13 +109,13 @@ function StripePaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, s
         amount: payAmount,
       }).catch(() => {});
 
-      onPaymentSuccess({
+      onPaymentSuccessRef.current({
         payment_status: "paid",
         booking_status: "pending_review",
-        stripe_payment_intent_id: paymentIntentId,
-        stripe_customer_id: stripeCustomerId,
+        stripe_payment_intent_id: paymentIntentIdRef.current,
+        stripe_customer_id: stripeCustomerIdRef.current,
         stripe_payment_method_id: paymentIntent.payment_method || null,
-        autopay_enabled: autopay,
+        autopay_enabled: autopayRef.current,
         total_due_now: payAmount,
         submitted_at: new Date().toISOString(),
         viewed_by_admin: false,
@@ -198,7 +211,6 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripeCustomerId, setStripeCustomerId] = useState(null);
   const [stripePromise, setStripePromise] = useState(null);
-  const [autopay, setAutopay] = useState(booking?.autopay_enabled || false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const initialized = useRef(false);
@@ -325,8 +337,6 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             onPaymentSuccess={onPaymentSuccess || saveAndAdvance}
             paymentIntentId={paymentIntentId}
             stripeCustomerId={stripeCustomerId}
-            autopay={autopay}
-            setAutopay={setAutopay}
           />
         </Elements>
       ) : (
