@@ -229,6 +229,10 @@
       "type": "string",
       "description": "Version of the contract signed e.g. WR-v2.0 or RTO-v2.0"
     },
+    "contract_initials": {
+      "type": "string",
+      "description": "JSON string of per-clause initials with timestamps: { clause_id: { initials, signed_at, clause_version } }"
+    },
     "signature_name": {
       "type": "string"
     },

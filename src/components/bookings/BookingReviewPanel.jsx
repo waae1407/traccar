@@ -286,6 +286,24 @@ export default function BookingReviewPanel({ booking, onClose }) {
             <Row label="E-Sign Consented" value={booking.consent_esign ? "Yes ✓" : "No"} highlight={booking.consent_esign ? "green" : "yellow"} />
             {booking.signed_at && <Row label="Signed At" value={new Date(booking.signed_at).toLocaleString()} />}
             {booking.signature_name && <Row label="Signature Name" value={booking.signature_name} />}
+            {booking.contract_initials && (() => {
+              try {
+                const parsed = JSON.parse(booking.contract_initials);
+                return (
+                  <div className="mt-2">
+                    <p className="text-xs text-white/35 mb-1.5">Clause Initials</p>
+                    <div className="space-y-1">
+                      {Object.entries(parsed).map(([clauseId, data]) => (
+                        <div key={clauseId} className="flex items-center justify-between">
+                          <span className="text-xs text-white/40 capitalize">{clauseId.replace(/_/g, " ")}</span>
+                          <span className="text-xs font-bold text-green-400 italic">"{data.initials}" ✓</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              } catch { return null; }
+            })()}
             {booking.stripe_payment_intent_id && (
               <a
                 href={`https://dashboard.stripe.com/payments/${booking.stripe_payment_intent_id}`}

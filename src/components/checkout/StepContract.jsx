@@ -1,32 +1,102 @@
 import React, { useState } from "react";
-import { FileText, PenLine, ShieldCheck, KeyRound } from "lucide-react";
+import { FileText, PenLine, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react";
 import { generateWeeklyContract } from "./contracts/WeeklyRentalContract";
 import { generateRTOContract } from "./contracts/RentToOwnContract";
+import InitialClause from "./InitialClause";
 
+// ─── Clause definitions ────────────────────────────────────────────────────────
+const COMMON_CLAUSES = [
+  {
+    id: "recurring_payment",
+    label: "Recurring Payment Authorization",
+    severity: "high",
+    text: "I authorize uRide to charge my saved payment method on a recurring weekly basis for the rental rate shown above. I understand charges will continue until I cancel through my account.",
+  },
+  {
+    id: "repossession_policy",
+    label: "Late Payment & Repossession Policy",
+    severity: "high",
+    text: "I understand that if a payment fails and is not cured within the grace period, uRide may remotely disable and repossess the vehicle at my expense. All associated repossession costs will be my responsibility.",
+  },
+  {
+    id: "damage_authorization",
+    label: "Damage & Additional Charges Authorization",
+    severity: "high",
+    text: "I authorize uRide to charge my payment method on file for any damages, tolls, cleaning fees, refueling fees, or other costs incurred during my rental period beyond normal wear and tear.",
+  },
+  {
+    id: "gps_tracking",
+    label: "GPS Tracking Consent",
+    severity: "medium",
+    text: "I acknowledge that the vehicle is equipped with GPS tracking technology. uRide may use location data to verify vehicle use, enforce rental zone agreements, and support recovery in the event of non-payment or unauthorized use.",
+  },
+  {
+    id: "clean_return",
+    label: "Clean Return Incentive — Conditional",
+    severity: "medium",
+    text: "I understand the $50 clean return refund or credit is conditional and determined solely by uRide based on before-and-after photo comparison. Eligibility is not guaranteed and is at uRide's discretion.",
+  },
+];
+
+const RTO_CLAUSE = {
+  id: "rto_forfeiture",
+  label: "Rent-to-Own: Forfeiture & Repossession",
+  severity: "high",
+  text: "I understand that a missed or failed payment breaks the consecutive payment requirement. This results in immediate account status change to 'At Risk,' potential repossession of the vehicle, and forfeiture of ALL prior payments made. Ownership title transfers ONLY after all required consecutive payments are fully completed.",
+};
+
+// ─── Component ─────────────────────────────────────────────────────────────────
 export default function StepContract({ booking, vehicle, saveAndAdvance }) {
-  const [signatureName, setSignatureName] = useState("");
-  const [reviewed, setReviewed] = useState(false);
-
   const isRTO = booking?.booking_type === "Rent-to-Own";
   const contractHTML = isRTO ? generateRTOContract(booking) : generateWeeklyContract(booking);
   const contractType = isRTO ? "rent_to_own" : "weekly";
   const contractVersion = isRTO ? "RTO-v2.0" : "WR-v2.0";
 
-  const canSign = reviewed && signatureName.trim().length > 2;
+  const clauses = isRTO ? [...COMMON_CLAUSES, RTO_CLAUSE] : COMMON_CLAUSES;
+
+  // initials state: { clause_id: string }
+  const [initials, setInitials] = useState(() =>
+    Object.fromEntries(clauses.map((c) => [c.id, ""]))
+  );
+  const [signatureName, setSignatureName] = useState("");
+  const [contractReviewed, setContractReviewed] = useState(false);
+
+  const handleInitials = (id, val) => setInitials((p) => ({ ...p, [id]: val }));
+
+  const allInitialed = clauses.every((c) => initials[c.id].trim().length >= 1);
+  const canSign = allInitialed && contractReviewed && signatureName.trim().length > 2;
 
   const handleSign = () => {
+    const signedAt = new Date().toISOString();
+    const deviceInfo = navigator.userAgent || "unknown";
+
+    // Build per-clause initials record
+    const initialsRecord = Object.fromEntries(
+      clauses.map((c) => [
+        c.id,
+        {
+          initials: initials[c.id],
+          signed_at: signedAt,
+          clause_version: contractVersion,
+        },
+      ])
+    );
+
     saveAndAdvance({
       signature_name: signatureName,
-      signature_device_info: navigator.userAgent || "unknown",
+      signature_device_info: deviceInfo,
       signature_ip_address: "captured-server-side",
-      signed_at: new Date().toISOString(),
+      signed_at: signedAt,
       contract_html: contractHTML,
       contract_type: contractType,
       contract_version: contractVersion,
       contract_status: "signed",
+      contract_initials: JSON.stringify(initialsRecord),
       booking_status: "pending_payment",
     }, "payment");
   };
+
+  const completedCount = clauses.filter((c) => initials[c.id].trim().length >= 1).length;
 
   return (
     <div>
@@ -39,7 +109,7 @@ export default function StepContract({ booking, vehicle, saveAndAdvance }) {
           <h2 className="font-bold text-gray-900 text-xl">
             {isRTO ? "Rent-to-Own Agreement" : "Weekly Rental Agreement"}
           </h2>
-          <p className="text-gray-400 text-sm">Version {contractVersion} · Read fully before signing.</p>
+          <p className="text-gray-400 text-sm">Version {contractVersion} · Initial each clause below.</p>
         </div>
       </div>
 
@@ -47,53 +117,99 @@ export default function StepContract({ booking, vehicle, saveAndAdvance }) {
       <div className={`mb-4 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 ${isRTO ? "bg-purple-50 text-purple-700 border border-purple-100" : "bg-blue-50 text-blue-700 border border-blue-100"}`}>
         <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
         {isRTO
-          ? "This is a Rent-to-Own contract. Missed payments result in forfeiture of all prior payments and repossession."
-          : "This is a Weekly Rental contract. Includes clean return incentive ($50 credit) and photo verification."}
+          ? "Rent-to-Own contract — initials required on all 6 critical clauses below."
+          : "Weekly Rental contract — initials required on 5 critical clauses below."}
       </div>
 
-      {/* Contract viewer */}
-      <div
-        className="bg-white rounded-2xl border border-gray-200 p-4 max-h-80 overflow-y-auto text-sm mb-4 shadow-inner"
-        dangerouslySetInnerHTML={{ __html: contractHTML }}
-      />
-
-      {/* Reviewed checkbox */}
-      <button
-        onClick={() => setReviewed(!reviewed)}
-        className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50 text-left mb-4"
-      >
-        <div className={`h-5 w-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${reviewed ? "border-pink-500 bg-pink-500" : "border-gray-300"}`}>
-          {reviewed && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-        </div>
-        <p className="text-sm text-gray-700">I have read and reviewed the full {isRTO ? "Rent-to-Own" : "Weekly Rental"} agreement above.</p>
-      </button>
-
-      {/* E-signature */}
-      <div className="mb-5">
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-          <PenLine className="inline h-3 w-3 mr-1" />Type Your Legal Full Name to Sign
-        </label>
-        <input
-          className="w-full h-12 px-4 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all text-lg font-medium italic"
-          placeholder="Your full legal name"
-          value={signatureName}
-          onChange={(e) => setSignatureName(e.target.value)}
+      {/* Full contract viewer */}
+      <details className="mb-5">
+        <summary className="cursor-pointer text-sm font-semibold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex items-center gap-2 select-none">
+          <FileText className="h-4 w-4 text-gray-400" />
+          View Full Contract Document
+          <span className="ml-auto text-xs text-gray-400">tap to expand</span>
+        </summary>
+        <div
+          className="mt-2 bg-white rounded-2xl border border-gray-200 p-4 max-h-64 overflow-y-auto text-sm shadow-inner"
+          dangerouslySetInnerHTML={{ __html: contractHTML }}
         />
-        <div className="flex items-center gap-2 mt-1.5">
-          <ShieldCheck className="h-3 w-3 text-green-500 flex-shrink-0" />
-          <p className="text-xs text-gray-400">
-            Electronic signature · Timestamp, device info &amp; IP address recorded · Legally binding
-          </p>
-        </div>
+      </details>
+
+      {/* Progress indicator */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+          Required Initials — Critical Clauses
+        </p>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+          completedCount === clauses.length ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+        }`}>
+          {completedCount}/{clauses.length} completed
+        </span>
       </div>
 
+      {/* Clause initials */}
+      <div className="space-y-3 mb-5">
+        {clauses.map((clause) => (
+          <InitialClause
+            key={clause.id}
+            id={clause.id}
+            label={clause.label}
+            text={clause.text}
+            severity={clause.severity}
+            value={initials[clause.id]}
+            onChange={handleInitials}
+          />
+        ))}
+      </div>
+
+      {/* Reviewed checkbox — only show after all initialed */}
+      {allInitialed && (
+        <button
+          onClick={() => setContractReviewed(!contractReviewed)}
+          className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50 text-left mb-4"
+        >
+          <div className={`h-5 w-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${contractReviewed ? "border-pink-500 bg-pink-500" : "border-gray-300"}`}>
+            {contractReviewed && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+          </div>
+          <p className="text-sm text-gray-700">I have read, understood, and agreed to all terms above.</p>
+        </button>
+      )}
+
+      {/* Final e-signature — only show after reviewed */}
+      {allInitialed && contractReviewed && (
+        <div className="mb-5">
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+            <PenLine className="inline h-3 w-3 mr-1" />Final Signature — Type Your Legal Full Name
+          </label>
+          <input
+            className="w-full h-12 px-4 rounded-xl border border-gray-200 text-gray-900 focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all text-lg font-medium italic"
+            placeholder="Your full legal name"
+            value={signatureName}
+            onChange={(e) => setSignatureName(e.target.value)}
+          />
+          <div className="flex items-center gap-2 mt-1.5">
+            <ShieldCheck className="h-3 w-3 text-green-500 flex-shrink-0" />
+            <p className="text-xs text-gray-400">
+              Electronic signature · Timestamp, device info &amp; IP address recorded · Legally binding
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Submit */}
       <button
         disabled={!canSign}
         onClick={handleSign}
         className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-40"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
       >
-        Sign &amp; Proceed to Payment →
+        {!allInitialed
+          ? `Initial all ${clauses.length - completedCount} remaining clause${clauses.length - completedCount !== 1 ? "s" : ""} to continue`
+          : !contractReviewed
+          ? "Check the confirmation box above"
+          : !signatureName.trim()
+          ? "Enter your full name to sign"
+          : <span className="flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4" />Sign &amp; Proceed to Payment →</span>
+        }
       </button>
     </div>
   );
