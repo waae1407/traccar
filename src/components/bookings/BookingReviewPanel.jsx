@@ -5,6 +5,44 @@ import { base44 } from "@/api/base44Client";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 
+function CleanReturnActions({ bookingId }) {
+  const queryClient = useQueryClient();
+  const [notes, setNotes] = useState("");
+  const updateMutation = useMutation({
+    mutationFn: (data) => base44.entities.BookingRequest.update(bookingId, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["booking-requests-admin"] }),
+  });
+
+  return (
+    <div className="space-y-2">
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Notes on vehicle condition…"
+        rows={2}
+        className="w-full px-3 py-2 rounded-xl text-xs bg-white/[0.05] border border-white/[0.1] text-white placeholder:text-white/20 focus:outline-none resize-none"
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => updateMutation.mutate({ clean_return_status: "approved_clean", clean_return_credit_issued: true, clean_return_admin_notes: notes })}
+          disabled={updateMutation.isPending}
+          className="py-2 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5"
+          style={{ background: "linear-gradient(135deg, hsl(152 60% 46%), hsl(199 90% 54%))" }}
+        >
+          ✓ Approve — Issue $50
+        </button>
+        <button
+          onClick={() => updateMutation.mutate({ clean_return_status: "not_clean", clean_return_admin_notes: notes })}
+          disabled={updateMutation.isPending}
+          className="py-2 rounded-xl text-xs font-bold text-red-400 border border-red-500/20 hover:bg-red-500/[0.08]"
+        >
+          ✗ Not Clean
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function BookingReviewPanel({ booking, onClose }) {
   const [adminNote, setAdminNote] = useState(booking?.admin_notes || "");
   const [charging, setCharging] = useState(false);
@@ -176,7 +214,12 @@ export default function BookingReviewPanel({ booking, onClose }) {
           {/* Verification */}
           <Section title="Verification" icon={Shield}>
             <Row label="ID Status" value={booking.verification_status || "—"} highlight={booking.verification_status === "verified" ? "green" : "yellow"} />
-            <Row label="Contract" value={booking.contract_status || "—"} />
+            <Row label="Contract Type" value={booking.contract_type === "rent_to_own" ? "Rent-to-Own" : booking.contract_type === "weekly" ? "Weekly Rental" : "—"} />
+            <Row label="Contract Version" value={booking.contract_version || "—"} />
+            <Row label="Contract Status" value={booking.contract_status || "—"} highlight={booking.contract_status === "signed" ? "green" : "yellow"} />
+            {booking.signed_at && <Row label="Signed At" value={new Date(booking.signed_at).toLocaleString()} />}
+            {booking.signature_name && <Row label="Signature Name" value={booking.signature_name} />}
+            {booking.signature_device_info && <Row label="Signed Device" value={booking.signature_device_info.substring(0, 40) + "…"} />}
             {booking.license_front_url && (
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <a href={booking.license_front_url} target="_blank" rel="noreferrer"
@@ -192,6 +235,44 @@ export default function BookingReviewPanel({ booking, onClose }) {
               </div>
             )}
           </Section>
+
+          {/* Clean Return */}
+          {(booking.return_interior_photos?.length > 0 || booking.return_exterior_photos?.length > 0 || booking.clean_return_status !== "not_returned") && (
+            <Section title="Clean Return Review" icon={Shield}>
+              <Row label="Return Status" value={booking.clean_return_status || "—"} highlight={booking.clean_return_status === "approved_clean" ? "green" : booking.clean_return_status === "not_clean" ? "yellow" : null} />
+              <Row label="$50 Credit Issued" value={booking.clean_return_credit_issued ? "Yes ✓" : "No"} highlight={booking.clean_return_credit_issued ? "green" : null} />
+              {booking.clean_return_admin_notes && <Row label="Notes" value={booking.clean_return_admin_notes} />}
+              {booking.return_interior_photos?.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-white/35 mb-1.5">Interior Return Photos</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {booking.return_interior_photos.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noreferrer">
+                        <img src={url} alt="" className="h-14 w-14 object-cover rounded-lg border border-white/10" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {booking.return_exterior_photos?.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-white/35 mb-1.5">Exterior Return Photos</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {booking.return_exterior_photos.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noreferrer">
+                        <img src={url} alt="" className="h-14 w-14 object-cover rounded-lg border border-white/10" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {booking.clean_return_status === "photos_submitted" && (
+                <div className="mt-3 space-y-2">
+                  <CleanReturnActions bookingId={booking.id} />
+                </div>
+              )}
+            </Section>
+          )}
 
           {/* Dispute Evidence */}
           <Section title="Dispute Evidence" icon={FileText}>

@@ -43,8 +43,7 @@
     },
     "auto_renew": {
       "type": "boolean",
-      "default": false,
-      "description": "Automatically renew the rental on expiry"
+      "default": false
     },
     "pickup_location": {
       "type": "string"
@@ -218,8 +217,28 @@
     "contract_html": {
       "type": "string"
     },
+    "contract_type": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "rent_to_own"
+      ],
+      "description": "Type of contract signed"
+    },
+    "contract_version": {
+      "type": "string",
+      "description": "Version of the contract signed e.g. WR-v2.0 or RTO-v2.0"
+    },
     "signature_name": {
       "type": "string"
+    },
+    "signature_ip_address": {
+      "type": "string",
+      "description": "IP address captured at signing"
+    },
+    "signature_device_info": {
+      "type": "string",
+      "description": "User agent at signing"
     },
     "signed_at": {
       "type": "string",
@@ -296,25 +315,62 @@
     },
     "agreement_accepted_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Timestamp when customer accepted payment agreement"
+      "format": "date-time"
     },
     "agreement_ip_address": {
-      "type": "string",
-      "description": "Customer IP at time of agreement acceptance"
+      "type": "string"
     },
     "agreement_device_info": {
-      "type": "string",
-      "description": "Customer user-agent/device info at agreement acceptance"
+      "type": "string"
     },
     "agreement_version": {
-      "type": "string",
-      "description": "Version of the agreement accepted e.g. v1.0"
+      "type": "string"
     },
     "payment_accepted_recurring_notice": {
       "type": "boolean",
+      "default": false
+    },
+    "pickup_photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Baseline vehicle condition photos taken at pickup"
+    },
+    "return_interior_photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Customer-uploaded interior photos at return"
+    },
+    "return_exterior_photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Customer-uploaded exterior photos at return"
+    },
+    "clean_return_status": {
+      "type": "string",
+      "enum": [
+        "not_returned",
+        "photos_submitted",
+        "approved_clean",
+        "not_clean",
+        "fee_applied"
+      ],
+      "default": "not_returned",
+      "description": "Admin review status for clean return incentive"
+    },
+    "clean_return_credit_issued": {
+      "type": "boolean",
       "default": false,
-      "description": "Customer acknowledged recurring billing notice"
+      "description": "Whether the $50 clean return credit was issued"
+    },
+    "clean_return_admin_notes": {
+      "type": "string",
+      "description": "Admin notes on vehicle return condition"
     }
   },
   "required": [
