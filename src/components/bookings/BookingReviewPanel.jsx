@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, CheckCircle, XCircle, MessageCircle, User, Car, Shield, Zap, RefreshCw } from "lucide-react";
+import { X, CheckCircle, XCircle, MessageCircle, User, Car, Shield, Zap, RefreshCw, FileText, Download } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { formatDistanceToNow, format } from "date-fns";
@@ -190,6 +190,29 @@ export default function BookingReviewPanel({ booking, onClose }) {
                     className="text-xs text-primary underline">View Selfie</a>
                 )}
               </div>
+            )}
+          </Section>
+
+          {/* Dispute Evidence */}
+          <Section title="Dispute Evidence" icon={FileText}>
+            <Row label="Agreement Accepted" value={booking.agreement_accepted_at ? new Date(booking.agreement_accepted_at).toLocaleString() : "—"} highlight={booking.agreement_accepted_at ? "green" : null} />
+            <Row label="Agreement Version" value={booking.agreement_version || "—"} />
+            <Row label="Device Info" value={booking.agreement_device_info ? booking.agreement_device_info.substring(0, 40) + "…" : "—"} />
+            <Row label="Recurring Notice Agreed" value={booking.payment_accepted_recurring_notice ? "Yes ✓" : "No"} highlight={booking.payment_accepted_recurring_notice ? "green" : "yellow"} />
+            <Row label="ID Verified" value={booking.verification_status === "verified" ? "Yes ✓" : "No"} highlight={booking.verification_status === "verified" ? "green" : "yellow"} />
+            <Row label="Contract Signed" value={booking.contract_status === "signed" ? "Yes ✓" : "No"} highlight={booking.contract_status === "signed" ? "green" : "yellow"} />
+            <Row label="Terms Consented" value={booking.consent_terms ? "Yes ✓" : "No"} highlight={booking.consent_terms ? "green" : "yellow"} />
+            <Row label="E-Sign Consented" value={booking.consent_esign ? "Yes ✓" : "No"} highlight={booking.consent_esign ? "green" : "yellow"} />
+            {booking.signed_at && <Row label="Signed At" value={new Date(booking.signed_at).toLocaleString()} />}
+            {booking.signature_name && <Row label="Signature Name" value={booking.signature_name} />}
+            {booking.stripe_payment_intent_id && (
+              <a
+                href={`https://dashboard.stripe.com/payments/${booking.stripe_payment_intent_id}`}
+                target="_blank" rel="noreferrer"
+                className="text-xs text-primary underline flex items-center gap-1 mt-1"
+              >
+                <Download className="h-3 w-3" /> View Stripe Payment Evidence ↗
+              </a>
             )}
           </Section>
 

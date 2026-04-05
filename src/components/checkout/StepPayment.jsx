@@ -14,6 +14,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(false);
   const [autopay, setAutopay] = useState(booking?.autopay_enabled ?? true);
+  const [recurringAgreed, setRecurringAgreed] = useState(false);
   const queryClient = useQueryClient();
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
@@ -48,6 +49,26 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         event_status: "success",
         amount: amountDue,
       }).catch(() => {});
+
+      // Capture agreement metadata for dispute prevention
+      const agreementMeta = {
+        agreement_accepted_at: new Date().toISOString(),
+        agreement_ip_address: "captured-server-side",
+        agreement_device_info: navigator.userAgent || "unknown",
+        agreement_version: "v1.0",
+        payment_accepted_recurring_notice: recurringAgreed,
+      };
+
+      // Send receipt email
+      base44.functions.invoke("sendPaymentReceipt", {
+        booking_request_id: booking?.id,
+        user_email: user?.email,
+        amount: amountDue,
+        vehicle_name: booking?.vehicle_name,
+        booking_type: booking?.booking_type,
+        weekly_rate: booking?.weekly_rate,
+      }).catch(() => {});
+
       onPaymentSuccess({
         payment_status: "paid",
         booking_status: "pending_review",
@@ -60,6 +81,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         viewed_by_admin: false,
         pending_review_alert_active: true,
         admin_attention_priority: "high",
+        ...agreementMeta,
       });
       queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
     } else if (status === "processing") {
@@ -124,6 +146,23 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         </div>
       </button>
 
+      {/* Recurring billing notice — dispute prevention */}
+      <div className="mb-4 p-3 rounded-xl border border-blue-100 bg-blue-50">
+        <p className="text-xs font-semibold text-blue-800 mb-1.5">📋 Recurring Billing Notice</p>
+        <p className="text-xs text-blue-700 mb-2">
+          By paying, you authorize uRide to charge <strong>${amountDue}</strong> today
+          {booking?.auto_renew ? ` and <strong>$${booking?.weekly_rate}</strong> automatically each ${booking?.booking_type === "Weekly" ? "week" : "period"}` : ""}.
+          You may cancel anytime through your account.
+        </p>
+        <button type="button" onClick={() => setRecurringAgreed(!recurringAgreed)}
+          className="flex items-start gap-2 w-full text-left">
+          <div className={`h-4 w-4 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-all ${recurringAgreed ? "border-blue-600 bg-blue-600" : "border-blue-300"}`}>
+            {recurringAgreed && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+          </div>
+          <span className="text-xs text-blue-700 font-medium">I understand and agree to the recurring charge terms above</span>
+        </button>
+      </div>
+
       <div className="flex items-center gap-2 mb-4">
         <Shield className="h-4 w-4 text-green-600" />
         <Lock className="h-3 w-3 text-gray-400" />
@@ -132,13 +171,15 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
       <button
         type="submit"
-        disabled={!ready || processing}
+        disabled={!ready || processing || !recurringAgreed}
         className="w-full py-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         {processing
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
           : !ready
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Loading…</>
+          : !recurringAgreed
+          ? <>⚠️ Please agree to billing terms above</>
           : <><CreditCard className="w-4 h-4" />Pay ${amountDue.toLocaleString()} Securely</>
         }
       </button>

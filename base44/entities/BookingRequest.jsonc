@@ -82,8 +82,7 @@
       "default": "draft"
     },
     "cancellation_reason": {
-      "type": "string",
-      "description": "Customer's reason for cancellation request"
+      "type": "string"
     },
     "cancellation_requested_at": {
       "type": "string",
@@ -271,37 +270,51 @@
       "type": "string"
     },
     "stripe_customer_id": {
-      "type": "string",
-      "description": "Stripe customer ID"
+      "type": "string"
     },
     "stripe_payment_intent_id": {
-      "type": "string",
-      "description": "Stripe PaymentIntent ID for initial charge"
+      "type": "string"
     },
     "stripe_setup_intent_id": {
-      "type": "string",
-      "description": "Stripe SetupIntent ID for saved payment method"
+      "type": "string"
     },
     "stripe_payment_method_id": {
-      "type": "string",
-      "description": "Stripe PaymentMethod ID (saved card)"
+      "type": "string"
     },
     "stripe_subscription_id": {
-      "type": "string",
-      "description": "Stripe Subscription ID for recurring billing"
+      "type": "string"
     },
     "receipt_url": {
-      "type": "string",
-      "description": "Stripe receipt URL"
+      "type": "string"
     },
     "autopay_enabled": {
       "type": "boolean",
-      "default": false,
-      "description": "Customer opted into autopay"
+      "default": false
     },
     "payment_failure_reason": {
+      "type": "string"
+    },
+    "agreement_accepted_at": {
       "type": "string",
-      "description": "Last payment failure message from Stripe"
+      "format": "date-time",
+      "description": "Timestamp when customer accepted payment agreement"
+    },
+    "agreement_ip_address": {
+      "type": "string",
+      "description": "Customer IP at time of agreement acceptance"
+    },
+    "agreement_device_info": {
+      "type": "string",
+      "description": "Customer user-agent/device info at agreement acceptance"
+    },
+    "agreement_version": {
+      "type": "string",
+      "description": "Version of the agreement accepted e.g. v1.0"
+    },
+    "payment_accepted_recurring_notice": {
+      "type": "boolean",
+      "default": false,
+      "description": "Customer acknowledged recurring billing notice"
     }
   },
   "required": [
