@@ -152,8 +152,13 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
             layout: "tabs",
             paymentMethodOrder: ["card", "us_bank_account"],
             wallets: { applePay: "auto", googlePay: "auto" },
+            fields: {
+              billingDetails: {
+                address: "auto",
+              },
+            },
           }}
-          onReady={() => { console.log("[Stripe] PaymentElement ready"); setReady(true); }}
+          onReady={() => { console.log("[Stripe] PaymentElement ready - billing name collection enabled"); setReady(true); }}
           onLoadError={(e) => { console.error("[Stripe] PaymentElement load error", e); setReady(false); }}
         />
       </div>
