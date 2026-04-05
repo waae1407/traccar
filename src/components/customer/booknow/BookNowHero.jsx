@@ -19,37 +19,34 @@ export default function BookNowHero({ user, vehicleCount }) {
   }, []);
 
   return (
-    <div className="relative overflow-hidden px-4 pt-6 pb-10">
-      {/* Background layers */}
+    <div className="relative overflow-hidden px-4 pt-6 pb-10" style={{ background: "linear-gradient(160deg, #fff 0%, #fdf2f8 60%, #f3f0ff 100%)" }}>
+      {/* Background blobs */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full opacity-20"
-          style={{ background: "radial-gradient(circle, hsl(338 90% 56%) 0%, transparent 70%)" }} />
-        <div className="absolute bottom-0 right-0 h-48 w-48 rounded-full opacity-15"
-          style={{ background: "radial-gradient(circle, hsl(265 80% 62%) 0%, transparent 70%)" }} />
-        {/* Grid lines */}
-        <div className="absolute inset-0 opacity-[0.04]"
-          style={{ backgroundImage: "linear-gradient(hsl(338 90% 56%) 1px, transparent 1px), linear-gradient(90deg, hsl(338 90% 56%) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 h-64 w-64 rounded-full opacity-30"
+          style={{ background: "radial-gradient(circle, hsl(338 90% 90%) 0%, transparent 70%)" }} />
+        <div className="absolute bottom-0 right-0 h-40 w-40 rounded-full opacity-20"
+          style={{ background: "radial-gradient(circle, hsl(265 80% 88%) 0%, transparent 70%)" }} />
       </div>
 
       <div className="relative">
         {/* Live availability badge */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-green-500/30 bg-green-500/10 mb-4">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-green-400 text-xs font-semibold">{vehicleCount} vehicles available now</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-green-500/30 bg-green-50 mb-4">
+          <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-green-600 text-xs font-semibold">{vehicleCount} vehicles available now</span>
         </div>
 
         {/* Greeting */}
         {user ? (
           <div className="mb-1">
-            <p className="text-white/50 text-sm">Welcome back,</p>
-            <h1 className="text-white text-4xl font-bold leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+            <p className="text-gray-400 text-sm">Welcome back,</p>
+            <h1 className="text-gray-900 text-4xl font-bold leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
               {user.full_name?.split(" ")[0]} 👋
             </h1>
           </div>
         ) : (
           <div className="mb-1">
-            <p className="text-white/50 text-sm">Premium rentals · Instant booking</p>
-            <h1 className="text-white text-4xl font-bold leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+            <p className="text-gray-400 text-sm">Premium rentals · Instant booking</p>
+            <h1 className="text-gray-900 text-4xl font-bold leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
               Find Your Ride
             </h1>
           </div>
@@ -61,7 +58,7 @@ export default function BookNowHero({ user, vehicleCount }) {
           style={{
             fontFamily: "var(--font-syne)",
             opacity: fade ? 1 : 0,
-            background: "linear-gradient(135deg, hsl(338 90% 65%), hsl(265 80% 70%))",
+            background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
           }}
@@ -72,7 +69,7 @@ export default function BookNowHero({ user, vehicleCount }) {
         {/* Sub labels */}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           {["Weekly", "Rent-to-Own", "All Cities"].map((tag) => (
-            <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/[0.06] border border-white/[0.08] text-white/50 text-xs">
+            <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-200 text-gray-500 text-xs">
               {tag === "All Cities" ? <MapPin className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}
               {tag}
             </span>

@@ -11,7 +11,7 @@ export default function BookNowRtoBanner({ count, companySlug }) {
       <button
         onClick={() => navigate(`/checkout?type=Rent-to-Own${companyParam}`)}
         className="w-full rounded-2xl p-5 text-left relative overflow-hidden active:scale-[0.98] transition-transform"
-        style={{ background: "linear-gradient(135deg, hsl(265 80% 20%) 0%, hsl(338 90% 15%) 100%)", border: "1px solid hsl(265 80% 40% / 0.3)" }}
+        style={{ background: "linear-gradient(135deg, hsl(265 80% 96%) 0%, hsl(338 90% 96%) 100%)", border: "1px solid hsl(338 90% 88%)" }}
       >
         {/* Glow */}
         <div className="absolute top-0 right-0 h-32 w-32 rounded-full pointer-events-none"
@@ -26,10 +26,10 @@ export default function BookNowRtoBanner({ count, companySlug }) {
               </div>
               <span className="text-xs font-bold text-pink-400 uppercase tracking-wider">Rent-to-Own Program</span>
             </div>
-            <p className="text-white font-bold text-lg leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+            <p className="text-gray-900 font-bold text-lg leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
               Drive it. Own it. 🔑
             </p>
-            <p className="text-white/50 text-xs mt-1">
+            <p className="text-gray-500 text-xs mt-1">
               {count} vehicle{count !== 1 ? "s" : ""} eligible · Pay weekly, own in 52 weeks
             </p>
           </div>

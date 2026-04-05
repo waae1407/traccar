@@ -59,7 +59,7 @@ export default function BookNow() {
   };
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: "#0a0a0f" }}>
+    <div className="min-h-screen pb-28" style={{ background: "#f5f5f7" }}>
       <HomeTopBar user={user} city={city} onCityChange={() => {}} />
 
       {user && <ContinueBookingBanner user={user} />}
