@@ -10,7 +10,7 @@ import StepProfile from "@/components/checkout/StepProfile";
 import StepVerification from "@/components/checkout/StepVerification";
 import StepTerms from "@/components/checkout/StepTerms";
 import StepContract from "@/components/checkout/StepContract";
-import StepPayment from "@/components/checkout/StepPayment";
+import StepPayment from "@/components/checkout/StepPayment.jsx";
 import StepConfirmation from "@/components/checkout/StepConfirmation";
 import { ArrowLeft } from "lucide-react";
 
