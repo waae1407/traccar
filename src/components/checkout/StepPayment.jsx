@@ -35,7 +35,16 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
     try {
       const { error: stripeErr, paymentIntent } = await Promise.race([
-        stripe.confirmPayment({ elements, redirect: "if_required" }),
+        stripe.confirmPayment({
+          elements,
+          redirect: "if_required",
+          confirmParams: {
+            return_url: `${window.location.origin}/checkout?request=${booking?.id}`,
+            billing_details: {
+              address: { country: "US" },
+            },
+          },
+        }),
         timeoutPromise,
       ]);
 
@@ -137,11 +146,9 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         <PaymentElement
           options={{
             layout: "tabs",
-            paymentMethodOrder: ["card"],
-            wallets: { applePay: "never", googlePay: "never" },
-            fields: { billingDetails: { address: "never" } },
-            // Disable Stripe Link
-            defaultValues: {},
+            paymentMethodOrder: ["card", "us_bank_account"],
+            wallets: { applePay: "auto", googlePay: "auto" },
+            fields: { billingDetails: "never" },
           }}
           onReady={() => { console.log("[Stripe] PaymentElement ready"); setReady(true); }}
           onLoadError={(e) => { console.error("[Stripe] PaymentElement load error", e); setReady(false); }}
@@ -284,9 +291,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
         theme: "stripe",
         variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
       },
-      paymentMethodOrder: ["card"],
-      // Disable Stripe Link to prevent the "save info" form from intercepting confirmPayment
-      loader: "auto",
+      paymentMethodOrder: ["card", "us_bank_account"],
     };
   }, [clientSecret]);
 
