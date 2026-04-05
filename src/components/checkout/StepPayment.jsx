@@ -5,20 +5,16 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lucide-react";
 
-// ─── Cached Stripe promise (module-level, survives re-renders) ────────────────
-let cachedStripePromise = null;
-async function getStripePromise() {
-  if (cachedStripePromise) return cachedStripePromise;
-  const res = await base44.functions.invoke("stripePublishableKey", {});
-  const key = res.data?.publishable_key;
-  if (!key) throw new Error("Missing Stripe publishable key");
-  // loadStripe returns a Promise — cache and return it directly
-  cachedStripePromise = loadStripe(key);
-  return cachedStripePromise;
-}
-
-// Pre-warm the Stripe promise at module load
-const stripePromiseInstance = getStripePromise().catch(() => null);
+// ─── Cached Stripe promise (module-level, stable reference for <Elements>) ────
+// loadStripe() itself returns a Promise<Stripe|null>, so we cache that directly.
+const stripePromiseInstance = base44.functions
+  .invoke("stripePublishableKey", {})
+  .then((res) => {
+    const key = res.data?.publishable_key;
+    if (!key) throw new Error("Missing Stripe publishable key");
+    return loadStripe(key);
+  })
+  .catch(() => null);
 
 // ─── Inner form — lives inside <Elements> so useStripe/useElements work ───────
 function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId }) {
