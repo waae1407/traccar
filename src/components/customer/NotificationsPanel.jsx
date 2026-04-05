@@ -39,10 +39,10 @@ export default function NotificationsPanel({ user }) {
     <>
       <button
         onClick={() => setOpen(!open)}
-        className="relative h-10 w-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">
-        <Bell className="h-5 w-5 text-white/70" />
+        className="relative h-10 w-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+        <Bell className="h-5 w-5 text-gray-500" />
         {unread.length > 0 && (
-          <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-pink-500 border-2 border-[#0d0718] flex items-center justify-center">
+          <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-pink-500 border-2 border-white flex items-center justify-center">
             <span className="text-[7px] font-bold text-white leading-none">{unread.length > 9 ? "9+" : unread.length}</span>
           </span>
         )}

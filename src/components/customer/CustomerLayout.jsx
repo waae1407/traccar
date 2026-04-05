@@ -13,7 +13,7 @@ export default function CustomerLayout() {
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
+    <div className="min-h-screen bg-white" style={{ fontFamily: "var(--font-inter)" }}>
       {!isHome && <CustomerTopBar user={user} city={city} onCityChange={() => setCityPickerOpen(true)} />}
       <main className="w-full max-w-screen-xl mx-auto pb-20 md:pb-8 md:px-8 lg:px-16">
         <Outlet context={{ user, city, setCity }} />
