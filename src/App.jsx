@@ -12,7 +12,7 @@ import CustomerLayout from '@/components/customer/CustomerLayout';
 import { AdminGuard } from '@/components/layout/RoleGuard';
 
 // Customer-facing pages
-import BookNow from '@/pages/BookNow';
+import BookNow from '@/pages/BookNow.jsx';
 import LandingPage from '@/pages/LandingPage';
 import MyBookings from '@/pages/customer/MyBookings';
 import ActivityPage from '@/pages/customer/ActivityPage';
