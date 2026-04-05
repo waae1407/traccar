@@ -35,7 +35,16 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
     try {
       const { error: stripeErr, paymentIntent } = await Promise.race([
-        stripe.confirmPayment({ elements, redirect: "if_required" }),
+        stripe.confirmPayment({
+          elements,
+          redirect: "if_required",
+          confirmParams: {
+            return_url: `${window.location.origin}/checkout?request=${booking?.id}`,
+            billing_details: {
+              address: { country: "US" },
+            },
+          },
+        }),
         timeoutPromise,
       ]);
 
