@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
@@ -7,6 +7,7 @@ import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
+import StatCardDrawer, { DrawerRow, DrawerBookingRow } from "@/components/dashboard/StatCardDrawer";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid
@@ -34,6 +35,7 @@ const ChartTooltip = ({ active, payload, label, prefix = "" }) => {
 export default function Dashboard() {
   const { tenantFilter, companyId, isSuperadmin, overrideCompanyId } = useTenant();
   const scopeKey = companyId || "all";
+  const [activeDrawer, setActiveDrawer] = useState(null);
 
   const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles", scopeKey], queryFn: () => base44.entities.Vehicle.filter(tenantFilter()) });
   const { data: customers = [] } = useQuery({ queryKey: ["customers", scopeKey], queryFn: () => base44.entities.Customer.filter(tenantFilter()) });
@@ -116,13 +118,28 @@ export default function Dashboard() {
     .filter((b) => b.booking_status !== "draft")
     .slice(0, 5);
 
+  const activeRentalsList = bookingRequests.filter((b) => ["approved", "confirmed", "active", "pending_review"].includes(b.booking_status));
+  const availableVehiclesList = vehicles.filter((v) => v.status === "Available");
+  const paidBookingRequests = bookingRequests.filter((b) => b.payment_status === "paid");
+  const thisMonthPaid = bookingRequests.filter((b) => {
+    if (b.payment_status !== "paid") return false;
+    const dateStr = b.agreement_accepted_at || b.submitted_at || b.created_date;
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const activeRTOList = [
+    ...contracts.filter((c) => c.status === "Active"),
+    ...bookingRequests.filter((b) => b.booking_type === "Rent-to-Own" && ["approved", "confirmed", "active"].includes(b.booking_status)),
+  ];
+
   const stats = [
-    { title: "Active Rentals", value: activeRentals, icon: CalendarDays, colorIndex: 0 },
-    { title: "Available Vehicles", value: availableVehicles, icon: Car, colorIndex: 2 },
-    { title: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 1 },
-    { title: "Monthly Revenue", value: `$${thisMonthRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 3 },
-    { title: "Total Customers", value: customers.length, icon: Users, colorIndex: 5 },
-    { title: "Active RTO", value: activeContracts, icon: FileKey, colorIndex: 4 },
+    { title: "Active Rentals", value: activeRentals, icon: CalendarDays, colorIndex: 0, drawer: "active_rentals" },
+    { title: "Available Vehicles", value: availableVehicles, icon: Car, colorIndex: 2, drawer: "available_vehicles" },
+    { title: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 1, drawer: "total_revenue" },
+    { title: "Monthly Revenue", value: `$${thisMonthRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 3, drawer: "monthly_revenue" },
+    { title: "Total Customers", value: customers.length, icon: Users, colorIndex: 5, drawer: "customers" },
+    { title: "Active RTO", value: activeContracts, icon: FileKey, colorIndex: 4, drawer: "active_rto" },
   ];
 
   return (
@@ -162,8 +179,63 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {stats.map((s) => <StatCard key={s.title} {...s} />)}
+        {stats.map((s) => <StatCard key={s.title} {...s} onClick={() => setActiveDrawer(s.drawer)} />)}
       </div>
+
+      {/* ── Drawers ── */}
+
+      {/* Active Rentals */}
+      <StatCardDrawer open={activeDrawer === "active_rentals"} onClose={() => setActiveDrawer(null)} title="Active Rentals" linkTo="/bookings-admin" linkLabel="Manage bookings">
+        {activeRentalsList.length === 0 ? <p className="text-white/30 text-sm text-center py-10">No active rentals</p> : activeRentalsList.map((b) => <DrawerBookingRow key={b.id} booking={b} />)}
+      </StatCardDrawer>
+
+      {/* Available Vehicles */}
+      <StatCardDrawer open={activeDrawer === "available_vehicles"} onClose={() => setActiveDrawer(null)} title="Available Vehicles" linkTo="/vehicles" linkLabel="Manage fleet">
+        {availableVehiclesList.length === 0 ? <p className="text-white/30 text-sm text-center py-10">No available vehicles</p> : availableVehiclesList.map((v) => (
+          <DrawerRow key={v.id} label={`${v.year} ${v.make} ${v.model}`} value={`$${v.weekly_rate || 0}/wk`} sub={`${v.city || v.current_city || "—"} · ${v.color || "—"} · ${v.plate || "No plate"}`} highlight="green" />
+        ))}
+      </StatCardDrawer>
+
+      {/* Total Revenue */}
+      <StatCardDrawer open={activeDrawer === "total_revenue"} onClose={() => setActiveDrawer(null)} title="Total Revenue" linkTo="/payments" linkLabel="View payments">
+        <div className="mb-4 p-4 rounded-2xl border border-white/[0.07] bg-white/[0.03]">
+          <p className="text-xs text-white/40 uppercase tracking-wider mb-1">All-time collected</p>
+          <p className="text-3xl font-syne font-bold text-white">${totalRevenue.toLocaleString()}</p>
+        </div>
+        {paidBookingRequests.map((b) => (
+          <DrawerRow key={b.id} label={b.customer_full_name || "Customer"} value={`$${(b.total_due_now || 0).toLocaleString()}`} sub={`${b.vehicle_name} · ${b.booking_type}`} highlight="green" />
+        ))}
+        {payments.filter((p) => p.status === "Paid").map((p) => (
+          <DrawerRow key={p.id} label={p.customer_name || "Customer"} value={`$${(p.amount || 0).toLocaleString()}`} sub={`${p.payment_type} · ${p.payment_method}`} highlight="green" />
+        ))}
+      </StatCardDrawer>
+
+      {/* Monthly Revenue */}
+      <StatCardDrawer open={activeDrawer === "monthly_revenue"} onClose={() => setActiveDrawer(null)} title="Monthly Revenue" linkTo="/payments" linkLabel="View payments">
+        <div className="mb-4 p-4 rounded-2xl border border-white/[0.07] bg-white/[0.03]">
+          <p className="text-xs text-white/40 uppercase tracking-wider mb-1">{format(now, "MMMM yyyy")}</p>
+          <p className="text-3xl font-syne font-bold text-white">${thisMonthRevenue.toLocaleString()}</p>
+        </div>
+        {thisMonthPaid.length === 0 ? <p className="text-white/30 text-sm text-center py-6">No payments this month</p> : thisMonthPaid.map((b) => (
+          <DrawerRow key={b.id} label={b.customer_full_name || "Customer"} value={`$${(b.total_due_now || 0).toLocaleString()}`} sub={`${b.vehicle_name} · ${b.booking_type}`} highlight="green" />
+        ))}
+      </StatCardDrawer>
+
+      {/* Customers */}
+      <StatCardDrawer open={activeDrawer === "customers"} onClose={() => setActiveDrawer(null)} title="All Customers" linkTo="/customers" linkLabel="Manage customers">
+        {customers.length === 0 ? <p className="text-white/30 text-sm text-center py-10">No customers yet</p> : customers.map((c) => (
+          <DrawerRow key={c.id} label={c.full_name} value={c.status} sub={`${c.phone || "—"} · ${c.email || "—"}`} highlight={c.status === "Active" || c.status === "Approved" ? "green" : c.status === "Blocked" ? "red" : null} />
+        ))}
+      </StatCardDrawer>
+
+      {/* Active RTO */}
+      <StatCardDrawer open={activeDrawer === "active_rto"} onClose={() => setActiveDrawer(null)} title="Active Rent-to-Own" linkTo="/rent-to-own" linkLabel="Manage RTO">
+        {activeRTOList.length === 0 ? <p className="text-white/30 text-sm text-center py-10">No active RTO contracts</p> : activeRTOList.map((item) => (
+          item.customer_full_name
+            ? <DrawerBookingRow key={item.id} booking={item} />
+            : <DrawerRow key={item.id} label={item.customer_name || "Customer"} value={`$${item.weekly_payment || 0}/wk`} sub={item.vehicle_name} highlight="green" />
+        ))}
+      </StatCardDrawer>
 
       {/* Revenue area chart + fleet pie */}
       <div className="grid lg:grid-cols-3 gap-4">

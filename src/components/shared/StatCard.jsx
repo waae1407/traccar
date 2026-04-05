@@ -20,17 +20,20 @@ const iconColors = [
   { bg: "bg-cyan-500/15 border-cyan-500/20", text: "text-cyan-400", glow: "shadow-[0_0_16px_hsl(199_90%_54%/0.3)]" },
 ];
 
-export default function StatCard({ title, value, icon: Icon, colorIndex = 0, subtitle, trend, trendValue }) {
+export default function StatCard({ title, value, icon: Icon, colorIndex = 0, subtitle, trend, trendValue, onClick }) {
   const idx = colorIndex % 6;
   const ic = iconColors[idx];
   const gr = gradients[idx];
 
   return (
-    <div className={cn(
-      "relative rounded-2xl p-5 border border-white/[0.07] overflow-hidden group cursor-default transition-all duration-300",
-      "hover:border-white/[0.12] hover:shadow-card-hover hover:-translate-y-0.5",
-      gr
-    )} style={{ boxShadow: "0 4px 24px hsl(222 28% 5% / 0.5)" }}>
+    <div
+      onClick={onClick}
+      className={cn(
+        "relative rounded-2xl p-5 border border-white/[0.07] overflow-hidden group transition-all duration-300",
+        onClick ? "cursor-pointer hover:border-white/[0.18] hover:shadow-card-hover hover:-translate-y-1 active:scale-[0.98]" : "cursor-default hover:border-white/[0.12] hover:shadow-card-hover hover:-translate-y-0.5",
+        gr
+      )}
+      style={{ boxShadow: "0 4px 24px hsl(222 28% 5% / 0.5)" }}>
       {/* Subtle noise texture overlay */}
       <div className="absolute inset-0 rounded-2xl opacity-30"
         style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E\")" }} />
