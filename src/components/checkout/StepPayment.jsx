@@ -43,6 +43,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
             billing_details: {
               name: booking?.customer_full_name || user?.full_name || "Customer",
               email: user?.email,
+              phone: booking?.customer_phone || user?.phone || "",
               address: { country: "US" },
             },
           },
