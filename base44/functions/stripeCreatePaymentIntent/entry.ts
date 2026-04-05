@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
           user_email: user.email,
           booking_type: booking_type || 'unknown',
         },
-        automatic_payment_methods: { enabled: true },
+        payment_method_types: ["card"],
       });
       console.log(`[STRIPE] PaymentIntent created successfully: ${paymentIntent.id}`);
     } catch (piErr) {

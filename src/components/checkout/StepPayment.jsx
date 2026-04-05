@@ -95,7 +95,12 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           </div>
         )}
         <PaymentElement
-          options={{ layout: "tabs" }}
+          options={{
+            layout: "tabs",
+            paymentMethodOrder: ["card", "apple_pay", "google_pay"],
+            wallets: { applePay: "auto", googlePay: "auto" },
+            fields: { billingDetails: { address: "never" } },
+          }}
           onReady={() => { console.log("[Stripe] PaymentElement ready"); setReady(true); }}
           onLoadError={(e) => { console.error("[Stripe] PaymentElement load error", e); setReady(false); }}
         />
@@ -217,6 +222,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
         theme: "stripe",
         variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
       },
+      paymentMethodOrder: ["card", "apple_pay", "google_pay"],
     };
   }, [clientSecret]);
 
