@@ -119,7 +119,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         <PaymentElement
           options={{
             layout: "tabs",
-            paymentMethodOrder: ["card", "apple_pay", "google_pay"],
+            paymentMethodOrder: ["card", "us_bank_account", "apple_pay", "google_pay"],
             wallets: { applePay: "auto", googlePay: "auto" },
             fields: { billingDetails: { address: "never" } },
           }}
@@ -151,8 +151,8 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         <p className="text-xs font-semibold text-blue-800 mb-1.5">📋 Recurring Billing Notice</p>
         <p className="text-xs text-blue-700 mb-2">
           By paying, you authorize uRide to charge <strong>${amountDue}</strong> today
-          {booking?.auto_renew ? ` and <strong>$${booking?.weekly_rate}</strong> automatically each ${booking?.booking_type === "Weekly" ? "week" : "period"}` : ""}.
-          You may cancel anytime through your account.
+          {booking?.auto_renew && booking?.weekly_rate ? <> and <strong>${booking.weekly_rate}</strong> automatically each {booking.booking_type === "Weekly" ? "week" : "period"}</> : ""}.
+          {" "}You may cancel anytime through your account.
         </p>
         <button type="button" onClick={() => setRecurringAgreed(!recurringAgreed)}
           className="flex items-start gap-2 w-full text-left">
