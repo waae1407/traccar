@@ -263,7 +263,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
         theme: "stripe",
         variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
       },
-      paymentMethodOrder: ["card", "apple_pay", "google_pay"],
+      paymentMethodOrder: ["card", "us_bank_account", "apple_pay", "google_pay"],
     };
   }, [clientSecret]);
 
