@@ -27,72 +27,85 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
     setProcessing(true);
     setError(null);
 
-    const { error: stripeErr, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      redirect: "if_required",
+    // Timeout wrapper: if confirmPayment takes >15s, fail and reset
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("Payment processing timeout")), 15000);
     });
 
-    if (stripeErr) {
-      setError(stripeErr.message);
-      setProcessing(false);
-      submittedRef.current = false;
-      return;
-    }
+    try {
+      const { error: stripeErr, paymentIntent } = await Promise.race([
+        stripe.confirmPayment({ elements, redirect: "if_required" }),
+        timeoutPromise,
+      ]);
 
-    const status = paymentIntent?.status;
-    if (status === "succeeded" || status === "requires_capture") {
-      setPaid(true);
-      if (booking?.vehicle_id) await markBooked.mutateAsync({ id: booking.vehicle_id }).catch(() => {});
-      await logEvent.mutateAsync({
-        user_email: user?.email,
-        booking_request_id: booking?.id,
-        event_type: "payment_received",
-        event_title: "First Payment Received",
-        event_description: `$${amountDue} initial payment via Stripe`,
-        event_status: "success",
-        amount: amountDue,
-      }).catch(() => {});
+      clearTimeout(timeoutId);
 
-      // Capture agreement metadata for dispute prevention
-      const agreementMeta = {
-        agreement_accepted_at: new Date().toISOString(),
-        agreement_ip_address: "captured-server-side",
-        agreement_device_info: navigator.userAgent || "unknown",
-        agreement_version: "v1.0",
-        payment_accepted_recurring_notice: recurringAgreed,
-      };
+      if (stripeErr) {
+        setError(stripeErr.message);
+        setProcessing(false);
+        submittedRef.current = false;
+        return;
+      }
 
-      // Send receipt email
-      base44.functions.invoke("sendPaymentReceipt", {
-        booking_request_id: booking?.id,
-        user_email: user?.email,
-        amount: amountDue,
-        vehicle_name: booking?.vehicle_name,
-        booking_type: booking?.booking_type,
-        weekly_rate: booking?.weekly_rate,
-      }).catch(() => {});
+      const status = paymentIntent?.status;
+      if (status === "succeeded" || status === "requires_capture") {
+        setPaid(true);
+        if (booking?.vehicle_id) await markBooked.mutateAsync({ id: booking.vehicle_id }).catch(() => {});
+        await logEvent.mutateAsync({
+          user_email: user?.email,
+          booking_request_id: booking?.id,
+          event_type: "payment_received",
+          event_title: "First Payment Received",
+          event_description: `$${amountDue} initial payment via Stripe`,
+          event_status: "success",
+          amount: amountDue,
+        }).catch(() => {});
 
-      onPaymentSuccess({
-        payment_status: "paid",
-        booking_status: "pending_review",
-        stripe_payment_intent_id: paymentIntentId,
-        stripe_customer_id: stripeCustomerId,
-        stripe_payment_method_id: paymentIntent.payment_method || null,
-        autopay_enabled: autopay,
-        total_due_now: amountDue,
-        submitted_at: new Date().toISOString(),
-        viewed_by_admin: false,
-        pending_review_alert_active: true,
-        admin_attention_priority: "high",
-        ...agreementMeta,
-      });
-      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
-    } else if (status === "processing") {
-      setError("Payment is still processing. Check your bookings page in a moment.");
-      setProcessing(false);
-      submittedRef.current = false;
-    } else {
-      setError(`Payment failed (status: ${status || "unknown"}). Please try again.`);
+        const agreementMeta = {
+          agreement_accepted_at: new Date().toISOString(),
+          agreement_ip_address: "captured-server-side",
+          agreement_device_info: navigator.userAgent || "unknown",
+          agreement_version: "v1.0",
+          payment_accepted_recurring_notice: recurringAgreed,
+        };
+
+        base44.functions.invoke("sendPaymentReceipt", {
+          booking_request_id: booking?.id,
+          user_email: user?.email,
+          amount: amountDue,
+          vehicle_name: booking?.vehicle_name,
+          booking_type: booking?.booking_type,
+          weekly_rate: booking?.weekly_rate,
+        }).catch(() => {});
+
+        onPaymentSuccess({
+          payment_status: "paid",
+          booking_status: "pending_review",
+          stripe_payment_intent_id: paymentIntentId,
+          stripe_customer_id: stripeCustomerId,
+          stripe_payment_method_id: paymentIntent.payment_method || null,
+          autopay_enabled: autopay,
+          total_due_now: amountDue,
+          submitted_at: new Date().toISOString(),
+          viewed_by_admin: false,
+          pending_review_alert_active: true,
+          admin_attention_priority: "high",
+          ...agreementMeta,
+        });
+        queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      } else if (status === "processing") {
+        setError("Payment is still processing. Check your bookings page in a moment.");
+        setProcessing(false);
+        submittedRef.current = false;
+      } else {
+        setError(`Payment failed (status: ${status || "unknown"}). Please try again.`);
+        setProcessing(false);
+        submittedRef.current = false;
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      setError(err.message || "Payment failed. Please try again.");
       setProcessing(false);
       submittedRef.current = false;
     }
