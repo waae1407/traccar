@@ -12,9 +12,13 @@ async function getStripePromise() {
   const res = await base44.functions.invoke("stripePublishableKey", {});
   const key = res.data?.publishable_key;
   if (!key) throw new Error("Missing Stripe publishable key");
+  // loadStripe returns a Promise — cache and return it directly
   cachedStripePromise = loadStripe(key);
   return cachedStripePromise;
 }
+
+// Pre-warm the Stripe promise at module load
+const stripePromiseInstance = getStripePromise().catch(() => null);
 
 // ─── Inner form — lives inside <Elements> so useStripe/useElements work ───────
 function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId }) {
@@ -166,7 +170,6 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripeCustomerId, setStripeCustomerId] = useState(null);
-  const [stripePromise, setStripePromise] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const initialized = useRef(false);
@@ -193,16 +196,12 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
 
     (async () => {
       try {
-        const [sp, piRes] = await Promise.all([
-          getStripePromise(),
-          base44.functions.invoke("stripeCreatePaymentIntent", {
-            booking_request_id: booking.id,
-            amount_cents: amountCents,
-            booking_type: booking.booking_type,
-            setup_future_usage: "off_session",
-          }),
-        ]);
-        setStripePromise(sp);
+        const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
+          booking_request_id: booking.id,
+          amount_cents: amountCents,
+          booking_type: booking.booking_type,
+          setup_future_usage: "off_session",
+        });
         if (piRes.data?.client_secret) {
           setClientSecret(piRes.data.client_secret);
           setPaymentIntentId(piRes.data.payment_intent_id);
@@ -269,8 +268,8 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             >Try again</button>
           </div>
         </div>
-      ) : stripePromise && stripeOptions ? (
-        <Elements stripe={stripePromise} options={stripeOptions} key={clientSecret}>
+      ) : stripeOptions ? (
+        <Elements stripe={stripePromiseInstance} options={stripeOptions} key={clientSecret}>
           <PaymentForm
             booking={booking}
             user={user}
