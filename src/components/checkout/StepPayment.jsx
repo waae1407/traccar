@@ -41,6 +41,8 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           confirmParams: {
             return_url: `${window.location.origin}/checkout?request=${booking?.id}`,
             billing_details: {
+              name: booking?.customer_full_name || user?.full_name || "Customer",
+              email: user?.email,
               address: { country: "US" },
             },
           },
