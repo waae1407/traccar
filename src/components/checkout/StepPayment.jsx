@@ -16,12 +16,14 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
   const [autopay, setAutopay] = useState(booking?.autopay_enabled ?? true);
   const [recurringAgreed, setRecurringAgreed] = useState(false);
   const queryClient = useQueryClient();
+  const submittedRef = useRef(false);
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements || !ready || processing) return;
+    if (!stripe || !elements || !ready || processing || submittedRef.current) return;
+    submittedRef.current = true;
     setProcessing(true);
     setError(null);
 
@@ -33,6 +35,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
     if (stripeErr) {
       setError(stripeErr.message);
       setProcessing(false);
+      submittedRef.current = false;
       return;
     }
 
@@ -87,9 +90,11 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
     } else if (status === "processing") {
       setError("Payment is still processing. Check your bookings page in a moment.");
       setProcessing(false);
+      submittedRef.current = false;
     } else {
       setError(`Payment failed (status: ${status || "unknown"}). Please try again.`);
       setProcessing(false);
+      submittedRef.current = false;
     }
   };
 
@@ -200,8 +205,9 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   const amountDue = booking?.total_due_now || booking?.weekly_rate || 0;
   const amountCents = Math.round(amountDue * 100);
 
+  // If already paid (e.g. page refresh), skip straight to confirmation
   useEffect(() => {
-    if (booking?.payment_status === "paid") {
+    if (booking?.payment_status === "paid" && !initialized.current) {
       saveAndAdvance({}, "confirmation");
     }
   }, []); // eslint-disable-line
