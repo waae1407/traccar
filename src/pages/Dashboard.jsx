@@ -50,19 +50,45 @@ export default function Dashboard() {
     return d.getTime() === today.getTime();
   });
 
-  const activeRentals = bookings.filter((b) => b.status === "Active").length;
+  // Real active rentals from BookingRequests (source of truth)
+  const activeRentals = bookingRequests.filter((b) => ["approved", "confirmed", "active", "pending_review"].includes(b.booking_status)).length;
   const availableVehicles = vehicles.filter((v) => v.status === "Available").length;
   const overduePayments = payments.filter((p) => p.status === "Overdue");
-  const activeContracts = contracts.filter((c) => c.status === "Active").length;
-  const totalRevenue = payments.filter((p) => p.status === "Paid").reduce((s, p) => s + (p.amount || 0), 0);
-  const thisMonthRevenue = payments.filter((p) => {
-    if (!p.paid_date) return false;
-    const d = new Date(p.paid_date), now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).reduce((s, p) => s + (p.amount || 0), 0);
+  const activeContracts = contracts.filter((c) => c.status === "Active").length +
+    bookingRequests.filter((b) => b.booking_type === "Rent-to-Own" && ["approved", "confirmed", "active"].includes(b.booking_status)).length;
 
-  // Monthly trend
+  // Real revenue: BookingRequests (paid) + legacy Payment records
+  const revenueFromRequests = bookingRequests
+    .filter((b) => b.payment_status === "paid")
+    .reduce((s, b) => s + (b.total_due_now || 0), 0);
+  const revenueFromPayments = payments.filter((p) => p.status === "Paid").reduce((s, p) => s + (p.amount || 0), 0);
+  const totalRevenue = revenueFromRequests + revenueFromPayments;
+
+  const now = new Date();
+  const thisMonthRevenue = bookingRequests
+    .filter((b) => {
+      if (b.payment_status !== "paid") return false;
+      const dateStr = b.agreement_accepted_at || b.submitted_at || b.created_date;
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    })
+    .reduce((s, b) => s + (b.total_due_now || 0), 0)
+    + payments.filter((p) => {
+      if (!p.paid_date || p.status !== "Paid") return false;
+      const d = new Date(p.paid_date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).reduce((s, p) => s + (p.amount || 0), 0);
+
+  // Monthly trend (BookingRequests + legacy Payments)
   const monthlyData = {};
+  bookingRequests.filter((b) => b.payment_status === "paid").forEach((b) => {
+    const dateStr = b.agreement_accepted_at || b.submitted_at || b.created_date;
+    if (!dateStr) return;
+    const d = new Date(dateStr);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthlyData[key] = (monthlyData[key] || 0) + (b.total_due_now || 0);
+  });
   payments.filter((p) => p.status === "Paid" && p.paid_date).forEach((p) => {
     const d = new Date(p.paid_date);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -85,15 +111,18 @@ export default function Dashboard() {
   });
   const methodChart = Object.entries(methodData).map(([name, value]) => ({ name, value }));
 
-  const recentBookings = [...bookings].sort((a, b) => new Date(b.created_date) - new Date(a.created_date)).slice(0, 5);
+  // Use BookingRequests as the source of recent activity (real data)
+  const recentBookings = [...bookingRequests]
+    .filter((b) => b.booking_status !== "draft")
+    .slice(0, 5);
 
   const stats = [
     { title: "Active Rentals", value: activeRentals, icon: CalendarDays, colorIndex: 0 },
     { title: "Available Vehicles", value: availableVehicles, icon: Car, colorIndex: 2 },
     { title: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 1 },
     { title: "Monthly Revenue", value: `$${thisMonthRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 3 },
-    { title: "Overdue Payments", value: overduePayments.length, icon: AlertTriangle, colorIndex: 4 },
-    { title: "Active RTO", value: activeContracts, icon: FileKey, colorIndex: 5 },
+    { title: "Total Customers", value: customers.length, icon: Users, colorIndex: 5 },
+    { title: "Active RTO", value: activeContracts, icon: FileKey, colorIndex: 4 },
   ];
 
   return (
@@ -225,10 +254,10 @@ export default function Dashboard() {
             {recentBookings.length > 0 ? recentBookings.map((b) => (
               <div key={b.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.06] transition-colors border border-white/[0.04]">
                 <div className="min-w-0">
-                  <p className="font-medium text-white text-sm truncate">{b.customer_name || "Customer"}</p>
+                  <p className="font-medium text-white text-sm truncate">{b.customer_full_name || "Customer"}</p>
                   <p className="text-xs text-white/35 mt-0.5 truncate">{b.vehicle_name} · {b.booking_type}</p>
                 </div>
-                <StatusBadge status={b.status} />
+                <StatusBadge status={b.booking_status} />
               </div>
             )) : (
               <p className="text-white/25 text-sm text-center py-6">No bookings yet</p>

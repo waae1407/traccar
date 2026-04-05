@@ -36,9 +36,20 @@ export default function Reports() {
   const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles"], queryFn: () => base44.entities.Vehicle.list() });
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: () => base44.entities.Booking.list() });
   const { data: payments = [] } = useQuery({ queryKey: ["payments"], queryFn: () => base44.entities.Payment.list() });
+  const { data: customers = [] } = useQuery({ queryKey: ["customers-report"], queryFn: () => base44.entities.Customer.list() });
+  // BookingRequests = source of truth for real revenue and bookings
+  const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-report"], queryFn: () => base44.entities.BookingRequest.list("-created_date", 500) });
 
-  // Revenue per vehicle
+  // ── Real revenue from paid BookingRequests ────────────────────────────────
+  const paidRequests = bookingRequests.filter((b) => b.payment_status === "paid" && b.total_due_now > 0);
+
+  // Revenue per vehicle (from BookingRequests)
   const vehicleRevenue = {};
+  paidRequests.forEach((b) => {
+    const vName = b.vehicle_name || "Unknown";
+    vehicleRevenue[vName] = (vehicleRevenue[vName] || 0) + (b.total_due_now || 0);
+  });
+  // Also include legacy Payment records
   payments.filter((p) => p.status === "Paid").forEach((p) => {
     const booking = bookings.find((b) => b.id === p.booking_id);
     if (booking) {
@@ -51,7 +62,7 @@ export default function Reports() {
   // City utilization
   const cityStats = {};
   vehicles.forEach((v) => {
-    const city = v.current_city || "Unknown";
+    const city = v.city || v.current_city || "Unknown";
     if (!cityStats[city]) cityStats[city] = { total: 0, booked: 0 };
     cityStats[city].total++;
     if (v.status === "Booked") cityStats[city].booked++;
@@ -60,33 +71,48 @@ export default function Reports() {
     city, rate: s.total > 0 ? Math.round((s.booked / s.total) * 100) : 0,
   }));
 
-  // Monthly revenue
+  // Monthly revenue (BookingRequests + legacy Payments combined)
   const monthlyData = {};
+  paidRequests.forEach((b) => {
+    const dateStr = b.agreement_accepted_at || b.submitted_at || b.created_date;
+    if (!dateStr) return;
+    const d = new Date(dateStr);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthlyData[key] = (monthlyData[key] || 0) + (b.total_due_now || 0);
+  });
   payments.filter((p) => p.status === "Paid" && p.paid_date).forEach((p) => {
     const d = new Date(p.paid_date);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     monthlyData[key] = (monthlyData[key] || 0) + (p.amount || 0);
   });
   const trendData = Object.entries(monthlyData).sort().map(([month, revenue]) => ({ month: month.slice(5), revenue }));
-  if (trendData.length === 0) trendData.push({ month: "Mar", revenue: 0 });
+  if (trendData.length === 0) trendData.push({ month: new Date().toISOString().slice(5, 7), revenue: 0 });
 
-  // Lead sources
-  const leadSources = {};
-  vehicles.forEach(() => {}); // placeholder
-  const customers_data = [];
-  const sourceData = [
-    { name: "Turo", value: 35 }, { name: "Facebook", value: 28 },
-    { name: "Referral", value: 20 }, { name: "Website", value: 12 }, { name: "Other", value: 5 }
-  ];
+  // Lead sources from real Customer records
+  const leadSourceCounts = {};
+  customers.forEach((c) => {
+    const src = c.lead_source || "Other";
+    leadSourceCounts[src] = (leadSourceCounts[src] || 0) + 1;
+  });
+  const totalCustomers = customers.length || 1;
+  const sourceData = Object.entries(leadSourceCounts).length > 0
+    ? Object.entries(leadSourceCounts).map(([name, count]) => ({ name, value: Math.round((count / totalCustomers) * 100) }))
+    : [{ name: "Website", value: 100 }];
 
-  const totalRevenue = payments.filter((p) => p.status === "Paid").reduce((s, p) => s + (p.amount || 0), 0);
-  const paidCount = payments.filter((p) => p.status === "Paid").length;
-  const complianceRate = payments.length > 0 ? Math.round((paidCount / payments.length) * 100) : 0;
+  // ── KPI totals ─────────────────────────────────────────────────────────────
+  const revenueFromRequests = paidRequests.reduce((s, b) => s + (b.total_due_now || 0), 0);
+  const revenueFromPayments = payments.filter((p) => p.status === "Paid").reduce((s, p) => s + (p.amount || 0), 0);
+  const totalRevenue = revenueFromRequests + revenueFromPayments;
+
+  const totalBookings = bookingRequests.filter((b) => !["draft", "cancelled"].includes(b.booking_status)).length;
+  const paidCount = paidRequests.length + payments.filter((p) => p.status === "Paid").length;
+  const totalTransactions = paidCount + payments.filter((p) => p.status !== "Paid").length + bookingRequests.filter((b) => b.payment_status === "unpaid" && b.booking_status !== "draft").length;
+  const complianceRate = totalTransactions > 0 ? Math.round((paidCount / totalTransactions) * 100) : 0;
 
   const kpis = [
-    { label: "Payment Compliance", value: `${complianceRate}%`, sub: `${paidCount} of ${payments.length} paid`, color: "text-green-400" },
+    { label: "Payment Compliance", value: `${complianceRate}%`, sub: `${paidCount} paid transactions`, color: "text-green-400" },
     { label: "Fleet Size", value: vehicles.length, sub: "total vehicles", color: "text-blue-400" },
-    { label: "Total Bookings", value: bookings.length, sub: "all time", color: "text-purple-400" },
+    { label: "Total Bookings", value: totalBookings, sub: "active & completed", color: "text-purple-400" },
     { label: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, sub: "all time collected", color: "text-pink-400" },
   ];
 
