@@ -34,18 +34,14 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
     });
 
     try {
+      console.log("[Stripe] confirmPayment: Payment Element collecting billing_details (including name)");
+      
       const { error: stripeErr, paymentIntent } = await Promise.race([
         stripe.confirmPayment({
           elements,
           redirect: "if_required",
           confirmParams: {
             return_url: `${window.location.origin}/checkout?request=${booking?.id}`,
-            billing_details: {
-              name: booking?.customer_full_name || user?.full_name || "Customer",
-              email: user?.email,
-              phone: booking?.customer_phone || user?.phone || "",
-              address: { country: "US" },
-            },
           },
         }),
         timeoutPromise,
@@ -54,7 +50,12 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
       clearTimeout(timeoutId);
 
       if (stripeErr) {
-        setError(stripeErr.message);
+        console.error("[Stripe] confirmPayment error:", stripeErr);
+        // Show friendly message to user
+        const friendlyMsg = stripeErr.message?.includes("billing") 
+          ? "Please ensure all payment details are filled in correctly." 
+          : "Payment failed. Please try again.";
+        setError(friendlyMsg);
         setProcessing(false);
         submittedRef.current = false;
         return;
@@ -151,7 +152,6 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
             layout: "tabs",
             paymentMethodOrder: ["card", "us_bank_account"],
             wallets: { applePay: "auto", googlePay: "auto" },
-            fields: { billingDetails: "never" },
           }}
           onReady={() => { console.log("[Stripe] PaymentElement ready"); setReady(true); }}
           onLoadError={(e) => { console.error("[Stripe] PaymentElement load error", e); setReady(false); }}
