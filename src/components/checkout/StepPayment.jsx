@@ -14,6 +14,14 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(false);
   const [autopay, setAutopay] = useState(booking?.autopay_enabled ?? true);
+  const [loadTimeout, setLoadTimeout] = useState(false);
+
+  // If PaymentElement hasn't loaded in 15s, show a helpful message
+  useEffect(() => {
+    if (ready) return;
+    const t = setTimeout(() => setLoadTimeout(true), 15000);
+    return () => clearTimeout(t);
+  }, [ready]);
   const queryClient = useQueryClient();
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
@@ -89,9 +97,19 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
       <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white relative min-h-[140px]">
         {!ready && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/95 rounded-2xl z-10">
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
-              <p className="text-xs text-gray-500">Loading payment form…</p>
+            <div className="flex flex-col items-center gap-2 px-4 text-center">
+              {loadTimeout ? (
+                <>
+                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  <p className="text-xs text-amber-700 font-semibold">Payment form taking too long</p>
+                  <p className="text-xs text-gray-500">Please open this page directly at <strong>uridehub.com</strong> — the payment form may be blocked in preview mode.</p>
+                </>
+              ) : (
+                <>
+                  <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+                  <p className="text-xs text-gray-500">Loading payment form…</p>
+                </>
+              )}
             </div>
           </div>
         )}
