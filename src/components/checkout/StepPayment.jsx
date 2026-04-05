@@ -5,35 +5,8 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lucide-react";
 
-// ─── Stripe Promise — single Promise<Stripe|null>, cached at module level ─────
-// loadStripe(key) already returns Promise<Stripe|null>, so we just chain once.
-let _stripePromise = null;
-function getStripePromise() {
-  if (!_stripePromise) {
-    _stripePromise = base44.functions
-      .invoke("stripePublishableKey", {})
-      .then((res) => {
-        const key = res.data?.publishable_key;
-        console.log("[Stripe] ✅ Checkpoint 1 — publishable key received:", !!key);
-        if (!key) throw new Error("Missing Stripe publishable key");
-        const p = loadStripe(key);
-        console.log("[Stripe] ✅ Checkpoint 1b — loadStripe() called, type:", typeof p, "is Promise:", p instanceof Promise);
-        return p; // Promise<Stripe|null>  ← NOT wrapped again
-      })
-      .catch((err) => {
-        console.error("[Stripe] ❌ Stripe promise failed:", err.message);
-        _stripePromise = null; // allow retry
-        return null;
-      });
-  }
-  return _stripePromise;
-}
-
-// Pre-warm at module load so Stripe.js loads in background
-const stripePromiseInstance = getStripePromise();
-
-// ─── Inner form — must live inside <Elements> ─────────────────────────────────
-function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId }) {
+// ─── Inner form — lives inside <Elements> ────────────────────────────────────
+function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue }) {
   const stripe = useStripe();
   const elements = useElements();
   const [ready, setReady] = useState(false);
@@ -45,27 +18,9 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
 
-  const amountDue = booking?.total_due_now || booking?.weekly_rate || 0;
-
-  // Checkpoint 3 — Elements initialized
-  useEffect(() => {
-    console.log("[Stripe] ✅ Checkpoint 3 — PaymentForm mounted. stripe:", !!stripe, "elements:", !!elements);
-  }, [stripe, elements]);
-
-  const handleReady = () => {
-    console.log("[Stripe] ✅ Checkpoint 4 — PaymentElement onReady fired!");
-    console.log("[Stripe] ✅ Checkpoint 5 — Switching loading state to ready_for_payment");
-    setReady(true);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Checkpoint 7 — confirmPayment only after ready
-    if (!stripe || !elements || !ready || processing) {
-      console.warn("[Stripe] ⚠️ confirmPayment blocked — stripe:", !!stripe, "elements:", !!elements, "ready:", ready, "processing:", processing);
-      return;
-    }
-    console.log("[Stripe] ✅ Checkpoint 7 — stripe.confirmPayment() called");
+    if (!stripe || !elements || !ready || processing) return;
     setProcessing(true);
     setError(null);
 
@@ -130,24 +85,19 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
   return (
     <form onSubmit={handleSubmit}>
-      {/* Checkpoint 3b — payment container always rendered, spinner overlays it */}
-      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white relative min-h-[120px]">
+      {/* Container always in DOM so PaymentElement can mount */}
+      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white relative min-h-[140px]">
         {!ready && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/90 rounded-2xl z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-white/95 rounded-2xl z-10">
             <div className="flex flex-col items-center gap-2">
               <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
               <p className="text-xs text-gray-500">Loading payment form…</p>
             </div>
           </div>
         )}
-        {/* Checkpoint 3c — PaymentElement always rendered (not conditionally removed) */}
         <PaymentElement
           options={{ layout: "tabs" }}
-          onReady={handleReady}
-          onLoadError={(e) => {
-            console.error("[Stripe] ❌ PaymentElement load error:", e);
-            setError("Payment form failed to load. Please refresh.");
-          }}
+          onReady={() => setReady(true)}
         />
       </div>
 
@@ -158,7 +108,6 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         </div>
       )}
 
-      {/* Checkpoint 6 — Pay button disabled until ready */}
       <button type="button" onClick={() => setAutopay(!autopay)}
         className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50 text-left mb-5">
         <div className={`h-5 w-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${autopay ? "border-pink-500 bg-pink-500" : "border-gray-300"}`}>
@@ -173,7 +122,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
       <div className="flex items-center gap-2 mb-4">
         <Shield className="h-4 w-4 text-green-600" />
         <Lock className="h-3 w-3 text-gray-400" />
-        <p className="text-xs text-gray-400">Secured by Stripe · PCI DSS compliant</p>
+        <p className="text-xs text-gray-400">Secured by Stripe · PCI DSS compliant · Card details never touch our servers</p>
       </div>
 
       <button
@@ -194,6 +143,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
 // ─── Outer wrapper ─────────────────────────────────────────────────────────────
 export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSuccess }) {
+  const [stripePromise, setStripePromise] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripeCustomerId, setStripeCustomerId] = useState(null);
@@ -212,7 +162,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   }, []); // eslint-disable-line
 
   useEffect(() => {
-    if (!booking?.id || initialized.current) { setLoading(false); return; }
+    if (!booking?.id || initialized.current) return;
     if (amountCents < 50) {
       setError(`Amount too low ($${amountDue}). Please contact support.`);
       setLoading(false);
@@ -222,7 +172,14 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
 
     (async () => {
       try {
-        // Checkpoint 2 — verify clientSecret
+        // Step 1: load Stripe publishable key and initialize Stripe
+        const pkRes = await base44.functions.invoke("stripePublishableKey", {});
+        const pk = pkRes.data?.publishable_key;
+        if (!pk) throw new Error("Missing Stripe publishable key");
+        const sp = loadStripe(pk);
+        setStripePromise(sp);
+
+        // Step 2: create PaymentIntent
         const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
           booking_request_id: booking.id,
           amount_cents: amountCents,
@@ -230,31 +187,20 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
           setup_future_usage: "off_session",
         });
         const secret = piRes.data?.client_secret;
-        console.log("[Stripe] ✅ Checkpoint 2 — clientSecret received:", !!secret);
-        if (secret) {
-          setClientSecret(secret);
-          setPaymentIntentId(piRes.data.payment_intent_id);
-          setStripeCustomerId(piRes.data.stripe_customer_id);
-        } else {
-          setError("Could not initialize payment. Please refresh and try again.");
-        }
+        if (!secret) throw new Error("No client_secret returned");
+        setClientSecret(secret);
+        setPaymentIntentId(piRes.data.payment_intent_id);
+        setStripeCustomerId(piRes.data.stripe_customer_id);
       } catch (err) {
-        console.error("[Stripe] ❌ PaymentIntent creation failed:", err.message);
-        setError("Payment setup failed. Please refresh and try again.");
+        setError("Payment setup failed: " + err.message + ". Please refresh and try again.");
       } finally {
         setLoading(false);
       }
     })();
   }, [booking?.id]); // eslint-disable-line
 
-  // Checkpoint 2b — log stripePromiseInstance type
-  useEffect(() => {
-    console.log("[Stripe] ✅ Checkpoint 1c — stripePromiseInstance type:", typeof stripePromiseInstance, "is Promise:", stripePromiseInstance instanceof Promise);
-  }, []);
-
   const stripeOptions = useMemo(() => {
     if (!clientSecret) return null;
-    console.log("[Stripe] ✅ Checkpoint 2c — Elements options ready, clientSecret length:", clientSecret.length);
     return {
       clientSecret,
       appearance: {
@@ -304,15 +250,15 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             >Try again</button>
           </div>
         </div>
-      ) : stripeOptions ? (
-        // Checkpoint 2d — Elements receives correct stripe promise + clientSecret
-        <Elements stripe={stripePromiseInstance} options={stripeOptions} key={clientSecret}>
+      ) : stripePromise && stripeOptions ? (
+        <Elements stripe={stripePromise} options={stripeOptions} key={clientSecret}>
           <PaymentForm
             booking={booking}
             user={user}
             onPaymentSuccess={handlePaymentSuccess}
             paymentIntentId={paymentIntentId}
             stripeCustomerId={stripeCustomerId}
+            amountDue={amountDue}
           />
         </Elements>
       ) : (
