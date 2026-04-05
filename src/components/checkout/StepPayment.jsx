@@ -14,14 +14,6 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(false);
   const [autopay, setAutopay] = useState(booking?.autopay_enabled ?? true);
-  const [loadTimeout, setLoadTimeout] = useState(false);
-
-  // If PaymentElement hasn't loaded in 15s, show a helpful message
-  useEffect(() => {
-    if (ready) return;
-    const t = setTimeout(() => setLoadTimeout(true), 15000);
-    return () => clearTimeout(t);
-  }, [ready]);
   const queryClient = useQueryClient();
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
@@ -93,29 +85,19 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
   return (
     <form onSubmit={handleSubmit}>
-      {/* Container always in DOM so PaymentElement can mount */}
-      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white relative min-h-[140px]">
+      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white relative min-h-[160px]">
         {!ready && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/95 rounded-2xl z-10">
-            <div className="flex flex-col items-center gap-2 px-4 text-center">
-              {loadTimeout ? (
-                <>
-                  <AlertCircle className="h-5 w-5 text-amber-500" />
-                  <p className="text-xs text-amber-700 font-semibold">Payment form taking too long</p>
-                  <p className="text-xs text-gray-500">Please open this page directly at <strong>uridehub.com</strong> — the payment form may be blocked in preview mode.</p>
-                </>
-              ) : (
-                <>
-                  <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
-                  <p className="text-xs text-gray-500">Loading payment form…</p>
-                </>
-              )}
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+              <p className="text-xs text-gray-500">Loading payment form…</p>
             </div>
           </div>
         )}
         <PaymentElement
           options={{ layout: "tabs" }}
-          onReady={() => setReady(true)}
+          onReady={() => { console.log("[Stripe] PaymentElement ready"); setReady(true); }}
+          onLoadError={(e) => { console.error("[Stripe] PaymentElement load error", e); setReady(false); }}
         />
       </div>
 
@@ -161,7 +143,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
 // ─── Outer wrapper ─────────────────────────────────────────────────────────────
 export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSuccess }) {
-  const [stripePromise, setStripePromise] = useState(null);
+  const [stripeInstance, setStripeInstance] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripeCustomerId, setStripeCustomerId] = useState(null);
@@ -172,12 +154,50 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   const amountDue = booking?.total_due_now || booking?.weekly_rate || 0;
   const amountCents = Math.round(amountDue * 100);
 
-  // Skip if already paid
   useEffect(() => {
     if (booking?.payment_status === "paid") {
       saveAndAdvance({}, "confirmation");
     }
   }, []); // eslint-disable-line
+
+  const init = async () => {
+    setLoading(true);
+    setError(null);
+    initialized.current = true;
+
+    try {
+      // Step 1: get publishable key and AWAIT the stripe object immediately
+      const pkRes = await base44.functions.invoke("stripePublishableKey", {});
+      const pk = pkRes.data?.publishable_key;
+      if (!pk) throw new Error("Missing Stripe publishable key");
+
+      // Await loadStripe here so we store the actual Stripe instance, not a promise
+      const stripe = await loadStripe(pk);
+      if (!stripe) throw new Error("Stripe failed to initialize");
+      console.log("[Stripe] instance loaded:", typeof stripe);
+      setStripeInstance(stripe);
+
+      // Step 2: create PaymentIntent
+      const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
+        booking_request_id: booking.id,
+        amount_cents: amountCents,
+        booking_type: booking.booking_type,
+        setup_future_usage: "off_session",
+      });
+      const secret = piRes.data?.client_secret;
+      if (!secret) throw new Error("No client_secret returned");
+      console.log("[Stripe] clientSecret received, last4:", secret.slice(-4));
+      setClientSecret(secret);
+      setPaymentIntentId(piRes.data.payment_intent_id);
+      setStripeCustomerId(piRes.data.stripe_customer_id);
+    } catch (err) {
+      console.error("[Stripe] init error:", err.message);
+      setError("Payment setup failed: " + err.message);
+      initialized.current = false;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!booking?.id || initialized.current) return;
@@ -186,35 +206,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
       setLoading(false);
       return;
     }
-    initialized.current = true;
-
-    (async () => {
-      try {
-        // Step 1: load Stripe publishable key and initialize Stripe
-        const pkRes = await base44.functions.invoke("stripePublishableKey", {});
-        const pk = pkRes.data?.publishable_key;
-        if (!pk) throw new Error("Missing Stripe publishable key");
-        const sp = loadStripe(pk);
-        setStripePromise(sp);
-
-        // Step 2: create PaymentIntent
-        const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
-          booking_request_id: booking.id,
-          amount_cents: amountCents,
-          booking_type: booking.booking_type,
-          setup_future_usage: "off_session",
-        });
-        const secret = piRes.data?.client_secret;
-        if (!secret) throw new Error("No client_secret returned");
-        setClientSecret(secret);
-        setPaymentIntentId(piRes.data.payment_intent_id);
-        setStripeCustomerId(piRes.data.stripe_customer_id);
-      } catch (err) {
-        setError("Payment setup failed: " + err.message + ". Please refresh and try again.");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    init();
   }, [booking?.id]); // eslint-disable-line
 
   const stripeOptions = useMemo(() => {
@@ -263,13 +255,13 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             <p className="font-semibold mb-1">Payment setup error</p>
             <p>{error}</p>
             <button
-              onClick={() => { initialized.current = false; setError(null); setLoading(true); }}
+              onClick={() => { initialized.current = false; init(); }}
               className="mt-2 text-xs font-bold text-pink-600 underline"
             >Try again</button>
           </div>
         </div>
-      ) : stripePromise && stripeOptions ? (
-        <Elements stripe={stripePromise} options={stripeOptions} key={clientSecret}>
+      ) : stripeInstance && stripeOptions ? (
+        <Elements stripe={stripeInstance} options={stripeOptions} key={clientSecret}>
           <PaymentForm
             booking={booking}
             user={user}
