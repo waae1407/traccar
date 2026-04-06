@@ -85,7 +85,7 @@ export default function Vehicles() {
     { key: "vin", label: "VIN", render: (r) => r.vin
       ? <span className="font-mono text-xs text-white/40">{r.vin}</span>
       : <span className="text-white/20">—</span> },
-    { key: "current_city", label: "City", render: (r) => <span className="text-white/60">{r.current_city || "—"}</span> },
+    { key: "city", label: "City", render: (r) => <span className="text-white/60">{r.city || r.current_city || "—"}</span> },
     { key: "status", label: "Status", render: (r) => <StatusBadge status={r.status} /> },
     { key: "weekly_rate", label: "Weekly Rate", render: (r) => r.weekly_rate
       ? <span className="font-semibold text-green-400">${r.weekly_rate}</span>
