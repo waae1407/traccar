@@ -4,49 +4,43 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const { event, data } = body;
+    const { data } = body;
 
     // Skip if image already exists
     if (data?.image_url) {
-      console.log(`Vehicle ${data.id} already has an image, skipping generation`);
+      console.log(`[VehicleImage] Vehicle ${data.id} already has an image, skipping`);
       return Response.json({ ok: true });
     }
 
     // Need year, make, model to generate
     if (!data?.year || !data?.make || !data?.model) {
-      console.log(`Vehicle ${data.id} missing year/make/model, skipping generation`);
+      console.log(`[VehicleImage] Vehicle ${data.id} missing year/make/model, skipping`);
       return Response.json({ ok: true });
     }
 
-    const { year, make, model, color } = data;
-    
-    console.log(`Generating cartoon image for ${year} ${make} ${model}`);
+    const { id, year, make, model, color } = data;
 
-    // Generate detailed prompt for cartoon vehicle
-    const prompt = `A cute, colorful cartoon-style illustration of a ${year} ${make} ${model}${color ? ` in ${color}` : ''}. 
-    The car should be drawn in a friendly, playful cartoon style with simple rounded shapes and bright colors. 
-    Show the full car from a 3/4 front-left angle. The background should be a simple, light gradient. 
-    Professional, modern cartoon art style. High quality.`;
+    console.log(`[VehicleImage] Generating cartoon image for ${year} ${make} ${model} (${color || 'unknown color'})`);
 
-    // Generate image using Base44 integration
-    const imageResult = await base44.integrations.Core.GenerateImage({
-      prompt: prompt
-    });
+    const prompt = `A vibrant, high-quality cartoon-style illustration of a ${year} ${make} ${model}${color ? ` in ${color}` : ''}. ` +
+      `Drawn in a bold, playful cartoon style with clean outlines, smooth shading, and vivid colors. ` +
+      `Show the full car from a 3/4 front-left angle on a simple light gradient background. ` +
+      `No text, no people. Professional automotive cartoon art.`;
+
+    const imageResult = await base44.asServiceRole.integrations.Core.GenerateImage({ prompt });
 
     if (!imageResult?.url) {
-      console.error(`Failed to generate image for ${year} ${make} ${model}`);
-      return Response.json({ ok: true }); // Don't fail the automation
+      console.error(`[VehicleImage] Image generation returned no URL for vehicle ${id}`);
+      return Response.json({ ok: false, error: 'No image URL returned' });
     }
 
-    // Update vehicle with generated image
-    await base44.asServiceRole.entities.Vehicle.update(data.id, {
-      image_url: imageResult.url
-    });
+    await base44.asServiceRole.entities.Vehicle.update(id, { image_url: imageResult.url });
 
-    console.log(`✓ Generated and saved image for ${data.id}: ${imageResult.url}`);
+    console.log(`[VehicleImage] ✓ Saved image for vehicle ${id}: ${imageResult.url}`);
     return Response.json({ ok: true, image_url: imageResult.url });
+
   } catch (error) {
-    console.error("Image generation error:", error.message);
-    return Response.json({ ok: true }); // Don't fail the automation
+    console.error(`[VehicleImage] Error: ${error.message}`);
+    return Response.json({ ok: false, error: error.message }, { status: 500 });
   }
 });
