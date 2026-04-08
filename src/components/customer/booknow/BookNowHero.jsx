@@ -74,9 +74,6 @@ export default function BookNowHero({ user, vehicleCount }) {
               {tag}
             </span>
           ))}
-          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-600 text-xs font-semibold">
-            🔥 Detroit · DTW
-          </span>
         </div>
       </div>
     </div>

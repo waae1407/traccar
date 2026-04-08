@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useOutletContext, useNavigate } from "react-router-dom";
@@ -9,13 +9,43 @@ import BookNowQuickActions from "@/components/customer/booknow/BookNowQuickActio
 import BookNowVehicleGrid from "@/components/customer/booknow/BookNowVehicleGrid";
 import BookNowRtoBanner from "@/components/customer/booknow/BookNowRtoBanner";
 import GigWorkerBanner from "@/components/customer/booknow/GigWorkerBanner";
-import CitySelector from "@/components/customer/booknow/CitySelector";
+import LocationBar from "@/components/customer/booknow/LocationBar";
+import useUserLocation from "@/hooks/useUserLocation";
 import HomeTopBar from "@/components/customer/HomeTopBar";
+
+// Haversine distance in miles
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 3959; // miles
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+const SUGGESTED_CITIES = {
+  detroit: [
+    { name: "Ann Arbor", state: "MI", lat: 42.2808, lon: -83.7430, badge: "⚡ Fast Pickup", hot: true },
+    { name: "Dearborn", state: "MI", lat: 42.3222, lon: -83.1763, badge: "🔥 High Demand", hot: true },
+  ],
+  "los angeles": [
+    { name: "Santa Monica", state: "CA", lat: 34.0195, lon: -118.4912, badge: "🔥 High Demand", hot: true },
+    { name: "Pasadena", state: "CA", lat: 34.1478, lon: -118.1445, badge: "⚡ Fast Pickup", hot: true },
+  ],
+  "new york": [
+    { name: "Brooklyn", state: "NY", lat: 40.6782, lon: -73.9442, badge: "🔥 High Demand", hot: true },
+    { name: "Queens", state: "NY", lat: 40.7282, lon: -73.7949, badge: "⚡ Fast Pickup", hot: true },
+  ],
+  chicago: [
+    { name: "Evanston", state: "IL", lat: 42.0601, lon: -87.6819, badge: "⚡ Fast Pickup", hot: true },
+    { name: "Oak Park", state: "IL", lat: 41.8856, lon: -87.8144, badge: "🔥 High Demand", hot: true },
+  ],
+};
 
 export default function BookNow() {
   const context = useOutletContext() || {};
-  const { user, city = "", setCity } = context;
+  const { user } = context;
   const navigate = useNavigate();
+  const { location, detecting, source, setByZip, setManualCity } = useUserLocation(user);
 
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [bookingType, setBookingType] = useState("Weekly");
@@ -40,10 +70,27 @@ export default function BookNow() {
     staleTime: 60_000,
   });
 
-  const available = vehicles.filter((v) => v.status === "Available");
-  const byCity = city ? available.filter((v) => (v.city || v.current_city || "").toLowerCase().includes(city.toLowerCase())) : available;
-  const displayVehicles = byCity.length > 0 ? byCity : available;
-  const rtoEligible = vehicles.filter((v) => v.rent_to_own_eligible && v.status === "Available");
+  // Suggested alternate cities for current location
+  const suggested = useMemo(() => {
+    const key = location.city.toLowerCase();
+    return SUGGESTED_CITIES[key] || [];
+  }, [location.city]);
+
+  // Distance filtering + sorting
+  const available = useMemo(() => {
+    if (!location.lat || !location.lon) return vehicles.filter((v) => v.status === "Available");
+    return vehicles
+      .filter((v) => v.status === "Available" && v.vehicle_lat && v.vehicle_lon)
+      .map((v) => ({
+        ...v,
+        distance: getDistance(location.lat, location.lon, v.vehicle_lat, v.vehicle_lon),
+      }))
+      .filter((v) => v.distance <= 50) // 50-mile radius
+      .sort((a, b) => a.distance - b.distance);
+  }, [vehicles, location]);
+
+  const displayVehicles = available;
+  const rtoEligible = available.filter((v) => v.rent_to_own_eligible);
 
   // Filter logic
   const filtered = activeFilter === "RTO"
@@ -60,14 +107,31 @@ export default function BookNow() {
     navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}${companyParam}`);
   };
 
+  const handleLocationZipSearch = async (zipcode, altCity) => {
+    if (altCity) {
+      setManualCity(altCity.name, altCity.state, altCity.lat, altCity.lon);
+    } else {
+      await setByZip(zipcode);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-28 bg-gray-50">
-      <HomeTopBar user={user} city={city} onCityChange={() => {}} />
+      <HomeTopBar user={user} />
 
-      {/* Gig worker banner — always visible, high conversion */}
+      {/* Gig worker banner */}
       <GigWorkerBanner />
 
       {user && <ContinueBookingBanner user={user} />}
+
+      {/* Location Bar (replaces static city selector) */}
+      <LocationBar
+        location={location}
+        detecting={detecting}
+        source={source}
+        onZipSearch={handleLocationZipSearch}
+        suggestedCities={suggested}
+      />
 
       {/* Hero */}
       <BookNowHero user={user} vehicleCount={available.length} />
@@ -81,9 +145,6 @@ export default function BookNow() {
         companySlug={companySlug}
       />
 
-      {/* City Selector */}
-      <CitySelector selectedCity={city} onSelectCity={setCity} />
-
       {/* RTO Banner */}
       {rtoEligible.length > 0 && <BookNowRtoBanner count={rtoEligible.length} companySlug={companySlug} />}
 
@@ -91,7 +152,7 @@ export default function BookNow() {
       <BookNowVehicleGrid
         vehicles={filtered}
         isLoading={isLoading}
-        city={city}
+        location={location}
         onSelect={setSelectedVehicle}
       />
 

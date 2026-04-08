@@ -81,7 +81,10 @@ function VehicleCard({ v, onSelect, featured = false }) {
         <div className="flex items-center gap-2 mt-0.5">
           <div className="flex items-center gap-0.5">
             <MapPin className="h-2.5 w-2.5 text-gray-400" />
-            <span className="text-[10px] text-gray-400">{v.city || "Available"}</span>
+            <span className="text-[10px] text-gray-400">
+              {v.city || "Available"}
+              {v.distance !== undefined && <span className="ml-1 text-gray-300">({v.distance.toFixed(1)} mi)</span>}
+            </span>
           </div>
           <span className="text-gray-200">·</span>
           <div className="flex items-center gap-0.5">
@@ -122,7 +125,7 @@ function SkeletonCard() {
   );
 }
 
-export default function BookNowVehicleGrid({ vehicles, isLoading, city, onSelect }) {
+export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSelect }) {
   if (isLoading) {
     return (
       <div className="px-4">
@@ -139,7 +142,7 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, city, onSelect
       <div className="px-4 flex flex-col items-center py-16 text-center">
         <div className="text-5xl mb-4">🚗</div>
         <p className="text-gray-500 font-semibold">No vehicles available</p>
-        <p className="text-gray-400 text-sm mt-1">Check back soon or change your filter</p>
+        <p className="text-gray-400 text-sm mt-1">Try a different location or check back soon</p>
       </div>
     );
   }
@@ -149,9 +152,12 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, city, onSelect
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="font-bold text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>
-            {city ? `Rides in ${city}` : "All Available Rides"}
+            {vehicles.length > 0 ? "Nearby Rides" : "All Rides"}
           </h2>
-          <p className="text-gray-400 text-xs mt-0.5">{vehicles.length} vehicle{vehicles.length !== 1 ? "s" : ""} ready · Approval required · Response within 24hrs</p>
+          <p className="text-gray-400 text-xs mt-0.5">
+            {vehicles.length > 5 ? `🔥 High demand in your area` : vehicles.length > 0 ? `${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""} available` : "Limited vehicles near you"}
+            {" "}· Approval required · Response within 24hrs
+          </p>
         </div>
       </div>
 
