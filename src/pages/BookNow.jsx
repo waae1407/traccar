@@ -4,12 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import VehicleDetailSheet from "@/components/customer/VehicleDetailSheet";
 import ContinueBookingBanner from "@/components/customer/ContinueBookingBanner";
-import BookNowHero from "@/components/customer/booknow/BookNowHero";
 import BookNowQuickActions from "@/components/customer/booknow/BookNowQuickActions";
 import BookNowVehicleGrid from "@/components/customer/booknow/BookNowVehicleGrid";
 import BookNowRtoBanner from "@/components/customer/booknow/BookNowRtoBanner";
 import GigWorkerBanner from "@/components/customer/booknow/GigWorkerBanner";
-import LocationBar from "@/components/customer/booknow/LocationBar";
+import LocationContext from "@/components/customer/booknow/LocationContext";
+import BookNowHeadline from "@/components/customer/booknow/BookNowHeadline";
 import useUserLocation from "@/hooks/useUserLocation";
 import HomeTopBar from "@/components/customer/HomeTopBar";
 
@@ -119,24 +119,25 @@ export default function BookNow() {
     <div className="min-h-screen pb-28 bg-gray-50">
       <HomeTopBar user={user} />
 
-      {/* Gig worker banner */}
+      {/* SECTION 1: Promo banner */}
       <GigWorkerBanner />
 
       {user && <ContinueBookingBanner user={user} />}
 
-      {/* Location Bar (replaces static city selector) */}
-      <LocationBar
+      {/* SECTION 2: Location + Availability (compact context) */}
+      <LocationContext
         location={location}
         detecting={detecting}
         source={source}
         onZipSearch={handleLocationZipSearch}
         suggestedCities={suggested}
+        vehicleCount={available.length}
       />
 
-      {/* Hero */}
-      <BookNowHero user={user} vehicleCount={available.length} />
+      {/* SECTION 3: Main headline */}
+      <BookNowHeadline user={user} />
 
-      {/* Quick Actions */}
+      {/* SECTION 4: Rental choice toggles */}
       <BookNowQuickActions
         bookingType={bookingType}
         onTypeChange={setBookingType}
@@ -145,10 +146,10 @@ export default function BookNow() {
         companySlug={companySlug}
       />
 
-      {/* RTO Banner */}
+      {/* SECTION 5: RTO program card */}
       {rtoEligible.length > 0 && <BookNowRtoBanner count={rtoEligible.length} companySlug={companySlug} />}
 
-      {/* Vehicle Grid */}
+      {/* SECTION 6: Vehicle inventory */}
       <BookNowVehicleGrid
         vehicles={filtered}
         isLoading={isLoading}
