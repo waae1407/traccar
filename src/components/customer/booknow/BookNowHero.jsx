@@ -68,12 +68,15 @@ export default function BookNowHero({ user, vehicleCount }) {
 
         {/* Sub labels */}
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          {["Weekly", "Rent-to-Own", "All Cities"].map((tag) => (
+          {["Weekly", "Rent-to-Own"].map((tag) => (
             <span key={tag} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-200 text-gray-500 text-xs">
-              {tag === "All Cities" ? <MapPin className="h-2.5 w-2.5" /> : <Zap className="h-2.5 w-2.5" />}
+              <Zap className="h-2.5 w-2.5" />
               {tag}
             </span>
           ))}
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-600 text-xs font-semibold">
+            🔥 Detroit · DTW
+          </span>
         </div>
       </div>
     </div>

@@ -8,6 +8,8 @@ import BookNowHero from "@/components/customer/booknow/BookNowHero";
 import BookNowQuickActions from "@/components/customer/booknow/BookNowQuickActions";
 import BookNowVehicleGrid from "@/components/customer/booknow/BookNowVehicleGrid";
 import BookNowRtoBanner from "@/components/customer/booknow/BookNowRtoBanner";
+import GigWorkerBanner from "@/components/customer/booknow/GigWorkerBanner";
+import CitySelector from "@/components/customer/booknow/CitySelector";
 import HomeTopBar from "@/components/customer/HomeTopBar";
 
 export default function BookNow() {
@@ -62,6 +64,9 @@ export default function BookNow() {
     <div className="min-h-screen pb-28 bg-gray-50">
       <HomeTopBar user={user} city={city} onCityChange={() => {}} />
 
+      {/* Gig worker banner — always visible, high conversion */}
+      <GigWorkerBanner />
+
       {user && <ContinueBookingBanner user={user} />}
 
       {/* Hero */}
@@ -75,6 +80,9 @@ export default function BookNow() {
         onFilterChange={setActiveFilter}
         companySlug={companySlug}
       />
+
+      {/* City Selector */}
+      <CitySelector selectedCity={city} onSelectCity={setCity} />
 
       {/* RTO Banner */}
       {rtoEligible.length > 0 && <BookNowRtoBanner count={rtoEligible.length} companySlug={companySlug} />}

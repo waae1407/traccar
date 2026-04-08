@@ -1,10 +1,30 @@
 import React from "react";
-import { MapPin, Star, Zap, ChevronRight } from "lucide-react";
+import { MapPin, Star, Zap, ChevronRight, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&q=80";
 
+// Heuristic tags based on vehicle properties
+function getVehicleTags(v) {
+  const tags = [];
+  const model = (v.model || "").toLowerCase();
+  const make = (v.make || "").toLowerCase();
+  const year = v.year || 0;
+
+  // Gig-friendly makes/models
+  const gigModels = ["prius", "camry", "accord", "civic", "altima", "sentra", "malibu", "fusion", "elantra", "sonata", "corolla"];
+  if (gigModels.some((m) => model.includes(m))) tags.push("uber");
+
+  // Fuel efficiency heuristic
+  const efficientModels = ["prius", "civic", "corolla", "elantra", "sentra", "fit", "accent"];
+  if (efficientModels.some((m) => model.includes(m))) tags.push("fuel");
+
+  return tags;
+}
+
 function VehicleCard({ v, onSelect, featured = false }) {
+  const tags = getVehicleTags(v);
+
   return (
     <button
       onClick={() => onSelect(v)}
@@ -23,16 +43,14 @@ function VehicleCard({ v, onSelect, featured = false }) {
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
-        {/* Gradient overlay */}
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)" }} />
 
-        {/* Badges */}
+        {/* Top-left badges */}
         <div className="absolute top-3 left-3 flex gap-1.5">
           {v.rent_to_own_eligible && (
             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold text-white"
               style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-              <Zap className="h-2.5 w-2.5" fill="white" />
-              RTO
+              <Zap className="h-2.5 w-2.5" fill="white" />RTO
             </span>
           )}
           {featured && (
@@ -42,13 +60,13 @@ function VehicleCard({ v, onSelect, featured = false }) {
           )}
         </div>
 
-        {/* Status dot */}
+        {/* Approval badge top-right */}
         <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-sm">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-          <span className="text-[9px] text-white/80 font-medium">Available</span>
+          <Clock className="h-2.5 w-2.5 text-amber-300" />
+          <span className="text-[9px] text-white/80 font-medium">~24hr review</span>
         </div>
 
-        {/* Price overlay on image bottom */}
+        {/* Price */}
         <div className="absolute bottom-3 left-3">
           <span className="text-white text-xl font-bold" style={{ fontFamily: "var(--font-syne)" }}>
             ${v.weekly_rate || "—"}
@@ -58,25 +76,35 @@ function VehicleCard({ v, onSelect, featured = false }) {
       </div>
 
       {/* Info */}
-      <div className="p-3 flex items-center justify-between">
-        <div className="min-w-0">
-          <p className="font-bold text-gray-900 text-sm truncate">{v.year} {v.make} {v.model}</p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <div className="flex items-center gap-0.5">
-              <MapPin className="h-2.5 w-2.5 text-gray-400" />
-              <span className="text-[10px] text-gray-400">{v.city || v.current_city || "Available"}</span>
-            </div>
-            <span className="text-gray-200">·</span>
-            <div className="flex items-center gap-0.5">
-              <Star className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
-              <span className="text-[10px] text-gray-400">4.9</span>
-            </div>
+      <div className="p-3">
+        <p className="font-bold text-gray-900 text-sm truncate">{v.year} {v.make} {v.model}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-0.5">
+            <MapPin className="h-2.5 w-2.5 text-gray-400" />
+            <span className="text-[10px] text-gray-400">{v.city || "Available"}</span>
+          </div>
+          <span className="text-gray-200">·</span>
+          <div className="flex items-center gap-0.5">
+            <Star className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
+            <span className="text-[10px] text-gray-400">4.9</span>
           </div>
         </div>
-        <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-          <ChevronRight className="h-4 w-4 text-white" />
-        </div>
+
+        {/* Gig tags — only show if relevant */}
+        {tags.length > 0 && (
+          <div className="flex gap-1 mt-2 flex-wrap">
+            {tags.includes("uber") && (
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-black text-white">
+                🚗 Uber ready
+              </span>
+            )}
+            {tags.includes("fuel") && (
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-green-50 text-green-700 border border-green-200">
+                ⛽ Fuel efficient
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </button>
   );
@@ -123,7 +151,7 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, city, onSelect
           <h2 className="font-bold text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>
             {city ? `Rides in ${city}` : "All Available Rides"}
           </h2>
-          <p className="text-gray-400 text-xs mt-0.5">{vehicles.length} vehicle{vehicles.length !== 1 ? "s" : ""} ready to book</p>
+          <p className="text-gray-400 text-xs mt-0.5">{vehicles.length} vehicle{vehicles.length !== 1 ? "s" : ""} ready · Approval required · Response within 24hrs</p>
         </div>
       </div>
 
