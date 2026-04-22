@@ -1,13 +1,10 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
-export default function GigWorkerBanner() {
-  const navigate = useNavigate();
-
+export default function GigWorkerBanner({ onCta }) {
   return (
     <button
-      onClick={() => navigate("/book-now")}
+      onClick={onCta}
       className="mx-4 mb-5 rounded-2xl overflow-hidden relative w-[calc(100%-2rem)] text-left active:scale-[0.98] transition-transform"
       style={{ background: "linear-gradient(135deg, hsl(338 90% 56%) 0%, hsl(265 80% 58%) 100%)" }}
     >

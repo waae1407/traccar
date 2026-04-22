@@ -131,7 +131,7 @@ export default function BookNow() {
       <HomeTopBar user={user} />
 
       {/* SECTION 1: Promo banner */}
-      <GigWorkerBanner />
+      <GigWorkerBanner onCta={() => document.getElementById("vehicle-grid")?.scrollIntoView({ behavior: "smooth" })} />
 
       {user && <ContinueBookingBanner user={user} />}
 
@@ -161,6 +161,7 @@ export default function BookNow() {
       {rtoEligible.length > 0 && <BookNowRtoBanner count={rtoEligible.length} companySlug={companySlug} />}
 
       {/* SECTION 6: Vehicle inventory or empty state */}
+      <div id="vehicle-grid" />
       {!isLoading && filtered.length === 0 && !isExpandedRadius ? (
         <WaitlistEmptyState
           location={location}
