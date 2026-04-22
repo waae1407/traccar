@@ -87,8 +87,8 @@ function BookingCard({ booking, onDelete, onCancelRequest, isDeleting, onInspect
             <p className="text-xs text-red-600 font-semibold">Cancellation request pending admin review</p>
           </div>
         )}
-        {/* Inspection CTAs for active bookings */}
-        {booking.booking_status === "active" && (
+        {/* Inspection CTAs for active/approved/confirmed bookings */}
+        {["active", "approved", "confirmed"].includes(booking.booking_status) && (
           <div className="mt-3 space-y-2">
             {!booking.pickup_photos?.length && (
               <button
