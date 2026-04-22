@@ -2,9 +2,10 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useOutletContext, Link } from "react-router-dom";
-import { CalendarDays, MapPin, Clock, Car, Trash2, XCircle } from "lucide-react";
+import { CalendarDays, MapPin, Clock, Car, Trash2, XCircle, Camera } from "lucide-react";
 import { format } from "date-fns";
 import CancelBookingSheet from "@/components/customer/CancelBookingSheet";
+import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
 const statusColors = {
   confirmed: "bg-green-100 text-green-700",
@@ -42,7 +43,7 @@ const STATUS_PRIORITY = {
 };
 
 // Extracted as a top-level component to avoid remount issues
-function BookingCard({ booking, onDelete, onCancelRequest, isDeleting }) {
+function BookingCard({ booking, onDelete, onCancelRequest, isDeleting, onInspect }) {
   const statusCls = statusColors[booking.booking_status] || "bg-gray-100 text-gray-500";
   const isDraft = booking.booking_status === "draft";
   const isResumable = ["draft", "pending_verification", "pending_contract", "pending_payment"].includes(booking.booking_status);
@@ -84,6 +85,39 @@ function BookingCard({ booking, onDelete, onCancelRequest, isDeleting }) {
         {isCancelPending && (
           <div className="mt-3 p-2.5 bg-red-50 rounded-xl">
             <p className="text-xs text-red-600 font-semibold">Cancellation request pending admin review</p>
+          </div>
+        )}
+        {/* Inspection CTAs for active bookings */}
+        {booking.booking_status === "active" && (
+          <div className="mt-3 space-y-2">
+            {!booking.pickup_photos?.length && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onInspect(booking, "pickup"); }}
+                className="w-full py-2.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5"
+                style={{ background: "linear-gradient(135deg, hsl(199 90% 54% / 0.1), hsl(265 80% 62% / 0.1))", borderColor: "hsl(199 90% 54% / 0.3)", color: "hsl(199 90% 40%)" }}
+              >
+                <Camera className="h-3.5 w-3.5" /> 📸 Take Pickup Inspection Photos
+              </button>
+            )}
+            {booking.pickup_photos?.length > 0 && !booking.return_exterior_photos?.length && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onInspect(booking, "dropoff"); }}
+                className="w-full py-2.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5"
+                style={{ background: "linear-gradient(135deg, hsl(38 95% 54% / 0.1), hsl(338 90% 56% / 0.1))", borderColor: "hsl(38 95% 54% / 0.4)", color: "hsl(38 70% 40%)" }}
+              >
+                <Camera className="h-3.5 w-3.5" /> 📸 Take Drop-off Inspection Photos
+              </button>
+            )}
+            {booking.pickup_photos?.length > 0 && (
+              <p className="text-[10px] text-green-600 font-semibold text-center flex items-center justify-center gap-1">
+                ✅ Pickup photos submitted ({booking.pickup_photos.length}/6)
+              </p>
+            )}
+            {booking.return_exterior_photos?.length > 0 && (
+              <p className="text-[10px] text-green-600 font-semibold text-center flex items-center justify-center gap-1">
+                ✅ Drop-off photos submitted ({booking.return_exterior_photos.length}/6)
+              </p>
+            )}
           </div>
         )}
         {isCancellable && (
@@ -129,6 +163,9 @@ export default function MyBookings() {
   const { user } = useOutletContext() || {};
   const queryClient = useQueryClient();
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [inspectionTarget, setInspectionTarget] = useState(null); // { booking, type }
+
+  const handleInspect = (booking, type) => setInspectionTarget({ booking, type });
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["my-booking-requests", user?.email],
@@ -211,6 +248,13 @@ export default function MyBookings() {
       {cancelTarget && (
         <CancelBookingSheet booking={cancelTarget} onClose={() => setCancelTarget(null)} />
       )}
+      {inspectionTarget && (
+        <VehicleInspectionSheet
+          booking={inspectionTarget.booking}
+          type={inspectionTarget.type}
+          onClose={() => setInspectionTarget(null)}
+        />
+      )}
       {drafts.length > 0 && (
         <div className="mb-5">
           <h2 className="font-bold text-gray-700 text-sm uppercase tracking-wider mb-3">In Progress</h2>
@@ -233,6 +277,7 @@ export default function MyBookings() {
               <BookingCard key={b.id} booking={b}
                 onDelete={handleDelete}
                 onCancelRequest={setCancelTarget}
+                onInspect={handleInspect}
                 isDeleting={deleteMutation.isPending && deleteMutation.variables === b.id}
               />
             ))}
