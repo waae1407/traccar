@@ -88,33 +88,33 @@ function BookingCard({ booking, onDelete, onCancelRequest, isDeleting, onInspect
           </div>
         )}
         {/* Inspection CTAs for active/approved/confirmed bookings */}
-        {["active", "approved", "confirmed"].includes(booking.booking_status) && (
+        {["active", "approved", "confirmed"].includes(booking.booking_status) && onInspect && (
           <div className="mt-3 space-y-2">
-            {!booking.pickup_photos?.length && (
+            {!(booking.pickup_photos?.length > 0) && (
               <button
-                onClick={(e) => { e.stopPropagation(); onInspect(booking, "pickup"); }}
-                className="w-full py-2.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5"
-                style={{ background: "linear-gradient(135deg, hsl(199 90% 54% / 0.1), hsl(265 80% 62% / 0.1))", borderColor: "hsl(199 90% 54% / 0.3)", color: "hsl(199 90% 40%)" }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); onInspect(booking, "pickup"); }}
+                className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 text-white"
+                style={{ background: "linear-gradient(135deg, hsl(199 90% 45%), hsl(265 80% 55%))" }}
               >
-                <Camera className="h-3.5 w-3.5" /> 📸 Take Pickup Inspection Photos
+                <Camera className="h-4 w-4" /> 📸 Take Pickup Inspection Photos
               </button>
             )}
-            {booking.pickup_photos?.length > 0 && !booking.return_exterior_photos?.length && (
+            {booking.pickup_photos?.length > 0 && !(booking.return_exterior_photos?.length > 0) && (
               <button
-                onClick={(e) => { e.stopPropagation(); onInspect(booking, "dropoff"); }}
-                className="w-full py-2.5 rounded-xl text-xs font-bold border flex items-center justify-center gap-1.5"
-                style={{ background: "linear-gradient(135deg, hsl(38 95% 54% / 0.1), hsl(338 90% 56% / 0.1))", borderColor: "hsl(38 95% 54% / 0.4)", color: "hsl(38 70% 40%)" }}
+                onClick={(e) => { e.stopPropagation(); e.preventDefault(); onInspect(booking, "dropoff"); }}
+                className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 text-white"
+                style={{ background: "linear-gradient(135deg, hsl(38 95% 45%), hsl(338 90% 50%))" }}
               >
-                <Camera className="h-3.5 w-3.5" /> 📸 Take Drop-off Inspection Photos
+                <Camera className="h-4 w-4" /> 📸 Take Drop-off Inspection Photos
               </button>
             )}
             {booking.pickup_photos?.length > 0 && (
-              <p className="text-[10px] text-green-600 font-semibold text-center flex items-center justify-center gap-1">
+              <p className="text-[10px] text-green-600 font-semibold text-center">
                 ✅ Pickup photos submitted ({booking.pickup_photos.length}/6)
               </p>
             )}
             {booking.return_exterior_photos?.length > 0 && (
-              <p className="text-[10px] text-green-600 font-semibold text-center flex items-center justify-center gap-1">
+              <p className="text-[10px] text-green-600 font-semibold text-center">
                 ✅ Drop-off photos submitted ({booking.return_exterior_photos.length}/6)
               </p>
             )}
