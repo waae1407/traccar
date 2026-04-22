@@ -26,8 +26,7 @@ export default function BookNowQuickActions({ bookingType, onTypeChange, activeF
 
   const handleType = (type) => {
     onTypeChange(type);
-    const companyParam = companySlug ? `?company=${companySlug}&type=${type}` : `?type=${type}`;
-    navigate(`/checkout${companyParam}`);
+    document.getElementById("vehicle-grid")?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
