@@ -41,6 +41,7 @@ export default function LocationContext({ location, detecting, source, onZipSear
             </div>
           </div>
           <button
+            id="location-context-change"
             onClick={() => setShowSearch(!showSearch)}
             className="flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
           >

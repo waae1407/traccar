@@ -10,6 +10,7 @@ import BookNowRtoBanner from "@/components/customer/booknow/BookNowRtoBanner";
 import GigWorkerBanner from "@/components/customer/booknow/GigWorkerBanner";
 import LocationContext from "@/components/customer/booknow/LocationContext";
 import BookNowHeadline from "@/components/customer/booknow/BookNowHeadline";
+import WaitlistEmptyState from "@/components/customer/booknow/WaitlistEmptyState";
 import useUserLocation from "@/hooks/useUserLocation";
 import HomeTopBar from "@/components/customer/HomeTopBar";
 
@@ -76,17 +77,27 @@ export default function BookNow() {
     return SUGGESTED_CITIES[key] || [];
   }, [location.city]);
 
-  // Distance filtering + sorting
-  const available = useMemo(() => {
-    if (!location.lat || !location.lon) return vehicles.filter((v) => v.status === "Available");
-    return vehicles
+  // Distance filtering + sorting — with expanded radius fallback (Option D)
+  const { available, isExpandedRadius } = useMemo(() => {
+    if (!location.lat || !location.lon) {
+      const avail = vehicles.filter((v) => v.status === "Available");
+      return { available: avail, isExpandedRadius: false };
+    }
+
+    const withDistance = vehicles
       .filter((v) => v.status === "Available" && v.vehicle_lat && v.vehicle_lon)
       .map((v) => ({
         ...v,
         distance: getDistance(location.lat, location.lon, v.vehicle_lat, v.vehicle_lon),
       }))
-      .filter((v) => v.distance <= 50) // 50-mile radius
       .sort((a, b) => a.distance - b.distance);
+
+    const nearby = withDistance.filter((v) => v.distance <= 50);
+    if (nearby.length > 0) return { available: nearby, isExpandedRadius: false };
+
+    // Expand to 150 miles
+    const expanded = withDistance.filter((v) => v.distance <= 150);
+    return { available: expanded, isExpandedRadius: expanded.length > 0 };
   }, [vehicles, location]);
 
   const displayVehicles = available;
@@ -149,13 +160,21 @@ export default function BookNow() {
       {/* SECTION 5: RTO program card */}
       {rtoEligible.length > 0 && <BookNowRtoBanner count={rtoEligible.length} companySlug={companySlug} />}
 
-      {/* SECTION 6: Vehicle inventory */}
-      <BookNowVehicleGrid
-        vehicles={filtered}
-        isLoading={isLoading}
-        location={location}
-        onSelect={setSelectedVehicle}
-      />
+      {/* SECTION 6: Vehicle inventory or empty state */}
+      {!isLoading && filtered.length === 0 && !isExpandedRadius ? (
+        <WaitlistEmptyState
+          location={location}
+          onChangeLocation={() => document.getElementById("location-context-change")?.click()}
+        />
+      ) : (
+        <BookNowVehicleGrid
+          vehicles={filtered}
+          isLoading={isLoading}
+          location={location}
+          onSelect={setSelectedVehicle}
+          isExpandedRadius={isExpandedRadius}
+        />
+      )}
 
       {/* Vehicle Detail Sheet */}
       <VehicleDetailSheet

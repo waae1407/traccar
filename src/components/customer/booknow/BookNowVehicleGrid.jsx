@@ -125,7 +125,7 @@ function SkeletonCard() {
   );
 }
 
-export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSelect }) {
+export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSelect, isExpandedRadius }) {
   if (isLoading) {
     return (
       <div className="px-4">
@@ -149,13 +149,23 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
 
   return (
     <div className="px-4">
+      {/* Expanded radius notice */}
+      {isExpandedRadius && (
+        <div className="mb-4 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
+          <MapPin className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700 font-medium">
+            No vehicles within 50 miles — showing nearest available rides outside your area.
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="font-bold text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>
-            {vehicles.length > 0 ? "Nearby Rides" : "All Rides"}
+            {isExpandedRadius ? "Nearest Available Rides" : "Nearby Rides"}
           </h2>
           <p className="text-gray-400 text-xs mt-0.5">
-            {vehicles.length > 5 ? `🔥 High demand in your area` : vehicles.length > 0 ? `${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""} available` : "Limited vehicles near you"}
+            {vehicles.length > 5 ? `🔥 High demand in your area` : `${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""} available`}
             {" "}· Approval required · Response within 24hrs
           </p>
         </div>
