@@ -375,6 +375,30 @@
     "clean_return_admin_notes": {
       "type": "string",
       "description": "Admin notes on vehicle return condition"
+    },
+    "inspection_sample_images": {
+      "type": "object",
+      "description": "Pre-generated inspection sample image URLs keyed by slot ID. Generated in background when booking becomes active.",
+      "properties": {
+        "interior_front": {
+          "type": "string"
+        },
+        "interior_rear": {
+          "type": "string"
+        },
+        "exterior_front_left": {
+          "type": "string"
+        },
+        "exterior_rear_left": {
+          "type": "string"
+        },
+        "exterior_front_right": {
+          "type": "string"
+        },
+        "exterior_rear_right": {
+          "type": "string"
+        }
+      }
     }
   },
   "required": [

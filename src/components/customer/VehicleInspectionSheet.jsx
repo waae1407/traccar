@@ -51,7 +51,7 @@ const PHOTO_SLOTS = [
   },
 ];
 
-// Generate angle-specific cartoon image using the vehicle's existing image as reference
+// Generate a single angle image on-demand (fallback only)
 async function generateAngleImage(vehicleImageUrl, slot) {
   const result = await base44.integrations.Core.GenerateImage({
     prompt: `${slot.aiPrompt} The vehicle should match the style and color of the reference image exactly.`,
@@ -156,23 +156,31 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
   const queryClient = useQueryClient();
 
   const vehicleImageUrl = booking?.vehicle_image;
+  const cachedImages = booking?.inspection_sample_images || {};
 
-  // Generate all 6 angle images on mount if vehicle has a cartoon image
+  // Use pre-cached images if available; generate on-demand only for missing slots
   useEffect(() => {
     if (!vehicleImageUrl) return;
 
+    // Pre-load cached images instantly
+    if (Object.keys(cachedImages).length > 0) {
+      setSampleImages(cachedImages);
+    }
+
+    // Only generate on-demand for any slots that are still missing
     PHOTO_SLOTS.forEach(async (slot) => {
+      if (cachedImages[slot.id]) return; // already have it, skip
       setSamplesLoading((s) => ({ ...s, [slot.id]: true }));
       try {
         const url = await generateAngleImage(vehicleImageUrl, slot);
         setSampleImages((s) => ({ ...s, [slot.id]: url }));
       } catch {
-        // If generation fails, slot will show emoji fallback
+        // slot shows emoji fallback
       } finally {
         setSamplesLoading((s) => ({ ...s, [slot.id]: false }));
       }
     });
-  }, [vehicleImageUrl]);
+  }, [vehicleImageUrl, booking?.id]);
 
   const updateBooking = useMutation({
     mutationFn: (data) => base44.entities.BookingRequest.update(booking.id, data),
