@@ -64,102 +64,91 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
   const inputRef = useRef(null);
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-      {/* Slot header */}
-      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{slot.icon}</span>
-          <div>
-            <p className="font-bold text-gray-900 text-sm">{slot.label}</p>
-            <p className="text-[10px] text-gray-400">Required</p>
-          </div>
-        </div>
-        {photo && <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />}
-      </div>
+    <div className="rounded-2xl overflow-hidden" style={{ background: "hsl(222 24% 11%)", border: "1px solid hsl(222 18% 20%)" }}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onCapture(slot.id, file);
+        }}
+      />
 
-      {/* Instruction */}
-      <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100">
-        <p className="text-xs text-blue-700 leading-relaxed">{slot.instruction}</p>
-      </div>
-
-      {/* CTA button with sample image embedded */}
-      <div className="p-4">
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onCapture(slot.id, file);
-          }}
-        />
-
-        {photo ? (
-          /* Captured photo preview */
-          <div className="relative rounded-xl overflow-hidden border-2 border-green-400">
-            <img src={photo.preview} alt="" className="w-full h-36 object-cover" />
-            <div className="absolute inset-0 bg-green-500/10 flex items-center justify-center">
-              <div className="bg-white/90 rounded-full p-1.5">
-                <CheckCircle className="h-6 w-6 text-green-500" />
-              </div>
+      {photo ? (
+        /* Captured — full bleed preview */
+        <div className="relative h-44">
+          <img src={photo.preview} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+            <div className="h-12 w-12 rounded-full bg-green-500/20 border-2 border-green-400 flex items-center justify-center">
+              <CheckCircle className="h-6 w-6 text-green-400" />
             </div>
+          </div>
+          {/* Label + retake */}
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-3"
+            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)" }}>
+            <p className="text-white text-xs font-bold">{slot.label}</p>
             <button
               onClick={() => inputRef.current?.click()}
-              className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-white/90 text-[10px] font-bold text-gray-700 border border-gray-200"
+              className="px-3 py-1 rounded-lg text-[10px] font-bold text-white bg-white/20 border border-white/30 backdrop-blur-sm"
             >
               Retake
             </button>
           </div>
-        ) : (
-          /* CTA with embedded sample image */
-          <button
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="w-full rounded-xl border-2 border-dashed border-gray-300 overflow-hidden active:scale-[0.98] transition-transform bg-gray-50"
-          >
-            {/* Sample image section */}
-            <div className="relative w-full h-36 bg-gray-100">
-              {sampleLoading ? (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                  <Loader2 className="h-5 w-5 text-pink-400 animate-spin" />
-                  <span className="text-[10px] text-gray-400">Generating reference…</span>
-                </div>
-              ) : sampleImage ? (
-                <img
-                  src={sampleImage}
-                  alt={slot.label}
-                  className="w-full h-full object-cover"
-                  style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-4xl">
-                  {slot.icon}
-                </div>
-              )}
-              {/* Overlay label */}
-              <div className="absolute bottom-0 left-0 right-0 px-2.5 py-1.5"
-                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)" }}>
-                <p className="text-white text-[10px] font-semibold">📷 Example shot · tap to capture</p>
+        </div>
+      ) : (
+        /* Sample + tap to capture */
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="w-full text-left active:scale-[0.98] transition-transform"
+        >
+          {/* Sample image */}
+          <div className="relative w-full h-44" style={{ background: "hsl(222 24% 8%)" }}>
+            {sampleLoading ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                <span className="text-[10px] text-white/40">Generating example…</span>
               </div>
+            ) : sampleImage ? (
+              <img
+                src={sampleImage}
+                alt={slot.label}
+                className="w-full h-full object-cover"
+                style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">
+                {slot.icon}
+              </div>
+            )}
+            {/* Dark gradient overlay */}
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)" }} />
+            {/* Label on image */}
+            <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
+              <p className="text-white font-bold text-sm">{slot.label}</p>
+              <p className="text-white/50 text-[10px] mt-0.5">📷 Match this angle</p>
             </div>
+            {/* Camera icon top-right */}
+            <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
+              <Camera className="h-4 w-4 text-white" />
+            </div>
+          </div>
 
-            {/* Bottom CTA bar */}
-            <div className="flex items-center justify-center gap-2 py-2.5 px-3"
-              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-              {uploading ? (
-                <Loader2 className="h-4 w-4 text-white animate-spin" />
-              ) : (
-                <Camera className="h-4 w-4 text-white" />
-              )}
-              <span className="text-white text-xs font-bold">
-                {uploading ? "Uploading…" : `Tap to take ${slot.label} photo`}
-              </span>
-            </div>
-          </button>
-        )}
-      </div>
+          {/* Bottom tap bar */}
+          <div className="flex items-center justify-center gap-2 py-3"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            {uploading
+              ? <Loader2 className="h-4 w-4 text-white animate-spin" />
+              : <Camera className="h-4 w-4 text-white" />}
+            <span className="text-white text-xs font-bold">
+              {uploading ? "Uploading…" : "Tap to capture"}
+            </span>
+          </div>
+        </button>
+      )}
     </div>
   );
 }
@@ -227,26 +216,28 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col bg-gray-50">
+    <div className="fixed inset-0 z-[70] flex flex-col" style={{ background: "hsl(222 28% 7%)" }}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between flex-shrink-0">
+      <div className="px-4 py-4 flex items-center justify-between flex-shrink-0"
+        style={{ background: "hsl(222 24% 10%)", borderBottom: "1px solid hsl(222 18% 18%)" }}>
         <div>
-          <h2 className="font-bold text-gray-900 text-base">
+          <h2 className="font-bold text-white text-base" style={{ fontFamily: "var(--font-syne)" }}>
             {isPickup ? "Pickup Inspection" : "Drop-off Inspection"}
           </h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {completedCount}/{PHOTO_SLOTS.length} photos · All 6 required
+          <p className="text-[11px] text-white/40 mt-0.5">
+            {completedCount}/{PHOTO_SLOTS.length} photos · All required
           </p>
         </div>
-        <button onClick={onClose} className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center">
-          <X className="h-4 w-4 text-gray-600" />
+        <button onClick={onClose} className="h-9 w-9 rounded-full flex items-center justify-center"
+          style={{ background: "hsl(222 24% 16%)", border: "1px solid hsl(222 18% 22%)" }}>
+          <X className="h-4 w-4 text-white/60" />
         </button>
       </div>
 
       {/* Progress bar */}
-      <div className="h-1.5 bg-gray-200 flex-shrink-0">
+      <div className="h-1 flex-shrink-0" style={{ background: "hsl(222 18% 18%)" }}>
         <div
-          className="h-full transition-all duration-300"
+          className="h-full transition-all duration-500"
           style={{
             width: `${(completedCount / PHOTO_SLOTS.length) * 100}%`,
             background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))",
@@ -254,18 +245,17 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
         />
       </div>
 
-      {/* Banner */}
-      <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-start gap-2 flex-shrink-0">
-        <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-700 font-medium">
-          {isPickup
-            ? "Document the vehicle BEFORE you drive away. These photos protect you from any pre-existing damage claims."
-            : "Document the vehicle BEFORE you walk away. These photos confirm the condition at return."}
+      {/* Slim alert banner */}
+      <div className="px-4 py-2.5 flex items-center gap-2 flex-shrink-0"
+        style={{ background: "hsl(38 95% 54% / 0.08)", borderBottom: "1px solid hsl(38 95% 54% / 0.15)" }}>
+        <AlertCircle className="h-3.5 w-3.5 text-warning flex-shrink-0" />
+        <p className="text-[11px] text-warning/80 font-medium">
+          {isPickup ? "Document the vehicle BEFORE driving away." : "Document the vehicle BEFORE walking away."}
         </p>
       </div>
 
       {/* Photo slots */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-32">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-32">
         {PHOTO_SLOTS.map((slot) => (
           <PhotoSlot
             key={slot.id}
@@ -280,23 +270,24 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
       </div>
 
       {/* Submit footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
+      <div className="fixed bottom-0 left-0 right-0 px-4 py-4"
+        style={{ background: "hsl(222 24% 10%)", borderTop: "1px solid hsl(222 18% 18%)" }}>
         {!allDone && (
-          <p className="text-center text-xs text-gray-400 mb-2">
+          <p className="text-center text-[11px] text-white/30 mb-2">
             {PHOTO_SLOTS.length - completedCount} photo{PHOTO_SLOTS.length - completedCount !== 1 ? "s" : ""} remaining
           </p>
         )}
         <button
           onClick={handleSubmit}
           disabled={!allDone || submitting}
-          className="w-full py-4 rounded-2xl font-bold text-sm text-white disabled:opacity-40 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+          className="w-full py-4 rounded-2xl font-bold text-sm text-white disabled:opacity-30 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
         >
           {submitting
             ? <><Loader2 className="h-4 w-4 animate-spin" />Submitting…</>
             : allDone
             ? <><Upload className="h-4 w-4" />{isPickup ? "Submit Pickup Photos" : "Submit Drop-off Photos"}</>
-            : `Complete all 6 photos to continue`}
+            : `Complete all ${PHOTO_SLOTS.length - completedCount} remaining photos`}
         </button>
       </div>
     </div>
