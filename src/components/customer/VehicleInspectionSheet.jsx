@@ -37,7 +37,7 @@ const PHOTO_SLOTS = [
     id: "exterior_front_right",
     label: "Front Right Corner (Passenger Side)",
     instruction: "Stand at the front-right (passenger) corner. Capture both the front bumper and the entire passenger-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-RIGHT corner. The camera is positioned at the front-right of the car. You can see: the front headlights and front bumper facing toward you on the right, and the entire RIGHT side of the car (passenger side) stretching away to the left. The rear of the car is NOT visible. Same cartoon style as the reference image.",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-RIGHT corner (passenger side). The car is facing LEFT in the image. The camera is to the RIGHT of the car at the front. You can clearly see: the passenger-side front headlight and front bumper on the LEFT of the image, and the full RIGHT passenger-side door and body panel stretching to the right. This is a MIRROR IMAGE of the typical front-left driver-side view. The driver side and rear of the car are NOT visible. Same cartoon style as the reference image.",
     icon: "↗️",
   },
   {
