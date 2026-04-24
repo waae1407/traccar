@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Camera, CheckCircle, Upload, Loader2, AlertCircle } from "lucide-react";
+import { X, Camera, CheckCircle, Upload, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -124,13 +124,6 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
                 {slot.icon}
               </div>
             )}
-            {/* Dark gradient overlay */}
-            <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)" }} />
-            {/* Label on image */}
-            <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
-              <p className="text-white font-bold text-sm">{slot.label}</p>
-              <p className="text-white/50 text-[10px] mt-0.5">📷 Match this angle</p>
-            </div>
             {/* Camera icon top-right */}
             <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
               <Camera className="h-4 w-4 text-white" />
@@ -243,14 +236,6 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
         />
       </div>
 
-      {/* Slim alert banner */}
-      <div className="px-4 py-2.5 flex items-center gap-2 flex-shrink-0 bg-amber-50 border-b border-amber-100">
-        <AlertCircle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
-        <p className="text-[11px] text-amber-700 font-medium">
-          {isPickup ? "Document the vehicle BEFORE driving away." : "Document the vehicle BEFORE walking away."}
-        </p>
-      </div>
-
       {/* Photo slots */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-32">
         {PHOTO_SLOTS.map((slot) => (
@@ -268,11 +253,6 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
 
       {/* Submit footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4">
-        {!allDone && (
-          <p className="text-center text-[11px] text-gray-400 mb-2">
-            {PHOTO_SLOTS.length - completedCount} photo{PHOTO_SLOTS.length - completedCount !== 1 ? "s" : ""} remaining
-          </p>
-        )}
         <button
           onClick={handleSubmit}
           disabled={!allDone || submitting}
