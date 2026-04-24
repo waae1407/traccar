@@ -90,7 +90,12 @@ function BookingCard({ booking, onDelete, onCancelRequest, isDeleting, onInspect
         {/* Inspection CTAs for active/approved/confirmed bookings */}
         {["active", "approved", "confirmed"].includes(booking.booking_status) && onInspect && (
           <div className="mt-3 space-y-2">
-            {!(booking.pickup_photos?.length > 0) && (
+            {/* PRE-INSPECTION */}
+            {booking.pickup_photos?.length > 0 ? (
+              <div className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-green-50 text-green-600 border border-green-200">
+                <Camera className="h-3.5 w-3.5" /> ✅ Pickup Photos Submitted ({booking.pickup_photos.length}/6)
+              </div>
+            ) : (
               <button
                 onClick={(e) => { e.stopPropagation(); e.preventDefault(); onInspect(booking, "pickup"); }}
                 className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 text-white"
@@ -99,25 +104,46 @@ function BookingCard({ booking, onDelete, onCancelRequest, isDeleting, onInspect
                 <Camera className="h-4 w-4" /> 📸 Take Pickup Inspection Photos
               </button>
             )}
-            {booking.pickup_photos?.length > 0 && !(booking.return_exterior_photos?.length > 0) && (
-              <button
-                onClick={(e) => { e.stopPropagation(); e.preventDefault(); onInspect(booking, "dropoff"); }}
-                className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 text-white"
-                style={{ background: "linear-gradient(135deg, hsl(38 95% 45%), hsl(338 90% 50%))" }}
-              >
-                <Camera className="h-4 w-4" /> 📸 Take Drop-off Inspection Photos
-              </button>
-            )}
-            {booking.pickup_photos?.length > 0 && (
-              <p className="text-[10px] text-green-600 font-semibold text-center">
-                ✅ Pickup photos submitted ({booking.pickup_photos.length}/6)
-              </p>
-            )}
-            {booking.return_exterior_photos?.length > 0 && (
-              <p className="text-[10px] text-green-600 font-semibold text-center">
-                ✅ Drop-off photos submitted ({booking.return_exterior_photos.length}/6)
-              </p>
-            )}
+
+            {/* POST-INSPECTION */}
+            {(() => {
+              const predoneDone = booking.pickup_photos?.length > 0;
+              const postDone = booking.return_exterior_photos?.length > 0;
+              const endDate = booking.end_date ? new Date(booking.end_date) : null;
+              const rentalExpired = endDate ? new Date() >= endDate : false;
+              const canDoPost = predoneDone && rentalExpired;
+
+              if (postDone) {
+                return (
+                  <div className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-green-50 text-green-600 border border-green-200">
+                    <Camera className="h-3.5 w-3.5" /> ✅ Drop-off Photos Submitted ({booking.return_exterior_photos.length}/6)
+                  </div>
+                );
+              }
+              if (!predoneDone) {
+                return (
+                  <div className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 bg-gray-50 text-gray-400 border border-gray-200 cursor-not-allowed">
+                    <Camera className="h-3.5 w-3.5" /> Drop-off Photos (complete pickup first)
+                  </div>
+                );
+              }
+              if (!rentalExpired) {
+                return (
+                  <div className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 bg-gray-50 text-gray-400 border border-gray-200 cursor-not-allowed">
+                    <Camera className="h-3.5 w-3.5" /> Drop-off Photos (available {endDate ? format(endDate, "MMM d") : "at return"})
+                  </div>
+                );
+              }
+              return (
+                <button
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); onInspect(booking, "dropoff"); }}
+                  className="w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 text-white"
+                  style={{ background: "linear-gradient(135deg, hsl(38 95% 45%), hsl(338 90% 50%))" }}
+                >
+                  <Camera className="h-4 w-4" /> 📸 Take Drop-off Inspection Photos
+                </button>
+              );
+            })()}
           </div>
         )}
         {isCancellable && (

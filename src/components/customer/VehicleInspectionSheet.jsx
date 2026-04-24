@@ -1,67 +1,69 @@
-import React, { useState, useRef } from "react";
-import { X, Camera, CheckCircle, Upload, Loader2, AlertCircle } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { X, Camera, CheckCircle, Upload, Loader2, AlertCircle, Lock } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-// 6 mandatory inspection shots with diagram reference images (Unsplash stock angles)
+// 6 mandatory inspection shots with AI prompt instructions per angle
 const PHOTO_SLOTS = [
   {
     id: "interior_front",
     label: "Interior Front",
-    instruction: "Open the driver door fully. Stand outside and photograph the entire front cabin — dashboard, steering wheel, and front seats visible.",
-    sampleImage: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=400&q=80",
-    sampleLabel: "Driver door open · Full front cabin view",
+    instruction: "Open the driver door. Stand outside and photograph the full front cabin — dashboard, steering wheel, and front seats visible.",
+    aiPrompt: "The same cartoon vehicle viewed from the driver door side, door open, showing the interior front cabin with dashboard, steering wheel, and front seats clearly visible. Keep the same cartoon illustration style.",
     icon: "🚗",
   },
   {
     id: "interior_rear",
     label: "Interior Rear",
-    instruction: "Open the rear driver-side door fully. Photograph the entire back seat area — floor, seat, and headrests clearly visible.",
-    sampleImage: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80",
-    sampleLabel: "Rear driver door open · Full back seat view",
+    instruction: "Open the rear driver-side door. Photograph the entire back seat area — floor, seat, and headrests clearly visible.",
+    aiPrompt: "The same cartoon vehicle viewed from the rear driver-side door, door open, showing the back seat interior with rear seats, headrests, and floor clearly visible. Keep the same cartoon illustration style.",
     icon: "🪑",
   },
   {
     id: "exterior_front_right",
-    label: "Front Right Angle",
-    instruction: "Stand at the front-right corner of the vehicle. Capture both the front bumper and right side in one diagonal shot.",
-    sampleImage: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400&q=80",
-    sampleLabel: "Front-right 45° angle · Full bumper & side visible",
+    label: "Front Right Corner",
+    instruction: "Stand at the front-right corner. Capture both the front bumper and right side in one diagonal shot.",
+    aiPrompt: "The same cartoon vehicle from the front-right 45-degree angle, showing the front bumper and right side panel together in one diagonal view. Keep the same cartoon illustration style.",
     icon: "↗️",
   },
   {
     id: "exterior_rear_right",
-    label: "Rear Right Angle",
+    label: "Rear Right Corner",
     instruction: "Stand at the rear-right corner. Capture the entire rear bumper and right side panel in one diagonal shot.",
-    sampleImage: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=400&q=80",
-    sampleLabel: "Rear-right 45° angle · Full rear & side visible",
+    aiPrompt: "The same cartoon vehicle from the rear-right 45-degree angle, showing the rear bumper and right side panel together in one diagonal view. Keep the same cartoon illustration style.",
     icon: "↘️",
   },
   {
     id: "exterior_rear_left",
-    label: "Rear Left Angle",
+    label: "Rear Left Corner",
     instruction: "Stand at the rear-left corner. Capture the rear bumper and entire left side panel in one diagonal shot.",
-    sampleImage: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=400&q=80",
-    sampleLabel: "Rear-left 45° angle · Full rear & left side visible",
+    aiPrompt: "The same cartoon vehicle from the rear-left 45-degree angle, showing the rear bumper and left side panel together in one diagonal view. Keep the same cartoon illustration style.",
     icon: "↙️",
   },
   {
     id: "exterior_front_left",
-    label: "Front Left Angle",
+    label: "Front Left Corner",
     instruction: "Stand at the front-left corner. Capture the front bumper and entire left side panel in one diagonal shot.",
-    sampleImage: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=400&q=80",
-    sampleLabel: "Front-left 45° angle · Full front & left side visible",
+    aiPrompt: "The same cartoon vehicle from the front-left 45-degree angle, showing the front bumper and left side panel together in one diagonal view. Keep the same cartoon illustration style.",
     icon: "↖️",
   },
 ];
 
-function PhotoSlot({ slot, photo, onCapture, uploading }) {
+// Generate angle-specific cartoon image using the vehicle's existing image as reference
+async function generateAngleImage(vehicleImageUrl, slot) {
+  const result = await base44.integrations.Core.GenerateImage({
+    prompt: `${slot.aiPrompt} The vehicle should match the style and color of the reference image exactly.`,
+    existing_image_urls: [vehicleImageUrl],
+  });
+  return result.url;
+}
+
+function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoading }) {
   const inputRef = useRef(null);
-  const [showSample, setShowSample] = useState(false);
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-      {/* Header */}
+      {/* Slot header */}
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">{slot.icon}</span>
@@ -74,30 +76,12 @@ function PhotoSlot({ slot, photo, onCapture, uploading }) {
       </div>
 
       {/* Instruction */}
-      <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+      <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100">
         <p className="text-xs text-blue-700 leading-relaxed">{slot.instruction}</p>
       </div>
 
-      {/* Sample reference toggle */}
-      <div className="px-4 pt-3">
-        <button
-          onClick={() => setShowSample(!showSample)}
-          className="text-[11px] font-bold text-pink-500 underline mb-2"
-        >
-          {showSample ? "Hide example" : "📷 See example shot"}
-        </button>
-        {showSample && (
-          <div className="mb-3 rounded-xl overflow-hidden border border-gray-200">
-            <img src={slot.sampleImage} alt={slot.label} className="w-full h-36 object-cover" />
-            <div className="px-2.5 py-1.5 bg-gray-50">
-              <p className="text-[10px] text-gray-500 font-semibold">{slot.sampleLabel}</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Upload area */}
-      <div className="px-4 pb-4">
+      {/* CTA button with sample image embedded */}
+      <div className="p-4">
         <input
           ref={inputRef}
           type="file"
@@ -111,8 +95,9 @@ function PhotoSlot({ slot, photo, onCapture, uploading }) {
         />
 
         {photo ? (
+          /* Captured photo preview */
           <div className="relative rounded-xl overflow-hidden border-2 border-green-400">
-            <img src={photo.preview} alt="" className="w-full h-32 object-cover" />
+            <img src={photo.preview} alt="" className="w-full h-36 object-cover" />
             <div className="absolute inset-0 bg-green-500/10 flex items-center justify-center">
               <div className="bg-white/90 rounded-full p-1.5">
                 <CheckCircle className="h-6 w-6 text-green-500" />
@@ -126,19 +111,45 @@ function PhotoSlot({ slot, photo, onCapture, uploading }) {
             </button>
           </div>
         ) : (
+          /* CTA with embedded sample image */
           <button
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            className="w-full h-28 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform bg-gray-50"
+            className="w-full rounded-xl border-2 border-dashed border-gray-300 overflow-hidden active:scale-[0.98] transition-transform bg-gray-50"
           >
-            {uploading ? (
-              <Loader2 className="h-6 w-6 text-pink-400 animate-spin" />
-            ) : (
-              <>
-                <Camera className="h-6 w-6 text-gray-400" />
-                <span className="text-xs font-semibold text-gray-500">Tap to take photo</span>
-              </>
-            )}
+            {/* Sample image section */}
+            <div className="relative w-full h-36 bg-gray-100">
+              {sampleLoading ? (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 text-pink-400 animate-spin" />
+                  <span className="text-[10px] text-gray-400">Generating reference…</span>
+                </div>
+              ) : sampleImage ? (
+                <img src={sampleImage} alt={slot.label} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-4xl">
+                  {slot.icon}
+                </div>
+              )}
+              {/* Overlay label */}
+              <div className="absolute bottom-0 left-0 right-0 px-2.5 py-1.5"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent)" }}>
+                <p className="text-white text-[10px] font-semibold">📷 Example shot · tap to capture</p>
+              </div>
+            </div>
+
+            {/* Bottom CTA bar */}
+            <div className="flex items-center justify-center gap-2 py-2.5 px-3"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              {uploading ? (
+                <Loader2 className="h-4 w-4 text-white animate-spin" />
+              ) : (
+                <Camera className="h-4 w-4 text-white" />
+              )}
+              <span className="text-white text-xs font-bold">
+                {uploading ? "Uploading…" : `Tap to take ${slot.label} photo`}
+              </span>
+            </div>
           </button>
         )}
       </div>
@@ -147,11 +158,32 @@ function PhotoSlot({ slot, photo, onCapture, uploading }) {
 }
 
 export default function VehicleInspectionSheet({ booking, type, onClose, onComplete }) {
-  // type = "pickup" | "dropoff"
   const [photos, setPhotos] = useState({});
   const [uploading, setUploading] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  // sampleImages: { [slotId]: url } — generated from vehicle cartoon
+  const [sampleImages, setSampleImages] = useState({});
+  const [samplesLoading, setSamplesLoading] = useState({});
   const queryClient = useQueryClient();
+
+  const vehicleImageUrl = booking?.vehicle_image;
+
+  // Generate all 6 angle images on mount if vehicle has a cartoon image
+  useEffect(() => {
+    if (!vehicleImageUrl) return;
+
+    PHOTO_SLOTS.forEach(async (slot) => {
+      setSamplesLoading((s) => ({ ...s, [slot.id]: true }));
+      try {
+        const url = await generateAngleImage(vehicleImageUrl, slot);
+        setSampleImages((s) => ({ ...s, [slot.id]: url }));
+      } catch {
+        // If generation fails, slot will show emoji fallback
+      } finally {
+        setSamplesLoading((s) => ({ ...s, [slot.id]: false }));
+      }
+    });
+  }, [vehicleImageUrl]);
 
   const updateBooking = useMutation({
     mutationFn: (data) => base44.entities.BookingRequest.update(booking.id, data),
@@ -173,24 +205,19 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
 
   const completedCount = Object.keys(photos).length;
   const allDone = completedCount === PHOTO_SLOTS.length;
+  const isPickup = type === "pickup";
 
   const handleSubmit = async () => {
     if (!allDone) return;
     setSubmitting(true);
     const urls = PHOTO_SLOTS.map((s) => photos[s.id].url);
-
-    const field = type === "pickup" ? "pickup_photos" : "return_exterior_photos";
-    const statusUpdate = type === "dropoff"
-      ? { clean_return_status: "photos_submitted", booking_status: "pending_review" }
-      : {};
-
+    const field = isPickup ? "pickup_photos" : "return_exterior_photos";
+    const statusUpdate = !isPickup ? { clean_return_status: "photos_submitted", booking_status: "pending_review" } : {};
     await updateBooking.mutateAsync({ [field]: urls, ...statusUpdate });
     setSubmitting(false);
     onComplete?.();
     onClose();
   };
-
-  const isPickup = type === "pickup";
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col bg-gray-50">
@@ -210,7 +237,7 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
       </div>
 
       {/* Progress bar */}
-      <div className="h-1.5 bg-gray-200">
+      <div className="h-1.5 bg-gray-200 flex-shrink-0">
         <div
           className="h-full transition-all duration-300"
           style={{
@@ -239,12 +266,14 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
             photo={photos[slot.id]}
             onCapture={handleCapture}
             uploading={uploading[slot.id]}
+            sampleImage={sampleImages[slot.id]}
+            sampleLoading={samplesLoading[slot.id]}
           />
         ))}
       </div>
 
       {/* Submit footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4 safe-area-bottom">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-4">
         {!allDone && (
           <p className="text-center text-xs text-gray-400 mb-2">
             {PHOTO_SLOTS.length - completedCount} photo{PHOTO_SLOTS.length - completedCount !== 1 ? "s" : ""} remaining
