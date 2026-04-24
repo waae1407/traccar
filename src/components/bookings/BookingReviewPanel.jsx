@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, CheckCircle, XCircle, MessageCircle, User, Car, Shield, Zap, RefreshCw, FileText, Download } from "lucide-react";
+import { X, CheckCircle, XCircle, MessageCircle, User, Car, Shield, Zap, RefreshCw, FileText, Download, Camera, RotateCcw } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { formatDistanceToNow, format } from "date-fns";
@@ -235,6 +235,31 @@ export default function BookingReviewPanel({ booking, onClose }) {
               </div>
             )}
           </Section>
+
+          {/* Pickup Photos */}
+          {booking.pickup_photos?.length > 0 && (
+            <Section title="Pickup Photos" icon={Camera}>
+              <div className="flex gap-2 flex-wrap">
+                {booking.pickup_photos.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer">
+                    <img src={url} alt="" className="h-14 w-14 object-cover rounded-lg border border-white/10" />
+                  </a>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  if (!confirm("Clear all pickup photos? The customer will be prompted to redo the pickup inspection.")) return;
+                  base44.entities.BookingRequest.update(booking.id, { pickup_photos: [] }).then(() => {
+                    queryClient.invalidateQueries({ queryKey: ["booking-requests-admin"] });
+                    toast.success("Pickup photos cleared. Customer must redo inspection.");
+                  });
+                }}
+                className="mt-2 flex items-center gap-1.5 text-xs font-bold text-orange-400 border border-orange-500/20 px-3 py-1.5 rounded-xl hover:bg-orange-500/[0.08] transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Reset Pickup Photos
+              </button>
+            </Section>
+          )}
 
           {/* Clean Return */}
           {(booking.return_interior_photos?.length > 0 || booking.return_exterior_photos?.length > 0 || booking.clean_return_status !== "not_returned") && (
