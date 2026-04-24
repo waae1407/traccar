@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock, Bell } from "lucide-react";
+import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock, Bell, ImageIcon, CheckCircle, Loader2 } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
@@ -36,6 +36,25 @@ export default function Dashboard() {
   const { tenantFilter, companyId, isSuperadmin, overrideCompanyId } = useTenant();
   const scopeKey = companyId || "all";
   const [activeDrawer, setActiveDrawer] = useState(null);
+  const [backfillState, setBackfillState] = useState("idle"); // idle | running | done
+
+  const handleBackfillInspectionImages = async () => {
+    setBackfillState("running");
+    const targets = bookingRequests.filter((b) =>
+      ["active", "approved", "confirmed"].includes(b.booking_status) &&
+      b.vehicle_image &&
+      !b.inspection_sample_images?.interior_front
+    );
+    for (const b of targets) {
+      try {
+        await base44.functions.invoke("generateInspectionSamples", { booking_id: b.id, vehicle_image: b.vehicle_image });
+      } catch (e) {
+        console.error("Backfill failed for", b.id, e.message);
+      }
+    }
+    setBackfillState("done");
+    setTimeout(() => setBackfillState("idle"), 5000);
+  };
 
   const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles", scopeKey], queryFn: () => base44.entities.Vehicle.filter(tenantFilter()) });
   const { data: customers = [] } = useQuery({ queryKey: ["customers", scopeKey], queryFn: () => base44.entities.Customer.filter(tenantFilter()) });
@@ -176,6 +195,42 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Inspection images backfill tool */}
+      {(() => {
+        const missing = bookingRequests.filter((b) =>
+          ["active", "approved", "confirmed"].includes(b.booking_status) &&
+          b.vehicle_image &&
+          !b.inspection_sample_images?.interior_front
+        );
+        if (missing.length === 0) return null;
+        return (
+          <div className="rounded-2xl border border-blue-500/30 p-4 flex items-center justify-between gap-4 flex-wrap"
+            style={{ background: "hsl(199 90% 54% / 0.07)" }}>
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
+                <ImageIcon className="h-4 w-4 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-blue-300">
+                  {missing.length} active booking{missing.length > 1 ? "s" : ""} missing inspection images
+                </p>
+                <p className="text-xs text-white/40 mt-0.5">Pre-generate sample images so customers see them instantly</p>
+              </div>
+            </div>
+            <button
+              onClick={handleBackfillInspectionImages}
+              disabled={backfillState !== "idle"}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white disabled:opacity-60 transition-all"
+              style={{ background: "linear-gradient(135deg, hsl(199 90% 44%), hsl(265 80% 55%))" }}
+            >
+              {backfillState === "running" && <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>}
+              {backfillState === "done" && <><CheckCircle className="h-4 w-4" /> Done!</>}
+              {backfillState === "idle" && <><ImageIcon className="h-4 w-4" /> Generate Now</>}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
