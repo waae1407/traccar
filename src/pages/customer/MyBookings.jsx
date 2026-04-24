@@ -8,17 +8,17 @@ import CancelBookingSheet from "@/components/customer/CancelBookingSheet";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
 const STATUS_CONFIG = {
-  confirmed:              { label: "Confirmed",       dot: "bg-green-500",  text: "text-green-700",  bg: "bg-green-50",  border: "border-green-200" },
-  active:                 { label: "Active",          dot: "bg-green-500",  text: "text-green-700",  bg: "bg-green-50",  border: "border-green-200" },
-  approved:               { label: "Approved",        dot: "bg-green-500",  text: "text-green-700",  bg: "bg-green-50",  border: "border-green-200" },
-  pending_review:         { label: "Under Review",    dot: "bg-yellow-400", text: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-200" },
-  pending_payment:        { label: "Payment Due",     dot: "bg-orange-400", text: "text-orange-700", bg: "bg-orange-50", border: "border-orange-200" },
-  pending_verification:   { label: "Verifying",       dot: "bg-blue-400",   text: "text-blue-700",   bg: "bg-blue-50",   border: "border-blue-200"   },
-  pending_contract:       { label: "Contract Needed", dot: "bg-purple-400", text: "text-purple-700", bg: "bg-purple-50", border: "border-purple-200" },
-  draft:                  { label: "Draft",           dot: "bg-gray-400",   text: "text-gray-600",   bg: "bg-gray-100",  border: "border-gray-200"   },
-  completed:              { label: "Completed",       dot: "bg-gray-400",   text: "text-gray-500",   bg: "bg-gray-100",  border: "border-gray-200"   },
-  cancelled:              { label: "Cancelled",       dot: "bg-red-400",    text: "text-red-600",    bg: "bg-red-50",    border: "border-red-200"    },
-  cancellation_requested: { label: "Cancel Pending",  dot: "bg-red-400",    text: "text-red-600",    bg: "bg-red-50",    border: "border-red-200"    },
+  confirmed:              { label: "✓ Confirmed",       style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
+  active:                 { label: "● Active",          style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
+  approved:               { label: "✓ Approved",        style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
+  pending_review:         { label: "⏳ Under Review",   style: { background: "linear-gradient(135deg, #d97706, #b45309)", color: "#fff" } },
+  pending_payment:        { label: "💳 Payment Due",    style: { background: "linear-gradient(135deg, #ea580c, #c2410c)", color: "#fff" } },
+  pending_verification:   { label: "🔍 Verifying",      style: { background: "linear-gradient(135deg, #2563eb, #1d4ed8)", color: "#fff" } },
+  pending_contract:       { label: "📄 Sign Contract",  style: { background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "#fff" } },
+  draft:                  { label: "Draft",              style: { background: "#e5e7eb", color: "#6b7280" } },
+  completed:              { label: "Completed",          style: { background: "#e5e7eb", color: "#6b7280" } },
+  cancelled:              { label: "Cancelled",          style: { background: "#fee2e2", color: "#dc2626" } },
+  cancellation_requested: { label: "⏳ Cancel Pending", style: { background: "#fee2e2", color: "#dc2626" } },
 };
 
 const DELETABLE_STATUSES = ["draft", "pending_verification", "pending_contract"];
@@ -30,10 +30,10 @@ const STATUS_PRIORITY = {
 };
 
 function StatusBadge({ status }) {
-  const cfg = STATUS_CONFIG[status] || { label: status, dot: "bg-gray-400", text: "text-gray-600", bg: "bg-gray-100", border: "border-gray-200" };
+  const cfg = STATUS_CONFIG[status] || { label: status, style: { background: "#e5e7eb", color: "#6b7280" } };
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+    <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold shadow-sm"
+      style={cfg.style}>
       {cfg.label}
     </span>
   );
@@ -111,55 +111,40 @@ function BookingCard({ booking, onDelete, onCancelRequest, isDeleting, onInspect
 
   const inner = (
     <div className="relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-      {/* Vehicle hero image */}
-      {booking.vehicle_image && (
-        <div className="relative h-40 overflow-hidden">
-          <img src={booking.vehicle_image} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%)" }} />
-          {/* Status badge */}
-          <div className="absolute top-3 right-3">
-            <StatusBadge status={booking.booking_status} />
-          </div>
-          {/* Name + meta over image */}
-          <div className="absolute bottom-3 left-4 right-4">
-            <p className="text-white font-bold text-base leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
-              {booking.vehicle_name || "Vehicle"}
-            </p>
-            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-              {booking.city && (
-                <span className="flex items-center gap-1 text-white/70 text-[10px]">
-                  <MapPin className="h-2.5 w-2.5" />{booking.city}
-                </span>
-              )}
-              {booking.start_date && (
-                <span className="flex items-center gap-1 text-white/70 text-[10px]">
-                  <Clock className="h-2.5 w-2.5" />{format(new Date(booking.start_date), "MMM d")}
-                </span>
-              )}
-              <span className="text-white/60 text-[10px] font-semibold">{booking.booking_type}</span>
-            </div>
+      {/* Vehicle header — always above image */}
+      <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-gray-900 font-bold text-lg leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+            {booking.vehicle_name || "Vehicle"}
+          </p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            {booking.city && (
+              <span className="flex items-center gap-1 text-gray-400 text-xs">
+                <MapPin className="h-3 w-3" />{booking.city}
+              </span>
+            )}
+            {booking.start_date && (
+              <span className="flex items-center gap-1 text-gray-400 text-xs">
+                <Clock className="h-3 w-3" />{format(new Date(booking.start_date), "MMM d, yyyy")}
+              </span>
+            )}
+            {booking.booking_type && (
+              <span className="text-xs font-semibold text-gray-400">{booking.booking_type}</span>
+            )}
           </div>
         </div>
-      )}
+        <StatusBadge status={booking.booking_status} />
+      </div>
 
-      {/* No-image fallback header */}
-      {!booking.vehicle_image && (
-        <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-          <div>
-            <p className="text-gray-900 font-bold text-base" style={{ fontFamily: "var(--font-syne)" }}>
-              {booking.vehicle_name || "Vehicle"}
-            </p>
-            <div className="flex items-center gap-3 mt-0.5">
-              {booking.city && <span className="flex items-center gap-1 text-gray-400 text-[10px]"><MapPin className="h-2.5 w-2.5" />{booking.city}</span>}
-              <span className="text-gray-400 text-[10px]">{booking.booking_type}</span>
-            </div>
-          </div>
-          <StatusBadge status={booking.booking_status} />
+      {/* Vehicle image */}
+      {booking.vehicle_image && (
+        <div className="relative h-44 overflow-hidden mx-4 rounded-xl mb-3">
+          <img src={booking.vehicle_image} alt="" className="w-full h-full object-cover" />
         </div>
       )}
 
       {/* Body */}
-      <div className="px-4 pb-4 pt-3">
+      <div className="px-4 pb-4 pt-0">
         {/* Payment due */}
         {booking.total_due_now && booking.booking_status === "pending_payment" && (
           <div className="mb-3 flex items-center justify-between px-3 py-2.5 rounded-xl bg-orange-50 border border-orange-100">
@@ -303,7 +288,7 @@ export default function MyBookings() {
   };
 
   const SectionLabel = ({ children }) => (
-    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">{children}</p>
+    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{children}</p>
   );
 
   return (
