@@ -30,7 +30,7 @@ const PHOTO_SLOTS = [
     id: "exterior_rear_left",
     label: "Rear Left Corner (Driver Side)",
     instruction: "Stand at the rear-left (driver) corner. Capture the rear bumper and the entire driver-side panel in one diagonal shot.",
-    aiPrompt: "The same cartoon vehicle from the rear-left 45-degree angle (driver side), showing the rear bumper and left driver-side panel together in one diagonal view. Keep the same cartoon illustration style.",
+    aiPrompt: "The same cartoon vehicle from the rear-right 45-degree angle, showing the rear of the car and the right side panel together in one diagonal view, as if you are standing behind and to the right of the vehicle looking toward the front-left. Keep the same cartoon illustration style.",
     icon: "↙️",
   },
   {
@@ -44,7 +44,7 @@ const PHOTO_SLOTS = [
     id: "exterior_rear_right",
     label: "Rear Right Corner (Passenger Side)",
     instruction: "Stand at the rear-right (passenger) corner. Capture the rear bumper and the entire passenger-side panel in one diagonal shot.",
-    aiPrompt: "The same cartoon vehicle from the rear-right 45-degree angle (passenger side), showing the rear bumper and right passenger-side panel together in one diagonal view. Keep the same cartoon illustration style.",
+    aiPrompt: "The same cartoon vehicle from the rear-left 45-degree angle, showing the rear of the car and the left side panel together in one diagonal view, as if you are standing behind and to the left of the vehicle looking toward the front-right. Keep the same cartoon illustration style.",
     icon: "↘️",
   },
 ];
