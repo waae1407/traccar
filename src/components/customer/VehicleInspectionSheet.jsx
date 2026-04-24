@@ -37,14 +37,16 @@ const PHOTO_SLOTS = [
     id: "exterior_front_right",
     label: "Front Right Corner (Passenger Side)",
     instruction: "Stand at the front-right (passenger) corner. Capture both the front bumper and the entire passenger-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-RIGHT corner (passenger side). The car is facing LEFT in the image. The camera is to the RIGHT of the car at the front. You can clearly see: the passenger-side front headlight and front bumper on the LEFT of the image, and the full RIGHT passenger-side door and body panel stretching to the right. This is a MIRROR IMAGE of the typical front-left driver-side view. The driver side and rear of the car are NOT visible. Same cartoon style as the reference image.",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-LEFT corner. The camera is positioned at the front-left of the car. You can see: the front headlights and front bumper facing toward you on the left, and the entire LEFT side of the car stretching away to the right. The rear of the car is NOT visible. Same cartoon style as the reference image.",
+    mirrorX: true,
     icon: "↗️",
   },
   {
     id: "exterior_rear_right",
     label: "Rear Right Corner (Passenger Side)",
     instruction: "Stand at the rear-right (passenger) corner. Capture the rear bumper and the entire passenger-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-RIGHT corner. The camera is positioned at the rear-right of the car. You can see: the rear tail lights and rear bumper facing toward you on the left, and the entire RIGHT side of the car (passenger side) stretching away to the right. The front of the car is NOT visible. Same cartoon style as the reference image.",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-LEFT corner. The camera is positioned at the rear-left of the car. You can see: the rear tail lights and rear bumper facing toward you on the right, and the entire LEFT side of the car stretching away to the left. The front of the car is NOT visible. Same cartoon style as the reference image.",
+    mirrorX: true,
     icon: "↘️",
   },
 ];
@@ -125,7 +127,12 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
                   <span className="text-[10px] text-gray-400">Generating reference…</span>
                 </div>
               ) : sampleImage ? (
-                <img src={sampleImage} alt={slot.label} className="w-full h-full object-cover" />
+                <img
+                  src={sampleImage}
+                  alt={slot.label}
+                  className="w-full h-full object-cover"
+                  style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}}
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-4xl">
                   {slot.icon}
