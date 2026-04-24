@@ -64,7 +64,7 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
   const inputRef = useRef(null);
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: "hsl(222 24% 11%)", border: "1px solid hsl(222 18% 20%)" }}>
+    <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
       <input
         ref={inputRef}
         type="file"
@@ -106,7 +106,7 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
           className="w-full text-left active:scale-[0.98] transition-transform"
         >
           {/* Sample image */}
-          <div className="relative w-full h-44" style={{ background: "hsl(222 24% 8%)" }}>
+          <div className="relative w-full h-44 bg-gray-100">
             {sampleLoading ? (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
@@ -216,26 +216,24 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col" style={{ background: "hsl(222 28% 7%)" }}>
+    <div className="fixed inset-0 z-[70] flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="px-4 py-4 flex items-center justify-between flex-shrink-0"
-        style={{ background: "hsl(222 24% 10%)", borderBottom: "1px solid hsl(222 18% 18%)" }}>
+      <div className="bg-white px-4 py-4 flex items-center justify-between flex-shrink-0 border-b border-gray-100">
         <div>
-          <h2 className="font-bold text-white text-base" style={{ fontFamily: "var(--font-syne)" }}>
+          <h2 className="font-bold text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>
             {isPickup ? "Pickup Inspection" : "Drop-off Inspection"}
           </h2>
-          <p className="text-[11px] text-white/40 mt-0.5">
+          <p className="text-[11px] text-gray-400 mt-0.5">
             {completedCount}/{PHOTO_SLOTS.length} photos · All required
           </p>
         </div>
-        <button onClick={onClose} className="h-9 w-9 rounded-full flex items-center justify-center"
-          style={{ background: "hsl(222 24% 16%)", border: "1px solid hsl(222 18% 22%)" }}>
-          <X className="h-4 w-4 text-white/60" />
+        <button onClick={onClose} className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <X className="h-4 w-4 text-gray-500" />
         </button>
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 flex-shrink-0" style={{ background: "hsl(222 18% 18%)" }}>
+      <div className="h-1 bg-gray-200 flex-shrink-0">
         <div
           className="h-full transition-all duration-500"
           style={{
@@ -246,10 +244,9 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
       </div>
 
       {/* Slim alert banner */}
-      <div className="px-4 py-2.5 flex items-center gap-2 flex-shrink-0"
-        style={{ background: "hsl(38 95% 54% / 0.08)", borderBottom: "1px solid hsl(38 95% 54% / 0.15)" }}>
-        <AlertCircle className="h-3.5 w-3.5 text-warning flex-shrink-0" />
-        <p className="text-[11px] text-warning/80 font-medium">
+      <div className="px-4 py-2.5 flex items-center gap-2 flex-shrink-0 bg-amber-50 border-b border-amber-100">
+        <AlertCircle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+        <p className="text-[11px] text-amber-700 font-medium">
           {isPickup ? "Document the vehicle BEFORE driving away." : "Document the vehicle BEFORE walking away."}
         </p>
       </div>
@@ -270,10 +267,9 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
       </div>
 
       {/* Submit footer */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 py-4"
-        style={{ background: "hsl(222 24% 10%)", borderTop: "1px solid hsl(222 18% 18%)" }}>
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4">
         {!allDone && (
-          <p className="text-center text-[11px] text-white/30 mb-2">
+          <p className="text-center text-[11px] text-gray-400 mb-2">
             {PHOTO_SLOTS.length - completedCount} photo{PHOTO_SLOTS.length - completedCount !== 1 ? "s" : ""} remaining
           </p>
         )}
