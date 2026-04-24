@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Camera, CheckCircle, Upload, Loader2, AlertCircle, Lock } from "lucide-react";
+import { X, Camera, CheckCircle, Upload, Loader2, AlertCircle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
