@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { X, Camera, CheckCircle, Upload, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -51,16 +51,9 @@ const PHOTO_SLOTS = [
   },
 ];
 
-// Generate angle-specific cartoon image using the vehicle's existing image as reference
-async function generateAngleImage(vehicleImageUrl, slot) {
-  const result = await base44.integrations.Core.GenerateImage({
-    prompt: `${slot.aiPrompt} The vehicle should match the style and color of the reference image exactly.`,
-    existing_image_urls: [vehicleImageUrl],
-  });
-  return result.url;
-}
 
-function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoading }) {
+
+function PhotoSlot({ slot, photo, onCapture, uploading }) {
   const inputRef = useRef(null);
 
   return (
@@ -99,34 +92,18 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
           </div>
         </div>
       ) : (
-        /* Sample + tap to capture */
+        /* Instruction card + tap to capture */
         <button
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
           className="w-full text-left active:scale-[0.98] transition-transform"
         >
-          {/* Sample image */}
-          <div className="relative w-full h-44 bg-gray-100">
-            {sampleLoading ? (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                <span className="text-[10px] text-white/40">Generating example…</span>
-              </div>
-            ) : sampleImage ? (
-              <img
-                src={sampleImage}
-                alt={slot.label}
-                className="w-full h-full object-cover"
-                style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">
-                {slot.icon}
-              </div>
-            )}
-            {/* Camera icon top-right */}
-            <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
-              <Camera className="h-4 w-4 text-white" />
+          {/* Instruction area */}
+          <div className="flex items-start gap-3 px-4 py-4 bg-gray-50">
+            <span className="text-3xl flex-shrink-0 mt-0.5">{slot.icon}</span>
+            <div>
+              <p className="text-gray-900 text-sm font-bold leading-tight">{slot.label}</p>
+              <p className="text-gray-400 text-xs mt-1 leading-snug">{slot.instruction}</p>
             </div>
           </div>
 
@@ -150,29 +127,7 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
   const [photos, setPhotos] = useState({});
   const [uploading, setUploading] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  // sampleImages: { [slotId]: url } — generated from vehicle cartoon
-  const [sampleImages, setSampleImages] = useState({});
-  const [samplesLoading, setSamplesLoading] = useState({});
   const queryClient = useQueryClient();
-
-  const vehicleImageUrl = booking?.vehicle_image;
-
-  // Generate all 6 angle images on mount if vehicle has a cartoon image
-  useEffect(() => {
-    if (!vehicleImageUrl) return;
-
-    PHOTO_SLOTS.forEach(async (slot) => {
-      setSamplesLoading((s) => ({ ...s, [slot.id]: true }));
-      try {
-        const url = await generateAngleImage(vehicleImageUrl, slot);
-        setSampleImages((s) => ({ ...s, [slot.id]: url }));
-      } catch {
-        // If generation fails, slot will show emoji fallback
-      } finally {
-        setSamplesLoading((s) => ({ ...s, [slot.id]: false }));
-      }
-    });
-  }, [vehicleImageUrl]);
 
   const updateBooking = useMutation({
     mutationFn: (data) => base44.entities.BookingRequest.update(booking.id, data),
@@ -245,8 +200,6 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
             photo={photos[slot.id]}
             onCapture={handleCapture}
             uploading={uploading[slot.id]}
-            sampleImage={sampleImages[slot.id]}
-            sampleLoading={samplesLoading[slot.id]}
           />
         ))}
       </div>
