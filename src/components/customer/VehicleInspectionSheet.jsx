@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Camera, CheckCircle, Upload, Loader2 } from "lucide-react";
+import { X, Camera, CheckCircle, Upload, Loader2, KeyRound, AlertTriangle } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -49,6 +49,13 @@ const PHOTO_SLOTS = [
     mirrorX: true,
     icon: "↘️",
   },
+  {
+    id: "vehicle_keys",
+    label: "Vehicle Keys",
+    instruction: "Hold the vehicle key(s) clearly in front of the camera. All keys must be visible in the photo.",
+    icon: "🔑",
+    isKeys: true,
+  },
 ];
 
 // Generate a single angle image on-demand (fallback only)
@@ -65,10 +72,10 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
 
   return (
     <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
+      {/* capture="environment" without accept="image/*" forces live camera only — no photo library */}
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
         capture="environment"
         className="hidden"
         onChange={(e) => {
@@ -105,9 +112,23 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
           disabled={uploading}
           className="w-full text-left active:scale-[0.98] transition-transform"
         >
+          {/* Keys fee warning */}
+          {slot.isKeys && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border-b border-red-100">
+              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+              <p className="text-[11px] font-bold text-red-600">
+                Missing keys = <span className="text-red-700">$150 customer expense</span>. All keys must be visible.
+              </p>
+            </div>
+          )}
           {/* Sample image */}
           <div className="relative w-full h-44 bg-gray-100">
-            {sampleLoading ? (
+            {slot.isKeys ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-red-50">
+                <KeyRound className="h-14 w-14 text-red-300" />
+                <p className="text-xs font-bold text-red-400">Hold all keys up to the camera</p>
+              </div>
+            ) : sampleLoading ? (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
                 <span className="text-[10px] text-white/40">Generating example…</span>
@@ -167,8 +188,9 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
       setSampleImages(cachedImages);
     }
 
-    // Only generate on-demand for any slots that are still missing
+    // Only generate on-demand for any slots that are still missing (skip keys slot)
     PHOTO_SLOTS.forEach(async (slot) => {
+      if (slot.isKeys) return; // keys slot has no AI sample
       if (cachedImages[slot.id]) return; // already have it, skip
       setSamplesLoading((s) => ({ ...s, [slot.id]: true }));
       try {
