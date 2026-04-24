@@ -32,6 +32,11 @@ const PHOTO_SLOTS = [
     aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-LEFT corner. The camera is positioned at the rear-left of the car. You can see: the rear tail lights and rear bumper facing toward you on the right, and the entire LEFT side of the car stretching away to the left. The front of the car is NOT visible. Same cartoon style as the reference image.",
     mirrorX: true,
   },
+  {
+    id: "vehicle_keys",
+    aiPrompt: "Cartoon illustration of this vehicle's car key fob and physical key held up in a hand in front of the car. Show the key fob and metal key clearly visible, with the cartoon-style vehicle blurred in the background. Bold, vibrant cartoon style matching the reference vehicle's color and style.",
+    mirrorX: false,
+  },
 ];
 
 Deno.serve(async (req) => {

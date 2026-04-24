@@ -53,6 +53,7 @@ const PHOTO_SLOTS = [
     id: "vehicle_keys",
     label: "Vehicle Keys",
     instruction: "Hold the vehicle key(s) clearly in front of the camera. All keys must be visible in the photo.",
+    aiPrompt: "Cartoon illustration of this vehicle's car key(s) held up in a hand in front of the car. Show the key fob and physical key clearly visible, with the cartoon-style vehicle blurred in the background. Bold, vibrant cartoon style matching the reference vehicle's color and style.",
     icon: "🔑",
     isKeys: true,
   },
@@ -114,24 +115,20 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
         >
           {/* Keys fee warning */}
           {slot.isKeys && (
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border-b border-red-100">
-              <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
-              <p className="text-[11px] font-bold text-red-600">
-                Missing keys = <span className="text-red-700">$150 customer expense</span>. All keys must be visible.
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-red-100"
+              style={{ background: "linear-gradient(135deg, #fff1f2, #ffe4e6)" }}>
+              <AlertTriangle className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+              <p className="text-[11px] font-black text-red-600 tracking-tight">
+                ⚠️ Lost keys = <span className="text-red-700">$250 expense</span> — all keys must be in frame
               </p>
             </div>
           )}
           {/* Sample image */}
           <div className="relative w-full h-44 bg-gray-100">
-            {slot.isKeys ? (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-red-50">
-                <KeyRound className="h-14 w-14 text-red-300" />
-                <p className="text-xs font-bold text-red-400">Hold all keys up to the camera</p>
-              </div>
-            ) : sampleLoading ? (
+            {sampleLoading ? (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                 <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                <span className="text-[10px] text-white/40">Generating example…</span>
+                <span className="text-[10px] text-gray-400">Generating example…</span>
               </div>
             ) : sampleImage ? (
               <img
@@ -153,12 +150,16 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
 
           {/* Bottom tap bar */}
           <div className="flex items-center justify-center gap-2 py-3"
-            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            style={{ background: slot.isKeys
+              ? "linear-gradient(135deg, #dc2626, #9f1239)"
+              : "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
             {uploading
               ? <Loader2 className="h-4 w-4 text-white animate-spin" />
+              : slot.isKeys
+              ? <KeyRound className="h-4 w-4 text-white" />
               : <Camera className="h-4 w-4 text-white" />}
             <span className="text-white text-xs font-bold">
-              {uploading ? "Uploading…" : "Tap to capture"}
+              {uploading ? "Uploading…" : slot.isKeys ? "📸 Photograph all keys now" : "Tap to capture"}
             </span>
           </div>
         </button>
@@ -188,9 +189,9 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
       setSampleImages(cachedImages);
     }
 
-    // Only generate on-demand for any slots that are still missing (skip keys slot)
+    // Only generate on-demand for any slots that are still missing
     PHOTO_SLOTS.forEach(async (slot) => {
-      if (slot.isKeys) return; // keys slot has no AI sample
+      if (!slot.aiPrompt) return; // skip slots with no AI prompt
       if (cachedImages[slot.id]) return; // already have it, skip
       setSamplesLoading((s) => ({ ...s, [slot.id]: true }));
       try {
