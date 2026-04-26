@@ -5,7 +5,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const bookingId = body?.data?.id || body?.event?.entity_id;
+    const bookingId = body?.booking_id || body?.data?.id || body?.event?.entity_id;
 
     if (!bookingId) {
       return Response.json({ ok: true, skipped: "no booking id" });

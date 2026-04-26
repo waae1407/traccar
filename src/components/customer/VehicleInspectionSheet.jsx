@@ -420,6 +420,12 @@ function CaptureMode({ booking, type, onClose, onComplete, isPickup }) {
         };
 
     await updateBooking.mutateAsync({ [field]: urls, ...metaFields });
+
+    // Trigger AI photo inspection in background (don't block the user)
+    const triggerFn = isPickup ? "triggerPickupInspection" : "triggerDropoffInspection";
+    base44.functions.invoke(triggerFn, { booking_id: booking.id })
+      .catch((e) => console.warn("AI inspection trigger failed:", e.message));
+
     setSubmitting(false);
     onComplete?.();
     onClose();
