@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useOutletContext, Link } from "react-router-dom";
 import { CalendarDays, MapPin, Clock, Car, Trash2, XCircle, Camera, CheckCircle2, ChevronRight } from "lucide-react";
+// Clock and MapPin already imported above
 import { format } from "date-fns";
 import CancelBookingSheet from "@/components/customer/CancelBookingSheet";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
@@ -40,18 +41,33 @@ function StatusBadge({ status }) {
 }
 
 function InspectionRow({ booking, onInspect }) {
-  const predoneDone = booking.pickup_photos?.length > 0;
-  const postDone = booking.return_exterior_photos?.length > 0;
-  const endDate = booking.end_date ? new Date(booking.end_date) : null;
-  const rentalExpired = endDate ? new Date() >= endDate : false;
+  const pickupDone = booking.pickup_photos?.length > 0;
+  const dropoffDone = booking.return_exterior_photos?.length > 0;
 
   return (
     <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
       {/* Pickup */}
-      {predoneDone ? (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
-          <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-          <span className="text-[11px] font-semibold text-green-700">Pickup photos submitted</span>
+      {pickupDone ? (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
+            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+            <span className="text-[11px] font-semibold text-green-700">Pickup photos submitted</span>
+          </div>
+          {/* Immutable proof stamp */}
+          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+            {booking.pickup_submitted_at && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                <Clock className="h-3 w-3" />
+                {format(new Date(booking.pickup_submitted_at), "MMM d, yyyy · h:mm a")}
+              </span>
+            )}
+            {booking.pickup_location_label && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                <MapPin className="h-3 w-3" />
+                {booking.pickup_location_label}
+              </span>
+            )}
+          </div>
         </div>
       ) : (
         <button
@@ -67,23 +83,32 @@ function InspectionRow({ booking, onInspect }) {
         </button>
       )}
 
-      {/* Drop-off */}
-      {postDone ? (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
-          <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-          <span className="text-[11px] font-semibold text-green-700">Drop-off photos submitted</span>
+      {/* Drop-off — available as soon as pickup is done, no end_date gate */}
+      {dropoffDone ? (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
+            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+            <span className="text-[11px] font-semibold text-green-700">Drop-off photos submitted</span>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+            {booking.dropoff_submitted_at && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                <Clock className="h-3 w-3" />
+                {format(new Date(booking.dropoff_submitted_at), "MMM d, yyyy · h:mm a")}
+              </span>
+            )}
+            {booking.dropoff_location_label && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                <MapPin className="h-3 w-3" />
+                {booking.dropoff_location_label}
+              </span>
+            )}
+          </div>
         </div>
-      ) : !predoneDone ? (
+      ) : !pickupDone ? (
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 opacity-60 cursor-not-allowed">
           <Camera className="h-3.5 w-3.5 text-gray-400" />
           <span className="text-[11px] font-semibold text-gray-400">Drop-off (complete pickup first)</span>
-        </div>
-      ) : !rentalExpired ? (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 opacity-60 cursor-not-allowed">
-          <Camera className="h-3.5 w-3.5 text-gray-400" />
-          <span className="text-[11px] font-semibold text-gray-400">
-            Drop-off available {endDate ? format(endDate, "MMM d") : "at return"}
-          </span>
         </div>
       ) : (
         <button
@@ -93,7 +118,7 @@ function InspectionRow({ booking, onInspect }) {
         >
           <div className="flex items-center gap-2">
             <Camera className="h-4 w-4" />
-            <span className="text-xs font-bold">Drop-off Inspection</span>
+            <span className="text-xs font-bold">Drop-off Inspection — Return Vehicle</span>
           </div>
           <ChevronRight className="h-4 w-4 opacity-70" />
         </button>

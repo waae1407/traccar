@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Camera, CheckCircle, Upload, Loader2, KeyRound, AlertTriangle } from "lucide-react";
+import { X, Camera, CheckCircle, Upload, Loader2, KeyRound, AlertTriangle, MapPin, Clock } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 
-// 6 mandatory inspection shots with AI prompt instructions per angle
 const PHOTO_SLOTS = [
   {
     id: "interior_front",
@@ -23,21 +23,21 @@ const PHOTO_SLOTS = [
     id: "exterior_front_left",
     label: "Front Left Corner (Driver Side)",
     instruction: "Stand at the front-left (driver) corner. Capture both the front bumper and the entire driver-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-LEFT corner. The camera is positioned at the front-left of the car. You can see: the front headlights and front bumper facing toward you on the left, and the entire LEFT side of the car (driver side) stretching away to the right. The rear of the car is NOT visible. Same cartoon style as the reference image.",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-LEFT corner.",
     icon: "↖️",
   },
   {
     id: "exterior_rear_left",
     label: "Rear Left Corner (Driver Side)",
     instruction: "Stand at the rear-left (driver) corner. Capture the rear bumper and the entire driver-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-LEFT corner. The camera is positioned at the rear-left of the car. You can see: the rear tail lights and rear bumper facing toward you on the right, and the entire LEFT side of the car (driver side) stretching away to the left. The front of the car is NOT visible. Same cartoon style as the reference image.",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-LEFT corner.",
     icon: "↙️",
   },
   {
     id: "exterior_front_right",
     label: "Front Right Corner (Passenger Side)",
     instruction: "Stand at the front-right (passenger) corner. Capture both the front bumper and the entire passenger-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-LEFT corner. The camera is positioned at the front-left of the car. You can see: the front headlights and front bumper facing toward you on the left, and the entire LEFT side of the car stretching away to the right. The rear of the car is NOT visible. Same cartoon style as the reference image.",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-RIGHT corner.",
     mirrorX: true,
     icon: "↗️",
   },
@@ -45,7 +45,7 @@ const PHOTO_SLOTS = [
     id: "exterior_rear_right",
     label: "Rear Right Corner (Passenger Side)",
     instruction: "Stand at the rear-right (passenger) corner. Capture the rear bumper and the entire passenger-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-LEFT corner. The camera is positioned at the rear-left of the car. You can see: the rear tail lights and rear bumper facing toward you on the right, and the entire LEFT side of the car stretching away to the left. The front of the car is NOT visible. Same cartoon style as the reference image.",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-RIGHT corner.",
     mirrorX: true,
     icon: "↘️",
   },
@@ -53,13 +53,12 @@ const PHOTO_SLOTS = [
     id: "vehicle_keys",
     label: "Vehicle Keys",
     instruction: "Hold the vehicle key(s) clearly in front of the camera. All keys must be visible in the photo.",
-    aiPrompt: "Cartoon illustration of this vehicle's car key(s) held up in a hand in front of the car. Show the key fob and physical key clearly visible, with the cartoon-style vehicle blurred in the background. Bold, vibrant cartoon style matching the reference vehicle's color and style.",
+    aiPrompt: "Cartoon illustration of this vehicle's car key(s) held up in a hand in front of the car.",
     icon: "🔑",
     isKeys: true,
   },
 ];
 
-// Generate a single angle image on-demand (fallback only)
 async function generateAngleImage(vehicleImageUrl, slot) {
   const result = await base44.integrations.Core.GenerateImage({
     prompt: `${slot.aiPrompt} The vehicle should match the style and color of the reference image exactly.`,
@@ -68,12 +67,39 @@ async function generateAngleImage(vehicleImageUrl, slot) {
   return result.url;
 }
 
+// Attempt GPS location capture
+async function captureLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 5000 }
+    );
+  });
+}
+
+// Reverse geocode to city, state
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      { headers: { "User-Agent": "uRide-app/1.0" } }
+    );
+    const data = await res.json();
+    const city = data.address?.city || data.address?.town || data.address?.village || data.address?.county || "";
+    const state = data.address?.state || "";
+    return city && state ? `${city}, ${state}` : city || state || null;
+  } catch {
+    return null;
+  }
+}
+
 function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoading }) {
   const inputRef = useRef(null);
 
   return (
     <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
-      {/* capture="environment" without accept="image/*" forces live camera only — no photo library */}
       <input
         ref={inputRef}
         type="file"
@@ -86,7 +112,6 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
       />
 
       {photo ? (
-        /* Captured — full bleed preview */
         <div className="relative h-44">
           <img src={photo.preview} alt="" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
@@ -94,7 +119,6 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
               <CheckCircle className="h-6 w-6 text-green-400" />
             </div>
           </div>
-          {/* Label + retake */}
           <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-4 py-3"
             style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)" }}>
             <p className="text-white text-xs font-bold">{slot.label}</p>
@@ -107,13 +131,11 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
           </div>
         </div>
       ) : (
-        /* Sample + tap to capture */
         <button
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
           className="w-full text-left active:scale-[0.98] transition-transform"
         >
-          {/* Keys fee warning */}
           {slot.isKeys && (
             <div className="flex items-center gap-2 px-4 py-2 border-b border-red-100"
               style={{ background: "linear-gradient(135deg, #fff1f2, #ffe4e6)" }}>
@@ -123,7 +145,6 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
               </p>
             </div>
           )}
-          {/* Sample image */}
           <div className="relative w-full h-44 bg-gray-100">
             {sampleLoading ? (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2">
@@ -142,13 +163,10 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
                 {slot.icon}
               </div>
             )}
-            {/* Camera icon top-right */}
             <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
               <Camera className="h-4 w-4 text-white" />
             </div>
           </div>
-
-          {/* Bottom tap bar */}
           <div className="flex items-center justify-center gap-2 py-3"
             style={{ background: slot.isKeys
               ? "linear-gradient(135deg, #dc2626, #9f1239)"
@@ -172,7 +190,6 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
   const [photos, setPhotos] = useState({});
   const [uploading, setUploading] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  // sampleImages: { [slotId]: url } — generated from vehicle cartoon
   const [sampleImages, setSampleImages] = useState({});
   const [samplesLoading, setSamplesLoading] = useState({});
   const queryClient = useQueryClient();
@@ -180,28 +197,17 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
   const vehicleImageUrl = booking?.vehicle_image;
   const cachedImages = booking?.inspection_sample_images || {};
 
-  // Use pre-cached images if available; generate on-demand only for missing slots
   useEffect(() => {
     if (!vehicleImageUrl) return;
-
-    // Pre-load cached images instantly
-    if (Object.keys(cachedImages).length > 0) {
-      setSampleImages(cachedImages);
-    }
-
-    // Only generate on-demand for any slots that are still missing
+    if (Object.keys(cachedImages).length > 0) setSampleImages(cachedImages);
     PHOTO_SLOTS.forEach(async (slot) => {
-      if (!slot.aiPrompt) return; // skip slots with no AI prompt
-      if (cachedImages[slot.id]) return; // already have it, skip
+      if (!slot.aiPrompt || cachedImages[slot.id]) return;
       setSamplesLoading((s) => ({ ...s, [slot.id]: true }));
       try {
         const url = await generateAngleImage(vehicleImageUrl, slot);
         setSampleImages((s) => ({ ...s, [slot.id]: url }));
-      } catch {
-        // slot shows emoji fallback
-      } finally {
-        setSamplesLoading((s) => ({ ...s, [slot.id]: false }));
-      }
+      } catch { /* emoji fallback */ }
+      finally { setSamplesLoading((s) => ({ ...s, [slot.id]: false })); }
     });
   }, [vehicleImageUrl, booking?.id]);
 
@@ -230,10 +236,33 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
   const handleSubmit = async () => {
     if (!allDone) return;
     setSubmitting(true);
+
+    // Capture GPS + timestamp at submit time
+    const submittedAt = new Date().toISOString();
+    const gps = await captureLocation();
+    let locationLabel = null;
+    if (gps) {
+      locationLabel = await reverseGeocode(gps.lat, gps.lon);
+    }
+
     const urls = PHOTO_SLOTS.map((s) => photos[s.id].url);
     const field = isPickup ? "pickup_photos" : "return_exterior_photos";
-    const statusUpdate = !isPickup ? { clean_return_status: "photos_submitted", booking_status: "pending_review" } : {};
-    await updateBooking.mutateAsync({ [field]: urls, ...statusUpdate });
+
+    const metaFields = isPickup
+      ? {
+          pickup_submitted_at: submittedAt,
+          ...(gps && { pickup_location_lat: gps.lat, pickup_location_lon: gps.lon }),
+          ...(locationLabel && { pickup_location_label: locationLabel }),
+        }
+      : {
+          dropoff_submitted_at: submittedAt,
+          ...(gps && { dropoff_location_lat: gps.lat, dropoff_location_lon: gps.lon }),
+          ...(locationLabel && { dropoff_location_label: locationLabel }),
+          clean_return_status: "photos_submitted",
+          booking_status: "pending_review",
+        };
+
+    await updateBooking.mutateAsync({ [field]: urls, ...metaFields });
     setSubmitting(false);
     onComplete?.();
     onClose();
@@ -241,7 +270,6 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
 
   return (
     <div className="fixed inset-0 z-[70] flex flex-col bg-gray-50">
-      {/* Header */}
       <div className="bg-white px-4 py-4 flex items-center justify-between flex-shrink-0 border-b border-gray-100">
         <div>
           <h2 className="font-bold text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>
@@ -256,7 +284,6 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
         </button>
       </div>
 
-      {/* Progress bar */}
       <div className="h-1 bg-gray-200 flex-shrink-0">
         <div
           className="h-full transition-all duration-500"
@@ -267,7 +294,14 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
         />
       </div>
 
-      {/* Photo slots */}
+      {/* GPS notice */}
+      <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 border border-blue-100">
+        <MapPin className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+        <p className="text-[11px] text-blue-700 font-medium">
+          Your GPS location & timestamp will be recorded on submission for accountability
+        </p>
+      </div>
+
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-32">
         {PHOTO_SLOTS.map((slot) => (
           <PhotoSlot
@@ -282,7 +316,6 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
         ))}
       </div>
 
-      {/* Submit footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4">
         <button
           onClick={handleSubmit}

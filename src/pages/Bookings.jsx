@@ -114,7 +114,7 @@ export default function Bookings() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/[0.06]" style={{ background: "hsl(222 28% 8% / 0.8)" }}>
-                  {["Customer", "Vehicle", "Type", "Status", "Payment", "Submitted", ""].map((h) => (
+                  {["Customer", "Vehicle", "Type", "Status", "Payment", "Inspections", "Submitted", ""].map((h) => (
                     <th key={h} className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/35">{h}</th>
                   ))}
                 </tr>
@@ -166,13 +166,24 @@ export default function Bookings() {
                       </td>
                       {/* Payment */}
                       <td className="px-4 py-3.5">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${
-                          row.payment_status === "paid"
-                            ? "bg-green-500/15 text-green-400"
-                            : "bg-white/5 text-white/35"
-                        }`}>
-                          {row.payment_status || "—"}
-                        </span>
+                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${
+                         row.payment_status === "paid"
+                           ? "bg-green-500/15 text-green-400"
+                           : "bg-white/5 text-white/35"
+                       }`}>
+                         {row.payment_status || "—"}
+                       </span>
+                      </td>
+                      {/* Inspections */}
+                      <td className="px-4 py-3.5">
+                       <div className="flex items-center gap-1.5">
+                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${row.pickup_photos?.length > 0 ? "bg-green-500/15 text-green-400" : "bg-white/5 text-white/20"}`}>
+                           {row.pickup_photos?.length > 0 ? "✓ Pick" : "○ Pick"}
+                         </span>
+                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${row.return_exterior_photos?.length > 0 ? "bg-green-500/15 text-green-400" : "bg-white/5 text-white/20"}`}>
+                           {row.return_exterior_photos?.length > 0 ? "✓ Drop" : "○ Drop"}
+                         </span>
+                       </div>
                       </td>
                       {/* Time */}
                       <td className="px-4 py-3.5">

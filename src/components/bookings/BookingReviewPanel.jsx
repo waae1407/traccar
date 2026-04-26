@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
+import InspectionGallery from "@/components/bookings/InspectionGallery";
 
 function CleanReturnActions({ bookingId }) {
   const queryClient = useQueryClient();
@@ -46,7 +47,14 @@ function CleanReturnActions({ bookingId }) {
 export default function BookingReviewPanel({ booking, onClose }) {
   const [adminNote, setAdminNote] = useState(booking?.admin_notes || "");
   const [charging, setCharging] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
   const queryClient = useQueryClient();
+
+  const TABS = [
+    { id: "details", label: "Details" },
+    { id: "inspections", label: "Inspections", badge: (booking?.pickup_photos?.length > 0 || booking?.return_exterior_photos?.length > 0) ? "●" : null },
+    { id: "evidence", label: "Evidence" },
+  ];
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.BookingRequest.update(id, data),
@@ -172,185 +180,108 @@ export default function BookingReviewPanel({ booking, onClose }) {
           </div>
         )}
 
+        {/* Tabs */}
+        <div className="flex gap-1 px-5 pt-4 pb-0 flex-shrink-0">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                activeTab === tab.id
+                  ? "bg-primary/20 border border-primary/40 text-white"
+                  : "bg-white/[0.04] border border-white/[0.07] text-white/40 hover:text-white/60"
+              }`}
+            >
+              {tab.label}
+              {tab.badge && <span className="text-primary text-[8px]">{tab.badge}</span>}
+            </button>
+          ))}
+        </div>
+
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-          {/* Customer */}
-          <Section title="Customer" icon={User}>
-            <Row label="Name" value={booking.customer_full_name || "—"} />
-            <Row label="Phone" value={booking.customer_phone || "—"} />
-            <Row label="Email" value={booking.user_email || "—"} />
-            <Row label="Address" value={booking.customer_address || "—"} />
-            <Row label="Employer" value={booking.employer || "—"} />
-            <Row label="Income Range" value={booking.income_range || "—"} />
-          </Section>
-
-          {/* Vehicle & Booking */}
-          <Section title="Booking Details" icon={Car}>
-            <Row label="Vehicle" value={booking.vehicle_name || "—"} />
-            <Row label="Type" value={booking.booking_type || "—"} />
-            <Row label="City" value={booking.city || "—"} />
-            <Row label="Start Date" value={booking.start_date ? format(new Date(booking.start_date), "MMM d, yyyy") : "—"} />
-            <Row label="Weekly Rate" value={booking.weekly_rate ? `$${booking.weekly_rate}` : "—"} />
-            <Row label="Payment" value={booking.payment_status || "—"} highlight={booking.payment_status === "paid" ? "green" : "yellow"} />
-            {booking.receipt_url && (
-              <a href={booking.receipt_url} target="_blank" rel="noreferrer"
-                className="text-xs text-primary underline">View Stripe Receipt ↗</a>
-            )}
-          </Section>
-
-          {/* Stripe Payment References */}
-          {(booking.stripe_customer_id || booking.stripe_payment_intent_id) && (
-            <Section title="Stripe References" icon={Shield}>
-              {booking.stripe_customer_id && <Row label="Customer ID" value={booking.stripe_customer_id} />}
-              {booking.stripe_payment_intent_id && <Row label="Payment Intent" value={booking.stripe_payment_intent_id} />}
-              {booking.stripe_payment_method_id && <Row label="Payment Method" value={booking.stripe_payment_method_id} />}
-              {booking.stripe_subscription_id && <Row label="Subscription" value={booking.stripe_subscription_id} />}
-              <Row label="Autopay" value={booking.autopay_enabled ? "Enabled" : "Disabled"} highlight={booking.autopay_enabled ? "green" : null} />
-              {booking.payment_failure_reason && <Row label="Failure Reason" value={booking.payment_failure_reason} highlight="yellow" />}
-            </Section>
+          {/* Inspections Tab */}
+          {activeTab === "inspections" && (
+            <InspectionGallery booking={booking} onUpdate={() => queryClient.invalidateQueries({ queryKey: ["booking-requests-admin"] })} />
           )}
 
-          {/* Verification */}
-          <Section title="Verification" icon={Shield}>
-            <Row label="ID Status" value={booking.verification_status || "—"} highlight={booking.verification_status === "verified" ? "green" : "yellow"} />
-            <Row label="Contract Type" value={booking.contract_type === "rent_to_own" ? "Rent-to-Own" : booking.contract_type === "weekly" ? "Weekly Rental" : "—"} />
-            <Row label="Contract Version" value={booking.contract_version || "—"} />
-            <Row label="Contract Status" value={booking.contract_status || "—"} highlight={booking.contract_status === "signed" ? "green" : "yellow"} />
-            {booking.signed_at && <Row label="Signed At" value={new Date(booking.signed_at).toLocaleString()} />}
-            {booking.signature_name && <Row label="Signature Name" value={booking.signature_name} />}
-            {booking.signature_device_info && <Row label="Signed Device" value={booking.signature_device_info.substring(0, 40) + "…"} />}
-            {booking.license_front_url && (
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <a href={booking.license_front_url} target="_blank" rel="noreferrer"
-                  className="text-xs text-primary underline">View License Front</a>
-                {booking.license_back_url && (
-                  <a href={booking.license_back_url} target="_blank" rel="noreferrer"
-                    className="text-xs text-primary underline">View License Back</a>
-                )}
-                {booking.selfie_url && (
-                  <a href={booking.selfie_url} target="_blank" rel="noreferrer"
-                    className="text-xs text-primary underline">View Selfie</a>
-                )}
-              </div>
-            )}
-          </Section>
-
-          {/* Pickup Photos */}
-          {booking.pickup_photos?.length > 0 && (
-            <Section title="Pickup Photos" icon={Camera}>
-              <div className="flex gap-2 flex-wrap">
-                {booking.pickup_photos.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noreferrer">
-                    <img src={url} alt="" className="h-14 w-14 object-cover rounded-lg border border-white/10" />
-                  </a>
-                ))}
-              </div>
-              <button
-                onClick={() => {
-                  if (!confirm("Clear all pickup photos? The customer will be prompted to redo the pickup inspection.")) return;
-                  base44.entities.BookingRequest.update(booking.id, { pickup_photos: [] }).then(() => {
-                    queryClient.invalidateQueries({ queryKey: ["booking-requests-admin"] });
-                    toast.success("Pickup photos cleared. Customer must redo inspection.");
-                  });
-                }}
-                className="mt-2 flex items-center gap-1.5 text-xs font-bold text-orange-400 border border-orange-500/20 px-3 py-1.5 rounded-xl hover:bg-orange-500/[0.08] transition-colors"
-              >
-                <RotateCcw className="h-3.5 w-3.5" /> Reset Pickup Photos
-              </button>
+          {/* Details Tab */}
+          {activeTab === "details" && <>
+            <Section title="Customer" icon={User}>
+              <Row label="Name" value={booking.customer_full_name || "—"} />
+              <Row label="Phone" value={booking.customer_phone || "—"} />
+              <Row label="Email" value={booking.user_email || "—"} />
+              <Row label="Address" value={booking.customer_address || "—"} />
+              <Row label="Employer" value={booking.employer || "—"} />
+              <Row label="Income Range" value={booking.income_range || "—"} />
             </Section>
-          )}
-
-          {/* Clean Return */}
-          {(booking.return_interior_photos?.length > 0 || booking.return_exterior_photos?.length > 0 || booking.clean_return_status !== "not_returned") && (
-            <Section title="Clean Return Review" icon={Shield}>
-              <Row label="Return Status" value={booking.clean_return_status || "—"} highlight={booking.clean_return_status === "approved_clean" ? "green" : booking.clean_return_status === "not_clean" ? "yellow" : null} />
-              <Row label="$50 Credit Issued" value={booking.clean_return_credit_issued ? "Yes ✓" : "No"} highlight={booking.clean_return_credit_issued ? "green" : null} />
-              {booking.clean_return_admin_notes && <Row label="Notes" value={booking.clean_return_admin_notes} />}
-              {booking.return_interior_photos?.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-xs text-white/35 mb-1.5">Interior Return Photos</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {booking.return_interior_photos.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noreferrer">
-                        <img src={url} alt="" className="h-14 w-14 object-cover rounded-lg border border-white/10" />
-                      </a>
-                    ))}
-                  </div>
-                </div>
+            <Section title="Booking Details" icon={Car}>
+              <Row label="Vehicle" value={booking.vehicle_name || "—"} />
+              <Row label="Type" value={booking.booking_type || "—"} />
+              <Row label="City" value={booking.city || "—"} />
+              <Row label="Start Date" value={booking.start_date ? format(new Date(booking.start_date), "MMM d, yyyy") : "—"} />
+              <Row label="Weekly Rate" value={booking.weekly_rate ? `$${booking.weekly_rate}` : "—"} />
+              <Row label="Next Billing" value={booking.next_billing_date || "—"} />
+              <Row label="Week #" value={booking.billing_week_number ? `Week ${booking.billing_week_number}` : "—"} />
+              <Row label="Payment" value={booking.payment_status || "—"} highlight={booking.payment_status === "paid" ? "green" : "yellow"} />
+              {booking.receipt_url && (
+                <a href={booking.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">View Stripe Receipt ↗</a>
               )}
-              {booking.return_exterior_photos?.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-xs text-white/35 mb-1.5">Exterior Return Photos</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {booking.return_exterior_photos.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noreferrer">
-                        <img src={url} alt="" className="h-14 w-14 object-cover rounded-lg border border-white/10" />
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {booking.clean_return_status === "photos_submitted" && (
-                <div className="mt-3 space-y-2">
-                  <CleanReturnActions bookingId={booking.id} />
+            </Section>
+            {(booking.stripe_customer_id || booking.stripe_payment_intent_id) && (
+              <Section title="Stripe References" icon={Shield}>
+                {booking.stripe_customer_id && <Row label="Customer ID" value={booking.stripe_customer_id} />}
+                {booking.stripe_payment_intent_id && <Row label="Payment Intent" value={booking.stripe_payment_intent_id} />}
+                {booking.stripe_payment_method_id && <Row label="Payment Method" value={booking.stripe_payment_method_id} />}
+                <Row label="Autopay" value={booking.autopay_enabled ? "Enabled" : "Disabled"} highlight={booking.autopay_enabled ? "green" : null} />
+                {booking.payment_failure_reason && <Row label="Failure Reason" value={booking.payment_failure_reason} highlight="yellow" />}
+              </Section>
+            )}
+            <Section title="Verification" icon={Shield}>
+              <Row label="ID Status" value={booking.verification_status || "—"} highlight={booking.verification_status === "verified" ? "green" : "yellow"} />
+              <Row label="Contract Status" value={booking.contract_status || "—"} highlight={booking.contract_status === "signed" ? "green" : "yellow"} />
+              {booking.signed_at && <Row label="Signed At" value={new Date(booking.signed_at).toLocaleString()} />}
+              {booking.license_front_url && (
+                <div className="flex gap-3 mt-2">
+                  <a href={booking.license_front_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">License Front</a>
+                  {booking.license_back_url && <a href={booking.license_back_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">License Back</a>}
+                  {booking.selfie_url && <a href={booking.selfie_url} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Selfie</a>}
                 </div>
               )}
             </Section>
-          )}
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-2 block">Admin Notes</label>
+              <textarea
+                value={adminNote}
+                onChange={(e) => setAdminNote(e.target.value)}
+                placeholder="Add internal notes about this booking…"
+                rows={3}
+                className="w-full px-3 py-2 rounded-xl text-sm bg-white/[0.05] border border-white/[0.1] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 resize-none transition-all"
+              />
+            </div>
+          </>}
 
-          {/* Dispute Evidence */}
-          <Section title="Dispute Evidence" icon={FileText}>
-            <Row label="Agreement Accepted" value={booking.agreement_accepted_at ? new Date(booking.agreement_accepted_at).toLocaleString() : "—"} highlight={booking.agreement_accepted_at ? "green" : null} />
-            <Row label="Agreement Version" value={booking.agreement_version || "—"} />
-            <Row label="Device Info" value={booking.agreement_device_info ? booking.agreement_device_info.substring(0, 40) + "…" : "—"} />
-            <Row label="Recurring Notice Agreed" value={booking.payment_accepted_recurring_notice ? "Yes ✓" : "No"} highlight={booking.payment_accepted_recurring_notice ? "green" : "yellow"} />
-            <Row label="ID Verified" value={booking.verification_status === "verified" ? "Yes ✓" : "No"} highlight={booking.verification_status === "verified" ? "green" : "yellow"} />
-            <Row label="Contract Signed" value={booking.contract_status === "signed" ? "Yes ✓" : "No"} highlight={booking.contract_status === "signed" ? "green" : "yellow"} />
-            <Row label="Terms Consented" value={booking.consent_terms ? "Yes ✓" : "No"} highlight={booking.consent_terms ? "green" : "yellow"} />
-            <Row label="E-Sign Consented" value={booking.consent_esign ? "Yes ✓" : "No"} highlight={booking.consent_esign ? "green" : "yellow"} />
-            {booking.signed_at && <Row label="Signed At" value={new Date(booking.signed_at).toLocaleString()} />}
-            {booking.signature_name && <Row label="Signature Name" value={booking.signature_name} />}
-            {booking.contract_initials && (() => {
-              try {
-                const parsed = JSON.parse(booking.contract_initials);
-                return (
-                  <div className="mt-2">
-                    <p className="text-xs text-white/35 mb-1.5">Clause Initials</p>
-                    <div className="space-y-1">
-                      {Object.entries(parsed).map(([clauseId, data]) => (
-                        <div key={clauseId} className="flex items-center justify-between">
-                          <span className="text-xs text-white/40 capitalize">{clauseId.replace(/_/g, " ")}</span>
-                          <span className="text-xs font-bold text-green-400 italic">"{data.initials}" ✓</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              } catch { return null; }
-            })()}
-            {booking.stripe_payment_intent_id && (
-              <a
-                href={`https://dashboard.stripe.com/payments/${booking.stripe_payment_intent_id}`}
-                target="_blank" rel="noreferrer"
-                className="text-xs text-primary underline flex items-center gap-1 mt-1"
-              >
-                <Download className="h-3 w-3" /> View Stripe Payment Evidence ↗
-              </a>
-            )}
-          </Section>
-
-          {/* Admin notes */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-white/40 mb-2 block">Admin Notes</label>
-            <textarea
-              value={adminNote}
-              onChange={(e) => setAdminNote(e.target.value)}
-              placeholder="Add internal notes about this booking…"
-              rows={3}
-              className="w-full px-3 py-2 rounded-xl text-sm bg-white/[0.05] border border-white/[0.1] text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 resize-none transition-all"
-            />
-          </div>
+          {/* Evidence Tab */}
+          {activeTab === "evidence" && <>
+            <Section title="Dispute Evidence" icon={FileText}>
+              <Row label="Agreement Accepted" value={booking.agreement_accepted_at ? new Date(booking.agreement_accepted_at).toLocaleString() : "—"} highlight={booking.agreement_accepted_at ? "green" : null} />
+              <Row label="Agreement Version" value={booking.agreement_version || "—"} />
+              <Row label="Device Info" value={booking.agreement_device_info ? booking.agreement_device_info.substring(0, 40) + "…" : "—"} />
+              <Row label="Recurring Notice" value={booking.payment_accepted_recurring_notice ? "Yes ✓" : "No"} highlight={booking.payment_accepted_recurring_notice ? "green" : "yellow"} />
+              <Row label="ID Verified" value={booking.verification_status === "verified" ? "Yes ✓" : "No"} highlight={booking.verification_status === "verified" ? "green" : "yellow"} />
+              <Row label="Contract Signed" value={booking.contract_status === "signed" ? "Yes ✓" : "No"} highlight={booking.contract_status === "signed" ? "green" : "yellow"} />
+              <Row label="Terms Consented" value={booking.consent_terms ? "Yes ✓" : "No"} highlight={booking.consent_terms ? "green" : "yellow"} />
+              <Row label="E-Sign Consented" value={booking.consent_esign ? "Yes ✓" : "No"} highlight={booking.consent_esign ? "green" : "yellow"} />
+              {booking.signature_name && <Row label="Signature Name" value={booking.signature_name} />}
+              {booking.stripe_payment_intent_id && (
+                <a href={`https://dashboard.stripe.com/payments/${booking.stripe_payment_intent_id}`} target="_blank" rel="noreferrer"
+                  className="text-xs text-primary underline flex items-center gap-1 mt-1">
+                  <Download className="h-3 w-3" /> View Stripe Payment Evidence ↗
+                </a>
+              )}
+            </Section>
+          </>}
         </div>
 
         {/* Action buttons */}

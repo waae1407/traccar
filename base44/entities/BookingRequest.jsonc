@@ -179,17 +179,14 @@
     },
     "consent_autopay": {
       "type": "boolean",
-      "default": false,
-      "description": "Mandatory autopay authorization signed at checkout"
+      "default": false
     },
     "consent_autopay_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Timestamp of autopay consent"
+      "format": "date-time"
     },
     "consent_autopay_ip": {
-      "type": "string",
-      "description": "IP address at autopay consent"
+      "type": "string"
     },
     "customer_full_name": {
       "type": "string"
@@ -236,16 +233,13 @@
       "enum": [
         "weekly",
         "rent_to_own"
-      ],
-      "description": "Type of contract signed"
+      ]
     },
     "contract_version": {
-      "type": "string",
-      "description": "Version of the contract signed"
+      "type": "string"
     },
     "contract_initials": {
-      "type": "string",
-      "description": "JSON string of per-clause initials with timestamps"
+      "type": "string"
     },
     "signature_name": {
       "type": "string"
@@ -324,16 +318,14 @@
     },
     "autopay_enabled": {
       "type": "boolean",
-      "default": true,
-      "description": "Always true \u2014 set automatically when autopay consent is given"
+      "default": true
     },
     "payment_failure_reason": {
       "type": "string"
     },
     "payment_failure_attempts": {
       "type": "number",
-      "default": 0,
-      "description": "Number of failed payment retry attempts"
+      "default": 0
     },
     "last_payment_failure_at": {
       "type": "string",
@@ -341,13 +333,11 @@
     },
     "next_billing_date": {
       "type": "string",
-      "format": "date",
-      "description": "Next scheduled weekly charge date"
+      "format": "date"
     },
     "billing_week_number": {
       "type": "number",
-      "default": 1,
-      "description": "Current week number of rental"
+      "default": 1
     },
     "agreement_accepted_at": {
       "type": "string",
@@ -370,22 +360,53 @@
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "Baseline vehicle condition photos taken at pickup"
+      }
+    },
+    "pickup_submitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Immutable timestamp when pickup photos were submitted"
+    },
+    "pickup_location_lat": {
+      "type": "number",
+      "description": "GPS latitude at pickup photo submission"
+    },
+    "pickup_location_lon": {
+      "type": "number",
+      "description": "GPS longitude at pickup photo submission"
+    },
+    "pickup_location_label": {
+      "type": "string",
+      "description": "Reverse-geocoded city/state label at pickup submission"
     },
     "return_interior_photos": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "Customer-uploaded interior photos at return"
+      }
     },
     "return_exterior_photos": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "Customer-uploaded exterior photos at return"
+      }
+    },
+    "dropoff_submitted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Immutable timestamp when drop-off photos were submitted"
+    },
+    "dropoff_location_lat": {
+      "type": "number",
+      "description": "GPS latitude at drop-off photo submission"
+    },
+    "dropoff_location_lon": {
+      "type": "number",
+      "description": "GPS longitude at drop-off photo submission"
+    },
+    "dropoff_location_label": {
+      "type": "string",
+      "description": "Reverse-geocoded city/state label at drop-off submission"
     },
     "clean_return_status": {
       "type": "string",
@@ -396,8 +417,7 @@
         "not_clean",
         "fee_applied"
       ],
-      "default": "not_returned",
-      "description": "Admin review status for clean return incentive"
+      "default": "not_returned"
     },
     "clean_return_credit_issued": {
       "type": "boolean",
@@ -408,7 +428,6 @@
     },
     "inspection_sample_images": {
       "type": "object",
-      "description": "Pre-generated inspection sample image URLs keyed by slot ID",
       "properties": {
         "interior_front": {
           "type": "string"
@@ -432,18 +451,24 @@
     },
     "moovetrax_kill_active": {
       "type": "boolean",
-      "default": false,
-      "description": "Whether the Moovetrax kill switch is currently active"
+      "default": false
     },
     "suspended_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When the rental was suspended due to payment failure"
+      "format": "date-time"
     },
     "reinstate_url_sent_at": {
       "type": "string",
+      "format": "date-time"
+    },
+    "rental_ended_at": {
+      "type": "string",
       "format": "date-time",
-      "description": "When reinstate payment link was last sent to customer"
+      "description": "When admin or system officially ended the rental"
+    },
+    "rental_ended_by": {
+      "type": "string",
+      "description": "Admin email or 'customer' who triggered rental end"
     }
   },
   "required": [
