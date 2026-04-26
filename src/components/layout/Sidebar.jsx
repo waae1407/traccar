@@ -57,7 +57,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                 <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md" />
                 <img src={LOGO_ICON} alt="uRide" className="relative h-9 w-9 rounded-xl object-cover ring-1 ring-primary/40" />
               </div>
-              <img src={LOGO_FULL} alt="uRide" className="h-7 object-contain brightness-200 contrast-75" />
+              <span className="font-bold text-white text-xl tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>uRide</span>
             </div>
           ) : (
             <div className="relative mx-auto">
