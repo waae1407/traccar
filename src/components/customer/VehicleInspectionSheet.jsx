@@ -312,7 +312,7 @@ async function compressImage(file, maxWidthPx = 1600, quality = 0.82) {
       canvas.height = height;
       canvas.getContext("2d").drawImage(img, 0, 0, width, height);
       canvas.toBlob(
-        (blob) => resolve(blob || file),
+        (blob) => resolve(blob ? new File([blob], file.name || "photo.jpg", { type: "image/jpeg" }) : file),
         "image/jpeg",
         quality
       );
