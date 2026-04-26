@@ -48,13 +48,18 @@ function InspectionRow({ booking, onInspect }) {
     <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
       {/* Pickup */}
       {pickupDone ? (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-            <span className="text-[11px] font-semibold text-green-700">Pickup photos submitted</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onInspect(booking, "pickup"); }}
+          className="w-full text-left rounded-xl overflow-hidden border border-green-200 bg-green-50 active:scale-[0.98] transition-transform"
+        >
+          <div className="flex items-center justify-between px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+              <span className="text-[11px] font-bold text-green-700">Pickup Photos — View</span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-green-400" />
           </div>
-          {/* Immutable proof stamp */}
-          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+          <div className="flex items-center gap-3 px-3 py-2 bg-white/60 border-t border-green-100">
             {booking.pickup_submitted_at && (
               <span className="flex items-center gap-1 text-[10px] text-gray-500">
                 <Clock className="h-3 w-3" />
@@ -68,7 +73,7 @@ function InspectionRow({ booking, onInspect }) {
               </span>
             )}
           </div>
-        </div>
+        </button>
       ) : (
         <button
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onInspect(booking, "pickup"); }}
@@ -85,12 +90,18 @@ function InspectionRow({ booking, onInspect }) {
 
       {/* Drop-off — available as soon as pickup is done, no end_date gate */}
       {dropoffDone ? (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 border border-green-200">
-            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-            <span className="text-[11px] font-semibold text-green-700">Drop-off photos submitted</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); onInspect(booking, "dropoff"); }}
+          className="w-full text-left rounded-xl overflow-hidden border border-green-200 bg-green-50 active:scale-[0.98] transition-transform"
+        >
+          <div className="flex items-center justify-between px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+              <span className="text-[11px] font-bold text-green-700">Drop-off Photos — View</span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-green-400" />
           </div>
-          <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+          <div className="flex items-center gap-3 px-3 py-2 bg-white/60 border-t border-green-100">
             {booking.dropoff_submitted_at && (
               <span className="flex items-center gap-1 text-[10px] text-gray-500">
                 <Clock className="h-3 w-3" />
@@ -104,7 +115,7 @@ function InspectionRow({ booking, onInspect }) {
               </span>
             )}
           </div>
-        </div>
+        </button>
       ) : !pickupDone ? (
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 opacity-60 cursor-not-allowed">
           <Camera className="h-3.5 w-3.5 text-gray-400" />

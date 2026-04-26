@@ -1,62 +1,24 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Camera, CheckCircle, Upload, Loader2, KeyRound, AlertTriangle, MapPin, Clock } from "lucide-react";
+import { X, Camera, CheckCircle, Upload, Loader2, KeyRound, AlertTriangle, MapPin, Clock, Image, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
 const PHOTO_SLOTS = [
-  {
-    id: "interior_front",
-    label: "Interior Front (Driver Side)",
-    instruction: "Open the driver door fully. Stand outside and shoot inward at an angle — capture the steering wheel, dashboard, driver seat, and front passenger seat all in one shot.",
-    aiPrompt: "Cartoon illustration showing the interior of this vehicle photographed from outside through the open driver (left) door. The camera angle looks inward diagonally showing the steering wheel on the left, dashboard ahead, driver seat in the foreground, and front passenger seat to the right. Realistic interior detail in the same cartoon illustration style as the exterior vehicle image.",
-    icon: "🚗",
-  },
-  {
-    id: "interior_rear",
-    label: "Interior Rear (Driver Side)",
-    instruction: "Open the rear driver-side door fully. Stand outside and shoot inward at an angle — capture the full back seat, floor, center armrest, and headrests in one shot.",
-    aiPrompt: "Cartoon illustration showing the interior of this vehicle photographed from outside through the open rear driver-side (left) door. The camera angle looks inward diagonally showing the full rear bench seat, center armrest with cupholders, seat belts, rear floor, and headrests. Realistic interior detail in the same cartoon illustration style as the exterior vehicle image.",
-    icon: "🪑",
-  },
-  {
-    id: "exterior_front_left",
-    label: "Front Left Corner (Driver Side)",
-    instruction: "Stand at the front-left (driver) corner. Capture both the front bumper and the entire driver-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-LEFT corner.",
-    icon: "↖️",
-  },
-  {
-    id: "exterior_rear_left",
-    label: "Rear Left Corner (Driver Side)",
-    instruction: "Stand at the rear-left (driver) corner. Capture the rear bumper and the entire driver-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-LEFT corner.",
-    icon: "↙️",
-  },
-  {
-    id: "exterior_front_right",
-    label: "Front Right Corner (Passenger Side)",
-    instruction: "Stand at the front-right (passenger) corner. Capture both the front bumper and the entire passenger-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-RIGHT corner.",
-    mirrorX: true,
-    icon: "↗️",
-  },
-  {
-    id: "exterior_rear_right",
-    label: "Rear Right Corner (Passenger Side)",
-    instruction: "Stand at the rear-right (passenger) corner. Capture the rear bumper and the entire passenger-side panel in one diagonal shot.",
-    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-RIGHT corner.",
-    mirrorX: true,
-    icon: "↘️",
-  },
-  {
-    id: "vehicle_keys",
-    label: "Vehicle Keys",
-    instruction: "Hold the vehicle key(s) clearly in front of the camera. All keys must be visible in the photo.",
-    aiPrompt: "Cartoon illustration of this vehicle's car key(s) held up in a hand in front of the car.",
-    icon: "🔑",
-    isKeys: true,
-  },
+  { id: "interior_front", label: "Interior Front (Driver Side)", icon: "🚗",
+    aiPrompt: "Cartoon illustration showing the interior of this vehicle photographed from outside through the open driver (left) door. The camera angle looks inward diagonally showing the steering wheel on the left, dashboard ahead, driver seat in the foreground, and front passenger seat to the right. Realistic interior detail in the same cartoon illustration style as the exterior vehicle image." },
+  { id: "interior_rear", label: "Interior Rear (Driver Side)", icon: "🪑",
+    aiPrompt: "Cartoon illustration showing the interior of this vehicle photographed from outside through the open rear driver-side (left) door. The camera angle looks inward diagonally showing the full rear bench seat, center armrest with cupholders, seat belts, rear floor, and headrests. Realistic interior detail in the same cartoon illustration style as the exterior vehicle image." },
+  { id: "exterior_front_left", label: "Front Left Corner (Driver Side)", icon: "↖️",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-LEFT corner." },
+  { id: "exterior_rear_left", label: "Rear Left Corner (Driver Side)", icon: "↙️",
+    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-LEFT corner." },
+  { id: "exterior_front_right", label: "Front Right Corner (Passenger Side)", icon: "↗️", mirrorX: true,
+    aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-RIGHT corner." },
+  { id: "exterior_rear_right", label: "Rear Right Corner (Passenger Side)", icon: "↘️", mirrorX: true,
+    aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-RIGHT corner." },
+  { id: "vehicle_keys", label: "Vehicle Keys", icon: "🔑", isKeys: true,
+    aiPrompt: "Cartoon illustration of this vehicle's car key(s) held up in a hand in front of the car." },
 ];
 
 async function generateAngleImage(vehicleImageUrl, slot) {
@@ -67,7 +29,6 @@ async function generateAngleImage(vehicleImageUrl, slot) {
   return result.url;
 }
 
-// Attempt GPS location capture
 async function captureLocation() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) return resolve(null);
@@ -79,7 +40,6 @@ async function captureLocation() {
   });
 }
 
-// Reverse geocode to city, state
 async function reverseGeocode(lat, lon) {
   try {
     const res = await fetch(
@@ -94,6 +54,159 @@ async function reverseGeocode(lat, lon) {
     return null;
   }
 }
+
+// ─── READ-ONLY VIEWER ────────────────────────────────────────────────────────
+
+function ReadOnlyViewer({ submittedPhotos, submittedAt, locationLabel, type, onClose }) {
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+
+  const isPickup = type === "pickup";
+
+  const formattedTime = submittedAt
+    ? format(new Date(submittedAt), "MMMM d, yyyy 'at' h:mm a")
+    : null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col bg-gray-50">
+      {/* Header */}
+      <div className="bg-white px-4 py-4 flex items-center justify-between flex-shrink-0 border-b border-gray-100">
+        <div>
+          <h2 className="font-bold text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>
+            {isPickup ? "Pickup Inspection" : "Drop-off Inspection"}
+          </h2>
+          <p className="text-[11px] text-green-600 font-semibold mt-0.5">✓ Submitted — Read Only</p>
+        </div>
+        <button onClick={onClose} className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center">
+          <X className="h-4 w-4 text-gray-500" />
+        </button>
+      </div>
+
+      {/* Proof stamp */}
+      <div className="mx-4 mt-3 rounded-2xl overflow-hidden border border-green-200" style={{ background: "linear-gradient(135deg, #f0fdf4, #dcfce7)" }}>
+        <div className="px-4 py-3 flex items-start gap-3">
+          <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-green-800">Photos Submitted Successfully</p>
+            <p className="text-[11px] text-green-700 mt-0.5">These photos are locked and cannot be retaken.</p>
+            <div className="mt-2 space-y-1">
+              {formattedTime && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3 w-3 text-green-600 flex-shrink-0" />
+                  <span className="text-[11px] font-semibold text-green-700">{formattedTime}</span>
+                </div>
+              )}
+              {locationLabel && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3 w-3 text-green-600 flex-shrink-0" />
+                  <span className="text-[11px] font-semibold text-green-700">{locationLabel}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
+        <div className="fixed inset-0 z-[80] bg-black/95 flex flex-col" onClick={() => setLightboxIndex(null)}>
+          <div className="flex items-center justify-between px-4 py-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div>
+              <p className="text-white font-bold text-sm">{PHOTO_SLOTS[lightboxIndex]?.label}</p>
+              <p className="text-white/40 text-[11px] mt-0.5">{lightboxIndex + 1} of {submittedPhotos.length}</p>
+            </div>
+            <button onClick={() => setLightboxIndex(null)} className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center">
+              <X className="h-4 w-4 text-white" />
+            </button>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center px-4 relative" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={submittedPhotos[lightboxIndex]}
+              alt=""
+              className="max-w-full max-h-full object-contain rounded-xl"
+            />
+            {lightboxIndex > 0 && (
+              <button onClick={() => setLightboxIndex(lightboxIndex - 1)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/20">
+                <ChevronLeft className="h-5 w-5 text-white" />
+              </button>
+            )}
+            {lightboxIndex < submittedPhotos.length - 1 && (
+              <button onClick={() => setLightboxIndex(lightboxIndex + 1)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/20">
+                <ChevronRight className="h-5 w-5 text-white" />
+              </button>
+            )}
+          </div>
+
+          {/* Proof footer inside lightbox */}
+          <div className="px-4 pb-6 pt-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-center gap-4 flex-wrap">
+              {formattedTime && (
+                <span className="flex items-center gap-1.5 text-xs text-white/60">
+                  <Clock className="h-3.5 w-3.5 text-white/40" />{formattedTime}
+                </span>
+              )}
+              {locationLabel && (
+                <span className="flex items-center gap-1.5 text-xs text-white/60">
+                  <MapPin className="h-3.5 w-3.5 text-white/40" />{locationLabel}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo grid — each slot is a tappable CTA */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-8">
+        {PHOTO_SLOTS.map((slot, index) => {
+          const photoUrl = submittedPhotos[index];
+          return (
+            <button
+              key={slot.id}
+              onClick={() => setLightboxIndex(index)}
+              className="w-full rounded-2xl overflow-hidden border border-gray-100 shadow-sm bg-white active:scale-[0.98] transition-transform text-left"
+            >
+              <div className="relative h-44">
+                {photoUrl ? (
+                  <img src={photoUrl} alt={slot.label} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-4xl opacity-30">
+                    {slot.icon}
+                  </div>
+                )}
+                {/* Overlay */}
+                <div className="absolute inset-0 bg-black/20" />
+                {/* View icon */}
+                <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
+                  <Eye className="h-4 w-4 text-white" />
+                </div>
+                {/* Label */}
+                <div className="absolute bottom-0 left-0 right-0 px-4 py-3"
+                  style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75), transparent)" }}>
+                  <p className="text-white text-xs font-bold">{slot.label}</p>
+                </div>
+              </div>
+              {/* CTA bar */}
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-50">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-xs font-semibold text-green-700">Photo submitted</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Eye className="h-3.5 w-3.5 text-gray-400" />
+                  <span className="text-xs text-gray-400 font-medium">Tap to view</span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── CAPTURE SLOT (for new submissions) ──────────────────────────────────────
 
 function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoading }) {
   const inputRef = useRef(null);
@@ -152,12 +265,8 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
                 <span className="text-[10px] text-gray-400">Generating example…</span>
               </div>
             ) : sampleImage ? (
-              <img
-                src={sampleImage}
-                alt={slot.label}
-                className="w-full h-full object-cover"
-                style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}}
-              />
+              <img src={sampleImage} alt={slot.label} className="w-full h-full object-cover"
+                style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}} />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">
                 {slot.icon}
@@ -173,8 +282,7 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
               : "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
             {uploading
               ? <Loader2 className="h-4 w-4 text-white animate-spin" />
-              : slot.isKeys
-              ? <KeyRound className="h-4 w-4 text-white" />
+              : slot.isKeys ? <KeyRound className="h-4 w-4 text-white" />
               : <Camera className="h-4 w-4 text-white" />}
             <span className="text-white text-xs font-bold">
               {uploading ? "Uploading…" : slot.isKeys ? "📸 Photograph all keys now" : "Tap to capture"}
@@ -186,7 +294,35 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
   );
 }
 
+// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+
 export default function VehicleInspectionSheet({ booking, type, onClose, onComplete }) {
+  const isPickup = type === "pickup";
+
+  // Determine if already submitted (read-only mode)
+  const submittedPhotos = isPickup ? booking?.pickup_photos : booking?.return_exterior_photos;
+  const isSubmitted = submittedPhotos?.length > 0;
+  const submittedAt = isPickup ? booking?.pickup_submitted_at : booking?.dropoff_submitted_at;
+  const locationLabel = isPickup ? booking?.pickup_location_label : booking?.dropoff_location_label;
+
+  // ── Read-only mode ──
+  if (isSubmitted) {
+    return (
+      <ReadOnlyViewer
+        submittedPhotos={submittedPhotos}
+        submittedAt={submittedAt}
+        locationLabel={locationLabel}
+        type={type}
+        onClose={onClose}
+      />
+    );
+  }
+
+  // ── Capture mode ──
+  return <CaptureMode booking={booking} type={type} onClose={onClose} onComplete={onComplete} isPickup={isPickup} />;
+}
+
+function CaptureMode({ booking, type, onClose, onComplete, isPickup }) {
   const [photos, setPhotos] = useState({});
   const [uploading, setUploading] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -231,23 +367,17 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
 
   const completedCount = Object.keys(photos).length;
   const allDone = completedCount === PHOTO_SLOTS.length;
-  const isPickup = type === "pickup";
 
   const handleSubmit = async () => {
     if (!allDone) return;
     setSubmitting(true);
-
-    // Capture GPS + timestamp at submit time
     const submittedAt = new Date().toISOString();
     const gps = await captureLocation();
     let locationLabel = null;
-    if (gps) {
-      locationLabel = await reverseGeocode(gps.lat, gps.lon);
-    }
+    if (gps) locationLabel = await reverseGeocode(gps.lat, gps.lon);
 
     const urls = PHOTO_SLOTS.map((s) => photos[s.id].url);
     const field = isPickup ? "pickup_photos" : "return_exterior_photos";
-
     const metaFields = isPickup
       ? {
           pickup_submitted_at: submittedAt,
@@ -285,16 +415,10 @@ export default function VehicleInspectionSheet({ booking, type, onClose, onCompl
       </div>
 
       <div className="h-1 bg-gray-200 flex-shrink-0">
-        <div
-          className="h-full transition-all duration-500"
-          style={{
-            width: `${(completedCount / PHOTO_SLOTS.length) * 100}%`,
-            background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))",
-          }}
-        />
+        <div className="h-full transition-all duration-500"
+          style={{ width: `${(completedCount / PHOTO_SLOTS.length) * 100}%`, background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />
       </div>
 
-      {/* GPS notice */}
       <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-50 border border-blue-100">
         <MapPin className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
         <p className="text-[11px] text-blue-700 font-medium">
