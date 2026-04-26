@@ -14,7 +14,7 @@ import { AdminGuard } from '@/components/layout/RoleGuard';
 // Customer-facing pages
 import BookNow from '@/pages/BookNow.jsx';
 import LandingPage from '@/pages/LandingPage';
-import MyBookings from '@/pages/customer/MyBookings';
+import MyBookings from '@/pages/customer/MyBookings.jsx';
 import ActivityPage from '@/pages/customer/ActivityPage';
 import AccountPage from '@/pages/customer/AccountPage';
 import CheckoutFlow from '@/pages/checkout/CheckoutFlow';
