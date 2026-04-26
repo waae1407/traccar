@@ -294,6 +294,34 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
   );
 }
 
+// ─── IMAGE COMPRESSION ───────────────────────────────────────────────────────
+
+async function compressImage(file, maxWidthPx = 1600, quality = 0.82) {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxWidthPx) {
+        height = Math.round((height * maxWidthPx) / width);
+        width = maxWidthPx;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => resolve(blob || file),
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 export default function VehicleInspectionSheet({ booking, type, onClose, onComplete }) {
@@ -383,10 +411,13 @@ function CaptureMode({ booking, type, onClose, onComplete, isPickup }) {
     const preview = URL.createObjectURL(file);
     setUploading((u) => ({ ...u, [slotId]: true }));
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      // Compress large images before uploading (mobile photos can be 5-10MB)
+      const compressed = await compressImage(file);
+      const { file_url } = await base44.integrations.Core.UploadFile({ file: compressed });
       setPhotos((p) => ({ ...p, [slotId]: { preview, url: file_url } }));
-    } catch {
-      alert("Upload failed. Please try again.");
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert(`Upload failed: ${err?.message || "Unknown error"}. Please try again.`);
     } finally {
       setUploading((u) => ({ ...u, [slotId]: false }));
     }
