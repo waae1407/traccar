@@ -26,7 +26,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    const vehicleLabel = `the ${booking.year || ""} ${booking.make || ""} ${booking.model || ""} (${booking.color || "unknown color"})`.replace(/\s+/g, " ").trim();
+    // Build vehicle label from vehicle_name (BookingRequest field) with optional vehicle lookup for color
+    let vehicleLabel = booking.vehicle_name || "the rental vehicle";
+    if (booking.vehicle_id) {
+      try {
+        const vehicle = await base44.asServiceRole.entities.Vehicle.get(booking.vehicle_id);
+        if (vehicle) {
+          vehicleLabel = `the ${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""} (${vehicle.color || "unknown color"})`.replace(/\s+/g, " ").trim();
+        }
+      } catch { /* use vehicle_name fallback */ }
+    }
     const photos = inspection_type === "pickup"
       ? (booking.pickup_photos || [])
       : (booking.return_exterior_photos || []);
