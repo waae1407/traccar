@@ -29,25 +29,6 @@ async function generateAngleImage(vehicleImageUrl, slot) {
   return result.url;
 }
 
-async function compressImage(file, maxWidthPx = 1920, quality = 0.82) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxWidthPx / img.width);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: "image/jpeg" })), "image/jpeg", quality);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); }; // fallback: original
-    img.src = url;
-  });
-}
-
 async function captureLocation() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) return resolve(null);
@@ -402,11 +383,9 @@ function CaptureMode({ booking, type, onClose, onComplete, isPickup }) {
     const preview = URL.createObjectURL(file);
     setUploading((u) => ({ ...u, [slotId]: true }));
     try {
-      const compressed = await compressImage(file);
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: compressed });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
       setPhotos((p) => ({ ...p, [slotId]: { preview, url: file_url } }));
-    } catch (err) {
-      console.error("Upload failed:", err);
+    } catch {
       alert("Upload failed. Please try again.");
     } finally {
       setUploading((u) => ({ ...u, [slotId]: false }));
@@ -441,12 +420,6 @@ function CaptureMode({ booking, type, onClose, onComplete, isPickup }) {
         };
 
     await updateBooking.mutateAsync({ [field]: urls, ...metaFields });
-
-    // Trigger AI photo inspection in background (don't block the user)
-    const triggerFn = isPickup ? "triggerPickupInspection" : "triggerDropoffInspection";
-    base44.functions.invoke(triggerFn, { booking_id: booking.id })
-      .catch((e) => console.warn("AI inspection trigger failed:", e.message));
-
     setSubmitting(false);
     onComplete?.();
     onClose();

@@ -26,14 +26,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: "Booking not found" }, { status: 404 });
     }
 
-    // Fetch vehicle details for accurate identity check
-    let vehicleLabel = booking.vehicle_name || "the rented vehicle";
-    if (booking.vehicle_id) {
-      const vehicle = await base44.asServiceRole.entities.Vehicle.get(booking.vehicle_id).catch(() => null);
-      if (vehicle) {
-        vehicleLabel = `a ${vehicle.color || ""} ${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.replace(/\s+/g, " ").trim();
-      }
-    }
+    const vehicleLabel = `the ${booking.year || ""} ${booking.make || ""} ${booking.model || ""} (${booking.color || "unknown color"})`.replace(/\s+/g, " ").trim();
     const photos = inspection_type === "pickup"
       ? (booking.pickup_photos || [])
       : (booking.return_exterior_photos || []);
