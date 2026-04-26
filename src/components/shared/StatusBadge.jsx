@@ -13,6 +13,7 @@ const statusMap = {
   Booked:     { dot: "bg-blue-400",   cls: "bg-blue-500/15 text-blue-300 border-blue-500/25" },
   Maintenance:{ dot: "bg-yellow-400", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/25" },
   Transferred:{ dot: "bg-white/30",   cls: "bg-white/5 text-white/50 border-white/10" },
+  "Out of Service": { dot: "bg-red-500", cls: "bg-red-500/15 text-red-300 border-red-500/25" },
   // Booking
   Reserved:   { dot: "bg-blue-400",   cls: "bg-blue-500/15 text-blue-300 border-blue-500/25" },
   Cancelled:  { dot: "bg-red-400",    cls: "bg-red-500/15 text-red-300 border-red-500/25" },

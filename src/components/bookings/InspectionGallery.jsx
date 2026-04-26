@@ -78,7 +78,7 @@ export default function InspectionGallery({ booking, onUpdate }) {
   });
 
   const handleEndRental = async () => {
-    if (!confirm(`End rental for ${booking.customer_full_name}? This will mark the booking as completed and stop billing.`)) return;
+    if (!confirm(`End rental for ${booking.customer_full_name}? This will mark the booking as completed, stop billing, and set the vehicle to Out of Service pending admin inspection.`)) return;
     setEndingRental(true);
     try {
       await updateMutation.mutateAsync({
@@ -87,9 +87,9 @@ export default function InspectionGallery({ booking, onUpdate }) {
         rental_ended_by: "admin",
         autopay_enabled: false,
       });
-      // Also mark vehicle available
+      // Set vehicle to Out of Service (requires admin to manually clear to Available)
       if (booking.vehicle_id) {
-        await base44.entities.Vehicle.update(booking.vehicle_id, { status: "Available" });
+        await base44.entities.Vehicle.update(booking.vehicle_id, { status: "Out of Service" });
       }
       await base44.entities.Notification.create({
         user_email: booking.user_email,
@@ -98,6 +98,7 @@ export default function InspectionGallery({ booking, onUpdate }) {
         type: "booking",
         booking_request_id: booking.id,
       });
+      toast.success("Rental ended. Vehicle set to Out of Service — check fleet to clear it.");
     } finally {
       setEndingRental(false);
     }
@@ -113,7 +114,7 @@ export default function InspectionGallery({ booking, onUpdate }) {
         <div className="p-4 rounded-2xl border border-red-500/20" style={{ background: "hsl(0 72% 58% / 0.06)" }}>
           <p className="text-sm font-bold text-red-300 mb-1">⛔ Admin: End Rental</p>
           <p className="text-xs text-white/40 mb-3">
-            Immediately marks as completed, stops billing, frees the vehicle. Use when customer has returned vehicle or rental must be terminated.
+            Marks as completed, stops billing, sets vehicle to Out of Service. Admin must manually clear the vehicle to Available after physical inspection.
           </p>
           <button
             onClick={handleEndRental}

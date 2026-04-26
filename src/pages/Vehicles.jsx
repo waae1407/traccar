@@ -107,9 +107,20 @@ export default function Vehicles() {
     );
   }
 
+  const outOfServiceCount = vehicles.filter((v) => v.status === "Out of Service").length;
+
   return (
     <div className="animate-fade-in-up">
       <PageHeader count={vehicles.length} countLabel="vehicles" onAdd={() => { setEditingVehicle(null); setDialogOpen(true); }} addLabel="Add Vehicle" />
+      {outOfServiceCount > 0 && (
+        <div className="mb-4 p-4 rounded-2xl border border-red-500/30 flex items-center gap-3"
+          style={{ background: "hsl(0 72% 58% / 0.08)" }}>
+          <span className="text-red-400 text-lg">🔴</span>
+          <p className="text-sm font-bold text-red-300">
+            {outOfServiceCount} vehicle{outOfServiceCount > 1 ? "s" : ""} Out of Service — inspect and manually set to Available when cleared.
+          </p>
+        </div>
+      )}
       <DataTable columns={columns} data={vehicles} isLoading={isLoading}
         onRowClick={(row) => { setEditingVehicle(row); setDialogOpen(true); }} />
       <VehicleFormDialog

@@ -48,7 +48,8 @@
         "Available",
         "Booked",
         "Maintenance",
-        "Transferred"
+        "Transferred",
+        "Out of Service"
       ],
       "default": "Available"
     },

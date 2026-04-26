@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock, Bell, ImageIcon, CheckCircle, Loader2 } from "lucide-react";
+import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock, Bell, ImageIcon, CheckCircle, Loader2, WrenchIcon } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
@@ -63,6 +63,7 @@ export default function Dashboard() {
   const { data: contracts = [] } = useQuery({ queryKey: ["contracts", scopeKey], queryFn: () => base44.entities.RentToOwnContract.filter(tenantFilter()) });
   const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin", scopeKey], queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-created_date", 200), refetchInterval: 30_000 });
 
+  const outOfServiceVehicles = vehicles.filter((v) => v.status === "Out of Service");
   const pendingReviews = bookingRequests.filter((b) => b.booking_status === "pending_review");
   const unopenedPending = pendingReviews.filter((b) => !b.viewed_by_admin);
   const today = new Date(); today.setHours(0,0,0,0);
@@ -163,6 +164,40 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+
+      {/* Out of Service Alert Widget */}
+      {outOfServiceVehicles.length > 0 && (
+        <div className="rounded-2xl border-2 border-red-500/40 overflow-hidden"
+          style={{ background: "linear-gradient(135deg, hsl(0 72% 58% / 0.10) 0%, hsl(338 90% 56% / 0.06) 100%)" }}>
+          <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, hsl(0 72% 55%), hsl(338 90% 50%))" }} />
+          <div className="p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center flex-shrink-0">
+                <WrenchIcon className="h-6 w-6 text-red-400" />
+              </div>
+              <div>
+                <p className="font-bold text-red-300 text-base">
+                  {outOfServiceVehicles.length} Vehicle{outOfServiceVehicles.length > 1 ? "s" : ""} Out of Service — Inspection Required
+                </p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {outOfServiceVehicles.map((v) => (
+                    <span key={v.id} className="text-xs text-white/50 bg-white/[0.06] px-2 py-0.5 rounded-lg border border-white/10">
+                      {v.year} {v.make} {v.model} {v.plate ? `· ${v.plate}` : ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <Link
+              to="/vehicles"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, hsl(0 72% 52%), hsl(338 90% 50%))" }}
+            >
+              Inspect & Clear <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Pending Reviews Alert Widget */}
       {pendingReviews.length > 0 && (
