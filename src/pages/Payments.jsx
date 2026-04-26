@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { DollarSign, ExternalLink, CheckCircle, XCircle, RotateCcw, AlertTriangle, Key, Navigation, Plus } from "lucide-react";
+import { DollarSign, ExternalLink, AlertTriangle, Plus } from "lucide-react";
 import EmptyState from "@/components/shared/EmptyState";
+import AdminFilters from "@/components/shared/AdminFilters";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -141,15 +142,29 @@ export default function Payments() {
   const { tenantFilter, companyId } = useTenant();
   const scopeKey = companyId || "all";
   const [actionBooking, setActionBooking] = useState(null);
+  const [filters, setFilters] = useState({ search: "", dateFrom: "", dateTo: "", paymentStatus: "", bookingStatus: "" });
+  const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }));
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["stripe-payments", scopeKey],
     queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-updated_date", 300),
   });
 
-  const payments = bookings.filter((b) => b.stripe_payment_intent_id || b.payment_status !== "unpaid");
+  const allPayments = bookings.filter((b) => b.stripe_payment_intent_id || b.payment_status !== "unpaid");
 
-  if (!isLoading && payments.length === 0) {
+  const payments = allPayments.filter((b) => {
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!`${b.customer_full_name} ${b.user_email} ${b.vehicle_name}`.toLowerCase().includes(q)) return false;
+    }
+    if (filters.paymentStatus && b.payment_status !== filters.paymentStatus) return false;
+    if (filters.bookingStatus && b.booking_status !== filters.bookingStatus) return false;
+    if (filters.dateFrom && new Date(b.submitted_at || b.created_date) < new Date(filters.dateFrom)) return false;
+    if (filters.dateTo && new Date(b.submitted_at || b.created_date) > new Date(filters.dateTo + "T23:59:59")) return false;
+    return true;
+  });
+
+  if (!isLoading && allPayments.length === 0) {
     return (
       <EmptyState
         icon={DollarSign}
@@ -169,12 +184,20 @@ export default function Payments() {
         />
       )}
 
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold text-white">Stripe Payments</h2>
-          <p className="text-xs text-white/40 mt-0.5">{payments.length} records · sourced from booking requests</p>
+          <p className="text-xs text-white/40 mt-0.5">{allPayments.length} total records</p>
         </div>
       </div>
+
+      <AdminFilters
+        filters={filters}
+        onChange={setFilter}
+        options={{ showSearch: true, showDate: true, showPaymentStatus: true, showBookingStatus: true }}
+        resultCount={payments.length}
+        totalCount={allPayments.length}
+      />
 
       <div className="rounded-2xl border border-white/[0.07] overflow-hidden"
         style={{ background: "hsl(222 24% 10% / 0.9)", boxShadow: "0 4px 32px hsl(222 28% 5% / 0.5)" }}>

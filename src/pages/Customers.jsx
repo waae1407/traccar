@@ -8,13 +8,17 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import PageHeader from "@/components/shared/PageHeader";
 import CustomerFormDialog from "@/components/customers/CustomerFormDialog";
+import AdminFilters from "@/components/shared/AdminFilters";
 
 export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [filters, setFilters] = useState({ search: "", dateFrom: "", dateTo: "", customerStatus: "" });
   const queryClient = useQueryClient();
   const { tenantFilter, companyId } = useTenant();
   const scopeKey = companyId || "all";
+
+  const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }));
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers", scopeKey],
@@ -60,6 +64,17 @@ export default function Customers() {
       : <span className="text-white/20">—</span> },
   ];
 
+  const filtered = customers.filter((c) => {
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!`${c.full_name} ${c.email} ${c.phone}`.toLowerCase().includes(q)) return false;
+    }
+    if (filters.customerStatus && c.status !== filters.customerStatus) return false;
+    if (filters.dateFrom && new Date(c.created_date) < new Date(filters.dateFrom)) return false;
+    if (filters.dateTo && new Date(c.created_date) > new Date(filters.dateTo + "T23:59:59")) return false;
+    return true;
+  });
+
   if (!isLoading && customers.length === 0) {
     return (
       <>
@@ -72,7 +87,14 @@ export default function Customers() {
   return (
     <div className="animate-fade-in-up">
       <PageHeader count={customers.length} countLabel="customers" onAdd={() => { setEditingCustomer(null); setDialogOpen(true); }} addLabel="Add Customer" />
-      <DataTable columns={columns} data={customers} isLoading={isLoading}
+      <AdminFilters
+        filters={filters}
+        onChange={setFilter}
+        options={{ showSearch: true, showDate: true, showCustomerStatus: true }}
+        resultCount={filtered.length}
+        totalCount={customers.length}
+      />
+      <DataTable columns={columns} data={filtered} isLoading={isLoading}
         onRowClick={(row) => { setEditingCustomer(row); setDialogOpen(true); }} />
       <CustomerFormDialog
         open={dialogOpen}

@@ -3,8 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
 import { CalendarDays, Clock } from "lucide-react";
-import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
+import AdminFilters from "@/components/shared/AdminFilters";
 import PendingReviewAlerts from "@/components/bookings/PendingReviewAlerts";
 import BookingReviewPanel from "@/components/bookings/BookingReviewPanel";
 import { formatDistanceToNow } from "date-fns";
@@ -23,6 +23,8 @@ const TABS = [
 export default function Bookings() {
   const [activeTab, setActiveTab] = useState("pending_review");
   const [reviewBooking, setReviewBooking] = useState(null);
+  const [filters, setFilters] = useState({ search: "", dateFrom: "", dateTo: "", paymentStatus: "" });
+  const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }));
   const queryClient = useQueryClient();
   const { tenantFilter, companyId } = useTenant();
   const scopeKey = companyId || "all";
@@ -60,9 +62,20 @@ export default function Bookings() {
   };
 
   // Filtered bookings for table
-  const filtered = activeTab === "all"
+  const tabFiltered = activeTab === "all"
     ? bookings
     : bookings.filter((b) => b.booking_status === activeTab);
+
+  const filtered = tabFiltered.filter((b) => {
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!`${b.customer_full_name} ${b.user_email} ${b.vehicle_name}`.toLowerCase().includes(q)) return false;
+    }
+    if (filters.paymentStatus && b.payment_status !== filters.paymentStatus) return false;
+    if (filters.dateFrom && new Date(b.submitted_at || b.created_date) < new Date(filters.dateFrom)) return false;
+    if (filters.dateTo && new Date(b.submitted_at || b.created_date) > new Date(filters.dateTo + "T23:59:59")) return false;
+    return true;
+  });
 
   if (!isLoading && bookings.length === 0) {
     return <EmptyState icon={CalendarDays} title="No bookings yet" description="Customer bookings submitted through the app will appear here." />;
@@ -72,6 +85,15 @@ export default function Bookings() {
     <div className="animate-fade-in-up">
       {/* Post-it alerts */}
       <PendingReviewAlerts bookings={alertBookings} onReview={handleReview} />
+
+      {/* Search + filters */}
+      <AdminFilters
+        filters={filters}
+        onChange={setFilter}
+        options={{ showSearch: true, showDate: true, showPaymentStatus: true }}
+        resultCount={filtered.length}
+        totalCount={tabFiltered.length}
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 overflow-x-auto no-scrollbar pb-1">

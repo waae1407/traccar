@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
+import AdminFilters from "@/components/shared/AdminFilters";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, AreaChart, Area, CartesianGrid, Cell, PieChart, Pie
@@ -33,6 +34,9 @@ const ChartTooltip = ({ active, payload, label, prefix = "" }) => {
 };
 
 export default function Reports() {
+  const [filters, setFilters] = useState({ search: "", dateFrom: "", dateTo: "", bookingStatus: "", paymentStatus: "" });
+  const setFilter = (key, value) => setFilters((f) => ({ ...f, [key]: value }));
+
   const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles"], queryFn: () => base44.entities.Vehicle.list() });
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: () => base44.entities.Booking.list() });
   const { data: payments = [] } = useQuery({ queryKey: ["payments"], queryFn: () => base44.entities.Payment.list() });
@@ -40,10 +44,24 @@ export default function Reports() {
   // BookingRequests = source of truth for real revenue and bookings
   const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-report"], queryFn: () => base44.entities.BookingRequest.list("-created_date", 500) });
 
-  // ── Real revenue from paid BookingRequests ────────────────────────────────
-  const paidRequests = bookingRequests.filter((b) => b.payment_status === "paid" && b.total_due_now > 0);
+  // Apply filters to booking requests
+  const filteredBookingRequests = bookingRequests.filter((b) => {
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!`${b.customer_full_name} ${b.user_email} ${b.vehicle_name}`.toLowerCase().includes(q)) return false;
+    }
+    if (filters.bookingStatus && b.booking_status !== filters.bookingStatus) return false;
+    if (filters.paymentStatus && b.payment_status !== filters.paymentStatus) return false;
+    const dateRef = b.agreement_accepted_at || b.submitted_at || b.created_date;
+    if (filters.dateFrom && dateRef && new Date(dateRef) < new Date(filters.dateFrom)) return false;
+    if (filters.dateTo && dateRef && new Date(dateRef) > new Date(filters.dateTo + "T23:59:59")) return false;
+    return true;
+  });
 
-  // Revenue per vehicle (from BookingRequests)
+  // ── Real revenue from paid BookingRequests ────────────────────────────────
+  const paidRequests = filteredBookingRequests.filter((b) => b.payment_status === "paid" && b.total_due_now > 0);
+
+  // Revenue per vehicle (from filtered BookingRequests)
   const vehicleRevenue = {};
   paidRequests.forEach((b) => {
     const vName = b.vehicle_name || "Unknown";
@@ -104,9 +122,9 @@ export default function Reports() {
   const revenueFromPayments = payments.filter((p) => p.status === "Paid").reduce((s, p) => s + (p.amount || 0), 0);
   const totalRevenue = revenueFromRequests + revenueFromPayments;
 
-  const totalBookings = bookingRequests.filter((b) => !["draft", "cancelled"].includes(b.booking_status)).length;
+  const totalBookings = filteredBookingRequests.filter((b) => !["draft", "cancelled"].includes(b.booking_status)).length;
   const paidCount = paidRequests.length + payments.filter((p) => p.status === "Paid").length;
-  const totalTransactions = paidCount + payments.filter((p) => p.status !== "Paid").length + bookingRequests.filter((b) => b.payment_status === "unpaid" && b.booking_status !== "draft").length;
+  const totalTransactions = paidCount + payments.filter((p) => p.status !== "Paid").length + filteredBookingRequests.filter((b) => b.payment_status === "unpaid" && b.booking_status !== "draft").length;
   const complianceRate = totalTransactions > 0 ? Math.round((paidCount / totalTransactions) * 100) : 0;
 
   const kpis = [
@@ -118,6 +136,15 @@ export default function Reports() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+      {/* Filters */}
+      <AdminFilters
+        filters={filters}
+        onChange={setFilter}
+        options={{ showSearch: true, showDate: true, showBookingStatus: true, showPaymentStatus: true }}
+        resultCount={filteredBookingRequests.length}
+        totalCount={bookingRequests.length}
+      />
+
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((k) => (
