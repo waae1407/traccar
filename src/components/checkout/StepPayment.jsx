@@ -13,8 +13,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(false);
-  const [autopay, setAutopay] = useState(booking?.autopay_enabled ?? true);
-  const [recurringAgreed, setRecurringAgreed] = useState(false);
+  const [autopayConsent, setAutopayConsent] = useState(false);
   const queryClient = useQueryClient();
   const submittedRef = useRef(false);
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
@@ -22,7 +21,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements || !ready || processing || submittedRef.current) return;
+    if (!stripe || !elements || !ready || processing || submittedRef.current || !autopayConsent) return;
     submittedRef.current = true;
     setProcessing(true);
     setError(null);
@@ -80,8 +79,17 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           agreement_ip_address: "captured-server-side",
           agreement_device_info: navigator.userAgent || "unknown",
           agreement_version: "v1.0",
-          payment_accepted_recurring_notice: recurringAgreed,
+          payment_accepted_recurring_notice: true,
+          consent_autopay: true,
+          consent_autopay_at: new Date().toISOString(),
+          autopay_enabled: true,
         };
+
+        // Set next_billing_date to 7 days from now
+        const nextBilling = new Date();
+        nextBilling.setDate(nextBilling.getDate() + 7);
+        agreementMeta.next_billing_date = nextBilling.toISOString().split("T")[0];
+        agreementMeta.billing_week_number = 1;
 
         base44.functions.invoke("sendPaymentReceipt", {
           booking_request_id: booking?.id,
@@ -98,7 +106,6 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           stripe_payment_intent_id: paymentIntentId,
           stripe_customer_id: stripeCustomerId,
           stripe_payment_method_id: paymentIntent.payment_method || null,
-          autopay_enabled: autopay,
           total_due_now: amountDue,
           submitted_at: new Date().toISOString(),
           viewed_by_admin: false,
@@ -168,32 +175,27 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         </div>
       )}
 
-      <button type="button" onClick={() => setAutopay(!autopay)}
-        className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50 text-left mb-5">
-        <div className={`h-5 w-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${autopay ? "border-pink-500 bg-pink-500" : "border-gray-300"}`}>
-          {autopay && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Zap className="h-3.5 w-3.5 text-pink-500" />Enable Autopay</p>
-          <p className="text-xs text-gray-400">Save card &amp; auto-charge future payments</p>
-        </div>
-      </button>
-
-      {/* Recurring billing notice — dispute prevention */}
-      <div className="mb-4 p-3 rounded-xl border border-blue-100 bg-blue-50">
-        <p className="text-xs font-semibold text-blue-800 mb-1.5">📋 Recurring Billing Notice</p>
-        <p className="text-xs text-blue-700 mb-2">
-          By paying, you authorize uRide to charge <strong>${amountDue}</strong> today
-          {booking?.auto_renew && booking?.weekly_rate ? <> and <strong>${booking.weekly_rate}</strong> automatically each {booking.booking_type === "Weekly" ? "week" : "period"}</> : ""}.
-          {" "}You may cancel anytime through your account.
+      {/* Mandatory autopay consent — required to proceed */}
+      <div className={`mb-5 p-4 rounded-2xl border-2 transition-all ${autopayConsent ? "border-pink-300 bg-pink-50" : "border-red-200 bg-red-50"}`}>
+        <p className="text-xs font-bold text-gray-800 mb-2 flex items-center gap-1.5">
+          <Zap className="h-3.5 w-3.5 text-pink-500" />
+          ⚠️ Required: Weekly Autopay Authorization
         </p>
-        <button type="button" onClick={() => setRecurringAgreed(!recurringAgreed)}
-          className="flex items-start gap-2 w-full text-left">
-          <div className={`h-4 w-4 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-all ${recurringAgreed ? "border-blue-600 bg-blue-600" : "border-blue-300"}`}>
-            {recurringAgreed && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+        <p className="text-xs text-gray-600 mb-3 leading-relaxed">
+          All rentals are <strong>minimum 1 week</strong>. By proceeding, I authorize <strong>uRide to automatically charge my card ${booking?.weekly_rate || amountDue} every week</strong> until I complete the drop-off photo inspection. Early returns are welcome but the full week is charged. Billing stops only after drop-off photos are reviewed and approved.
+        </p>
+        <button type="button" onClick={() => setAutopayConsent(!autopayConsent)}
+          className="flex items-start gap-3 w-full text-left">
+          <div className={`h-5 w-5 rounded-md border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-all ${autopayConsent ? "border-pink-500 bg-pink-500" : "border-red-400 bg-white"}`}>
+            {autopayConsent && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
           </div>
-          <span className="text-xs text-blue-700 font-medium">I understand and agree to the recurring charge terms above</span>
+          <span className="text-xs font-semibold text-gray-700">
+            I authorize uRide to charge my card weekly until I complete the drop-off inspection
+          </span>
         </button>
+        {!autopayConsent && (
+          <p className="text-[10px] text-red-500 font-semibold mt-2">* You must accept this authorization to continue</p>
+        )}
       </div>
 
       <div className="flex items-center gap-2 mb-4">
@@ -204,15 +206,15 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
       <button
         type="submit"
-        disabled={!ready || processing || !recurringAgreed}
+        disabled={!ready || processing || !autopayConsent}
         className="w-full py-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         {processing
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
           : !ready
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Loading…</>
-          : !recurringAgreed
-          ? <>⚠️ Please agree to billing terms above</>
+          : !autopayConsent
+          ? <>⚠️ Accept autopay authorization above to continue</>
           : <><CreditCard className="w-4 h-4" />Pay ${amountDue.toLocaleString()} Securely</>
         }
       </button>

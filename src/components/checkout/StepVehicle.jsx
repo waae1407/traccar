@@ -111,6 +111,8 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   };
 
   const today = format(new Date(), "yyyy-MM-dd");
+  // Minimum end date is always start + 7 days
+  const minEndDate = startDate ? format(addWeeks(new Date(startDate), 1), "yyyy-MM-dd") : null;
 
   return (
     <div className="space-y-5">
@@ -163,36 +165,27 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
           />
         </div>
         {startDate && endDate && (
-          <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1">
-            <ChevronRight className="h-3 w-3 text-pink-400" />
-            {type === "Rent-to-Own" ? "52-week program" : "1-week rental"} · ends{" "}
-            <strong className="text-gray-700">{format(new Date(endDate), "MMM d, yyyy")}</strong>
-          </p>
+          <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-100">
+            <p className="text-xs text-amber-800 font-semibold mb-0.5">
+              📅 {type === "Rent-to-Own" ? "52-week program" : "Minimum 1-week rental"}
+            </p>
+            <p className="text-xs text-amber-700">
+              End date: <strong>{format(new Date(endDate), "MMM d, yyyy")}</strong>. You may return early but will be charged for the full week.
+            </p>
+          </div>
         )}
       </div>
 
-      {/* Auto-renew (Weekly only) */}
+      {/* Auto-renew notice (always on for Weekly) */}
       {type === "Weekly" && (
-        <button
-          onClick={() => setAutoRenew(!autoRenew)}
-          className={`w-full flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all ${
-            autoRenew ? "border-pink-200 bg-pink-50" : "border-gray-100 bg-gray-50"
-          }`}
-        >
-          <div className={`h-5 w-5 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all ${autoRenew ? "border-pink-500 bg-pink-500" : "border-gray-300"}`}>
-            {autoRenew && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+        <div className="flex items-start gap-3 p-3.5 rounded-2xl border-2 border-pink-200 bg-pink-50">
+          <RefreshCw className="h-4 w-4 text-pink-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-gray-800">Weekly Auto-Renewal</p>
+            <p className="text-xs text-gray-500 mt-0.5">Your rental renews automatically each week. To end your rental, simply return the vehicle and complete the drop-off photo inspection in the app.</p>
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
-              <RefreshCw className={`h-3.5 w-3.5 ${autoRenew ? "text-pink-500" : "text-gray-400"}`} />
-              Auto-Renew Weekly
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">Cancel anytime — no commitment</p>
-          </div>
-          {autoRenew && (
-            <span className="text-[10px] font-bold text-pink-600 bg-pink-100 px-2 py-0.5 rounded-full">ON</span>
-          )}
-        </button>
+          <span className="text-[10px] font-bold text-pink-600 bg-pink-100 px-2 py-0.5 rounded-full flex-shrink-0">ON</span>
+        </div>
       )}
 
       {/* Location filter */}

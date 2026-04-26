@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { DollarSign, ExternalLink, Zap, RefreshCw, CheckCircle, XCircle } from "lucide-react";
+import { DollarSign, ExternalLink, CheckCircle, XCircle, RotateCcw, AlertTriangle, Key, Navigation, Plus } from "lucide-react";
 import EmptyState from "@/components/shared/EmptyState";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -17,49 +17,137 @@ const PAYMENT_STATUS_STYLE = {
   unpaid:   "bg-white/5 text-white/35 border-white/10",
 };
 
+function ActionModal({ booking, onClose, onSuccess }) {
+  const [action, setAction] = useState(null);
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      const payload = {
+        action,
+        booking_request_id: booking.id,
+        amount: amount ? parseFloat(amount) : undefined,
+        description,
+        reason: description,
+      };
+      const res = await base44.functions.invoke("adminPaymentAction", payload);
+      if (res.data?.ok || res.data?.refund_id || res.data?.payment_intent_id) {
+        toast.success(`Action completed successfully`);
+        onSuccess();
+        onClose();
+      } else {
+        toast.error(res.data?.error || "Action failed");
+      }
+    } catch (err) {
+      toast.error(err.message || "Action failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const ACTIONS = [
+    { id: "refund", label: "💸 Refund", desc: "Issue partial or full refund to customer", needsAmount: true, amountLabel: "Refund amount (leave blank for full refund)", optional: true },
+    { id: "charge_toll", label: "🛣️ Charge Toll", desc: "Bill customer for unpaid tolls", needsAmount: true, amountLabel: "Toll amount ($)", needsDesc: true, descLabel: "Toll details" },
+    { id: "charge_key_fee", label: "🔑 Lost Key Fee", desc: "Charge $250 lost key fee", needsAmount: true, amountLabel: "Amount ($)", defaultAmount: "250" },
+    { id: "charge_custom", label: "➕ Custom Charge", desc: "Any additional charge with reason", needsAmount: true, amountLabel: "Amount ($)", needsDesc: true, descLabel: "Reason for charge" },
+    { id: "reinstate", label: "✅ Reinstate Rental", desc: "Reinstate suspended rental & re-enable vehicle", needsAmount: false },
+  ];
+
+  const selected = ACTIONS.find(a => a.id === action);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-2xl border border-white/[0.08] p-6 z-10"
+        style={{ background: "hsl(222 28% 9%)", boxShadow: "0 24px 80px hsl(222 28% 5% / 0.9)" }}>
+        <h3 className="font-syne font-bold text-white text-lg mb-1">Payment Actions</h3>
+        <p className="text-xs text-white/40 mb-5">{booking.customer_full_name} — {booking.vehicle_name}</p>
+
+        {/* Action selector */}
+        <div className="space-y-2 mb-5">
+          {ACTIONS.map((a) => (
+            (a.id !== "reinstate" || booking.booking_status === "suspended") && (
+              <button
+                key={a.id}
+                onClick={() => { setAction(a.id); setAmount(a.defaultAmount || ""); setDescription(""); }}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all border ${
+                  action === a.id
+                    ? "border-primary/50 bg-primary/[0.08]"
+                    : "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]"
+                }`}
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-white">{a.label}</p>
+                  <p className="text-xs text-white/40">{a.desc}</p>
+                </div>
+              </button>
+            )
+          ))}
+        </div>
+
+        {/* Form fields for selected action */}
+        {selected && (
+          <div className="space-y-3 mb-5">
+            {selected.needsAmount && (
+              <div>
+                <label className="text-xs font-semibold text-white/40 mb-1.5 block">{selected.amountLabel}</label>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder={selected.optional ? "Leave blank for full refund" : "0.00"}
+                  className="w-full h-10 px-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-primary/50"
+                />
+              </div>
+            )}
+            {selected.needsDesc && (
+              <div>
+                <label className="text-xs font-semibold text-white/40 mb-1.5 block">{selected.descLabel}</label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Enter description..."
+                  className="w-full h-10 px-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-primary/50"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!action || loading}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+          >
+            {loading ? "Processing…" : "Execute"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Payments() {
   const queryClient = useQueryClient();
   const { tenantFilter, companyId } = useTenant();
   const scopeKey = companyId || "all";
-  const [chargingId, setChargingId] = useState(null);
+  const [actionBooking, setActionBooking] = useState(null);
 
-  // Pull from BookingRequests that have gone through Stripe payment
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["stripe-payments", scopeKey],
     queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-updated_date", 300),
   });
 
-  // Only show bookings that have a Stripe payment (paid or failed, etc.)
   const payments = bookings.filter((b) => b.stripe_payment_intent_id || b.payment_status !== "unpaid");
-
-  const handleChargeNow = async (booking) => {
-    if (!booking.stripe_customer_id || !booking.stripe_payment_method_id) {
-      toast.error("No saved payment method for this customer.");
-      return;
-    }
-    if (!confirm(`Charge $${booking.weekly_rate?.toLocaleString()} to ${booking.customer_full_name}?`)) return;
-
-    setChargingId(booking.id);
-    try {
-      const res = await base44.functions.invoke("stripeChargeCustomer", {
-        stripe_customer_id: booking.stripe_customer_id,
-        payment_method_id: booking.stripe_payment_method_id,
-        amount_cents: Math.round((booking.weekly_rate || 0) * 100),
-        booking_request_id: booking.id,
-        description: `uRide ${booking.booking_type} payment — ${booking.vehicle_name || ""}`,
-      });
-      if (res.data?.status === "succeeded") {
-        toast.success("Payment charged successfully!");
-        queryClient.invalidateQueries({ queryKey: ["stripe-payments", scopeKey] });
-      } else {
-        toast.error(`Charge failed: ${res.data?.error || "Unknown error"}`);
-      }
-    } catch (err) {
-      toast.error("Charge failed. Please try again.");
-    } finally {
-      setChargingId(null);
-    }
-  };
 
   if (!isLoading && payments.length === 0) {
     return (
@@ -73,7 +161,14 @@ export default function Payments() {
 
   return (
     <div className="animate-fade-in-up">
-      {/* Header */}
+      {actionBooking && (
+        <ActionModal
+          booking={actionBooking}
+          onClose={() => setActionBooking(null)}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["stripe-payments", scopeKey] })}
+        />
+      )}
+
       <div className="flex items-center justify-between mb-5">
         <div>
           <h2 className="text-lg font-bold text-white">Stripe Payments</h2>
@@ -87,7 +182,7 @@ export default function Payments() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/[0.06]" style={{ background: "hsl(222 28% 8% / 0.8)" }}>
-                {["Customer", "Vehicle", "Type", "Amount", "Status", "Autopay", "Date", "Actions"].map((h) => (
+                {["Customer", "Vehicle", "Type", "Amount", "Status", "Week #", "Next Charge", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-white/35">{h}</th>
                 ))}
               </tr>
@@ -103,16 +198,20 @@ export default function Payments() {
                 ))
                 : payments.map((row) => {
                   const statusCls = PAYMENT_STATUS_STYLE[row.payment_status] || "bg-white/5 text-white/35 border-white/10";
-                  const isCharging = chargingId === row.id;
-                  const canCharge = row.autopay_enabled && row.stripe_payment_method_id && row.booking_status === "approved";
+                  const isSuspended = row.booking_status === "suspended";
 
                   return (
-                    <tr key={row.id} className="border-b border-white/[0.04] last:border-0 hover:bg-primary/[0.04] transition-colors">
+                    <tr key={row.id} className={`border-b border-white/[0.04] last:border-0 hover:bg-primary/[0.04] transition-colors ${isSuspended ? "bg-red-500/[0.05]" : ""}`}>
                       {/* Customer */}
                       <td className="px-4 py-3.5">
                         <div>
                           <p className="text-sm font-medium text-white">{row.customer_full_name || "—"}</p>
                           <p className="text-xs text-white/35">{row.user_email || ""}</p>
+                          {isSuspended && (
+                            <span className="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full mt-1 inline-flex items-center gap-1">
+                              <AlertTriangle className="h-2.5 w-2.5" /> SUSPENDED
+                            </span>
+                          )}
                         </div>
                       </td>
                       {/* Vehicle */}
@@ -137,16 +236,16 @@ export default function Payments() {
                           {row.payment_status || "—"}
                         </span>
                       </td>
-                      {/* Autopay */}
+                      {/* Week # */}
                       <td className="px-4 py-3.5">
-                        {row.autopay_enabled
-                          ? <span className="flex items-center gap-1 text-xs text-green-400"><CheckCircle className="h-3 w-3" />On</span>
-                          : <span className="flex items-center gap-1 text-xs text-white/30"><XCircle className="h-3 w-3" />Off</span>}
+                        <span className="text-xs font-semibold text-white/60">
+                          {row.billing_week_number ? `Week ${row.billing_week_number}` : "—"}
+                        </span>
                       </td>
-                      {/* Date */}
+                      {/* Next Charge */}
                       <td className="px-4 py-3.5">
                         <span className="text-xs text-white/40">
-                          {row.submitted_at ? format(new Date(row.submitted_at), "MMM d, yyyy") : "—"}
+                          {row.next_billing_date ? format(new Date(row.next_billing_date), "MMM d, yyyy") : row.submitted_at ? format(new Date(row.submitted_at), "MMM d, yyyy") : "—"}
                         </span>
                       </td>
                       {/* Actions */}
@@ -158,18 +257,12 @@ export default function Payments() {
                               <ExternalLink className="h-3 w-3" />Receipt
                             </a>
                           )}
-                          {canCharge && (
-                            <button
-                              onClick={() => handleChargeNow(row)}
-                              disabled={isCharging}
-                              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 transition-all disabled:opacity-50"
-                            >
-                              {isCharging
-                                ? <RefreshCw className="h-3 w-3 animate-spin" />
-                                : <Zap className="h-3 w-3" />}
-                              Charge
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setActionBooking(row)}
+                            className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-white/[0.06] text-white/60 border border-white/[0.08] hover:bg-white/10 transition-all"
+                          >
+                            <Plus className="h-3 w-3" />Actions
+                          </button>
                         </div>
                       </td>
                     </tr>

@@ -43,7 +43,7 @@
     },
     "auto_renew": {
       "type": "boolean",
-      "default": false
+      "default": true
     },
     "pickup_location": {
       "type": "string"
@@ -177,6 +177,20 @@
       "type": "boolean",
       "default": false
     },
+    "consent_autopay": {
+      "type": "boolean",
+      "default": false,
+      "description": "Mandatory autopay authorization signed at checkout"
+    },
+    "consent_autopay_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of autopay consent"
+    },
+    "consent_autopay_ip": {
+      "type": "string",
+      "description": "IP address at autopay consent"
+    },
     "customer_full_name": {
       "type": "string"
     },
@@ -227,22 +241,20 @@
     },
     "contract_version": {
       "type": "string",
-      "description": "Version of the contract signed e.g. WR-v2.0 or RTO-v2.0"
+      "description": "Version of the contract signed"
     },
     "contract_initials": {
       "type": "string",
-      "description": "JSON string of per-clause initials with timestamps: { clause_id: { initials, signed_at, clause_version } }"
+      "description": "JSON string of per-clause initials with timestamps"
     },
     "signature_name": {
       "type": "string"
     },
     "signature_ip_address": {
-      "type": "string",
-      "description": "IP address captured at signing"
+      "type": "string"
     },
     "signature_device_info": {
-      "type": "string",
-      "description": "User agent at signing"
+      "type": "string"
     },
     "signed_at": {
       "type": "string",
@@ -312,10 +324,30 @@
     },
     "autopay_enabled": {
       "type": "boolean",
-      "default": false
+      "default": true,
+      "description": "Always true \u2014 set automatically when autopay consent is given"
     },
     "payment_failure_reason": {
       "type": "string"
+    },
+    "payment_failure_attempts": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of failed payment retry attempts"
+    },
+    "last_payment_failure_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "next_billing_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Next scheduled weekly charge date"
+    },
+    "billing_week_number": {
+      "type": "number",
+      "default": 1,
+      "description": "Current week number of rental"
     },
     "agreement_accepted_at": {
       "type": "string",
@@ -369,16 +401,14 @@
     },
     "clean_return_credit_issued": {
       "type": "boolean",
-      "default": false,
-      "description": "Whether the $50 clean return credit was issued"
+      "default": false
     },
     "clean_return_admin_notes": {
-      "type": "string",
-      "description": "Admin notes on vehicle return condition"
+      "type": "string"
     },
     "inspection_sample_images": {
       "type": "object",
-      "description": "Pre-generated inspection sample image URLs keyed by slot ID. Generated in background when booking becomes active.",
+      "description": "Pre-generated inspection sample image URLs keyed by slot ID",
       "properties": {
         "interior_front": {
           "type": "string"
@@ -399,6 +429,21 @@
           "type": "string"
         }
       }
+    },
+    "moovetrax_kill_active": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the Moovetrax kill switch is currently active"
+    },
+    "suspended_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the rental was suspended due to payment failure"
+    },
+    "reinstate_url_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When reinstate payment link was last sent to customer"
     }
   },
   "required": [

@@ -72,6 +72,10 @@
     "current_city": {
       "type": "string",
       "description": "Deprecated - use city and state instead"
+    },
+    "moovetrax_device_id": {
+      "type": "string",
+      "description": "Moovetrax GPS/kill-switch device ID for this vehicle"
     }
   },
   "required": [
