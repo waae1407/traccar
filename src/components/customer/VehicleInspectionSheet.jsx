@@ -335,15 +335,42 @@ function CaptureMode({ booking, type, onClose, onComplete, isPickup }) {
 
   useEffect(() => {
     if (!vehicleImageUrl) return;
-    if (Object.keys(cachedImages).length > 0) setSampleImages(cachedImages);
-    PHOTO_SLOTS.forEach(async (slot) => {
-      if (!slot.aiPrompt || cachedImages[slot.id]) return;
-      setSamplesLoading((s) => ({ ...s, [slot.id]: true }));
-      try {
-        const url = await generateAngleImage(vehicleImageUrl, slot);
-        setSampleImages((s) => ({ ...s, [slot.id]: url }));
-      } catch { /* emoji fallback */ }
-      finally { setSamplesLoading((s) => ({ ...s, [slot.id]: false })); }
+
+    // Load cached images immediately (instant display)
+    if (Object.keys(cachedImages).length > 0) {
+      setSampleImages(cachedImages);
+    }
+
+    // Find slots that still need generation (not in cache)
+    const slotsToGenerate = PHOTO_SLOTS.filter((slot) => slot.aiPrompt && !cachedImages[slot.id]);
+    if (slotsToGenerate.length === 0) return;
+
+    // Mark all missing slots as loading
+    const loadingState = {};
+    slotsToGenerate.forEach((s) => { loadingState[s.id] = true; });
+    setSamplesLoading(loadingState);
+
+    // Generate all missing slots in parallel
+    const newlyGenerated = {};
+    Promise.all(
+      slotsToGenerate.map(async (slot) => {
+        try {
+          const url = await generateAngleImage(vehicleImageUrl, slot);
+          newlyGenerated[slot.id] = url;
+          setSampleImages((prev) => ({ ...prev, [slot.id]: url }));
+        } catch { /* emoji fallback */ }
+        finally {
+          setSamplesLoading((prev) => ({ ...prev, [slot.id]: false }));
+        }
+      })
+    ).then(() => {
+      // Save newly generated images back to the booking for caching
+      if (Object.keys(newlyGenerated).length > 0 && booking?.id) {
+        const merged = { ...cachedImages, ...newlyGenerated };
+        base44.entities.BookingRequest.update(booking.id, {
+          inspection_sample_images: merged,
+        }).catch(() => {}); // silent — caching is best-effort
+      }
     });
   }, [vehicleImageUrl, booking?.id]);
 
