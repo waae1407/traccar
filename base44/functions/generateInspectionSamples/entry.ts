@@ -52,11 +52,18 @@ Deno.serve(async (req) => {
       return Response.json({ error: "booking_id required" }, { status: 400 });
     }
 
-    // Fetch the booking if we don't have vehicle_image already
-    let vehicleImageUrl = vehicleImage;
-    if (!vehicleImageUrl) {
-      const booking = await base44.asServiceRole.entities.BookingRequest.get(bookingId);
-      vehicleImageUrl = booking?.vehicle_image;
+    // Fetch the booking to get all needed data
+    const existing = await base44.asServiceRole.entities.BookingRequest.get(bookingId);
+    let vehicleImageUrl = vehicleImage || existing?.vehicle_image;
+
+    // Fallback: look up the vehicle image from the Vehicle entity
+    if (!vehicleImageUrl && existing?.vehicle_id) {
+      const vehicle = await base44.asServiceRole.entities.Vehicle.get(existing.vehicle_id);
+      vehicleImageUrl = vehicle?.image_url;
+      // Backfill vehicle_image onto the booking so future runs skip this step
+      if (vehicleImageUrl) {
+        await base44.asServiceRole.entities.BookingRequest.update(bookingId, { vehicle_image: vehicleImageUrl });
+      }
     }
 
     if (!vehicleImageUrl) {
@@ -65,7 +72,6 @@ Deno.serve(async (req) => {
     }
 
     // Check if already generated
-    const existing = await base44.asServiceRole.entities.BookingRequest.get(bookingId);
     const existingSamples = existing?.inspection_sample_images || {};
     const alreadyDone = PHOTO_SLOTS.every(s => !!existingSamples[s.id]);
     if (alreadyDone) {
