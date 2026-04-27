@@ -56,8 +56,13 @@ const AuthenticatedApp = () => {
     // user_not_registered means they logged in but aren't registered — show error
     if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
     // auth_required means the PLATFORM requires login — respect that
-    // But if the app is public (no auth requirement), guests just have user=null and can browse
-    if (authError.type === 'auth_required') { navigateToLogin(); return null; }
+    // But allow public pages through even without auth
+    if (authError.type === 'auth_required') {
+      const publicPaths = ['/', '/privacy', '/terms'];
+      if (!publicPaths.includes(window.location.pathname)) {
+        navigateToLogin(); return null;
+      }
+    }
   }
 
   const isAdmin = user?.role === "admin";
