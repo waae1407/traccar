@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
-import { useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -22,13 +22,21 @@ export default function PublicHome() {
           <img src={LOGO_ICON} alt="uRide" className="h-8 w-8 rounded-full" />
           <span className="font-bold text-lg" style={{ fontFamily: "var(--font-syne, sans-serif)" }}>uRide</span>
         </div>
-        <button
-          onClick={() => window.location.href = "/book-now"}
-          className="px-4 py-2 rounded-xl text-sm font-bold text-white"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
-        >
-          Get Started
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => base44.auth.redirectToLogin(window.location.href)}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white/70 hover:text-white transition-colors"
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => window.location.href = "/book-now"}
+            className="px-4 py-2 rounded-xl text-sm font-bold text-white"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+          >
+            Get Started
+          </button>
+        </div>
       </nav>
 
       {/* Hero */}
