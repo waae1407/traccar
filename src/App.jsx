@@ -11,6 +11,11 @@ import AppLayout from '@/components/layout/AppLayout';
 import CustomerLayout from '@/components/customer/CustomerLayout';
 import { AdminGuard } from '@/components/layout/RoleGuard';
 
+// Public pages
+import PublicHome from '@/pages/PublicHome.jsx';
+import PrivacyPolicy from '@/pages/PrivacyPolicy.jsx';
+import TermsOfService from '@/pages/TermsOfService.jsx';
+
 // Customer-facing pages
 import BookNow from '@/pages/BookNow.jsx';
 import LandingPage from '@/pages/LandingPage';
@@ -59,8 +64,10 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
-      {/* ── AUTO-ROUTING LANDING PAGE ── */}
-      <Route path="/" element={<LandingPage />} />
+      {/* ── PUBLIC PAGES (no login required) ── */}
+      <Route path="/" element={<PublicHome />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
 
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>
