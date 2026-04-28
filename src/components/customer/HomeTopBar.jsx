@@ -7,7 +7,7 @@ const LOGO = "https://media.base44.com/images/public/user_68d033161412d5b125c58f
 
 export default function HomeTopBar({ user, city, onCityChange }) {
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 h-14 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 h-16 flex items-center justify-between max-w-2xl mx-auto w-full">
       {/* Logo + wordmark */}
       <div className="flex items-center gap-2">
         <img src={LOGO} alt="uRide" className="h-8 w-8 rounded-xl object-cover" />

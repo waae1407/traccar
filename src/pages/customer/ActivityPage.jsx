@@ -89,7 +89,7 @@ export default function ActivityPage() {
   const activeBooking = dedupedBookings.find((b) => ["active", "confirmed", "pending_review"].includes(b.booking_status));
 
   return (
-    <div className="px-4 py-5">
+    <div className="px-5 py-6">
       {/* Summary stats */}
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">

@@ -23,7 +23,7 @@ export default function LocationContext({ location, detecting, source, onZipSear
   };
 
   return (
-    <div className="px-4 mb-6">
+    <div className="px-5 mb-6">
       {/* Compact context block */}
       <div className="rounded-2xl border border-gray-200 bg-white p-3.5">
         {/* Location row */}
@@ -43,7 +43,7 @@ export default function LocationContext({ location, detecting, source, onZipSear
           <button
             id="location-context-change"
             onClick={() => setShowSearch(!showSearch)}
-            className="flex-shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+            className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors min-h-[36px]"
           >
             {showSearch ? "Cancel" : "Change"}
           </button>

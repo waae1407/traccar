@@ -36,7 +36,7 @@ function VehicleCard({ v, onSelect, featured = false }) {
       }}
     >
       {/* Image */}
-      <div className="relative overflow-hidden" style={{ height: featured ? "180px" : "150px" }}>
+      <div className="relative overflow-hidden" style={{ height: featured ? "210px" : "190px" }}>
         <img
           src={v.image_url || PLACEHOLDER}
           alt={`${v.make} ${v.model}`}
@@ -76,20 +76,20 @@ function VehicleCard({ v, onSelect, featured = false }) {
       </div>
 
       {/* Info */}
-      <div className="p-3">
-        <p className="font-bold text-gray-900 text-sm truncate">{v.year} {v.make} {v.model}</p>
-        <div className="flex items-center gap-2 mt-0.5">
+      <div className="p-4">
+        <p className="font-bold text-gray-900 text-base truncate">{v.year} {v.make} {v.model}</p>
+        <div className="flex items-center gap-2 mt-1">
           <div className="flex items-center gap-0.5">
-            <MapPin className="h-2.5 w-2.5 text-gray-400" />
-            <span className="text-[10px] text-gray-400">
+            <MapPin className="h-3 w-3 text-gray-400" />
+            <span className="text-xs text-gray-400">
               {v.city || "Available"}
-              {v.distance !== undefined && <span className="ml-1 text-gray-300">({v.distance.toFixed(1)} mi)</span>}
+              {v.distance !== undefined && <span className="ml-1 text-gray-300">· {v.distance.toFixed(1)} mi</span>}
             </span>
           </div>
           <span className="text-gray-200">·</span>
           <div className="flex items-center gap-0.5">
-            <Star className="h-2.5 w-2.5 text-amber-400 fill-amber-400" />
-            <span className="text-[10px] text-gray-400">4.9</span>
+            <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
+            <span className="text-xs text-gray-400">4.9</span>
           </div>
         </div>
 
@@ -128,9 +128,9 @@ function SkeletonCard() {
 export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSelect, isExpandedRadius }) {
   if (isLoading) {
     return (
-      <div className="px-4">
+      <div className="px-5">
         <Skeleton className="h-5 w-36 mb-4" />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {Array(6).fill(0).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       </div>
@@ -139,7 +139,7 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
 
   if (vehicles.length === 0) {
     return (
-      <div className="px-4 flex flex-col items-center py-16 text-center">
+      <div className="px-5 flex flex-col items-center py-16 text-center">
         <div className="text-5xl mb-4">🚗</div>
         <p className="text-gray-500 font-semibold">No vehicles available</p>
         <p className="text-gray-400 text-sm mt-1">Try a different location or check back soon</p>
@@ -148,7 +148,7 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
   }
 
   return (
-    <div className="px-4">
+    <div className="px-5">
       {/* Expanded radius notice */}
       {isExpandedRadius && (
         <div className="mb-4 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
@@ -171,7 +171,7 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {vehicles.map((v, i) => (
           <VehicleCard key={v.id} v={v} onSelect={onSelect} featured={i === 0} />
         ))}

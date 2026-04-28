@@ -122,7 +122,7 @@ export default function BookNow() {
   };
 
   return (
-    <div className="min-h-screen pb-28 bg-gray-50">
+    <div className="min-h-screen pb-32 bg-gray-50">
       <HomeTopBar user={user} />
 
       {/* SECTION 1: Promo banner */}

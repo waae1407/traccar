@@ -2,10 +2,10 @@ import React from "react";
 
 export default function BookingTabs({ activeTab, setActiveTab, activeCount, pastCount }) {
   return (
-    <div className="flex gap-2 px-4 pt-4 pb-2">
+    <div className="flex gap-2 px-5 pt-5 pb-2">
       <button
         onClick={() => setActiveTab("active")}
-        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+        className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
           activeTab === "active"
             ? "text-white shadow-sm"
             : "text-gray-400 bg-gray-100"
@@ -21,7 +21,7 @@ export default function BookingTabs({ activeTab, setActiveTab, activeCount, past
       </button>
       <button
         onClick={() => setActiveTab("past")}
-        className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${
+        className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
           activeTab === "past"
             ? "text-white shadow-sm"
             : "text-gray-400 bg-gray-100"

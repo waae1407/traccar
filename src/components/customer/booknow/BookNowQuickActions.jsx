@@ -31,7 +31,7 @@ export default function BookNowQuickActions({ bookingType, onTypeChange, activeF
   };
 
   return (
-    <div className="px-4 mb-5">
+    <div className="px-5 mb-5">
       {/* Booking type pills */}
       <div className="flex gap-3 mb-5">
         {BOOKING_TYPES.map((a) => {
@@ -66,7 +66,7 @@ export default function BookNowQuickActions({ bookingType, onTypeChange, activeF
           <button
             key={f}
             onClick={() => onFilterChange(f)}
-            className="flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all border"
+            className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all border min-h-[38px]"
             style={{
               background: activeFilter === f ? "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" : "#fff",
               borderColor: activeFilter === f ? "transparent" : "#e5e7eb",

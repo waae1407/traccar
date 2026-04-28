@@ -112,7 +112,7 @@ export default function MyBookings() {
         pastCount={pastBookings.length}
       />
 
-      <div className="px-4 py-3">
+      <div className="px-5 py-4">
         {/* Active Tab */}
         {activeTab === "active" && (
           activeBookings.length === 0 ? (

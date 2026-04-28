@@ -254,9 +254,9 @@ export default function AccountPage() {
   ];
 
   return (
-    <div className="py-5">
+    <div className="py-6">
       {/* Profile header */}
-      <div className="px-4 mb-6">
+      <div className="px-5 mb-6">
         <div className="flex items-center gap-4 p-5 bg-white rounded-2xl border border-gray-100 shadow-sm">
           <div className="relative">
             <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-2xl font-bold text-white"
@@ -281,14 +281,14 @@ export default function AccountPage() {
 
       {/* Menu sections */}
       {menuSections.map((section) => (
-        <div key={section.title} className="mb-4 px-4">
+        <div key={section.title} className="mb-4 px-5">
           <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{section.title}</p>
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
             {section.items.map((item, idx) => (
               <button
                 key={item.label}
                 onClick={item.onClick}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left ${idx < section.items.length - 1 ? "border-b border-gray-100" : ""}`}>
+                className={`w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left ${idx < section.items.length - 1 ? "border-b border-gray-100" : ""}`}>
                 <div className="h-8 w-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
                   <item.icon className="h-4 w-4 text-gray-600" />
                 </div>
@@ -307,7 +307,7 @@ export default function AccountPage() {
       ))}
 
       {/* Sign out */}
-      <div className="px-4 mt-2">
+      <div className="px-5 mt-2">
         <button
           onClick={() => base44.auth.logout()}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-red-200 text-red-500 font-semibold text-sm hover:bg-red-50 transition-colors">
