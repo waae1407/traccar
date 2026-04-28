@@ -77,40 +77,35 @@ export default function BookNow() {
     return SUGGESTED_CITIES[key] || [];
   }, [location.city]);
 
-  // Distance filtering + sorting — with expanded radius fallback (Option D)
-  const { available, isExpandedRadius } = useMemo(() => {
-    if (!location.lat || !location.lon) {
-      const avail = vehicles.filter((v) => v.status === "Available");
-      return { available: avail, isExpandedRadius: false };
-    }
-
-    const withDistance = vehicles
-      .filter((v) => v.status === "Available" && v.vehicle_lat && v.vehicle_lon)
+  // All available vehicles, sorted by distance if location is known (no hard distance cutoff)
+  const available = useMemo(() => {
+    const avail = vehicles.filter((v) => v.status === "Available");
+    if (!location.lat || !location.lon) return avail;
+    return avail
       .map((v) => ({
         ...v,
-        distance: getDistance(location.lat, location.lon, v.vehicle_lat, v.vehicle_lon),
+        distance: v.vehicle_lat && v.vehicle_lon
+          ? getDistance(location.lat, location.lon, v.vehicle_lat, v.vehicle_lon)
+          : undefined,
       }))
-      .sort((a, b) => a.distance - b.distance);
-
-    const nearby = withDistance.filter((v) => v.distance <= 50);
-    if (nearby.length > 0) return { available: nearby, isExpandedRadius: false };
-
-    // Expand to 150 miles
-    const expanded = withDistance.filter((v) => v.distance <= 150);
-    return { available: expanded, isExpandedRadius: expanded.length > 0 };
+      .sort((a, b) => {
+        if (a.distance === undefined && b.distance === undefined) return 0;
+        if (a.distance === undefined) return 1;
+        if (b.distance === undefined) return -1;
+        return a.distance - b.distance;
+      });
   }, [vehicles, location]);
 
-  const displayVehicles = available;
   const rtoEligible = available.filter((v) => v.rent_to_own_eligible);
 
-  // Filter logic
+  // Filter logic (all tabs work on the full available fleet)
   const filtered = activeFilter === "RTO"
-    ? displayVehicles.filter((v) => v.rent_to_own_eligible)
+    ? available.filter((v) => v.rent_to_own_eligible)
     : activeFilter === "Budget"
-    ? [...displayVehicles].sort((a, b) => (a.weekly_rate || 9999) - (b.weekly_rate || 9999))
+    ? [...available].sort((a, b) => (a.weekly_rate || 9999) - (b.weekly_rate || 9999))
     : activeFilter === "Newest"
-    ? [...displayVehicles].sort((a, b) => (b.year || 0) - (a.year || 0))
-    : displayVehicles;
+    ? [...available].sort((a, b) => (b.year || 0) - (a.year || 0))
+    : available; // "All" = sorted by distance (nearest first)
 
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
@@ -162,7 +157,7 @@ export default function BookNow() {
 
       {/* SECTION 6: Vehicle inventory or empty state */}
       <div id="vehicle-grid" />
-      {!isLoading && filtered.length === 0 && !isExpandedRadius ? (
+      {!isLoading && available.length === 0 ? (
         <WaitlistEmptyState
           location={location}
           onChangeLocation={() => document.getElementById("location-context-change")?.click()}
@@ -173,7 +168,7 @@ export default function BookNow() {
           isLoading={isLoading}
           location={location}
           onSelect={setSelectedVehicle}
-          isExpandedRadius={isExpandedRadius}
+          isExpandedRadius={false}
         />
       )}
 
