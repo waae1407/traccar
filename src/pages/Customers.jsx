@@ -2,17 +2,19 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { Users, Phone, Mail } from "lucide-react";
+import { Users, Phone, Mail, UserCheck } from "lucide-react";
 import DataTable from "@/components/shared/DataTable";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import PageHeader from "@/components/shared/PageHeader";
 import CustomerFormDialog from "@/components/customers/CustomerFormDialog";
 import AdminFilters from "@/components/shared/AdminFilters";
+import PlatformUsersTab from "@/components/customers/PlatformUsersTab";
 
 export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [activeTab, setActiveTab] = useState("crm");
   const [filters, setFilters] = useState({ search: "", dateFrom: "", dateTo: "", customerStatus: "" });
   const queryClient = useQueryClient();
   const { tenantFilter, companyId } = useTenant();
@@ -87,6 +89,29 @@ export default function Customers() {
   return (
     <div className="animate-fade-in-up">
       <PageHeader count={customers.length} countLabel="customers" onAdd={() => { setEditingCustomer(null); setDialogOpen(true); }} addLabel="Add Customer" />
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-5">
+        <button
+          onClick={() => setActiveTab("crm")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "crm" ? "text-white" : "text-white/40 border border-white/10"}`}
+          style={activeTab === "crm" ? { background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" } : { background: "hsl(222 24% 11%)" }}
+        >
+          <Users className="h-4 w-4" /> CRM Customers
+        </button>
+        <button
+          onClick={() => setActiveTab("users")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === "users" ? "text-white" : "text-white/40 border border-white/10"}`}
+          style={activeTab === "users" ? { background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" } : { background: "hsl(222 24% 11%)" }}
+        >
+          <UserCheck className="h-4 w-4" /> Platform Users
+        </button>
+      </div>
+
+      {activeTab === "users" ? (
+        <PlatformUsersTab />
+      ) : (
+      <>
       <AdminFilters
         filters={filters}
         onChange={setFilter}
@@ -102,6 +127,8 @@ export default function Customers() {
         onSave={handleSave} customer={editingCustomer}
         isSaving={createMutation.isPending || updateMutation.isPending}
       />
+      </>
+      )}
     </div>
   );
 }

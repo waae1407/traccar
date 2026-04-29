@@ -56,12 +56,23 @@ export default function Dashboard() {
     setTimeout(() => setBackfillState("idle"), 5000);
   };
 
+  const { data: platformUsers = [] } = useQuery({ queryKey: ["platform-users-dash"], queryFn: () => base44.entities.User.list("-created_date", 200) });
+  const { data: allBookingRequestsForLeads = [] } = useQuery({ queryKey: ["all-br-leads"], queryFn: () => base44.entities.BookingRequest.list("-created_date", 500) });
   const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles", scopeKey], queryFn: () => base44.entities.Vehicle.filter(tenantFilter()) });
   const { data: customers = [] } = useQuery({ queryKey: ["customers", scopeKey], queryFn: () => base44.entities.Customer.filter(tenantFilter()) });
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings", scopeKey], queryFn: () => base44.entities.Booking.filter(tenantFilter()) });
   const { data: payments = [] } = useQuery({ queryKey: ["payments", scopeKey], queryFn: () => base44.entities.Payment.filter(tenantFilter()) });
   const { data: contracts = [] } = useQuery({ queryKey: ["contracts", scopeKey], queryFn: () => base44.entities.RentToOwnContract.filter(tenantFilter()) });
   const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin", scopeKey], queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-created_date", 200), refetchInterval: 30_000 });
+
+  // Lead funnel derived data
+  const nonAdminUsers = platformUsers.filter(u => u.role !== "admin");
+  const bookedUserEmails = new Set(
+    allBookingRequestsForLeads
+      .filter(b => !["draft", "cancelled"].includes(b.booking_status))
+      .map(b => b.user_email).filter(Boolean)
+  );
+  const neverBookedCount = nonAdminUsers.filter(u => !bookedUserEmails.has(u.email)).length;
 
   const outOfServiceVehicles = vehicles.filter((v) => v.status === "Out of Service");
   const pendingReviews = bookingRequests.filter((b) => b.booking_status === "pending_review");
@@ -266,6 +277,38 @@ export default function Dashboard() {
           </div>
         );
       })()}
+
+      {/* Platform Users / Leads widget */}
+      {nonAdminUsers.length > 0 && (
+        <div className="rounded-2xl border border-white/[0.07] p-5 flex items-center justify-between gap-4 flex-wrap"
+          style={{ background: "linear-gradient(135deg, hsl(265 80% 62% / 0.10) 0%, hsl(338 90% 56% / 0.06) 100%)" }}>
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 border border-purple-500/30"
+              style={{ background: "hsl(265 80% 62% / 0.20)" }}>
+              <Users className="h-6 w-6 text-purple-400" />
+            </div>
+            <div>
+              <p className="font-bold text-white text-base">
+                {nonAdminUsers.length} Platform User{nonAdminUsers.length !== 1 ? "s" : ""}
+              </p>
+              <div className="flex items-center gap-4 mt-1 text-xs text-white/50">
+                <span className="text-green-400 font-semibold">{nonAdminUsers.length - neverBookedCount} booked</span>
+                <span>·</span>
+                <span className="text-yellow-400 font-semibold">{neverBookedCount} never booked</span>
+                <span>·</span>
+                <span>weekly follow-ups active</span>
+              </div>
+            </div>
+          </div>
+          <Link
+            to="/customers"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 flex-shrink-0"
+            style={{ background: "linear-gradient(135deg, hsl(265 80% 55%), hsl(338 90% 50%))" }}
+          >
+            View Users <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">

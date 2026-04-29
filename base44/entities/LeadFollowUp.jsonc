@@ -1,0 +1,41 @@
+{
+  "name": "LeadFollowUp",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "user_phone": {
+      "type": "string"
+    },
+    "subscribed": {
+      "type": "boolean",
+      "default": true
+    },
+    "enrolled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_contacted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "follow_up_count": {
+      "type": "number",
+      "default": 0
+    },
+    "unsubscribed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "unsubscribe_token": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_email"
+  ]
+}
