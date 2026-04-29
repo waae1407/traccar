@@ -85,8 +85,12 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           autopay_enabled: true,
         };
 
-        // Set next_billing_date to 7 days from now
-        const nextBilling = new Date();
+        // Set next_billing_date to 7 days from start_date (anchors billing to rental start)
+        // If start_date is in the past or not set, fall back to today + 7
+        const startDateStr = booking?.start_date;
+        const startBase = startDateStr ? new Date(startDateStr + "T00:00:00") : new Date();
+        const effectiveBase = startBase > new Date() ? startBase : new Date();
+        const nextBilling = new Date(effectiveBase);
         nextBilling.setDate(nextBilling.getDate() + 7);
         agreementMeta.next_billing_date = nextBilling.toISOString().split("T")[0];
         agreementMeta.billing_week_number = 1;

@@ -68,10 +68,11 @@ Deno.serve(async (req) => {
         });
 
         if (paymentIntent.status === "succeeded") {
-          // Calculate next billing date (+7 days)
-          const nextDate = new Date(today);
-          nextDate.setDate(nextDate.getDate() + 7);
-          const nextBillingDate = nextDate.toISOString().split("T")[0];
+          // Calculate next billing date: anchor to current next_billing_date + 7
+          // This keeps billing aligned to the original start date regardless of when the job runs
+          const anchorDate = new Date(booking.next_billing_date + "T00:00:00");
+          anchorDate.setDate(anchorDate.getDate() + 7);
+          const nextBillingDate = anchorDate.toISOString().split("T")[0];
 
           await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
             payment_status: "paid",
