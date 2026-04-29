@@ -10,6 +10,7 @@ const emptyForm = {
   vin: "", plate: "", make: "", model: "", year: "", color: "",
   purchase_price: "", city: "", state: "", status: "Available",
   mileage: "", last_service_date: "", weekly_rate: "", rent_to_own_eligible: false,
+  pickup_address: "", pickup_hours: "",
 };
 
 export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving }) {
@@ -18,7 +19,7 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
   const [vinError, setVinError] = useState("");
 
   useEffect(() => {
-    setForm(vehicle ? { ...emptyForm, ...vehicle, year: vehicle.year || "", purchase_price: vehicle.purchase_price || "", mileage: vehicle.mileage || "", weekly_rate: vehicle.weekly_rate || "", city: vehicle.city || vehicle.current_city || "", state: vehicle.state || "" } : emptyForm);
+    setForm(vehicle ? { ...emptyForm, ...vehicle, year: vehicle.year || "", purchase_price: vehicle.purchase_price || "", mileage: vehicle.mileage || "", weekly_rate: vehicle.weekly_rate || "", city: vehicle.city || vehicle.current_city || "", state: vehicle.state || "", pickup_address: vehicle.pickup_address || "", pickup_hours: vehicle.pickup_hours || "" } : emptyForm);
     setVinError("");
   }, [vehicle, open]);
 
@@ -107,6 +108,19 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             <FormField label="Status">{sel("status", ["Available", "Booked", "Maintenance", "Transferred"])}</FormField>
             <FormField label="Last Service"><input type="date" className={inputClass} value={form.last_service_date} onChange={(e) => set("last_service_date", e.target.value)} /></FormField>
           </div>
+          {/* Pickup Location (revealed to customer after payment) */}
+          <div className="space-y-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <p className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+              📍 Pickup Info <span className="text-white/25 font-normal normal-case tracking-normal">(revealed to customer after payment)</span>
+            </p>
+            <FormField label="Full Pickup Address">
+              <input className={inputClass} value={form.pickup_address} onChange={(e) => set("pickup_address", e.target.value)} placeholder="e.g. 1234 Main St, Detroit, MI 48201" />
+            </FormField>
+            <FormField label="Pickup Hours (optional)">
+              <input className={inputClass} value={form.pickup_hours} onChange={(e) => set("pickup_hours", e.target.value)} placeholder="e.g. Mon–Fri 9am–5pm, 24/7, By appointment..." />
+            </FormField>
+          </div>
+
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             <button type="button" onClick={() => set("rent_to_own_eligible", !form.rent_to_own_eligible)}
               className={`relative h-5 w-9 rounded-full transition-all flex-shrink-0 ${form.rent_to_own_eligible ? "bg-primary" : "bg-white/10"}`}>

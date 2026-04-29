@@ -6,7 +6,29 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { booking_request_id, user_email, amount, vehicle_name, booking_type, weekly_rate } = await req.json();
+    const { booking_request_id, user_email, amount, vehicle_name, booking_type, weekly_rate, vehicle_id } = await req.json();
+
+    // Fetch vehicle to get pickup address
+    let pickupAddress = null;
+    let pickupHours = null;
+    if (vehicle_id) {
+      const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: vehicle_id });
+      if (vehicles[0]?.pickup_address) {
+        pickupAddress = vehicles[0].pickup_address;
+        pickupHours = vehicles[0].pickup_hours || null;
+      }
+    }
+
+    // Push in-app notification about address reveal
+    if (pickupAddress) {
+      await base44.asServiceRole.entities.Notification.create({
+        user_email,
+        title: "📍 Your Pickup Address is Ready!",
+        body: `Payment confirmed for ${vehicle_name}. Your pickup location: ${pickupAddress}${pickupHours ? ` (${pickupHours})` : ""}`,
+        type: "booking",
+        booking_request_id,
+      });
+    }
 
     const isRecurring = booking_type === "Weekly" || booking_type === "Rent-to-Own" || booking_type === "Monthly";
 
@@ -34,6 +56,13 @@ Deno.serve(async (req) => {
     <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 20px;">
       <p style="margin: 0; font-size: 13px; color: #1d4ed8; font-weight: 600;">📋 Recurring Billing Notice</p>
       <p style="margin: 6px 0 0; font-size: 12px; color: #1e40af;">You have authorized uRide to charge <strong>$${weekly_rate}/week</strong> automatically. You may cancel anytime by contacting uRide support or through your account.</p>
+    </div>` : ""}
+
+    ${pickupAddress ? `
+    <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+      <p style="margin: 0; font-size: 14px; color: #166534; font-weight: 700;">📍 Your Pickup Address</p>
+      <p style="margin: 6px 0 0; font-size: 15px; color: #111; font-weight: 600;">${pickupAddress}</p>
+      ${pickupHours ? `<p style="margin: 4px 0 0; font-size: 12px; color: #16a34a;">🕐 ${pickupHours}</p>` : ""}
     </div>` : ""}
 
     <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px;">

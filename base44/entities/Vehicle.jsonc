@@ -34,6 +34,14 @@
     "state": {
       "type": "string"
     },
+    "pickup_address": {
+      "type": "string",
+      "description": "Full street address for vehicle pickup \u2014 revealed to customer after payment"
+    },
+    "pickup_hours": {
+      "type": "string",
+      "description": "Pickup availability hours, e.g. 'Mon\u2013Fri 9am\u20135pm', '24/7', or blank"
+    },
     "vehicle_lat": {
       "type": "number",
       "description": "Vehicle location latitude (auto-geocoded from city, state)"

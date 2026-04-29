@@ -102,6 +102,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           vehicle_name: booking?.vehicle_name,
           booking_type: booking?.booking_type,
           weekly_rate: booking?.weekly_rate,
+          vehicle_id: booking?.vehicle_id,
         }).catch(() => {});
 
         onPaymentSuccess({

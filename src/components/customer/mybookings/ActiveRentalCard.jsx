@@ -2,6 +2,9 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Clock, ChevronRight, Camera, CheckCircle2, XCircle, Trash2, Shield } from "lucide-react";
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import PickupAddressCard from "./PickupAddressCard";
 
 const STATUS_CONFIG = {
   confirmed:              { label: "✓ Confirmed",       style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
@@ -31,6 +34,9 @@ function StatusBadge({ status }) {
   );
 }
 
+// Statuses where customer has paid — show pickup address
+const PAID_STATUSES = ["active", "approved", "confirmed", "pending_review"];
+
 export default function ActiveRentalCard({ booking, onDelete, onCancelRequest, onInspect, onViewContract, isDeleting }) {
   const isResumable   = RESUMABLE.includes(booking.booking_status);
   const isDeletable   = DELETABLE.includes(booking.booking_status);
@@ -38,9 +44,18 @@ export default function ActiveRentalCard({ booking, onDelete, onCancelRequest, o
   const isCancelPending = booking.booking_status === "cancellation_requested";
   const showInspection  = SHOW_INSPECTION.includes(booking.booking_status);
   const isActiveRental  = ACTIVE_RENTAL.includes(booking.booking_status);
+  const isPaid = booking.payment_status === "paid" && PAID_STATUSES.includes(booking.booking_status);
 
   const pickupDone  = booking.pickup_photos?.length > 0;
   const dropoffDone = booking.return_exterior_photos?.length > 0;
+
+  // Fetch vehicle details to get pickup_address and pickup_hours
+  const { data: vehicle } = useQuery({
+    queryKey: ["vehicle-pickup", booking.vehicle_id],
+    queryFn: () => base44.entities.Vehicle.filter({ id: booking.vehicle_id }).then(r => r[0]),
+    enabled: !!booking.vehicle_id && isPaid,
+    staleTime: 5 * 60_000,
+  });
 
   const inner = (
     <div className="relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
@@ -83,6 +98,11 @@ export default function ActiveRentalCard({ booking, onDelete, onCancelRequest, o
             <span className="text-xs text-orange-700 font-semibold">Payment due</span>
             <span className="text-sm font-bold text-orange-700">${booking.total_due_now}</span>
           </div>
+        )}
+
+        {/* Pickup Address — revealed after payment */}
+        {isPaid && vehicle?.pickup_address && (
+          <PickupAddressCard vehicle={vehicle} />
         )}
 
         {/* Billing info for active rentals */}

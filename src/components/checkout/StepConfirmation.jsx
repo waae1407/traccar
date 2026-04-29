@@ -1,10 +1,18 @@
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { CheckCircle2, CalendarDays, Car, ArrowRight, Home } from "lucide-react";
+import PickupAddressCard from "@/components/customer/mybookings/PickupAddressCard";
 
 export default function StepConfirmation({ booking, user }) {
+  const { data: vehicle } = useQuery({
+    queryKey: ["vehicle-pickup", booking?.vehicle_id],
+    queryFn: () => base44.entities.Vehicle.filter({ id: booking.vehicle_id }).then(r => r[0]),
+    enabled: !!booking?.vehicle_id && booking?.payment_status === "paid",
+    staleTime: 5 * 60_000,
+  });
+
   const logMutation = useMutation({
     mutationFn: (data) => base44.entities.ActivityEvent.create(data),
   });
@@ -68,6 +76,13 @@ export default function StepConfirmation({ booking, user }) {
           </div>
         </div>
       </div>
+
+      {/* Pickup Address — revealed immediately after payment */}
+      {vehicle?.pickup_address && (
+        <div className="w-full mb-5">
+          <PickupAddressCard vehicle={vehicle} />
+        </div>
+      )}
 
       {/* Next steps */}
       <div className="w-full bg-blue-50 rounded-2xl border border-blue-100 p-4 mb-6 text-left">
