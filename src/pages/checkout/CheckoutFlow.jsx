@@ -224,16 +224,21 @@ export default function CheckoutFlow() {
 
       <div className="max-w-lg mx-auto px-4 py-5">
         {currentStep === "select_vehicle" && <StepVehicle {...commonProps} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} onSelect={async (v, type, opts = {}) => {
-          if (!user) { navigate(`/checkout?vehicle=${v.id}&type=${type}`); return; }
+          if (!user) {
+            // Redirect to login, then come back to checkout with vehicle pre-selected
+            base44.auth.redirectToLogin(`/checkout?vehicle=${v.id}&type=${type}`);
+            return;
+          }
           if (hardBlockingBooking) return;
           // Auto-cancel any stale/draft bookings before creating the new one
           const allStaleToCancel = allUserBookings.filter(
             (b) => [...STALE_STATUSES, "draft", "pending_payment"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
           );
           await Promise.all(allStaleToCancel.map((b) => cancelStaleMutation.mutateAsync(b.id)));
-          createMutation.mutate({
+          // Use mutateAsync so we await the creation before advancing
+          await createMutation.mutateAsync({
             vehicle_id: v.id, vehicle_name: `${v.year} ${v.make} ${v.model}`,
-            vehicle_image: v.image_url, booking_type: type, city: v.current_city,
+            vehicle_image: v.image_url, booking_type: type, city: v.city || v.current_city,
             weekly_rate: v.weekly_rate, deposit_amount: 0,
             first_payment_amount: v.weekly_rate || 0, total_due_now: v.weekly_rate || 0,
             booking_status: "draft", checkout_step: "account", user_email: user?.email, user_id: user?.id,
