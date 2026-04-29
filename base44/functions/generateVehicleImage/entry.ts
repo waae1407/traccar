@@ -20,16 +20,16 @@ Deno.serve(async (req) => {
 
     const { id, year, make, model, color } = data;
 
-    console.log(`[VehicleImage] Generating photorealistic image for ${year} ${make} ${model} (${color || 'unknown color'})`);
+    console.log(`[VehicleImage] Generating image for ${year} ${make} ${model} (${color || 'unknown color'})`);
 
     const colorStr = color ? `${color.trim()} ` : '';
 
     const prompt =
       `A professional automotive studio photograph of a ${colorStr}${year} ${make} ${model}. ` +
-      `The car is shown from a 3/4 front-left angle, perfectly centered. ` +
-      `Studio setting with a smooth, seamless light grey gradient background — no texture, no reflections on the floor, no environment. ` +
-      `Soft, even diffused studio lighting with subtle highlights on the bodywork. ` +
-      `The car is clean, showroom condition, full vehicle visible with no cropping. ` +
+      `The car is shown from a 3/4 front-left angle, perfectly centered, full vehicle visible with no cropping. ` +
+      `Background is a smooth gradient that transitions from a soft sky blue at the top to pure white at the bottom — clean, airy, and seamless with no floor reflections, no shadows, no environment details. ` +
+      `Soft, even studio lighting with gentle highlights on the bodywork. ` +
+      `The car is clean, showroom condition. ` +
       `Photorealistic, high resolution, commercial automotive photography style. ` +
       `No people, no text, no logos, no watermarks.`;
 

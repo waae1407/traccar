@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// This function regenerates images for all vehicles EXCEPT Porsche (which already look great)
-// Call it once from the admin dashboard to batch-update all other vehicles
+// Regenerates images for all vehicles EXCEPT Porsche (already perfect)
+// Uses the same sky-blue-to-white gradient background matching the Porsche style
 
 Deno.serve(async (req) => {
   try {
@@ -12,16 +12,12 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Fetch all vehicles
     const vehicles = await base44.asServiceRole.entities.Vehicle.list();
 
     // Skip Porsches — they already look great
-    const targets = vehicles.filter(v => {
-      const make = (v.make || '').toLowerCase();
-      return make !== 'porsche';
-    });
+    const targets = vehicles.filter(v => (v.make || '').toLowerCase() !== 'porsche');
 
-    console.log(`[RegenerateImages] Found ${targets.length} non-Porsche vehicles to regenerate`);
+    console.log(`[RegenerateImages] Regenerating ${targets.length} non-Porsche vehicles`);
 
     const results = [];
 
@@ -31,17 +27,16 @@ Deno.serve(async (req) => {
 
         const prompt =
           `A professional automotive studio photograph of a ${colorStr}${v.year} ${v.make} ${v.model}. ` +
-          `The car is shown from a 3/4 front-left angle, perfectly centered. ` +
-          `Studio setting with a smooth, seamless light grey gradient background — no texture, no reflections on the floor, no environment. ` +
-          `Soft, even diffused studio lighting with subtle highlights on the bodywork. ` +
-          `The car is clean, showroom condition, full vehicle visible with no cropping. ` +
+          `The car is shown from a 3/4 front-left angle, perfectly centered, full vehicle visible with no cropping. ` +
+          `Background is a smooth gradient that transitions from a soft sky blue at the top to pure white at the bottom — clean, airy, and seamless with no floor reflections, no shadows, no environment details. ` +
+          `Soft, even studio lighting with gentle highlights on the bodywork. ` +
+          `The car is clean, showroom condition. ` +
           `Photorealistic, high resolution, commercial automotive photography style. ` +
           `No people, no text, no logos, no watermarks.`;
 
         const imageResult = await base44.asServiceRole.integrations.Core.GenerateImage({ prompt });
 
         if (!imageResult?.url) {
-          console.error(`[RegenerateImages] No URL for ${v.id}`);
           results.push({ id: v.id, status: 'failed', error: 'No URL returned' });
           continue;
         }
@@ -60,6 +55,6 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error(`[RegenerateImages] Fatal: ${error.message}`);
-    return Response.json({ ok: error.message }, { status: 500 });
+    return Response.json({ ok: false, error: error.message }, { status: 500 });
   }
 });
