@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
-import { Gift, Copy, Check, Users, DollarSign, Share2, ChevronRight, Clock } from "lucide-react";
+import { Gift, Copy, Check, Share2, Zap, Users, TrendingUp, Wallet } from "lucide-react";
 
 const APP_URL = "https://uridehub.com";
 
@@ -16,12 +16,12 @@ function generateCode(email) {
 }
 
 const STATUS_STYLE = {
-  pending:  { label: "Signed Up", color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20" },
-  signed_up:{ label: "Signed Up", color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20" },
-  booked:   { label: "Booked",    color: "text-blue-400",   bg: "bg-blue-500/10 border-blue-500/20" },
-  active:   { label: "Active",    color: "text-green-400",  bg: "bg-green-500/10 border-green-500/20" },
-  credited: { label: "💰 Credited", color: "text-primary",  bg: "bg-pink-500/10 border-pink-500/20" },
-  voided:   { label: "Voided",    color: "text-white/30",   bg: "bg-white/5 border-white/10" },
+  pending:   { label: "Signed Up",    dot: "bg-amber-400" },
+  signed_up: { label: "Signed Up",    dot: "bg-amber-400" },
+  booked:    { label: "Booked",       dot: "bg-blue-400" },
+  active:    { label: "Active",       dot: "bg-green-500" },
+  credited:  { label: "Credited 💰",  dot: "bg-pink-500" },
+  voided:    { label: "Voided",       dot: "bg-gray-300" },
 };
 
 export default function ReferralCard({ user }) {
@@ -35,7 +35,6 @@ export default function ReferralCard({ user }) {
     queryFn: async () => {
       const existing = await base44.entities.ReferralCode.filter({ user_email: user.email });
       if (existing.length > 0) return existing[0];
-      // Auto-create if doesn't exist
       return base44.entities.ReferralCode.create({
         user_email: user.email,
         user_id: user.id,
@@ -78,98 +77,135 @@ export default function ReferralCard({ user }) {
   };
 
   return (
-    <div className="mx-5 mb-5">
-      {/* Hero Banner */}
-      <div className="rounded-2xl overflow-hidden mb-3"
-        style={{ background: "linear-gradient(135deg, hsl(338 90% 56% / 0.20) 0%, hsl(265 80% 62% / 0.15) 100%)", border: "1px solid hsl(338 90% 56% / 0.25)" }}>
-        {/* Top gradient bar */}
-        <div className="h-1" style={{ background: "linear-gradient(90deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />
-        <div className="p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="h-10 w-10 rounded-2xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+    <div className="mx-5 mb-5 space-y-3">
+
+      {/* ── Hero card ── */}
+      <div className="rounded-3xl overflow-hidden bg-white shadow-sm border border-gray-100">
+
+        {/* Gradient header */}
+        <div className="px-5 pt-5 pb-4 relative overflow-hidden"
+          style={{ background: "linear-gradient(135deg, #ff3a8c 0%, #9333ea 100%)" }}>
+          {/* Decorative blobs */}
+          <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full opacity-20"
+            style={{ background: "rgba(255,255,255,0.4)" }} />
+          <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full opacity-10"
+            style={{ background: "rgba(255,255,255,0.4)" }} />
+
+          {/* Icon + title */}
+          <div className="flex items-center gap-3 mb-2 relative z-10">
+            <div className="h-11 w-11 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
               <Gift className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="font-bold text-white text-base" style={{ fontFamily: "var(--font-syne)" }}>
-                🚗 Rent for Free Program
-              </p>
-              <p className="text-xs text-white/50">Refer friends → earn credits → pay less or nothing</p>
+              <p className="font-bold text-white text-lg leading-tight">Rent for Free</p>
+              <p className="text-white/80 text-xs font-medium">Share → Earn → Save</p>
             </div>
           </div>
 
-          <p className="text-xs text-white/60 leading-relaxed mb-4">
-            Every friend who books using your link earns you <strong className="text-white">$25 in rental credit</strong>. They get <strong className="text-white">$25 off</strong> their first week too. Refer enough friends and <strong className="text-primary">your rent pays itself</strong>.
+          {/* Tagline */}
+          <p className="text-white/90 text-sm leading-relaxed relative z-10">
+            Refer a friend and <span className="font-bold text-white underline decoration-white/40 decoration-dotted">both of you get $25 off</span>. Refer 4 friends and your whole week is free! 🎉
           </p>
+        </div>
 
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            <div className="rounded-xl p-3 text-center border border-white/[0.08]" style={{ background: "hsl(222 24% 11%)" }}>
-              <p className="text-lg font-bold text-green-400">${creditsAvailable}</p>
-              <p className="text-[10px] text-white/40 mt-0.5">Available</p>
-            </div>
-            <div className="rounded-xl p-3 text-center border border-white/[0.08]" style={{ background: "hsl(222 24% 11%)" }}>
-              <p className="text-lg font-bold text-white">${creditsEarned}</p>
-              <p className="text-[10px] text-white/40 mt-0.5">Total Earned</p>
-            </div>
-            <div className="rounded-xl p-3 text-center border border-white/[0.08]" style={{ background: "hsl(222 24% 11%)" }}>
-              <p className="text-lg font-bold text-white">{referrals.length}</p>
-              <p className="text-[10px] text-white/40 mt-0.5">Referred</p>
-            </div>
+        {/* Stats */}
+        <div className="grid grid-cols-3 divide-x divide-gray-100 bg-gray-50 border-b border-gray-100">
+          <div className="py-4 text-center">
+            <p className="text-xl font-bold text-green-600">${creditsAvailable}</p>
+            <p className="text-[11px] text-gray-500 font-medium mt-0.5">Available</p>
+          </div>
+          <div className="py-4 text-center">
+            <p className="text-xl font-bold text-gray-800">${creditsEarned}</p>
+            <p className="text-[11px] text-gray-500 font-medium mt-0.5">Total Earned</p>
+          </div>
+          <div className="py-4 text-center">
+            <p className="text-xl font-bold text-gray-800">{referrals.length}</p>
+            <p className="text-[11px] text-gray-500 font-medium mt-0.5">Referred</p>
+          </div>
+        </div>
+
+        {/* Referral link block */}
+        <div className="p-5">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Your Referral Link</p>
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2.5 mb-3">
+            <p className="text-xs text-gray-600 font-mono truncate flex-1">{referralLink}</p>
           </div>
 
-          {/* Referral link */}
-          <div className="rounded-xl border border-white/10 p-3 mb-3" style={{ background: "hsl(222 24% 9%)" }}>
-            <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Your Referral Link</p>
-            <p className="text-xs text-white/70 font-mono truncate mb-2">{referralLink}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleCopy}
-                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all border border-white/10 text-white/70 hover:text-white hover:border-white/20"
-                style={{ background: "hsl(222 24% 13%)" }}>
-                {copied ? <><Check className="h-3.5 w-3.5 text-green-400" />Copied!</> : <><Copy className="h-3.5 w-3.5" />Copy Link</>}
-              </button>
-              <button
-                onClick={handleShare}
-                className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold text-white transition-all"
-                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                <Share2 className="h-3.5 w-3.5" />Share Now
-              </button>
-            </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCopy}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold transition-all border-2 border-gray-200 text-gray-700 hover:border-pink-300 hover:text-pink-600 active:scale-[0.97] bg-white"
+            >
+              {copied
+                ? <><Check className="h-4 w-4 text-green-500" /><span className="text-green-600">Copied!</span></>
+                : <><Copy className="h-4 w-4" />Copy Link</>
+              }
+            </button>
+            <button
+              onClick={handleShare}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold text-white transition-all active:scale-[0.97] shadow-sm"
+              style={{ background: "linear-gradient(135deg, #ff3a8c, #9333ea)" }}
+            >
+              <Share2 className="h-4 w-4" />Share Now
+            </button>
           </div>
+        </div>
 
-          {/* How it works */}
-          <div className="flex items-start gap-2 text-[10px] text-white/30">
-            <span>💡</span>
-            <span>Credits auto-apply to your next weekly payment. Refer 4 friends and get a FREE week.</span>
+        {/* How it works */}
+        <div className="mx-5 mb-5 rounded-2xl bg-pink-50 border border-pink-100 p-4">
+          <p className="text-xs font-bold text-pink-700 mb-2.5 flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5" /> How it works
+          </p>
+          <div className="space-y-2">
+            {[
+              { step: "1", text: "Share your link with friends" },
+              { step: "2", text: "They book a vehicle → you both get $25" },
+              { step: "3", text: "Credit auto-applies to your next payment" },
+            ].map(({ step, text }) => (
+              <div key={step} className="flex items-center gap-2.5">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, #ff3a8c, #9333ea)" }}>
+                  {step}
+                </div>
+                <p className="text-xs text-pink-800 font-medium">{text}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Referral history */}
+      {/* ── Referral history ── */}
       {referrals.length > 0 && (
-        <div className="rounded-2xl border border-white/[0.07] overflow-hidden" style={{ background: "hsl(222 24% 11%)" }}>
-          <div className="px-4 py-3 border-b border-white/[0.06]">
-            <p className="text-xs font-bold text-white/60 uppercase tracking-wider">Your Referrals</p>
+        <div className="rounded-3xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+            <Users className="h-4 w-4 text-pink-500" />
+            <p className="text-sm font-bold text-gray-800">Your Referrals</p>
+            <span className="ml-auto text-xs font-bold text-white px-2 py-0.5 rounded-full"
+              style={{ background: "linear-gradient(135deg, #ff3a8c, #9333ea)" }}>
+              {referrals.length}
+            </span>
           </div>
-          <div className="divide-y divide-white/[0.05]">
+          <div className="divide-y divide-gray-50">
             {referrals.map((r) => {
               const s = STATUS_STYLE[r.status] || STATUS_STYLE.pending;
               return (
-                <div key={r.id} className="flex items-center justify-between px-4 py-3 gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                      style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                      {r.referee_name?.charAt(0) || "?"}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white truncate">{r.referee_name || r.referee_email}</p>
-                      <p className="text-[10px] text-white/30 truncate">{r.referee_email}</p>
-                    </div>
+                <div key={r.id} className="flex items-center gap-3 px-5 py-3.5">
+                  <div className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, #ff3a8c, #9333ea)" }}>
+                    {r.referee_name?.charAt(0) || "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{r.referee_name || r.referee_email}</p>
+                    <p className="text-xs text-gray-400 truncate">{r.referee_email}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {r.status === "credited" && <span className="text-xs font-bold text-green-400">+$25</span>}
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.bg} ${s.color}`}>{s.label}</span>
+                    {r.status === "credited" && (
+                      <span className="text-xs font-bold text-green-600 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">+$25</span>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <div className={`h-2 w-2 rounded-full ${s.dot}`} />
+                      <span className="text-xs font-semibold text-gray-600">{s.label}</span>
+                    </div>
                   </div>
                 </div>
               );
