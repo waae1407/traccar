@@ -1,31 +1,37 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const { data } = body;
+    const { data, force } = body;
 
-    // Skip if image already exists
-    if (data?.image_url) {
+    // Skip if image already exists (unless force regenerate)
+    if (data?.image_url && !force) {
       console.log(`[VehicleImage] Vehicle ${data.id} already has an image, skipping`);
       return Response.json({ ok: true });
     }
 
     // Need year, make, model to generate
     if (!data?.year || !data?.make || !data?.model) {
-      console.log(`[VehicleImage] Vehicle ${data.id} missing year/make/model, skipping`);
+      console.log(`[VehicleImage] Vehicle ${data?.id} missing year/make/model, skipping`);
       return Response.json({ ok: true });
     }
 
     const { id, year, make, model, color } = data;
 
-    console.log(`[VehicleImage] Generating cartoon image for ${year} ${make} ${model} (${color || 'unknown color'})`);
+    console.log(`[VehicleImage] Generating photorealistic image for ${year} ${make} ${model} (${color || 'unknown color'})`);
 
-    const prompt = `A vibrant, high-quality cartoon-style illustration of a ${year} ${make} ${model}${color ? ` in ${color}` : ''}. ` +
-      `Drawn in a bold, playful cartoon style with clean outlines, smooth shading, and vivid colors. ` +
-      `Show the full car from a 3/4 front-left angle on a simple light gradient background. ` +
-      `No text, no people. Professional automotive cartoon art.`;
+    const colorStr = color ? `${color.trim()} ` : '';
+
+    const prompt =
+      `A professional automotive studio photograph of a ${colorStr}${year} ${make} ${model}. ` +
+      `The car is shown from a 3/4 front-left angle, perfectly centered. ` +
+      `Studio setting with a smooth, seamless light grey gradient background — no texture, no reflections on the floor, no environment. ` +
+      `Soft, even diffused studio lighting with subtle highlights on the bodywork. ` +
+      `The car is clean, showroom condition, full vehicle visible with no cropping. ` +
+      `Photorealistic, high resolution, commercial automotive photography style. ` +
+      `No people, no text, no logos, no watermarks.`;
 
     const imageResult = await base44.asServiceRole.integrations.Core.GenerateImage({ prompt });
 
