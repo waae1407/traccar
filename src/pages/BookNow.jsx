@@ -10,6 +10,7 @@ import BookNowRtoBanner from "@/components/customer/booknow/BookNowRtoBanner";
 import GigWorkerBanner from "@/components/customer/booknow/GigWorkerBanner";
 import LocationContext from "@/components/customer/booknow/LocationContext";
 import BookNowHeadline from "@/components/customer/booknow/BookNowHeadline";
+import RentForFreeBanner from "@/components/customer/booknow/RentForFreeBanner";
 import WaitlistEmptyState from "@/components/customer/booknow/WaitlistEmptyState";
 import useUserLocation from "@/hooks/useUserLocation";
 import HomeTopBar from "@/components/customer/HomeTopBar";
@@ -144,6 +145,9 @@ export default function BookNow() {
 
       {/* SECTION 3: Main headline */}
       <BookNowHeadline user={user} />
+
+      {/* Referral promo banner */}
+      <RentForFreeBanner />
 
       {/* SECTION 4: Rental choice toggles */}
       <BookNowQuickActions
