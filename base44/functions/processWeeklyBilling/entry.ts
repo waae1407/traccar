@@ -47,7 +47,8 @@ Deno.serve(async (req) => {
     for (const booking of billingTargets) {
       try {
         const weekNum = (booking.billing_week_number || 1) + 1;
-        const amount = booking.weekly_rate || 0;
+        const referralCredit = booking.pending_referral_credit || 0;
+        const amount = Math.max(0, (booking.weekly_rate || 0) - referralCredit);
         const amountCents = Math.round(amount * 100);
 
         if (amountCents < 50) {
@@ -79,7 +80,34 @@ Deno.serve(async (req) => {
             payment_failure_attempts: 0,
             billing_week_number: weekNum,
             next_billing_date: nextBillingDate,
+            pending_referral_credit: 0, // clear after applying
           });
+
+          // If referral credit was applied, mark it on the referral record
+          if (referralCredit > 0) {
+            const referrals = await base44.asServiceRole.entities.Referral.filter({ referral_code: booking.referral_code });
+            for (const ref of referrals) {
+              const updates = {};
+              if (ref.referee_email === booking.user_email && !ref.referee_credit_applied) {
+                updates.referee_credit_applied = true;
+                updates.referee_credit_applied_at = new Date().toISOString();
+              }
+              if (ref.referrer_email === booking.user_email && !ref.referrer_credit_applied) {
+                updates.referrer_credit_applied = true;
+                updates.referrer_credit_applied_at = new Date().toISOString();
+              }
+              if (Object.keys(updates).length > 0) {
+                await base44.asServiceRole.entities.Referral.update(ref.id, updates);
+                // Update referral code usage stats
+                const codes = await base44.asServiceRole.entities.ReferralCode.filter({ user_email: booking.user_email });
+                if (codes.length > 0) {
+                  await base44.asServiceRole.entities.ReferralCode.update(codes[0].id, {
+                    total_credits_used: (codes[0].total_credits_used || 0) + referralCredit,
+                  });
+                }
+              }
+            }
+          }
 
           // Send receipt notification
           await base44.asServiceRole.entities.Notification.create({

@@ -28,6 +28,7 @@ export default function CheckoutFlow() {
   const bookingType = searchParams.get("type") || "Weekly";
   const requestId = searchParams.get("request");
   const companySlug = searchParams.get("company");
+  const refCode = searchParams.get("ref");
 
   // Resolve company_id from slug param or user's company_id
   const { data: companyBySlug } = useQuery({
@@ -242,6 +243,7 @@ export default function CheckoutFlow() {
             weekly_rate: v.weekly_rate, deposit_amount: 0,
             first_payment_amount: v.weekly_rate || 0, total_due_now: v.weekly_rate || 0,
             booking_status: "draft", checkout_step: "account", user_email: user?.email, user_id: user?.id,
+            ...(refCode && { referral_code: refCode }),
             ...(bookingCompanyId && { company_id: bookingCompanyId }),
             ...(opts.startDate && { start_date: opts.startDate }),
             ...(opts.endDate && { end_date: opts.endDate }),
@@ -250,6 +252,12 @@ export default function CheckoutFlow() {
           setCurrentStep("account");
         }} />}
 
+        {/* Referral banner */}
+        {booking?.referral_code && currentStep !== "confirmation" && (
+          <div className="mb-4 px-4 py-3 rounded-2xl border border-green-300/40 text-sm font-semibold text-green-700 flex items-center gap-2" style={{ background: "hsl(152 60% 46% / 0.08)" }}>
+            🎁 Referral code <strong>{booking.referral_code}</strong> applied — you'll get <strong>$25 off</strong> your first week once your booking goes active!
+          </div>
+        )}
         {currentStep === "account" && <StepAccount {...commonProps} booking={booking} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} />}
         {currentStep === "profile" && <StepProfile {...commonProps} recentVerifiedBooking={recentVerifiedBooking} />}
         {currentStep === "verification" && <StepVerification {...commonProps} />}

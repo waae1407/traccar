@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ReferralCard from "@/components/customer/ReferralCard";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -305,6 +306,12 @@ export default function AccountPage() {
           </div>
         </div>
       ))}
+
+      {/* Referral Card */}
+      <div className="px-5 mb-1">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Rent for Free</p>
+      </div>
+      <ReferralCard user={user} />
 
       {/* Sign out */}
       <div className="px-5 mt-2">

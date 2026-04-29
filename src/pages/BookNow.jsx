@@ -53,6 +53,7 @@ export default function BookNow() {
   const [activeFilter, setActiveFilter] = useState("All");
 
   const companySlug = new URLSearchParams(window.location.search).get("company");
+  const refCode = new URLSearchParams(window.location.search).get("ref");
   const { data: tenantCompany } = useQuery({
     queryKey: ["company-by-slug", companySlug],
     queryFn: async () => {
@@ -110,7 +111,8 @@ export default function BookNow() {
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
     const companyParam = companySlug ? `&company=${companySlug}` : "";
-    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}${companyParam}`);
+    const refParam = refCode ? `&ref=${refCode}` : "";
+    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}${companyParam}${refParam}`);
   };
 
   const handleLocationZipSearch = async (zipcode, altCity) => {

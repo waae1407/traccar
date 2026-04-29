@@ -1,0 +1,69 @@
+{
+  "name": "Referral",
+  "type": "object",
+  "properties": {
+    "referral_code": {
+      "type": "string",
+      "description": "Unique referral code used"
+    },
+    "referrer_email": {
+      "type": "string"
+    },
+    "referrer_name": {
+      "type": "string"
+    },
+    "referee_email": {
+      "type": "string"
+    },
+    "referee_name": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string",
+      "description": "The qualifying booking that triggered the credit"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "signed_up",
+        "booked",
+        "active",
+        "credited",
+        "voided"
+      ],
+      "default": "pending"
+    },
+    "referrer_credit_amount": {
+      "type": "number",
+      "default": 25
+    },
+    "referee_credit_amount": {
+      "type": "number",
+      "default": 25
+    },
+    "referrer_credit_applied": {
+      "type": "boolean",
+      "default": false
+    },
+    "referee_credit_applied": {
+      "type": "boolean",
+      "default": false
+    },
+    "referrer_credit_applied_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "referee_credit_applied_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "referral_code",
+    "referrer_email"
+  ]
+}

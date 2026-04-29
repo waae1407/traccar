@@ -266,6 +266,15 @@
     "notes": {
       "type": "string"
     },
+    "referral_code": {
+      "type": "string",
+      "description": "Referral code used when booking was created"
+    },
+    "pending_referral_credit": {
+      "type": "number",
+      "default": 0,
+      "description": "Dollar amount of referral credit to deduct from next weekly payment"
+    },
     "abandoned_checkout": {
       "type": "boolean",
       "default": false
@@ -374,20 +383,16 @@
     },
     "pickup_submitted_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Immutable timestamp when pickup photos were submitted"
+      "format": "date-time"
     },
     "pickup_location_lat": {
-      "type": "number",
-      "description": "GPS latitude at pickup photo submission"
+      "type": "number"
     },
     "pickup_location_lon": {
-      "type": "number",
-      "description": "GPS longitude at pickup photo submission"
+      "type": "number"
     },
     "pickup_location_label": {
-      "type": "string",
-      "description": "Reverse-geocoded city/state label at pickup submission"
+      "type": "string"
     },
     "return_interior_photos": {
       "type": "array",
@@ -403,20 +408,16 @@
     },
     "dropoff_submitted_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Immutable timestamp when drop-off photos were submitted"
+      "format": "date-time"
     },
     "dropoff_location_lat": {
-      "type": "number",
-      "description": "GPS latitude at drop-off photo submission"
+      "type": "number"
     },
     "dropoff_location_lon": {
-      "type": "number",
-      "description": "GPS longitude at drop-off photo submission"
+      "type": "number"
     },
     "dropoff_location_label": {
-      "type": "string",
-      "description": "Reverse-geocoded city/state label at drop-off submission"
+      "type": "string"
     },
     "clean_return_status": {
       "type": "string",
@@ -473,12 +474,10 @@
     },
     "rental_ended_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When admin or system officially ended the rental"
+      "format": "date-time"
     },
     "rental_ended_by": {
-      "type": "string",
-      "description": "Admin email or 'customer' who triggered rental end"
+      "type": "string"
     }
   },
   "required": [

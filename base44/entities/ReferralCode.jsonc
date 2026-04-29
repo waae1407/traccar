@@ -1,0 +1,35 @@
+{
+  "name": "ReferralCode",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "code": {
+      "type": "string",
+      "description": "Unique 8-char referral code"
+    },
+    "total_referrals": {
+      "type": "number",
+      "default": 0
+    },
+    "total_credits_earned": {
+      "type": "number",
+      "default": 0
+    },
+    "total_credits_used": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "user_email",
+    "code"
+  ]
+}
