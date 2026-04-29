@@ -104,7 +104,7 @@ export default function ReferralCard({ user }) {
 
           {/* Tagline */}
           <p className="text-white/90 text-sm leading-relaxed relative z-10">
-            Refer a friend and <span className="font-bold text-white underline decoration-white/40 decoration-dotted">both of you get $25 off</span>. Refer 4 friends and your whole week is free! 🎉
+            Refer a friend and <span className="font-bold text-white underline decoration-white/40 decoration-dotted">both of you get $25 off</span>. The more friends you refer, the less you pay each week. 🚗
           </p>
         </div>
 
