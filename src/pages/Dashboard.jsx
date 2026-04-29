@@ -74,6 +74,14 @@ export default function Dashboard() {
   );
   const neverBookedCount = nonAdminUsers.filter(u => !bookedUserEmails.has(u.email)).length;
 
+  // Abandoned checkout count
+  const ABANDONED_STATUSES = ["draft", "pending_verification", "pending_contract", "pending_payment"];
+  const abandonedBookings = bookingRequests.filter(b =>
+    ABANDONED_STATUSES.includes(b.booking_status) &&
+    b.user_email &&
+    !b.abandoned_checkout
+  );
+
   const outOfServiceVehicles = vehicles.filter((v) => v.status === "Out of Service");
   const pendingReviews = bookingRequests.filter((b) => b.booking_status === "pending_review");
   const unopenedPending = pendingReviews.filter((b) => !b.viewed_by_admin);
@@ -277,6 +285,40 @@ export default function Dashboard() {
           </div>
         );
       })()}
+
+      {/* Abandoned Checkout Widget */}
+      {abandonedBookings.length > 0 && (
+        <div className="rounded-2xl border-2 border-orange-500/40 overflow-hidden"
+          style={{ background: "linear-gradient(135deg, hsl(25 95% 55% / 0.10) 0%, hsl(38 95% 54% / 0.06) 100%)" }}>
+          <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, hsl(25 95% 55%), hsl(38 95% 50%))" }} />
+          <div className="p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center flex-shrink-0">
+                <Clock className="h-6 w-6 text-orange-400" />
+              </div>
+              <div>
+                <p className="font-bold text-orange-300 text-base">
+                  {abandonedBookings.length} Incomplete Booking{abandonedBookings.length !== 1 ? "s" : ""} — Reminder Campaign Active
+                </p>
+                <div className="flex items-center gap-4 mt-1 text-xs text-white/50">
+                  <span>{abandonedBookings.filter(b => b.booking_status === "pending_payment").length} stuck at payment</span>
+                  <span>·</span>
+                  <span>{abandonedBookings.filter(b => b.booking_status === "draft").length} abandoned early</span>
+                  <span>·</span>
+                  <span>Daily nudges sending automatically</span>
+                </div>
+              </div>
+            </div>
+            <Link
+              to="/bookings-admin"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, hsl(25 95% 50%), hsl(38 95% 45%))" }}
+            >
+              View Bookings <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Platform Users / Leads widget */}
       {nonAdminUsers.length > 0 && (

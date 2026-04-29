@@ -2,12 +2,21 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Mail, Phone, CalendarDays, CheckCircle2, XCircle, Bell, BellOff, Search } from "lucide-react";
+import { Mail, Phone, CalendarDays, Bell, BellOff, Search, AlertCircle, ExternalLink } from "lucide-react";
+
+const ABANDONED_STATUSES = ["draft", "pending_verification", "pending_contract", "pending_payment"];
+const STEP_LABEL = {
+  draft: "Vehicle Selection",
+  pending_verification: "ID Verification",
+  pending_contract: "Contract Signing",
+  pending_payment: "Payment",
+};
 
 const FILTER_OPTIONS = ["All", "No Booking Yet", "Has Booking"];
 
 export default function PlatformUsersTab() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("users");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
 
@@ -42,6 +51,12 @@ export default function PlatformUsersTab() {
   const leadByEmail = leads.reduce((acc, l) => { acc[l.user_email] = l; return acc; }, {});
 
   const nonAdminUsers = users.filter(u => u.role !== "admin");
+
+  const abandonedBookings = bookingRequests.filter(b =>
+    ABANDONED_STATUSES.includes(b.booking_status) &&
+    b.user_email &&
+    !b.abandoned_checkout
+  ).sort((a, b) => (b.abandoned_reminder_count || 0) - (a.abandoned_reminder_count || 0));
 
   const filtered = nonAdminUsers.filter(u => {
     const hasBooking = bookedEmails.has(u.email);
@@ -79,6 +94,66 @@ export default function PlatformUsersTab() {
 
   return (
     <div className="space-y-4">
+      {/* Sub-tabs */}
+      <div className="flex gap-2 mb-2">
+        {["users", "abandoned"].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === tab ? "text-white" : "text-white/40 border border-white/10"}`}
+            style={activeTab === tab ? { background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" } : { background: "hsl(222 24% 11%)" }}>
+            {tab === "users" ? `All Users (${nonAdminUsers.length})` : `Incomplete Bookings (${abandonedBookings.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Abandoned Bookings sub-tab */}
+      {activeTab === "abandoned" && (
+        <div className="space-y-2">
+          {abandonedBookings.length === 0 ? (
+            <div className="text-center py-12 text-white/30 text-sm">No incomplete bookings 🎉</div>
+          ) : (
+            abandonedBookings.map(b => (
+              <div key={b.id} className="flex items-center gap-4 p-4 rounded-xl border border-orange-500/20 hover:border-orange-500/40 transition-colors"
+                style={{ background: "hsl(25 95% 55% / 0.05)" }}>
+                <div className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, hsl(25 95% 50%), hsl(38 95% 45%))" }}>
+                  {b.customer_full_name?.charAt(0) || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-white text-sm">{b.customer_full_name || b.user_email}</p>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-orange-500/30 text-orange-400" style={{ background: "hsl(25 95% 55% / 0.12)" }}>
+                      stuck at {STEP_LABEL[b.booking_status] || b.booking_status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                    <span className="flex items-center gap-1 text-xs text-white/40">
+                      <Mail className="h-3 w-3" />{b.user_email}
+                    </span>
+                    {b.vehicle_name && <span className="text-xs text-white/30">· {b.vehicle_name}</span>}
+                    {b.weekly_rate && <span className="text-xs text-white/30">· ${b.weekly_rate}/wk</span>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[10px] text-white/30 uppercase tracking-wider">Reminders</p>
+                    <p className="text-sm font-bold text-orange-400">{b.abandoned_reminder_count || 0} / 3</p>
+                    {b.last_abandoned_reminder_at && (
+                      <p className="text-[10px] text-white/25">last {format(new Date(b.last_abandoned_reminder_at), "MMM d")}</p>
+                    )}
+                  </div>
+                  <a href={`/checkout?request=${b.id}`} target="_blank" rel="noopener noreferrer"
+                    className="h-8 w-8 rounded-lg flex items-center justify-center border border-white/10 text-white/40 hover:text-white hover:border-white/30 transition-colors"
+                    title="Open booking in checkout">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {activeTab !== "abandoned" && <>
       {/* Summary chips */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="px-3 py-1.5 rounded-xl text-xs font-bold border border-white/10 text-white/60" style={{ background: "hsl(222 24% 11%)" }}>
@@ -124,7 +199,7 @@ export default function PlatformUsersTab() {
       {/* User list */}
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-white/30 text-sm">No users found</div>
-      ) : (
+      ) : ( 
         <div className="space-y-2">
           {filtered.map(u => {
             const hasBooking = bookedEmails.has(u.email);
@@ -198,6 +273,7 @@ export default function PlatformUsersTab() {
           })}
         </div>
       )}
+      </>}
     </div>
   );
 }

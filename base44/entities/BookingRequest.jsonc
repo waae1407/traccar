@@ -270,6 +270,16 @@
       "type": "boolean",
       "default": false
     },
+    "abandoned_reminder_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of abandoned checkout reminder messages sent"
+    },
+    "last_abandoned_reminder_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the last abandoned checkout reminder was sent"
+    },
     "submitted_at": {
       "type": "string",
       "format": "date-time"
