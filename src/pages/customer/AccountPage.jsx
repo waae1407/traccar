@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ReferralCard from "@/components/customer/ReferralCard";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
@@ -177,6 +177,15 @@ export default function AccountPage() {
   const navigate = useNavigate();
   const [sheet, setSheet] = useState(null);
 
+  useEffect(() => {
+    if (window.location.hash === "#rent-for-free") {
+      setTimeout(() => {
+        const el = document.getElementById("rent-for-free");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  }, []);
+
   // Check verification from booking requests (user may have verified during checkout)
   const { data: bookingRequests = [] } = useQuery({
     queryKey: ["my-bookings-verification", user?.email],
@@ -308,7 +317,7 @@ export default function AccountPage() {
       ))}
 
       {/* Referral Card */}
-      <div className="px-5 mb-1">
+      <div id="rent-for-free" className="px-5 mb-1">
         <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Rent for Free</p>
       </div>
       <ReferralCard user={user} />

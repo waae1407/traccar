@@ -1,17 +1,26 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Gift, X, ChevronRight } from "lucide-react";
 
 export default function RentForFreeBanner() {
   const [dismissed, setDismissed] = useState(false);
+  const navigate = useNavigate();
 
   if (dismissed) return null;
 
+  const handleClick = () => {
+    navigate("/account#rent-for-free");
+    setTimeout(() => {
+      const el = document.getElementById("rent-for-free");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
+  };
+
   return (
     <div className="mx-5 mb-4 relative">
-      <Link
-        to="/account"
-        className="flex items-center gap-3 p-4 rounded-2xl overflow-hidden group active:scale-[0.98] transition-transform block"
+      <button
+        onClick={handleClick}
+        className="w-full flex items-center gap-3 p-4 rounded-2xl overflow-hidden group active:scale-[0.98] transition-transform text-left"
         style={{
           background: "linear-gradient(135deg, hsl(338 90% 56% / 0.10) 0%, hsl(265 80% 62% / 0.08) 100%)",
           border: "1px solid hsl(338 90% 56% / 0.28)",
@@ -42,7 +51,7 @@ export default function RentForFreeBanner() {
         </div>
 
         <ChevronRight className="h-4 w-4 text-pink-500 flex-shrink-0 relative z-10" />
-      </Link>
+      </button>
 
       {/* Dismiss */}
       <button
