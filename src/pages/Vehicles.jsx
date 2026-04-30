@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { Car } from "lucide-react";
+import { Car, ImageIcon, CheckCircle, Loader2 } from "lucide-react";
 import DataTable from "@/components/shared/DataTable";
 import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 export default function Vehicles() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState(null);
+  const [regenState, setRegenState] = useState("idle"); // idle | running | done
   const queryClient = useQueryClient();
   const { tenantFilter, companyId } = useTenant();
   const scopeKey = companyId || "all";
@@ -109,9 +110,34 @@ export default function Vehicles() {
 
   const outOfServiceCount = vehicles.filter((v) => v.status === "Out of Service").length;
 
+  const handleRegenAll = async () => {
+    setRegenState("running");
+    try {
+      await base44.functions.invoke("regenerateAllVehicleImages", {});
+      setRegenState("done");
+      queryClient.invalidateQueries({ queryKey: ["vehicles", scopeKey] });
+      setTimeout(() => setRegenState("idle"), 4000);
+    } catch (e) {
+      toast.error("Regeneration failed: " + e.message);
+      setRegenState("idle");
+    }
+  };
+
   return (
     <div className="animate-fade-in-up">
-      <PageHeader count={vehicles.length} countLabel="vehicles" onAdd={() => { setEditingVehicle(null); setDialogOpen(true); }} addLabel="Add Vehicle" />
+      <div className="flex items-center justify-between mb-4">
+        <PageHeader count={vehicles.length} countLabel="vehicles" onAdd={() => { setEditingVehicle(null); setDialogOpen(true); }} addLabel="Add Vehicle" />
+        <button
+          onClick={handleRegenAll}
+          disabled={regenState !== "idle"}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white disabled:opacity-60 transition-all"
+          style={{ background: "linear-gradient(135deg, hsl(199 90% 44%), hsl(265 80% 55%))" }}
+        >
+          {regenState === "running" && <><Loader2 className="h-4 w-4 animate-spin" /> Regenerating…</>}
+          {regenState === "done" && <><CheckCircle className="h-4 w-4" /> Done!</>}
+          {regenState === "idle" && <><ImageIcon className="h-4 w-4" /> Regenerate All Images</>}
+        </button>
+      </div>
       {outOfServiceCount > 0 && (
         <div className="mb-4 p-4 rounded-2xl border border-red-500/30 flex items-center gap-3"
           style={{ background: "hsl(0 72% 58% / 0.08)" }}>
