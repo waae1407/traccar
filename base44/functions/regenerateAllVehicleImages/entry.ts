@@ -26,12 +26,13 @@ Deno.serve(async (req) => {
         const colorStr = v.color ? `${v.color.trim()} ` : '';
 
         const prompt =
-          `A professional automotive studio photograph of a ${colorStr}${v.year} ${v.make} ${v.model}. ` +
+          `A professional automotive studio illustration of a ${colorStr}${v.year} ${v.make} ${v.model}. ` +
           `The car is shown from a 3/4 front-left angle, perfectly centered, full vehicle visible with no cropping. ` +
-          `Background is a smooth gradient that transitions from a soft sky blue at the top to pure white at the bottom — clean, airy, and seamless with no floor reflections, no shadows, no environment details. ` +
-          `Soft, even studio lighting with gentle highlights on the bodywork. ` +
-          `The car is clean, showroom condition. ` +
-          `Photorealistic, high resolution, commercial automotive photography style. ` +
+          `The headlights and daytime running lights are ON and glowing with a vivid electric blue/cyan color, casting a cool blue light on the front bumper and ground — similar to modern Porsche DRL lighting. ` +
+          `Background is a smooth gradient that transitions from a soft sky blue at the top to pure white at the bottom — clean, airy, and seamless. ` +
+          `No floor reflections, no shadows, no environment details. ` +
+          `Soft studio lighting with gentle highlights on the bodywork. The car is clean, showroom condition. ` +
+          `Semi-realistic illustration style with clean lines, similar to high-end automotive CGI rendering. ` +
           `No people, no text, no logos, no watermarks.`;
 
         const imageResult = await base44.asServiceRole.integrations.Core.GenerateImage({ prompt });
