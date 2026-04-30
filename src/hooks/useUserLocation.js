@@ -3,18 +3,26 @@ import { base44 } from "@/api/base44Client";
 
 const DEFAULT_LOCATION = { city: "Detroit", state: "MI", lat: 42.3314, lon: -83.0458 };
 const STORAGE_KEY = "uride_user_location";
+const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function getSavedLocation() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Expire saved location after 24 hours so GPS re-detects automatically
+    if (parsed._savedAt && Date.now() - parsed._savedAt > TTL_MS) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return parsed;
   } catch {}
   return null;
 }
 
 function saveLocation(loc) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(loc));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loc, _savedAt: Date.now() }));
   } catch {}
 }
 
