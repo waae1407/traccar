@@ -26,37 +26,57 @@ async function sendSMS(to, body) {
   return data.sid;
 }
 
+const LOGO_URL = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
+
+function emailWrapper(headline, subtitle, bodyContent) {
+  return `
+<div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
+  <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 28px 32px; border-radius: 16px 16px 0 0;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+      <img src="${LOGO_URL}" alt="uRide" style="width: 48px; height: 48px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.3);" />
+      <span style="color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">uRide</span>
+    </div>
+    <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700;">${headline}</h1>
+    <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">${subtitle}</p>
+  </div>
+  <div style="background: #fafafa; padding: 28px 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
+    ${bodyContent}
+    <p style="margin: 24px 0 0; font-size: 12px; color: #9ca3af; text-align: center;">Questions? Reply to this email · uridehub.com</p>
+  </div>
+</div>`;
+}
+
 function buildEmail(name, weekNum, unsubToken, email) {
   const firstName = name?.split(" ")[0] || "there";
   const unsubUrl = `${APP_URL}/api/unsubscribeLead?email=${encodeURIComponent(email)}&token=${unsubToken}`;
+  const headline = weekNum === 1 ? `Hey ${firstName}, your ride is waiting!` : `Still looking for a car, ${firstName}?`;
+
+  const body = emailWrapper(headline, "Get on the road with uRide", `
+    <p style="margin: 0 0 20px; font-size: 15px; color: #374151; line-height: 1.6;">Hi ${firstName},</p>
+    <p style="margin: 0 0 24px; font-size: 15px; color: #374151; line-height: 1.6;">We noticed you created an account on uRide but haven't booked your vehicle yet. We'd love to help you get on the road!</p>
+
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+      <p style="margin: 0 0 12px; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em;">Why drivers choose uRide</p>
+      <ul style="margin: 0; padding-left: 18px; font-size: 14px; color: #374151; line-height: 2;">
+        <li><strong>$0 deposit</strong> — no money upfront</li>
+        <li><strong>Flexible weekly payments</strong> — cancel anytime</li>
+        <li><strong>Approved in 24 hours</strong> — fast and easy</li>
+        <li><strong>Rent-to-Own</strong> — drive toward ownership</li>
+        <li><strong>Uber &amp; Lyft ready</strong> vehicles available</li>
+      </ul>
+    </div>
+
+    <div style="text-align: center; margin-bottom: 24px;">
+      <a href="${APP_URL}/book-now" style="display: inline-block; background: linear-gradient(135deg, #e91e8c, #7c3aed); color: white; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">Browse Available Vehicles →</a>
+    </div>
+
+    <p style="margin: 0; font-size: 13px; color: #374151; font-weight: 600;">— The uRide Team</p>
+    <p style="margin: 16px 0 0; font-size: 11px; color: #9ca3af;">You're receiving this because you signed up at uRide. <a href="${unsubUrl}" style="color: #9ca3af;">Unsubscribe</a></p>
+  `);
+
   return {
-    subject: weekNum === 1
-      ? `👋 Hey ${firstName}, your perfect ride is waiting!`
-      : `🚗 Still looking for a car, ${firstName}?`,
-    body: `
-Hi ${firstName}!
-
-We noticed you created an account on uRide but haven't booked your vehicle yet — and we'd love to help you get on the road! 🚀
-
-Here's why uRide drivers love us:
-✅ $0 deposit required — no money upfront
-✅ Weekly flexible payments — cancel anytime
-✅ Approved in as little as 24 hours
-✅ Rent-to-Own option available — drive toward ownership
-
-Whether you're driving for Uber, Lyft, or just need reliable daily transportation, we've got a vehicle for you.
-
-👉 Browse Available Vehicles: ${APP_URL}/book-now
-
-Questions? Reply to this email or text us — we're here to help.
-
-Drive with confidence,
-The uRide Team 🚗
-
----
-You're receiving this because you signed up at uRide.
-To stop receiving these messages: ${unsubUrl}
-    `.trim(),
+    subject: weekNum === 1 ? `Your perfect ride is waiting, ${firstName}` : `Still looking for a car, ${firstName}?`,
+    body,
   };
 }
 

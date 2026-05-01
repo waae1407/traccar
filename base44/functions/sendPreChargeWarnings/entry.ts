@@ -1,5 +1,25 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const LOGO_URL = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
+
+function emailWrapper(headline, subtitle, bodyContent) {
+  return `
+<div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
+  <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 28px 32px; border-radius: 16px 16px 0 0;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+      <img src="${LOGO_URL}" alt="uRide" style="width: 48px; height: 48px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.3);" />
+      <span style="color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">uRide</span>
+    </div>
+    <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700;">${headline}</h1>
+    <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">${subtitle}</p>
+  </div>
+  <div style="background: #fafafa; padding: 28px 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
+    ${bodyContent}
+    <p style="margin: 24px 0 0; font-size: 12px; color: #9ca3af; text-align: center;">Questions? Reply to this email · uridehub.com</p>
+  </div>
+</div>`;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -33,21 +53,32 @@ Deno.serve(async (req) => {
         booking_request_id: booking.id,
       });
 
-      // Also send email
+      const firstName = booking.customer_full_name?.split(" ")[0] || "there";
       await base44.asServiceRole.integrations.Core.SendEmail({
         to: booking.user_email,
         subject: `Upcoming charge tomorrow: $${amount} — ${booking.vehicle_name}`,
-        body: `
-          <div style="font-family: Inter, sans-serif; max-width: 480px; margin: 0 auto;">
-            <h2 style="color: #1a1a2e;">Upcoming Rental Payment</h2>
-            <p>Hi ${booking.customer_full_name || "there"},</p>
-            <p>This is a reminder that your <strong>Week ${weekNum}</strong> rental payment of <strong>$${amount}</strong> for your <strong>${booking.vehicle_name}</strong> will be automatically charged tomorrow.</p>
-            <p>If you need to update your payment method or have any questions, please contact us immediately.</p>
-            <p style="color: #666; font-size: 12px; margin-top: 24px;">
-              To end your rental, complete the drop-off photo inspection in the uRide app. Billing stops automatically once your photos are reviewed and approved.
-            </p>
+        body: emailWrapper("Upcoming Payment Reminder", "Your weekly rental charge is scheduled for tomorrow", `
+          <p style="margin: 0 0 20px; font-size: 15px; color: #374151; line-height: 1.6;">Hi ${firstName},</p>
+          <p style="margin: 0 0 24px; font-size: 15px; color: #374151; line-height: 1.6;">This is a heads-up that your rental payment will be automatically charged tomorrow.</p>
+
+          <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+            <p style="margin: 0 0 12px; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em;">Payment Details</p>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Vehicle</td><td style="padding: 6px 0; font-weight: 700; text-align: right; font-size: 13px;">${booking.vehicle_name}</td></tr>
+              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Week</td><td style="padding: 6px 0; font-weight: 700; text-align: right; font-size: 13px;">Week ${weekNum}</td></tr>
+              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Amount</td><td style="padding: 6px 0; font-weight: 700; text-align: right; font-size: 15px; color: #111;">$${amount}</td></tr>
+              <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Charge Date</td><td style="padding: 6px 0; font-weight: 700; text-align: right; font-size: 13px; color: #d97706;">Tomorrow</td></tr>
+            </table>
           </div>
-        `,
+
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 20px;">
+            <p style="margin: 0; font-size: 13px; color: #1d4ed8; font-weight: 600;">💡 Want to end your rental?</p>
+            <p style="margin: 6px 0 0; font-size: 12px; color: #1e40af;">Complete the drop-off photo inspection in the uRide app. Billing stops automatically once your photos are reviewed and approved.</p>
+          </div>
+
+          <p style="margin: 0; font-size: 13px; color: #374151; font-weight: 600;">— The uRide Team</p>
+        `),
+        from_name: "uRide",
       });
     }
 
