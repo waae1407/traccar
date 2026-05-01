@@ -51,43 +51,79 @@ function buildEmail(booking, reminderNum) {
   const name = booking.customer_full_name?.split(" ")[0] || "there";
   const resumeUrl = `${APP_URL}/checkout?request=${booking.id}`;
   const step = stepLabel(booking.booking_status);
-  const urgency = reminderNum === 1
-    ? "You're almost there!"
-    : reminderNum === 2
-    ? "Your vehicle is still waiting for you 🚗"
-    : "Last chance — grab your ride before it's gone! ⏰";
 
-  return {
-    subject: `${urgency} Complete your uRide booking`,
-    body: `
-Hi ${name}!
+  const subjects = [
+    `You're almost there, ${name} — complete your uRide booking`,
+    `Your vehicle is still waiting, ${name}`,
+    `Last chance — your uRide booking expires soon`,
+  ];
+  const subject = subjects[reminderNum - 1] || subjects[0];
 
-${urgency}
+  const headlines = [
+    "You're almost there!",
+    "Your vehicle is still available",
+    "This is your final reminder",
+  ];
+  const headline = headlines[reminderNum - 1] || headlines[0];
 
-You started booking the ${booking.vehicle_name || "a vehicle"} on uRide but got stuck at the **${step}** step. It only takes a few minutes to finish!
+  const intros = [
+    `You started booking the <strong>${booking.vehicle_name || "a vehicle"}</strong> but didn't finish the <strong>${step}</strong> step. It only takes a few minutes to complete.`,
+    `Your <strong>${booking.vehicle_name || "vehicle"}</strong> is still reserved for you, but availability isn't guaranteed. Finish your booking now to lock it in.`,
+    `We've held your spot for as long as we can. Complete your booking today or it may be released to another driver.`,
+  ];
+  const intro = intros[reminderNum - 1] || intros[0];
 
-🚗 Your vehicle: ${booking.vehicle_name || "Reserved vehicle"}
-💰 Weekly rate: $${booking.weekly_rate || "—"}/week
-✅ $0 deposit required
-⚡ Get approved within 24 hours
+  const body = `
+<div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
+  <!-- Header -->
+  <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 28px 32px; border-radius: 16px 16px 0 0;">
+    <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700;">${headline}</h1>
+    <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">uRide · Complete Your Booking</p>
+  </div>
 
-👉 Pick up where you left off: ${resumeUrl}
+  <!-- Body -->
+  <div style="background: #fafafa; padding: 28px 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
+    <p style="margin: 0 0 20px; font-size: 15px; color: #374151; line-height: 1.6;">Hi ${name},</p>
+    <p style="margin: 0 0 24px; font-size: 15px; color: #374151; line-height: 1.6;">${intro}</p>
 
-Why uRide drivers love us:
-• No credit check required
-• Cancel anytime — no long-term commitment
-• Uber & Lyft ready vehicles
-• Rent-to-Own options available
+    <!-- Vehicle Card -->
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+      <p style="margin: 0 0 12px; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em;">Your Reserved Vehicle</p>
+      <p style="margin: 0 0 16px; font-size: 18px; font-weight: 700; color: #111;">${booking.vehicle_name || "Reserved Vehicle"}</p>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${booking.weekly_rate ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Weekly Rate</td><td style="padding: 6px 0; font-weight: 700; text-align: right; color: #111; font-size: 14px;">$${booking.weekly_rate}/week</td></tr>` : ""}
+        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Security Deposit</td><td style="padding: 6px 0; font-weight: 700; text-align: right; color: #16a34a; font-size: 14px;">$0 Required</td></tr>
+        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Credit Check</td><td style="padding: 6px 0; font-weight: 700; text-align: right; color: #16a34a; font-size: 14px;">Not Required</td></tr>
+        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Approval Time</td><td style="padding: 6px 0; font-weight: 700; text-align: right; color: #111; font-size: 14px;">Within 24 Hours</td></tr>
+        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Pending Step</td><td style="padding: 6px 0; font-weight: 700; text-align: right; color: #d97706; font-size: 14px; text-transform: capitalize;">${step}</td></tr>
+      </table>
+    </div>
 
-Don't let this deal slip away — vehicles go fast!
+    <!-- CTA Button -->
+    <div style="text-align: center; margin-bottom: 24px;">
+      <a href="${resumeUrl}"
+        style="display: inline-block; background: linear-gradient(135deg, #e91e8c, #7c3aed); color: white; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
+        Continue My Booking →
+      </a>
+    </div>
 
-Drive with confidence,
-The uRide Team 🚗
+    <!-- Why uRide -->
+    <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+      <p style="margin: 0 0 10px; font-size: 13px; font-weight: 700; color: #5b21b6;">Why drivers choose uRide</p>
+      <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #374151; line-height: 1.8;">
+        <li>No credit check required</li>
+        <li>Cancel anytime — no long-term commitment</li>
+        <li>Uber &amp; Lyft ready vehicles</li>
+        <li>Rent-to-Own options available</li>
+      </ul>
+    </div>
 
----
-Questions? Reply to this email and we'll help you get on the road.
-    `.trim(),
-  };
+    <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.6;">Questions? Just reply to this email and we'll help you get on the road.</p>
+    <p style="margin: 16px 0 0; font-size: 13px; color: #374151; font-weight: 600;">— The uRide Team</p>
+  </div>
+</div>`;
+
+  return { subject, body };
 }
 
 function buildSMS(booking, reminderNum) {
