@@ -35,8 +35,12 @@ Deno.serve(async (req) => {
     const emailBody = `
 <div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
   <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 28px 32px; border-radius: 16px 16px 0 0;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+      <img src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" alt="uRide" style="width: 48px; height: 48px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.3);" />
+      <span style="color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">uRide</span>
+    </div>
     <h1 style="color: white; margin: 0; font-size: 22px;">Payment Received ✓</h1>
-    <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">uRide · Receipt</p>
+    <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">Receipt</p>
   </div>
   <div style="background: #fafafa; padding: 28px 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
     <p style="margin: 0 0 20px; font-size: 15px; color: #374151;">Hi! Your payment was successful and your booking is now under review.</p>

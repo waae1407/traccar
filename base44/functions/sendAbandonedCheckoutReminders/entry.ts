@@ -77,8 +77,12 @@ function buildEmail(booking, reminderNum) {
 <div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
   <!-- Header -->
   <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 28px 32px; border-radius: 16px 16px 0 0;">
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+      <img src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" alt="uRide" style="width: 48px; height: 48px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.3);" />
+      <span style="color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">uRide</span>
+    </div>
     <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700;">${headline}</h1>
-    <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">uRide · Complete Your Booking</p>
+    <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">Complete Your Booking</p>
   </div>
 
   <!-- Body -->
