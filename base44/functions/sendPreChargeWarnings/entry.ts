@@ -5,11 +5,9 @@ const LOGO_URL = "https://media.base44.com/images/public/user_68d033161412d5b125
 function emailWrapper(headline, subtitle, bodyContent) {
   return `
 <div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
-  <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 28px 32px; border-radius: 16px 16px 0 0;">
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-      <img src="${LOGO_URL}" alt="uRide" style="width: 48px; height: 48px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.3);" />
-      <span style="color: white; font-size: 20px; font-weight: 800; letter-spacing: -0.5px;">uRide</span>
-    </div>
+  <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 32px 32px 28px; border-radius: 16px 16px 0 0; text-align: center;">
+    <img src="${LOGO_URL}" alt="uRide" style="width: 56px; height: 56px; border-radius: 14px; border: 2px solid rgba(255,255,255,0.35); display: block; margin: 0 auto 10px;" />
+    <div style="color: white; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 16px;">uRide</div>
     <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700;">${headline}</h1>
     <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">${subtitle}</p>
   </div>
