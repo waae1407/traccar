@@ -1,0 +1,52 @@
+{
+  "name": "HostReview",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "reviewer_name": {
+      "type": "string"
+    },
+    "reviewer_email": {
+      "type": "string"
+    },
+    "rating": {
+      "type": "number"
+    },
+    "review_text": {
+      "type": "string"
+    },
+    "host_response": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "published",
+        "flagged",
+        "removed"
+      ],
+      "default": "pending"
+    },
+    "verified_booking": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "host_id",
+    "reviewer_email",
+    "rating"
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "name": "HostBrandSettings",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "business_slug": {
+      "type": "string",
+      "description": "URL-safe unique identifier e.g. luxury-rentals-la"
+    },
+    "business_display_name": {
+      "type": "string"
+    },
+    "logo_url": {
+      "type": "string"
+    },
+    "cover_image_url": {
+      "type": "string"
+    },
+    "brand_color": {
+      "type": "string",
+      "default": "#e91e8c"
+    },
+    "secondary_color": {
+      "type": "string",
+      "default": "#7c3aed"
+    },
+    "font_style": {
+      "type": "string",
+      "enum": [
+        "inter",
+        "syne",
+        "serif"
+      ],
+      "default": "inter"
+    },
+    "layout_template": {
+      "type": "string",
+      "enum": [
+        "prestige",
+        "modern",
+        "street",
+        "family"
+      ],
+      "default": "modern"
+    },
+    "hero_title": {
+      "type": "string"
+    },
+    "hero_subtitle": {
+      "type": "string"
+    },
+    "about_text": {
+      "type": "string"
+    },
+    "cta_button_text": {
+      "type": "string",
+      "default": "Book Now"
+    },
+    "featured_vehicle_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "show_reviews": {
+      "type": "boolean",
+      "default": true
+    },
+    "show_rto_options": {
+      "type": "boolean",
+      "default": true
+    },
+    "show_weekly_pricing": {
+      "type": "boolean",
+      "default": true
+    },
+    "published_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "preview",
+        "live"
+      ],
+      "default": "draft"
+    },
+    "store_score": {
+      "type": "number",
+      "default": 0
+    },
+    "ai_builder_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "last_published_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "host_id",
+    "business_slug"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "name": "HostCustomer",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "booking_count": {
+      "type": "number",
+      "default": 0
+    },
+    "total_spent": {
+      "type": "number",
+      "default": 0
+    },
+    "customer_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "blocked"
+      ],
+      "default": "active"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "last_booking_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "host_id",
+    "email"
+  ]
+}

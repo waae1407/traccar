@@ -1,0 +1,55 @@
+{
+  "name": "HostExpense",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "expense_type": {
+      "type": "string",
+      "enum": [
+        "fuel",
+        "insurance",
+        "repair",
+        "cleaning",
+        "registration",
+        "toll",
+        "parking",
+        "other"
+      ],
+      "default": "other"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "description": {
+      "type": "string"
+    },
+    "receipt_url": {
+      "type": "string"
+    },
+    "reimbursable": {
+      "type": "boolean",
+      "default": false
+    },
+    "category": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id",
+    "amount",
+    "date",
+    "expense_type"
+  ]
+}

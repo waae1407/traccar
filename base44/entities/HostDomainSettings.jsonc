@@ -1,0 +1,80 @@
+{
+  "name": "HostDomainSettings",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "business_slug": {
+      "type": "string"
+    },
+    "default_public_url": {
+      "type": "string"
+    },
+    "custom_domain": {
+      "type": "string"
+    },
+    "domain_provider": {
+      "type": "string"
+    },
+    "domain_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "pending",
+        "verified",
+        "failed",
+        "suspended"
+      ],
+      "default": "none"
+    },
+    "ssl_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "pending",
+        "active",
+        "failed"
+      ],
+      "default": "none"
+    },
+    "selected_url_type": {
+      "type": "string",
+      "enum": [
+        "default",
+        "custom_domain"
+      ],
+      "default": "default"
+    },
+    "go_live_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "preview",
+        "live",
+        "suspended"
+      ],
+      "default": "draft"
+    },
+    "dns_record_type": {
+      "type": "string",
+      "default": "CNAME"
+    },
+    "dns_record_name": {
+      "type": "string",
+      "default": "www"
+    },
+    "dns_target_value": {
+      "type": "string",
+      "default": "uridehub.com"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "host_id",
+    "business_slug"
+  ]
+}

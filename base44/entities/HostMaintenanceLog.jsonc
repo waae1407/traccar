@@ -1,0 +1,71 @@
+{
+  "name": "HostMaintenanceLog",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "service_type": {
+      "type": "string",
+      "enum": [
+        "oil_change",
+        "tire_rotation",
+        "brake_service",
+        "inspection",
+        "wash",
+        "tire_replacement",
+        "battery",
+        "ac_service",
+        "other"
+      ],
+      "default": "oil_change"
+    },
+    "cost": {
+      "type": "number"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "mileage_at_service": {
+      "type": "number"
+    },
+    "next_service_mileage": {
+      "type": "number"
+    },
+    "next_service_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "shop_name": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "receipt_url": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scheduled",
+        "completed",
+        "overdue"
+      ],
+      "default": "completed"
+    }
+  },
+  "required": [
+    "host_id",
+    "vehicle_id",
+    "service_type",
+    "date"
+  ]
+}

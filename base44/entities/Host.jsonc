@@ -27,9 +27,19 @@
       ],
       "default": "pending"
     },
+    "host_type": {
+      "type": "string",
+      "enum": [
+        "single_host",
+        "fleet_host",
+        "pro_host",
+        "enterprise"
+      ],
+      "default": "single_host"
+    },
     "commission_rate": {
       "type": "number",
-      "default": 0.2
+      "default": 0.08
     },
     "stripe_account_id": {
       "type": "string"
@@ -52,6 +62,14 @@
       "default": 100,
       "description": "0-100 reliability rating"
     },
+    "store_score": {
+      "type": "number",
+      "default": 0
+    },
+    "store_published": {
+      "type": "boolean",
+      "default": false
+    },
     "total_vehicles": {
       "type": "number",
       "default": 0
@@ -64,7 +82,35 @@
       "type": "number",
       "default": 0
     },
+    "storefront_views": {
+      "type": "number",
+      "default": 0
+    },
+    "storefront_conversions": {
+      "type": "number",
+      "default": 0
+    },
     "av_deployment_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "badge_top_earner": {
+      "type": "boolean",
+      "default": false
+    },
+    "badge_fleet_first": {
+      "type": "boolean",
+      "default": false
+    },
+    "badge_five_star": {
+      "type": "boolean",
+      "default": false
+    },
+    "badge_av_pioneer": {
+      "type": "boolean",
+      "default": false
+    },
+    "badge_compliance_king": {
       "type": "boolean",
       "default": false
     },

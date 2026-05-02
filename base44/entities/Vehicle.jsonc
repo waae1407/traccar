@@ -136,6 +136,41 @@
     "weekly_rate": {
       "type": "number"
     },
+    "daily_rate": {
+      "type": "number"
+    },
+    "monthly_rate": {
+      "type": "number"
+    },
+    "minimum_rental_days": {
+      "type": "number",
+      "default": 7
+    },
+    "maximum_rental_days": {
+      "type": "number"
+    },
+    "rental_duration_type": {
+      "type": "string",
+      "enum": [
+        "daily",
+        "weekly",
+        "monthly",
+        "custom"
+      ],
+      "default": "weekly"
+    },
+    "allow_daily_booking": {
+      "type": "boolean",
+      "default": false
+    },
+    "allow_weekly_booking": {
+      "type": "boolean",
+      "default": true
+    },
+    "allow_monthly_booking": {
+      "type": "boolean",
+      "default": false
+    },
     "rent_to_own_eligible": {
       "type": "boolean",
       "default": false
