@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Link } from "react-router-dom";
-import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight } from "lucide-react";
+import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight, Sparkles, Users, BarChart2, Wrench } from "lucide-react";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg }) => (
   <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-all">
@@ -67,6 +67,17 @@ export default function HostDashboard() {
     </div>
   );
 
+  // Onboarding checklist steps
+  const onboardingSteps = [
+    { id: 1, label: "Application approved", done: host.status === "approved", href: null, icon: CheckCircle2 },
+    { id: 2, label: "Connect Stripe for payouts", done: !!host.stripe_onboarding_complete, href: "/host/payouts", icon: DollarSign, cta: "Connect →" },
+    { id: 3, label: "Add your first vehicle", done: vehicles.length > 0, href: "/host/vehicles", icon: Car, cta: "Add Vehicle →" },
+    { id: 4, label: "Upload compliance documents", done: compliance.length > 0, href: "/host/compliance", icon: Shield, cta: "Upload Docs →" },
+    { id: 5, label: "Build your brand storefront", done: !!host.store_published, href: "/host/brand", icon: Sparkles, cta: "Build Store →" },
+  ];
+  const completedSteps = onboardingSteps.filter(s => s.done).length;
+  const onboardingDone = completedSteps === onboardingSteps.length;
+
   return (
     <div className="space-y-5">
       {/* Premium header */}
@@ -82,6 +93,35 @@ export default function HostDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Checklist */}
+      {!onboardingDone && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-bold text-gray-900 text-sm">🚀 Get Started — {completedSteps}/{onboardingSteps.length} complete</h3>
+            <span className="text-xs font-bold text-pink-600">{Math.round((completedSteps / onboardingSteps.length) * 100)}%</span>
+          </div>
+          <div className="h-1.5 rounded-full bg-gray-100 mb-4">
+            <div className="h-full rounded-full transition-all" style={{ width: `${(completedSteps / onboardingSteps.length) * 100}%`, background: "linear-gradient(90deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />
+          </div>
+          <div className="space-y-2">
+            {onboardingSteps.map((step, i) => (
+              <div key={step.id} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${step.done ? "bg-emerald-50" : "bg-gray-50 border border-gray-100"}`}>
+                <div className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? "bg-emerald-500" : "bg-gray-200"}`}>
+                  {step.done ? <CheckCircle2 className="h-4 w-4 text-white" /> : <span className="text-xs font-bold text-gray-500">{i + 1}</span>}
+                </div>
+                <p className={`text-sm flex-1 ${step.done ? "text-emerald-700 font-semibold line-through decoration-emerald-300" : "text-gray-700 font-medium"}`}>{step.label}</p>
+                {!step.done && step.href && (
+                  <a href={step.href} className="text-xs font-bold px-3 py-1 rounded-lg text-white flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+                    {step.cta}
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Alerts */}
       {!host.stripe_onboarding_complete && (
@@ -168,8 +208,10 @@ export default function HostDashboard() {
         {[
           { label: "Add Vehicle", href: "/host/vehicles", icon: Car, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "View Payouts", href: "/host/payouts", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Upload Docs", href: "/host/compliance", icon: Shield, color: "text-orange-600", bg: "bg-orange-50" },
-          { label: "Fleet Insights", href: "/host/fleet-insights", icon: TrendingUp, color: "text-pink-600", bg: "bg-pink-50" },
+          { label: "Brand Builder", href: "/host/brand", icon: Sparkles, color: "text-pink-600", bg: "bg-pink-50" },
+          { label: "Reports", href: "/host/reports", icon: BarChart2, color: "text-violet-600", bg: "bg-violet-50" },
+          { label: "Maintenance", href: "/host/maintenance", icon: Wrench, color: "text-orange-600", bg: "bg-orange-50" },
+          { label: "Customers", href: "/host/customers", icon: Users, color: "text-teal-600", bg: "bg-teal-50" },
         ].map(item => (
           <Link key={item.href} to={item.href}
             className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 bg-white hover:border-pink-200 hover:shadow-sm transition-all group">
