@@ -7,11 +7,12 @@ const LOGO = "https://media.base44.com/images/public/user_68d033161412d5b125c58f
 
 export default function HomeTopBar({ user, city, onCityChange }) {
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-5 h-16 flex items-center justify-between max-w-2xl mx-auto w-full">
+    <header className="sticky top-0 z-40 px-5 h-16 flex items-center justify-between max-w-2xl mx-auto w-full"
+      style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
       {/* Logo + wordmark */}
-      <div className="flex items-center gap-2">
-        <img src={LOGO} alt="uRide" className="h-8 w-8 rounded-xl object-cover" />
-        <span className="font-bold text-gray-900 text-lg tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>
+      <div className="flex items-center gap-2.5">
+        <img src={LOGO} alt="uRide" className="h-8 w-8 rounded-xl object-cover shadow-sm" />
+        <span className="font-black text-gray-900 text-lg tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>
           uRide
         </span>
       </div>
@@ -23,7 +24,7 @@ export default function HomeTopBar({ user, city, onCityChange }) {
         <Link to="/account">
           {user ? (
             <div
-              className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white ml-1"
+              className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white ml-1 shadow-sm"
               style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
             >
               {user.full_name?.charAt(0) || "U"}

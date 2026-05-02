@@ -11,9 +11,9 @@ export default function CustomerLayout() {
   const [city, setCity] = useState(user?.preferred_city || "");
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
+    <div className="min-h-screen" style={{ background: "#f8f8fa", fontFamily: "var(--font-inter)" }}>
       {!isBookNow && <CustomerTopBar user={user} city={city} onCityChange={() => {}} />}
-      <main className="w-full max-w-2xl mx-auto pb-24 md:pb-12">
+      <main className="w-full max-w-2xl mx-auto pb-28 md:pb-12">
         <Outlet context={{ user, city, setCity }} />
       </main>
       {/* Bottom nav only on mobile */}

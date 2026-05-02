@@ -6,10 +6,10 @@ import { Link } from "react-router-dom";
 import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight } from "lucide-react";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg }) => (
-  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+  <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-all">
     <div className="flex items-center justify-between mb-3">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-      <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${bg}`}>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
+      <div className={`h-9 w-9 rounded-2xl flex items-center justify-center ${bg}`}>
         <Icon className={`h-4 w-4 ${color}`} />
       </div>
     </div>
@@ -69,11 +69,18 @@ export default function HostDashboard() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>
-          Welcome back, {host.full_name?.split(" ")[0]}!
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">Here's your fleet performance overview</p>
+      {/* Premium header */}
+      <div className="rounded-3xl overflow-hidden -mx-1" style={{ background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" }}>
+        <div className="relative px-6 py-6">
+          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 20%, hsl(338 90% 56% / 0.25) 0%, transparent 60%)" }} />
+          <div className="relative z-10">
+            <p className="text-white/50 text-xs font-bold uppercase tracking-wider mb-1">Host Portal</p>
+            <h1 className="text-2xl font-black text-white mb-1" style={{ fontFamily: "var(--font-syne)" }}>
+              Welcome back, {host.full_name?.split(" ")[0]}!
+            </h1>
+            <p className="text-white/50 text-sm">Here's your fleet performance</p>
+          </div>
+        </div>
       </div>
 
       {/* Alerts */}
