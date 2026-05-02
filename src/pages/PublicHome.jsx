@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
-import { Car, Home, Settings, ArrowRight, Zap, Shield, TrendingUp, ChevronRight } from "lucide-react";
+import { Car, Home, Settings, ArrowRight, Zap, ChevronRight, Star, Shield, TrendingUp } from "lucide-react";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -17,19 +17,17 @@ export default function PublicHome() {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
-      {/* Top Nav — matches CustomerTopBar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100">
-        <div className="w-full max-w-2xl mx-auto px-5 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-white" style={{ fontFamily: "var(--font-inter)" }}>
+      {/* NAV */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
+        <div className="max-w-lg mx-auto px-5 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={LOGO_ICON} alt="uRide" className="h-8 w-8 rounded-xl object-cover" />
-            <span className="font-bold text-gray-900 text-lg tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>
-              uRide
-            </span>
+            <img src={LOGO_ICON} alt="uRide" className="h-7 w-7 rounded-lg object-cover" />
+            <span className="font-black text-gray-900 text-base tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>uRide</span>
           </div>
           <button
             onClick={() => base44.auth.redirectToLogin(window.location.href)}
-            className="px-4 py-2 rounded-full text-sm font-semibold text-white"
+            className="px-4 py-1.5 rounded-full text-sm font-bold text-white shadow-sm"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
           >
             Sign In
@@ -37,133 +35,170 @@ export default function PublicHome() {
         </div>
       </header>
 
-      <main className="w-full max-w-2xl mx-auto pb-12">
-        {/* Hero */}
-        <div className="px-5 pt-8 pb-6 text-center">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-pink-50 border border-pink-100 text-pink-600 text-xs font-semibold mb-4">
+      {/* HERO */}
+      <div className="relative overflow-hidden" style={{ background: "linear-gradient(160deg, hsl(338 90% 56%) 0%, hsl(265 80% 55%) 60%, hsl(240 70% 45%) 100%)" }}>
+        {/* Decorative blobs */}
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-20" style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translate(30%, -30%)" }} />
+        <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translate(-30%, 30%)" }} />
+
+        <div className="max-w-lg mx-auto px-5 pt-10 pb-12 text-center relative z-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-semibold mb-5">
             <Zap className="h-3 w-3" /> Powered by Stripe Connect
           </div>
-          <h1 className="text-3xl font-black text-gray-900 mb-3 leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
-            The Future of<br />
-            <span style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-              Vehicle Monetization
-            </span>
+          <h1 className="text-4xl font-black text-white leading-[1.1] mb-4" style={{ fontFamily: "var(--font-syne)" }}>
+            Drive More.<br />Earn More.<br />Own More.
           </h1>
-          <p className="text-gray-400 text-sm max-w-xs mx-auto leading-relaxed">
-            Rent, own, or deploy your fleet. uRide connects operators, hosts, and admins on one platform.
+          <p className="text-white/75 text-sm leading-relaxed max-w-xs mx-auto mb-8">
+            Weekly rentals for drivers. Passive income for fleet owners. One unified platform.
           </p>
+
+          {/* Trust row */}
+          <div className="flex items-center justify-center gap-4 text-white/80 text-xs">
+            {["4.9★ rated", "No credit check", "Cancel anytime"].map((t, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {i > 0 && <span className="text-white/30">·</span>}
+                {t}
+              </span>
+            ))}
+          </div>
         </div>
 
-        {/* Profile Cards */}
-        <div className="px-4 space-y-3">
-          {/* Renter Card */}
-          <Link to="/book-now" className="block bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all active:scale-[0.99]">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                <Car className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-bold text-gray-900 text-base">I Need a Car</h2>
-                  <ChevronRight className="h-4 w-4 text-gray-300 flex-shrink-0" />
-                </div>
-                <p className="text-xs font-semibold text-pink-600 mb-2">Renter / Operator</p>
-                <p className="text-sm text-gray-500 leading-relaxed mb-3">
-                  Weekly rentals and rent-to-own programs. No credit check. Get on the road in 24 hours.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {["$0 deposit", "Uber & Lyft ready", "Rent-to-Own", "Cancel anytime"].map(tag => (
-                    <span key={tag} className="px-2.5 py-1 rounded-full bg-pink-50 text-pink-600 text-xs font-semibold">{tag}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Link>
-
-          {/* Host Card */}
-          <Link to="/become-a-host" className="block bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all active:scale-[0.99]">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-emerald-500">
-                <Home className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-bold text-gray-900 text-base">I Own Vehicles</h2>
-                  <ChevronRight className="h-4 w-4 text-gray-300 flex-shrink-0" />
-                </div>
-                <p className="text-xs font-semibold text-emerald-600 mb-2">Host / Fleet Owner</p>
-                <p className="text-sm text-gray-500 leading-relaxed mb-3">
-                  Turn your vehicles into passive income. We handle renters and payments — you keep 80%.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {["80% revenue", "Auto payouts", "AV-ready", "We handle renters"].map(tag => (
-                    <span key={tag} className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-semibold">{tag}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Link>
-
-          {/* Admin Card */}
-          <Link to="/dashboard" className="block bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-all active:scale-[0.99]">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 bg-violet-500">
-                <Settings className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-bold text-gray-900 text-base">Platform Admin</h2>
-                  <ChevronRight className="h-4 w-4 text-gray-300 flex-shrink-0" />
-                </div>
-                <p className="text-xs font-semibold text-violet-600 mb-2">uRide Staff</p>
-                <p className="text-sm text-gray-500 leading-relaxed mb-3">
-                  Full platform control — hosts, renters, vehicles, payouts, compliance, and analytics.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {["Host approvals", "Payouts", "CRM", "Reports"].map(tag => (
-                    <span key={tag} className="px-2.5 py-1 rounded-full bg-violet-50 text-violet-600 text-xs font-semibold">{tag}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Link>
+        {/* Wave divider */}
+        <div className="h-8 relative">
+          <svg viewBox="0 0 375 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute bottom-0 w-full" preserveAspectRatio="none">
+            <path d="M0 32L375 32L375 8C300 28 180 2 0 20L0 32Z" fill="white"/>
+          </svg>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="mx-4 mt-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="grid grid-cols-3 gap-4 text-center divide-x divide-gray-100">
+      {/* MAIN CONTENT */}
+      <div className="max-w-lg mx-auto px-4 pb-16 -mt-1">
+
+        {/* Primary CTA */}
+        <Link to="/book-now"
+          className="flex items-center justify-between w-full p-5 rounded-2xl mb-3 shadow-lg overflow-hidden relative"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          {/* bg decoration */}
+          <div className="absolute right-0 top-0 bottom-0 w-32 opacity-20" style={{ background: "radial-gradient(circle at 100% 50%, white 0%, transparent 70%)" }} />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-7 w-7 rounded-lg bg-white/20 flex items-center justify-center">
+                <Car className="h-3.5 w-3.5 text-white" />
+              </div>
+              <span className="text-xs font-bold text-white/80 uppercase tracking-wider">For Drivers</span>
+            </div>
+            <h2 className="text-xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>I Need a Car</h2>
+            <p className="text-white/70 text-xs mt-1">On the road in 24 hrs · No credit check</p>
+            <div className="flex gap-2 mt-3">
+              {["$0 deposit", "Uber ready", "RTO available"].map(tag => (
+                <span key={tag} className="px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-semibold">{tag}</span>
+              ))}
+            </div>
+          </div>
+          <div className="relative z-10 h-10 w-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+            <ArrowRight className="h-5 w-5 text-white" />
+          </div>
+        </Link>
+
+        {/* Host card */}
+        <Link to="/become-a-host"
+          className="flex items-center justify-between w-full p-5 rounded-2xl mb-3 border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+          <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(circle at 0% 100%, hsl(152 60% 46%) 0%, transparent 60%)" }} />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-7 w-7 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <Home className="h-3.5 w-3.5 text-emerald-600" />
+              </div>
+              <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">For Fleet Owners</span>
+            </div>
+            <h2 className="text-xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>I Own Vehicles</h2>
+            <p className="text-gray-400 text-xs mt-1">We handle renters · You keep 80%</p>
+            <div className="flex gap-2 mt-3">
+              {["80% revenue", "Auto payouts", "AV-ready"].map(tag => (
+                <span key={tag} className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold">{tag}</span>
+              ))}
+            </div>
+          </div>
+          <div className="relative z-10 h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <ArrowRight className="h-5 w-5 text-gray-400" />
+          </div>
+        </Link>
+
+        {/* Admin card */}
+        <Link to="/dashboard"
+          className="flex items-center justify-between w-full p-5 rounded-2xl mb-6 border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all relative overflow-hidden">
+          <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(circle at 0% 100%, hsl(265 80% 62%) 0%, transparent 60%)" }} />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="h-7 w-7 rounded-lg bg-violet-100 flex items-center justify-center">
+                <Settings className="h-3.5 w-3.5 text-violet-600" />
+              </div>
+              <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">Platform Staff</span>
+            </div>
+            <h2 className="text-xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Admin Portal</h2>
+            <p className="text-gray-400 text-xs mt-1">Hosts · Renters · Payouts · Reports</p>
+          </div>
+          <div className="relative z-10 h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <ArrowRight className="h-5 w-5 text-gray-400" />
+          </div>
+        </Link>
+
+        {/* Stats strip */}
+        <div className="rounded-2xl overflow-hidden mb-6" style={{ background: "linear-gradient(135deg, hsl(222 28% 10%), hsl(265 40% 15%))" }}>
+          <div className="grid grid-cols-3 divide-x divide-white/10">
             {[
-              { label: "You keep", value: "80%", sub: "Platform takes 20%" },
-              { label: "Payout speed", value: "2 days", sub: "Via Stripe Connect" },
-              { label: "Tax auto", value: "1099-K", sub: "Stripe handles it" },
+              { value: "80%", label: "You keep", sub: "per rental" },
+              { value: "2 days", label: "Payout speed", sub: "via Stripe" },
+              { value: "1099-K", label: "Tax auto", sub: "Stripe files it" },
             ].map((s, i) => (
-              <div key={i} className="px-2">
-                <p className="text-lg font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{s.value}</p>
-                <p className="text-xs font-semibold text-gray-700 mt-0.5">{s.label}</p>
-                <p className="text-[10px] text-gray-400">{s.sub}</p>
+              <div key={i} className="px-3 py-4 text-center">
+                <p className="text-lg font-black text-white leading-none" style={{ fontFamily: "var(--font-syne)" }}>{s.value}</p>
+                <p className="text-[10px] font-semibold text-white/60 mt-1">{s.label}</p>
+                <p className="text-[9px] text-white/30">{s.sub}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* CTA */}
-        <div className="px-4 mt-4">
-          <Link to="/book-now" className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl font-bold text-white text-sm shadow-sm"
-            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-            Browse Available Cars <ArrowRight className="h-4 w-4" />
-          </Link>
+        {/* Feature pills */}
+        <div className="mb-6">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">Why uRide?</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { icon: Shield, label: "Verified Renters", desc: "ID & income checks", color: "text-blue-600", bg: "bg-blue-50" },
+              { icon: Zap, label: "Instant Setup", desc: "Live in 24 hours", color: "text-yellow-600", bg: "bg-yellow-50" },
+              { icon: TrendingUp, label: "AV-Ready Fleet", desc: "Future-proof your cars", color: "text-violet-600", bg: "bg-violet-50" },
+              { icon: Star, label: "4.9★ Platform", desc: "Trusted by hundreds", color: "text-pink-600", bg: "bg-pink-50" },
+            ].map((f, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-white">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${f.bg}`}>
+                  <f.icon className={`h-4 w-4 ${f.color}`} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-900">{f.label}</p>
+                  <p className="text-[10px] text-gray-400">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
+        {/* Bottom CTA */}
+        <Link to="/book-now"
+          className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl font-bold text-white text-sm shadow-md mb-4"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          Browse Available Cars <ArrowRight className="h-4 w-4" />
+        </Link>
+
         {/* Footer */}
-        <div className="flex items-center justify-center gap-4 px-5 pt-6 pb-2 text-xs text-gray-400">
-          <Link to="/privacy" className="hover:text-gray-600 transition-colors">Privacy</Link>
+        <div className="flex items-center justify-center gap-4 text-xs text-gray-300 pt-2">
+          <Link to="/privacy" className="hover:text-gray-500 transition-colors">Privacy</Link>
           <span>·</span>
-          <Link to="/terms" className="hover:text-gray-600 transition-colors">Terms</Link>
+          <Link to="/terms" className="hover:text-gray-500 transition-colors">Terms</Link>
           <span>·</span>
           <span>© {new Date().getFullYear()} uRide</span>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
