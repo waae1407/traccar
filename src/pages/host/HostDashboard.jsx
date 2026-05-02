@@ -5,16 +5,16 @@ import { useAuth } from "@/lib/AuthContext";
 import { Link } from "react-router-dom";
 import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight } from "lucide-react";
 
-const StatCard = ({ label, value, sub, icon: Icon, color }) => (
-  <div className="rounded-2xl border border-white/[0.08] p-5 glass">
+const StatCard = ({ label, value, sub, icon: Icon, color, bg }) => (
+  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
     <div className="flex items-center justify-between mb-3">
-      <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">{label}</p>
-      <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon className="h-4 w-4 text-white" />
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+      <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${bg}`}>
+        <Icon className={`h-4 w-4 ${color}`} />
       </div>
     </div>
-    <p className="text-2xl font-black text-white font-syne">{value}</p>
-    {sub && <p className="text-xs text-white/40 mt-1">{sub}</p>}
+    <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
+    {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
   </div>
 );
 
@@ -59,88 +59,96 @@ export default function HostDashboard() {
 
   if (!host) return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
-      <Clock className="h-12 w-12 text-white/20 mb-4" />
-      <h2 className="text-xl font-bold text-white mb-2">Application Pending</h2>
-      <p className="text-white/40 text-sm max-w-sm">Your host application is under review. You'll receive an email once approved with your Stripe Connect onboarding link.</p>
+      <div className="h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+        <Clock className="h-7 w-7 text-gray-400" />
+      </div>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">Application Pending</h2>
+      <p className="text-gray-400 text-sm max-w-sm">Your host application is under review. You'll receive an email once approved with your Stripe Connect onboarding link.</p>
     </div>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-black text-white font-syne">Welcome back, {host.full_name?.split(" ")[0]}!</h1>
-        <p className="text-white/40 text-sm mt-1">Here's your fleet performance overview</p>
+        <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>
+          Welcome back, {host.full_name?.split(" ")[0]}!
+        </h1>
+        <p className="text-gray-400 text-sm mt-1">Here's your fleet performance overview</p>
       </div>
 
-      {/* Stripe Connect alert */}
+      {/* Alerts */}
       {!host.stripe_onboarding_complete && (
-        <div className="p-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-yellow-200 bg-yellow-50">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0" />
+            <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
             <div>
-              <p className="text-sm font-bold text-yellow-300">Set Up Your Payouts</p>
-              <p className="text-xs text-yellow-400/70">Complete Stripe Connect onboarding to receive automatic payouts</p>
+              <p className="text-sm font-bold text-yellow-800">Set Up Your Payouts</p>
+              <p className="text-xs text-yellow-600">Complete Stripe Connect onboarding to receive automatic payouts</p>
             </div>
           </div>
-          <Link to="/host/payouts" className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white bg-yellow-500/20 border border-yellow-500/30 hover:bg-yellow-500/30 transition-all">
-            Set Up Now →
+          <Link to="/host/payouts" className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-yellow-800 bg-yellow-200 hover:bg-yellow-300 transition-all">
+            Set Up →
           </Link>
         </div>
       )}
 
-      {/* Compliance alert */}
       {expiringDocs.length > 0 && (
-        <div className="p-4 rounded-2xl border border-red-500/30 bg-red-500/10 flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-red-200 bg-red-50">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0" />
+            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
             <div>
-              <p className="text-sm font-bold text-red-300">{expiringDocs.length} Document{expiringDocs.length > 1 ? "s" : ""} Need Attention</p>
-              <p className="text-xs text-red-400/70">Insurance or registration documents expiring soon</p>
+              <p className="text-sm font-bold text-red-800">{expiringDocs.length} Document{expiringDocs.length > 1 ? "s" : ""} Need Attention</p>
+              <p className="text-xs text-red-600">Insurance or registration documents expiring soon</p>
             </div>
           </div>
-          <Link to="/host/compliance" className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-white bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 transition-all">
-            View Docs →
+          <Link to="/host/compliance" className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-red-800 bg-red-200 hover:bg-red-300 transition-all">
+            View →
           </Link>
         </div>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Pending Payout" value={`$${pendingPayout.toLocaleString()}`} sub="Next transfer" icon={DollarSign} color="bg-green-500/20" />
-        <StatCard label="Total Earned" value={`$${totalEarned.toLocaleString()}`} sub="All time" icon={TrendingUp} color="bg-primary/20" />
-        <StatCard label="Active Vehicles" value={vehicles.filter(v => v.status === "Booked" || v.status === "Available").length} sub={`of ${vehicles.length} total`} icon={Car} color="bg-blue-500/20" />
-        <StatCard label="Active Rentals" value={activeBookings.length} sub="Operators on road" icon={CheckCircle2} color="bg-purple-500/20" />
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Pending Payout" value={`$${pendingPayout.toLocaleString()}`} sub="Next transfer" icon={DollarSign} color="text-emerald-600" bg="bg-emerald-50" />
+        <StatCard label="Total Earned" value={`$${totalEarned.toLocaleString()}`} sub="All time" icon={TrendingUp} color="text-pink-600" bg="bg-pink-50" />
+        <StatCard label="Active Vehicles" value={vehicles.filter(v => v.status === "Booked" || v.status === "Available").length} sub={`of ${vehicles.length} total`} icon={Car} color="text-blue-600" bg="bg-blue-50" />
+        <StatCard label="Active Rentals" value={activeBookings.length} sub="Operators on road" icon={CheckCircle2} color="text-violet-600" bg="bg-violet-50" />
       </div>
 
       {/* Fleet Score */}
-      <div className="rounded-2xl border border-white/[0.08] p-6 glass">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-white">Fleet Score</h3>
-          <span className="text-2xl font-black gradient-text font-syne">{host.fleet_score || 100}/100</span>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-bold text-gray-900">Fleet Score</h3>
+            <p className="text-xs text-gray-400">Compliance, payments & satisfaction</p>
+          </div>
+          <span className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{host.fleet_score || 100}<span className="text-base text-gray-400 font-semibold">/100</span></span>
         </div>
-        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full rounded-full gradient-primary transition-all" style={{ width: `${host.fleet_score || 100}%` }} />
+        <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-full rounded-full transition-all"
+            style={{ width: `${host.fleet_score || 100}%`, background: "linear-gradient(90deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />
         </div>
-        <p className="text-xs text-white/30 mt-2">Fleet score reflects compliance, payment history, and operator satisfaction</p>
       </div>
 
       {/* Active Rentals */}
       {activeBookings.length > 0 && (
-        <div className="rounded-2xl border border-white/[0.08] p-6 glass">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-white">Active Rentals</h3>
-            <Link to="/host/vehicles" className="text-xs text-primary hover:text-primary/80 flex items-center gap-1">View all <ArrowRight className="h-3 w-3" /></Link>
+            <h3 className="font-bold text-gray-900">Active Rentals</h3>
+            <Link to="/host/vehicles" className="text-xs font-semibold text-pink-600 hover:text-pink-700 flex items-center gap-1">
+              View all <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
           <div className="space-y-3">
             {activeBookings.slice(0, 5).map(b => (
-              <div key={b.id} className="flex items-center justify-between py-2 border-b border-white/[0.06] last:border-0">
+              <div key={b.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div>
-                  <p className="text-sm font-semibold text-white">{b.vehicle_name}</p>
-                  <p className="text-xs text-white/40">{b.customer_full_name || b.user_email}</p>
+                  <p className="text-sm font-semibold text-gray-900">{b.vehicle_name}</p>
+                  <p className="text-xs text-gray-400">{b.customer_full_name || b.user_email}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-green-400">${b.weekly_rate}/wk</p>
-                  <p className="text-xs text-white/40 capitalize">{b.booking_status}</p>
+                  <p className="text-sm font-bold text-emerald-600">${b.weekly_rate}/wk</p>
+                  <p className="text-xs text-gray-400 capitalize">{b.booking_status}</p>
                 </div>
               </div>
             ))}
@@ -149,17 +157,19 @@ export default function HostDashboard() {
       )}
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[
-          { label: "Add Vehicle", href: "/host/vehicles", icon: Car },
-          { label: "View Payouts", href: "/host/payouts", icon: DollarSign },
-          { label: "Upload Docs", href: "/host/compliance", icon: Shield },
-          { label: "Fleet Insights", href: "/host/fleet-insights", icon: TrendingUp },
+          { label: "Add Vehicle", href: "/host/vehicles", icon: Car, color: "text-blue-600", bg: "bg-blue-50" },
+          { label: "View Payouts", href: "/host/payouts", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
+          { label: "Upload Docs", href: "/host/compliance", icon: Shield, color: "text-orange-600", bg: "bg-orange-50" },
+          { label: "Fleet Insights", href: "/host/fleet-insights", icon: TrendingUp, color: "text-pink-600", bg: "bg-pink-50" },
         ].map(item => (
           <Link key={item.href} to={item.href}
-            className="flex items-center gap-3 p-4 rounded-2xl border border-white/[0.08] hover:border-primary/30 bg-white/[0.02] hover:bg-primary/5 transition-all group">
-            <item.icon className="h-5 w-5 text-white/30 group-hover:text-primary transition-colors" />
-            <span className="text-sm font-medium text-white/60 group-hover:text-white transition-colors">{item.label}</span>
+            className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 bg-white hover:border-pink-200 hover:shadow-sm transition-all group">
+            <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${item.bg}`}>
+              <item.icon className={`h-4 w-4 ${item.color}`} />
+            </div>
+            <span className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 transition-colors">{item.label}</span>
           </Link>
         ))}
       </div>

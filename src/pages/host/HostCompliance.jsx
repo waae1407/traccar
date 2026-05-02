@@ -2,15 +2,15 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Shield, Upload, AlertTriangle, CheckCircle2, Clock, Plus } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle2, Clock, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const statusConfig = {
-  valid: { label: "Valid", color: "bg-green-500/20 text-green-400", icon: CheckCircle2 },
-  expiring_soon: { label: "Expiring Soon", color: "bg-yellow-500/20 text-yellow-400", icon: AlertTriangle },
-  expired: { label: "Expired", color: "bg-red-500/20 text-red-400", icon: AlertTriangle },
-  pending_review: { label: "Pending Review", color: "bg-blue-500/20 text-blue-400", icon: Clock },
+  valid: { label: "Valid", color: "text-emerald-600", bg: "bg-emerald-50", icon: CheckCircle2 },
+  expiring_soon: { label: "Expiring Soon", color: "text-yellow-600", bg: "bg-yellow-50", icon: AlertTriangle },
+  expired: { label: "Expired", color: "text-red-600", bg: "bg-red-50", icon: AlertTriangle },
+  pending_review: { label: "Pending Review", color: "text-blue-600", bg: "bg-blue-50", icon: Clock },
 };
 
 const docTypeLabels = { insurance: "Insurance", registration: "Registration", inspection: "Inspection", title: "Title" };
@@ -57,60 +57,64 @@ export default function HostCompliance() {
   const expiring = docs.filter(d => d.status === "expiring_soon" || d.status === "expired");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-white font-syne">Compliance Documents</h1>
-          <p className="text-white/40 text-sm mt-1">Keep your insurance, registration, and inspection docs current</p>
+          <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Compliance</h1>
+          <p className="text-gray-400 text-sm mt-1">Insurance, registration & inspection docs</p>
         </div>
-        <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white gradient-primary hover:opacity-90">
-          <Plus className="h-4 w-4" /> Upload Document
+        <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          <Plus className="h-4 w-4" /> Upload
         </button>
       </div>
 
       {expiring.length > 0 && (
-        <div className="p-4 rounded-2xl border border-red-500/30 bg-red-500/10">
-          <div className="flex items-center gap-3 mb-3">
-            <AlertTriangle className="h-5 w-5 text-red-400" />
-            <p className="font-bold text-red-300">{expiring.length} document{expiring.length > 1 ? "s" : ""} need attention</p>
+        <div className="p-4 rounded-2xl border border-red-200 bg-red-50">
+          <div className="flex items-center gap-3 mb-2">
+            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <p className="font-bold text-red-800 text-sm">{expiring.length} document{expiring.length > 1 ? "s" : ""} need attention</p>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1">
             {expiring.map(d => (
-              <p key={d.id} className="text-sm text-red-400/70">• {d.vehicle_name} — {docTypeLabels[d.doc_type]} ({d.status === "expired" ? "EXPIRED" : `expires ${d.expiry_date}`})</p>
+              <p key={d.id} className="text-xs text-red-600">• {d.vehicle_name} — {docTypeLabels[d.doc_type]} ({d.status === "expired" ? "EXPIRED" : `expires ${d.expiry_date}`})</p>
             ))}
           </div>
         </div>
       )}
 
       {isLoading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-20 rounded-2xl bg-white/[0.04] animate-pulse" />)}</div>
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 rounded-2xl bg-gray-100 animate-pulse" />)}</div>
       ) : docs.length === 0 ? (
-        <div className="text-center py-20">
-          <Shield className="h-12 w-12 text-white/20 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-white mb-2">No documents uploaded</h3>
-          <p className="text-white/40 text-sm mb-6">Upload insurance, registration, and inspection docs for each vehicle</p>
-          <button onClick={() => setOpen(true)} className="px-6 py-3 rounded-xl text-sm font-bold text-white gradient-primary">Upload First Document</button>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+            <Shield className="h-7 w-7 text-gray-400" />
+          </div>
+          <h3 className="font-bold text-gray-900 text-lg mb-2">No documents yet</h3>
+          <p className="text-gray-400 text-sm mb-5">Upload insurance, registration, and inspection docs for each vehicle</p>
+          <button onClick={() => setOpen(true)} className="px-6 py-2.5 rounded-xl text-sm font-bold text-white"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Upload First Document</button>
         </div>
       ) : (
-        <div className="rounded-2xl border border-white/[0.08] glass overflow-hidden">
-          <div className="divide-y divide-white/[0.06]">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="divide-y divide-gray-50">
             {docs.map(d => {
               const cfg = statusConfig[d.status] || statusConfig.pending_review;
               const Icon = cfg.icon;
               return (
-                <div key={d.id} className="px-6 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${cfg.color}`}>
-                      <Icon className="h-5 w-5" />
+                <div key={d.id} className="px-5 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${cfg.bg}`}>
+                      <Icon className={`h-5 w-5 ${cfg.color}`} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white">{d.vehicle_name}</p>
-                      <p className="text-xs text-white/40">{docTypeLabels[d.doc_type]} {d.expiry_date ? `· Expires ${d.expiry_date}` : ""}</p>
+                      <p className="text-sm font-semibold text-gray-900">{d.vehicle_name}</p>
+                      <p className="text-xs text-gray-400">{docTypeLabels[d.doc_type]}{d.expiry_date ? ` · Expires ${d.expiry_date}` : ""}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {d.doc_url && <a href={d.doc_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:text-primary/80">View</a>}
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.color}`}>{cfg.label}</span>
+                    {d.doc_url && <a href={d.doc_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-pink-600 hover:text-pink-700">View</a>}
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                   </div>
                 </div>
               );
@@ -120,39 +124,41 @@ export default function HostCompliance() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md border-white/[0.08] text-white" style={{ background: "hsl(222 28% 9%)" }}>
-          <DialogHeader><DialogTitle className="font-syne text-white">Upload Document</DialogTitle></DialogHeader>
+        <DialogContent className="max-w-md bg-white border-gray-200">
+          <DialogHeader><DialogTitle className="text-gray-900">Upload Document</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             <div>
-              <label className="block text-xs text-white/40 mb-1.5">Vehicle *</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Vehicle *</label>
               <Select value={form.vehicle_id} onValueChange={v => setForm(p => ({ ...p, vehicle_id: v }))}>
-                <SelectTrigger className="rounded-xl bg-white/[0.06] border-white/10 text-white"><SelectValue placeholder="Select vehicle" /></SelectTrigger>
-                <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
+                <SelectTrigger className="rounded-xl bg-gray-50 border-gray-200 text-gray-900"><SelectValue placeholder="Select vehicle" /></SelectTrigger>
+                <SelectContent>
                   {vehicles.map(v => <SelectItem key={v.id} value={v.id}>{v.year} {v.make} {v.model}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="block text-xs text-white/40 mb-1.5">Document Type *</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Document Type *</label>
               <Select value={form.doc_type} onValueChange={v => setForm(p => ({ ...p, doc_type: v }))}>
-                <SelectTrigger className="rounded-xl bg-white/[0.06] border-white/10 text-white"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
+                <SelectTrigger className="rounded-xl bg-gray-50 border-gray-200 text-gray-900"><SelectValue /></SelectTrigger>
+                <SelectContent>
                   {Object.entries(docTypeLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="block text-xs text-white/40 mb-1.5">Expiry Date</label>
-              <input type="date" className="w-full px-4 py-3 rounded-xl bg-white/[0.06] border border-white/10 text-white focus:outline-none focus:border-primary/50 text-sm" value={form.expiry_date} onChange={e => setForm(p => ({ ...p, expiry_date: e.target.value }))} />
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Expiry Date</label>
+              <input type="date" className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 focus:outline-none focus:border-pink-400 text-sm"
+                value={form.expiry_date} onChange={e => setForm(p => ({ ...p, expiry_date: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-xs text-white/40 mb-1.5">Upload File *</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Upload File *</label>
               <input type="file" accept=".pdf,.jpg,.jpeg,.png" required onChange={e => setForm(p => ({ ...p, file: e.target.files[0] }))}
-                className="w-full text-sm text-white/60 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-primary/20 file:text-primary hover:file:bg-primary/30" />
+                className="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100" />
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl text-sm text-white/60 bg-white/[0.06] border border-white/[0.08]">Cancel</button>
-              <button type="submit" disabled={uploading || saveMutation.isPending} className="px-4 py-2 rounded-xl text-sm font-bold text-white gradient-primary disabled:opacity-50">
+              <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200">Cancel</button>
+              <button type="submit" disabled={uploading || saveMutation.isPending} className="px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                 {uploading ? "Uploading..." : "Upload"}
               </button>
             </div>

@@ -5,10 +5,10 @@ import { useAuth } from "@/lib/AuthContext";
 import { FileKey, TrendingUp, DollarSign, CheckCircle2 } from "lucide-react";
 
 const statusColors = {
-  Active: "bg-green-500/20 text-green-400",
-  "At Risk": "bg-yellow-500/20 text-yellow-400",
-  Completed: "bg-blue-500/20 text-blue-400",
-  Cancelled: "bg-red-500/20 text-red-400",
+  Active: "bg-emerald-50 text-emerald-600",
+  "At Risk": "bg-yellow-50 text-yellow-600",
+  Completed: "bg-blue-50 text-blue-600",
+  Cancelled: "bg-red-50 text-red-600",
 };
 
 export default function HostRTO() {
@@ -27,34 +27,36 @@ export default function HostRTO() {
   const totalCollected = contracts.reduce((s, c) => s + (c.total_paid || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-black text-white font-syne">RTO Contracts</h1>
-        <p className="text-white/40 text-sm mt-1">Rent-to-Own contracts for your vehicles</p>
+        <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>RTO Contracts</h1>
+        <p className="text-gray-400 text-sm mt-1">Rent-to-Own contracts for your vehicles</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-white/[0.08] p-5 glass text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Active Contracts</p>
-          <p className="text-2xl font-black text-white font-syne">{contracts.filter(c => c.status === "Active").length}</p>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Active</p>
+          <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{contracts.filter(c => c.status === "Active").length}</p>
         </div>
-        <div className="rounded-2xl border border-white/[0.08] p-5 glass text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Total Value</p>
-          <p className="text-2xl font-black text-green-400 font-syne">${totalValue.toLocaleString()}</p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Total Value</p>
+          <p className="text-2xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>${totalValue.toLocaleString()}</p>
         </div>
-        <div className="rounded-2xl border border-white/[0.08] p-5 glass text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Collected So Far</p>
-          <p className="text-2xl font-black text-primary font-syne">${totalCollected.toLocaleString()}</p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Collected</p>
+          <p className="text-2xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>${totalCollected.toLocaleString()}</p>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-24 rounded-2xl bg-white/[0.04] animate-pulse" />)}</div>
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-24 rounded-2xl bg-gray-100 animate-pulse" />)}</div>
       ) : contracts.length === 0 ? (
-        <div className="text-center py-20">
-          <FileKey className="h-12 w-12 text-white/20 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-white mb-2">No RTO Contracts</h3>
-          <p className="text-white/40 text-sm">When renters enter RTO agreements on your vehicles, they'll appear here.</p>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="h-14 w-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+            <FileKey className="h-7 w-7 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">No RTO Contracts</h3>
+          <p className="text-gray-400 text-sm">When renters enter RTO agreements on your vehicles, they'll appear here.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -63,27 +65,27 @@ export default function HostRTO() {
             const remaining = (c.total_contract_value || 0) - (c.total_paid || 0);
             const equity = c.total_contract_value > 0 ? ((c.total_paid || 0) / c.total_contract_value) * 100 : 0;
             return (
-              <div key={c.id} className="rounded-2xl border border-white/[0.08] p-6 glass">
+              <div key={c.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="font-bold text-white">{c.vehicle_name}</h3>
-                    <p className="text-sm text-white/40">{c.customer_name} · Started {c.start_date}</p>
+                    <h3 className="font-bold text-gray-900">{c.vehicle_name}</h3>
+                    <p className="text-sm text-gray-400">{c.customer_name} · Started {c.start_date}</p>
                   </div>
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${statusColors[c.status] || "bg-white/10 text-white/60"}`}>{c.status}</span>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${statusColors[c.status] || "bg-gray-100 text-gray-500"}`}>{c.status}</span>
                 </div>
-                <div className="grid grid-cols-4 gap-4 mb-4 text-sm">
-                  <div><p className="text-white/40 text-xs">Weekly Payment</p><p className="font-bold text-white">${c.weekly_payment}/wk</p></div>
-                  <div><p className="text-white/40 text-xs">Collected</p><p className="font-bold text-green-400">${(c.total_paid || 0).toLocaleString()}</p></div>
-                  <div><p className="text-white/40 text-xs">Remaining</p><p className="font-bold text-white">${remaining.toLocaleString()}</p></div>
-                  <div><p className="text-white/40 text-xs">Equity</p><p className="font-bold text-primary">{equity.toFixed(1)}%</p></div>
+                <div className="grid grid-cols-4 gap-3 mb-4 text-sm">
+                  <div><p className="text-gray-400 text-xs">Weekly</p><p className="font-bold text-gray-900">${c.weekly_payment}/wk</p></div>
+                  <div><p className="text-gray-400 text-xs">Collected</p><p className="font-bold text-emerald-600">${(c.total_paid || 0).toLocaleString()}</p></div>
+                  <div><p className="text-gray-400 text-xs">Remaining</p><p className="font-bold text-gray-900">${remaining.toLocaleString()}</p></div>
+                  <div><p className="text-gray-400 text-xs">Equity</p><p className="font-bold text-pink-600">{equity.toFixed(1)}%</p></div>
                 </div>
                 <div>
-                  <div className="flex justify-between text-xs text-white/40 mb-1">
+                  <div className="flex justify-between text-xs text-gray-400 mb-1.5">
                     <span>Progress toward ownership</span>
                     <span>{progress.toFixed(1)}%</span>
                   </div>
-                  <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full rounded-full gradient-primary transition-all" style={{ width: `${progress}%` }} />
+                  <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: "linear-gradient(90deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />
                   </div>
                 </div>
               </div>

@@ -5,10 +5,10 @@ import { useAuth } from "@/lib/AuthContext";
 import { DollarSign, AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap } from "lucide-react";
 
 const statusConfig = {
-  pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400" },
-  processing: { label: "Processing", color: "bg-blue-500/20 text-blue-400" },
-  paid: { label: "Paid", color: "bg-green-500/20 text-green-400" },
-  failed: { label: "Failed", color: "bg-red-500/20 text-red-400" },
+  pending: { label: "Pending", color: "text-yellow-600", bg: "bg-yellow-50" },
+  processing: { label: "Processing", color: "text-blue-600", bg: "bg-blue-50" },
+  paid: { label: "Paid", color: "text-emerald-600", bg: "bg-emerald-50" },
+  failed: { label: "Failed", color: "text-red-600", bg: "bg-red-50" },
 };
 
 export default function HostPayouts() {
@@ -33,59 +33,62 @@ export default function HostPayouts() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-black text-white font-syne">Payouts</h1>
-        <p className="text-white/40 text-sm mt-1">Automated via Stripe Connect — deposits go directly to your bank</p>
+        <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Payouts</h1>
+        <p className="text-gray-400 text-sm mt-1">Automated via Stripe Connect — deposits go directly to your bank</p>
       </div>
 
       {/* Stripe Connect Status */}
       {host && !host.stripe_onboarding_complete ? (
-        <div className="p-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10">
+        <div className="p-5 rounded-2xl border border-yellow-200 bg-yellow-50">
           <div className="flex items-start gap-4">
-            <AlertTriangle className="h-6 w-6 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-bold text-yellow-300 mb-1">Connect Your Bank Account</h3>
-              <p className="text-sm text-yellow-400/70 mb-4">You need to complete Stripe Connect onboarding to receive automated payouts. This takes about 5 minutes and requires your bank account and ID.</p>
+              <h3 className="font-bold text-yellow-800 mb-1">Connect Your Bank Account</h3>
+              <p className="text-sm text-yellow-700 mb-4">Complete Stripe Connect onboarding to receive automated payouts. Takes about 5 minutes.</p>
               <button onClick={handleStripeConnect}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-yellow-500/30 border border-yellow-500/40 hover:bg-yellow-500/40 transition-all">
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                 <ExternalLink className="h-4 w-4" /> Complete Stripe Onboarding
               </button>
             </div>
           </div>
         </div>
       ) : host?.stripe_onboarding_complete && (
-        <div className="p-4 rounded-2xl border border-green-500/30 bg-green-500/10 flex items-center gap-3">
-          <CheckCircle2 className="h-5 w-5 text-green-400" />
+        <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-emerald-500" />
           <div>
-            <p className="text-sm font-bold text-green-300">Stripe Connect Active</p>
-            <p className="text-xs text-green-400/70">Payouts automatically deposited within 2 business days of each rental charge</p>
+            <p className="text-sm font-bold text-emerald-800">Stripe Connect Active</p>
+            <p className="text-xs text-emerald-600">Payouts automatically deposited within 2 business days</p>
           </div>
         </div>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-white/[0.08] p-5 glass text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Pending</p>
-          <p className="text-2xl font-black text-yellow-400 font-syne">${pending.toLocaleString()}</p>
-          <p className="text-xs text-white/30 mt-1">Awaiting transfer</p>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Pending</p>
+          <p className="text-xl font-black text-yellow-600" style={{ fontFamily: "var(--font-syne)" }}>${pending.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Awaiting transfer</p>
         </div>
-        <div className="rounded-2xl border border-white/[0.08] p-5 glass text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Total Paid</p>
-          <p className="text-2xl font-black text-green-400 font-syne">${totalPaid.toLocaleString()}</p>
-          <p className="text-xs text-white/30 mt-1">All time earnings</p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Total Paid</p>
+          <p className="text-xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>${totalPaid.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400 mt-1">All time earnings</p>
         </div>
-        <div className="rounded-2xl border border-white/[0.08] p-5 glass text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Commission</p>
-          <p className="text-2xl font-black text-primary font-syne">{((host?.commission_rate || 0.20) * 100).toFixed(0)}%</p>
-          <p className="text-xs text-white/30 mt-1">Platform fee</p>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Your Cut</p>
+          <p className="text-xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>{(100 - (host?.commission_rate || 0.20) * 100).toFixed(0)}%</p>
+          <p className="text-[10px] text-gray-400 mt-1">Per rental</p>
         </div>
       </div>
 
       {/* How it works */}
-      <div className="rounded-2xl border border-white/[0.08] p-6 glass">
-        <h3 className="font-bold text-white mb-4 flex items-center gap-2"><Zap className="h-4 w-4 text-primary" /> How Automated Payouts Work</h3>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-sm">
+          <Zap className="h-4 w-4 text-pink-500" /> How Automated Payouts Work
+        </h3>
         <div className="space-y-3">
           {[
             "Renter is charged weekly on their billing date",
@@ -94,8 +97,8 @@ export default function HostPayouts() {
             "Funds arrive in your bank within 2 business days",
             "Stripe automatically issues 1099-K at year end for earnings over $600",
           ].map((step, i) => (
-            <div key={i} className="flex items-center gap-3 text-sm text-white/60">
-              <span className="h-6 w-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+            <div key={i} className="flex items-center gap-3 text-sm text-gray-600">
+              <span className="h-6 w-6 rounded-full bg-pink-50 text-pink-600 text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
               {step}
             </div>
           ))}
@@ -103,33 +106,33 @@ export default function HostPayouts() {
       </div>
 
       {/* Payout history */}
-      <div className="rounded-2xl border border-white/[0.08] glass overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/[0.06]">
-          <h3 className="font-bold text-white">Payout History</h3>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50">
+          <h3 className="font-bold text-gray-900">Payout History</h3>
         </div>
         {isLoading ? (
-          <div className="p-6 space-y-3">{[1,2,3].map(i => <div key={i} className="h-14 rounded-xl bg-white/[0.04] animate-pulse" />)}</div>
+          <div className="p-5 space-y-3">{[1,2,3].map(i => <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />)}</div>
         ) : sorted.length === 0 ? (
           <div className="text-center py-12">
-            <Clock className="h-8 w-8 text-white/20 mx-auto mb-3" />
-            <p className="text-white/40 text-sm">No payouts yet</p>
+            <Clock className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm">No payouts yet</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.06]">
+          <div className="divide-y divide-gray-50">
             {sorted.map(p => {
               const cfg = statusConfig[p.status] || statusConfig.pending;
               return (
-                <div key={p.id} className="px-6 py-4 flex items-center justify-between">
+                <div key={p.id} className="px-5 py-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-white">{p.period_start} — {p.period_end}</p>
-                    <p className="text-xs text-white/40">{p.booking_count} bookings · {p.vehicle_count} vehicles</p>
+                    <p className="text-sm font-semibold text-gray-900">{p.period_start} — {p.period_end}</p>
+                    <p className="text-xs text-gray-400">{p.booking_count} bookings · {p.vehicle_count} vehicles</p>
                   </div>
-                  <div className="text-right flex items-center gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-white">${p.net_payout?.toLocaleString()}</p>
-                      <p className="text-xs text-white/30">of ${p.gross_collected?.toLocaleString()} gross</p>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">${p.net_payout?.toLocaleString()}</p>
+                      <p className="text-xs text-gray-400">of ${p.gross_collected?.toLocaleString()} gross</p>
                     </div>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.color}`}>{cfg.label}</span>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                   </div>
                 </div>
               );

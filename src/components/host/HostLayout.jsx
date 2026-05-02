@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { LayoutDashboard, Car, DollarSign, Shield, FileKey, TrendingUp, Zap, LogOut, Menu, X, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,7 @@ const navItems = [
   { label: "RTO Contracts", icon: FileKey, path: "/host/rto" },
   { label: "Fleet Insights", icon: TrendingUp, path: "/host/fleet-insights" },
   { label: "AV Readiness", icon: Zap, path: "/host/av-readiness" },
-  { label: "AI Assistant 🤖", icon: MessageSquare, path: "/host/chat" },
+  { label: "AI Assistant", icon: MessageSquare, path: "/host/chat" },
 ];
 
 export default function HostLayout() {
@@ -23,68 +23,87 @@ export default function HostLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex" style={{ background: "hsl(222 28% 7%)" }}>
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
       {/* Mobile overlay */}
-      {mobileOpen && <div className="fixed inset-0 bg-black/70 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />}
+      {mobileOpen && <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />}
 
-      {/* Sidebar */}
+      {/* Sidebar — desktop only */}
       <aside className={cn(
         "fixed top-0 left-0 h-full z-50 flex flex-col w-64 transition-transform duration-300",
-        "border-r border-white/[0.06]",
-        "bg-[hsl(222,30%,8%)]",
+        "border-r border-gray-100 bg-white",
         mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        <div className="h-[70px] flex items-center justify-between px-4 border-b border-white/[0.06]">
-          <div className="flex items-center gap-3">
-            <img src={LOGO_ICON} alt="uRide" className="h-9 w-9 rounded-xl ring-1 ring-primary/40" />
+        {/* Logo */}
+        <div className="h-16 flex items-center justify-between px-5 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <img src={LOGO_ICON} alt="uRide" className="h-8 w-8 rounded-xl object-cover" />
             <div>
-              <span className="font-bold text-white text-base font-syne">uRide</span>
-              <p className="text-[10px] text-primary/60">Host Portal</p>
+              <span className="font-bold text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>uRide</span>
+              <p className="text-[10px] text-pink-600 font-semibold -mt-0.5">Host Portal</p>
             </div>
           </div>
-          <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-white/60">
+          <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
             <X className="h-4 w-4" />
           </button>
         </div>
 
+        {/* Nav */}
         <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-3 mb-3">Host Menu</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 px-3 mb-3">Host Menu</p>
           {navItems.map((item) => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
             return (
               <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
-                className={cn("group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
-                  isActive ? "nav-active shadow-glow-sm" : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]")}>
-                <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-primary" : "text-white/40 group-hover:text-white/70")} />
+                className={cn(
+                  "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
+                  isActive
+                    ? "bg-pink-50 text-pink-600 font-semibold"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                )}>
+                <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-pink-600" : "text-gray-400 group-hover:text-gray-600")} />
                 <span>{item.label}</span>
-                {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-pink-500" />}
               </Link>
             );
           })}
         </nav>
 
-        <div className="p-3 border-t border-white/[0.06]">
-          <div className="px-3 py-2 mb-2">
-            <p className="text-xs font-semibold text-white truncate">{user?.full_name}</p>
-            <p className="text-[11px] text-white/40 truncate">{user?.email}</p>
+        {/* User footer */}
+        <div className="p-3 border-t border-gray-100">
+          <div className="flex items-center gap-3 px-3 py-2 mb-1">
+            <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              {user?.full_name?.charAt(0) || "H"}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-gray-900 truncate">{user?.full_name}</p>
+              <p className="text-[10px] text-gray-400 truncate">{user?.email}</p>
+            </div>
           </div>
-          <button onClick={() => logout()} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all">
+          <button onClick={() => logout()} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all">
             <LogOut className="h-4 w-4" /> Sign Out
           </button>
         </div>
       </aside>
 
-      {/* Content */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+      {/* Main content */}
+      <div className="lg:ml-64 flex flex-col min-h-screen">
         {/* Mobile topbar */}
-        <div className="lg:hidden flex items-center justify-between px-4 h-14 border-b border-white/[0.06] bg-[hsl(222,30%,8%)]">
-          <button onClick={() => setMobileOpen(true)} className="p-2 rounded-lg hover:bg-white/10 text-white/60">
+        <header className="lg:hidden sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-gray-100 h-16 flex items-center justify-between px-5">
+          <button onClick={() => setMobileOpen(true)} className="p-2 rounded-xl hover:bg-gray-100 text-gray-500">
             <Menu className="h-5 w-5" />
           </button>
-          <span className="font-bold text-white font-syne text-sm">Host Portal</span>
-          <div className="w-9" />
-        </div>
-        <main className="flex-1 p-6">
+          <div className="flex items-center gap-2">
+            <img src={LOGO_ICON} alt="uRide" className="h-7 w-7 rounded-xl object-cover" />
+            <span className="font-bold text-gray-900 text-sm" style={{ fontFamily: "var(--font-syne)" }}>Host Portal</span>
+          </div>
+          <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            {user?.full_name?.charAt(0) || "H"}
+          </div>
+        </header>
+
+        <main className="flex-1 p-5 md:p-7 max-w-5xl w-full mx-auto">
           <Outlet />
         </main>
       </div>

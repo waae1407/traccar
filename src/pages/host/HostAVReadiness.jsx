@@ -26,28 +26,27 @@ export default function HostAVReadiness() {
   const avReady = vehicles.filter(v => v.autonomous_capable);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-black text-white font-syne">AV Readiness</h1>
-        <p className="text-white/40 text-sm mt-1">Future-proof your fleet for autonomous vehicle deployment</p>
+        <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>AV Readiness</h1>
+        <p className="text-gray-400 text-sm mt-1">Future-proof your fleet for autonomous vehicle deployment</p>
       </div>
 
-      {/* Info Banner */}
-      <div className="p-6 rounded-2xl border border-primary/20 bg-primary/5">
+      <div className="p-5 rounded-2xl border border-violet-200 bg-violet-50">
         <div className="flex items-start gap-4">
-          <Zap className="h-6 w-6 text-primary flex-shrink-0 mt-0.5" />
+          <Zap className="h-5 w-5 text-violet-600 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-bold text-white mb-2">Autonomous Vehicle Integration</h3>
-            <p className="text-sm text-white/50 mb-3">As Waymo, Tesla Robotaxi, and other AV platforms expand into your market, uRide will connect your AV-capable vehicles directly to their deployment programs. Flag your vehicles now to be first in queue.</p>
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <h3 className="font-bold text-violet-900 mb-1">Autonomous Vehicle Integration</h3>
+            <p className="text-sm text-violet-700 mb-3">As Waymo, Tesla Robotaxi, and other AV platforms expand into your market, uRide will connect your AV-capable vehicles directly to their deployment programs.</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
               {[
                 { label: "AV-Ready Vehicles", value: avReady.length },
-                { label: "Potential Passive Income", value: "24/7" },
+                { label: "Potential Income", value: "24/7" },
                 { label: "Target Markets", value: "2028+" },
               ].map((s, i) => (
-                <div key={i} className="p-3 rounded-xl bg-white/[0.05]">
-                  <p className="text-lg font-black text-primary font-syne">{s.value}</p>
-                  <p className="text-xs text-white/40">{s.label}</p>
+                <div key={i} className="p-3 rounded-xl bg-white/70">
+                  <p className="text-lg font-black text-violet-700" style={{ fontFamily: "var(--font-syne)" }}>{s.value}</p>
+                  <p className="text-xs text-violet-500">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -55,40 +54,37 @@ export default function HostAVReadiness() {
         </div>
       </div>
 
-      {/* Vehicle AV Config */}
-      <div className="rounded-2xl border border-white/[0.08] glass overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/[0.06]">
-          <h3 className="font-bold text-white">Configure Your Fleet</h3>
-          <p className="text-xs text-white/40 mt-1">Set AV capabilities for each vehicle</p>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50">
+          <h3 className="font-bold text-gray-900 text-sm">Configure Your Fleet</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Set AV capabilities for each vehicle</p>
         </div>
         {vehicles.length === 0 ? (
           <div className="text-center py-12">
-            <Car className="h-8 w-8 text-white/20 mx-auto mb-3" />
-            <p className="text-white/40 text-sm">Add vehicles to configure AV readiness</p>
+            <Car className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm">Add vehicles to configure AV readiness</p>
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.06]">
+          <div className="divide-y divide-gray-50">
             {vehicles.map(v => (
-              <div key={v.id} className="px-6 py-4">
+              <div key={v.id} className="px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">{v.year} {v.make} {v.model}</p>
-                    <p className="text-xs text-white/40">{v.city}, {v.state}</p>
+                    <p className="text-sm font-semibold text-gray-900">{v.year} {v.make} {v.model}</p>
+                    <p className="text-xs text-gray-400">{v.city}, {v.state}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {v.autonomous_capable ? (
-                      <span className="flex items-center gap-1 text-xs text-green-400 bg-green-500/20 px-2 py-1 rounded-full"><CheckCircle2 className="h-3 w-3" /> AV Ready</span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs text-white/40 bg-white/10 px-2 py-1 rounded-full"><Clock className="h-3 w-3" /> Not Configured</span>
-                    )}
-                  </div>
+                  {v.autonomous_capable ? (
+                    <span className="flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full font-semibold"><CheckCircle2 className="h-3 w-3" /> AV Ready</span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full"><Clock className="h-3 w-3" /> Not Configured</span>
+                  )}
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <p className="text-xs text-white/40 mb-1.5">AV Platform</p>
+                    <p className="text-xs text-gray-500 font-semibold mb-1.5">AV Platform</p>
                     <Select value={v.av_platform || "none"} onValueChange={val => updateMutation.mutate({ id: v.id, data: { av_platform: val, autonomous_capable: val !== "none" } })}>
-                      <SelectTrigger className="h-8 rounded-lg bg-white/[0.06] border-white/10 text-white text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white text-xs">
+                      <SelectTrigger className="h-8 rounded-lg bg-gray-50 border-gray-200 text-gray-900 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
                         <SelectItem value="none">None</SelectItem>
                         <SelectItem value="waymo">Waymo</SelectItem>
                         <SelectItem value="tesla">Tesla</SelectItem>
@@ -98,10 +94,10 @@ export default function HostAVReadiness() {
                     </Select>
                   </div>
                   <div>
-                    <p className="text-xs text-white/40 mb-1.5">Telematics</p>
+                    <p className="text-xs text-gray-500 font-semibold mb-1.5">Telematics</p>
                     <Select value={v.telematics_provider || "none"} onValueChange={val => updateMutation.mutate({ id: v.id, data: { telematics_provider: val } })}>
-                      <SelectTrigger className="h-8 rounded-lg bg-white/[0.06] border-white/10 text-white text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white text-xs">
+                      <SelectTrigger className="h-8 rounded-lg bg-gray-50 border-gray-200 text-gray-900 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
                         <SelectItem value="none">None</SelectItem>
                         <SelectItem value="moovetrax">Moovetrax</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
@@ -109,10 +105,10 @@ export default function HostAVReadiness() {
                     </Select>
                   </div>
                   <div>
-                    <p className="text-xs text-white/40 mb-1.5">Deployment</p>
+                    <p className="text-xs text-gray-500 font-semibold mb-1.5">Deployment</p>
                     <Select value={v.deployment_type || "human"} onValueChange={val => updateMutation.mutate({ id: v.id, data: { deployment_type: val } })}>
-                      <SelectTrigger className="h-8 rounded-lg bg-white/[0.06] border-white/10 text-white text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white text-xs">
+                      <SelectTrigger className="h-8 rounded-lg bg-gray-50 border-gray-200 text-gray-900 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
                         <SelectItem value="human">Human</SelectItem>
                         <SelectItem value="av">Autonomous</SelectItem>
                         <SelectItem value="hybrid">Hybrid</SelectItem>
@@ -126,9 +122,9 @@ export default function HostAVReadiness() {
         )}
       </div>
 
-      <div className="p-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-sm text-white/40 leading-relaxed">
-        <p className="font-semibold text-white/60 mb-2">🔮 What happens next?</p>
-        When major AV platforms expand to your market, uRide will automatically match your AV-configured vehicles with their fleet programs. You'll be notified first and can opt in with one click — no tech expertise required. Your vehicle earns while parked.
+      <div className="p-4 rounded-2xl border border-gray-100 bg-gray-50 text-sm text-gray-500 leading-relaxed">
+        <p className="font-semibold text-gray-700 mb-1">🔮 What happens next?</p>
+        When major AV platforms expand to your market, uRide will automatically match your AV-configured vehicles with their fleet programs. You'll be notified first and can opt in with one click.
       </div>
     </div>
   );

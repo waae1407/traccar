@@ -86,15 +86,16 @@ export default function HostAIChat() {
   return (
     <div className="flex h-[calc(100vh-120px)] gap-4">
       {/* Sidebar */}
-      <div className="w-56 flex flex-col gap-2 flex-shrink-0">
+      <div className="hidden md:flex w-52 flex-col gap-2 flex-shrink-0">
         <button onClick={newConversation}
-          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold text-white gradient-primary hover:opacity-90 transition-all">
+          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           <Plus className="h-4 w-4" /> New Chat
         </button>
         <div className="flex-1 overflow-y-auto space-y-1">
           {conversations.map(c => (
             <button key={c.id} onClick={() => selectConversation(c.id)}
-              className={`w-full text-left px-3 py-2.5 rounded-xl text-xs transition-all truncate ${activeConvId === c.id ? "bg-primary/20 text-white border border-primary/30" : "text-white/50 hover:bg-white/[0.06] hover:text-white"}`}>
+              className={`w-full text-left px-3 py-2.5 rounded-xl text-xs transition-all truncate ${activeConvId === c.id ? "bg-pink-50 text-pink-700 font-semibold border border-pink-200" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"}`}>
               {c.metadata?.name || "Chat"}
             </button>
           ))}
@@ -102,29 +103,32 @@ export default function HostAIChat() {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 flex flex-col rounded-2xl border border-white/[0.08] glass overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-green-500/20 flex items-center justify-center">
-            <MessageSquare className="h-4 w-4 text-green-400" />
+      <div className="flex-1 flex flex-col rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+            <MessageSquare className="h-4 w-4 text-emerald-600" />
           </div>
           <div>
-            <p className="font-bold text-white text-sm">Host Assistant</p>
-            <p className="text-xs text-white/40">Your fleet, payouts & compliance · Private to your account</p>
+            <p className="font-bold text-gray-900 text-sm">Host Assistant</p>
+            <p className="text-xs text-gray-400">Your fleet, payouts & compliance · Private to your account</p>
           </div>
+          <button onClick={newConversation} className="ml-auto md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200">
+            <Plus className="h-3.5 w-3.5" /> New
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center gap-3">
-              <div className="h-14 w-14 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-                <MessageSquare className="h-7 w-7 text-green-400" />
+              <div className="h-14 w-14 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
+                <MessageSquare className="h-7 w-7 text-emerald-600" />
               </div>
-              <p className="font-bold text-white">Host Assistant</p>
-              <p className="text-sm text-white/40 max-w-xs">Ask me anything about your fleet, earnings, payouts, compliance, or rentals.</p>
+              <p className="font-bold text-gray-900">Host Assistant</p>
+              <p className="text-sm text-gray-400 max-w-xs">Ask me anything about your fleet, earnings, payouts, compliance, or rentals.</p>
               <div className="grid grid-cols-1 gap-2 mt-2 w-full max-w-sm">
                 {SUGGESTIONS.map(q => (
                   <button key={q} onClick={() => setInput(q)}
-                    className="px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] text-xs text-white/60 hover:text-white hover:border-green-500/30 text-left transition-all">
+                    className="px-3 py-2 rounded-xl bg-white border border-gray-200 text-xs text-gray-600 hover:text-gray-900 hover:border-pink-300 text-left transition-all">
                     {q}
                   </button>
                 ))}
@@ -132,24 +136,24 @@ export default function HostAIChat() {
             </div>
           )}
           {messages.filter(m => m.role !== "system").map((msg, i) => (
-            <MessageBubble key={i} message={msg} accentClass="text-green-400" accentBg="bg-green-500/20" />
+            <MessageBubble key={i} message={msg} accentClass="text-emerald-600" accentBg="bg-emerald-50" />
           ))}
           {sending && (
             <div className="flex gap-3">
-              <div className="h-7 w-7 rounded-lg bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-3.5 w-3.5 text-green-400" />
+              <div className="h-7 w-7 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                <Bot className="h-3.5 w-3.5 text-emerald-600" />
               </div>
-              <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white/[0.06] border border-white/[0.06]">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-400/60 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="h-1.5 w-1.5 rounded-full bg-green-400/60 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="h-1.5 w-1.5 rounded-full bg-green-400/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+              <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-white border border-gray-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="h-1.5 w-1.5 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
           )}
           <div ref={bottomRef} />
         </div>
 
-        <div className="px-4 py-3 border-t border-white/[0.06]">
+        <div className="px-4 py-3 border-t border-gray-100 bg-white">
           <div className="flex gap-2 items-end">
             <textarea
               value={input}
@@ -157,12 +161,13 @@ export default function HostAIChat() {
               onKeyDown={handleKey}
               placeholder="Ask about your fleet, earnings, payouts..."
               rows={1}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm placeholder-white/30 focus:outline-none focus:border-green-500/50 resize-none"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-pink-400 resize-none"
               style={{ minHeight: 42, maxHeight: 120 }}
             />
             <button onClick={sendMessage} disabled={!input.trim() || sending}
-              className="h-10 w-10 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center disabled:opacity-40 transition-all flex-shrink-0 hover:bg-green-500/30">
-              <Send className="h-4 w-4 text-green-400" />
+              className="h-10 w-10 rounded-xl flex items-center justify-center disabled:opacity-40 transition-all flex-shrink-0 shadow-sm"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              <Send className="h-4 w-4 text-white" />
             </button>
           </div>
         </div>
@@ -180,11 +185,12 @@ function MessageBubble({ message, accentClass, accentBg }) {
           <Bot className={`h-3.5 w-3.5 ${accentClass}`} />
         </div>
       )}
-      <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${isUser ? "bg-primary/20 border border-primary/30 text-white" : "bg-white/[0.06] border border-white/[0.06] text-white/90"}`}>
+      <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${isUser ? "text-white" : "bg-white border border-gray-200 text-gray-900"}`}
+        style={isUser ? { background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" } : {}}>
         {isUser ? (
           <p className="leading-relaxed">{message.content}</p>
         ) : (
-          <ReactMarkdown className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          <ReactMarkdown className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             {message.content || "..."}
           </ReactMarkdown>
         )}
