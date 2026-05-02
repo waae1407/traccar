@@ -1,0 +1,53 @@
+{
+  "name": "FleetInsight",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "week_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "gross_revenue": {
+      "type": "number",
+      "default": 0
+    },
+    "expenses": {
+      "type": "number",
+      "default": 0
+    },
+    "net_profit": {
+      "type": "number",
+      "default": 0
+    },
+    "roi_percentage": {
+      "type": "number",
+      "default": 0
+    },
+    "depreciation_estimate": {
+      "type": "number",
+      "default": 0
+    },
+    "utilization_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "0-1, days rented / 7"
+    },
+    "telematics_miles_driven": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "host_id",
+    "vehicle_id",
+    "week_start"
+  ]
+}

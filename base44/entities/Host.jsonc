@@ -1,0 +1,101 @@
+{
+  "name": "Host",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "business_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "suspended",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "commission_rate": {
+      "type": "number",
+      "default": 0.2
+    },
+    "stripe_account_id": {
+      "type": "string"
+    },
+    "stripe_onboarding_complete": {
+      "type": "boolean",
+      "default": false
+    },
+    "payout_schedule": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "biweekly",
+        "monthly"
+      ],
+      "default": "weekly"
+    },
+    "fleet_score": {
+      "type": "number",
+      "default": 100,
+      "description": "0-100 reliability rating"
+    },
+    "total_vehicles": {
+      "type": "number",
+      "default": 0
+    },
+    "total_earnings": {
+      "type": "number",
+      "default": 0
+    },
+    "total_payouts": {
+      "type": "number",
+      "default": 0
+    },
+    "av_deployment_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "bio": {
+      "type": "string"
+    },
+    "years_in_business": {
+      "type": "number"
+    },
+    "referral_source": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "full_name",
+    "email"
+  ]
+}

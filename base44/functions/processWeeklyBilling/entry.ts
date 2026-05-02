@@ -70,7 +70,6 @@ Deno.serve(async (req) => {
 
         if (paymentIntent.status === "succeeded") {
           // Calculate next billing date: anchor to current next_billing_date + 7
-          // This keeps billing aligned to the original start date regardless of when the job runs
           const anchorDate = new Date(booking.next_billing_date + "T00:00:00");
           anchorDate.setDate(anchorDate.getDate() + 7);
           const nextBillingDate = anchorDate.toISOString().split("T")[0];
@@ -80,8 +79,38 @@ Deno.serve(async (req) => {
             payment_failure_attempts: 0,
             billing_week_number: weekNum,
             next_billing_date: nextBillingDate,
-            pending_referral_credit: 0, // clear after applying
+            pending_referral_credit: 0,
           });
+
+          // ── HOST PAYOUT SPLIT (Stripe Connect) ──
+          if (booking.host_id) {
+            const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
+            const host = hosts[0];
+            if (host?.stripe_onboarding_complete && host?.stripe_account_id) {
+              const commissionRate = host.commission_rate || 0.20;
+              const platformFee = Math.round(amount * commissionRate * 100) / 100;
+              const hostAmount = Math.round((amount - platformFee) * 100) / 100;
+              const hostAmountCents = Math.round(hostAmount * 100);
+
+              // Transfer to host's connected Stripe account
+              const transfer = await stripe.transfers.create({
+                amount: hostAmountCents,
+                currency: "usd",
+                destination: host.stripe_account_id,
+                description: `uRide Week ${weekNum} — ${booking.vehicle_name}`,
+                metadata: { booking_id: booking.id, host_id: host.id, week: String(weekNum) },
+              });
+
+              // Update booking with payout info
+              await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+                platform_fee_amount: platformFee,
+                host_payout_amount: hostAmount,
+                stripe_transfer_id: transfer.id,
+              });
+
+              console.log(`[WeeklyBilling] ✓ Host transfer ${transfer.id} — $${hostAmount} to ${host.stripe_account_id}`);
+            }
+          }
 
           // If referral credit was applied, mark it on the referral record
           if (referralCredit > 0) {

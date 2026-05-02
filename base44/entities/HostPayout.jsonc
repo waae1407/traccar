@@ -1,0 +1,68 @@
+{
+  "name": "HostPayout",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "host_email": {
+      "type": "string"
+    },
+    "host_name": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "gross_collected": {
+      "type": "number",
+      "default": 0
+    },
+    "platform_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "net_payout": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "paid",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "stripe_transfer_id": {
+      "type": "string"
+    },
+    "payout_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "vehicle_count": {
+      "type": "number",
+      "default": 0
+    },
+    "booking_count": {
+      "type": "number",
+      "default": 0
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id",
+    "period_start",
+    "period_end"
+  ]
+}

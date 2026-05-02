@@ -6,6 +6,10 @@
       "type": "string",
       "description": "Owning company"
     },
+    "host_id": {
+      "type": "string",
+      "description": "Host owner (if marketplace vehicle)"
+    },
     "vin": {
       "type": "string",
       "description": "Vehicle Identification Number (unique)"
@@ -40,15 +44,13 @@
     },
     "pickup_hours": {
       "type": "string",
-      "description": "Pickup availability hours, e.g. 'Mon\u2013Fri 9am\u20135pm', '24/7', or blank"
+      "description": "Pickup availability hours"
     },
     "vehicle_lat": {
-      "type": "number",
-      "description": "Vehicle location latitude (auto-geocoded from city, state)"
+      "type": "number"
     },
     "vehicle_lon": {
-      "type": "number",
-      "description": "Vehicle location longitude (auto-geocoded from city, state)"
+      "type": "number"
     },
     "status": {
       "type": "string",
@@ -60,6 +62,69 @@
         "Out of Service"
       ],
       "default": "Available"
+    },
+    "listing_type": {
+      "type": "string",
+      "enum": [
+        "rental",
+        "rto",
+        "for_sale",
+        "av_deployment"
+      ],
+      "default": "rental"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "approved"
+    },
+    "buyout_price": {
+      "type": "number"
+    },
+    "compliance_expires_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "autonomous_capable": {
+      "type": "boolean",
+      "default": false
+    },
+    "av_platform": {
+      "type": "string",
+      "enum": [
+        "none",
+        "waymo",
+        "tesla",
+        "zoox",
+        "other"
+      ],
+      "default": "none"
+    },
+    "remote_unlock_capable": {
+      "type": "boolean",
+      "default": false
+    },
+    "telematics_provider": {
+      "type": "string",
+      "enum": [
+        "none",
+        "moovetrax",
+        "other"
+      ],
+      "default": "none"
+    },
+    "deployment_type": {
+      "type": "string",
+      "enum": [
+        "human",
+        "av",
+        "hybrid"
+      ],
+      "default": "human"
     },
     "mileage": {
       "type": "number"
@@ -83,8 +148,7 @@
       "description": "Deprecated - use city and state instead"
     },
     "moovetrax_device_id": {
-      "type": "string",
-      "description": "Moovetrax GPS/kill-switch device ID for this vehicle"
+      "type": "string"
     }
   },
   "required": [

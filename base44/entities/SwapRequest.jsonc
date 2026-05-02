@@ -1,0 +1,77 @@
+{
+  "name": "SwapRequest",
+  "type": "object",
+  "properties": {
+    "requesting_host_id": {
+      "type": "string"
+    },
+    "requesting_host_name": {
+      "type": "string"
+    },
+    "offered_vehicle_id": {
+      "type": "string"
+    },
+    "offered_vehicle_name": {
+      "type": "string"
+    },
+    "offered_vehicle_image": {
+      "type": "string"
+    },
+    "desired_make": {
+      "type": "string"
+    },
+    "desired_model": {
+      "type": "string"
+    },
+    "desired_year_min": {
+      "type": "number"
+    },
+    "desired_year_max": {
+      "type": "number"
+    },
+    "desired_city": {
+      "type": "string"
+    },
+    "desired_state": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "matched",
+        "negotiating",
+        "completed",
+        "cancelled"
+      ],
+      "default": "open"
+    },
+    "matched_host_id": {
+      "type": "string"
+    },
+    "matched_host_name": {
+      "type": "string"
+    },
+    "matched_vehicle_id": {
+      "type": "string"
+    },
+    "matched_vehicle_name": {
+      "type": "string"
+    },
+    "swap_fee_paid": {
+      "type": "boolean",
+      "default": false
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "requesting_host_id",
+    "offered_vehicle_id"
+  ]
+}

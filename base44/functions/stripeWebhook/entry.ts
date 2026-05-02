@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
@@ -76,6 +76,28 @@ Deno.serve(async (req) => {
           await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
             payment_status: 'refunded',
           });
+        }
+        break;
+      }
+
+      case 'account.updated': {
+        // Stripe Connect — host onboarding status changed
+        const account = event.data.object;
+        if (account.metadata?.host_id) {
+          const onboardingComplete = account.details_submitted && account.charges_enabled && account.payouts_enabled;
+          const hosts = await base44.asServiceRole.entities.Host.filter({ id: account.metadata.host_id });
+          if (hosts[0] && onboardingComplete && !hosts[0].stripe_onboarding_complete) {
+            await base44.asServiceRole.entities.Host.update(account.metadata.host_id, {
+              stripe_onboarding_complete: true,
+            });
+            await base44.asServiceRole.entities.Notification.create({
+              user_email: hosts[0].email,
+              title: "✅ Stripe Payouts Activated!",
+              body: "Your Stripe Connect account is verified. You'll now automatically receive 80% of every rental within 2 business days.",
+              type: "system",
+            });
+            console.log(`[Webhook] Host ${account.metadata.host_id} Stripe onboarding complete`);
+          }
         }
         break;
       }

@@ -36,6 +36,23 @@ import Reports from '@/pages/Reports';
 import CompanyManagement from '@/pages/CompanyManagement';
 import CustomerPreview from '@/pages/CustomerPreview';
 import Referrals from '@/pages/Referrals';
+import AdminHosts from '@/pages/admin/AdminHosts';
+import AdminPayouts from '@/pages/admin/AdminPayouts';
+
+// Host pages
+import HostLayout from '@/components/host/HostLayout';
+import HostDashboard from '@/pages/host/HostDashboard';
+import HostVehicles from '@/pages/host/HostVehicles';
+import HostPayouts from '@/pages/host/HostPayouts';
+import HostCompliance from '@/pages/host/HostCompliance';
+import HostRTO from '@/pages/host/HostRTO';
+import HostFleetInsights from '@/pages/host/HostFleetInsights';
+import HostAVReadiness from '@/pages/host/HostAVReadiness';
+
+// Public pages
+import BecomeAHost from '@/pages/BecomeAHost';
+import Marketplace from '@/pages/Marketplace';
+import SwapMarketplace from '@/pages/SwapMarketplace';
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -75,6 +92,22 @@ const AuthenticatedApp = () => {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
 
+      {/* ── PUBLIC PAGES (no login required, no layout) ── */}
+      <Route path="/become-a-host" element={<BecomeAHost />} />
+      <Route path="/marketplace" element={<Marketplace />} />
+      <Route path="/swap" element={<SwapMarketplace />} />
+
+      {/* ── HOST ROUTES ── */}
+      <Route element={<HostLayout />}>
+        <Route path="/host/dashboard" element={<HostDashboard />} />
+        <Route path="/host/vehicles" element={<HostVehicles />} />
+        <Route path="/host/payouts" element={<HostPayouts />} />
+        <Route path="/host/compliance" element={<HostCompliance />} />
+        <Route path="/host/rto" element={<HostRTO />} />
+        <Route path="/host/fleet-insights" element={<HostFleetInsights />} />
+        <Route path="/host/av-readiness" element={<HostAVReadiness />} />
+      </Route>
+
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>
         <Route path="/book-now" element={<BookNow />} />
@@ -99,6 +132,8 @@ const AuthenticatedApp = () => {
         <Route path="/companies" element={<CompanyManagement />} />
         <Route path="/customer-preview" element={<CustomerPreview />} />
         <Route path="/referrals" element={<Referrals />} />
+        <Route path="/admin/hosts" element={<AdminHosts />} />
+        <Route path="/admin/payouts" element={<AdminPayouts />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

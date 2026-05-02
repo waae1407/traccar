@@ -5,39 +5,11 @@
     "role": {
       "type": "string",
       "enum": [
-        "customer",
         "admin",
-        "staff",
-        "manager",
-        "booking_manager",
-        "payment_manager",
-        "support_agent",
-        "maintenance_manager",
-        "company_owner"
+        "user",
+        "host"
       ],
-      "default": "customer"
-    },
-    "company_id": {
-      "type": "string",
-      "description": "The company this user belongs to"
-    },
-    "is_platform_superadmin": {
-      "type": "boolean",
-      "default": false,
-      "description": "Cross-tenant platform superadmin \u2014 can see all companies"
-    },
-    "phone": {
-      "type": "string"
-    },
-    "driver_license_url": {
-      "type": "string"
-    },
-    "id_upload_url": {
-      "type": "string"
-    },
-    "stripe_customer_id": {
-      "type": "string",
-      "description": "Stripe customer ID for this user"
+      "default": "user"
     }
   }
 }

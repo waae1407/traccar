@@ -1,0 +1,95 @@
+{
+  "name": "VehicleSaleListing",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "vehicle_image": {
+      "type": "string"
+    },
+    "asking_price": {
+      "type": "number"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "good",
+        "fair"
+      ],
+      "default": "good"
+    },
+    "description": {
+      "type": "string"
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mileage": {
+      "type": "number"
+    },
+    "year": {
+      "type": "number"
+    },
+    "make": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "pending_approval",
+        "active",
+        "pending_sale",
+        "sold",
+        "withdrawn"
+      ],
+      "default": "draft"
+    },
+    "transaction_fee_paid": {
+      "type": "boolean",
+      "default": false
+    },
+    "sale_completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "buyer_contact_name": {
+      "type": "string"
+    },
+    "buyer_contact_email": {
+      "type": "string"
+    },
+    "inquiry_count": {
+      "type": "number",
+      "default": 0
+    },
+    "admin_notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id",
+    "vehicle_id",
+    "asking_price"
+  ]
+}

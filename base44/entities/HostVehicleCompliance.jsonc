@@ -1,0 +1,58 @@
+{
+  "name": "HostVehicleCompliance",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "doc_type": {
+      "type": "string",
+      "enum": [
+        "insurance",
+        "registration",
+        "inspection",
+        "title"
+      ],
+      "default": "insurance"
+    },
+    "doc_url": {
+      "type": "string"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "valid",
+        "expiring_soon",
+        "expired",
+        "pending_review"
+      ],
+      "default": "pending_review"
+    },
+    "verified_by_admin": {
+      "type": "boolean",
+      "default": false
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id",
+    "vehicle_id",
+    "doc_type"
+  ]
+}
