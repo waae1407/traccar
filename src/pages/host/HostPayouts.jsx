@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { DollarSign, AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap } from "lucide-react";
+import { DollarSign, AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap, Loader2 } from "lucide-react";
 
 const statusConfig = {
   pending: { label: "Pending", color: "text-yellow-600", bg: "bg-yellow-50" },
@@ -27,9 +27,24 @@ export default function HostPayouts() {
   const pending = payouts.filter(p => p.status === "pending").reduce((s, p) => s + (p.net_payout || 0), 0);
   const totalPaid = payouts.filter(p => p.status === "paid").reduce((s, p) => s + (p.net_payout || 0), 0);
 
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState(null);
+
   const handleStripeConnect = async () => {
-    const res = await base44.functions.invoke("createStripeConnectAccount", { host_id: host.id, host_email: host.email, host_name: host.full_name });
-    if (res.data?.url) window.open(res.data.url, "_blank");
+    setStripeLoading(true);
+    setStripeError(null);
+    try {
+      const res = await base44.functions.invoke("createStripeConnectAccount", { host_id: host.id, host_email: host.email, host_name: host.full_name });
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      } else {
+        setStripeError(res.data?.error || "Could not generate onboarding link. Please try again.");
+      }
+    } catch (err) {
+      setStripeError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setStripeLoading(false);
+    }
   };
 
   return (
@@ -47,11 +62,13 @@ export default function HostPayouts() {
             <div className="flex-1">
               <h3 className="font-bold text-yellow-800 mb-1">Connect Your Bank Account</h3>
               <p className="text-sm text-yellow-700 mb-4">Complete Stripe Connect onboarding to receive automated payouts. Takes about 5 minutes.</p>
-              <button onClick={handleStripeConnect}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
+              <button onClick={handleStripeConnect} disabled={stripeLoading}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
                 style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                <ExternalLink className="h-4 w-4" /> Complete Stripe Onboarding
+                {stripeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                {stripeLoading ? "Connecting…" : "Complete Stripe Onboarding"}
               </button>
+              {stripeError && <p className="text-xs text-red-600 mt-2 font-medium">{stripeError}</p>}
             </div>
           </div>
         </div>

@@ -14,8 +14,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if host already has a Stripe account
-    const hosts = await base44.asServiceRole.entities.Host.filter({ id: host_id });
-    const host = hosts[0];
+    const host = await base44.asServiceRole.entities.Host.get(host_id);
 
     if (!host) return Response.json({ error: "Host not found" }, { status: 404 });
 
