@@ -59,8 +59,7 @@
     },
     "fleet_score": {
       "type": "number",
-      "default": 100,
-      "description": "0-100 reliability rating"
+      "default": 100
     },
     "store_score": {
       "type": "number",
@@ -138,6 +137,68 @@
     },
     "referral_source": {
       "type": "string"
+    },
+    "id_front_url": {
+      "type": "string",
+      "description": "Government ID front photo"
+    },
+    "id_back_url": {
+      "type": "string",
+      "description": "Government ID back photo"
+    },
+    "selfie_url": {
+      "type": "string",
+      "description": "Selfie for ID verification"
+    },
+    "business_type": {
+      "type": "string",
+      "enum": [
+        "sole_proprietor",
+        "llc",
+        "s_corp",
+        "c_corp",
+        "partnership"
+      ],
+      "description": "Legal business entity type"
+    },
+    "ein_number": {
+      "type": "string",
+      "description": "Employer Identification Number"
+    },
+    "ein_letter_url": {
+      "type": "string",
+      "description": "IRS EIN confirmation letter upload"
+    },
+    "business_legal_name": {
+      "type": "string",
+      "description": "Legal business name as filed with IRS"
+    },
+    "tax_classification": {
+      "type": "string",
+      "description": "Tax classification for 1099-K"
+    },
+    "ssn_last4": {
+      "type": "string",
+      "description": "Last 4 of SSN (sole proprietors only)"
+    },
+    "verification_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "docs_requested",
+        "docs_submitted",
+        "verified",
+        "failed"
+      ],
+      "default": "not_started"
+    },
+    "verification_notes": {
+      "type": "string"
+    },
+    "admin_viewed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Has admin seen this application"
     }
   },
   "required": [

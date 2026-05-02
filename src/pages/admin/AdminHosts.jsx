@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Users, CheckCircle2, XCircle, Clock, AlertTriangle, Search, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, CheckCircle2, XCircle, Clock, AlertTriangle, Search, ChevronDown, ChevronUp, Shield, FileText, Eye } from "lucide-react";
+import HostVerificationPanel from "@/components/admin/HostVerificationPanel";
 
 const statusConfig = {
   pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400" },
@@ -10,11 +11,20 @@ const statusConfig = {
   rejected: { label: "Rejected", color: "bg-red-500/20 text-red-400" },
 };
 
+const verificationConfig = {
+  not_started: { label: "Not Started", color: "bg-white/10 text-white/40" },
+  docs_requested: { label: "Docs Requested", color: "bg-yellow-500/20 text-yellow-400" },
+  docs_submitted: { label: "Docs Submitted", color: "bg-blue-500/20 text-blue-400" },
+  verified: { label: "Verified ✓", color: "bg-green-500/20 text-green-400" },
+  failed: { label: "Failed", color: "bg-red-500/20 text-red-400" },
+};
+
 export default function AdminHosts() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [expanded, setExpanded] = useState(null);
+  const [verifyingHost, setVerifyingHost] = useState(null);
 
   const { data: hosts = [], isLoading } = useQuery({
     queryKey: ["admin-hosts"],
@@ -26,14 +36,17 @@ export default function AdminHosts() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-hosts"] }),
   });
 
-  const handleApprove = async (host) => {
-    await updateMutation.mutateAsync({ id: host.id, data: { status: "approved", approved_at: new Date().toISOString() } });
-    await base44.functions.invoke("approveHost", { host_id: host.id, host_email: host.email, host_name: host.full_name });
-  };
-
-  const handleReject = (host) => updateMutation.mutate({ id: host.id, data: { status: "rejected" } });
   const handleSuspend = (host) => updateMutation.mutate({ id: host.id, data: { status: "suspended" } });
   const handleReinstate = (host) => updateMutation.mutate({ id: host.id, data: { status: "approved" } });
+
+  // Mark as viewed when expanded
+  const handleExpand = (host) => {
+    const next = expanded === host.id ? null : host.id;
+    setExpanded(next);
+    if (next && !host.admin_viewed) {
+      updateMutation.mutate({ id: host.id, data: { admin_viewed: true } });
+    }
+  };
 
   const filtered = hosts.filter(h => {
     const matchSearch = !search || h.full_name?.toLowerCase().includes(search.toLowerCase()) || h.email?.toLowerCase().includes(search.toLowerCase()) || h.city?.toLowerCase().includes(search.toLowerCase());
@@ -43,12 +56,21 @@ export default function AdminHosts() {
 
   const pending = hosts.filter(h => h.status === "pending");
   const approved = hosts.filter(h => h.status === "approved");
+  const unviewed = hosts.filter(h => h.status === "pending" && !h.admin_viewed);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black text-white font-syne">Host Management</h1>
-        <p className="text-white/40 text-sm mt-1">{hosts.length} total hosts · {pending.length} pending approval</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-white font-syne">Host Management</h1>
+          <p className="text-white/40 text-sm mt-1">{hosts.length} total hosts · {pending.length} pending approval</p>
+        </div>
+        {unviewed.length > 0 && (
+          <span className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm font-bold">
+            <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+            {unviewed.length} new application{unviewed.length > 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
       {/* Stats */}
@@ -76,7 +98,7 @@ export default function AdminHosts() {
         {["all", "pending", "approved", "suspended", "rejected"].map(s => (
           <button key={s} onClick={() => setFilter(s)}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all capitalize ${filter === s ? "bg-primary text-white" : "bg-white/[0.06] text-white/50 hover:text-white"}`}>
-            {s}
+            {s}{s === "pending" && pending.length > 0 ? ` (${pending.length})` : ""}
           </button>
         ))}
       </div>
@@ -93,30 +115,31 @@ export default function AdminHosts() {
         <div className="space-y-3">
           {filtered.map(h => {
             const cfg = statusConfig[h.status] || statusConfig.pending;
+            const vCfg = verificationConfig[h.verification_status || "not_started"];
             const isExpanded = expanded === h.id;
+            const isNew = h.status === "pending" && !h.admin_viewed;
             return (
-              <div key={h.id} className="rounded-2xl border border-white/[0.08] glass overflow-hidden">
-                <div className="px-6 py-4 flex items-center justify-between cursor-pointer" onClick={() => setExpanded(isExpanded ? null : h.id)}>
+              <div key={h.id} className={`rounded-2xl border overflow-hidden transition-all ${isNew ? "border-yellow-500/30" : "border-white/[0.08]"} glass`}>
+                {isNew && <div className="h-0.5 w-full" style={{ background: "linear-gradient(90deg, hsl(45 95% 55%), hsl(38 95% 50%))" }} />}
+                <div className="px-6 py-4 flex items-center justify-between cursor-pointer" onClick={() => handleExpand(h)}>
                   <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold">
-                      {h.full_name?.charAt(0).toUpperCase()}
+                    <div className="relative">
+                      <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold">
+                        {h.full_name?.charAt(0).toUpperCase()}
+                      </div>
+                      {isNew && <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-yellow-400 border-2 border-[hsl(222,28%,10%)]" />}
                     </div>
                     <div>
                       <p className="font-semibold text-white">{h.full_name}</p>
                       <p className="text-xs text-white/40">{h.email} · {h.city}, {h.state}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right text-xs text-white/40 hidden md:block">
-                      <p>Fleet Score: <span className="text-white font-bold">{h.fleet_score || 100}</span></p>
-                      <p>Commission: <span className="text-white font-bold">{((h.commission_rate || 0.20) * 100).toFixed(0)}%</span></p>
-                    </div>
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
                     <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.color}`}>{cfg.label}</span>
-                    {h.stripe_onboarding_complete ? (
-                      <span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">Stripe ✓</span>
-                    ) : (
-                      <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/40">No Stripe</span>
-                    )}
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${vCfg.color}`}>{vCfg.label}</span>
+                    {h.stripe_onboarding_complete
+                      ? <span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">Stripe ✓</span>
+                      : <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/40">No Stripe</span>}
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-white/40" /> : <ChevronDown className="h-4 w-4 text-white/40" />}
                   </div>
                 </div>
@@ -126,23 +149,39 @@ export default function AdminHosts() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div><p className="text-white/40 text-xs">Phone</p><p className="text-white">{h.phone || "—"}</p></div>
                       <div><p className="text-white/40 text-xs">Business</p><p className="text-white">{h.business_name || "Individual"}</p></div>
+                      <div><p className="text-white/40 text-xs">Business Type</p><p className="text-white capitalize">{h.business_type?.replace(/_/g, " ") || "—"}</p></div>
+                      <div><p className="text-white/40 text-xs">EIN</p><p className="text-white">{h.ein_number || "—"}</p></div>
+                      <div><p className="text-white/40 text-xs">Legal Name</p><p className="text-white">{h.business_legal_name || "—"}</p></div>
+                      <div><p className="text-white/40 text-xs">Tax Class</p><p className="text-white">{h.tax_classification || "—"}</p></div>
                       <div><p className="text-white/40 text-xs">Total Earnings</p><p className="text-white">${(h.total_earnings || 0).toLocaleString()}</p></div>
-                      <div><p className="text-white/40 text-xs">Total Payouts</p><p className="text-white">${(h.total_payouts || 0).toLocaleString()}</p></div>
+                      <div><p className="text-white/40 text-xs">Commission</p><p className="text-white">{((h.commission_rate || 0.20) * 100).toFixed(0)}%</p></div>
                     </div>
+
+                    {/* Document status chips */}
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { label: "ID Front", ok: h.id_front_url, url: h.id_front_url },
+                        { label: "ID Back", ok: h.id_back_url, url: h.id_back_url },
+                        { label: "Selfie", ok: h.selfie_url, url: h.selfie_url },
+                        { label: "EIN Letter", ok: h.ein_letter_url, url: h.ein_letter_url },
+                      ].map(doc => (
+                        <a key={doc.label} href={doc.url || "#"} target={doc.url ? "_blank" : undefined} rel="noreferrer"
+                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${doc.ok ? "bg-green-500/15 text-green-400 border border-green-500/25 hover:bg-green-500/25" : "bg-white/[0.05] text-white/30 border border-white/[0.08] cursor-default"}`}>
+                          {doc.ok ? <CheckCircle2 className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                          {doc.label}
+                        </a>
+                      ))}
+                    </div>
+
                     {h.bio && <p className="text-sm text-white/50 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">{h.bio}</p>}
+                    {h.verification_notes && <p className="text-xs text-white/40 italic">Notes: {h.verification_notes}</p>}
+
                     <div className="flex items-center gap-3 flex-wrap">
-                      {h.status === "pending" && (
-                        <>
-                          <button onClick={() => handleApprove(h)} disabled={updateMutation.isPending}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 transition-all">
-                            <CheckCircle2 className="h-4 w-4" /> Approve
-                          </button>
-                          <button onClick={() => handleReject(h)} disabled={updateMutation.isPending}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all">
-                            <XCircle className="h-4 w-4" /> Reject
-                          </button>
-                        </>
-                      )}
+                      <button onClick={() => setVerifyingHost(h)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white"
+                        style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+                        <Shield className="h-4 w-4" /> Verify & Manage
+                      </button>
                       {h.status === "approved" && (
                         <button onClick={() => handleSuspend(h)} disabled={updateMutation.isPending}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all">
@@ -162,6 +201,15 @@ export default function AdminHosts() {
             );
           })}
         </div>
+      )}
+
+      {/* Verification Panel Modal */}
+      {verifyingHost && (
+        <HostVerificationPanel
+          host={verifyingHost}
+          open={!!verifyingHost}
+          onClose={() => setVerifyingHost(null)}
+        />
       )}
     </div>
   );

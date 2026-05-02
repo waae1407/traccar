@@ -64,6 +64,8 @@ export default function Dashboard() {
   const { data: payments = [] } = useQuery({ queryKey: ["payments", scopeKey], queryFn: () => base44.entities.Payment.filter(tenantFilter()) });
   const { data: contracts = [] } = useQuery({ queryKey: ["contracts", scopeKey], queryFn: () => base44.entities.RentToOwnContract.filter(tenantFilter()) });
   const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin", scopeKey], queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-created_date", 200), refetchInterval: 30_000 });
+  const { data: pendingHosts = [] } = useQuery({ queryKey: ["pending-hosts-dash"], queryFn: () => base44.entities.Host.filter({ status: "pending" }), refetchInterval: 60_000 });
+  const unviewedHosts = pendingHosts.filter(h => !h.admin_viewed);
 
   // Lead funnel derived data
   const nonAdminUsers = platformUsers.filter(u => u.role !== "admin");
@@ -183,6 +185,35 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+
+      {/* Pending Host Applications Alert */}
+      {pendingHosts.length > 0 && (
+        <div className="rounded-2xl border-2 border-yellow-500/40 overflow-hidden"
+          style={{ background: "linear-gradient(135deg, hsl(45 95% 60% / 0.10) 0%, hsl(265 80% 62% / 0.06) 100%)" }}>
+          <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, hsl(45 95% 55%), hsl(265 80% 55%))" }} />
+          <div className="p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-yellow-500/20 border border-yellow-500/30 flex items-center justify-center flex-shrink-0">
+                <Users className="h-6 w-6 text-yellow-400" />
+              </div>
+              <div>
+                <p className="font-bold text-yellow-300 text-base">
+                  {pendingHosts.length} Host Application{pendingHosts.length > 1 ? "s" : ""} Awaiting Review
+                </p>
+                <div className="flex items-center gap-4 mt-1 text-xs text-white/50">
+                  {unviewedHosts.length > 0 && <span className="text-yellow-400 font-semibold">{unviewedHosts.length} unseen</span>}
+                  <span>Verify identity · Collect EIN · Approve for Stripe</span>
+                </div>
+              </div>
+            </div>
+            <Link to="/admin/hosts"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-black transition-all hover:opacity-90 active:scale-95 flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, hsl(45 95% 60%), hsl(38 95% 54%))" }}>
+              Review Applications <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Out of Service Alert Widget */}
       {outOfServiceVehicles.length > 0 && (

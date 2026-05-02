@@ -7,6 +7,8 @@ import {
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
 import { useTenant } from "@/lib/useTenant";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 
 const LOGO_FULL = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/860834ab2_A3BAE4B8-976F-4BA4-B14F-141A770ED30E.jpg";
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -38,6 +40,12 @@ const superadminNavItems = [
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
   const { isSuperadmin } = useTenant();
+  const { data: pendingHosts = [] } = useQuery({
+    queryKey: ["sidebar-pending-hosts"],
+    queryFn: () => base44.entities.Host.filter({ status: "pending" }),
+    refetchInterval: 60_000,
+  });
+  const pendingHostCount = pendingHosts.filter(h => !h.admin_viewed).length;
 
   return (
     <>
@@ -91,13 +99,22 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-primary/50 px-3 mb-2 mt-1">Hosts</p>}
           {hostNavItems.map((item) => {
             const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+            const showBadge = item.path === "/admin/hosts" && pendingHostCount > 0;
             return (
               <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
                 className={cn("group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden",
                   isActive ? "nav-active shadow-glow-sm" : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]")}>
                 <item.icon className={cn("flex-shrink-0 relative z-10", isActive ? "text-primary" : "text-white/40 group-hover:text-white/70")} style={{ height: '1.125rem', width: '1.125rem' }} />
                 {!collapsed && <span className="relative z-10">{item.label}</span>}
-                {isActive && !collapsed && <div className="ml-auto relative z-10 h-1.5 w-1.5 rounded-full bg-primary" />}
+                {showBadge && !collapsed && (
+                  <span className="ml-auto relative z-10 min-w-[20px] h-5 px-1.5 rounded-full bg-yellow-500 text-[10px] font-black text-black flex items-center justify-center">
+                    {pendingHostCount}
+                  </span>
+                )}
+                {showBadge && collapsed && (
+                  <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-yellow-500" />
+                )}
+                {isActive && !collapsed && !showBadge && <div className="ml-auto relative z-10 h-1.5 w-1.5 rounded-full bg-primary" />}
               </Link>
             );
           })}

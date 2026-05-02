@@ -56,6 +56,7 @@ import HostCRM from '@/pages/host/HostCRM';
 import HostExpenses from '@/pages/host/HostExpenses';
 import HostMaintenance from '@/pages/host/HostMaintenance';
 import HostReports from '@/pages/host/HostReports';
+import HostVerificationDocs from '@/pages/host/HostVerificationDocs';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 
 // Public pages
@@ -121,6 +122,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/expenses" element={<HostExpenses />} />
         <Route path="/host/maintenance" element={<HostMaintenance />} />
         <Route path="/host/reports" element={<HostReports />} />
+        <Route path="/host/verification" element={<HostVerificationDocs />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS ── */}

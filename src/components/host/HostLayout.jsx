@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
-import { LayoutDashboard, Car, DollarSign, Shield, FileKey, TrendingUp, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2 } from "lucide-react";
+import { LayoutDashboard, Car, DollarSign, Shield, FileKey, TrendingUp, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -19,6 +19,7 @@ const navItems = [
   { label: "RTO Contracts", icon: FileKey, path: "/host/rto" },
   { label: "Fleet Insights", icon: TrendingUp, path: "/host/fleet-insights" },
   { label: "AV Readiness", icon: Zap, path: "/host/av-readiness" },
+  { label: "Verification & Tax", icon: Shield, path: "/host/verification" },
   { label: "AI Assistant", icon: MessageSquare, path: "/host/chat" },
 ];
 
