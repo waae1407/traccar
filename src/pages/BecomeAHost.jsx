@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Home, DollarSign, Shield, Zap, CheckCircle2, ArrowRight, ChevronRight, Star, TrendingUp } from "lucide-react";
+import { Home, DollarSign, Shield, Zap, CheckCircle2, ArrowRight, Clock, AlertCircle, Star, TrendingUp } from "lucide-react";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -14,6 +14,8 @@ export default function BecomeAHost() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [existingHost, setExistingHost] = useState(null);
+  const [checkingExisting, setCheckingExisting] = useState(false);
   const [form, setForm] = useState({
     full_name: user?.full_name || "",
     email: user?.email || "",
@@ -26,20 +28,82 @@ export default function BecomeAHost() {
     bio: "",
   });
 
+  // Check for existing host record on mount (when user is logged in)
+  useEffect(() => {
+    if (!user?.email) return;
+    setCheckingExisting(true);
+    base44.entities.Host.filter({ email: user.email }).then(hosts => {
+      if (hosts?.length > 0) {
+        const host = hosts[0];
+        setExistingHost(host);
+        if (host.status === "approved") {
+          navigate("/host/dashboard", { replace: true });
+        } else if (host.status === "pending") {
+          setStep("pending");
+        } else if (host.status === "rejected") {
+          // Pre-fill form with existing data so they can update & resubmit
+          setForm({
+            full_name: host.full_name || user?.full_name || "",
+            email: host.email || user?.email || "",
+            phone: host.phone || "",
+            business_name: host.business_name || "",
+            city: host.city || "",
+            state: host.state || "",
+            years_in_business: host.years_in_business || "",
+            referral_source: host.referral_source || "",
+            bio: host.bio || "",
+          });
+        }
+      }
+      setCheckingExisting(false);
+    });
+  }, [user?.email]);
+
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    await base44.entities.Host.create({
-      ...form,
-      user_id: user?.id || "",
-      status: "pending",
-      commission_rate: 0.20,
-    });
+    const payload = { ...form, user_id: user?.id || "", status: "pending", commission_rate: 0.20 };
+    // If rejected previously, update the existing record instead of creating a new one
+    if (existingHost && existingHost.status === "rejected") {
+      await base44.entities.Host.update(existingHost.id, { ...payload, verification_status: "not_started" });
+    } else {
+      await base44.entities.Host.create(payload);
+    }
     setStep(3);
     setSubmitting(false);
   };
+
+  // Loading check
+  if (checkingExisting) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="h-8 w-8 rounded-full border-4 border-pink-500 border-t-transparent animate-spin" />
+    </div>
+  );
+
+  // Already submitted — under review
+  if (step === "pending") return (
+    <div className="min-h-screen flex items-center justify-center px-6 bg-gray-50">
+      <div className="max-w-sm w-full text-center">
+        <div className="relative inline-flex mb-8">
+          <div className="h-24 w-24 rounded-3xl flex items-center justify-center mx-auto bg-yellow-100 border-2 border-yellow-300">
+            <Clock className="h-12 w-12 text-yellow-500" />
+          </div>
+        </div>
+        <h2 className="text-3xl font-black text-gray-900 mb-3" style={{ fontFamily: "var(--font-syne)" }}>Application Under Review</h2>
+        <p className="text-gray-400 text-sm leading-relaxed mb-2">You already have a pending application. Our team is reviewing it and will respond within 24–48 hours.</p>
+        <p className="text-gray-300 text-xs mb-8">Applied as: <span className="font-semibold text-gray-500">{existingHost?.email}</span></p>
+        <div className="space-y-3">
+          <Link to="/" className="flex items-center justify-center gap-2 w-full px-8 py-4 rounded-2xl text-white font-bold text-sm shadow-lg"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            Back to Home
+          </Link>
+          <p className="text-xs text-gray-300">Questions? Email <a href="mailto:support@uridehub.com" className="text-pink-500 underline">support@uridehub.com</a></p>
+        </div>
+      </div>
+    </div>
+  );
 
   // Success screen
   if (step === 3) return (
@@ -81,6 +145,15 @@ export default function BecomeAHost() {
       <div className="max-w-lg mx-auto px-5 py-8 pb-16">
         {/* Title */}
         <div className="mb-8">
+          {existingHost?.status === "rejected" && (
+            <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-50 border border-red-200 mb-5">
+              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-red-700">Previous Application Not Approved</p>
+                <p className="text-xs text-red-500 mt-0.5">You can update your details and resubmit below.</p>
+              </div>
+            </div>
+          )}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 text-xs font-bold mb-4">
             <Zap className="h-3 w-3" /> Step 2 of 2 — Your Details
           </div>
@@ -165,7 +238,11 @@ export default function BecomeAHost() {
           <p className="text-white/60 text-base leading-relaxed max-w-xs mx-auto mb-8">
             List your fleet on uRide. We handle renters, payments & compliance. You keep 80% — automatically.
           </p>
-          <button onClick={() => user ? setStep(2) : base44.auth.redirectToLogin(window.location.href + "?next=apply")}
+          <button onClick={() => {
+            if (!user) { base44.auth.redirectToLogin(window.location.href + "?next=apply"); return; }
+            if (existingHost?.status === "pending") { setStep("pending"); return; }
+            setStep(2);
+          }}
             className="px-8 py-4 rounded-2xl text-base font-bold text-white shadow-2xl transition-all active:scale-95"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
             Apply as a Host →
@@ -224,7 +301,11 @@ export default function BecomeAHost() {
         </div>
 
         {/* CTA */}
-        <button onClick={() => user ? setStep(2) : base44.auth.redirectToLogin(window.location.href + "?next=apply")}
+        <button onClick={() => {
+          if (!user) { base44.auth.redirectToLogin(window.location.href + "?next=apply"); return; }
+          if (existingHost?.status === "pending") { setStep("pending"); return; }
+          setStep(2);
+        }}
           className="w-full py-4 rounded-2xl font-bold text-white text-sm shadow-lg transition-all active:scale-95 mb-4"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           Apply to Become a Host →
