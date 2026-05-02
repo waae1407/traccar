@@ -7,17 +7,17 @@ import { Car, Home, Settings, ArrowRight, Zap, Shield, TrendingUp } from "lucide
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
 const ProfileCard = ({ icon: Icon, title, subtitle, description, bullets, cta, href, gradient, iconBg }) => (
-  <Link to={href} className="group relative flex flex-col rounded-3xl border border-white/10 p-8 hover:border-white/20 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl overflow-hidden"
+  <Link to={href} className="group relative flex flex-col rounded-2xl border border-white/10 p-5 hover:border-white/20 transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl overflow-hidden"
     style={{ background: "hsl(222 24% 11%)" }}>
     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
       style={{ background: gradient }} />
-    <div className={`relative h-14 w-14 rounded-2xl flex items-center justify-center mb-6`} style={{ background: iconBg }}>
-      <Icon className="h-7 w-7 text-white" />
+    <div className="relative h-11 w-11 rounded-xl flex items-center justify-center mb-4" style={{ background: iconBg }}>
+      <Icon className="h-5 w-5 text-white" />
     </div>
-    <h2 className="relative text-2xl font-bold text-white mb-1 font-syne">{title}</h2>
-    <p className="relative text-sm font-semibold mb-3" style={{ color: "hsl(338 90% 65%)" }}>{subtitle}</p>
-    <p className="relative text-white/50 text-sm leading-relaxed mb-6">{description}</p>
-    <ul className="relative space-y-2 mb-8 flex-1">
+    <h2 className="relative text-xl font-bold text-white mb-0.5 font-syne">{title}</h2>
+    <p className="relative text-xs font-semibold mb-2" style={{ color: "hsl(338 90% 65%)" }}>{subtitle}</p>
+    <p className="relative text-white/50 text-sm leading-relaxed mb-4">{description}</p>
+    <ul className="relative space-y-1.5 mb-5 flex-1">
       {bullets.map((b, i) => (
         <li key={i} className="flex items-center gap-2 text-sm text-white/60">
           <div className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
@@ -62,21 +62,21 @@ export default function PublicHome() {
       </nav>
 
       {/* Hero */}
-      <div className="text-center px-6 pt-16 pb-12">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold mb-6">
+      <div className="text-center px-6 pt-10 pb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold mb-4">
           <Zap className="h-3 w-3" /> Fleet Platform · Powered by Stripe Connect
         </div>
-        <h1 className="text-4xl md:text-6xl font-black mb-4 font-syne leading-tight">
+        <h1 className="text-3xl md:text-6xl font-black mb-3 font-syne leading-tight">
           The Future of<br />
           <span className="gradient-text">Vehicle Monetization</span>
         </h1>
-        <p className="text-white/40 text-lg max-w-xl mx-auto">
+        <p className="text-white/40 text-sm md:text-lg max-w-xl mx-auto">
           Rent, own, or deploy your fleet. uRide connects operators, hosts, and administrators on one unified platform.
         </p>
       </div>
 
       {/* 3 Profile Cards */}
-      <div className="max-w-6xl mx-auto px-6 pb-16 grid md:grid-cols-3 gap-6">
+      <div className="max-w-6xl mx-auto px-4 pb-10 grid md:grid-cols-3 gap-4">
         <ProfileCard
           icon={Car}
           title="I Need a Car"
@@ -128,8 +128,8 @@ export default function PublicHome() {
       </div>
 
       {/* Stats bar */}
-      <div className="border-t border-white/[0.06] px-6 py-8">
-        <div className="max-w-4xl mx-auto grid grid-cols-3 gap-8 text-center">
+      <div className="border-t border-white/[0.06] px-6 py-6">
+        <div className="max-w-4xl mx-auto grid grid-cols-3 gap-4 text-center">
           {[
             { label: "Platform Commission", value: "20%", sub: "You keep 80%" },
             { label: "Payout Speed", value: "2 Days", sub: "Via Stripe Connect" },
