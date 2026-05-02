@@ -51,6 +51,12 @@ import HostRTO from '@/pages/host/HostRTO';
 import HostFleetInsights from '@/pages/host/HostFleetInsights';
 import HostAVReadiness from '@/pages/host/HostAVReadiness';
 import HostAIChat from '@/pages/host/HostAIChat';
+import HostBrandBuilder from '@/pages/host/HostBrandBuilder';
+import HostCRM from '@/pages/host/HostCRM';
+import HostExpenses from '@/pages/host/HostExpenses';
+import HostMaintenance from '@/pages/host/HostMaintenance';
+import HostReports from '@/pages/host/HostReports';
+import PublicHostStorefront from '@/pages/PublicHostStorefront';
 
 // Public pages
 import BecomeAHost from '@/pages/BecomeAHost';
@@ -110,7 +116,15 @@ const AuthenticatedApp = () => {
         <Route path="/host/fleet-insights" element={<HostFleetInsights />} />
         <Route path="/host/av-readiness" element={<HostAVReadiness />} />
         <Route path="/host/chat" element={<HostAIChat />} />
+        <Route path="/host/brand" element={<HostBrandBuilder />} />
+        <Route path="/host/customers" element={<HostCRM />} />
+        <Route path="/host/expenses" element={<HostExpenses />} />
+        <Route path="/host/maintenance" element={<HostMaintenance />} />
+        <Route path="/host/reports" element={<HostReports />} />
       </Route>
+
+      {/* ── PUBLIC HOST STOREFRONTS ── */}
+      <Route path="/host/:businessSlug" element={<PublicHostStorefront />} />
 
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>
