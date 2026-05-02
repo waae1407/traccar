@@ -38,6 +38,8 @@ import CustomerPreview from '@/pages/CustomerPreview';
 import Referrals from '@/pages/Referrals';
 import AdminHosts from '@/pages/admin/AdminHosts';
 import AdminPayouts from '@/pages/admin/AdminPayouts';
+import AdminAIChat from '@/pages/admin/AdminAIChat';
+import RenterAIChat from '@/pages/customer/RenterAIChat';
 
 // Host pages
 import HostLayout from '@/components/host/HostLayout';
@@ -48,6 +50,7 @@ import HostCompliance from '@/pages/host/HostCompliance';
 import HostRTO from '@/pages/host/HostRTO';
 import HostFleetInsights from '@/pages/host/HostFleetInsights';
 import HostAVReadiness from '@/pages/host/HostAVReadiness';
+import HostAIChat from '@/pages/host/HostAIChat';
 
 // Public pages
 import BecomeAHost from '@/pages/BecomeAHost';
@@ -106,6 +109,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/rto" element={<HostRTO />} />
         <Route path="/host/fleet-insights" element={<HostFleetInsights />} />
         <Route path="/host/av-readiness" element={<HostAVReadiness />} />
+        <Route path="/host/chat" element={<HostAIChat />} />
       </Route>
 
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
@@ -114,6 +118,7 @@ const AuthenticatedApp = () => {
         <Route path="/my-bookings" element={<MyBookings />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/support" element={<RenterAIChat />} />
       </Route>
 
       {/* ── CHECKOUT (standalone, no customer layout chrome) ── */}
@@ -134,6 +139,7 @@ const AuthenticatedApp = () => {
         <Route path="/referrals" element={<Referrals />} />
         <Route path="/admin/hosts" element={<AdminHosts />} />
         <Route path="/admin/payouts" element={<AdminPayouts />} />
+        <Route path="/admin/ai-chat" element={<AdminAIChat />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

@@ -1,12 +1,13 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, Activity, User } from "lucide-react";
+import { Home, CalendarDays, Activity, User, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { label: "Home", icon: Home, path: "/" },
   { label: "Bookings", icon: CalendarDays, path: "/my-bookings" },
   { label: "Activity", icon: Activity, path: "/activity" },
+  { label: "Support", icon: HelpCircle, path: "/support" },
   { label: "Account", icon: User, path: "/account" },
 ];
 

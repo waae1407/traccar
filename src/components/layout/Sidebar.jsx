@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
-  FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2, Eye, Gift, Home, Wallet,
+  FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2, Eye, Gift, Home, Wallet, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -22,6 +22,7 @@ const navItems = [
   { label: "Reports", icon: BarChart3, path: "/reports" },
   { label: "Referrals 🎁", icon: Gift, path: "/referrals" },
   { label: "Customer Preview", icon: Eye, path: "/customer-preview" },
+  { label: "AI Oracle 🤖", icon: Zap, path: "/admin/ai-chat" },
   { label: "Book Now ↗", icon: Car, path: "/", divider: true },
 ];
 
