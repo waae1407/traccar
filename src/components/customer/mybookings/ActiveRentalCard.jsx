@@ -58,36 +58,47 @@ export default function ActiveRentalCard({ booking, onDelete, onCancelRequest, o
   });
 
   const inner = (
-    <div className="relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-gray-900 font-bold text-lg leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
-            {booking.vehicle_name || "Vehicle"}
-          </p>
-          <div className="flex items-center gap-3 mt-1 flex-wrap">
-            {booking.city && (
-              <span className="flex items-center gap-1 text-gray-400 text-xs">
-                <MapPin className="h-3 w-3" />{booking.city}
-              </span>
-            )}
-            {booking.start_date && (
-              <span className="flex items-center gap-1 text-gray-400 text-xs">
-                <Clock className="h-3 w-3" />{format(new Date(booking.start_date), "MMM d, yyyy")}
-              </span>
-            )}
-            {booking.booking_type && (
-              <span className="text-xs font-semibold text-gray-400">{booking.booking_type}</span>
-            )}
+    <div className="relative bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
+      {/* Vehicle image — top, full bleed */}
+      {booking.vehicle_image ? (
+        <div className="relative h-48 overflow-hidden">
+          <img src={booking.vehicle_image} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.6) 100%)" }} />
+          {/* Title overlay on image */}
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-4">
+            <p className="text-white font-black text-lg leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+              {booking.vehicle_name || "Vehicle"}
+            </p>
+            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+              {booking.city && (
+                <span className="flex items-center gap-1 text-white/70 text-xs">
+                  <MapPin className="h-3 w-3" />{booking.city}
+                </span>
+              )}
+              {booking.start_date && (
+                <span className="flex items-center gap-1 text-white/70 text-xs">
+                  <Clock className="h-3 w-3" />{format(new Date(booking.start_date), "MMM d, yyyy")}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="absolute top-3 right-3">
+            <StatusBadge status={booking.booking_status} />
           </div>
         </div>
-        <StatusBadge status={booking.booking_status} />
-      </div>
-
-      {/* Vehicle image */}
-      {booking.vehicle_image && (
-        <div className="relative h-44 overflow-hidden mx-4 rounded-xl mb-3">
-          <img src={booking.vehicle_image} alt="" className="w-full h-full object-cover" />
+      ) : (
+        /* No image — plain header */
+        <div className="px-4 pt-4 pb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-gray-900 font-black text-lg leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+              {booking.vehicle_name || "Vehicle"}
+            </p>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              {booking.city && <span className="flex items-center gap-1 text-gray-400 text-xs"><MapPin className="h-3 w-3" />{booking.city}</span>}
+              {booking.start_date && <span className="flex items-center gap-1 text-gray-400 text-xs"><Clock className="h-3 w-3" />{format(new Date(booking.start_date), "MMM d, yyyy")}</span>}
+            </div>
+          </div>
+          <StatusBadge status={booking.booking_status} />
         </div>
       )}
 

@@ -90,7 +90,7 @@ export default function MyBookings() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-28">
+    <div className="min-h-screen pb-28" style={{ background: "#f8f8fa" }}>
       {/* Modals */}
       {cancelTarget && <CancelBookingSheet booking={cancelTarget} onClose={() => setCancelTarget(null)} />}
       {inspectionTarget && (
@@ -117,14 +117,19 @@ export default function MyBookings() {
         {activeTab === "active" && (
           activeBookings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="h-16 w-16 rounded-2xl bg-pink-50 flex items-center justify-center mb-4">
-                <Car className="h-7 w-7 text-pink-400" />
+              <div className="relative inline-flex mb-5">
+                <div className="h-20 w-20 rounded-3xl flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+                  <Car className="h-9 w-9 text-white" />
+                </div>
+                <div className="absolute inset-0 rounded-3xl blur-2xl opacity-25"
+                  style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />
               </div>
-              <h3 className="font-bold text-gray-900 text-lg">No active rentals</h3>
-              <p className="text-gray-400 text-sm mt-2">Ready to hit the road? Book your first rental.</p>
-              <Link to="/book-now" className="mt-5 px-6 py-2.5 rounded-xl font-bold text-sm text-white"
+              <h3 className="font-black text-gray-900 text-xl mb-2" style={{ fontFamily: "var(--font-syne)" }}>No active rentals</h3>
+              <p className="text-gray-400 text-sm">Ready to hit the road? Find your perfect vehicle.</p>
+              <Link to="/book-now" className="mt-6 px-8 py-3.5 rounded-2xl font-bold text-sm text-white shadow-lg"
                 style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                Book Now
+                Browse Cars
               </Link>
             </div>
           ) : (

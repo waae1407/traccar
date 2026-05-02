@@ -89,82 +89,96 @@ export default function ActivityPage() {
   const activeBooking = dedupedBookings.find((b) => ["active", "confirmed", "pending_review"].includes(b.booking_status));
 
   return (
-    <div className="px-5 py-6">
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-          <div className="h-8 w-8 rounded-xl bg-green-50 flex items-center justify-center mb-2">
-            <DollarSign className="h-4 w-4 text-green-600" />
+    <div className="pb-6">
+      {/* Hero banner */}
+      <div className="relative overflow-hidden mb-5" style={{ background: "linear-gradient(160deg, #0f0c29 0%, #302b63 60%, #24243e 100%)" }}>
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 20% 50%, hsl(265 80% 62% / 0.3) 0%, transparent 60%)" }} />
+        <div className="relative z-10 px-5 pt-7 pb-7">
+          <p className="text-white/50 text-xs font-bold uppercase tracking-wider mb-1">Your Journey</p>
+          <h1 className="text-2xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>Activity</h1>
+          {/* Stats row */}
+          <div className="flex gap-5 mt-4">
+            <div>
+              <p className="text-2xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>${totalPaid.toLocaleString()}</p>
+              <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">Total Paid</p>
+            </div>
+            <div className="w-px bg-white/10" />
+            <div>
+              <p className="text-2xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>{dedupedBookings.length}</p>
+              <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">Rentals</p>
+            </div>
+            <div className="w-px bg-white/10" />
+            <div>
+              <p className="text-2xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>{events.length}</p>
+              <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">Events</p>
+            </div>
           </div>
-          <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total Paid</p>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">${totalPaid.toLocaleString()}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-          <div className="h-8 w-8 rounded-xl bg-blue-50 flex items-center justify-center mb-2">
-            <Car className="h-4 w-4 text-blue-600" />
-          </div>
-          <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Bookings</p>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">{dedupedBookings.length}</p>
-        </div>
+        <div className="h-5"><svg viewBox="0 0 375 20" fill="#f8f8fa" className="w-full" preserveAspectRatio="none"><path d="M0 20L375 20L375 5C300 18 180 1 0 12L0 20Z"/></svg></div>
       </div>
 
-      {/* Active booking status */}
-      {activeBooking && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-5">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Active Rental</p>
-          <p className="font-bold text-gray-900">{activeBooking.vehicle_name}</p>
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${activeBooking.payment_status === "paid" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-              {activeBooking.booking_status?.replace(/_/g, " ")}
-            </span>
-            {activeBooking.booking_type === "Rent-to-Own" && (
-              <span className="text-xs font-semibold text-pink-600">Rent-to-Own</span>
-            )}
+      <div className="px-5">
+        {/* Active booking status */}
+        {activeBooking && (
+          <div className="rounded-3xl overflow-hidden mb-5 shadow-sm" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider mb-1">Active Rental</p>
+              <p className="font-black text-white text-base" style={{ fontFamily: "var(--font-syne)" }}>{activeBooking.vehicle_name}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/20 text-white capitalize">
+                  {activeBooking.booking_status?.replace(/_/g, " ")}
+                </span>
+                {activeBooking.booking_type === "Rent-to-Own" && (
+                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-white/20 text-white">Rent-to-Own</span>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Activity timeline */}
-      <h2 className="font-bold text-gray-900 text-base mb-3">Activity Timeline</h2>
-      {loadingEvents ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-2xl bg-gray-100 animate-pulse" />)}
-        </div>
-      ) : events.length === 0 ? (
-        <div className="text-center py-10 bg-white rounded-2xl border border-gray-100">
-          <p className="text-gray-400 text-sm">No activity yet. Start by booking a vehicle.</p>
-        </div>
-      ) : (
-        <div className="relative">
-          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-100" />
-          <div className="space-y-4">
-            {[...events].sort((a, b) => new Date(b.created_date) - new Date(a.created_date)).map((ev) => {
-              const cfg = eventIcons[ev.event_type] || { icon: Activity, bg: "bg-gray-50", color: "text-gray-500" };
-              const Icon = cfg.icon;
-              return (
-                <div key={ev.id} className="flex gap-3 pl-1">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 z-10 ${cfg.bg}`}>
-                    <Icon className={`h-4 w-4 ${cfg.color}`} />
-                  </div>
-                  <div className="flex-1 bg-white rounded-2xl border border-gray-100 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold text-gray-900 text-sm">{ev.event_title}</p>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                        ev.event_status === "success" ? "bg-green-100 text-green-700" :
-                        ev.event_status === "warning" ? "bg-yellow-100 text-yellow-700" :
-                        ev.event_status === "error" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"
-                      }`}>{ev.event_status}</span>
-                    </div>
-                    {ev.event_description && <p className="text-xs text-gray-400 mt-0.5">{ev.event_description}</p>}
-                    {ev.amount && <p className="text-sm font-bold text-green-600 mt-1">${ev.amount.toLocaleString()}</p>}
-                    <p className="text-[10px] text-gray-300 mt-1">{ev.created_date ? format(new Date(ev.created_date), "MMM d, yyyy · h:mm a") : ""}</p>
-                  </div>
-                </div>
-              );
-            })}
+        {/* Activity timeline */}
+        <h2 className="font-black text-gray-900 text-base mb-4" style={{ fontFamily: "var(--font-syne)" }}>Timeline</h2>
+        {loadingEvents ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-3xl bg-gray-100 animate-pulse" />)}
           </div>
-        </div>
-      )}
+        ) : events.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-3xl border border-gray-100 shadow-sm">
+            <Activity className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm">No activity yet. Start by booking a vehicle.</p>
+          </div>
+        ) : (
+          <div className="relative">
+            <div className="absolute left-[22px] top-4 bottom-4 w-0.5 bg-gray-100 rounded-full" />
+            <div className="space-y-3">
+              {[...events].sort((a, b) => new Date(b.created_date) - new Date(a.created_date)).map((ev) => {
+                const cfg = eventIcons[ev.event_type] || { icon: Activity, bg: "bg-gray-50", color: "text-gray-500" };
+                const Icon = cfg.icon;
+                return (
+                  <div key={ev.id} className="flex gap-3">
+                    <div className={`h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0 z-10 shadow-sm ${cfg.bg}`}>
+                      <Icon className={`h-4 w-4 ${cfg.color}`} />
+                    </div>
+                    <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm px-4 py-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-bold text-gray-900 text-sm">{ev.event_title}</p>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                          ev.event_status === "success" ? "bg-green-100 text-green-700" :
+                          ev.event_status === "warning" ? "bg-amber-100 text-amber-700" :
+                          ev.event_status === "error" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500"
+                        }`}>{ev.event_status}</span>
+                      </div>
+                      {ev.event_description && <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{ev.event_description}</p>}
+                      {ev.amount && <p className="text-sm font-black text-emerald-600 mt-1">${ev.amount.toLocaleString()}</p>}
+                      <p className="text-[10px] text-gray-300 mt-1.5">{ev.created_date ? format(new Date(ev.created_date), "MMM d, yyyy · h:mm a") : ""}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

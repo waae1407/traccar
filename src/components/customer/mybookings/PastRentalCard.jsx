@@ -20,20 +20,20 @@ export default function PastRentalCard({ booking, onViewContract }) {
   const hasDropoff = booking.return_exterior_photos?.length > 0;
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+    <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
       {/* Vehicle image */}
       {booking.vehicle_image && (
-        <div className="relative h-36 overflow-hidden">
+        <div className="relative h-40 overflow-hidden">
           <img src={booking.vehicle_image} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.6))" }} />
-          <div className="absolute bottom-0 left-0 right-0 px-4 pb-3 flex items-end justify-between">
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.7))" }} />
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 flex items-end justify-between">
             <div>
-              <p className="text-white font-bold text-base" style={{ fontFamily: "var(--font-syne)" }}>
+              <p className="text-white font-black text-base" style={{ fontFamily: "var(--font-syne)" }}>
                 {booking.vehicle_name}
               </p>
-              <p className="text-white/70 text-[11px]">{booking.booking_type}</p>
+              <p className="text-white/60 text-[11px]">{booking.booking_type}</p>
             </div>
-            <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${isCancelled ? "bg-red-500/80 text-white" : "bg-green-500/80 text-white"}`}>
+            <span className={`px-3 py-1 rounded-full text-[10px] font-bold shadow-sm ${isCancelled ? "bg-red-500 text-white" : "bg-emerald-500 text-white"}`}>
               {isCancelled ? "Cancelled" : "Completed"}
             </span>
           </div>
@@ -105,7 +105,7 @@ export default function PastRentalCard({ booking, onViewContract }) {
         {(hasPickup || hasDropoff) && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-gray-500 bg-gray-50 border border-gray-100 active:scale-[0.98] transition-transform"
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-bold text-gray-500 bg-gray-50 border border-gray-100 active:scale-[0.98] transition-transform"
           >
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             {expanded ? "Hide" : "View"} Inspection Photos
