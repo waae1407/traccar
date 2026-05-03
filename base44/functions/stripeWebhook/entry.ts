@@ -25,12 +25,73 @@ Deno.serve(async (req) => {
         const receiptUrl = pi.charges?.data?.[0]?.receipt_url;
         if (bookingRequestId) {
           const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });
-          if (records[0]) {
+          const booking = records[0];
+          if (booking) {
             await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
               payment_status: 'paid',
               stripe_payment_intent_id: pi.id,
               receipt_url: receiptUrl || null,
             });
+
+            // Auto-payout host: trace booking → vehicle → host → Stripe transfer
+            const amountPaid = pi.amount / 100; // convert cents to dollars
+            if (booking.vehicle_id && amountPaid > 0) {
+              const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+              const vehicle = vehicles[0];
+              if (vehicle?.host_id) {
+                const hosts = await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id });
+                const host = hosts[0];
+                if (host?.stripe_account_id && host?.stripe_onboarding_complete) {
+                  const commissionRate = host.commission_rate || 0.20;
+                  const hostShare = Math.round(amountPaid * (1 - commissionRate) * 100); // cents
+                  const platformShare = Math.round(amountPaid * commissionRate * 100); // cents
+
+                  // Create Stripe transfer to host's connected account
+                  const transfer = await stripe.transfers.create({
+                    amount: hostShare,
+                    currency: 'usd',
+                    destination: host.stripe_account_id,
+                    description: `uRide auto-payout — ${host.full_name} — booking ${bookingRequestId}`,
+                    metadata: { host_id: host.id, booking_request_id: bookingRequestId, platform: 'uride' },
+                  });
+
+                  // Create a HostPayout record for tracking
+                  await base44.asServiceRole.entities.HostPayout.create({
+                    host_id: host.id,
+                    host_email: host.email,
+                    host_name: host.full_name,
+                    period_start: booking.start_date || new Date().toISOString().slice(0, 10),
+                    period_end: booking.end_date || new Date().toISOString().slice(0, 10),
+                    gross_collected: amountPaid,
+                    platform_fee: platformShare / 100,
+                    net_payout: hostShare / 100,
+                    status: 'paid',
+                    stripe_transfer_id: transfer.id,
+                    payout_date: new Date().toISOString().slice(0, 10),
+                    booking_count: 1,
+                    vehicle_count: 1,
+                  });
+
+                  // Update host total payouts & earnings
+                  await base44.asServiceRole.entities.Host.update(host.id, {
+                    total_earnings: (host.total_earnings || 0) + amountPaid,
+                    total_payouts: (host.total_payouts || 0) + (hostShare / 100),
+                  });
+
+                  // Notify host
+                  await base44.asServiceRole.entities.Notification.create({
+                    user_email: host.email,
+                    title: `💰 Payout Sent — $${(hostShare / 100).toLocaleString()}`,
+                    body: `A rental payment was received and $${(hostShare / 100).toLocaleString()} (${((1 - commissionRate) * 100).toFixed(0)}%) has been transferred to your bank. Arrives within 2 business days.`,
+                    type: 'payment',
+                  });
+
+                  console.log(`[AutoPayout] ✓ Transfer ${transfer.id} — $${hostShare / 100} to ${host.stripe_account_id} for booking ${bookingRequestId}`);
+                } else {
+                  console.log(`[AutoPayout] Host ${vehicle.host_id} not eligible for auto-payout (no Stripe account or onboarding incomplete)`);
+                }
+              }
+            }
           }
         }
         break;
