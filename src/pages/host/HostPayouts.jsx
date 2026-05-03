@@ -34,6 +34,11 @@ export default function HostPayouts() {
     setStripeLoading(true);
     setStripeError(null);
     try {
+      if (!host?.id || !host?.email) {
+        setStripeError("Host profile not loaded. Please refresh and try again.");
+        setStripeLoading(false);
+        return;
+      }
       const res = await base44.functions.invoke("createStripeConnectAccount", { host_id: host.id, host_email: host.email, host_name: host.full_name });
       if (res.data?.url) {
         window.location.href = res.data.url;
@@ -62,7 +67,7 @@ export default function HostPayouts() {
             <div className="flex-1">
               <h3 className="font-bold text-yellow-800 mb-1">Connect Your Bank Account</h3>
               <p className="text-sm text-yellow-700 mb-4">Complete Stripe Connect onboarding to receive automated payouts. Takes about 5 minutes.</p>
-              <button onClick={handleStripeConnect} disabled={stripeLoading}
+              <button onClick={handleStripeConnect} disabled={stripeLoading || !host?.id}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
                 style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                 {stripeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
