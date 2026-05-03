@@ -39,7 +39,13 @@
     },
     "commission_rate": {
       "type": "number",
-      "default": 0.08
+      "default": 0.08,
+      "description": "Uride Platform Fee rate (default 8%). Admin can override per host."
+    },
+    "commission_rate_overridden_by_admin": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, admin has manually set a custom commission_rate and it should not be auto-migrated."
     },
     "stripe_account_id": {
       "type": "string"
@@ -139,16 +145,13 @@
       "type": "string"
     },
     "id_front_url": {
-      "type": "string",
-      "description": "Government ID front photo"
+      "type": "string"
     },
     "id_back_url": {
-      "type": "string",
-      "description": "Government ID back photo"
+      "type": "string"
     },
     "selfie_url": {
-      "type": "string",
-      "description": "Selfie for ID verification"
+      "type": "string"
     },
     "business_type": {
       "type": "string",
@@ -158,28 +161,22 @@
         "s_corp",
         "c_corp",
         "partnership"
-      ],
-      "description": "Legal business entity type"
+      ]
     },
     "ein_number": {
-      "type": "string",
-      "description": "Employer Identification Number"
+      "type": "string"
     },
     "ein_letter_url": {
-      "type": "string",
-      "description": "IRS EIN confirmation letter upload"
+      "type": "string"
     },
     "business_legal_name": {
-      "type": "string",
-      "description": "Legal business name as filed with IRS"
+      "type": "string"
     },
     "tax_classification": {
-      "type": "string",
-      "description": "Tax classification for 1099-K"
+      "type": "string"
     },
     "ssn_last4": {
-      "type": "string",
-      "description": "Last 4 of SSN (sole proprietors only)"
+      "type": "string"
     },
     "verification_status": {
       "type": "string",
@@ -197,8 +194,7 @@
     },
     "admin_viewed": {
       "type": "boolean",
-      "default": false,
-      "description": "Has admin seen this application"
+      "default": false
     }
   },
   "required": [

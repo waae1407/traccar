@@ -93,21 +93,29 @@ function VehicleCard({ v, onSelect, featured = false }) {
           </div>
         </div>
 
-        {/* Gig tags — only show if relevant */}
-        {tags.length > 0 && (
-          <div className="flex gap-1 mt-2 flex-wrap">
-            {tags.includes("uber") && (
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-black text-white">
-                🚗 Uber ready
-              </span>
-            )}
-            {tags.includes("fuel") && (
-              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-green-50 text-green-700 border border-green-200">
-                ⛽ Fuel efficient
-              </span>
-            )}
-          </div>
-        )}
+        {/* Gig tags + min rental */}
+        <div className="flex gap-1 mt-2 flex-wrap">
+          {tags.includes("uber") && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-black text-white">
+              🚗 Uber ready
+            </span>
+          )}
+          {tags.includes("fuel") && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-green-50 text-green-700 border border-green-200">
+              ⛽ Fuel efficient
+            </span>
+          )}
+          {v.minimum_rental_days && v.minimum_rental_days !== 7 && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+              Min {v.minimum_rental_days}d
+            </span>
+          )}
+          {v.allow_daily_booking && v.daily_rate && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200">
+              ${v.daily_rate}/day
+            </span>
+          )}
+        </div>
       </div>
     </button>
   );

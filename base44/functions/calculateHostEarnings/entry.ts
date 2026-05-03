@@ -6,17 +6,13 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user || user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
 
-    // Calculate earnings for the past week
     const today = new Date();
     const periodEnd = today.toISOString().split("T")[0];
     const weekAgo = new Date(today);
     weekAgo.setDate(weekAgo.getDate() - 7);
     const periodStart = weekAgo.toISOString().split("T")[0];
 
-    // Get all hosts
     const hosts = await base44.asServiceRole.entities.Host.filter({ status: "approved" });
-
-    // Get all paid bookings in period
     const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ payment_status: "paid" });
     const periodBookings = bookings.filter(b => {
       const paidDate = b.updated_date?.split("T")[0];
@@ -29,11 +25,11 @@ Deno.serve(async (req) => {
       const hostBookings = periodBookings.filter(b => b.host_id === host.id);
       if (hostBookings.length === 0) continue;
 
+      const commissionRate = host.commission_rate ?? 0.08;
       const grossCollected = hostBookings.reduce((s, b) => s + (b.weekly_rate || 0), 0);
-      const platformFee = Math.round(grossCollected * (host.commission_rate || 0.20) * 100) / 100;
-      const netPayout = Math.round((grossCollected - platformFee) * 100) / 100;
+      const uridePlatformFee = Math.round(grossCollected * commissionRate * 100) / 100;
+      const netPayout = Math.round((grossCollected - uridePlatformFee) * 100) / 100;
 
-      // Check if payout already exists for this period
       const existing = await base44.asServiceRole.entities.HostPayout.filter({ host_id: host.id, period_start: periodStart });
 
       if (existing.length === 0) {
@@ -43,8 +39,13 @@ Deno.serve(async (req) => {
           host_name: host.full_name,
           period_start: periodStart,
           period_end: periodEnd,
+          gross_booking_amount: grossCollected,
+          uride_platform_fee_amount: uridePlatformFee,
+          uride_platform_fee_rate: commissionRate,
+          net_host_payout: netPayout,
+          // Legacy aliases
           gross_collected: grossCollected,
-          platform_fee: platformFee,
+          platform_fee: uridePlatformFee,
           net_payout: netPayout,
           status: "pending",
           booking_count: hostBookings.length,
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
         });
 
         results.push({ host_id: host.id, host_name: host.full_name, gross: grossCollected, net: netPayout, bookings: hostBookings.length });
-        console.log(`[HostEarnings] Created payout for ${host.full_name}: $${netPayout}`);
+        console.log(`[HostEarnings] Created payout for ${host.full_name}: gross $${grossCollected} | Uride Fee (${(commissionRate*100).toFixed(0)}%): $${uridePlatformFee} | Net: $${netPayout}`);
       }
     }
 

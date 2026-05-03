@@ -11,6 +11,13 @@
     "host_name": {
       "type": "string"
     },
+    "booking_request_id": {
+      "type": "string",
+      "description": "The booking that triggered this payout"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
     "period_start": {
       "type": "string",
       "format": "date"
@@ -19,17 +26,50 @@
       "type": "string",
       "format": "date"
     },
+    "gross_booking_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Total amount charged to customer"
+    },
+    "stripe_fee_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Actual Stripe processing fee from balance_transaction.fee"
+    },
+    "stripe_effective_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "Stripe fee as percentage of gross (stripe_fee / gross * 100)"
+    },
+    "uride_platform_fee_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Uride Platform Fee (gross * commission_rate)"
+    },
+    "uride_platform_fee_rate": {
+      "type": "number",
+      "default": 0.08,
+      "description": "The commission_rate applied for this payout"
+    },
+    "net_host_payout": {
+      "type": "number",
+      "default": 0,
+      "description": "gross - stripe_fee - uride_platform_fee"
+    },
     "gross_collected": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "description": "Legacy alias for gross_booking_amount"
     },
     "platform_fee": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "description": "Legacy alias for uride_platform_fee_amount"
     },
     "net_payout": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "description": "Legacy alias for net_host_payout"
     },
     "status": {
       "type": "string",

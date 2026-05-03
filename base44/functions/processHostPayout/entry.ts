@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Get host Stripe account
     const hosts = await base44.asServiceRole.entities.Host.filter({ id: host_id });
     const host = hosts[0];
 
@@ -22,25 +21,23 @@ Deno.serve(async (req) => {
 
     const amountCents = Math.round(amount * 100);
 
-    // Create Stripe transfer to connected account
     const transfer = await stripe.transfers.create({
       amount: amountCents,
       currency: "usd",
       destination: host.stripe_account_id,
-      description: `uRide host payout - ${host.full_name} - payout ${payout_id}`,
+      description: `UrideHub host payout — ${host.full_name} — payout ${payout_id}`,
       metadata: { host_id, payout_id, platform: "uride" },
     });
 
-    // Update host total payouts
     await base44.asServiceRole.entities.Host.update(host_id, {
       total_payouts: (host.total_payouts || 0) + amount,
     });
 
-    // Notify host
+    const commissionRate = host.commission_rate ?? 0.08;
     await base44.asServiceRole.entities.Notification.create({
       user_email: host.email,
       title: `💰 Payout Sent — $${amount.toLocaleString()}`,
-      body: `Your payout of $${amount.toLocaleString()} has been transferred to your bank account. It will arrive within 2 business days.`,
+      body: `Your payout of $${amount.toLocaleString()} has been transferred to your bank account. Uride Platform Fee: ${(commissionRate * 100).toFixed(0)}%. Arrives within 2 business days.`,
       type: "payment",
     });
 

@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 Deno.serve(async (req) => {
   try {
@@ -6,9 +6,12 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { booking_request_id, user_email, amount, vehicle_name, booking_type, weekly_rate, vehicle_id } = await req.json();
+    const {
+      booking_request_id, user_email, amount, vehicle_name, booking_type,
+      weekly_rate, vehicle_id, start_date, end_date, rental_days,
+    } = await req.json();
 
-    // Fetch vehicle to get pickup address
+    // Fetch vehicle for pickup address
     let pickupAddress = null;
     let pickupHours = null;
     if (vehicle_id) {
@@ -19,7 +22,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Push in-app notification about address reveal
     if (pickupAddress) {
       await base44.asServiceRole.entities.Notification.create({
         user_email,
@@ -31,54 +33,69 @@ Deno.serve(async (req) => {
     }
 
     const isRecurring = booking_type === "Weekly" || booking_type === "Rent-to-Own" || booking_type === "Monthly";
+    const receiptRef = `UR-${booking_request_id?.slice(-6)?.toUpperCase() || '000000'}`;
+
+    // Build rental subtotal line
+    const days = rental_days || 7;
+    const rentalLine = weekly_rate
+      ? `${days} days @ $${weekly_rate}/week`
+      : booking_type || "Rental";
+
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
 
     const emailBody = `
-<div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
-  <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 32px 32px 28px; border-radius: 16px 16px 0 0; text-align: center;">
-    <img src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" alt="uRide" style="width: 56px; height: 56px; border-radius: 14px; border: 2px solid rgba(255,255,255,0.35); display: block; margin: 0 auto 10px;" />
-    <div style="color: white; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 16px;">uRide</div>
-    <h1 style="color: white; margin: 0; font-size: 22px;">Payment Received ✓</h1>
-    <p style="color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px;">Receipt</p>
-  </div>
-  <div style="background: #fafafa; padding: 28px 32px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
-    <p style="margin: 0 0 20px; font-size: 15px; color: #374151;">Hi! Your payment was successful and your booking is now under review.</p>
+<div style="font-family: 'Courier New', Courier, monospace; max-width: 560px; margin: 0 auto; color: #111; background: #f9fafb; padding: 32px; border-radius: 16px;">
 
-    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-      <table style="width: 100%; border-collapse: collapse;">
-        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Vehicle</td><td style="padding: 6px 0; font-weight: 600; text-align: right; font-size: 13px;">${vehicle_name || "—"}</td></tr>
-        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Booking Type</td><td style="padding: 6px 0; font-weight: 600; text-align: right; font-size: 13px;">${booking_type || "—"}</td></tr>
-        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Amount Paid Today</td><td style="padding: 6px 0; font-weight: 700; text-align: right; font-size: 15px; color: #111;">$${amount?.toLocaleString() || "0"}</td></tr>
-        ${isRecurring && weekly_rate ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Recurring Amount</td><td style="padding: 6px 0; font-weight: 600; text-align: right; font-size: 13px; color: #6b7280;">$${weekly_rate}/week</td></tr>` : ""}
-        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Booking Status</td><td style="padding: 6px 0; font-weight: 600; text-align: right; font-size: 13px; color: #d97706;">Pending Review</td></tr>
-        <tr><td style="padding: 6px 0; color: #6b7280; font-size: 13px;">Reference</td><td style="padding: 6px 0; font-weight: 600; text-align: right; font-size: 12px; font-family: monospace;">#${booking_request_id?.slice(-8)?.toUpperCase()}</td></tr>
-      </table>
-    </div>
+  <p style="font-size: 18px; font-weight: bold; margin: 0 0 4px;">UrideHub</p>
+  <p style="margin: 0 0 2px; font-size: 14px;">Receipt ${receiptRef}</p>
+  <p style="margin: 0 0 20px; font-size: 14px; color: #6b7280;">${formatDate(new Date().toISOString())}</p>
 
-    ${isRecurring ? `
-    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 20px;">
-      <p style="margin: 0; font-size: 13px; color: #1d4ed8; font-weight: 600;">📋 Recurring Billing Notice</p>
-      <p style="margin: 6px 0 0; font-size: 12px; color: #1e40af;">You have authorized uRide to charge <strong>$${weekly_rate}/week</strong> automatically. You may cancel anytime by contacting uRide support or through your account.</p>
-    </div>` : ""}
+  <p style="margin: 0 0 2px; font-size: 14px;"><strong>Customer:</strong> ${user?.full_name || user_email}</p>
+  <p style="margin: 0 0 2px; font-size: 14px;"><strong>Booking:</strong> ${vehicle_name || "—"}</p>
+  ${start_date && end_date ? `<p style="margin: 0 0 2px; font-size: 14px;"><strong>Rental Period:</strong> ${formatDate(start_date)} → ${formatDate(end_date)} (${days} days)</p>` : ""}
 
-    ${pickupAddress ? `
-    <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-      <p style="margin: 0; font-size: 14px; color: #166534; font-weight: 700;">📍 Your Pickup Address</p>
-      <p style="margin: 6px 0 0; font-size: 15px; color: #111; font-weight: 600;">${pickupAddress}</p>
-      ${pickupHours ? `<p style="margin: 4px 0 0; font-size: 12px; color: #16a34a;">🕐 ${pickupHours}</p>` : ""}
-    </div>` : ""}
+  <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 20px 0;" />
 
-    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px;">
-      <p style="margin: 0; font-size: 13px; color: #166534; font-weight: 600;">What happens next?</p>
-      <p style="margin: 6px 0 0; font-size: 12px; color: #14532d;">Our team will review your booking within 24 hours. You'll receive a notification once it's approved. Your vehicle will be ready on your selected start date.</p>
-    </div>
+  <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
+    <tr>
+      <td style="padding: 4px 0; color: #374151;">Rental subtotal (${rentalLine}):</td>
+      <td style="padding: 4px 0; text-align: right; font-weight: 600;">$${(amount || 0).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td style="padding: 4px 0; color: #374151;">Taxes (if applicable):</td>
+      <td style="padding: 4px 0; text-align: right;">$0.00</td>
+    </tr>
+    <tr>
+      <td style="padding: 4px 0; font-weight: bold; color: #111; padding-top: 10px;">Total paid:</td>
+      <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #111; padding-top: 10px;">$${(amount || 0).toFixed(2)}</td>
+    </tr>
+  </table>
 
-    <p style="margin: 24px 0 0; font-size: 12px; color: #9ca3af; text-align: center;">Questions? Contact uRide support · uridehub.com</p>
-  </div>
+  <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 20px 0;" />
+
+  <p style="margin: 0 0 4px; font-size: 14px; color: #374151;">Processed by Stripe</p>
+  <p style="margin: 0 0 2px; font-size: 13px; color: #6b7280;">Booking status: Pending Review — our team reviews within 24 hours.</p>
+
+  ${pickupAddress ? `
+  <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 20px 0;" />
+  <p style="margin: 0 0 4px; font-size: 14px; font-weight: bold; color: #166534;">📍 Pickup Address</p>
+  <p style="margin: 0 0 2px; font-size: 14px; color: #111;">${pickupAddress}</p>
+  ${pickupHours ? `<p style="margin: 0; font-size: 13px; color: #16a34a;">🕐 ${pickupHours}</p>` : ""}
+  ` : ""}
+
+  ${isRecurring ? `
+  <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 20px 0;" />
+  <p style="margin: 0 0 4px; font-size: 13px; color: #1d4ed8; font-weight: 600;">📋 Recurring Billing</p>
+  <p style="margin: 0; font-size: 13px; color: #1e40af;">You have authorized UrideHub to charge <strong>$${weekly_rate}/week</strong> automatically. Cancel anytime via support.</p>
+  ` : ""}
+
+  <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 20px 0;" />
+  <p style="margin: 0; font-size: 13px; color: #6b7280;">Questions? Contact <strong>support@uridehub.com</strong></p>
 </div>`;
 
     await base44.asServiceRole.integrations.Core.SendEmail({
       to: user_email,
-      subject: `Payment Confirmed — $${amount} · ${vehicle_name || "uRide Booking"} #${booking_request_id?.slice(-8)?.toUpperCase()}`,
+      subject: `Payment Confirmed — $${amount} · ${vehicle_name || "UrideHub Booking"} · ${receiptRef}`,
       body: emailBody,
     });
 

@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { DollarSign, AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap, Loader2 } from "lucide-react";
+import { DollarSign, AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap, Loader2, Receipt } from "lucide-react";
+import HostPayoutReceipt from "@/components/host/HostPayoutReceipt";
 
 const statusConfig = {
   pending: { label: "Pending", color: "text-yellow-600", bg: "bg-yellow-50" },
@@ -11,10 +12,21 @@ const statusConfig = {
   failed: { label: "Failed", color: "text-red-600", bg: "bg-red-50" },
 };
 
+function fmt(n) {
+  return (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export default function HostPayouts() {
   const { user } = useAuth();
+  const [selectedPayout, setSelectedPayout] = useState(null);
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [stripeError, setStripeError] = useState(null);
 
-  const { data: hosts = [] } = useQuery({ queryKey: ["my-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user?.email }), enabled: !!user?.email });
+  const { data: hosts = [] } = useQuery({
+    queryKey: ["my-host", user?.email],
+    queryFn: () => base44.entities.Host.filter({ email: user?.email }),
+    enabled: !!user?.email,
+  });
   const host = hosts[0];
 
   const { data: payouts = [], isLoading } = useQuery({
@@ -24,11 +36,15 @@ export default function HostPayouts() {
   });
 
   const sorted = [...payouts].sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-  const pending = payouts.filter(p => p.status === "pending").reduce((s, p) => s + (p.net_payout || 0), 0);
-  const totalPaid = payouts.filter(p => p.status === "paid").reduce((s, p) => s + (p.net_payout || 0), 0);
 
-  const [stripeLoading, setStripeLoading] = useState(false);
-  const [stripeError, setStripeError] = useState(null);
+  const pendingNet = payouts.filter(p => p.status === "pending")
+    .reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+  const totalPaid = payouts.filter(p => p.status === "paid")
+    .reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+
+  const commissionRate = host?.commission_rate ?? 0.08;
+  const platformFeeLabel = `${(commissionRate * 100).toFixed(0)}%`;
+  const hostKeepsLabel = `${(100 - commissionRate * 100).toFixed(0)}%`;
 
   const handleStripeConnect = async () => {
     setStripeLoading(true);
@@ -91,31 +107,33 @@ export default function HostPayouts() {
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Pending</p>
-          <p className="text-xl font-black text-yellow-600" style={{ fontFamily: "var(--font-syne)" }}>${pending.toLocaleString()}</p>
+          <p className="text-xl font-black text-yellow-600" style={{ fontFamily: "var(--font-syne)" }}>${fmt(pendingNet)}</p>
           <p className="text-[10px] text-gray-400 mt-1">Awaiting transfer</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Total Paid</p>
-          <p className="text-xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>${totalPaid.toLocaleString()}</p>
-          <p className="text-[10px] text-gray-400 mt-1">All time earnings</p>
+          <p className="text-xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>${fmt(totalPaid)}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Net received</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Your Cut</p>
-          <p className="text-xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>{(100 - (host?.commission_rate || 0.20) * 100).toFixed(0)}%</p>
-          <p className="text-[10px] text-gray-400 mt-1">Per rental</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Platform Fee</p>
+          <p className="text-xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>{platformFeeLabel}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Uride Platform Fee</p>
         </div>
       </div>
 
       {/* How it works */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2 text-sm">
-          <Zap className="h-4 w-4 text-pink-500" /> How Automated Payouts Work
+          <Zap className="h-4 w-4 text-pink-500" /> How Payouts Work
         </h3>
         <div className="space-y-3">
           {[
-            "Renter is charged weekly on their billing date",
-            `uRide automatically keeps ${((host?.commission_rate || 0.20) * 100).toFixed(0)}% (platform fee)`,
-            `${(100 - (host?.commission_rate || 0.20) * 100).toFixed(0)}% is instantly transferred to your Stripe account`,
+            "Renter is charged on their weekly billing date",
+            `Uride Platform Fee: ${platformFeeLabel} of booking revenue`,
+            `You keep ${hostKeepsLabel} before Stripe processing`,
+            "Stripe processing fee is deducted at actual cost (shown transparently on each receipt)",
+            "Net payout is transferred to your Stripe Connected account",
             "Funds arrive in your bank within 2 business days",
             "Stripe automatically issues 1099-K at year end for earnings over $600",
           ].map((step, i) => (
@@ -125,12 +143,16 @@ export default function HostPayouts() {
             </div>
           ))}
         </div>
+        <div className="mt-4 p-3 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-500">
+          Stripe processing fees are collected by Stripe. UrideHub does not treat Stripe processing fees as platform revenue.
+        </div>
       </div>
 
       {/* Payout history */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-50">
           <h3 className="font-bold text-gray-900">Payout History</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Click "Receipt" to see the full fee breakdown</p>
         </div>
         {isLoading ? (
           <div className="p-5 space-y-3">{[1,2,3].map(i => <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />)}</div>
@@ -143,18 +165,40 @@ export default function HostPayouts() {
           <div className="divide-y divide-gray-50">
             {sorted.map(p => {
               const cfg = statusConfig[p.status] || statusConfig.pending;
+              const gross = p.gross_booking_amount || p.gross_collected || 0;
+              const net = p.net_host_payout || p.net_payout || 0;
+              const stripeFee = p.stripe_fee_amount || 0;
+              const platformFee = p.uride_platform_fee_amount || p.platform_fee || 0;
+              const stripeRate = p.stripe_effective_rate ? `${p.stripe_effective_rate.toFixed(2)}%` : null;
+
               return (
-                <div key={p.id} className="px-5 py-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{p.period_start} — {p.period_end}</p>
-                    <p className="text-xs text-gray-400">{p.booking_count} bookings · {p.vehicle_count} vehicles</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-gray-900">${p.net_payout?.toLocaleString()}</p>
-                      <p className="text-xs text-gray-400">of ${p.gross_collected?.toLocaleString()} gross</p>
+                <div key={p.id} className="px-5 py-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {p.vehicle_name || `${p.period_start} — ${p.period_end}`}
+                      </p>
+                      <p className="text-xs text-gray-400">{p.period_start} — {p.period_end}</p>
+                      {/* Fee breakdown mini */}
+                      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-400">
+                        <span>Booking: <span className="text-gray-600 font-medium">${fmt(gross)}</span></span>
+                        {stripeFee > 0 && <span>Stripe{stripeRate ? ` (${stripeRate})` : ""}: <span className="text-gray-600">-${fmt(stripeFee)}</span></span>}
+                        <span>Uride Fee ({(( p.uride_platform_fee_rate || commissionRate) * 100).toFixed(0)}%): <span className="text-gray-600">-${fmt(platformFee)}</span></span>
+                      </div>
                     </div>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-gray-900">${fmt(net)}</p>
+                        <p className="text-xs text-gray-400">net payout</p>
+                      </div>
+                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                      <button
+                        onClick={() => setSelectedPayout(p)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                      >
+                        <Receipt className="h-3 w-3" /> Receipt
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -162,6 +206,11 @@ export default function HostPayouts() {
           </div>
         )}
       </div>
+
+      {/* Receipt modal */}
+      {selectedPayout && (
+        <HostPayoutReceipt payout={selectedPayout} onClose={() => setSelectedPayout(null)} />
+      )}
     </div>
   );
 }
