@@ -76,6 +76,26 @@
       "type": "boolean",
       "default": true
     },
+    "show_rent_for_free": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show the Rent for Free referral campaign banner"
+    },
+    "show_marketplace_vehicles": {
+      "type": "boolean",
+      "default": false,
+      "description": "Show vehicles from all hosts (uRideHub marketplace) in addition to own fleet"
+    },
+    "show_activity_tab": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show Activity tab in storefront bottom nav"
+    },
+    "show_support_tab": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show Support/AI chat tab in storefront bottom nav"
+    },
     "published_status": {
       "type": "string",
       "enum": [

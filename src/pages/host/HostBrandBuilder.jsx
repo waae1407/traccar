@@ -53,6 +53,7 @@ export default function HostBrandBuilder() {
     brand_color: "#e91e8c", secondary_color: "#7c3aed", font_style: "inter",
     layout_template: "modern", hero_title: "", hero_subtitle: "", about_text: "",
     cta_button_text: "Book Now", show_reviews: true, show_rto_options: true, show_weekly_pricing: true,
+    show_rent_for_free: true, show_marketplace_vehicles: false, show_activity_tab: true, show_support_tab: true,
   });
 
   useEffect(() => {
@@ -270,6 +271,10 @@ export default function HostBrandBuilder() {
               { key: "show_reviews", label: "Show customer reviews" },
               { key: "show_rto_options", label: "Highlight rent-to-own vehicles" },
               { key: "show_weekly_pricing", label: "Show weekly pricing" },
+              { key: "show_rent_for_free", label: "Show Rent for Free referral banner" },
+              { key: "show_activity_tab", label: "Show Activity tab in bottom nav" },
+              { key: "show_support_tab", label: "Show Support (AI chat) tab" },
+              { key: "show_marketplace_vehicles", label: "Show uRideHub marketplace vehicles (all hosts)" },
             ].map(t => (
               <div key={t.key} className="flex items-center justify-between">
                 <span className="text-sm text-gray-700">{t.label}</span>

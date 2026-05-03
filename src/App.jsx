@@ -58,6 +58,8 @@ import HostMaintenance from '@/pages/host/HostMaintenance';
 import HostReports from '@/pages/host/HostReports';
 import HostVerificationDocs from '@/pages/host/HostVerificationDocs';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
+import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
+import HostStorefrontHome from '@/pages/host/HostStorefrontHome';
 
 // Public pages
 import BecomeAHost from '@/pages/BecomeAHost';
@@ -125,8 +127,10 @@ const AuthenticatedApp = () => {
         <Route path="/host/verification" element={<HostVerificationDocs />} />
       </Route>
 
-      {/* ── PUBLIC HOST STOREFRONTS ── */}
-      <Route path="/host/:businessSlug" element={<PublicHostStorefront />} />
+      {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
+      <Route path="/host/:businessSlug" element={<HostStorefrontLayout />}>
+        <Route index element={<HostStorefrontHome />} />
+      </Route>
 
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>
