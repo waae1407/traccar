@@ -32,6 +32,7 @@ Deno.serve(async (req) => {
         user_email: user.email,
         user_name: user.full_name || "",
         user_phone: user.phone || "",
+        user_role: user.role || "user",
         subscribed: true,
         enrolled_at: new Date().toISOString(),
         follow_up_count: 0,

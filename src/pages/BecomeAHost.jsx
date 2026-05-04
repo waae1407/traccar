@@ -92,7 +92,7 @@ export default function BecomeAHost() {
           </div>
         </div>
         <h2 className="text-3xl font-black text-gray-900 mb-3" style={{ fontFamily: "var(--font-syne)" }}>Application Under Review</h2>
-        <p className="text-gray-400 text-sm leading-relaxed mb-2">You already have a pending application. Our team is reviewing it and will respond within 24–48 hours.</p>
+        <p className="text-gray-400 text-sm leading-relaxed mb-2">You already have a pending application. Our team reviews every application and will respond shortly — typically within minutes.</p>
         <p className="text-gray-300 text-xs mb-8">Applied as: <span className="font-semibold text-gray-500">{existingHost?.email}</span></p>
         <div className="space-y-3">
           <Link to="/" className="flex items-center justify-center gap-2 w-full px-8 py-4 rounded-2xl text-white font-bold text-sm shadow-lg"
@@ -118,7 +118,7 @@ export default function BecomeAHost() {
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />
         </div>
         <h2 className="text-3xl font-black text-gray-900 mb-3" style={{ fontFamily: "var(--font-syne)" }}>You're in the queue!</h2>
-        <p className="text-gray-400 text-sm leading-relaxed mb-8">Our team reviews every application personally. Expect a response within 24–48 hours. We'll send a Stripe Connect link to set up your automatic payouts.</p>
+        <p className="text-gray-400 text-sm leading-relaxed mb-8">Our team reviews every application personally — typically approved in minutes. We'll send a Stripe Connect link to set up your automatic payouts.</p>
         <Link to="/" className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-white font-bold text-sm shadow-lg"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           Back to Home <ArrowRight className="h-4 w-4" />
@@ -157,8 +157,8 @@ export default function BecomeAHost() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-600 text-xs font-bold mb-4">
             <Zap className="h-3 w-3" /> Step 2 of 2 — Your Details
           </div>
-          <h1 className="text-2xl font-black text-gray-900 mb-2" style={{ fontFamily: "var(--font-syne)" }}>Tell us about your fleet</h1>
-          <p className="text-gray-400 text-sm">We review every application personally within 24 hours.</p>
+          <h1 className="text-2xl font-black text-gray-900 mb-2" style={{ fontFamily: "var(--font-syne)" }}>Tell us about your vehicle(s)</h1>
+          <p className="text-gray-400 text-sm">We review every application personally — typically approved in minutes.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -187,7 +187,7 @@ export default function BecomeAHost() {
               <input className={inputClass} value={form.referral_source} onChange={e => set("referral_source", e.target.value)} placeholder="Google, referral…" /></div>
           </div>
           <div>
-            <label className={labelClass}>Tell us about your fleet</label>
+            <label className={labelClass}>Tell us about your vehicle(s)</label>
             <textarea className={inputClass} rows={3} value={form.bio} onChange={e => set("bio", e.target.value)} placeholder="How many vehicles? Types? Rental experience?" />
           </div>
 
@@ -227,7 +227,7 @@ export default function BecomeAHost() {
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 50%, hsl(338 90% 56% / 0.3) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, hsl(265 80% 62% / 0.3) 0%, transparent 50%)" }} />
         <div className="relative z-10 max-w-lg mx-auto px-5 pt-14 pb-16 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm text-white/90 text-xs font-bold mb-6">
-            <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" /> Trusted by 500+ fleet owners
+            <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" /> Trusted by 500+ rental hosts
           </div>
           <h1 className="text-4xl font-black text-white leading-[1.1] mb-5" style={{ fontFamily: "var(--font-syne)" }}>
             Your Vehicles.<br />
@@ -247,7 +247,7 @@ export default function BecomeAHost() {
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
             Apply as a Host →
           </button>
-          <p className="text-white/30 text-xs mt-3">Free to apply · Review in 24–48 hrs</p>
+          <p className="text-white/30 text-xs mt-3">Free to apply · Approved in minutes</p>
         </div>
         <div className="h-8">
           <svg viewBox="0 0 375 32" fill="white" xmlns="http://www.w3.org/2000/svg" className="w-full" preserveAspectRatio="none">
@@ -310,7 +310,7 @@ export default function BecomeAHost() {
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           Apply to Become a Host →
         </button>
-        <p className="text-center text-xs text-gray-300">No fees to apply · Review in 24–48 hrs · Cancel anytime</p>
+        <p className="text-center text-xs text-gray-300">No fees to apply · Approved in minutes · Cancel anytime</p>
       </div>
     </div>
   );
