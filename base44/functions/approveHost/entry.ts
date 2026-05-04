@@ -40,16 +40,25 @@ Deno.serve(async (req) => {
           <div style="background: #e91e8c; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">2</div>
           <div><strong style="font-size: 14px;">Add your vehicles</strong><br><span style="font-size: 13px; color: #6b7280;">Upload photos, set rates, add pickup details</span></div>
         </div>
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
           <div style="background: #e91e8c; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">3</div>
           <div><strong style="font-size: 14px;">Upload compliance docs</strong><br><span style="font-size: 13px; color: #6b7280;">Insurance, registration, and inspection</span></div>
+        </div>
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <div style="background: #7c3aed; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;">4</div>
+          <div><strong style="font-size: 14px;">Launch your branded storefront</strong><br><span style="font-size: 13px; color: #6b7280;">Build your public store page and start getting bookings</span></div>
         </div>
       </div>
     </div>
 
+    <div style="text-align: center; margin-bottom: 16px;">
+      <a href="${APP_URL}/host/brand" style="display: inline-block; background: linear-gradient(135deg, #e91e8c, #7c3aed); color: white; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
+        🚀 Build My Store →
+      </a>
+    </div>
     <div style="text-align: center; margin-bottom: 24px;">
-      <a href="${APP_URL}/host/dashboard" style="display: inline-block; background: linear-gradient(135deg, #e91e8c, #7c3aed); color: white; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
-        Go to Host Dashboard →
+      <a href="${APP_URL}/host/dashboard" style="font-size: 13px; color: #9ca3af; text-decoration: underline;">
+        Go to Host Dashboard
       </a>
     </div>
 
