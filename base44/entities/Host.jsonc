@@ -39,13 +39,11 @@
     },
     "commission_rate": {
       "type": "number",
-      "default": 0.08,
-      "description": "Uride Platform Fee rate (default 8%). Admin can override per host."
+      "default": 0.08
     },
     "commission_rate_overridden_by_admin": {
       "type": "boolean",
-      "default": false,
-      "description": "If true, admin has manually set a custom commission_rate and it should not be auto-migrated."
+      "default": false
     },
     "stripe_account_id": {
       "type": "string"
@@ -197,8 +195,30 @@
       "default": false
     },
     "brand_builder_token": {
+      "type": "string"
+    },
+    "logo_generations_used": {
+      "type": "number",
+      "default": 0,
+      "description": "Total AI logo/icon generations used. First 2 are free, $5 each after."
+    },
+    "logo_stripe_customer_id": {
       "type": "string",
-      "description": "One-time token for the brand builder email link. Cleared once store goes live."
+      "description": "Stripe customer ID for logo generation charges"
+    },
+    "generated_logos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "URLs of all AI-generated logos saved for this host"
+    },
+    "generated_icons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "URLs of all AI-generated icons saved for this host"
     }
   },
   "required": [

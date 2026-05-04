@@ -6,6 +6,7 @@ import { Globe, Eye, CheckCircle2, Upload, Loader2, ExternalLink } from "lucide-
 import StoreScoreWidget from "@/components/host/brand/StoreScoreWidget";
 import AIBrandBuilder from "@/components/host/brand/AIBrandBuilder";
 import QRShareCard from "@/components/host/brand/QRShareCard";
+import LogoIconGenerator from "@/components/host/brand/LogoIconGenerator";
 
 const TEMPLATES = [
   { id: "prestige", label: "Prestige", desc: "Dark luxury, gold accents", bg: "#0f0c29", accent: "#c9a84c" },
@@ -113,6 +114,8 @@ export default function HostBrandBuilder() {
   };
 
   const applyAI = (aiResult) => setForm(f => ({ ...f, ...aiResult }));
+  const applyGeneratedLogo = (url) => set("logo_url", url);
+  const applyGeneratedIcon = (url) => set("logo_url", url); // icon also sets logo_url as the brand mark
 
   const computeScore = () => {
     let s = 0;
@@ -217,6 +220,9 @@ export default function HostBrandBuilder() {
               <input className={inputClass} value={form.cta_button_text} onChange={e => set("cta_button_text", e.target.value)} placeholder="Book Now" />
             </div>
           </div>
+
+          {/* Logo & Icon Generator */}
+          <LogoIconGenerator host={host} brand={form} onApplyLogo={applyGeneratedLogo} onApplyIcon={applyGeneratedIcon} />
 
           {/* Images */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
