@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Link } from "react-router-dom";
-import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight, Sparkles, Users, BarChart2, Wrench } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight, Sparkles, Users, BarChart2, Wrench, ExternalLink, Rocket } from "lucide-react";
+import confetti from "canvas-confetti";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg }) => (
   <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-all">
@@ -20,6 +21,7 @@ const StatCard = ({ label, value, sub, icon: Icon, color, bg }) => (
 
 export default function HostDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const { data: hosts = [] } = useQuery({
     queryKey: ["my-host-profile", user?.email],
@@ -51,6 +53,28 @@ export default function HostDashboard() {
     queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }),
     enabled: !!host?.id,
   });
+
+  const { data: brandList = [] } = useQuery({
+    queryKey: ["host-brand", host?.id],
+    queryFn: () => base44.entities.HostBrandSettings.filter({ host_id: host.id }),
+    enabled: !!host?.id,
+  });
+  const brand = brandList[0];
+  const storeIsLive = brand?.published_status === "live";
+  const storeUrl = brand?.business_slug ? `/host/${brand.business_slug}` : null;
+
+  // Fire confetti once on first approval visit
+  useEffect(() => {
+    if (host?.status === "approved") {
+      const key = `confetti_fired_${host.id}`;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, "1");
+        setTimeout(() => {
+          confetti({ particleCount: 150, spread: 80, origin: { y: 0.5 } });
+        }, 600);
+      }
+    }
+  }, [host?.id, host?.status]);
 
   const pendingPayout = payouts.filter(p => p.status === "pending").reduce((s, p) => s + (p.net_payout || 0), 0);
   const totalEarned = payouts.filter(p => p.status === "paid").reduce((s, p) => s + (p.net_payout || 0), 0);
@@ -93,6 +117,58 @@ export default function HostDashboard() {
           </div>
         </div>
       </div>
+
+      {/* 🚀 Launch Card — shown until store is live */}
+      {host.status === "approved" && !storeIsLive && (
+        <button
+          onClick={() => navigate("/host/brand")}
+          className="w-full text-left rounded-3xl overflow-hidden relative group active:scale-[0.98] transition-all"
+          style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #1a0533 100%)" }}
+        >
+          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 70% 50%, hsl(338 90% 56% / 0.35) 0%, transparent 65%)" }} />
+          <div className="relative z-10 px-6 py-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="h-2 w-2 rounded-full bg-pink-400 animate-pulse" />
+                  <span className="text-pink-300 text-[10px] font-bold uppercase tracking-widest">You're Approved — Start Building</span>
+                </div>
+                <h2 className="text-xl font-black text-white leading-tight mb-2" style={{ fontFamily: "var(--font-syne)" }}>
+                  Launch Your Car Rental Business Online — Free
+                </h2>
+                <p className="text-white/50 text-sm leading-relaxed mb-4">
+                  Design your branded storefront, list your vehicles, and start getting bookings — all in minutes.
+                </p>
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white w-fit shadow-lg group-hover:scale-105 transition-transform"
+                  style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+                  <Rocket className="h-4 w-4" /> Build My Store →
+                </div>
+              </div>
+              <div className="flex-shrink-0 hidden sm:flex h-20 w-20 rounded-2xl items-center justify-center"
+                style={{ background: "hsl(338 90% 56% / 0.15)", border: "1px solid hsl(338 90% 56% / 0.25)" }}>
+                <Sparkles className="h-10 w-10 text-pink-400" />
+              </div>
+            </div>
+          </div>
+        </button>
+      )}
+
+      {/* 🎉 Store is Live Banner */}
+      {storeIsLive && storeUrl && (
+        <div className="flex items-center gap-4 p-4 rounded-2xl border border-emerald-200 bg-emerald-50">
+          <div className="h-10 w-10 rounded-2xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-emerald-900">Your store is LIVE 🎉</p>
+            <p className="text-xs text-emerald-600">{window.location.origin}{storeUrl}</p>
+          </div>
+          <a href={storeUrl} target="_blank" rel="noreferrer"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 transition-all">
+            <ExternalLink className="h-3.5 w-3.5" /> View Store
+          </a>
+        </div>
+      )}
 
       {/* Onboarding Checklist */}
       {!onboardingDone && (

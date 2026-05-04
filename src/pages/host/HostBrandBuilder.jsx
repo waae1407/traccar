@@ -87,6 +87,10 @@ export default function HostBrandBuilder() {
     await base44.entities.Host.update(host.id, { store_published: true });
     qc.invalidateQueries({ queryKey: ["host-brand"] });
     setPublishing(false);
+    // 🎉 Open their new live store in a new tab
+    if (form.business_slug) {
+      window.open(`/host/${form.business_slug}`, "_blank");
+    }
   };
 
   const handleUnpublish = async () => {
