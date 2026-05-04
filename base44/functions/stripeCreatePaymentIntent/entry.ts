@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Invalid request payload' }, { status: 400 });
     }
 
-    const { booking_request_id, amount_cents, booking_type, setup_future_usage } = payload;
+    const { booking_request_id, amount_cents, booking_type, setup_future_usage, existing_payment_intent_id } = payload;
     console.log(`[STRIPE] Request: booking_request_id=${booking_request_id}, amount_cents=${amount_cents}, booking_type=${booking_type}`);
 
     // Validate amount
@@ -71,6 +71,24 @@ Deno.serve(async (req) => {
       } catch (customerErr) {
         console.error(`[STRIPE] Failed to create customer:`, customerErr.message);
         return Response.json({ error: `Stripe customer creation failed: ${customerErr.message}` }, { status: 500 });
+      }
+    }
+
+    // Reuse existing PaymentIntent if provided and still valid
+    if (existing_payment_intent_id) {
+      try {
+        const existingPI = await stripe.paymentIntents.retrieve(existing_payment_intent_id);
+        if (existingPI.status === 'requires_payment_method' || existingPI.status === 'requires_confirmation') {
+          console.log(`[STRIPE] Reusing existing PaymentIntent: ${existing_payment_intent_id} (status: ${existingPI.status})`);
+          return Response.json({
+            client_secret: existingPI.client_secret,
+            payment_intent_id: existingPI.id,
+            stripe_customer_id: stripeCustomerId,
+          });
+        }
+        console.log(`[STRIPE] Existing PI status is ${existingPI.status}, creating new one`);
+      } catch (e) {
+        console.log(`[STRIPE] Could not retrieve existing PI, creating new one`);
       }
     }
 

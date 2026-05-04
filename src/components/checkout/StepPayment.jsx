@@ -253,30 +253,54 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
     initialized.current = true;
 
     try {
-      // Step 1: get publishable key and AWAIT the stripe object immediately
+      // Step 1: get publishable key
       const pkRes = await base44.functions.invoke("stripePublishableKey", {});
       const pk = pkRes.data?.publishable_key;
       if (!pk) throw new Error("Missing Stripe publishable key");
 
-      // Await loadStripe here so we store the actual Stripe instance, not a promise
       const stripe = await loadStripe(pk);
       if (!stripe) throw new Error("Stripe failed to initialize");
-      console.log("[Stripe] instance loaded:", typeof stripe);
       setStripeInstance(stripe);
 
-      // Step 2: create PaymentIntent
-      const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
-        booking_request_id: booking.id,
-        amount_cents: amountCents,
-        booking_type: booking.booking_type,
-        setup_future_usage: "off_session",
-      });
-      const secret = piRes.data?.client_secret;
+      // Step 2: reuse existing PaymentIntent if one was already created for this booking
+      let secret, piId, custId;
+      if (booking.stripe_payment_intent_id) {
+        console.log("[Stripe] Reusing existing PaymentIntent:", booking.stripe_payment_intent_id);
+        // Retrieve the existing PI's client secret via our backend
+        const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
+          booking_request_id: booking.id,
+          amount_cents: amountCents,
+          booking_type: booking.booking_type,
+          setup_future_usage: "off_session",
+          existing_payment_intent_id: booking.stripe_payment_intent_id,
+        });
+        secret = piRes.data?.client_secret;
+        piId = piRes.data?.payment_intent_id;
+        custId = piRes.data?.stripe_customer_id;
+      } else {
+        // Create a new PaymentIntent and save it on the booking immediately
+        const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
+          booking_request_id: booking.id,
+          amount_cents: amountCents,
+          booking_type: booking.booking_type,
+          setup_future_usage: "off_session",
+        });
+        secret = piRes.data?.client_secret;
+        piId = piRes.data?.payment_intent_id;
+        custId = piRes.data?.stripe_customer_id;
+        // Save to booking so we reuse it on refresh
+        if (piId) {
+          await base44.entities.BookingRequest.update(booking.id, {
+            stripe_payment_intent_id: piId,
+            stripe_customer_id: custId,
+          });
+        }
+      }
+
       if (!secret) throw new Error("No client_secret returned");
-      console.log("[Stripe] clientSecret received, last4:", secret.slice(-4));
       setClientSecret(secret);
-      setPaymentIntentId(piRes.data.payment_intent_id);
-      setStripeCustomerId(piRes.data.stripe_customer_id);
+      setPaymentIntentId(piId);
+      setStripeCustomerId(custId);
     } catch (err) {
       console.error("[Stripe] init error:", err.message);
       setError("Payment setup failed: " + err.message);
