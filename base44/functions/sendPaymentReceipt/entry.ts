@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
       <td style="padding: 4px 0; text-align: right; font-weight: 600;">$${(amount || 0).toFixed(2)}</td>
     </tr>
     <tr>
-      <td style="padding: 4px 0; color: #374151;">Taxes (if applicable):</td>
-      <td style="padding: 4px 0; text-align: right;">$0.00</td>
+      <td style="padding: 4px 0; color: #374151;">Payment Processing - Stripe (3.05%):</td>
+      <td style="padding: 4px 0; text-align: right; color: #6b7280;">Included</td>
     </tr>
     <tr>
       <td style="padding: 4px 0; font-weight: bold; color: #111; padding-top: 10px;">Total paid:</td>
