@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Invalid request payload' }, { status: 400 });
     }
 
-    const { booking_request_id, amount_cents, booking_type, setup_future_usage, existing_payment_intent_id } = payload;
+    const { booking_request_id, amount_cents, booking_type, existing_payment_intent_id } = payload;
     console.log(`[STRIPE] Request: booking_request_id=${booking_request_id}, amount_cents=${amount_cents}, booking_type=${booking_type}`);
 
     // Validate amount
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
         amount: amount_cents,
         currency: 'usd',
         customer: stripeCustomerId,
-        setup_future_usage: setup_future_usage || 'off_session',
+        setup_future_usage: 'off_session',
         metadata: {
           booking_request_id: booking_request_id || 'none',
           user_email: user.email,
