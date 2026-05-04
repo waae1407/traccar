@@ -21,13 +21,13 @@ export default function HostVerificationPanel({ host: hostProp, open, onClose })
   const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [uploading, setUploading] = useState({});
-  const [verificationNotes, setVerificationNotes] = useState(hostProp?.verification_notes || "");
+  const [verificationNotes, setVerificationNotes] = useState("");
   const [taxData, setTaxData] = useState({
-    business_type: hostProp?.business_type || "",
-    ein_number: hostProp?.ein_number || "",
-    business_legal_name: hostProp?.business_legal_name || hostProp?.business_name || "",
-    ssn_last4: hostProp?.ssn_last4 || "",
-    tax_classification: hostProp?.tax_classification || "",
+    business_type: "",
+    ein_number: "",
+    business_legal_name: "",
+    ssn_last4: "",
+    tax_classification: "",
   });
 
   // Fetch fresh host data so fields are always up to date
@@ -38,10 +38,10 @@ export default function HostVerificationPanel({ host: hostProp, open, onClose })
   });
   const host = freshHosts[0] || hostProp;
 
-  // Sync taxData when fresh host data arrives
+  // Sync taxData when fresh host data arrives (or fall back to hostProp)
   useEffect(() => {
-    if (freshHosts[0]) {
-      const h = freshHosts[0];
+    const h = freshHosts[0] || hostProp;
+    if (h) {
       setTaxData({
         business_type: h.business_type || "",
         ein_number: h.ein_number || "",
@@ -51,7 +51,7 @@ export default function HostVerificationPanel({ host: hostProp, open, onClose })
       });
       setVerificationNotes(h.verification_notes || "");
     }
-  }, [freshHosts[0]?.id, freshHosts[0]?.updated_date]);
+  }, [freshHosts[0]?.id, freshHosts[0]?.updated_date, hostProp?.id]);
 
   const updateMutation = useMutation({
     mutationFn: (data) => base44.entities.Host.update(host.id, data),
@@ -320,7 +320,9 @@ Respond with a JSON object: { "risk": "low" | "medium" | "high", "flags": ["..."
                 { label: "Selfie", ok: !!host?.selfie_url },
                 { label: "Business Type", ok: !!taxData.business_type },
                 { label: "EIN / SSN", ok: !!(taxData.ein_number || taxData.ssn_last4) },
-                { label: "EIN Letter", ok: !!host?.ein_letter_url },
+                ...(taxData.business_type && taxData.business_type !== "sole_proprietor"
+                  ? [{ label: "EIN Letter", ok: !!host?.ein_letter_url }]
+                  : []),
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between px-4 py-3">
                   <span className="text-sm text-white/60">{item.label}</span>
