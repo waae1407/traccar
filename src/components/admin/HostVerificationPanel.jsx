@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { CheckCircle2, XCircle, Upload, Loader2, AlertTriangle, Shield, User, Building2, CreditCard, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,18 +17,41 @@ const BUSINESS_TYPES = [
   { value: "partnership", label: "Partnership" },
 ];
 
-export default function HostVerificationPanel({ host, open, onClose }) {
+export default function HostVerificationPanel({ host: hostProp, open, onClose }) {
   const qc = useQueryClient();
   const [step, setStep] = useState(0);
   const [uploading, setUploading] = useState({});
-  const [verificationNotes, setVerificationNotes] = useState(host?.verification_notes || "");
+  const [verificationNotes, setVerificationNotes] = useState(hostProp?.verification_notes || "");
   const [taxData, setTaxData] = useState({
-    business_type: host?.business_type || "",
-    ein_number: host?.ein_number || "",
-    business_legal_name: host?.business_legal_name || host?.business_name || "",
-    ssn_last4: host?.ssn_last4 || "",
-    tax_classification: host?.tax_classification || "",
+    business_type: hostProp?.business_type || "",
+    ein_number: hostProp?.ein_number || "",
+    business_legal_name: hostProp?.business_legal_name || hostProp?.business_name || "",
+    ssn_last4: hostProp?.ssn_last4 || "",
+    tax_classification: hostProp?.tax_classification || "",
   });
+
+  // Fetch fresh host data so fields are always up to date
+  const { data: freshHosts = [] } = useQuery({
+    queryKey: ["host-detail", hostProp?.id],
+    queryFn: () => base44.entities.Host.filter({ id: hostProp?.id }),
+    enabled: !!hostProp?.id && open,
+  });
+  const host = freshHosts[0] || hostProp;
+
+  // Sync taxData when fresh host data arrives
+  useEffect(() => {
+    if (freshHosts[0]) {
+      const h = freshHosts[0];
+      setTaxData({
+        business_type: h.business_type || "",
+        ein_number: h.ein_number || "",
+        business_legal_name: h.business_legal_name || h.business_name || "",
+        ssn_last4: h.ssn_last4 || "",
+        tax_classification: h.tax_classification || "",
+      });
+      setVerificationNotes(h.verification_notes || "");
+    }
+  }, [freshHosts[0]?.id, freshHosts[0]?.updated_date]);
 
   const updateMutation = useMutation({
     mutationFn: (data) => base44.entities.Host.update(host.id, data),
