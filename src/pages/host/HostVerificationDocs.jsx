@@ -168,6 +168,31 @@ export default function HostVerificationDocs() {
             <p className="font-bold mb-1">Why we need this</p>
             <p className="text-xs leading-relaxed">Federal law requires Stripe to file a 1099-K for any account earning over $600/year. Your EIN or SSN is required for accurate tax reporting. uRide never shares your information with third parties.</p>
           </div>
+
+          {/* Submit button — shown when all 3 ID docs are uploaded */}
+          {host.id_front_url && host.id_back_url && host.selfie_url && host.verification_status !== "docs_submitted" && host.verification_status !== "verified" && (
+            <button
+              onClick={async () => {
+                await updateMutation.mutateAsync({ verification_status: "docs_submitted" });
+              }}
+              disabled={updateMutation.isPending}
+              className="w-full py-3.5 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-sm"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+            >
+              {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Submit Documents for Review
+            </button>
+          )}
+
+          {host.verification_status === "docs_submitted" && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-emerald-800">Documents Submitted!</p>
+                <p className="text-xs text-emerald-600">Our team will review your documents within 1–2 business days.</p>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
