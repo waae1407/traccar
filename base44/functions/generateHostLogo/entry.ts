@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { host_id, type, business_name, brand_color, style_hint, payment_method_id } = await req.json();
+    const { host_id, type, business_name, brand_color, style_hint, logo_prompt, payment_method_id } = await req.json();
     // type: "logo" | "icon"
 
     if (!host_id || !type) return Response.json({ error: 'Missing host_id or type' }, { status: 400 });
@@ -64,7 +64,14 @@ Deno.serve(async (req) => {
     const hint = style_hint || 'professional, modern, car rental';
 
     let prompt;
-    if (type === 'logo') {
+    if (logo_prompt) {
+      // Use the host's own custom description as the core of the prompt
+      if (type === 'logo') {
+        prompt = `Design a professional, high-quality business logo. The host describes it as: "${logo_prompt}". Style: ${hint}. Primary color: ${color}. Include the business name as text. Clean and modern, works on white or dark backgrounds. Square format, vector-style, transparent or white background.`;
+      } else {
+        prompt = `Design a minimalist app icon/favicon. The host describes it as: "${logo_prompt}". Style: ${hint}. Primary color: ${color}. Symbol or monogram only — NO text. Clean, geometric, square format, white or transparent background.`;
+      }
+    } else if (type === 'logo') {
       prompt = `Design a professional, high-quality business logo for a car rental company called "${name}". Style: ${hint}. Primary color: ${color}. The logo should include the business name as text, be clean and modern, work on white or dark backgrounds. Square format, clean vector-style illustration, no gradients on text, professional typography. Transparent or white background.`;
     } else {
       prompt = `Design a minimalist app icon / favicon for a car rental company called "${name}". Style: ${hint}. Primary color: ${color}. Should be a bold symbol or monogram only — NO text. Clean, geometric, works as a small icon, app icon, or favicon. White or transparent background. Square format.`;

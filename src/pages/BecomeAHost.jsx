@@ -284,8 +284,9 @@ export default function BecomeAHost() {
             <div className="space-y-3">
               {[
                 { label: "Renter pays", value: "$300", note: "weekly rate" },
-                { label: "uRide platform fee", value: "−$60", note: "20%", muted: true },
-                { label: "Your payout", value: "$240", note: "80% → your bank", highlight: true },
+                { label: "Stripe processing fee", value: "−$9.15", note: "~3.05%", muted: true },
+                { label: "uRide platform fee", value: "−$24.00", note: "8%", muted: true },
+                { label: "Your payout", value: "$266.85", note: "~89% → your bank", highlight: true },
               ].map((row, i) => (
                 <div key={i} className={`flex items-center justify-between py-3 px-4 rounded-2xl ${row.highlight ? "bg-white/10" : "bg-white/5"}`}>
                   <div>
