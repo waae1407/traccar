@@ -6,7 +6,7 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lucide-react";
 
 // ─── Inner form — lives inside <Elements> ────────────────────────────────────
-function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue }) {
+function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue, baseAmount }) {
   const stripe = useStripe();
   const elements = useElements();
   const [ready, setReady] = useState(false);
@@ -187,7 +187,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           ⚠️ Required: Weekly Autopay Authorization
         </p>
         <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-          All rentals are <strong>minimum 1 week</strong>. By proceeding, I authorize <strong>uRide to automatically charge my card ${booking?.weekly_rate || amountDue} every week</strong> until I complete the drop-off photo inspection. Early returns are welcome but the full week is charged. Billing stops only after drop-off photos are reviewed and approved.
+          All rentals are <strong>minimum 1 week</strong>. By proceeding, I authorize <strong>uRide to automatically charge my card ${booking?.weekly_rate || baseAmount} every week</strong> until I complete the drop-off photo inspection. Early returns are welcome but the full week is charged. Billing stops only after drop-off photos are reviewed and approved.
         </p>
         <button type="button" onClick={() => setAutopayConsent(!autopayConsent)}
           className="flex items-start gap-3 w-full text-left">
@@ -228,6 +228,8 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 }
 
 // ─── Outer wrapper ─────────────────────────────────────────────────────────────
+const STRIPE_RATE = 0.0305; // 3.05% displayed rate
+
 export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSuccess }) {
   const [stripeInstance, setStripeInstance] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
@@ -237,7 +239,9 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   const [error, setError] = useState(null);
   const initialized = useRef(false);
 
-  const amountDue = booking?.total_due_now || booking?.weekly_rate || 0;
+  const baseAmount = booking?.total_due_now || booking?.weekly_rate || 0;
+  const stripeFee = Math.round(baseAmount * STRIPE_RATE * 100) / 100;
+  const amountDue = Math.round((baseAmount + stripeFee) * 100) / 100;
   const amountCents = Math.round(amountDue * 100);
 
   // If already paid (e.g. page refresh), skip straight to confirmation
@@ -349,11 +353,21 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
       <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl border border-pink-100 p-4 mb-5">
         <p className="text-sm text-gray-500 mb-1">Due Today</p>
         <p className="text-3xl font-bold text-gray-900">${amountDue.toLocaleString()}</p>
-        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-          <span>{booking?.booking_type} rental</span>
-          {booking?.weekly_rate && <><span>·</span><span>Weekly: ${booking.weekly_rate}</span></>}
+        <div className="mt-3 space-y-1.5 border-t border-pink-100 pt-3">
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>{booking?.booking_type} rental subtotal</span>
+            <span>${baseAmount.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Stripe processing fee (3.05%)</span>
+            <span>+${stripeFee.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm font-bold text-gray-800 border-t border-pink-100 pt-1.5 mt-1">
+            <span>Total charged today</span>
+            <span>${amountDue.toLocaleString()}</span>
+          </div>
         </div>
-        <p className="text-xs text-gray-400 mt-1">Booking stays <strong>Pending Review</strong> until admin approves</p>
+        <p className="text-xs text-gray-400 mt-2">Booking stays <strong>Pending Review</strong> until admin approves</p>
       </div>
 
       {loading ? (
@@ -381,6 +395,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             paymentIntentId={paymentIntentId}
             stripeCustomerId={stripeCustomerId}
             amountDue={amountDue}
+            baseAmount={baseAmount}
           />
         </Elements>
       ) : (
