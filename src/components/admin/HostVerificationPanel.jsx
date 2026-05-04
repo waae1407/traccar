@@ -72,6 +72,51 @@ export default function HostVerificationPanel({ host: hostProp, open, onClose })
     qc.invalidateQueries({ queryKey: ["admin-hosts"] });
   };
 
+  const [validating, setValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState(null);
+
+  const validateTaxInfo = async () => {
+    setValidating(true);
+    setValidationResult(null);
+    try {
+      const name = taxData.business_legal_name || host?.full_name;
+      const identifier = taxData.ein_number
+        ? `EIN: ${taxData.ein_number}`
+        : taxData.ssn_last4
+        ? `SSN last 4: ${taxData.ssn_last4}`
+        : null;
+
+      if (!name || !identifier) {
+        setValidationResult({ status: "warning", message: "Missing name or tax identifier — cannot validate." });
+        setValidating(false);
+        return;
+      }
+
+      const result = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a fraud prevention assistant. A host is applying to a vehicle rental platform.
+Name provided: "${name}"
+${identifier}
+Business type: ${taxData.business_type || "not specified"}
+
+Based on publicly available IRS and business registry information, does this name reasonably match the tax identifier format and type provided? Flag any obvious red flags or inconsistencies (e.g. name doesn't match business type, EIN format wrong, obvious mismatch). 
+Respond with a JSON object: { "risk": "low" | "medium" | "high", "flags": ["..."], "summary": "one sentence summary" }`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            risk: { type: "string" },
+            flags: { type: "array", items: { type: "string" } },
+            summary: { type: "string" }
+          }
+        }
+      });
+      setValidationResult(result);
+    } catch (err) {
+      setValidationResult({ risk: "unknown", flags: [], summary: "Validation service unavailable." });
+    }
+    setValidating(false);
+  };
+
   const handleApprove = async () => {
     await updateMutation.mutateAsync({
       ...taxData,
@@ -218,6 +263,34 @@ export default function HostVerificationPanel({ host: hostProp, open, onClose })
             </div>
 
             <DocUpload field="ein_letter_url" label="IRS EIN Confirmation Letter" currentUrl={host?.ein_letter_url} />
+
+            {/* AI Fraud Validation */}
+            <div className="p-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-white/60 uppercase tracking-wider">AI Tax ID Validation</p>
+                <button onClick={validateTaxInfo} disabled={validating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+                  {validating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />}
+                  {validating ? "Checking…" : "Run Fraud Check"}
+                </button>
+              </div>
+              {validationResult && (
+                <div className={`p-3 rounded-xl border text-xs space-y-1.5 ${
+                  validationResult.risk === "low" ? "bg-green-500/10 border-green-500/20 text-green-300" :
+                  validationResult.risk === "high" ? "bg-red-500/10 border-red-500/20 text-red-300" :
+                  "bg-yellow-500/10 border-yellow-500/20 text-yellow-300"
+                }`}>
+                  <p className="font-bold uppercase tracking-wide">Risk: {validationResult.risk?.toUpperCase()}</p>
+                  <p>{validationResult.summary}</p>
+                  {validationResult.flags?.length > 0 && (
+                    <ul className="list-disc list-inside space-y-0.5 opacity-80">
+                      {validationResult.flags.map((f, i) => <li key={i}>{f}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="flex justify-between pt-2">
               <button onClick={() => setStep(0)} className="px-5 py-2 rounded-xl text-sm font-semibold text-white/50 bg-white/[0.06] hover:bg-white/[0.10]">← Back</button>
