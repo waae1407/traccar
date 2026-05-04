@@ -266,21 +266,11 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
       if (!stripe) throw new Error("Stripe failed to initialize");
       setStripeInstance(stripe);
 
-      // Step 2: reuse existing PaymentIntent if one was already created for this booking
+      // Step 2: always create a fresh PaymentIntent with the current grossed-up amount
+      // (existing PI may have been created before the fee was added, so we never reuse it)
       let secret, piId, custId;
-      if (booking.stripe_payment_intent_id) {
-        console.log("[Stripe] Reusing existing PaymentIntent:", booking.stripe_payment_intent_id);
-        // Retrieve the existing PI's client secret via our backend
-        const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
-          booking_request_id: booking.id,
-          amount_cents: amountCents,
-          booking_type: booking.booking_type,
-          setup_future_usage: "off_session",
-          existing_payment_intent_id: booking.stripe_payment_intent_id,
-        });
-        secret = piRes.data?.client_secret;
-        piId = piRes.data?.payment_intent_id;
-        custId = piRes.data?.stripe_customer_id;
+      if (false) {
+        // (disabled: we always create a new PI to ensure amount includes the Stripe fee)
       } else {
         // Create a new PaymentIntent and save it on the booking immediately
         const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
