@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { BarChart2, TrendingUp, Users, DollarSign, Download } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { subDays, format, startOfWeek, isAfter } from "date-fns";
 import { jsPDF } from "jspdf";
@@ -93,26 +94,25 @@ export default function HostReports() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Reports</h1>
-          <p className="text-gray-400 text-sm mt-1">Business performance analytics</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-            {RANGES.map(r => (
-              <button key={r.days} onClick={() => setRange(r.days)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${range === r.days ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}>
-                {r.label}
-              </button>
-            ))}
+      <HostPageHeader
+        title="Reports"
+        subtitle="Business performance analytics"
+        action={
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1 bg-white/10 backdrop-blur-sm rounded-2xl p-1 border border-white/20">
+              {RANGES.map(r => (
+                <button key={r.days} onClick={() => setRange(r.days)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${range === r.days ? "bg-white text-gray-900 shadow-sm" : "text-white/60 hover:text-white"}`}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={exportPDF} className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-bold text-white shadow-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all">
+              <Download className="h-4 w-4" /> Export PDF
+            </button>
           </div>
-          <button onClick={exportPDF} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-sm"
-            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-            <Download className="h-4 w-4" /> Export PDF
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -122,7 +122,7 @@ export default function HostReports() {
           { label: "Total Expenses", value: `$${(totalExpenses + totalMaintenance).toLocaleString()}`, color: "text-red-500", bg: "bg-red-50", icon: BarChart2 },
           { label: "Net Profit", value: `$${netProfit.toLocaleString()}`, color: netProfit >= 0 ? "text-pink-600" : "text-red-600", bg: "bg-pink-50", icon: TrendingUp },
         ].map((s, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div key={i} className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{s.label}</p>
               <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${s.bg}`}>

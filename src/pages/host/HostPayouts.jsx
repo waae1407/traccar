@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { DollarSign, AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap, Loader2, Receipt } from "lucide-react";
 import HostPayoutReceipt from "@/components/host/HostPayoutReceipt";
+import HostPageHeader from "@/components/host/HostPageHeader";
 
 const statusConfig = {
   pending: { label: "Pending", color: "text-yellow-600", bg: "bg-yellow-50" },
@@ -70,10 +71,10 @@ export default function HostPayouts() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Payouts</h1>
-        <p className="text-gray-400 text-sm mt-1">Automated via Stripe Connect — deposits go directly to your bank</p>
-      </div>
+      <HostPageHeader
+        title="Payouts"
+        subtitle="Automated via Stripe Connect — deposits go directly to your bank"
+      />
 
       {/* Stripe Connect Status */}
       {host && !host.stripe_onboarding_complete ? (
@@ -105,20 +106,20 @@ export default function HostPayouts() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Pending</p>
-          <p className="text-xl font-black text-yellow-600" style={{ fontFamily: "var(--font-syne)" }}>${fmt(pendingNet)}</p>
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition-shadow">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Pending</p>
+          <p className="text-2xl font-black text-yellow-500" style={{ fontFamily: "var(--font-syne)" }}>${fmt(pendingNet)}</p>
           <p className="text-[10px] text-gray-400 mt-1">Awaiting transfer</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Total Paid</p>
-          <p className="text-xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>${fmt(totalPaid)}</p>
+        <div className="rounded-3xl shadow-sm p-4 text-center" style={{ background: "linear-gradient(135deg, hsl(152 60% 46% / 0.12), hsl(199 90% 54% / 0.08))", border: "1px solid hsl(152 60% 46% / 0.2)" }}>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Total Paid</p>
+          <p className="text-2xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>${fmt(totalPaid)}</p>
           <p className="text-[10px] text-gray-400 mt-1">Net received</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Platform Fee</p>
-          <p className="text-xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>{platformFeeLabel}</p>
-          <p className="text-[10px] text-gray-400 mt-1">Uride Platform Fee</p>
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition-shadow">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">You Keep</p>
+          <p className="text-2xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>{hostKeepsLabel}</p>
+          <p className="text-[10px] text-gray-400 mt-1">{platformFeeLabel} platform fee</p>
         </div>
       </div>
 

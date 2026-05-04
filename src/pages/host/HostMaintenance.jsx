@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Plus, Wrench, AlertTriangle, CheckCircle2, Clock, Upload, Loader2, Trash2 } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 import { format, differenceInDays } from "date-fns";
 
 const SERVICE_TYPES = ["oil_change", "tire_rotation", "brake_service", "inspection", "wash", "tire_replacement", "battery", "ac_service", "other"];
@@ -71,16 +72,16 @@ export default function HostMaintenance() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Maintenance</h1>
-          <p className="text-gray-400 text-sm mt-1">Service history & scheduled maintenance</p>
-        </div>
-        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-          <Plus className="h-4 w-4" /> Log Service
-        </button>
-      </div>
+      <HostPageHeader
+        title="Maintenance"
+        subtitle="Service history & scheduled maintenance"
+        action={
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            <Plus className="h-4 w-4" /> Log Service
+          </button>
+        }
+      />
 
       {/* Alerts */}
       {alerts.length > 0 && (
@@ -99,15 +100,15 @@ export default function HostMaintenance() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition-shadow">
           <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{logs.length}</p>
           <p className="text-xs text-gray-400 mt-1">Total Services</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+        <div className="rounded-3xl shadow-sm p-4 text-center" style={{ background: "linear-gradient(135deg, hsl(0 72% 58% / 0.08), hsl(338 90% 56% / 0.05))", border: "1px solid hsl(0 72% 58% / 0.15)" }}>
           <p className="text-2xl font-black text-red-500" style={{ fontFamily: "var(--font-syne)" }}>${totalCost.toLocaleString()}</p>
           <p className="text-xs text-gray-400 mt-1">Total Cost</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition-shadow">
           <p className="text-2xl font-black text-yellow-500" style={{ fontFamily: "var(--font-syne)" }}>{alerts.length}</p>
           <p className="text-xs text-gray-400 mt-1">Need Attention</p>
         </div>

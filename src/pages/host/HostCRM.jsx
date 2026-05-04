@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Users, Search, ChevronRight, Phone, Mail, DollarSign, Calendar } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 import { format } from "date-fns";
 
 const STATUS_STYLE = {
@@ -53,24 +54,22 @@ export default function HostCRM() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Customers</h1>
-          <p className="text-gray-400 text-sm mt-1">{customers.length} total · <span className="text-emerald-600 font-semibold">{thisMonth.length} new this month</span></p>
-        </div>
-      </div>
+      <HostPageHeader
+        title="Customers"
+        subtitle={`${customers.length} total · ${thisMonth.length} new this month`}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition-shadow">
           <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{customers.length}</p>
           <p className="text-xs text-gray-400 mt-1">Total Customers</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+        <div className="rounded-3xl shadow-sm p-4 text-center" style={{ background: "linear-gradient(135deg, hsl(152 60% 46% / 0.1), hsl(199 90% 54% / 0.06))", border: "1px solid hsl(152 60% 46% / 0.18)" }}>
           <p className="text-2xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>{customers.filter(c => c.customer_status === "active").length}</p>
           <p className="text-xs text-gray-400 mt-1">Active</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
+        <div className="rounded-3xl shadow-sm p-4 text-center" style={{ background: "linear-gradient(135deg, hsl(338 90% 56% / 0.08), hsl(265 80% 62% / 0.05))", border: "1px solid hsl(338 90% 56% / 0.15)" }}>
           <p className="text-2xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>${customers.reduce((s, c) => s + (c.total_spent || 0), 0).toLocaleString()}</p>
           <p className="text-xs text-gray-400 mt-1">Total Revenue</p>
         </div>

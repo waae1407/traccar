@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Plus, Car, CheckCircle2, Clock, MoreVertical } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -58,16 +59,16 @@ export default function HostVehicles() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>My Vehicles</h1>
-          <p className="text-gray-400 text-sm mt-1">{vehicles.length} vehicle{vehicles.length !== 1 ? "s" : ""} in your fleet</p>
-        </div>
-        <button onClick={openNew} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-          <Plus className="h-4 w-4" /> Add Vehicle
-        </button>
-      </div>
+      <HostPageHeader
+        title="My Vehicles"
+        subtitle={`${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""} in your fleet`}
+        action={
+          <button onClick={openNew} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            <Plus className="h-4 w-4" /> Add Vehicle
+          </button>
+        }
+      />
 
       {isLoading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -88,7 +89,7 @@ export default function HostVehicles() {
           {vehicles.map(v => {
             const active = activeForVehicle(v.id);
             return (
-              <div key={v.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div key={v.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all hover:-translate-y-0.5">
                 {v.image_url ? (
                   <img src={v.image_url} alt={`${v.make} ${v.model}`} className="w-full h-36 object-cover" />
                 ) : (

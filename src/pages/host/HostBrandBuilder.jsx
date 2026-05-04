@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Globe, Eye, CheckCircle2, Upload, Loader2, ExternalLink } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 import StoreScoreWidget from "@/components/host/brand/StoreScoreWidget";
 import AIBrandBuilder from "@/components/host/brand/AIBrandBuilder";
 import QRShareCard from "@/components/host/brand/QRShareCard";
@@ -157,12 +158,10 @@ export default function HostBrandBuilder() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Brand Builder</h1>
-          <p className="text-gray-400 text-sm mt-1">Design your public storefront</p>
-        </div>
-        <div className="flex gap-2">
+      <HostPageHeader
+        title="Brand Builder"
+        subtitle="Design your public storefront"
+        action={<div className="flex gap-2">
           {form.business_slug && (
             <a href={`/host/${form.business_slug}`} target="_blank" rel="noreferrer"
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-all">
@@ -178,8 +177,7 @@ export default function HostBrandBuilder() {
                 style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                 {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />} Publish
               </button>}
-        </div>
-      </div>
+        </div>} />
 
       {isLive && (
         <div className="flex items-center gap-3 p-3 rounded-2xl bg-emerald-50 border border-emerald-200">

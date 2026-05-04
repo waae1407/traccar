@@ -29,16 +29,16 @@ export default function HostLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
+    <div className="min-h-screen" style={{ fontFamily: "var(--font-inter)", background: "#f8f8fa" }}>
       {/* Mobile overlay */}
       {mobileOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setMobileOpen(false)} />}
 
       {/* Sidebar — desktop only */}
       <aside className={cn(
         "fixed top-0 left-0 h-full z-50 flex flex-col w-64 transition-transform duration-300",
-        "border-r border-gray-100 bg-white shadow-xl",
+        "border-r border-gray-100 shadow-xl",
         mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-      )}>
+      )} style={{ background: "linear-gradient(180deg, #ffffff 0%, #faf9ff 100%)" }}>
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
           <div className="flex items-center gap-2.5">
@@ -110,7 +110,7 @@ export default function HostLayout() {
           </div>
         </header>
 
-        <main className="flex-1 p-5 md:p-7 max-w-5xl w-full mx-auto">
+        <main className="flex-1 p-4 md:p-6 max-w-5xl w-full mx-auto">
           <Outlet />
         </main>
       </div>

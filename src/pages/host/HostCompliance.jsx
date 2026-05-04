@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Shield, AlertTriangle, CheckCircle2, Clock, Plus } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -58,16 +59,16 @@ export default function HostCompliance() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Compliance</h1>
-          <p className="text-gray-400 text-sm mt-1">Insurance, registration & inspection docs</p>
-        </div>
-        <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-          <Plus className="h-4 w-4" /> Upload
-        </button>
-      </div>
+      <HostPageHeader
+        title="Compliance"
+        subtitle="Insurance, registration & inspection docs"
+        action={
+          <button onClick={() => setOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            <Plus className="h-4 w-4" /> Upload Doc
+          </button>
+        }
+      />
 
       {expiring.length > 0 && (
         <div className="p-4 rounded-2xl border border-red-200 bg-red-50">

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { TrendingUp, DollarSign, Car, BarChart3 } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 export default function HostFleetInsights() {
@@ -35,20 +36,18 @@ export default function HostFleetInsights() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Fleet Insights</h1>
-        <p className="text-gray-400 text-sm mt-1">ROI tracking and vehicle performance analytics</p>
-      </div>
+      <HostPageHeader title="Fleet Insights" subtitle="ROI tracking and vehicle performance analytics" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, color: "text-emerald-600", bg: "bg-emerald-50" },
-          { label: "Net Profit", value: `$${totalProfit.toLocaleString()}`, color: "text-pink-600", bg: "bg-pink-50" },
-          { label: "Avg Utilization", value: `${(avgUtilization * 100).toFixed(0)}%`, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "Fleet Size", value: vehicles.length, color: "text-violet-600", bg: "bg-violet-50" },
+          { label: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, color: "text-emerald-600", grad: "hsl(152 60% 46% / 0.1)" },
+          { label: "Net Profit", value: `$${totalProfit.toLocaleString()}`, color: "text-pink-600", grad: "hsl(338 90% 56% / 0.08)" },
+          { label: "Avg Utilization", value: `${(avgUtilization * 100).toFixed(0)}%`, color: "text-blue-600", grad: null },
+          { label: "Fleet Size", value: vehicles.length, color: "text-violet-600", grad: null },
         ].map((s, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">{s.label}</p>
+          <div key={i} className={`rounded-3xl shadow-sm p-4 text-center hover:shadow-md transition-shadow ${s.grad ? "" : "bg-white border border-gray-100"}`}
+            style={s.grad ? { background: `linear-gradient(135deg, ${s.grad}, transparent)`, border: `1px solid ${s.grad}` } : {}}>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{s.label}</p>
             <p className={`text-2xl font-black ${s.color}`} style={{ fontFamily: "var(--font-syne)" }}>{s.value}</p>
           </div>
         ))}

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Plus, Receipt, Loader2, Upload, Trash2 } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 
@@ -69,26 +70,28 @@ export default function HostExpenses() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Expenses</h1>
-          <p className="text-gray-400 text-sm mt-1">Track and categorize all fleet costs</p>
-        </div>
-        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow-sm"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-          <Plus className="h-4 w-4" /> Add Expense
-        </button>
-      </div>
+      <HostPageHeader
+        title="Expenses"
+        subtitle="Track and categorize all fleet costs"
+        action={
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            <Plus className="h-4 w-4" /> Add Expense
+          </button>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">This Month</p>
-          <p className="text-2xl font-black text-red-500" style={{ fontFamily: "var(--font-syne)" }}>${totalThisMonth.toLocaleString()}</p>
+        <div className="rounded-3xl shadow-sm p-5 text-center" style={{ background: "linear-gradient(135deg, hsl(0 72% 58% / 0.08), hsl(338 90% 56% / 0.05))", border: "1px solid hsl(0 72% 58% / 0.15)" }}>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">This Month</p>
+          <p className="text-3xl font-black text-red-500" style={{ fontFamily: "var(--font-syne)" }}>${totalThisMonth.toLocaleString()}</p>
+          <p className="text-xs text-gray-400 mt-1">Fleet costs</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">All Time</p>
-          <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>${totalAllTime.toLocaleString()}</p>
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 text-center hover:shadow-md transition-shadow">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">All Time</p>
+          <p className="text-3xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>${totalAllTime.toLocaleString()}</p>
+          <p className="text-xs text-gray-400 mt-1">Total recorded</p>
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { FileKey, TrendingUp, DollarSign, CheckCircle2 } from "lucide-react";
+import HostPageHeader from "@/components/host/HostPageHeader";
 
 const statusColors = {
   Active: "bg-emerald-50 text-emerald-600",
@@ -28,22 +29,19 @@ export default function HostRTO() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>RTO Contracts</h1>
-        <p className="text-gray-400 text-sm mt-1">Rent-to-Own contracts for your vehicles</p>
-      </div>
+      <HostPageHeader title="RTO Contracts" subtitle="Rent-to-Own contracts for your vehicles" />
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Active</p>
+        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center hover:shadow-md transition-shadow">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Active</p>
           <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{contracts.filter(c => c.status === "Active").length}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Total Value</p>
+        <div className="rounded-3xl shadow-sm p-4 text-center" style={{ background: "linear-gradient(135deg, hsl(152 60% 46% / 0.1), hsl(199 90% 54% / 0.06))", border: "1px solid hsl(152 60% 46% / 0.18)" }}>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Total Value</p>
           <p className="text-2xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>${totalValue.toLocaleString()}</p>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Collected</p>
+        <div className="rounded-3xl shadow-sm p-4 text-center" style={{ background: "linear-gradient(135deg, hsl(338 90% 56% / 0.08), hsl(265 80% 62% / 0.05))", border: "1px solid hsl(338 90% 56% / 0.15)" }}>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Collected</p>
           <p className="text-2xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>${totalCollected.toLocaleString()}</p>
         </div>
       </div>
