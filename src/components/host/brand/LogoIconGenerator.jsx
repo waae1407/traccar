@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Sparkles, Loader2, Download, CheckCircle2, Image, Zap, Lock, CreditCard, X } from "lucide-react";
+import { Sparkles, Loader2, Download, CheckCircle2, Image, Zap, Lock } from "lucide-react";
+import LogoPaymentModal from "./LogoPaymentModal";
 
 const FREE_LIMIT = 2;
 
@@ -19,17 +20,14 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
   const [loading, setLoading] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExp, setCardExp] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [generating, setGenerating] = useState(false); // true when payment done, awaiting generation
   const [error, setError] = useState(null);
 
   const generationsUsed = host?.logo_generations_used || 0;
   const remainingFree = Math.max(0, FREE_LIMIT - generationsUsed);
   const isFree = generationsUsed < FREE_LIMIT;
 
-  const generate = async (paymentMethodId = null) => {
+  const runGeneration = async (paymentMethodId = null) => {
     setLoading(true);
     setError(null);
     setGeneratedUrl(null);
@@ -52,6 +50,22 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
       setError(err.message);
     }
     setLoading(false);
+    setGenerating(false);
+  };
+
+  const handleGenerateClick = () => {
+    if (!isFree) {
+      // Show payment modal first before generating
+      setShowPayment(true);
+    } else {
+      runGeneration();
+    }
+  };
+
+  const handlePaymentSuccess = async (paymentMethodId) => {
+    setShowPayment(false);
+    setGenerating(true);
+    await runGeneration(paymentMethodId);
   };
 
   const handleApply = () => {
@@ -60,43 +74,13 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
     else onApplyIcon(generatedUrl);
   };
 
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!generatedUrl) return;
     const a = document.createElement("a");
     a.href = generatedUrl;
     a.download = `${host?.business_name || "logo"}-${activeTab}.png`;
     a.target = "_blank";
     a.click();
-  };
-
-  const handlePaidGenerate = async () => {
-    // Use Stripe.js to tokenize card — for simplicity, show message to use saved card
-    // In production this would use Stripe Elements; here we call with a placeholder
-    // and the backend handles it. We collect via Stripe's payment element if available.
-    setPaymentLoading(true);
-    setError(null);
-    try {
-      // Load Stripe and create payment method from card details
-      const { loadStripe } = await import("@stripe/stripe-js");
-      const pubKeyRes = await base44.functions.invoke("stripePublishableKey", {});
-      const stripeObj = await loadStripe(pubKeyRes.data.publishable_key);
-      const { paymentMethod, error: pmError } = await stripeObj.createPaymentMethod({
-        type: "card",
-        card: {
-          number: cardNumber.replace(/\s/g, ""),
-          exp_month: parseInt(cardExp.split("/")[0]),
-          exp_year: parseInt("20" + cardExp.split("/")[1]),
-          cvc: cardCvc,
-        },
-      });
-      if (pmError) { setError(pmError.message); setPaymentLoading(false); return; }
-      setShowPayment(false);
-      setPaymentLoading(false);
-      await generate(paymentMethod.id);
-    } catch (err) {
-      setError(err.message);
-      setPaymentLoading(false);
-    }
   };
 
   const previousItems = activeTab === "logo"
@@ -155,10 +139,12 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
         </div>
 
         {/* Generate button */}
-        <button onClick={() => generate()} disabled={loading}
+        <button onClick={handleGenerateClick} disabled={loading || generating}
           className="w-full py-3 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
           style={{ background: "linear-gradient(135deg, hsl(265 80% 62%), hsl(338 90% 56%))" }}>
-          {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</> : <><Sparkles className="h-4 w-4" /> Generate {activeTab === "logo" ? "Logo" : "Icon"}{!isFree ? " — $5.00" : " (Free)"}</>}
+          {(loading || generating)
+            ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+            : <><Sparkles className="h-4 w-4" /> Generate {activeTab === "logo" ? "Logo" : "Icon"}{!isFree ? " — $5.00" : " (Free)"}</>}
         </button>
 
         {error && <p className="text-xs text-red-500 font-medium text-center">{error}</p>}
@@ -195,72 +181,21 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Previous Generations</p>
             <div className="flex flex-wrap gap-2">
               {previousItems.slice().reverse().map((url, i) => (
-                <div key={i} className="group relative">
-                  <img src={url} alt="" className="h-14 w-14 rounded-xl object-cover border border-gray-200 cursor-pointer hover:border-pink-400 transition-all"
-                    onClick={() => setGeneratedUrl(url)} />
-                </div>
+                <img key={i} src={url} alt="" className="h-14 w-14 rounded-xl object-cover border border-gray-200 cursor-pointer hover:border-pink-400 transition-all"
+                  onClick={() => setGeneratedUrl(url)} />
               ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* Payment Modal */}
+      {/* Payment Modal — shown before paid generation */}
       {showPayment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Unlock Generation</h3>
-                <p className="text-xs text-gray-400 mt-0.5">You've used your 2 free generations</p>
-              </div>
-              <button onClick={() => setShowPayment(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-100 text-center">
-              <p className="text-3xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>$5.00</p>
-              <p className="text-xs text-gray-500 mt-1">per additional generation</p>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Card Number</label>
-                <input className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-pink-400"
-                  placeholder="1234 5678 9012 3456" value={cardNumber}
-                  onChange={e => setCardNumber(e.target.value.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim().slice(0, 19))} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Expiry</label>
-                  <input className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-pink-400"
-                    placeholder="MM/YY" value={cardExp}
-                    onChange={e => {
-                      let v = e.target.value.replace(/\D/g, "");
-                      if (v.length >= 2) v = v.slice(0, 2) + "/" + v.slice(2, 4);
-                      setCardExp(v);
-                    }} />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">CVC</label>
-                  <input className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 focus:outline-none focus:border-pink-400"
-                    placeholder="123" value={cardCvc} onChange={e => setCardCvc(e.target.value.slice(0, 4))} />
-                </div>
-              </div>
-            </div>
-
-            {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
-
-            <button onClick={handlePaidGenerate} disabled={paymentLoading || !cardNumber || !cardExp || !cardCvc}
-              className="w-full py-3 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-              {paymentLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-              {paymentLoading ? "Processing…" : "Pay $5.00 & Generate"}
-            </button>
-            <p className="text-[10px] text-gray-400 text-center">Secured by Stripe · Your card is charged once per generation</p>
-          </div>
-        </div>
+        <LogoPaymentModal
+          onSuccess={handlePaymentSuccess}
+          onCancel={() => setShowPayment(false)}
+          generating={generating}
+        />
       )}
     </div>
   );
