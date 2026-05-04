@@ -45,30 +45,8 @@ export default function HostVerificationPanel({ host, open, onClose }) {
   };
 
   const requestDocs = async () => {
-    await updateMutation.mutateAsync({ verification_status: "docs_requested" });
-    await base44.integrations.Core.SendEmail({
-      to: host.email,
-      subject: "Action Required: Upload Your Verification Documents — uRide Host",
-      body: `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;">
-        <div style="background:linear-gradient(135deg,#e91e8c,#7c3aed);padding:28px 32px;border-radius:16px 16px 0 0;text-align:center;">
-          <h1 style="color:white;margin:0;font-size:22px;font-weight:800;">Documents Required 📋</h1>
-        </div>
-        <div style="background:#fafafa;padding:28px 32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 16px 16px;">
-          <p style="font-size:15px;color:#374151;margin:0 0 16px;">Hi ${host.full_name?.split(" ")[0]},</p>
-          <p style="font-size:15px;color:#374151;margin:0 0 20px;">To complete your host verification, please upload the following documents in your host portal:</p>
-          <ul style="font-size:14px;color:#374151;line-height:2;">
-            <li>✅ Government-issued Photo ID (front & back)</li>
-            <li>✅ Selfie holding your ID</li>
-            <li>✅ EIN Confirmation Letter (if business entity)</li>
-          </ul>
-          <div style="text-align:center;margin:24px 0;">
-            <a href="https://uridehub.com/host/dashboard" style="background:linear-gradient(135deg,#e91e8c,#7c3aed);color:white;font-weight:700;padding:14px 32px;border-radius:12px;text-decoration:none;font-size:15px;">Upload Documents →</a>
-          </div>
-          <p style="font-size:13px;color:#9ca3af;">Questions? Reply to this email — The uRide Team</p>
-        </div>
-      </div>`,
-      from_name: "uRide Verification",
-    });
+    await base44.functions.invoke("requestHostDocs", { host_id: host.id });
+    qc.invalidateQueries({ queryKey: ["admin-hosts"] });
   };
 
   const handleApprove = async () => {
