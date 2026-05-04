@@ -44,33 +44,34 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    // Get or create Stripe customer
+    // Get or create Stripe customer — with stale ID recovery
     let stripeCustomerId = user.stripe_customer_id;
+    if (stripeCustomerId) {
+      // Verify the customer still exists in Stripe
+      try {
+        await stripe.customers.retrieve(stripeCustomerId);
+        console.log(`[STRIPE] Using existing stripe_customer_id: ${stripeCustomerId}`);
+      } catch (retrieveErr) {
+        console.log(`[STRIPE] Stale stripe_customer_id detected (${stripeCustomerId}), creating fresh customer...`);
+        stripeCustomerId = null;
+      }
+    }
     if (!stripeCustomerId) {
-      console.log(`[STRIPE] No existing stripe_customer_id for user ${user.email}. Creating new customer...`);
+      console.log(`[STRIPE] Creating new Stripe customer for ${user.email}...`);
       try {
         const customer = await stripe.customers.create({
           email: user.email,
           name: user.full_name || 'Unknown',
-          metadata: { 
-            user_id: user.id, 
-            booking_request_id: booking_request_id || 'none' 
-          },
+          metadata: { user_id: user.id, booking_request_id: booking_request_id || 'none' },
         });
         stripeCustomerId = customer.id;
         console.log(`[STRIPE] Created Stripe customer: ${stripeCustomerId}`);
-        
-        // Save to user profile
         await base44.auth.updateMe({ stripe_customer_id: stripeCustomerId });
         console.log(`[STRIPE] Saved stripe_customer_id to user profile`);
       } catch (customerErr) {
-        console.error(`[STRIPE] Failed to create/fetch customer:`, customerErr.message);
-        return Response.json({ 
-          error: `Stripe customer creation failed: ${customerErr.message}` 
-        }, { status: 500 });
+        console.error(`[STRIPE] Failed to create customer:`, customerErr.message);
+        return Response.json({ error: `Stripe customer creation failed: ${customerErr.message}` }, { status: 500 });
       }
-    } else {
-      console.log(`[STRIPE] Using existing stripe_customer_id: ${stripeCustomerId}`);
     }
 
     // Create PaymentIntent

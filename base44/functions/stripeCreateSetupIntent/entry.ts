@@ -9,8 +9,16 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Get or create Stripe customer
+    // Get or create Stripe customer — with stale ID recovery
     let stripeCustomerId = user.stripe_customer_id;
+    if (stripeCustomerId) {
+      try {
+        await stripe.customers.retrieve(stripeCustomerId);
+      } catch {
+        console.log(`[STRIPE] Stale stripe_customer_id (${stripeCustomerId}), creating fresh customer...`);
+        stripeCustomerId = null;
+      }
+    }
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email,
