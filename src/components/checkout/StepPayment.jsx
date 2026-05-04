@@ -162,14 +162,14 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         <PaymentElement
           options={{
             layout: "tabs",
-            paymentMethodOrder: ["card", "us_bank_account"],
-            wallets: { applePay: "auto", googlePay: "auto" },
+            paymentMethodOrder: ["card"],
+            wallets: { applePay: "never", googlePay: "never" },
             fields: {
               billingDetails: "auto",
             },
           }}
-          onReady={() => { console.log("[Stripe] PaymentElement ready - billing name collection enabled"); setReady(true); }}
-          onLoadError={(e) => { console.error("[Stripe] PaymentElement load error", e); setReady(false); }}
+          onReady={() => { setReady(true); }}
+          onLoadError={(e) => { console.error("[Stripe] PaymentElement load error", e); setError("Failed to load payment form. Please refresh and try again."); }}
         />
       </div>
 
@@ -328,7 +328,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
         theme: "stripe",
         variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
       },
-      paymentMethodOrder: ["card", "us_bank_account"],
+      paymentMethodOrder: ["card"],
     };
   }, [clientSecret]);
 
