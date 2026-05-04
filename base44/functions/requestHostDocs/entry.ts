@@ -18,6 +18,12 @@ Deno.serve(async (req) => {
     // Update verification status
     await base44.asServiceRole.entities.Host.update(host_id, { verification_status: "docs_requested" });
 
+    // Ensure the user has at least "host" role so the portal link in the email works
+    const users = await base44.asServiceRole.entities.User.filter({ email: host.email });
+    if (users[0] && users[0].role !== "host" && users[0].role !== "admin") {
+      await base44.asServiceRole.entities.User.update(users[0].id, { role: "host" });
+    }
+
     const firstName = host.full_name?.split(" ")[0] || "there";
 
     await base44.asServiceRole.integrations.Core.SendEmail({
