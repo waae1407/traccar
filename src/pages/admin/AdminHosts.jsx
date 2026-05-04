@@ -57,6 +57,7 @@ export default function AdminHosts() {
   const pending = hosts.filter(h => h.status === "pending");
   const approved = hosts.filter(h => h.status === "approved");
   const unviewed = hosts.filter(h => h.status === "pending" && !h.admin_viewed);
+  const docsSubmitted = hosts.filter(h => h.verification_status === "docs_submitted");
 
   return (
     <div className="space-y-6">
@@ -65,12 +66,20 @@ export default function AdminHosts() {
           <h1 className="text-2xl font-black text-white font-syne">Host Management</h1>
           <p className="text-white/40 text-sm mt-1">{hosts.length} total hosts · {pending.length} pending approval</p>
         </div>
-        {unviewed.length > 0 && (
-          <span className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm font-bold">
-            <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
-            {unviewed.length} new application{unviewed.length > 1 ? "s" : ""}
-          </span>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {unviewed.length > 0 && (
+            <span className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm font-bold">
+              <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
+              {unviewed.length} new application{unviewed.length > 1 ? "s" : ""}
+            </span>
+          )}
+          {docsSubmitted.length > 0 && (
+            <span className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/20 border border-blue-500/30 text-blue-400 text-sm font-bold">
+              <span className="h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+              {docsSubmitted.length} docs ready to review
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -118,9 +127,11 @@ export default function AdminHosts() {
             const vCfg = verificationConfig[h.verification_status || "not_started"];
             const isExpanded = expanded === h.id;
             const isNew = h.status === "pending" && !h.admin_viewed;
+            const hasDocsReady = h.verification_status === "docs_submitted";
             return (
-              <div key={h.id} className={`rounded-2xl border overflow-hidden transition-all ${isNew ? "border-yellow-500/30" : "border-white/[0.08]"} glass`}>
+              <div key={h.id} className={`rounded-2xl border overflow-hidden transition-all ${isNew ? "border-yellow-500/30" : hasDocsReady ? "border-blue-500/30" : "border-white/[0.08]"} glass`}>
                 {isNew && <div className="h-0.5 w-full" style={{ background: "linear-gradient(90deg, hsl(45 95% 55%), hsl(38 95% 50%))" }} />}
+                {hasDocsReady && !isNew && <div className="h-0.5 w-full" style={{ background: "linear-gradient(90deg, #3b82f6, #6366f1)" }} />}
                 <div className="px-6 py-4 flex items-center justify-between cursor-pointer" onClick={() => handleExpand(h)}>
                   <div className="flex items-center gap-4">
                     <div className="relative">

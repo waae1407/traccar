@@ -174,6 +174,7 @@ export default function HostVerificationDocs() {
             <button
               onClick={async () => {
                 await updateMutation.mutateAsync({ verification_status: "docs_submitted" });
+                await base44.functions.invoke("notifyAdminDocsSubmitted", { host_id: host.id });
               }}
               disabled={updateMutation.isPending}
               className="w-full py-3.5 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-sm"
