@@ -18,6 +18,10 @@ Deno.serve(async (req) => {
 
     const firstName = host_name?.split(" ")[0] || "there";
 
+    // Generate a one-time brand builder token
+    const token = crypto.randomUUID();
+    await base44.asServiceRole.entities.Host.update(host_id, { brand_builder_token: token });
+
     const emailBody = `
 <div style="font-family: Inter, Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
   <div style="background: linear-gradient(135deg, #e91e8c, #7c3aed); padding: 32px 32px 28px; border-radius: 16px 16px 0 0; text-align: center;">
@@ -52,7 +56,7 @@ Deno.serve(async (req) => {
     </div>
 
     <div style="text-align: center; margin-bottom: 16px;">
-      <a href="${APP_URL}/host/brand" style="display: inline-block; background: linear-gradient(135deg, #e91e8c, #7c3aed); color: white; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
+      <a href="${APP_URL}/host/brand?token=${token}" style="display: inline-block; background: linear-gradient(135deg, #e91e8c, #7c3aed); color: white; font-weight: 700; font-size: 15px; padding: 14px 32px; border-radius: 12px; text-decoration: none;">
         🚀 Build My Store →
       </a>
     </div>

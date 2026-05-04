@@ -195,6 +195,10 @@
     "admin_viewed": {
       "type": "boolean",
       "default": false
+    },
+    "brand_builder_token": {
+      "type": "string",
+      "description": "One-time token for the brand builder email link. Cleared once store goes live."
     }
   },
   "required": [

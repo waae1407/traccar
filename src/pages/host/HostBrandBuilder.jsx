@@ -24,6 +24,10 @@ export default function HostBrandBuilder() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
 
+  // Check for one-time email token in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const emailToken = urlParams.get("token");
+
   const { data: hosts = [] } = useQuery({ queryKey: ["my-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user?.email }), enabled: !!user?.email });
   const host = hosts[0];
 
@@ -84,7 +88,7 @@ export default function HostBrandBuilder() {
     const score = computeScore();
     if (score < 60) { alert("You need a store score of at least 60 to publish."); setPublishing(false); return; }
     await saveMutation.mutateAsync({ ...form, published_status: "live", last_published_at: new Date().toISOString() });
-    await base44.entities.Host.update(host.id, { store_published: true });
+    await base44.entities.Host.update(host.id, { store_published: true, brand_builder_token: null });
     qc.invalidateQueries({ queryKey: ["host-brand"] });
     setPublishing(false);
     // 🎉 Open their new live store in a new tab
@@ -124,7 +128,29 @@ export default function HostBrandBuilder() {
 
   const isLive = existingBrand?.published_status === "live";
 
+  // If arrived via email token, validate it — if store is already live or token doesn't match, show dead link
+  const tokenIsValid = !emailToken || (host?.brand_builder_token === emailToken);
+  const linkExpired = emailToken && (!tokenIsValid || isLive);
+
   if (isLoading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-gray-200 border-t-pink-500 rounded-full animate-spin" /></div>;
+
+  if (linkExpired) return (
+    <div className="flex flex-col items-center justify-center py-24 text-center max-w-sm mx-auto">
+      <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-5">
+        <Globe className="h-8 w-8 text-gray-400" />
+      </div>
+      <h2 className="text-xl font-black text-gray-900 mb-2" style={{ fontFamily: "var(--font-syne)" }}>This link has expired</h2>
+      <p className="text-gray-400 text-sm mb-6">Your store is already live! This one-time setup link is no longer valid.</p>
+      {existingBrand?.business_slug && (
+        <a href={`/host/${existingBrand.business_slug}`} target="_blank" rel="noreferrer"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white shadow-sm"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          <ExternalLink className="h-4 w-4" /> View My Live Store
+        </a>
+      )}
+      <a href="/host/brand" className="mt-3 text-xs text-gray-400 underline hover:text-gray-600">Go to Brand Builder</a>
+    </div>
+  );
 
   return (
     <div className="space-y-5">
