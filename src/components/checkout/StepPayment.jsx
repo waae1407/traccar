@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lucide-react";
 
 // ─── Inner form — lives inside <Elements> ────────────────────────────────────
-function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue, clientSecret }) {
+function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue }) {
   const stripe = useStripe();
   const elements = useElements();
+  const [ready, setReady] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [paid, setPaid] = useState(false);
@@ -20,19 +21,40 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements || processing || submittedRef.current || !autopayConsent) return;
+    if (!stripe || !elements || !ready || processing || submittedRef.current || !autopayConsent) return;
     submittedRef.current = true;
     setProcessing(true);
     setError(null);
 
+    // Timeout wrapper: if confirmPayment takes >15s, fail and reset
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("Payment processing timeout")), 15000);
+    });
+
     try {
-      const cardElement = elements.getElement(CardElement);
-      const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card: cardElement },
-      });
+      console.log("[Stripe] confirmPayment: Payment Element collecting billing_details (including name)");
+      
+      const { error: stripeErr, paymentIntent } = await Promise.race([
+        stripe.confirmPayment({
+          elements,
+          redirect: "if_required",
+          confirmParams: {
+            return_url: `${window.location.origin}/checkout?request=${booking?.id}`,
+          },
+        }),
+        timeoutPromise,
+      ]);
+
+      clearTimeout(timeoutId);
 
       if (stripeErr) {
-        setError(stripeErr.message || "Payment failed. Please try again.");
+        console.error("[Stripe] confirmPayment error:", stripeErr);
+        // Show friendly message to user
+        const friendlyMsg = stripeErr.message?.includes("billing") 
+          ? "Please ensure all payment details are filled in correctly." 
+          : "Payment failed. Please try again.";
+        setError(friendlyMsg);
         setProcessing(false);
         submittedRef.current = false;
         return;
@@ -107,6 +129,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
         submittedRef.current = false;
       }
     } catch (err) {
+      clearTimeout(timeoutId);
       setError(err.message || "Payment failed. Please try again.");
       setProcessing(false);
       submittedRef.current = false;
@@ -127,20 +150,26 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white">
-        <CardElement
+      <div className="mb-4 p-4 rounded-2xl border border-gray-200 bg-white relative min-h-[160px]">
+        {!ready && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/95 rounded-2xl z-10">
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+              <p className="text-xs text-gray-500">Loading payment form…</p>
+            </div>
+          </div>
+        )}
+        <PaymentElement
           options={{
-            style: {
-              base: {
-                fontSize: "16px",
-                color: "#111827",
-                fontFamily: "Inter, sans-serif",
-                "::placeholder": { color: "#9ca3af" },
-              },
-              invalid: { color: "#ef4444" },
+            layout: "tabs",
+            paymentMethodOrder: ["card"],
+            wallets: { applePay: "never", googlePay: "never" },
+            fields: {
+              billingDetails: "auto",
             },
-            hidePostalCode: false,
           }}
+          onReady={() => { setReady(true); }}
+          onLoadError={(e) => { console.error("[Stripe] PaymentElement load error", e); setError("Failed to load payment form. Please refresh and try again."); }}
         />
       </div>
 
@@ -182,11 +211,13 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
       <button
         type="submit"
-        disabled={processing || !autopayConsent}
+        disabled={!ready || processing || !autopayConsent}
         className="w-full py-4 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         {processing
           ? <><RefreshCw className="w-4 h-4 animate-spin" />Processing…</>
+          : !ready
+          ? <><RefreshCw className="w-4 h-4 animate-spin" />Loading…</>
           : !autopayConsent
           ? <>⚠️ Accept autopay authorization above to continue</>
           : <><CreditCard className="w-4 h-4" />Pay ${amountDue.toLocaleString()} Securely</>
@@ -240,6 +271,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
           booking_request_id: booking.id,
           amount_cents: amountCents,
           booking_type: booking.booking_type,
+          setup_future_usage: "off_session",
           existing_payment_intent_id: booking.stripe_payment_intent_id,
         });
         secret = piRes.data?.client_secret;
@@ -251,6 +283,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
           booking_request_id: booking.id,
           amount_cents: amountCents,
           booking_type: booking.booking_type,
+          setup_future_usage: "off_session",
         });
         secret = piRes.data?.client_secret;
         piId = piRes.data?.payment_intent_id;
@@ -291,6 +324,11 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
     if (!clientSecret) return null;
     return {
       clientSecret,
+      appearance: {
+        theme: "stripe",
+        variables: { colorPrimary: "hsl(338, 90%, 56%)", borderRadius: "12px", fontFamily: "Inter, sans-serif" },
+      },
+      paymentMethodOrder: ["card"],
     };
   }, [clientSecret]);
 
@@ -343,7 +381,6 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             paymentIntentId={paymentIntentId}
             stripeCustomerId={stripeCustomerId}
             amountDue={amountDue}
-            clientSecret={clientSecret}
           />
         </Elements>
       ) : (
