@@ -608,6 +608,24 @@ export default function HostBrandBuilder() {
         </div>
       )}
 
+      {/* ── GO LIVE BANNER — visible on all steps when score ≥ 60 and not yet live ── */}
+      {!isLive && computeScore() >= 60 && currentStep !== 6 && (
+        <div className="rounded-2xl p-4 flex items-center gap-3 shadow-lg animate-pulse-glow"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          <Rocket className="h-6 w-6 text-white flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-white font-black text-sm">🎉 You're ready to launch!</p>
+            <p className="text-white/70 text-xs">Your store score is 60+ — go live now!</p>
+          </div>
+          <button
+            onClick={() => setCurrentStep(6)}
+            className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-white font-black text-sm"
+            style={{ color: "hsl(338 90% 56%)" }}>
+            Go Live 🚀
+          </button>
+        </div>
+      )}
+
       {/* Navigation Buttons */}
       <div className="flex items-center gap-3 pb-4">
         {currentStep > 1 && (
