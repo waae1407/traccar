@@ -3,18 +3,16 @@ import { CheckCircle2, Circle, ChevronRight } from "lucide-react";
 
 const SCORE_ITEMS = [
   { key: "logo", label: "Logo uploaded", points: 15, step: 2 },
-  { key: "cover", label: "Cover image", points: 10, step: 2 },
   { key: "hero", label: "Hero text set", points: 10, step: 4 },
-  { key: "about", label: "About section", points: 10, step: 4 },
+  { key: "about", label: "About section", points: 15, step: 4 },
   { key: "stripe", label: "Stripe connected", points: 20, stripeLink: true },
-  { key: "vehicles", label: "3+ vehicles approved", points: 20, vehicleLink: true },
+  { key: "vehicles", label: "3+ vehicles approved", points: 25, vehicleLink: true },
   { key: "booking", label: "First booking received", points: 15 },
 ];
 
 export default function StoreScoreWidget({ brand, host, vehicleCount, bookingCount, onGoToStep }) {
   const checks = {
     logo: !!brand?.logo_url,
-    cover: !!brand?.cover_image_url,
     hero: !!brand?.hero_title,
     about: !!brand?.about_text,
     vehicles: vehicleCount >= 3,
