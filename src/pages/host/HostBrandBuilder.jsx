@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import {
   Globe, Eye, CheckCircle2, Upload, Loader2, ExternalLink,
-  ChevronRight, ChevronLeft, Store, Palette, Type, Settings, Rocket, Image
+  ChevronRight, ChevronLeft, Store, Palette, Type, Settings, Rocket, Image, Zap
 } from "lucide-react";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import StoreScoreWidget from "@/components/host/brand/StoreScoreWidget";
@@ -38,9 +38,12 @@ export default function HostBrandBuilder() {
   const [publishing, setPublishing] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [stripeJustConnected, setStripeJustConnected] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const emailToken = urlParams.get("token");
+  const stripeConnected = urlParams.get("stripe_connected");
+  const stripeStep = urlParams.get("step");
 
   const { data: hosts = [] } = useQuery({
     queryKey: ["my-host", user?.email],
@@ -86,6 +89,17 @@ export default function HostBrandBuilder() {
       setForm(f => ({ ...f, business_slug: defaultSlug, business_display_name: host.business_name || host.full_name || "" }));
     }
   }, [existingBrand, host]);
+
+  // Handle return from Stripe Connect via HostPayouts redirect
+  useEffect(() => {
+    if (!stripeConnected) return;
+    setStripeJustConnected(true);
+    // Navigate to publish step (6) if score is enough, otherwise stay and show score
+    const targetStep = stripeStep === "6" ? 6 : 6; // Always go to publish/score step
+    setCurrentStep(targetStep);
+    // Clean up URL
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [stripeConnected]); // eslint-disable-line
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -488,6 +502,21 @@ export default function HostBrandBuilder() {
       {/* ── STEP 6: Publish ── */}
       {currentStep === 6 && (
         <div className="space-y-4">
+          {/* Stripe just connected banner */}
+          {stripeJustConnected && (
+            <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50 flex items-start gap-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-emerald-800 text-sm">🎉 Stripe Connected! +20 points earned</p>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  {computeScore() >= 60
+                    ? "You've reached 60+ points — your store is ready to publish!"
+                    : `You now have ${computeScore()} points. Complete a few more items to unlock publishing.`}
+                </p>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <div className="text-center pb-4">
               <div className="h-14 w-14 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>

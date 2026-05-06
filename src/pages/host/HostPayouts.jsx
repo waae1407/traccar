@@ -46,7 +46,7 @@ export default function HostPayouts() {
   const totalPaid = payouts.filter(p => p.status === "paid")
     .reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
 
-  // When Stripe redirects back, check if onboarding is now complete and update host record
+  // When Stripe redirects back, verify connection then redirect to Brand Builder
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const isReturn = params.get("stripe_success") || params.get("stripe_refresh");
@@ -58,12 +58,36 @@ export default function HostPayouts() {
         if (res.data?.charges_enabled || res.data?.onboarding_complete) {
           await base44.entities.Host.update(host.id, { stripe_onboarding_complete: true });
           qc.invalidateQueries({ queryKey: ["my-host"] });
-          setJustConnected(true);
-          // Clean up URL params
+
+          // Fetch brand + fleet data to compute current store score
+          const [brandList, vehicles, bookings] = await Promise.all([
+            base44.entities.HostBrandSettings.filter({ host_id: host.id }),
+            base44.entities.Vehicle.filter({ host_id: host.id, approval_status: "approved" }),
+            base44.entities.BookingRequest.filter({ host_id: host.id }),
+          ]);
+          const brand = brandList[0] || {};
+
+          // Mirror StoreScoreWidget scoring logic
+          let score = 0;
+          if (brand.logo_url) score += 15;
+          if (brand.cover_image_url) score += 10;
+          if (brand.hero_title) score += 10;
+          if (brand.about_text) score += 10;
+          if (vehicles.length >= 3) score += 20;
+          score += 20; // Stripe just completed
+          if (bookings.length > 0) score += 15;
+
+          // Redirect to Brand Builder — step 6 (Publish) if ≥60, else score overview
+          const step = score >= 60 ? 6 : "stripe_done";
+          window.location.href = `/host/brand?stripe_connected=1&score=${score}&step=${step}`;
+        } else {
+          // Stripe incomplete — stay but clean URL
           window.history.replaceState({}, "", window.location.pathname);
+          setJustConnected(false);
+          setCheckingReturn(false);
         }
       })
-      .finally(() => setCheckingReturn(false));
+      .catch(() => setCheckingReturn(false));
   }, [host?.id]); // eslint-disable-line
 
   const commissionRate = host?.commission_rate ?? 0.08;
