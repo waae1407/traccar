@@ -23,8 +23,8 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
   const [showPayment, setShowPayment] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
-  const [applied, setApplied] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [applied, setApplied] = useState(false);
 
   const generationsUsed = host?.logo_generations_used || 0;
   const remainingFree = Math.max(0, FREE_LIMIT - generationsUsed);
@@ -51,7 +51,6 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
       }
       setGeneratedUrl(res.data.image_url);
     } catch (err) {
-      // Handle 402 gracefully
       if (err.message?.includes("402") || err.message?.includes("payment")) {
         setShowPayment(true);
       } else {
@@ -77,25 +76,29 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
   };
 
   const handleApply = async () => {
-    if (!generatedUrl || !host?.id) return;
+    if (!generatedUrl || !host?.id || applying) return;
     setApplying(true);
+    setError(null);
     try {
-      // Notify parent
+      // 1. Update parent form state (updates StoreScoreWidget live)
       if (activeTab === "logo") onApplyLogo(generatedUrl);
       else onApplyIcon(generatedUrl);
 
-      // Save directly to DB
+      // 2. Persist to DB immediately
       const brandList = await base44.entities.HostBrandSettings.filter({ host_id: host.id });
       if (brandList[0]) {
         await base44.entities.HostBrandSettings.update(brandList[0].id, { logo_url: generatedUrl });
       } else {
-        // Brand settings don't exist yet — create them
-        await base44.entities.HostBrandSettings.create({ host_id: host.id, business_slug: host.business_name?.toLowerCase().replace(/[^a-z0-9]+/g, "-") || host.id, logo_url: generatedUrl });
+        await base44.entities.HostBrandSettings.create({
+          host_id: host.id,
+          business_slug: (host.business_name || host.id).toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          logo_url: generatedUrl,
+        });
       }
       setApplied(true);
       setTimeout(() => setApplied(false), 4000);
     } catch (e) {
-      setError("Failed to apply logo: " + e.message);
+      setError("Failed to save: " + e.message);
     }
     setApplying(false);
   };
@@ -142,7 +145,7 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
       {/* Tabs */}
       <div className="flex border-b border-gray-100 px-5">
         {["logo", "icon"].map(tab => (
-          <button key={tab} onClick={() => { setActiveTab(tab); setGeneratedUrl(null); setError(null); }}
+          <button key={tab} onClick={() => { setActiveTab(tab); setGeneratedUrl(null); setError(null); setApplied(false); }}
             className={`pb-2.5 mr-5 text-sm font-semibold capitalize border-b-2 transition-all ${activeTab === tab ? "border-pink-500 text-pink-600" : "border-transparent text-gray-400 hover:text-gray-600"}`}>
             {tab === "logo" ? "🎨 Logo (with name)" : "⚡ Icon (symbol only)"}
           </button>
@@ -217,20 +220,29 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleApply} disabled={applying || applied}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-80"
-                style={{ background: applied ? "linear-gradient(135deg, hsl(152 60% 46%), hsl(199 90% 54%))" : "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              <button
+                onClick={handleApply}
+                disabled={applying || applied}
+                className="flex-1 py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-sm transition-all"
+                style={{ background: applied ? "linear-gradient(135deg, hsl(152 60% 46%), hsl(199 90% 54%))" : "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+              >
                 {applying
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving to store…</>
                   : applied
                   ? <><CheckCircle2 className="h-4 w-4" /> Logo Applied! ✓</>
-                  : <><CheckCircle2 className="h-4 w-4" /> Apply to My Store</>}
+                  : <><CheckCircle2 className="h-4 w-4" /> Apply to My Store</>
+                }
               </button>
               <button onClick={handleDownload}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all">
                 <Download className="h-4 w-4" />
               </button>
             </div>
+            {applied && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                <p className="text-xs font-bold text-emerald-700">✅ Logo saved! Your store score has been updated.</p>
+              </div>
+            )}
             <p className="text-[10px] text-gray-400 text-center">PNG — use for social media, print, business cards & more</p>
           </div>
         )}
@@ -242,7 +254,7 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
             <div className="flex flex-wrap gap-2">
               {previousItems.slice().reverse().map((url, i) => (
                 <img key={i} src={url} alt="" className="h-14 w-14 rounded-xl object-cover border border-gray-200 cursor-pointer hover:border-pink-400 transition-all"
-                  onClick={() => setGeneratedUrl(url)} />
+                  onClick={() => { setGeneratedUrl(url); setApplied(false); }} />
               ))}
             </div>
           </div>
