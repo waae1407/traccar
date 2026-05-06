@@ -1,17 +1,17 @@
 import React from "react";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle, ChevronRight } from "lucide-react";
 
 const SCORE_ITEMS = [
-  { key: "logo", label: "Logo uploaded", points: 15 },
-  { key: "cover", label: "Cover image", points: 10 },
-  { key: "hero", label: "Hero text set", points: 10 },
-  { key: "about", label: "About section", points: 10 },
-  { key: "vehicles", label: "3+ vehicles approved", points: 20 },
-  { key: "stripe", label: "Stripe connected", points: 20 },
+  { key: "logo", label: "Logo uploaded", points: 15, step: 2 },
+  { key: "cover", label: "Cover image", points: 10, step: 2 },
+  { key: "hero", label: "Hero text set", points: 10, step: 4 },
+  { key: "about", label: "About section", points: 10, step: 4 },
+  { key: "stripe", label: "Stripe connected", points: 20, stripeLink: true },
+  { key: "vehicles", label: "3+ vehicles approved", points: 20, vehicleLink: true },
   { key: "booking", label: "First booking received", points: 15 },
 ];
 
-export default function StoreScoreWidget({ brand, host, vehicleCount, bookingCount }) {
+export default function StoreScoreWidget({ brand, host, vehicleCount, bookingCount, onGoToStep }) {
   const checks = {
     logo: !!brand?.logo_url,
     cover: !!brand?.cover_image_url,
@@ -57,17 +57,38 @@ export default function StoreScoreWidget({ brand, host, vehicleCount, bookingCou
       </p>
 
       <div className="space-y-2">
-        {SCORE_ITEMS.map(item => (
-          <div key={item.key} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {checks[item.key]
-                ? <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                : <Circle className="h-4 w-4 text-gray-300 flex-shrink-0" />}
-              <span className={`text-xs font-medium ${checks[item.key] ? "text-gray-700" : "text-gray-400"}`}>{item.label}</span>
+        {SCORE_ITEMS.map(item => {
+          const done = checks[item.key];
+          const actionable = !done && (item.step || item.stripeLink || item.vehicleLink);
+          return (
+            <div key={item.key} className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {done
+                  ? <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                  : <Circle className="h-4 w-4 text-gray-300 flex-shrink-0" />}
+                <span className={`text-xs font-medium truncate ${done ? "text-gray-700" : "text-gray-400"}`}>{item.label}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                <span className={`text-xs font-bold ${done ? "text-emerald-600" : "text-gray-300"}`}>+{item.points}</span>
+                {actionable && (
+                  item.stripeLink ? (
+                    <a href="/host/payouts" className="flex items-center gap-0.5 text-[10px] font-bold text-pink-500 hover:text-pink-700">
+                      Connect <ChevronRight className="h-3 w-3" />
+                    </a>
+                  ) : item.vehicleLink ? (
+                    <a href="/host/vehicles" className="flex items-center gap-0.5 text-[10px] font-bold text-pink-500 hover:text-pink-700">
+                      Add <ChevronRight className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <button onClick={() => onGoToStep?.(item.step)} className="flex items-center gap-0.5 text-[10px] font-bold text-pink-500 hover:text-pink-700">
+                      Fix <ChevronRight className="h-3 w-3" />
+                    </button>
+                  )
+                )}
+              </div>
             </div>
-            <span className={`text-xs font-bold ${checks[item.key] ? "text-emerald-600" : "text-gray-300"}`}>+{item.points}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

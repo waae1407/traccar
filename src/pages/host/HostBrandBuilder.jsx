@@ -513,7 +513,7 @@ export default function HostBrandBuilder() {
               ))}
             </div>
 
-            <StoreScoreWidget brand={form} host={host} vehicleCount={vehicles.length} bookingCount={bookings.length} />
+            <StoreScoreWidget brand={form} host={host} vehicleCount={vehicles.length} bookingCount={bookings.length} onGoToStep={setCurrentStep} />
 
             <div className="space-y-3 mt-6">
               <button onClick={handleSave} disabled={saving}
@@ -550,7 +550,7 @@ export default function HostBrandBuilder() {
             </div>
           </div>
 
-          <QRShareCard slug={form.business_slug} />
+          {isLive && <QRShareCard slug={form.business_slug} />}
         </div>
       )}
 
