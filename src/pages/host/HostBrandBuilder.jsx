@@ -320,35 +320,38 @@ export default function HostBrandBuilder() {
               <p className="text-gray-400 text-sm mt-1">Generate one with AI or upload your own — takes 30 seconds</p>
             </div>
 
-            {/* Upload option */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Logo</label>
-                {form.logo_url && (
-                  <img src={form.logo_url} alt="logo" className="h-20 w-20 rounded-2xl object-cover mb-2 border border-gray-200 shadow-sm" />
-                )}
-                <label className="cursor-pointer flex items-center gap-2 px-4 py-3 rounded-2xl bg-gray-50 border-2 border-dashed border-gray-300 text-sm font-semibold text-gray-600 hover:border-pink-400 hover:bg-pink-50 transition-all w-full justify-center">
-                  {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {form.logo_url ? "Change Logo" : "Upload Logo"}
-                  <input type="file" accept="image/*" className="hidden" onChange={e => handleUpload(e, "logo_url")} />
-                </label>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Cover Photo</label>
-                {form.cover_image_url && (
-                  <img src={form.cover_image_url} alt="cover" className="h-20 w-full rounded-2xl object-cover mb-2 border border-gray-200 shadow-sm" />
-                )}
-                <label className="cursor-pointer flex items-center gap-2 px-4 py-3 rounded-2xl bg-gray-50 border-2 border-dashed border-gray-300 text-sm font-semibold text-gray-600 hover:border-pink-400 hover:bg-pink-50 transition-all w-full justify-center">
-                  {uploadingCover ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {form.cover_image_url ? "Change Cover" : "Upload Cover"}
-                  <input type="file" accept="image/*" className="hidden" onChange={e => handleUpload(e, "cover_image_url")} />
-                </label>
+            {/* Upload Your Own Logo — prominent section */}
+            <div className="rounded-2xl border-2 border-dashed border-pink-200 bg-pink-50 p-4 mb-4">
+              <p className="text-xs font-bold text-pink-700 uppercase tracking-wider mb-3">📁 Option 1 — Upload Your Own</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-2">Logo</label>
+                  {form.logo_url && (
+                    <img src={form.logo_url} alt="logo" className="h-16 w-16 rounded-xl object-cover mb-2 border border-gray-200 shadow-sm" />
+                  )}
+                  <label className="cursor-pointer flex items-center gap-2 px-3 py-3 rounded-xl bg-white border-2 border-pink-200 text-sm font-bold text-pink-600 hover:border-pink-400 hover:bg-pink-50 transition-all w-full justify-center">
+                    {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {form.logo_url ? "Change Logo" : "Upload Logo"}
+                    <input type="file" accept="image/*" className="hidden" onChange={e => handleUpload(e, "logo_url")} />
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-2">Cover Photo</label>
+                  {form.cover_image_url && (
+                    <img src={form.cover_image_url} alt="cover" className="h-16 w-full rounded-xl object-cover mb-2 border border-gray-200 shadow-sm" />
+                  )}
+                  <label className="cursor-pointer flex items-center gap-2 px-3 py-3 rounded-xl bg-white border-2 border-pink-200 text-sm font-bold text-pink-600 hover:border-pink-400 hover:bg-pink-50 transition-all w-full justify-center">
+                    {uploadingCover ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {form.cover_image_url ? "Change Cover" : "Upload Cover"}
+                    <input type="file" accept="image/*" className="hidden" onChange={e => handleUpload(e, "cover_image_url")} />
+                  </label>
+                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-3 my-4">
               <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs font-bold text-gray-400 uppercase">or generate with AI</span>
+              <span className="text-xs font-bold text-gray-400 uppercase">✨ Option 2 — Generate with AI</span>
               <div className="flex-1 h-px bg-gray-200" />
             </div>
           </div>
@@ -580,6 +583,25 @@ export default function HostBrandBuilder() {
           </div>
 
           {isLive && <QRShareCard slug={form.business_slug} />}
+
+          {/* Custom Domain — Coming Soon */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
+                <Globe className="h-5 w-5 text-gray-400" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="font-bold text-gray-900 text-sm">Custom Domain</p>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">Coming Soon</span>
+                </div>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Connect your own domain (e.g. <span className="font-mono text-gray-600">www.yourbrand.com</span>) so customers visit your branded URL instead of uridehub.com/host/slug. We're building infrastructure support for this — your uridehub.com/host/ link will always work as a fallback.
+                </p>
+                <p className="text-[10px] text-gray-300 mt-2">Available in a future update · No action needed now</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

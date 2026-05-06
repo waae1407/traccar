@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle } from "lucide-react";
 
 const SUGGESTIONS = [
   "Luxury exotic rentals in LA",
@@ -20,16 +20,17 @@ const TEMPLATES = {
 export default function AIBrandBuilder({ host, vehicles, onApply }) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
 
-  const handleGenerate = async (text) => {
-    const p = text || prompt;
-    if (!p.trim()) return;
+  const handleGenerate = async () => {
+    if (!prompt.trim()) return;
     setLoading(true);
+    setDone(false);
 
     const vehicleSummary = vehicles.slice(0, 5).map(v => `${v.year} ${v.make} ${v.model} at $${v.weekly_rate}/wk`).join(", ");
     const fullPrompt = `You are a brand copywriter for a vehicle rental business called "${host?.business_name || "this rental business"}" in ${host?.city || "USA"}.
 Fleet: ${vehicleSummary || "various vehicles"}.
-Business vibe: "${p}".
+Business vibe: "${prompt}".
 
 Generate a JSON brand profile with these exact keys:
 - hero_title (punchy, max 8 words)
@@ -57,6 +58,8 @@ Return ONLY valid JSON, no explanation.`;
     const colors = TEMPLATES[result.layout_template] || TEMPLATES.modern;
     onApply({ ...result, ...colors });
     setLoading(false);
+    setDone(true);
+    setTimeout(() => setDone(false), 4000);
   };
 
   return (
@@ -67,14 +70,16 @@ Return ONLY valid JSON, no explanation.`;
         </div>
         <div>
           <p className="font-bold text-gray-900 text-sm">AI Brand Builder</p>
-          <p className="text-xs text-gray-400">Describe your business — AI writes your brand</p>
+          <p className="text-xs text-gray-400">Click a sample or type your own — then hit Generate</p>
         </div>
       </div>
 
+      {/* Sample pills — click to POPULATE input (not auto-generate) */}
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Quick Start — tap to fill:</p>
       <div className="flex flex-wrap gap-2 mb-3">
         {SUGGESTIONS.map(s => (
-          <button key={s} onClick={() => handleGenerate(s)}
-            className="px-3 py-1.5 rounded-full bg-pink-50 border border-pink-100 text-xs font-medium text-pink-700 hover:bg-pink-100 transition-all">
+          <button key={s} onClick={() => setPrompt(s)}
+            className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${prompt === s ? "bg-pink-500 border-pink-500 text-white" : "bg-pink-50 border-pink-100 text-pink-700 hover:bg-pink-100"}`}>
             {s}
           </button>
         ))}
@@ -83,18 +88,32 @@ Return ONLY valid JSON, no explanation.`;
       <div className="flex gap-2">
         <input
           className="flex-1 px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-pink-400"
-          placeholder="Describe your rental business..."
+          placeholder="Or type your own description…"
           value={prompt}
           onChange={e => setPrompt(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleGenerate()}
         />
-        <button onClick={() => handleGenerate()} disabled={loading || !prompt.trim()}
+        <button onClick={handleGenerate} disabled={loading || !prompt.trim()}
           className="px-4 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all shadow-sm flex items-center gap-2"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          Generate
+          {loading ? "Writing…" : "Generate"}
         </button>
       </div>
+
+      {/* Generation status */}
+      {loading && (
+        <div className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-100">
+          <Loader2 className="h-4 w-4 text-blue-500 animate-spin flex-shrink-0" />
+          <p className="text-xs font-semibold text-blue-700">AI is writing your brand copy… (5–10 seconds)</p>
+        </div>
+      )}
+      {done && (
+        <div className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+          <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+          <p className="text-xs font-semibold text-emerald-700">✅ Brand copy generated! Scroll up to review your headline & about text.</p>
+        </div>
+      )}
     </div>
   );
 }
