@@ -81,7 +81,7 @@ export default function StoreScoreWidget({ brand, host, vehicleCount, bookingCou
                     </a>
                   ) : (
                     <button onClick={() => onGoToStep?.(item.step)} className="flex items-center gap-0.5 text-[10px] font-bold text-pink-500 hover:text-pink-700">
-                      Fix <ChevronRight className="h-3 w-3" />
+                      Add <ChevronRight className="h-3 w-3" />
                     </button>
                   )
                 )}
