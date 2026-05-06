@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { DollarSign, AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap, Loader2, Receipt } from "lucide-react";
+import { DollarSign, AlertTriangle, CheckCircle2, Clock, ExternalLink, Zap, Loader2, Receipt, PartyPopper } from "lucide-react";
 import HostPayoutReceipt from "@/components/host/HostPayoutReceipt";
 import HostPageHeader from "@/components/host/HostPageHeader";
 
@@ -19,9 +19,12 @@ function fmt(n) {
 
 export default function HostPayouts() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [selectedPayout, setSelectedPayout] = useState(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState(null);
+  const [justConnected, setJustConnected] = useState(false);
+  const [checkingReturn, setCheckingReturn] = useState(false);
 
   const { data: hosts = [] } = useQuery({
     queryKey: ["my-host", user?.email],
@@ -42,6 +45,26 @@ export default function HostPayouts() {
     .reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
   const totalPaid = payouts.filter(p => p.status === "paid")
     .reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+
+  // When Stripe redirects back, check if onboarding is now complete and update host record
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isReturn = params.get("stripe_success") || params.get("stripe_refresh");
+    if (!isReturn || !host?.id || host?.stripe_onboarding_complete) return;
+
+    setCheckingReturn(true);
+    base44.functions.invoke("getStripeConnectStatus", { host_id: host.id })
+      .then(async (res) => {
+        if (res.data?.charges_enabled || res.data?.onboarding_complete) {
+          await base44.entities.Host.update(host.id, { stripe_onboarding_complete: true });
+          qc.invalidateQueries({ queryKey: ["my-host"] });
+          setJustConnected(true);
+          // Clean up URL params
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      })
+      .finally(() => setCheckingReturn(false));
+  }, [host?.id]); // eslint-disable-line
 
   const commissionRate = host?.commission_rate ?? 0.08;
   const platformFeeLabel = `${(commissionRate * 100).toFixed(0)}%`;
@@ -76,8 +99,27 @@ export default function HostPayouts() {
         subtitle="Automated via Stripe Connect — deposits go directly to your bank"
       />
 
+      {/* Checking return from Stripe */}
+      {checkingReturn && (
+        <div className="p-4 rounded-2xl border border-blue-200 bg-blue-50 flex items-center gap-3">
+          <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+          <p className="text-sm font-semibold text-blue-800">Verifying your Stripe connection…</p>
+        </div>
+      )}
+
+      {/* Just connected celebration */}
+      {justConnected && (
+        <div className="p-5 rounded-2xl border border-emerald-200 bg-emerald-50">
+          <div className="flex items-center gap-3 mb-2">
+            <CheckCircle2 className="h-6 w-6 text-emerald-500 flex-shrink-0" />
+            <p className="font-bold text-emerald-800 text-base">🎉 Stripe Connected Successfully!</p>
+          </div>
+          <p className="text-sm text-emerald-700">Your bank account is now linked. Payouts will be automatically deposited within 2 business days of each booking payment.</p>
+        </div>
+      )}
+
       {/* Stripe Connect Status */}
-      {host && !host.stripe_onboarding_complete ? (
+      {host && !host.stripe_onboarding_complete && !checkingReturn ? (
         <div className="p-5 rounded-2xl border border-yellow-200 bg-yellow-50">
           <div className="flex items-start gap-4">
             <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
