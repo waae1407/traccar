@@ -534,13 +534,18 @@ export default function HostBrandBuilder() {
                     Unpublish Store
                   </button>
                 </div>
-              ) : (
+              ) : computeScore() >= 60 ? (
                 <button onClick={handlePublish} disabled={publishing}
                   className="w-full py-3.5 rounded-2xl font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
                   style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                   {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
                   {publishing ? "Publishing…" : "🚀 Publish My Store Now"}
                 </button>
+              ) : (
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-center">
+                  <p className="text-sm font-bold text-amber-800 mb-1">Almost there!</p>
+                  <p className="text-xs text-amber-700">Complete more steps above to reach 60 points and unlock publishing.</p>
+                </div>
               )}
             </div>
           </div>

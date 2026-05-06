@@ -25,25 +25,36 @@ export default function StoreScoreWidget({ brand, host, vehicleCount, bookingCou
   const score = SCORE_ITEMS.reduce((sum, item) => sum + (checks[item.key] ? item.points : 0), 0);
   const canPublish = score >= 60;
 
+  // Progress toward the 60-point publish threshold (capped at 100% bar)
+  const progressPct = Math.min(100, Math.round((score / 60) * 100));
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-1">
         <div>
           <h3 className="font-bold text-gray-900 text-sm">Store Score</h3>
-          <p className="text-xs text-gray-400">{canPublish ? "Ready to publish!" : `Need ${60 - score} more points to go live`}</p>
+          <p className="text-xs text-gray-400">
+            {canPublish ? "✅ Ready to publish!" : `Need ${60 - score} more points to unlock publishing`}
+          </p>
         </div>
         <div className="text-right">
           <span className="text-3xl font-black" style={{ fontFamily: "var(--font-syne)", background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
             {score}
           </span>
-          <span className="text-gray-400 text-sm font-semibold">/100</span>
+          <span className="text-gray-400 text-sm font-semibold"> pts</span>
         </div>
       </div>
 
-      <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden mb-4">
-        <div className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${score}%`, background: score >= 60 ? "linear-gradient(90deg, hsl(338 90% 56%), hsl(265 80% 62%))" : "linear-gradient(90deg, hsl(38 95% 54%), hsl(338 90% 56%))" }} />
+      {/* Threshold marker */}
+      <div className="relative mb-1">
+        <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+          <div className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${progressPct}%`, background: canPublish ? "linear-gradient(90deg, hsl(152 60% 46%), hsl(199 90% 54%))" : "linear-gradient(90deg, hsl(38 95% 54%), hsl(338 90% 56%))" }} />
+        </div>
       </div>
+      <p className="text-[10px] text-gray-400 mb-4">
+        {canPublish ? "Publishing unlocked 🎉" : `${score} / 60 points needed to publish`}
+      </p>
 
       <div className="space-y-2">
         {SCORE_ITEMS.map(item => (
