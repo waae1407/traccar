@@ -24,6 +24,7 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState(null);
   const [applied, setApplied] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   const generationsUsed = host?.logo_generations_used || 0;
   const remainingFree = Math.max(0, FREE_LIMIT - generationsUsed);
@@ -76,22 +77,27 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
   };
 
   const handleApply = async () => {
-    if (!generatedUrl) return;
-    if (activeTab === "logo") onApplyLogo(generatedUrl);
-    else onApplyIcon(generatedUrl);
-
-    // Also save directly to HostBrandSettings so it persists immediately
+    if (!generatedUrl || !host?.id) return;
+    setApplying(true);
     try {
+      // Notify parent
+      if (activeTab === "logo") onApplyLogo(generatedUrl);
+      else onApplyIcon(generatedUrl);
+
+      // Save directly to DB
       const brandList = await base44.entities.HostBrandSettings.filter({ host_id: host.id });
       if (brandList[0]) {
         await base44.entities.HostBrandSettings.update(brandList[0].id, { logo_url: generatedUrl });
+      } else {
+        // Brand settings don't exist yet — create them
+        await base44.entities.HostBrandSettings.create({ host_id: host.id, business_slug: host.business_name?.toLowerCase().replace(/[^a-z0-9]+/g, "-") || host.id, logo_url: generatedUrl });
       }
+      setApplied(true);
+      setTimeout(() => setApplied(false), 4000);
     } catch (e) {
-      // Parent save will catch it on next step
+      setError("Failed to apply logo: " + e.message);
     }
-
-    setApplied(true);
-    setTimeout(() => setApplied(false), 3000);
+    setApplying(false);
   };
 
   const handleDownload = () => {
@@ -211,10 +217,14 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleApply}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-sm transition-all"
+              <button onClick={handleApply} disabled={applying || applied}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-80"
                 style={{ background: applied ? "linear-gradient(135deg, hsl(152 60% 46%), hsl(199 90% 54%))" : "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                {applied ? <><CheckCircle2 className="h-4 w-4" /> Applied! ✓</> : <><CheckCircle2 className="h-4 w-4" /> Apply to My Store</>}
+                {applying
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                  : applied
+                  ? <><CheckCircle2 className="h-4 w-4" /> Logo Applied! ✓</>
+                  : <><CheckCircle2 className="h-4 w-4" /> Apply to My Store</>}
               </button>
               <button onClick={handleDownload}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all">
