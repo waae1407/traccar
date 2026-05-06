@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import confetti from "canvas-confetti";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -120,7 +121,6 @@ export default function HostBrandBuilder() {
     setPublishing(true);
     const score = computeScore();
     if (score < 60) {
-      alert("You need a store score of at least 60 to publish. Complete more steps first!");
       setPublishing(false);
       return;
     }
@@ -128,7 +128,11 @@ export default function HostBrandBuilder() {
     await base44.entities.Host.update(host.id, { store_published: true, brand_builder_token: null });
     qc.invalidateQueries({ queryKey: ["host-brand"] });
     setPublishing(false);
-    if (form.business_slug) window.open(`/host/${form.business_slug}`, "_blank");
+    // Fire confetti then redirect to live store
+    confetti({ particleCount: 200, spread: 120, origin: { y: 0.5 }, colors: ["#e91e8c", "#7c3aed", "#f59e0b", "#10b981"] });
+    setTimeout(() => {
+      if (form.business_slug) window.location.href = `/host/${form.business_slug}`;
+    }, 1800);
   };
 
   const handleUnpublish = async () => {
@@ -153,10 +157,9 @@ export default function HostBrandBuilder() {
   const computeScore = () => {
     let s = 0;
     if (form.logo_url) s += 15;
-    if (form.cover_image_url) s += 10;
     if (form.hero_title) s += 10;
-    if (form.about_text) s += 10;
-    if (vehicles.length >= 3) s += 20;
+    if (form.about_text) s += 15;
+    if (vehicles.length >= 3) s += 25;
     if (host?.stripe_onboarding_complete) s += 20;
     if (bookings.length > 0) s += 15;
     return s;
