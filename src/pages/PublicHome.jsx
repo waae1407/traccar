@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
-import { Car, Home, Settings, ArrowRight, Zap, ChevronRight, Star, Shield, TrendingUp } from "lucide-react";
+import { Car, Home, ArrowRight, Zap, Star, Shield, TrendingUp } from "lucide-react";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -46,10 +46,11 @@ export default function PublicHome() {
             <Zap className="h-3 w-3" /> Powered by Stripe Connect
           </div>
           <h1 className="text-4xl font-black text-white leading-[1.1] mb-4" style={{ fontFamily: "var(--font-syne)" }}>
-            Drive More.<br />Earn More.<br />Own More.
+            Get a Car<br />in 24 Hours.<br />
+            <span className="opacity-75 text-3xl">Drive &amp; Earn Today.</span>
           </h1>
-          <p className="text-white/75 text-sm leading-relaxed max-w-xs mx-auto mb-8">
-            Weekly rentals for drivers. Passive income for fleet owners. One unified platform.
+          <p className="text-white/80 text-sm leading-relaxed max-w-xs mx-auto mb-8">
+            Weekly rentals for gig drivers. Passive income for fleet owners. One unified platform.
           </p>
 
           {/* Trust row */}
@@ -72,7 +73,7 @@ export default function PublicHome() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="max-w-lg mx-auto px-4 pb-16 -mt-1">
+      <div className="max-w-lg mx-auto px-4 pb-16 mt-4">
 
         {/* Primary CTA */}
         <Link to="/book-now"
@@ -124,24 +125,7 @@ export default function PublicHome() {
           </div>
         </Link>
 
-        {/* Admin card */}
-        <Link to="/dashboard"
-          className="flex items-center justify-between w-full p-5 rounded-2xl mb-6 border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(circle at 0% 100%, hsl(265 80% 62%) 0%, transparent 60%)" }} />
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="h-7 w-7 rounded-lg bg-violet-100 flex items-center justify-center">
-                <Settings className="h-3.5 w-3.5 text-violet-600" />
-              </div>
-              <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">Platform Staff</span>
-            </div>
-            <h2 className="text-xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Admin Portal</h2>
-            <p className="text-gray-400 text-xs mt-1">Hosts · Renters · Payouts · Reports</p>
-          </div>
-          <div className="relative z-10 h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-            <ArrowRight className="h-5 w-5 text-gray-400" />
-          </div>
-        </Link>
+        {/* Admin card — hidden from public, accessible directly at /dashboard */}
 
         {/* Stats strip */}
         <div className="rounded-2xl overflow-hidden mb-6" style={{ background: "linear-gradient(135deg, hsl(222 28% 10%), hsl(265 40% 15%))" }}>
