@@ -46,7 +46,7 @@ export default function PublicHome() {
             <Zap className="h-3 w-3" /> Powered by Stripe Connect
           </div>
           <h1 className="text-4xl font-black text-white leading-[1.1] mb-4" style={{ fontFamily: "var(--font-syne)" }}>
-            Get a Car<br />in 24 Hours.<br />
+            Get a Car<br />in Minutes.<br />
             <span className="opacity-75 text-3xl">Drive &amp; Earn Today.</span>
           </h1>
           <p className="text-white/80 text-sm leading-relaxed max-w-xs mx-auto mb-8">
@@ -103,25 +103,26 @@ export default function PublicHome() {
 
         {/* Host card */}
         <Link to="/become-a-host"
-          className="flex items-center justify-between w-full p-5 rounded-2xl mb-3 border border-gray-100 bg-white shadow-sm hover:shadow-md transition-all relative overflow-hidden">
-          <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(circle at 0% 100%, hsl(152 60% 46%) 0%, transparent 60%)" }} />
+          className="flex items-center justify-between w-full p-5 rounded-2xl mb-3 shadow-lg overflow-hidden relative"
+          style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #1a1040 100%)" }}>
+          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 20%, hsl(265 80% 62% / 0.4) 0%, transparent 60%), radial-gradient(ellipse at 10% 90%, hsl(152 60% 40% / 0.3) 0%, transparent 50%)" }} />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-1">
-              <div className="h-7 w-7 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <Home className="h-3.5 w-3.5 text-emerald-600" />
+              <div className="h-7 w-7 rounded-lg bg-white/15 flex items-center justify-center">
+                <Home className="h-3.5 w-3.5 text-white" />
               </div>
-              <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">For Fleet Owners</span>
+              <span className="text-xs font-bold text-white/60 uppercase tracking-wider">For Fleet Owners</span>
             </div>
-            <h2 className="text-xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>I Own Vehicles</h2>
-            <p className="text-gray-400 text-xs mt-1">We handle renters · You keep 80%</p>
+            <h2 className="text-xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>I Own Vehicles</h2>
+            <p className="text-white/60 text-xs mt-1">We handle renters · You keep 80%</p>
             <div className="flex gap-2 mt-3">
               {["80% revenue", "Auto payouts", "AV-ready"].map(tag => (
-                <span key={tag} className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold">{tag}</span>
+                <span key={tag} className="px-2 py-0.5 rounded-full bg-white/15 text-white/90 text-[10px] font-semibold">{tag}</span>
               ))}
             </div>
           </div>
-          <div className="relative z-10 h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-            <ArrowRight className="h-5 w-5 text-gray-400" />
+          <div className="relative z-10 h-10 w-10 rounded-full bg-white/15 flex items-center justify-center flex-shrink-0">
+            <ArrowRight className="h-5 w-5 text-white" />
           </div>
         </Link>
 
