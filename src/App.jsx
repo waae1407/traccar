@@ -130,7 +130,12 @@ const AuthenticatedApp = () => {
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
       <Route path="/host/:businessSlug" element={<HostStorefrontLayout />}>
         <Route index element={<HostStorefrontHome />} />
+        <Route path="bookings" element={<MyBookings />} />
+        <Route path="activity" element={<ActivityPage />} />
+        <Route path="support" element={<RenterAIChat />} />
+        <Route path="account" element={<AccountPage />} />
       </Route>
+
 
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>

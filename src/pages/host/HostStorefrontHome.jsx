@@ -93,7 +93,7 @@ export default function HostStorefrontHome() {
 
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
-    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}&storefront=${businessSlug}`);
+    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}&storefront=${businessSlug}&return=/host/${businessSlug}`);
   };
 
   const handleLocationZipSearch = async (zipcode, altCity) => {
@@ -110,7 +110,7 @@ export default function HostStorefrontHome() {
     <div className="min-h-screen pb-4 bg-gray-50">
       {/* Gig worker hero banner */}
       <button
-        onClick={() => navigate("/checkout")}
+        onClick={() => navigate(`/checkout?storefront=${businessSlug}&return=/host/${businessSlug}`)}
         className="mx-5 mt-5 mb-5 rounded-2xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block"
         style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${secondaryColor} 100%)` }}>
         <div className="absolute inset-0 pointer-events-none">

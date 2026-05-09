@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useOutletContext, Link } from "react-router-dom";
+import { useOutletContext, Link, useParams } from "react-router-dom";
 import { CalendarDays, Car } from "lucide-react";
 
 import CancelBookingSheet from "@/components/customer/CancelBookingSheet";
@@ -24,6 +24,8 @@ const PAST_STATUSES = ["completed", "cancelled"];
 
 export default function MyBookings() {
   const { user } = useOutletContext() || {};
+  const { businessSlug } = useParams();
+  const homeHref = businessSlug ? `/host/${businessSlug}` : "/book-now";
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("active");
   const [cancelTarget, setCancelTarget] = useState(null);
@@ -127,7 +129,7 @@ export default function MyBookings() {
               </div>
               <h3 className="font-black text-gray-900 text-xl mb-2" style={{ fontFamily: "var(--font-syne)" }}>No active rentals</h3>
               <p className="text-gray-400 text-sm">Ready to hit the road? Find your perfect vehicle.</p>
-              <Link to="/book-now" className="mt-6 px-8 py-3.5 rounded-2xl font-bold text-sm text-white shadow-lg"
+              <Link to={homeHref} className="mt-6 px-8 py-3.5 rounded-2xl font-bold text-sm text-white shadow-lg"
                 style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                 Browse Cars
               </Link>

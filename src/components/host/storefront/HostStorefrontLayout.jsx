@@ -2,12 +2,14 @@ import React from "react";
 import { Outlet, Link, useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { Home, CalendarDays, Activity, HelpCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function HostStorefrontLayout() {
   const { businessSlug } = useParams();
   const location = useLocation();
+  const { user } = useAuth();
 
   const { data: brands = [] } = useQuery({
     queryKey: ["public-brand", businessSlug],
@@ -27,10 +29,10 @@ export default function HostStorefrontLayout() {
 
   const tabs = [
     { label: "Home", icon: Home, path: base },
-    { label: "Bookings", icon: CalendarDays, path: "/my-bookings" },
-    ...(showActivity ? [{ label: "Activity", icon: Activity, path: "/activity" }] : []),
-    ...(showSupport ? [{ label: "Support", icon: HelpCircle, path: "/support" }] : []),
-    { label: "Account", icon: User, path: "/account" },
+    { label: "Bookings", icon: CalendarDays, path: `${base}/bookings` },
+    ...(showActivity ? [{ label: "Activity", icon: Activity, path: `${base}/activity` }] : []),
+    ...(showSupport ? [{ label: "Support", icon: HelpCircle, path: `${base}/support` }] : []),
+    { label: "Account", icon: User, path: `${base}/account` },
   ];
 
   return (
@@ -49,7 +51,7 @@ export default function HostStorefrontLayout() {
             {displayName}
           </span>
         </div>
-        <Link to="/account">
+        <Link to={`${base}/account`}>
           <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
             style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
             <User className="h-4 w-4" />
@@ -59,7 +61,7 @@ export default function HostStorefrontLayout() {
 
       {/* Page content */}
       <main className="pb-28">
-        <Outlet context={{ brand, businessSlug }} />
+        <Outlet context={{ brand, businessSlug, user }} />
       </main>
 
       {/* Bottom nav — branded colors */}

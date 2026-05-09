@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ReferralCard from "@/components/customer/ReferralCard";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useOutletContext, useNavigate, useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { User, Phone, Mail, LogOut, ChevronRight, Shield, CreditCard, HelpCircle, Bell, Check, X, Save, Upload } from "lucide-react";
@@ -175,6 +175,9 @@ function IDVerificationSheet({ user, isVerified, verifiedBooking, onClose }) {
 export default function AccountPage() {
   const { user } = useOutletContext() || {};
   const navigate = useNavigate();
+  const { businessSlug } = useParams();
+  const bookingsPath = businessSlug ? `/host/${businessSlug}/bookings` : "/my-bookings";
+  const activityPath = businessSlug ? `/host/${businessSlug}/activity` : "/activity";
   const [sheet, setSheet] = useState(null);
 
   useEffect(() => {
@@ -240,7 +243,7 @@ export default function AccountPage() {
           icon: CreditCard,
           label: "Payment Methods",
           sub: "Manage saved cards",
-          onClick: () => navigate("/my-bookings"),
+          onClick: () => navigate(bookingsPath),
         },
       ],
     },
@@ -257,7 +260,7 @@ export default function AccountPage() {
           icon: Bell,
           label: "Notifications",
           sub: "Manage alerts",
-          onClick: () => navigate("/activity"),
+          onClick: () => navigate(activityPath),
         },
       ],
     },
