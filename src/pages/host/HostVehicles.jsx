@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Plus, Car, CheckCircle2, Clock, MoreVertical } from "lucide-react";
+import { Plus, Car, CheckCircle2, Clock, MoreVertical, AlertTriangle, Shield } from "lucide-react";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Link } from "react-router-dom";
 
 const inputClass = "w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-pink-400 text-sm";
 
@@ -44,10 +45,16 @@ export default function HostVehicles() {
     enabled: !!host?.id,
   });
 
+  const { data: complianceDocs = [] } = useQuery({
+    queryKey: ["host-compliance", host?.id],
+    queryFn: () => base44.entities.HostVehicleCompliance.filter({ host_id: host.id }),
+    enabled: !!host?.id,
+  });
+
   const saveMutation = useMutation({
     mutationFn: (data) => editing
       ? base44.entities.Vehicle.update(editing.id, data)
-      : base44.entities.Vehicle.create({ ...data, host_id: host.id, approval_status: "pending", deployment_type: "human", telematics_provider: "none", av_platform: "none" }),
+      : base44.entities.Vehicle.create({ ...data, host_id: host.id, approval_status: "pending", status: "Out of Service", deployment_type: "human", telematics_provider: "none", av_platform: "none" }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["host-vehicles"] }); setOpen(false); setEditing(null); },
   });
 
@@ -56,6 +63,18 @@ export default function HostVehicles() {
   const openNew = () => { setEditing(null); setForm({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "" }); setOpen(true); };
   const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate({ ...form, year: Number(form.year), weekly_rate: Number(form.weekly_rate), mileage: Number(form.mileage) }); };
   const activeForVehicle = (vid) => bookings.filter(b => b.vehicle_id === vid && ["active", "confirmed", "approved"].includes(b.booking_status));
+
+  // Compute compliance status per vehicle
+  const getVehicleComplianceStatus = (vehicleId) => {
+    const vDocs = complianceDocs.filter(d => d.vehicle_id === vehicleId);
+    const hasValidInsurance = vDocs.some(d => d.doc_type === "insurance" && ["valid", "expiring_soon"].includes(d.status));
+    const hasValidRegistration = vDocs.some(d => d.doc_type === "registration" && ["valid", "expiring_soon"].includes(d.status));
+    const hasPendingInsurance = vDocs.some(d => d.doc_type === "insurance" && d.status === "pending_review");
+    const hasPendingRegistration = vDocs.some(d => d.doc_type === "registration" && d.status === "pending_review");
+    if (hasValidInsurance && hasValidRegistration) return "complete";
+    if (hasPendingInsurance || hasPendingRegistration) return "reviewing";
+    return "missing";
+  };
 
   return (
     <div className="space-y-5">
@@ -88,6 +107,7 @@ export default function HostVehicles() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {vehicles.map(v => {
             const active = activeForVehicle(v.id);
+            const complianceStatus = getVehicleComplianceStatus(v.id);
             return (
               <div key={v.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all hover:-translate-y-0.5">
                 {v.image_url ? (
@@ -110,9 +130,37 @@ export default function HostVehicles() {
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     <span className={`text-xs px-2 py-1 rounded-full font-semibold ${statusColors[v.status] || "bg-gray-100 text-gray-500"}`}>{v.status}</span>
                     <span className={`text-xs px-2 py-1 rounded-full font-semibold ${approvalColors[v.approval_status] || "bg-gray-100 text-gray-500"}`}>
-                      {v.approval_status === "pending" ? "Pending Approval" : v.approval_status === "approved" ? "Approved" : "Rejected"}
+                      {v.approval_status === "pending" ? "Pending Docs" : v.approval_status === "approved" ? "Approved" : "Rejected"}
                     </span>
                   </div>
+
+                  {/* Compliance status */}
+                  {complianceStatus === "missing" && (
+                    <Link to="/host/compliance" className="flex items-center gap-2 w-full mb-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-all">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-amber-800">Upload Insurance & Registration</p>
+                        <p className="text-[10px] text-amber-600">Required to go live</p>
+                      </div>
+                      <span className="text-[10px] font-bold text-amber-700 underline">Upload →</span>
+                    </Link>
+                  )}
+                  {complianceStatus === "reviewing" && (
+                    <div className="flex items-center gap-2 w-full mb-3 p-2.5 rounded-xl bg-blue-50 border border-blue-200">
+                      <Clock className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 animate-pulse" />
+                      <div>
+                        <p className="text-xs font-bold text-blue-800">AI Reviewing Documents…</p>
+                        <p className="text-[10px] text-blue-600">Vehicle will go live once verified</p>
+                      </div>
+                    </div>
+                  )}
+                  {complianceStatus === "complete" && v.approval_status === "approved" && (
+                    <div className="flex items-center gap-2 w-full mb-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <Shield className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+                      <p className="text-xs font-bold text-emerald-700">Compliance Verified ✓</p>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-bold text-emerald-600">${v.weekly_rate}/wk</span>
                     {active.length > 0 ? (
@@ -133,6 +181,11 @@ export default function HostVehicles() {
           <DialogHeader>
             <DialogTitle className="text-gray-900">{editing ? "Edit Vehicle" : "Add Vehicle"}</DialogTitle>
           </DialogHeader>
+          {!editing && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700">
+              ⚠️ After adding your vehicle, upload <strong>Insurance</strong> and <strong>Registration</strong> documents in the Compliance section. Your vehicle will go live automatically once both are verified.
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
             <div className="grid grid-cols-3 gap-3">
               <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Make *</label><input className={inputClass} required value={form.make} onChange={e => set("make", e.target.value)} /></div>

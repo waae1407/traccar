@@ -37,7 +37,8 @@
       "type": "number"
     },
     "next_service_mileage": {
-      "type": "number"
+      "type": "number",
+      "description": "Odometer reading at which next service is due. Alert fires within 500 miles."
     },
     "next_service_date": {
       "type": "string",

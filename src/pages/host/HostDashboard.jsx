@@ -170,7 +170,7 @@ export default function HostDashboard() {
         </div>
       )}
 
-      {/* Onboarding Checklist */}
+      {/* Onboarding Checklist — hidden once all steps complete */}
       {!onboardingDone && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-1">
