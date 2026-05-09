@@ -113,7 +113,7 @@ export default function PublicHome() {
               </div>
               <span className="text-xs font-bold text-white/60 uppercase tracking-wider">For Fleet Owners</span>
             </div>
-            <h2 className="text-xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>I Own Vehicles</h2>
+            <h2 className="text-xl font-black" style={{ fontFamily: "var(--font-syne)", color: "hsl(265 60% 85%)" }}>I Own Vehicles</h2>
             <p className="text-white/60 text-xs mt-1">We handle renters · You keep 80%</p>
             <div className="flex gap-2 mt-3">
               {["80% revenue", "Auto payouts", "AV-ready"].map(tag => (
