@@ -216,7 +216,8 @@ export default function BecomeAHost() {
             <span className="font-black text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>uRide</span>
           </Link>
           <button onClick={() => base44.auth.redirectToLogin(window.location.href)}
-            className="px-4 py-1.5 rounded-full text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">
+            className="px-4 py-1.5 rounded-full text-sm font-bold text-white shadow-sm"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
             Sign In
           </button>
         </div>
