@@ -19,6 +19,20 @@ export default function HostStorefrontLayout() {
 
   const brandColor = brand?.brand_color || "#e91e8c";
   const secondaryColor = brand?.secondary_color || "#7c3aed";
+
+  // Convert hex to HSL string for CSS variable injection
+  const hexToHslStr = (hex) => {
+    const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    let h, s, l = (max+min)/2;
+    if (max === min) { h = s = 0; } else {
+      const d = max-min; s = l>0.5 ? d/(2-max-min) : d/(max+min);
+      switch(max){ case r: h=(g-b)/d+(g<b?6:0); break; case g: h=(b-r)/d+2; break; default: h=(r-g)/d+4; }
+      h /= 6;
+    }
+    return `${Math.round(h*360)} ${Math.round(s*100)}% ${Math.round(l*100)}%`;
+  };
+  const brandHsl = brandColor.startsWith("#") && brandColor.length === 7 ? hexToHslStr(brandColor) : "338 90% 56%";
   const logoUrl = brand?.logo_url;
   const displayName = brand?.business_display_name || "uRide";
 
@@ -36,7 +50,7 @@ export default function HostStorefrontLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
+    <div className="min-h-screen" style={{ fontFamily: "var(--font-inter)", background: "#f8f8fa", color: "#111827" }}>
       {/* Top bar */}
       <header className="sticky top-0 z-40 px-5 h-16 flex items-center justify-between max-w-2xl mx-auto w-full"
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
@@ -59,8 +73,24 @@ export default function HostStorefrontLayout() {
         </Link>
       </header>
 
-      {/* Page content */}
-      <main className="pb-28">
+      {/* Page content — force light theme so child pages don't inherit dark global CSS vars */}
+      <main className="pb-28" style={{
+        "--background": "0 0% 97%",
+        "--foreground": "222 28% 7%",
+        "--card": "0 0% 100%",
+        "--card-foreground": "222 28% 7%",
+        "--muted": "210 20% 96%",
+        "--muted-foreground": "215 16% 47%",
+        "--border": "214 32% 91%",
+        "--primary": brandHsl,
+        "--primary-foreground": "0 0% 100%",
+        "--secondary": "210 40% 96%",
+        "--secondary-foreground": "222 47% 11%",
+        "--accent": "210 40% 96%",
+        "--accent-foreground": "222 47% 11%",
+        background: "#f8f8fa",
+        color: "#111827",
+      }}>
         <Outlet context={{ brand, businessSlug, user }} />
       </main>
 
