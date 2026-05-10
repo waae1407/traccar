@@ -30,10 +30,22 @@ export default function HostPayments() {
   });
   const host = hosts[0];
 
-  const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ["host-payments-bookings", host?.id],
-    queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }),
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["host-vehicles-payments", host?.id],
+    queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }),
     enabled: !!host?.id,
+  });
+
+  const vehicleIds = new Set(vehicles.map(v => v.id));
+
+  const { data: bookings = [], isLoading } = useQuery({
+    queryKey: ["host-payments-bookings", host?.id, vehicles.length],
+    queryFn: async () => {
+      if (vehicles.length === 0) return [];
+      const all = await base44.entities.BookingRequest.list("-created_date", 200);
+      return all.filter(b => vehicleIds.has(b.vehicle_id));
+    },
+    enabled: !!host?.id && vehicles.length >= 0,
   });
 
   // Only show bookings with meaningful payment info

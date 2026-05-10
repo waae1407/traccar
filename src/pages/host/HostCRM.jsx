@@ -28,11 +28,25 @@ export default function HostCRM() {
     enabled: !!host?.id,
   });
 
-  const { data: bookings = [] } = useQuery({
-    queryKey: ["host-bookings-crm", host?.id],
-    queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }),
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["host-vehicles-crm", host?.id],
+    queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }),
     enabled: !!host?.id,
   });
+
+  const vehicleIds = new Set(vehicles.map(v => v.id));
+
+  const { data: allBookings = [] } = useQuery({
+    queryKey: ["host-bookings-crm", host?.id, vehicles.length],
+    queryFn: async () => {
+      if (vehicles.length === 0) return [];
+      const all = await base44.entities.BookingRequest.list("-created_date", 200);
+      return all.filter(b => vehicleIds.has(b.vehicle_id));
+    },
+    enabled: !!host?.id && vehicles.length >= 0,
+  });
+
+  const bookings = allBookings;
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.HostCustomer.update(id, data),
