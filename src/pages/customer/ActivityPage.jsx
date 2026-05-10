@@ -25,7 +25,10 @@ const eventIcons = {
 };
 
 export default function ActivityPage() {
-  const { user } = useOutletContext() || {};
+  const { user, brand } = useOutletContext() || {};
+  const brandColor = brand?.brand_color || "#e91e8c";
+  const secondaryColor = brand?.secondary_color || "#7c3aed";
+  const heroGradient = `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`;
 
   const { data: events = [], isLoading: loadingEvents } = useQuery({
     queryKey: ["activity-events", user?.email],
@@ -91,8 +94,8 @@ export default function ActivityPage() {
   return (
     <div className="pb-6">
       {/* Hero banner */}
-      <div className="relative overflow-hidden mb-5" style={{ background: "linear-gradient(160deg, #0f0c29 0%, #302b63 60%, #24243e 100%)" }}>
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 20% 50%, hsl(265 80% 62% / 0.3) 0%, transparent 60%)" }} />
+      <div className="relative overflow-hidden mb-5" style={{ background: heroGradient }}>
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 60%)" }} />
         <div className="relative z-10 px-5 pt-7 pb-7">
           <p className="text-white/50 text-xs font-bold uppercase tracking-wider mb-1">Your Journey</p>
           <h1 className="text-2xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>Activity</h1>
@@ -120,7 +123,7 @@ export default function ActivityPage() {
       <div className="px-5">
         {/* Active booking status */}
         {activeBooking && (
-          <div className="rounded-3xl overflow-hidden mb-5 shadow-sm" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          <div className="rounded-3xl overflow-hidden mb-5 shadow-sm" style={{ background: heroGradient }}>
             <div className="px-5 py-4">
               <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider mb-1">Active Rental</p>
               <p className="font-black text-white text-base" style={{ fontFamily: "var(--font-syne)" }}>{activeBooking.vehicle_name}</p>

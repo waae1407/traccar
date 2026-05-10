@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
+import { useOutletContext } from "react-router-dom";
 import { Send, Bot, Plus, HelpCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 const AGENT = "renter_assistant";
 
 export default function RenterAIChat() {
+  const { brand } = useOutletContext?.() || {};
+  const brandColor = brand?.brand_color || "#e91e8c";
+  const secondaryColor = brand?.secondary_color || "#7c3aed";
+  const heroGradient = `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`;
   const [conversations, setConversations] = useState([]);
   const [activeConvId, setActiveConvId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -86,8 +91,8 @@ export default function RenterAIChat() {
   return (
     <div className="flex flex-col h-[calc(100vh-80px)]">
       {/* Hero header */}
-      <div className="relative overflow-hidden flex-shrink-0" style={{ background: "linear-gradient(160deg, #0f0c29 0%, #302b63 60%, #24243e 100%)" }}>
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 30%, hsl(338 90% 56% / 0.3) 0%, transparent 60%)" }} />
+      <div className="relative overflow-hidden flex-shrink-0" style={{ background: heroGradient }}>
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 30%, rgba(255,255,255,0.15) 0%, transparent 60%)" }} />
         <div className="relative z-10 px-5 pt-6 pb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>

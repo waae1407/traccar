@@ -173,7 +173,10 @@ function IDVerificationSheet({ user, isVerified, verifiedBooking, onClose }) {
 
 // ── Main AccountPage ─────────────────────────────────────────────────────────
 export default function AccountPage() {
-  const { user } = useOutletContext() || {};
+  const { user, brand } = useOutletContext() || {};
+  const brandColor = brand?.brand_color || "#e91e8c";
+  const secondaryColor = brand?.secondary_color || "#7c3aed";
+  const heroGradient = `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`;
   const navigate = useNavigate();
   const { businessSlug } = useParams();
   const bookingsPath = businessSlug ? `/host/${businessSlug}/bookings` : "/my-bookings";
@@ -269,13 +272,13 @@ export default function AccountPage() {
   return (
     <div className="pb-6">
       {/* Premium Profile Hero */}
-      <div className="relative overflow-hidden mb-6" style={{ background: "linear-gradient(160deg, #0f0c29 0%, #302b63 60%, #24243e 100%)" }}>
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 20%, hsl(338 90% 56% / 0.3) 0%, transparent 60%)" }} />
+      <div className="relative overflow-hidden mb-6" style={{ background: heroGradient }}>
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 60%)" }} />
         <div className="relative z-10 px-5 pt-8 pb-8">
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="h-18 w-18 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-lg"
-                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))", height: 72, width: 72 }}>
+                style={{ background: heroGradient, height: 72, width: 72 }}>
                 {user.full_name?.charAt(0) || "U"}
               </div>
               {isVerified && (
