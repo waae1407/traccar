@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { DollarSign, AlertTriangle, CheckCircle2, Clock, XCircle, Search } from "lucide-react";
+import { DollarSign, AlertTriangle, CheckCircle2, Clock, XCircle, Search, UserCheck, X } from "lucide-react";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import { format } from "date-fns";
 
@@ -20,6 +20,7 @@ const FILTERS = ["All", "Paid", "Overdue", "Failed", "Pending", "Due Soon"];
 
 export default function HostPayments() {
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
 
@@ -48,9 +49,38 @@ export default function HostPayments() {
     enabled: !!host?.id && vehicles.length >= 0,
   });
 
+  const approveMutation = useMutation({
+    mutationFn: async (booking) => {
+      await base44.entities.BookingRequest.update(booking.id, {
+        booking_status: "confirmed",
+        review_status: "approved",
+        reviewed_at: new Date().toISOString(),
+      });
+      // Mark vehicle as Booked
+      await base44.entities.Vehicle.update(booking.vehicle_id, { status: "Booked" });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["host-payments-bookings"] }),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (booking) => {
+      await base44.entities.BookingRequest.update(booking.id, {
+        booking_status: "rejected",
+        review_status: "rejected",
+        reviewed_at: new Date().toISOString(),
+      });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["host-payments-bookings"] }),
+  });
+
+  // Pending bookings awaiting host approval
+  const pendingBookings = bookings.filter(b =>
+    b.booking_status === "pending_review" && b.customer_full_name
+  );
+
   // Only show bookings with meaningful payment info
   const paymentBookings = bookings.filter(b =>
-    !["draft", "cancelled"].includes(b.booking_status) && b.customer_full_name
+    !["draft", "cancelled", "pending_review", "rejected"].includes(b.booking_status) && b.customer_full_name
   );
 
   const filtered = paymentBookings.filter(b => {
@@ -101,6 +131,54 @@ export default function HostPayments() {
           );
         })}
       </div>
+
+      {/* Pending Approvals */}
+      {pendingBookings.length > 0 && (
+        <div className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-amber-100" style={{ background: "linear-gradient(135deg, #fffbeb, #fef3c7)" }}>
+            <div className="h-8 w-8 rounded-xl bg-amber-100 flex items-center justify-center">
+              <UserCheck className="h-4 w-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900">{pendingBookings.length} Pending Approval{pendingBookings.length > 1 ? "s" : ""}</p>
+              <p className="text-xs text-amber-600">Review and approve or reject these booking requests</p>
+            </div>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {pendingBookings.map(b => (
+              <div key={b.id} className="px-5 py-4">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900">{b.customer_full_name}</p>
+                    <p className="text-xs text-gray-400">{b.vehicle_name} · {b.booking_type}</p>
+                    <p className="text-xs text-gray-400">{b.user_email}</p>
+                    {b.start_date && <p className="text-xs text-gray-400">Start: {format(new Date(b.start_date), "MMM d, yyyy")}</p>}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-base font-black text-gray-900">${(b.weekly_rate || 0).toLocaleString()}<span className="text-xs text-gray-400 font-normal">/wk</span></p>
+                    <p className="text-xs text-gray-400">Week 1 paid ✓</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => approveMutation.mutate(b)}
+                    disabled={approveMutation.isPending}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50"
+                    style={{ background: "linear-gradient(135deg, hsl(152 60% 46%), hsl(199 90% 54%))" }}>
+                    <CheckCircle2 className="h-4 w-4" /> Approve
+                  </button>
+                  <button
+                    onClick={() => rejectMutation.mutate(b)}
+                    disabled={rejectMutation.isPending}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-bold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 transition-all disabled:opacity-50">
+                    <X className="h-4 w-4" /> Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters + Search */}
       <div className="space-y-3">
