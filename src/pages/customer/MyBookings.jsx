@@ -23,7 +23,7 @@ const ACTIVE_STATUSES = [
 const PAST_STATUSES = ["completed", "cancelled"];
 
 export default function MyBookings() {
-  const { user } = useOutletContext() || {};
+  const { user, brand } = useOutletContext() || {};
   const { businessSlug } = useParams();
   const homeHref = businessSlug ? `/host/${businessSlug}` : "/book-now";
   const queryClient = useQueryClient();
@@ -112,6 +112,8 @@ export default function MyBookings() {
         setActiveTab={setActiveTab}
         activeCount={activeBookings.length}
         pastCount={pastBookings.length}
+        brandColor={brand?.brand_color}
+        secondaryColor={brand?.secondary_color}
       />
 
       <div className="px-5 py-4">
