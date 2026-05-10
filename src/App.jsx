@@ -46,6 +46,7 @@ import HostLayout from '@/components/host/HostLayout';
 import HostDashboard from '@/pages/host/HostDashboard';
 import HostVehicles from '@/pages/host/HostVehicles';
 import HostPayouts from '@/pages/host/HostPayouts';
+import HostPayments from '@/pages/host/HostPayments';
 import HostCompliance from '@/pages/host/HostCompliance';
 import HostRTO from '@/pages/host/HostRTO';
 import HostFleetInsights from '@/pages/host/HostFleetInsights';
@@ -113,6 +114,7 @@ const AuthenticatedApp = () => {
       <Route element={<HostLayout />}>
         <Route path="/host/dashboard" element={<HostDashboard />} />
         <Route path="/host/vehicles" element={<HostVehicles />} />
+        <Route path="/host/payments" element={<HostPayments />} />
         <Route path="/host/payouts" element={<HostPayouts />} />
         <Route path="/host/compliance" element={<HostCompliance />} />
         <Route path="/host/rto" element={<HostRTO />} />
