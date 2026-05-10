@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 const AGENT = "renter_assistant";
 
 export default function RenterAIChat() {
-  const { brand } = useOutletContext?.() || {};
+  const { brand } = useOutletContext() || {};
   const brandColor = brand?.brand_color || "#e91e8c";
   const secondaryColor = brand?.secondary_color || "#7c3aed";
   const heroGradient = `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`;
@@ -95,7 +95,7 @@ export default function RenterAIChat() {
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 30%, rgba(255,255,255,0.15) 0%, transparent 60%)" }} />
         <div className="relative z-10 px-5 pt-6 pb-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            <div className="h-10 w-10 rounded-2xl flex items-center justify-center" style={{ background: heroGradient }}>
               <HelpCircle className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -125,7 +125,7 @@ export default function RenterAIChat() {
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-8">
-              <div className="h-14 w-14 rounded-3xl flex items-center justify-center shadow-lg" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              <div className="h-14 w-14 rounded-3xl flex items-center justify-center shadow-lg" style={{ background: heroGradient }}>
                 <HelpCircle className="h-7 w-7 text-white" />
               </div>
               <p className="font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Hi! How can I help?</p>
@@ -171,7 +171,7 @@ export default function RenterAIChat() {
             />
             <button onClick={sendMessage} disabled={!input.trim() || sending}
               className="h-10 w-10 rounded-2xl flex items-center justify-center disabled:opacity-40 transition-all flex-shrink-0 shadow-sm"
-              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              style={{ background: heroGradient }}>
               <Send className="h-4 w-4 text-white" />
             </button>
           </div>

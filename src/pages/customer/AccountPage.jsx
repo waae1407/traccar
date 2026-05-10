@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { User, Phone, Mail, LogOut, ChevronRight, Shield, CreditCard, HelpCircle, Bell, Check, X, Save, Upload } from "lucide-react";
 
 // ── Personal Info Edit Sheet ─────────────────────────────────────────────────
-function PersonalInfoSheet({ user, onClose }) {
+function PersonalInfoSheet({ user, onClose, heroGradient }) {
   const [form, setForm] = useState({
     full_name: user.full_name || "",
     phone: user.phone || "",
@@ -54,7 +54,7 @@ function PersonalInfoSheet({ user, onClose }) {
           onClick={handleSave}
           disabled={saving || saved}
           className="w-full mt-5 h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-70"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          style={{ background: heroGradient }}>
           {saved ? <><Check className="h-4 w-4" /> Saved!</> : saving ? "Saving…" : <><Save className="h-4 w-4" /> Save Changes</>}
         </button>
       </div>
@@ -63,7 +63,7 @@ function PersonalInfoSheet({ user, onClose }) {
 }
 
 // ── ID Verification Sheet ────────────────────────────────────────────────────
-function IDVerificationSheet({ user, isVerified, verifiedBooking, onClose }) {
+function IDVerificationSheet({ user, isVerified, verifiedBooking, onClose, heroGradient }) {
   const [uploads, setUploads] = useState({
     license_front: user.driver_license_url || "",
     selfie: user.id_upload_url || "",
@@ -161,7 +161,7 @@ function IDVerificationSheet({ user, isVerified, verifiedBooking, onClose }) {
               onClick={handleSave}
               disabled={saving || saved || (!uploads.license_front && !uploads.selfie)}
               className="w-full mt-5 h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              style={{ background: heroGradient }}>
               {saved ? <><Check className="h-4 w-4" /> Saved!</> : saving ? "Saving…" : <><Save className="h-4 w-4" /> Save Documents</>}
             </button>
           </>
@@ -215,7 +215,7 @@ export default function AccountPage() {
         <p className="text-gray-400 text-sm mt-2 max-w-xs">Access your bookings, manage your account, and track your payments.</p>
         <button onClick={() => base44.auth.redirectToLogin(window.location.href)}
           className="mt-6 w-full max-w-xs h-12 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          style={{ background: heroGradient }}>
           Sign In / Create Account
         </button>
       </div>
@@ -310,8 +310,8 @@ export default function AccountPage() {
                 onClick={item.onClick}
                 className={`w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left ${idx < section.items.length - 1 ? "border-b border-gray-100" : ""}`}>
                 <div className="h-9 w-9 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, hsl(338 90% 56% / 0.08), hsl(265 80% 62% / 0.06))" }}>
-                  <item.icon className="h-4 w-4 text-pink-500" />
+                  style={{ background: `${brandColor}14` }}>
+                  <item.icon className="h-4 w-4" style={{ color: brandColor }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900 text-sm">{item.label}</p>
@@ -347,13 +347,14 @@ export default function AccountPage() {
       <div className="h-4" />
 
       {/* Sheets */}
-      {sheet === "personal" && <PersonalInfoSheet user={user} onClose={() => setSheet(null)} />}
+      {sheet === "personal" && <PersonalInfoSheet user={user} onClose={() => setSheet(null)} heroGradient={heroGradient} />}
       {sheet === "id-verification" && (
         <IDVerificationSheet
           user={user}
           isVerified={isVerified}
           verifiedBooking={bookingRequests.find((b) => b.verification_status === "verified" && b.license_front_url)}
           onClose={() => setSheet(null)}
+          heroGradient={heroGradient}
         />
       )}
     </div>

@@ -58,7 +58,7 @@ export default function ActivityPage() {
         <p className="text-gray-400 text-sm mt-2">Payments, documents, and contract updates will show here.</p>
         <button onClick={() => base44.auth.redirectToLogin(window.location.href)}
           className="mt-5 px-6 py-2.5 rounded-xl font-bold text-sm text-white"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          style={{ background: heroGradient }}>
           Sign In
         </button>
       </div>
