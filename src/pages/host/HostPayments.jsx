@@ -80,21 +80,26 @@ export default function HostPayments() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "Total Collected", value: `$${totalCollected.toLocaleString()}`, color: "text-emerald-600", bg: "bg-emerald-50", icon: DollarSign },
-          { label: "Active Rentals", value: totalActive, color: "text-blue-600", bg: "bg-blue-50", icon: CheckCircle2 },
-          { label: "Overdue", value: totalOverdue, color: "text-red-600", bg: "bg-red-50", icon: AlertTriangle },
-          { label: "Failed Payments", value: totalFailed, color: "text-orange-600", bg: "bg-orange-50", icon: XCircle },
-        ].map(s => (
-          <div key={s.label} className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{s.label}</p>
-              <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${s.bg}`}>
-                <s.icon className={`h-4 w-4 ${s.color}`} />
+          { label: "Total Collected", value: `$${totalCollected.toLocaleString()}`, color: "text-emerald-600", bg: "bg-emerald-50", icon: DollarSign, filterKey: "Paid" },
+          { label: "Active Rentals", value: totalActive, color: "text-blue-600", bg: "bg-blue-50", icon: CheckCircle2, filterKey: "All" },
+          { label: "Overdue", value: totalOverdue, color: "text-red-600", bg: "bg-red-50", icon: AlertTriangle, filterKey: "Overdue" },
+          { label: "Failed Payments", value: totalFailed, color: "text-orange-600", bg: "bg-orange-50", icon: XCircle, filterKey: "Failed" },
+        ].map(s => {
+          const isActive = filter === s.filterKey;
+          return (
+            <button key={s.label} onClick={() => setFilter(s.filterKey)}
+              className="text-left bg-white rounded-3xl border shadow-sm p-4 transition-all hover:shadow-md active:scale-[0.97]"
+              style={{ borderColor: isActive ? "hsl(338 90% 56% / 0.4)" : "#f3f4f6", boxShadow: isActive ? "0 0 0 2px hsl(338 90% 56% / 0.15)" : undefined }}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{s.label}</p>
+                <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${s.bg}`}>
+                  <s.icon className={`h-4 w-4 ${s.color}`} />
+                </div>
               </div>
-            </div>
-            <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{s.value}</p>
-          </div>
-        ))}
+              <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{s.value}</p>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters + Search */}

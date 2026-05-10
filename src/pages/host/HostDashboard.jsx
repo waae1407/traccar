@@ -6,18 +6,26 @@ import { Link, useNavigate } from "react-router-dom";
 import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, Zap, ArrowRight, Sparkles, Users, BarChart2, Wrench, ExternalLink, Rocket } from "lucide-react";
 import confetti from "canvas-confetti";
 
-const StatCard = ({ label, value, sub, icon: Icon, color, bg }) => (
-  <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-all">
-    <div className="flex items-center justify-between mb-3">
-      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
-      <div className={`h-9 w-9 rounded-2xl flex items-center justify-center ${bg}`}>
-        <Icon className={`h-4 w-4 ${color}`} />
+const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
+  const inner = (
+    <>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
+        <div className={`h-9 w-9 rounded-2xl flex items-center justify-center ${bg}`}>
+          <Icon className={`h-4 w-4 ${color}`} />
+        </div>
       </div>
-    </div>
-    <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
-    {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
-  </div>
-);
+      <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
+      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+    </>
+  );
+  if (href) return (
+    <Link to={href} className="block bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] transition-all">
+      {inner}
+    </Link>
+  );
+  return <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4">{inner}</div>;
+};
 
 export default function HostDashboard() {
   const { user } = useAuth();
@@ -232,10 +240,10 @@ export default function HostDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Pending Payout" value={`$${pendingPayout.toLocaleString()}`} sub="Next transfer" icon={DollarSign} color="text-emerald-600" bg="bg-emerald-50" />
-        <StatCard label="Total Earned" value={`$${totalEarned.toLocaleString()}`} sub="All time" icon={TrendingUp} color="text-pink-600" bg="bg-pink-50" />
-        <StatCard label="Active Vehicles" value={vehicles.filter(v => v.status === "Booked" || v.status === "Available").length} sub={`of ${vehicles.length} total`} icon={Car} color="text-blue-600" bg="bg-blue-50" />
-        <StatCard label="Active Rentals" value={activeBookings.length} sub="Operators on road" icon={CheckCircle2} color="text-violet-600" bg="bg-violet-50" />
+        <StatCard label="Pending Payout" value={`$${pendingPayout.toLocaleString()}`} sub="Next transfer" icon={DollarSign} color="text-emerald-600" bg="bg-emerald-50" href="/host/payouts" />
+        <StatCard label="Total Earned" value={`$${totalEarned.toLocaleString()}`} sub="All time" icon={TrendingUp} color="text-pink-600" bg="bg-pink-50" href="/host/payouts" />
+        <StatCard label="Active Vehicles" value={vehicles.filter(v => v.status === "Booked" || v.status === "Available").length} sub={`of ${vehicles.length} total`} icon={Car} color="text-blue-600" bg="bg-blue-50" href="/host/vehicles" />
+        <StatCard label="Active Rentals" value={activeBookings.length} sub="Operators on road" icon={CheckCircle2} color="text-violet-600" bg="bg-violet-50" href="/host/payments" />
       </div>
 
       {/* Fleet Score */}
