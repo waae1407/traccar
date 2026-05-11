@@ -244,6 +244,15 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             </FormField>
           </div>
 
+          {/* Telematics / Moovetrax */}
+          <div className="space-y-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <p className="text-xs font-bold text-white/50 uppercase tracking-wider">📡 Telematics (Moovetrax)</p>
+            <FormField label="Moovetrax Device ID">
+              <input className={inputClass} value={form.moovetrax_device_id || ""} onChange={(e) => set("moovetrax_device_id", e.target.value)} placeholder="e.g. MT-123456" />
+            </FormField>
+            <p className="text-[10px] text-white/25">Used for remote kill switch control on payment failure. Leave blank if not equipped.</p>
+          </div>
+
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             {toggle("rent_to_own_eligible")}
             <span className="text-sm text-white/60">Rent-to-Own Eligible</span>

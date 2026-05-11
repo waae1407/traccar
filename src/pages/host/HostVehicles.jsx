@@ -28,7 +28,7 @@ export default function HostVehicles() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "" });
+  const [form, setForm] = useState({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "", moovetrax_device_id: "" });
 
   const { data: hosts = [] } = useQuery({ queryKey: ["my-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user?.email }), enabled: !!user?.email });
   const host = hosts[0];
@@ -60,7 +60,7 @@ export default function HostVehicles() {
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const openEdit = (v) => { setEditing(v); setForm({ ...v }); setOpen(true); };
-  const openNew = () => { setEditing(null); setForm({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "" }); setOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "", moovetrax_device_id: "" }); setOpen(true); };
   const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate({ ...form, year: Number(form.year), weekly_rate: Number(form.weekly_rate), mileage: Number(form.mileage) }); };
   const activeForVehicle = (vid) => bookings.filter(b => b.vehicle_id === vid && ["active", "confirmed", "approved"].includes(b.booking_status));
 
@@ -206,6 +206,11 @@ export default function HostVehicles() {
             </div>
             <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Pickup Address</label><input className={inputClass} value={form.pickup_address} onChange={e => set("pickup_address", e.target.value)} placeholder="1234 Main St, Houston TX 77001" /></div>
             <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Pickup Hours</label><input className={inputClass} value={form.pickup_hours} onChange={e => set("pickup_hours", e.target.value)} placeholder="Mon–Fri 9am–5pm" /></div>
+            <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+              <label className="block text-xs font-semibold text-gray-500">📡 Moovetrax Device ID</label>
+              <input className={inputClass} value={form.moovetrax_device_id || ""} onChange={e => set("moovetrax_device_id", e.target.value)} placeholder="e.g. MT-123456" />
+              <p className="text-[10px] text-gray-400">Used for remote kill switch. Leave blank if not equipped.</p>
+            </div>
             <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-200">
               <button type="button" onClick={() => set("rent_to_own_eligible", !form.rent_to_own_eligible)}
                 className={`relative h-5 w-9 rounded-full transition-all ${form.rent_to_own_eligible ? "bg-pink-500" : "bg-gray-300"}`}>
