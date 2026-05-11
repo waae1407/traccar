@@ -148,6 +148,24 @@ Deno.serve(async (req) => {
             }
           }
 
+          // ── PAYMENT LOG ──
+          await base44.asServiceRole.entities.PaymentLog.create({
+            booking_request_id: booking.id,
+            host_id: booking.host_id || "",
+            customer_email: booking.user_email,
+            customer_name: booking.customer_full_name || "",
+            vehicle_id: booking.vehicle_id,
+            vehicle_name: booking.vehicle_name || "",
+            week_number: weekNum,
+            amount: amount,
+            payment_method: "stripe",
+            stripe_payment_intent_id: paymentIntent.id,
+            receipt_url: paymentIntent.charges?.data?.[0]?.receipt_url || "",
+            status: "paid",
+            recorded_by: "autopay",
+            paid_at: new Date().toISOString(),
+          });
+
           // Send receipt notification
           await base44.asServiceRole.entities.Notification.create({
             user_email: booking.user_email,

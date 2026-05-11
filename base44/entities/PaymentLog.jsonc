@@ -1,0 +1,75 @@
+{
+  "name": "PaymentLog",
+  "type": "object",
+  "properties": {
+    "booking_request_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "week_number": {
+      "type": "number"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "stripe",
+        "zelle",
+        "cash",
+        "cashapp",
+        "venmo",
+        "check",
+        "other"
+      ],
+      "default": "stripe"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "receipt_url": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "paid",
+        "failed",
+        "refunded"
+      ],
+      "default": "paid"
+    },
+    "recorded_by": {
+      "type": "string",
+      "description": "autopay or admin email"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "paid_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "booking_request_id",
+    "customer_email",
+    "amount",
+    "week_number"
+  ]
+}

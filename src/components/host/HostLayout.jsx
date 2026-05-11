@@ -12,6 +12,7 @@ const navItems = [
   { label: "Brand Builder", icon: Sparkles, path: "/host/brand" },
   { label: "Customers", icon: Users, path: "/host/customers" },
   { label: "Payments", icon: CreditCard, path: "/host/payments" },
+  { label: "Payment History", icon: Receipt, path: "/host/payment-history" },
   { label: "Payouts", icon: DollarSign, path: "/host/payouts" },
   { label: "Expenses", icon: Receipt, path: "/host/expenses" },
   { label: "Maintenance", icon: Wrench, path: "/host/maintenance" },

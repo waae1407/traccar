@@ -58,6 +58,7 @@ import HostExpenses from '@/pages/host/HostExpenses';
 import HostMaintenance from '@/pages/host/HostMaintenance';
 import HostReports from '@/pages/host/HostReports';
 import HostVerificationDocs from '@/pages/host/HostVerificationDocs';
+import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
 import HostStorefrontHome from '@/pages/host/HostStorefrontHome';
@@ -127,6 +128,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/maintenance" element={<HostMaintenance />} />
         <Route path="/host/reports" element={<HostReports />} />
         <Route path="/host/verification" element={<HostVerificationDocs />} />
+        <Route path="/host/payment-history" element={<HostPaymentHistory />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
