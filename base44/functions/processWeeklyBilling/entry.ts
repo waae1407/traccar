@@ -48,8 +48,16 @@ Deno.serve(async (req) => {
       try {
         const weekNum = (booking.billing_week_number || 1) + 1;
         const referralCredit = booking.pending_referral_credit || 0;
-        const amount = Math.max(0, (booking.weekly_rate || 0) - referralCredit);
+        const baseAmount = Math.max(0, (booking.weekly_rate || 0) - referralCredit);
+
+        // Gross up to cover Stripe fee (2.9% + $0.30) so host receives full weekly_rate
+        // Formula: grossed = (base + 0.30) / (1 - 0.029)
+        const grossedAmount = Math.round(((baseAmount + 0.30) / (1 - 0.029)) * 100) / 100;
+        const stripeFee = Math.round((grossedAmount - baseAmount) * 100) / 100;
+        const amount = grossedAmount;
         const amountCents = Math.round(amount * 100);
+
+        console.log(`[WeeklyBilling] ${booking.id} base=$${baseAmount} stripeFee=$${stripeFee} total=$${amount}`);
 
         if (amountCents < 50) {
           console.warn(`[WeeklyBilling] Skipping ${booking.id} — amount too low`);
@@ -80,6 +88,8 @@ Deno.serve(async (req) => {
             billing_week_number: weekNum,
             next_billing_date: nextBillingDate,
             pending_referral_credit: 0,
+            stripe_fee_amount: stripeFee,
+            last_charged_gross: amount,
           });
 
           // ── HOST PAYOUT SPLIT (Stripe Connect) ──
@@ -142,7 +152,7 @@ Deno.serve(async (req) => {
           await base44.asServiceRole.entities.Notification.create({
             user_email: booking.user_email,
             title: `Week ${weekNum} Payment Received`,
-            body: `$${amount} has been charged for your ${booking.vehicle_name} rental. Next charge: ${nextBillingDate}.`,
+            body: `$${amount.toFixed(2)} has been charged for your ${booking.vehicle_name} rental (includes $${stripeFee.toFixed(2)} processing fee). Next charge: ${nextBillingDate}.`,
             type: "payment",
             booking_request_id: booking.id,
           });
