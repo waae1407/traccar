@@ -57,12 +57,10 @@ Deno.serve(async (req) => {
           vehicle_name: booking.vehicle_name || '',
           week_number: week,
           amount: booking.weekly_rate,
-          payment_method: booking.stripe_payment_intent_id ? 'stripe' : 'other',
-          stripe_payment_intent_id: week === weeksCompleted ? (booking.stripe_payment_intent_id || '') : '',
-          receipt_url: week === weeksCompleted ? (booking.receipt_url || '') : '',
+          payment_method: 'other',
           status: 'paid',
           recorded_by: 'backfill',
-          notes: 'Backfilled from booking history',
+          notes: 'Backfilled — exact payment method unknown. Please update manually if needed.',
           paid_at: paidAt,
         });
         created++;
