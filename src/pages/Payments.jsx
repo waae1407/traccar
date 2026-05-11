@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { DollarSign, ExternalLink, AlertTriangle, Plus, TrendingUp, CreditCard, Banknote, XCircle, CalendarClock, History } from "lucide-react";
+import { DollarSign, ExternalLink, AlertTriangle, Plus, TrendingUp, CreditCard, Banknote, XCircle, CalendarClock, History, RefreshCw } from "lucide-react";
 import EmptyState from "@/components/shared/EmptyState";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
@@ -197,6 +197,19 @@ export default function Payments() {
   const [paymentStatus, setPaymentStatus] = useState("");
   const [vehicleFilter, setVehicleFilter] = useState("");
   const [scoreFilter, setScoreFilter] = useState(null); // null = no filter
+  const [backfilling, setBackfilling] = useState(false);
+
+  const handleBackfill = async () => {
+    setBackfilling(true);
+    try {
+      const res = await base44.functions.invoke("backfillPaymentLogs", {});
+      toast.success(`Backfill complete — ${res.data.created} records created, ${res.data.skipped} already existed`);
+    } catch (err) {
+      toast.error("Backfill failed: " + err.message);
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["stripe-payments"],
@@ -273,6 +286,14 @@ export default function Payments() {
           <h2 className="text-lg font-bold text-white">Stripe Payments</h2>
           <p className="text-xs text-white/40 mt-0.5">{allPayments.length} total records</p>
         </div>
+        <button
+          onClick={handleBackfill}
+          disabled={backfilling}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white/70 bg-white/[0.06] border border-white/[0.1] hover:bg-white/10 transition-all disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${backfilling ? "animate-spin" : ""}`} />
+          {backfilling ? "Backfilling…" : "Backfill Payment History"}
+        </button>
       </div>
 
       {/* Scorecards */}
