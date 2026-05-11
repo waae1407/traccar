@@ -49,7 +49,31 @@ function ActionModal({ booking, onClose, onSuccess }) {
     }
   };
 
+  const MANUAL_PAYMENT_METHODS = ["Zelle", "Cash", "CashApp", "Venmo", "Check", "Other"];
+  const [manualMethod, setManualMethod] = useState("Zelle");
+
+  const handleManualPaid = async () => {
+    setLoading(true);
+    const nextWeek = booking.billing_week_number ? booking.billing_week_number + 1 : 2;
+    const nextBillingDate = new Date(booking.next_billing_date || new Date());
+    nextBillingDate.setDate(nextBillingDate.getDate() + 7);
+    const nextBillingStr = nextBillingDate.toISOString().split("T")[0];
+    await base44.entities.BookingRequest.update(booking.id, {
+      payment_status: "paid",
+      billing_week_number: nextWeek,
+      next_billing_date: nextBillingStr,
+      payment_failure_reason: "",
+      payment_failure_attempts: 0,
+      admin_notes: `Week ${nextWeek} paid manually via ${manualMethod}${description ? ` — ${description}` : ""} (admin confirmed ${new Date().toISOString().split("T")[0]})`,
+    });
+    toast.success(`Week ${nextWeek} marked as paid via ${manualMethod}`);
+    onSuccess();
+    onClose();
+    setLoading(false);
+  };
+
   const ACTIONS = [
+    { id: "manual_paid", label: "💵 Mark as Manually Paid", desc: "Zelle, Cash, CashApp, etc. — advances billing week", needsAmount: false },
     { id: "refund", label: "💸 Refund", desc: "Issue partial or full refund to customer", needsAmount: true, amountLabel: "Refund amount (leave blank for full refund)", optional: true },
     { id: "charge_toll", label: "🛣️ Charge Toll", desc: "Bill customer for unpaid tolls", needsAmount: true, amountLabel: "Toll amount ($)", needsDesc: true, descLabel: "Toll details" },
     { id: "charge_key_fee", label: "🔑 Lost Key Fee", desc: "Charge $250 lost key fee", needsAmount: true, amountLabel: "Amount ($)", defaultAmount: "250" },
@@ -89,8 +113,34 @@ function ActionModal({ booking, onClose, onSuccess }) {
           ))}
         </div>
 
+        {/* Manual paid options */}
+        {action === "manual_paid" && (
+          <div className="space-y-3 mb-5">
+            <div>
+              <label className="text-xs font-semibold text-white/40 mb-1.5 block">Payment Method</label>
+              <div className="flex flex-wrap gap-2">
+                {MANUAL_PAYMENT_METHODS.map(m => (
+                  <button key={m} onClick={() => setManualMethod(m)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${manualMethod === m ? "border-primary/50 bg-primary/[0.12] text-primary" : "border-white/[0.08] bg-white/[0.04] text-white/50 hover:bg-white/[0.08]"}`}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-white/40 mb-1.5 block">Notes (optional)</label>
+              <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+                placeholder="e.g. Zelle ref #12345"
+                className="w-full h-10 px-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-primary/50" />
+            </div>
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+              Will mark Week {(booking.billing_week_number || 1) + 1} as paid and set next billing date to {(() => { const d = new Date(booking.next_billing_date || new Date()); d.setDate(d.getDate() + 7); return d.toISOString().split("T")[0]; })()}
+            </div>
+          </div>
+        )}
+
         {/* Form fields for selected action */}
-        {selected && (
+        {selected && action !== "manual_paid" && (
           <div className="space-y-3 mb-5">
             {selected.needsAmount && (
               <div>
@@ -119,17 +169,18 @@ function ActionModal({ booking, onClose, onSuccess }) {
           </div>
         )}
 
+
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">
             Cancel
           </button>
           <button
-            onClick={handleSubmit}
+            onClick={action === "manual_paid" ? handleManualPaid : handleSubmit}
             disabled={!action || loading}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-all"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
           >
-            {loading ? "Processing…" : "Execute"}
+            {loading ? "Processing…" : action === "manual_paid" ? "Mark as Paid" : "Execute"}
           </button>
         </div>
       </div>
