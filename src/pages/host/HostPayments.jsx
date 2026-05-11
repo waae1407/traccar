@@ -1,4 +1,45 @@
 import React, { useState } from "react";
+
+function ExpandablePaymentRow({ b, cfg, Icon }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setExpanded(e => !e)}>
+      <div className="flex items-center gap-3">
+        <div className={`h-10 w-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${cfg.cls}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">{b.customer_full_name}</p>
+          <p className={`text-xs text-gray-400 ${expanded ? "" : "truncate"}`}>
+            {b.vehicle_name}
+            {b.next_billing_date ? ` · Next: ${format(new Date(b.next_billing_date), "MMM d, yyyy")}` : ""}
+            {b.billing_week_number ? ` · Week ${b.billing_week_number}` : ""}
+          </p>
+          {b.payment_failure_reason && (
+            <p className={`text-xs text-red-500 mt-0.5 ${expanded ? "" : "truncate"}`}>⚠ {b.payment_failure_reason}</p>
+          )}
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-sm font-bold text-gray-900">${(b.weekly_rate || 0).toLocaleString()}<span className="text-xs text-gray-400 font-normal">/wk</span></p>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
+        </div>
+      </div>
+      {expanded && (
+        <div className="mt-3 ml-13 pl-1 space-y-1 text-xs text-gray-500 border-t border-gray-100 pt-3">
+          {b.user_email && <p><span className="font-semibold text-gray-700">Email:</span> {b.user_email}</p>}
+          {b.customer_phone && <p><span className="font-semibold text-gray-700">Phone:</span> {b.customer_phone}</p>}
+          {b.start_date && <p><span className="font-semibold text-gray-700">Start Date:</span> {format(new Date(b.start_date), "MMM d, yyyy")}</p>}
+          {b.next_billing_date && <p><span className="font-semibold text-gray-700">Next Billing:</span> {format(new Date(b.next_billing_date), "MMM d, yyyy")}</p>}
+          {b.billing_week_number && <p><span className="font-semibold text-gray-700">Week:</span> {b.billing_week_number}</p>}
+          {b.booking_type && <p><span className="font-semibold text-gray-700">Booking Type:</span> {b.booking_type}</p>}
+          {b.payment_failure_reason && <p className="text-red-500"><span className="font-semibold">Failure Reason:</span> {b.payment_failure_reason}</p>}
+          {b.notes && <p><span className="font-semibold text-gray-700">Notes:</span> {b.notes}</p>}
+          {b.admin_notes && <p><span className="font-semibold text-gray-700">Admin Notes:</span> {b.admin_notes}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -223,26 +264,7 @@ export default function HostPayments() {
               const cfg = PAYMENT_STATUS_CONFIG[b.payment_status] || PAYMENT_STATUS_CONFIG.pending;
               const Icon = cfg.icon;
               return (
-                <div key={b.id} className="flex items-center gap-3 px-5 py-4">
-                  <div className={`h-10 w-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${cfg.cls}`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{b.customer_full_name}</p>
-                    <p className="text-xs text-gray-400 truncate">
-                      {b.vehicle_name}
-                      {b.next_billing_date ? ` · Next: ${format(new Date(b.next_billing_date), "MMM d")}` : ""}
-                      {b.billing_week_number ? ` · Week ${b.billing_week_number}` : ""}
-                    </p>
-                    {b.payment_failure_reason && (
-                      <p className="text-xs text-red-500 mt-0.5 truncate">⚠ {b.payment_failure_reason}</p>
-                    )}
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-gray-900">${(b.weekly_rate || 0).toLocaleString()}<span className="text-xs text-gray-400 font-normal">/wk</span></p>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
-                  </div>
-                </div>
+                <ExpandablePaymentRow key={b.id} b={b} cfg={cfg} Icon={Icon} />
               );
             })}
           </div>
