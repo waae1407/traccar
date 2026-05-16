@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Plus, Car, CheckCircle2, Clock, MoreVertical, AlertTriangle, Shield } from "lucide-react";
+import { Plus, Car, CheckCircle2, Clock, MoreVertical, AlertTriangle, Shield, Zap } from "lucide-react";
+import TelematicsAdminPanel from "@/components/admin/TelematicsAdminPanel";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -163,11 +164,18 @@ export default function HostVehicles() {
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-bold text-emerald-600">${v.weekly_rate}/wk</span>
-                    {active.length > 0 ? (
-                      <span className="flex items-center gap-1 text-xs text-blue-600"><CheckCircle2 className="h-3 w-3" /> {active.length} active</span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-xs text-gray-400"><Clock className="h-3 w-3" /> No rental</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {v.moovetrax_device_id && (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full">
+                          <Zap className="h-2.5 w-2.5" /> MooveTrax
+                        </span>
+                      )}
+                      {active.length > 0 ? (
+                        <span className="flex items-center gap-1 text-xs text-blue-600"><CheckCircle2 className="h-3 w-3" /> {active.length} active</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs text-gray-400"><Clock className="h-3 w-3" /> No rental</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -226,6 +234,16 @@ export default function HostVehicles() {
               </button>
             </div>
           </form>
+
+          {/* MooveTrax controls — show in edit mode when vehicle has active booking */}
+          {editing && editing.moovetrax_device_id && (() => {
+            const activeBk = activeForVehicle(editing.id);
+            return activeBk.length > 0 ? (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <TelematicsAdminPanel booking={activeBk[0]} />
+              </div>
+            ) : null;
+          })()}
         </DialogContent>
       </Dialog>
     </div>

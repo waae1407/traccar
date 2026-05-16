@@ -3,11 +3,37 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
 
-// Moovetrax stub — replace with real credentials when available
+// MooveTrax kill switch
 async function moovetraxKillSwitch(deviceId, enable) {
-  console.log(`[Moovetrax STUB] ${enable ? "KILLING" : "RESTORING"} vehicle device: ${deviceId}`);
-  // TODO: Replace with actual Moovetrax API call when credentials are available
-  return { stubbed: true, deviceId, killActive: enable };
+  const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
+  const command = enable ? "kill" : "unkill";
+  const params = new URLSearchParams({ key: deviceId, ...(partnerApiKey && { partner_api_key: partnerApiKey }) });
+  const url = `https://www.moovetrax.com/api/${command}?${params.toString()}`;
+  console.log(`[MooveTrax] ${command.toUpperCase()} device: ${deviceId}`);
+  const res = await fetch(url, { method: "GET" });
+  const text = await res.text();
+  console.log(`[MooveTrax] Response: ${text}`);
+  return { ok: res.ok, response: text };
+}
+
+// Send SMS via Twilio
+async function sendSMS(to, message) {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const from = Deno.env.get("TWILIO_PHONE_NUMBER");
+  if (!accountSid || !authToken || !from || !to) return;
+  const body = new URLSearchParams({ To: to, From: from, Body: message });
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    method: "POST",
+    headers: {
+      "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+  const data = await res.json();
+  console.log(`[SMS] Sent to ${to}: ${data.sid || data.message}`);
+  return data;
 }
 
 Deno.serve(async (req) => {
@@ -51,7 +77,7 @@ Deno.serve(async (req) => {
         });
 
         if (paymentIntent.status === "succeeded") {
-          // Payment recovered!
+          // Payment recovered — UNKILL vehicle
           const nextDate = new Date();
           nextDate.setDate(nextDate.getDate() + 7);
           const nextBillingDate = nextDate.toISOString().split("T")[0];
@@ -61,14 +87,39 @@ Deno.serve(async (req) => {
             payment_failure_attempts: 0,
             payment_failure_reason: null,
             next_billing_date: nextBillingDate,
+            moovetrax_kill_active: false,
           });
 
+          // Unkill vehicle
+          if (booking.vehicle_id) {
+            const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+            const vehicle = vehicles[0];
+            if (vehicle?.moovetrax_device_id) {
+              await moovetraxKillSwitch(vehicle.moovetrax_device_id, false);
+            }
+          }
+
+          // In-app notification
           await base44.asServiceRole.entities.Notification.create({
             user_email: booking.user_email,
             title: "Payment Recovered ✓",
-            body: `Your payment of $${amount} for ${booking.vehicle_name} was successfully processed. You're all good!`,
+            body: `Your payment of $${amount} for ${booking.vehicle_name} was successfully processed. Your vehicle is restored!`,
             type: "payment",
             booking_request_id: booking.id,
+          });
+
+          // SMS recovery alert
+          if (booking.customer_phone) {
+            await sendSMS(booking.customer_phone,
+              `✅ uRide: Payment received! Your ${booking.vehicle_name} has been restored. Thank you!`
+            );
+          }
+
+          // Email recovery
+          await base44.asServiceRole.integrations.Core.SendEmail({
+            to: booking.user_email,
+            subject: `✅ Payment Received — Your Vehicle is Restored`,
+            body: `Hi ${booking.customer_full_name || ""},\n\nGreat news! Your payment of $${amount} for your ${booking.vehicle_name} rental has been successfully processed.\n\nYour vehicle is now fully restored and ready to drive.\n\nNext billing: ${nextBillingDate}\n\nThank you,\nuRide Team`,
           });
 
           console.log(`[RetryPayments] ✓ Payment recovered for ${booking.id}`);
@@ -76,8 +127,17 @@ Deno.serve(async (req) => {
       } catch (err) {
         console.error(`[RetryPayments] Attempt ${attemptNum} failed for ${booking.id}:`, err.message);
 
+        // ANY failure = kill immediately + SMS + email alert
+        if (booking.vehicle_id) {
+          const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+          const vehicle = vehicles[0];
+          if (vehicle?.moovetrax_device_id) {
+            await moovetraxKillSwitch(vehicle.moovetrax_device_id, true);
+          }
+        }
+
         if (attemptNum >= 3) {
-          // 3rd attempt failed — SUSPEND and trigger kill switch
+          // 3 attempts exhausted — SUSPEND
           console.log(`[RetryPayments] 3 attempts exhausted for ${booking.id} — SUSPENDING`);
 
           await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
@@ -90,48 +150,69 @@ Deno.serve(async (req) => {
             moovetrax_kill_active: true,
           });
 
-          // Notify customer
+          // In-app notification
           await base44.asServiceRole.entities.Notification.create({
             user_email: booking.user_email,
             title: "⚠️ Rental Suspended — Action Required",
-            body: `Your rental for ${booking.vehicle_name} has been suspended due to 3 failed payment attempts. The vehicle has been remotely disabled. Please update your payment method immediately to reinstate your rental.`,
+            body: `Your rental for ${booking.vehicle_name} has been suspended after 3 failed payment attempts. Your vehicle has been remotely disabled. Please contact support immediately.`,
             type: "payment",
             booking_request_id: booking.id,
           });
 
-          // Notify all admins
+          // SMS
+          if (booking.customer_phone) {
+            await sendSMS(booking.customer_phone,
+              `🚨 uRide URGENT: Your ${booking.vehicle_name} has been DISABLED after 3 failed payments. Open the app to pay now and restore access immediately.`
+            );
+          }
+
+          // Email
+          await base44.asServiceRole.integrations.Core.SendEmail({
+            to: booking.user_email,
+            subject: `🚨 URGENT: Your Vehicle Has Been Disabled`,
+            body: `Hi ${booking.customer_full_name || ""},\n\nYour rental for ${booking.vehicle_name} has been suspended after 3 failed payment attempts.\n\n⛔ Your vehicle has been remotely disabled.\n\nTo restore access, please update your payment method in the app immediately.\n\nIf you believe this is an error, please contact our support team right away.\n\nThe uRide Team`,
+          });
+
+          // Admin alert
           await base44.asServiceRole.entities.Notification.create({
             user_email: "admin",
             title: `🚨 Rental Suspended: ${booking.customer_full_name || booking.user_email}`,
-            body: `Booking ${booking.id} (${booking.vehicle_name}) suspended after 3 failed payment attempts. Moovetrax kill switch activated. Manual action may be required.`,
+            body: `Booking for ${booking.vehicle_name} suspended after 3 failed payment attempts. Kill switch activated.`,
             type: "alert",
             booking_request_id: booking.id,
           });
 
-          // Trigger Moovetrax kill switch
-          if (booking.vehicle_id) {
-            const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
-            const vehicle = vehicles[0];
-            if (vehicle?.moovetrax_device_id) {
-              await moovetraxKillSwitch(vehicle.moovetrax_device_id, true);
-            } else {
-              console.warn(`[RetryPayments] No Moovetrax device ID for vehicle ${booking.vehicle_id}`);
-            }
-          }
         } else {
-          // Update attempt count, will retry next hour
+          // First or second failure — still kill immediately
           await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+            payment_status: "failed",
             payment_failure_attempts: attemptNum,
             payment_failure_reason: err.message,
             last_payment_failure_at: new Date().toISOString(),
+            moovetrax_kill_active: true,
           });
 
+          // In-app notification
           await base44.asServiceRole.entities.Notification.create({
             user_email: booking.user_email,
-            title: `Payment Failed (Attempt ${attemptNum}/3)`,
-            body: `Your payment for ${booking.vehicle_name} failed again. We'll retry in 1 hour. Please ensure your card is valid.`,
+            title: `⚠️ Payment Failed — Vehicle Disabled`,
+            body: `Your payment for ${booking.vehicle_name} failed. Your vehicle has been temporarily disabled. We'll retry in 1 hour. Pay now to restore immediately.`,
             type: "payment",
             booking_request_id: booking.id,
+          });
+
+          // SMS — immediate kill alert
+          if (booking.customer_phone) {
+            await sendSMS(booking.customer_phone,
+              `⚠️ uRide: Your payment for ${booking.vehicle_name} failed. Your vehicle has been disabled. Open the app to resolve now or we'll retry in 1 hour.`
+            );
+          }
+
+          // Email
+          await base44.asServiceRole.integrations.Core.SendEmail({
+            to: booking.user_email,
+            subject: `⚠️ Payment Failed — Your Vehicle Has Been Temporarily Disabled`,
+            body: `Hi ${booking.customer_full_name || ""},\n\nYour weekly payment of $${amount} for ${booking.vehicle_name} failed.\n\n🚫 Your vehicle has been temporarily disabled.\n\nWe will retry your payment in 1 hour. To restore your vehicle sooner, please open the app and update your payment method.\n\nAttempt: ${attemptNum} of 3\n\nThe uRide Team`,
           });
         }
       }

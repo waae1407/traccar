@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import PickupAddressCard from "./PickupAddressCard";
+import TelematicsPanel from "./TelematicsPanel";
 
 const STATUS_CONFIG = {
   confirmed:              { label: "✓ Confirmed",       style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
@@ -209,6 +210,11 @@ export default function ActiveRentalCard({ booking, onDelete, onCancelRequest, o
               </button>
             )}
           </div>
+        )}
+
+        {/* MooveTrax Telematics Controls — shown only when booking is active */}
+        {isActiveRental && booking.vehicle_id && (
+          <TelematicsPanel booking={booking} />
         )}
 
         {/* Cancel */}

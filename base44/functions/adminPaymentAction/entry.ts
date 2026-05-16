@@ -3,10 +3,34 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
 
-// Moovetrax stub — replace with real credentials when available
+// MooveTrax kill switch — real API call
 async function moovetraxKillSwitch(deviceId, enable) {
-  console.log(`[Moovetrax STUB] ${enable ? "KILLING" : "RESTORING"} vehicle device: ${deviceId}`);
-  return { stubbed: true, deviceId, killActive: enable };
+  const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
+  const command = enable ? "kill" : "unkill";
+  const params = new URLSearchParams({ key: deviceId, ...(partnerApiKey && { partner_api_key: partnerApiKey }) });
+  const url = `https://www.moovetrax.com/api/${command}?${params.toString()}`;
+  console.log(`[MooveTrax] ${command.toUpperCase()} device: ${deviceId}`);
+  const res = await fetch(url, { method: "GET" });
+  const text = await res.text();
+  console.log(`[MooveTrax] Response: ${text}`);
+  return { ok: res.ok, response: text };
+}
+
+// Send SMS via Twilio
+async function sendSMS(to, message) {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const from = Deno.env.get("TWILIO_PHONE_NUMBER");
+  if (!accountSid || !authToken || !from || !to) return;
+  const body = new URLSearchParams({ To: to, From: from, Body: message });
+  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    method: "POST",
+    headers: {
+      "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
 }
 
 Deno.serve(async (req) => {
@@ -127,6 +151,50 @@ Deno.serve(async (req) => {
         });
 
         return Response.json({ ok: true, action: "reinstated" });
+      }
+
+      case "kill_vehicle": {
+        // Admin manually kills vehicle
+        if (booking.vehicle_id) {
+          const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+          const vehicle = vehicles[0];
+          if (vehicle?.moovetrax_device_id) {
+            await moovetraxKillSwitch(vehicle.moovetrax_device_id, true);
+          }
+        }
+        await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
+          moovetrax_kill_active: true,
+        });
+        await base44.asServiceRole.entities.Notification.create({
+          user_email: booking.user_email,
+          title: "⚠️ Vehicle Remotely Disabled",
+          body: `Your ${booking.vehicle_name} has been remotely disabled by fleet management. Please contact support.`,
+          type: "booking",
+          booking_request_id,
+        });
+        return Response.json({ ok: true, action: "vehicle_killed" });
+      }
+
+      case "unkill_vehicle": {
+        // Admin manually restores vehicle
+        if (booking.vehicle_id) {
+          const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+          const vehicle = vehicles[0];
+          if (vehicle?.moovetrax_device_id) {
+            await moovetraxKillSwitch(vehicle.moovetrax_device_id, false);
+          }
+        }
+        await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
+          moovetrax_kill_active: false,
+        });
+        await base44.asServiceRole.entities.Notification.create({
+          user_email: booking.user_email,
+          title: "✅ Vehicle Restored",
+          body: `Your ${booking.vehicle_name} has been restored and is ready to drive.`,
+          type: "booking",
+          booking_request_id,
+        });
+        return Response.json({ ok: true, action: "vehicle_restored" });
       }
 
       default:

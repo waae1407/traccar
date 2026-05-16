@@ -2,11 +2,12 @@ import React, { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { DollarSign, ExternalLink, AlertTriangle, Plus, TrendingUp, CreditCard, Banknote, XCircle, CalendarClock, History, RefreshCw } from "lucide-react";
+import { DollarSign, ExternalLink, AlertTriangle, Plus, TrendingUp, CreditCard, Banknote, XCircle, CalendarClock, History, RefreshCw, Zap } from "lucide-react";
 import EmptyState from "@/components/shared/EmptyState";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import PaymentHistoryDrawer from "@/components/payments/PaymentHistoryDrawer";
+import TelematicsAdminPanel from "@/components/admin/TelematicsAdminPanel";
 
 const PAYMENT_STATUS_STYLE = {
   paid:     "bg-green-500/15 text-green-400 border-green-500/25",
@@ -93,6 +94,8 @@ function ActionModal({ booking, onClose, onSuccess }) {
     { id: "charge_key_fee", label: "🔑 Lost Key Fee", desc: "Charge $250 lost key fee", needsAmount: true, amountLabel: "Amount ($)", defaultAmount: "250" },
     { id: "charge_custom", label: "➕ Custom Charge", desc: "Any additional charge with reason", needsAmount: true, amountLabel: "Amount ($)", needsDesc: true, descLabel: "Reason for charge" },
     { id: "reinstate", label: "✅ Reinstate Rental", desc: "Reinstate suspended rental & re-enable vehicle", needsAmount: false },
+    { id: "kill_vehicle", label: "🔴 Kill Vehicle Engine", desc: "Remotely disable ignition via MooveTrax", needsAmount: false, danger: true },
+    { id: "unkill_vehicle", label: "🟢 Restore Vehicle Engine", desc: "Re-enable ignition via MooveTrax", needsAmount: false },
   ];
 
   const selected = ACTIONS.find(a => a.id === action);
@@ -103,23 +106,43 @@ function ActionModal({ booking, onClose, onSuccess }) {
       <div className="relative w-full max-w-md rounded-2xl border border-white/[0.08] p-6 z-10"
         style={{ background: "hsl(222 28% 9%)", boxShadow: "0 24px 80px hsl(222 28% 5% / 0.9)" }}>
         <h3 className="font-syne font-bold text-white text-lg mb-1">Payment Actions</h3>
-        <p className="text-xs text-white/40 mb-5">{booking.customer_full_name} — {booking.vehicle_name}</p>
+        <p className="text-xs text-white/40 mb-4">{booking.customer_full_name} — {booking.vehicle_name}</p>
+
+        {/* MooveTrax telematics panel if device exists */}
+        {booking.moovetrax_kill_active !== undefined && (
+          <div className="mb-4">
+            <TelematicsAdminPanel
+              booking={booking}
+              onKillStateChange={(killed) => {
+                // optimistic update handled by onSuccess refresh
+              }}
+            />
+          </div>
+        )}
 
         <div className="space-y-2 mb-5">
-          {ACTIONS.map((a) => (
-            (a.id !== "reinstate" || booking.booking_status === "suspended") && (
+          {ACTIONS.map((a) => {
+            const show = a.id === "reinstate" ? booking.booking_status === "suspended"
+              : a.id === "kill_vehicle" ? !booking.moovetrax_kill_active
+              : a.id === "unkill_vehicle" ? booking.moovetrax_kill_active
+              : true;
+            if (!show) return null;
+            return (
               <button key={a.id}
                 onClick={() => { setAction(a.id); setAmount(a.defaultAmount || ""); setDescription(""); }}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all border ${
-                  action === a.id ? "border-primary/50 bg-primary/[0.08]" : "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]"
+                  action === a.id
+                    ? a.danger ? "border-red-500/50 bg-red-500/[0.1]" : "border-primary/50 bg-primary/[0.08]"
+                    : a.danger ? "border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/[0.08]"
+                    : "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]"
                 }`}>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">{a.label}</p>
+                  <p className={`text-sm font-semibold ${a.danger ? "text-red-400" : "text-white"}`}>{a.label}</p>
                   <p className="text-xs text-white/40">{a.desc}</p>
                 </div>
               </button>
-            )
-          ))}
+            );
+          })}
         </div>
 
         {/* Manual paid options */}
@@ -380,6 +403,11 @@ export default function Payments() {
                           {isSuspended && (
                             <span className="text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full mt-1 inline-flex items-center gap-1">
                               <AlertTriangle className="h-2.5 w-2.5" /> SUSPENDED
+                            </span>
+                          )}
+                          {row.moovetrax_kill_active && (
+                            <span className="text-[10px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 rounded-full mt-1 inline-flex items-center gap-1">
+                              <Zap className="h-2.5 w-2.5" /> ENGINE KILLED
                             </span>
                           )}
                         </div>

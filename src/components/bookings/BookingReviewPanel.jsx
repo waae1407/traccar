@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { X, CheckCircle, XCircle, MessageCircle, User, Car, Shield, Zap, RefreshCw, FileText, Download, Camera, RotateCcw } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import InspectionGallery from "@/components/bookings/InspectionGallery";
+import AdminTelematicsPanel from "@/components/admin/AdminTelematicsPanel";
 
 function CleanReturnActions({ bookingId }) {
   const queryClient = useQueryClient();
@@ -52,9 +53,17 @@ export default function BookingReviewPanel({ booking, onClose }) {
 
   const TABS = [
     { id: "details", label: "Details" },
+    { id: "telematics", label: "Telematics", badge: booking?.moovetrax_kill_active ? "⚡" : null },
     { id: "inspections", label: "Inspections", badge: (booking?.pickup_photos?.length > 0 || booking?.return_exterior_photos?.length > 0) ? "●" : null },
     { id: "evidence", label: "Evidence" },
   ];
+
+  const { data: vehicle } = useQuery({
+    queryKey: ["vehicle-telematics", booking?.vehicle_id],
+    queryFn: () => base44.entities.Vehicle.filter({ id: booking.vehicle_id }).then(r => r[0]),
+    enabled: !!booking?.vehicle_id,
+    staleTime: 60_000,
+  });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.BookingRequest.update(id, data),
@@ -200,6 +209,17 @@ export default function BookingReviewPanel({ booking, onClose }) {
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+          {/* Telematics Tab */}
+          {activeTab === "telematics" && (
+            <AdminTelematicsPanel
+              booking={booking}
+              vehicleDeviceId={vehicle?.moovetrax_device_id}
+              onKillStateChange={(killed) => {
+                queryClient.invalidateQueries({ queryKey: ["booking-requests-admin"] });
+              }}
+            />
+          )}
 
           {/* Inspections Tab */}
           {activeTab === "inspections" && (

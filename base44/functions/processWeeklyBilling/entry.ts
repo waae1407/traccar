@@ -3,16 +3,34 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
 
-// Moovetrax stub — replace with real credentials when available
+// MooveTrax kill switch — real API call
 async function moovetraxKillSwitch(deviceId, enable) {
-  console.log(`[Moovetrax STUB] ${enable ? "KILLING" : "RESTORING"} vehicle device: ${deviceId}`);
-  // TODO: Replace with real Moovetrax API call
-  // await fetch(`https://api.moovetrax.com/v1/devices/${deviceId}/killswitch`, {
-  //   method: "POST",
-  //   headers: { "Authorization": `Bearer ${Deno.env.get("MOOVETRAX_API_KEY")}`, "Content-Type": "application/json" },
-  //   body: JSON.stringify({ enabled: enable })
-  // });
-  return { stubbed: true, deviceId, killActive: enable };
+  const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
+  const command = enable ? "kill" : "unkill";
+  const params = new URLSearchParams({ key: deviceId, ...(partnerApiKey && { partner_api_key: partnerApiKey }) });
+  const url = `https://www.moovetrax.com/api/${command}?${params.toString()}`;
+  console.log(`[MooveTrax] ${command.toUpperCase()} device: ${deviceId}`);
+  const res = await fetch(url, { method: "GET" });
+  const text = await res.text();
+  console.log(`[MooveTrax] Response: ${text}`);
+  return { ok: res.ok, response: text };
+}
+
+// Send SMS via Twilio
+async function sendSMS(to, message) {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const from = Deno.env.get("TWILIO_PHONE_NUMBER");
+  if (!accountSid || !authToken || !from || !to) return;
+  const body = new URLSearchParams({ To: to, From: from, Body: message });
+  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    method: "POST",
+    headers: {
+      "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
 }
 
 Deno.serve(async (req) => {
@@ -209,13 +227,38 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     payment_failure_reason: reason,
     payment_failure_attempts: attemptNum,
     last_payment_failure_at: new Date().toISOString(),
+    moovetrax_kill_active: true,
   });
 
+  // Kill vehicle immediately on first failure
+  if (booking.vehicle_id) {
+    const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+    const vehicle = vehicles[0];
+    if (vehicle?.moovetrax_device_id) {
+      await moovetraxKillSwitch(vehicle.moovetrax_device_id, true);
+    }
+  }
+
+  // In-app notification
   await base44.asServiceRole.entities.Notification.create({
     user_email: booking.user_email,
-    title: "Payment Failed",
-    body: `Your weekly payment for ${booking.vehicle_name} failed (attempt ${attemptNum}/3). We'll retry in 1 hour.`,
+    title: "⚠️ Payment Failed — Vehicle Disabled",
+    body: `Your weekly payment for ${booking.vehicle_name} failed. Your vehicle has been temporarily disabled. We'll retry in 1 hour. Open the app to resolve now.`,
     type: "payment",
     booking_request_id: booking.id,
+  });
+
+  // SMS
+  if (booking.customer_phone) {
+    await sendSMS(booking.customer_phone,
+      `⚠️ uRide: Payment failed for ${booking.vehicle_name}. Your vehicle has been disabled. Open the app now to resolve or we'll retry in 1 hour.`
+    );
+  }
+
+  // Email
+  await base44.asServiceRole.integrations.Core.SendEmail({
+    to: booking.user_email,
+    subject: `⚠️ Payment Failed — Your Vehicle Has Been Temporarily Disabled`,
+    body: `Hi ${booking.customer_full_name || ""},\n\nYour weekly payment of $${booking.weekly_rate || ""} for ${booking.vehicle_name} failed.\n\n🚫 Your vehicle has been temporarily disabled.\n\nWe will retry your payment in 1 hour automatically. To restore access sooner, please open the app and update your payment method.\n\nThe uRide Team`,
   });
 }
