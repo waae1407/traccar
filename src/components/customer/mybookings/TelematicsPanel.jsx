@@ -1,40 +1,52 @@
 import React, { useState } from "react";
-import { MapPin, Lock, Unlock, Volume2, AlertTriangle, Loader2, Navigation, Zap } from "lucide-react";
+import { MapPin, Lock, Unlock, Volume2, Loader2, Navigation, Zap, ExternalLink } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 
 const COMMANDS = [
   {
     id: "location",
-    label: "Find Car",
+    label: "Find My Car",
+    description: "See where your car is parked right now",
     icon: MapPin,
-    gradient: "from-blue-500 to-cyan-500",
-    glow: "rgba(59,130,246,0.3)",
+    color: "#3B82F6",
+    bg: "rgba(59,130,246,0.12)",
+    border: "rgba(59,130,246,0.25)",
+    iconBg: "linear-gradient(135deg, #3B82F6, #06B6D4)",
   },
   {
     id: "unlock",
-    label: "Unlock",
+    label: "Unlock Doors",
+    description: "Tap to unlock before you get in",
     icon: Unlock,
-    gradient: "from-emerald-500 to-green-400",
-    glow: "rgba(16,185,129,0.3)",
+    color: "#10B981",
+    bg: "rgba(16,185,129,0.12)",
+    border: "rgba(16,185,129,0.25)",
+    iconBg: "linear-gradient(135deg, #10B981, #34D399)",
   },
   {
     id: "lock",
-    label: "Lock",
+    label: "Lock Doors",
+    description: "Secure the car when you step away",
     icon: Lock,
-    gradient: "from-violet-500 to-purple-600",
-    glow: "rgba(139,92,246,0.3)",
+    color: "#8B5CF6",
+    bg: "rgba(139,92,246,0.12)",
+    border: "rgba(139,92,246,0.25)",
+    iconBg: "linear-gradient(135deg, #8B5CF6, #A78BFA)",
   },
   {
     id: "panic",
-    label: "Honk",
+    label: "Honk Horn",
+    description: "Can't find it in a lot? Honk it!",
     icon: Volume2,
-    gradient: "from-amber-500 to-orange-500",
-    glow: "rgba(245,158,11,0.3)",
+    color: "#F59E0B",
+    bg: "rgba(245,158,11,0.12)",
+    border: "rgba(245,158,11,0.25)",
+    iconBg: "linear-gradient(135deg, #F59E0B, #FBBF24)",
   },
 ];
 
-function TelematicsButton({ cmd, onPress, loading }) {
+function CommandCard({ cmd, onPress, loading }) {
   const Icon = cmd.icon;
   const isLoading = loading === cmd.id;
 
@@ -42,28 +54,36 @@ function TelematicsButton({ cmd, onPress, loading }) {
     <button
       onClick={() => onPress(cmd.id)}
       disabled={!!loading}
-      className="flex flex-col items-center gap-2 disabled:opacity-50 transition-all active:scale-95 group"
+      className="flex items-center gap-3 w-full p-3 rounded-2xl text-left transition-all active:scale-[0.98] disabled:opacity-60"
+      style={{
+        background: cmd.bg,
+        border: `1px solid ${cmd.border}`,
+      }}
     >
+      {/* Icon */}
       <div
-        className={`relative h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300`}
-        style={{
-          background: `linear-gradient(135deg, var(--tw-gradient-stops))`,
-          boxShadow: isLoading ? `0 0 20px ${cmd.glow}` : `0 4px 16px ${cmd.glow}`,
-        }}
+        className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 relative"
+        style={{ background: cmd.iconBg, boxShadow: `0 4px 14px ${cmd.color}40` }}
       >
-        <div className={`h-14 w-14 rounded-2xl flex items-center justify-center bg-gradient-to-br ${cmd.gradient}`}>
-          {isLoading
-            ? <Loader2 className="h-5 w-5 text-white animate-spin" />
-            : <Icon className="h-5 w-5 text-white" />}
-        </div>
-        {/* Pulse ring on loading */}
+        {isLoading
+          ? <Loader2 className="h-5 w-5 text-white animate-spin" />
+          : <Icon className="h-5 w-5 text-white" />}
         {isLoading && (
-          <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${cmd.gradient} opacity-30 animate-ping`} />
+          <div className="absolute inset-0 rounded-xl animate-ping opacity-30"
+            style={{ background: cmd.iconBg }} />
         )}
       </div>
-      <span className="text-[11px] font-bold text-white/60 group-hover:text-white/90 transition-colors">
-        {cmd.label}
-      </span>
+
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-white leading-tight">{cmd.label}</p>
+        <p className="text-[11px] mt-0.5 leading-snug" style={{ color: `${cmd.color}99` }}>
+          {cmd.description}
+        </p>
+      </div>
+
+      {/* Chevron */}
+      <div className="text-white/20 text-lg flex-shrink-0">›</div>
     </button>
   );
 }
@@ -89,9 +109,9 @@ export default function TelematicsPanel({ booking }) {
         setLocationData(res.data.result);
         toast.success("Location retrieved");
       } else if (command === "unlock") {
-        toast.success("Vehicle unlocked ✓");
+        toast.success("Doors unlocked ✓");
       } else if (command === "lock") {
-        toast.success("Vehicle locked ✓");
+        toast.success("Doors locked ✓");
       } else if (command === "panic") {
         toast.success("Horn activated ✓");
       }
@@ -109,8 +129,8 @@ export default function TelematicsPanel({ booking }) {
         style={{ background: "linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.08))" }}>
         <div className="p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="h-9 w-9 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
-              <Zap className="h-4 w-4 text-red-400" />
+            <div className="h-10 w-10 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
+              <Zap className="h-5 w-5 text-red-400" />
             </div>
             <div>
               <p className="text-sm font-bold text-red-400">Vehicle Disabled</p>
@@ -135,35 +155,40 @@ export default function TelematicsPanel({ booking }) {
   return (
     <div className="mx-4 mb-3 rounded-2xl overflow-hidden border border-white/[0.08]"
       style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))" }}>
+
       {/* Header */}
-      <div className="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
+      <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
         <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-        <p className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Vehicle Controls</p>
+        <div>
+          <p className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Remote Vehicle Controls</p>
+          <p className="text-[10px] text-white/30 mt-0.5">Control your rental from your phone</p>
+        </div>
       </div>
 
-      {/* Buttons */}
-      <div className="flex items-center justify-around px-4 pb-4 pt-1">
+      {/* Command cards */}
+      <div className="px-3 pb-3 space-y-2">
         {COMMANDS.map((cmd) => (
-          <TelematicsButton key={cmd.id} cmd={cmd} onPress={handleCommand} loading={loading} />
+          <CommandCard key={cmd.id} cmd={cmd} onPress={handleCommand} loading={loading} />
         ))}
       </div>
 
       {/* Location result */}
       {locationData && (
-        <div className="mx-4 mb-4 rounded-xl p-3 border border-white/[0.06]"
+        <div className="mx-3 mb-3 rounded-xl p-3 border border-blue-500/20"
           style={{ background: "rgba(59,130,246,0.08)" }}>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-2">
             <Navigation className="h-3.5 w-3.5 text-blue-400" />
-            <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">Last Known Location</span>
+            <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">Car Located</span>
           </div>
           {locationData.lat && locationData.lng ? (
             <a
               href={`https://maps.google.com/?q=${locationData.lat},${locationData.lng}`}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-white/70 underline underline-offset-2"
+              className="flex items-center gap-1.5 text-xs text-blue-300 font-semibold"
             >
-              {locationData.lat?.toFixed(5)}, {locationData.lng?.toFixed(5)} → Open in Maps
+              <ExternalLink className="h-3 w-3" />
+              {locationData.lat?.toFixed(5)}, {locationData.lng?.toFixed(5)} — Open in Maps
             </a>
           ) : (
             <p className="text-xs text-white/50">{JSON.stringify(locationData)}</p>
