@@ -58,6 +58,7 @@ function CommandCard({ cmd, onPress, loading }) {
       style={{
         background: cmd.bg,
         border: `1px solid ${cmd.border}`,
+        backdropFilter: "blur(8px)",
       }}
     >
       {/* Icon */}
@@ -76,8 +77,8 @@ function CommandCard({ cmd, onPress, loading }) {
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white leading-tight">{cmd.label}</p>
-        <p className="text-[11px] mt-0.5 leading-snug" style={{ color: `${cmd.color}99` }}>
+        <p className="text-sm font-bold leading-tight" style={{ color: cmd.color }}>{cmd.label}</p>
+        <p className="text-[11px] mt-0.5 leading-snug text-gray-500">
           {cmd.description}
         </p>
       </div>

@@ -221,9 +221,9 @@ export default function ActiveRentalCard({ booking, onDelete, onCancelRequest, o
         {isCancellable && (
           <button
             onClick={(e) => { e.stopPropagation(); onCancelRequest(booking); }}
-            className="w-full py-2 rounded-xl text-[11px] font-bold text-red-500 border border-red-100 bg-red-50 active:opacity-70 transition-opacity flex items-center justify-center gap-1.5"
+            className="w-full pt-1 pb-0.5 text-[11px] font-medium text-gray-400 active:opacity-70 transition-opacity flex items-center justify-center gap-1"
           >
-            <XCircle className="h-3.5 w-3.5" /> Request Cancellation
+            <XCircle className="h-3 w-3" /> Request Cancellation
           </button>
         )}
       </div>
