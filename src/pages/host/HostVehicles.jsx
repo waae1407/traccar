@@ -29,7 +29,7 @@ export default function HostVehicles() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "", moovetrax_device_id: "" });
+  const [form, setForm] = useState({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "", moovetrax_device_id: "", contactless_pickup: false });
 
   const { data: hosts = [] } = useQuery({ queryKey: ["my-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user?.email }), enabled: !!user?.email });
   const host = hosts[0];
@@ -61,7 +61,7 @@ export default function HostVehicles() {
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const openEdit = (v) => { setEditing(v); setForm({ ...v }); setOpen(true); };
-  const openNew = () => { setEditing(null); setForm({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "", moovetrax_device_id: "" }); setOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "", moovetrax_device_id: "", contactless_pickup: false }); setOpen(true); };
   const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate({ ...form, year: Number(form.year), weekly_rate: Number(form.weekly_rate), mileage: Number(form.mileage) }); };
   const activeForVehicle = (vid) => bookings.filter(b => b.vehicle_id === vid && ["active", "confirmed", "approved"].includes(b.booking_status));
 
@@ -225,6 +225,16 @@ export default function HostVehicles() {
                 <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${form.rent_to_own_eligible ? "left-4" : "left-0.5"}`} />
               </button>
               <span className="text-sm text-gray-600 font-medium">Rent-to-Own Eligible</span>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-200">
+              <button type="button" onClick={() => set("contactless_pickup", !form.contactless_pickup)}
+                className={`relative h-5 w-9 rounded-full transition-all ${form.contactless_pickup ? "bg-purple-500" : "bg-gray-300"}`}>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${form.contactless_pickup ? "left-4" : "left-0.5"}`} />
+              </button>
+              <div>
+                <span className="text-sm text-purple-800 font-semibold">Contactless Pickup</span>
+                <p className="text-[10px] text-purple-500">Auto-approves after payment. Requires MooveTrax device.</p>
+              </div>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200">Cancel</button>

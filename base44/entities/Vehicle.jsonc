@@ -117,6 +117,11 @@
       ],
       "default": "none"
     },
+    "contactless_pickup": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, vehicle is fully contactless \u2014 no admin approval needed after payment. Requires moovetrax_device_id."
+    },
     "deployment_type": {
       "type": "string",
       "enum": [

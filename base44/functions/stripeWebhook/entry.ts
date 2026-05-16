@@ -28,11 +28,31 @@ Deno.serve(async (req) => {
           const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });
           const booking = records[0];
           if (booking) {
+            // Check if vehicle is contactless — auto-approve without admin review
+            let isContactless = false;
+            if (booking.vehicle_id) {
+              const vRecords = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+              isContactless = !!(vRecords[0]?.contactless_pickup && vRecords[0]?.moovetrax_device_id);
+            }
+
             await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
               payment_status: 'paid',
               stripe_payment_intent_id: pi.id,
               receipt_url: receiptUrl || null,
+              ...(isContactless && { booking_status: 'active' }),
             });
+
+            // Notify customer if contactless — vehicle is ready immediately
+            if (isContactless) {
+              await base44.asServiceRole.entities.Notification.create({
+                user_email: booking.user_email,
+                title: '🚗 Your Vehicle is Ready!',
+                body: `Your ${booking.vehicle_name} is confirmed and ready to go. Use the app to unlock your vehicle. Don't forget: pickup inspection photos are required for liability protection before you drive off.`,
+                type: 'booking',
+                booking_request_id: bookingRequestId,
+              });
+              console.log(`[Webhook] Contactless booking ${bookingRequestId} auto-approved → active`);
+            }
 
             const grossAmount = pi.amount / 100; // dollars
 
