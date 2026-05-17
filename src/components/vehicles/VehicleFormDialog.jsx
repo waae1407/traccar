@@ -12,6 +12,7 @@ const emptyForm = {
   purchase_price: "", city: "", state: "", status: "Available",
   mileage: "", last_service_date: "", weekly_rate: "", rent_to_own_eligible: false,
   pickup_address: "", pickup_hours: "",
+  moovetrax_device_id: "", contactless_pickup: false,
   // Rental duration settings
   minimum_rental_days: 7, maximum_rental_days: "", rental_duration_type: "weekly",
   daily_rate: "", monthly_rate: "",
@@ -64,6 +65,8 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
       state: vehicle.state || "",
       pickup_address: vehicle.pickup_address || "",
       pickup_hours: vehicle.pickup_hours || "",
+      moovetrax_device_id: vehicle.moovetrax_device_id || "",
+      contactless_pickup: vehicle.contactless_pickup ?? false,
       minimum_rental_days: vehicle.minimum_rental_days ?? 7,
       maximum_rental_days: vehicle.maximum_rental_days || "",
       rental_duration_type: vehicle.rental_duration_type || "weekly",
@@ -251,6 +254,13 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
               <input className={inputClass} value={form.moovetrax_device_id || ""} onChange={(e) => set("moovetrax_device_id", e.target.value)} placeholder="e.g. MT-123456" />
             </FormField>
             <p className="text-[10px] text-white/25">Used for remote kill switch control on payment failure. Leave blank if not equipped.</p>
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                <p className="text-sm text-white/60">Contactless Pickup</p>
+                <p className="text-[10px] text-white/30">Auto-approves after payment — requires MooveTrax device</p>
+              </div>
+              {toggle("contactless_pickup")}
+            </div>
           </div>
 
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
