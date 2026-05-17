@@ -22,6 +22,7 @@ const navItems = [
   { label: "Rent-to-Own", icon: FileKey, path: "/rent-to-own" },
   { label: "Maintenance", icon: Wrench, path: "/maintenance" },
   { label: "Reports", icon: BarChart3, path: "/reports" },
+  { label: "P&L Dashboard 💰", icon: BarChart3, path: "/admin/pnl" },
   { label: "Referrals 🎁", icon: Gift, path: "/referrals" },
   { label: "Customer Preview", icon: Eye, path: "/customer-preview" },
   { label: "AI Oracle 🤖", icon: Zap, path: "/admin/ai-chat" },

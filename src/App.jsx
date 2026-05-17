@@ -37,6 +37,7 @@ import CompanyManagement from '@/pages/CompanyManagement';
 import CustomerPreview from '@/pages/CustomerPreview';
 import Referrals from '@/pages/Referrals';
 import AdminHosts from '@/pages/admin/AdminHosts';
+import AdminPnL from '@/pages/AdminPnL';
 import AdminPayouts from '@/pages/admin/AdminPayouts';
 import AdminAIChat from '@/pages/admin/AdminAIChat';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
@@ -57,6 +58,7 @@ import HostCRM from '@/pages/host/HostCRM';
 import HostExpenses from '@/pages/host/HostExpenses';
 import HostMaintenance from '@/pages/host/HostMaintenance';
 import HostReports from '@/pages/host/HostReports';
+import HostPnL from '@/pages/host/HostPnL';
 import HostVerificationDocs from '@/pages/host/HostVerificationDocs';
 import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
@@ -127,6 +129,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/expenses" element={<HostExpenses />} />
         <Route path="/host/maintenance" element={<HostMaintenance />} />
         <Route path="/host/reports" element={<HostReports />} />
+        <Route path="/host/pnl" element={<HostPnL />} />
         <Route path="/host/verification" element={<HostVerificationDocs />} />
         <Route path="/host/payment-history" element={<HostPaymentHistory />} />
       </Route>
@@ -169,6 +172,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/hosts" element={<AdminHosts />} />
         <Route path="/admin/payouts" element={<AdminPayouts />} />
         <Route path="/admin/ai-chat" element={<AdminAIChat />} />
+        <Route path="/admin/pnl" element={<AdminPnL />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

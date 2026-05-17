@@ -17,6 +17,7 @@ const navItems = [
   { label: "Expenses", icon: Receipt, path: "/host/expenses" },
   { label: "Maintenance", icon: Wrench, path: "/host/maintenance" },
   { label: "Reports", icon: BarChart2, path: "/host/reports" },
+  { label: "P&L Dashboard 💰", icon: BarChart2, path: "/host/pnl" },
   { label: "Compliance", icon: Shield, path: "/host/compliance" },
   { label: "RTO Contracts", icon: FileKey, path: "/host/rto" },
   { label: "Fleet Insights", icon: TrendingUp, path: "/host/fleet-insights" },
