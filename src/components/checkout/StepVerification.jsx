@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Upload, Check, AlertCircle, ShieldCheck, Loader2, XCircle } from "lucide-react";
+import { uploadFile } from "@/utils/uploadFile";
 
 function UploadBox({ label, url, uploading, onChange, required }) {
   return (
@@ -74,7 +75,7 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
     setUploading((p) => ({ ...p, [field]: true }));
     // Reset verification if re-uploading
     setVerifyStatus(null);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await uploadFile(file);
     setUploads((p) => ({ ...p, [field]: file_url }));
     if (booking?.id) {
       updateMutation.mutate({ id: booking.id, data: { [field]: file_url } });

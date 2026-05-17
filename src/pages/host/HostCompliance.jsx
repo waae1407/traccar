@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Shield, AlertTriangle, CheckCircle2, Clock, Plus, Upload, Loader2, Sparkles, Info } from "lucide-react";
+import { uploadFile } from "@/utils/uploadFile";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,7 +47,7 @@ export default function HostCompliance() {
     setUploading(true);
 
     // Upload file
-    const res = await base44.integrations.Core.UploadFile({ file: form.file });
+    const res = await uploadFile(form.file);
     const doc_url = res.file_url;
 
     const vehicle = vehicles.find(v => v.id === form.vehicle_id);

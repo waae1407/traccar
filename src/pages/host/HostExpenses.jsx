@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Plus, Receipt, Loader2, Upload, Trash2 } from "lucide-react";
+import { uploadFile } from "@/utils/uploadFile";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
@@ -40,7 +41,7 @@ export default function HostExpenses() {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const res = await base44.integrations.Core.UploadFile({ file });
+    const res = await uploadFile(file);
     set("receipt_url", res.file_url);
     setUploading(false);
   };

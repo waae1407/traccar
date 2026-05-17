@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Upload, CheckCircle2, FileText, Loader2, Shield, AlertTriangle, Building2 } from "lucide-react";
+import { uploadFile } from "@/utils/uploadFile";
 
 const BUSINESS_TYPES = [
   { value: "sole_proprietor", label: "Sole Proprietor (Individual)" },
@@ -44,7 +45,7 @@ export default function HostVerificationDocs() {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(p => ({ ...p, [field]: true }));
-    const res = await base44.integrations.Core.UploadFile({ file });
+    const res = await uploadFile(file);
     const updates = { [field]: res.file_url };
     // If all key docs are now uploaded, mark as submitted
     const current = { ...host, ...updates };

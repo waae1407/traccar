@@ -7,6 +7,7 @@ import {
   Globe, Eye, CheckCircle2, Upload, Loader2, ExternalLink,
   ChevronRight, ChevronLeft, Store, Palette, Type, Settings, Rocket, Image, Zap
 } from "lucide-react";
+import { uploadFile } from "@/utils/uploadFile";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import StoreScoreWidget from "@/components/host/brand/StoreScoreWidget";
 import AIBrandBuilder from "@/components/host/brand/AIBrandBuilder";
@@ -145,7 +146,7 @@ export default function HostBrandBuilder() {
     const file = e.target.files[0];
     if (!file) return;
     field === "logo_url" ? setUploadingLogo(true) : setUploadingCover(true);
-    const res = await base44.integrations.Core.UploadFile({ file });
+    const res = await uploadFile(file);
     set(field, res.file_url);
     field === "logo_url" ? setUploadingLogo(false) : setUploadingCover(false);
   };
