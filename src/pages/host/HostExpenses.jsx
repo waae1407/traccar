@@ -45,6 +45,9 @@ export default function HostExpenses() {
     setUploading(false);
   };
 
+  const vinSuffix = (v) => v.vin ? ` [${v.vin.slice(-6).toUpperCase()}]` : "";
+  const vehicleLabel = (v) => `${v.year} ${v.make} ${v.model}${vinSuffix(v)}`;
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const vehicle = vehicles.find(v => v.id === form.vehicle_id);
@@ -132,7 +135,7 @@ export default function HostExpenses() {
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Vehicle</label>
                   <select className={inputClass} value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)}>
                     <option value="">All vehicles</option>
-                    {vehicles.map(v => <option key={v.id} value={v.id}>{v.year} {v.make} {v.model}</option>)}
+                    {vehicles.map(v => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
                   </select>
                 </div>
                 <div>
