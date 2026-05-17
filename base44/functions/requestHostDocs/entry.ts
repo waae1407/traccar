@@ -1,5 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+async function sendEmail(to, subject, html, fromName = "uRide") {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: `${fromName} <noreply@uridehub.com>`, to: [to], subject, html }),
+  });
+  if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Email failed"); }
+}
+
 const APP_URL = "https://uridehub.com";
 
 Deno.serve(async (req) => {
@@ -26,11 +36,7 @@ Deno.serve(async (req) => {
 
     const firstName = host.full_name?.split(" ")[0] || "there";
 
-    await base44.asServiceRole.integrations.Core.SendEmail({
-      to: host.email,
-      subject: "Action Required: Upload Your Verification Documents — uRide Host",
-      from_name: "uRide Verification",
-      body: `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;">
+    await sendEmail(host.email, "Action Required: Upload Your Verification Documents — uRide Host", `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;">
         <div style="background:linear-gradient(135deg,#e91e8c,#7c3aed);padding:28px 32px;border-radius:16px 16px 0 0;text-align:center;">
           <h1 style="color:white;margin:0;font-size:22px;font-weight:800;">Documents Required 📋</h1>
         </div>
@@ -47,8 +53,7 @@ Deno.serve(async (req) => {
           </div>
           <p style="font-size:13px;color:#9ca3af;">Questions? Reply to this email — The uRide Team</p>
         </div>
-      </div>`,
-    });
+      </div>`, "uRide Verification");
 
     // In-app notification too
     await base44.asServiceRole.entities.Notification.create({

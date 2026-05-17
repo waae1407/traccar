@@ -1,5 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+async function sendEmail(to, subject, html, fromName = "uRide") {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: `${fromName} <noreply@uridehub.com>`, to: [to], subject, html }),
+  });
+  if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Email failed"); }
+}
+
 const APP_URL = "https://uridehub.com";
 const LOGO_URL = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -143,12 +153,7 @@ Deno.serve(async (req) => {
   </div>
 </div>`;
 
-    await base44.asServiceRole.integrations.Core.SendEmail({
-      to: host_email,
-      subject: `Welcome to uRide Hosts, ${firstName}! Your application was approved 🎉`,
-      body: emailBody,
-      from_name: "uRide",
-    });
+    await sendEmail(host_email, `Welcome to uRide Hosts, ${firstName}! Your application was approved 🎉`, emailBody, "uRide");
 
     // Create in-app notification
     await base44.asServiceRole.entities.Notification.create({

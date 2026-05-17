@@ -1,5 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+async function sendEmail(to, subject, html, fromName = "uRide") {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: `${fromName} <noreply@uridehub.com>`, to: [to], subject, html }),
+  });
+  if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Email failed"); }
+}
+
 const LOGO_URL = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
 function emailWrapper(headline, subtitle, bodyContent) {
@@ -52,10 +62,7 @@ Deno.serve(async (req) => {
       });
 
       const firstName = booking.customer_full_name?.split(" ")[0] || "there";
-      await base44.asServiceRole.integrations.Core.SendEmail({
-        to: booking.user_email,
-        subject: `Upcoming charge tomorrow: $${amount} — ${booking.vehicle_name}`,
-        body: emailWrapper("Upcoming Payment Reminder", "Your weekly rental charge is scheduled for tomorrow", `
+      await sendEmail(booking.user_email, `Upcoming charge tomorrow: $${amount} — ${booking.vehicle_name}`, emailWrapper("Upcoming Payment Reminder", "Your weekly rental charge is scheduled for tomorrow", `
           <p style="margin: 0 0 20px; font-size: 15px; color: #374151; line-height: 1.6;">Hi ${firstName},</p>
           <p style="margin: 0 0 24px; font-size: 15px; color: #374151; line-height: 1.6;">This is a heads-up that your rental payment will be automatically charged tomorrow.</p>
 
@@ -75,9 +82,7 @@ Deno.serve(async (req) => {
           </div>
 
           <p style="margin: 0; font-size: 13px; color: #374151; font-weight: 600;">— The uRide Team</p>
-        `),
-        from_name: "uRide",
-      });
+        `), "uRide");
     }
 
     return Response.json({ ok: true, warnings_sent: warningTargets.length });

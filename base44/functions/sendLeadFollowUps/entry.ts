@@ -1,6 +1,16 @@
 // Scheduled — sends role-aware email + SMS to leads who haven't converted yet
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+async function sendEmail(to, subject, html, fromName = "uRide") {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: `${fromName} <noreply@uridehub.com>`, to: [to], subject, html }),
+  });
+  if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Email failed"); }
+}
+
 const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
 const TWILIO_PHONE = Deno.env.get("TWILIO_PHONE_NUMBER");
@@ -320,12 +330,7 @@ Deno.serve(async (req) => {
       let smsError = null;
 
       try {
-        await base44.asServiceRole.integrations.Core.SendEmail({
-          to: lead.user_email,
-          subject,
-          body,
-          from_name: "uRide",
-        });
+        await sendEmail(lead.user_email, subject, body, "uRide");
         emailSent = true;
       } catch (e) {
         emailError = e.message;

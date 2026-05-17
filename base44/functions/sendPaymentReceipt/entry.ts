@@ -1,5 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+async function sendEmail(to, subject, html, fromName = "uRide") {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: `${fromName} <noreply@uridehub.com>`, to: [to], subject, html }),
+  });
+  if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Email failed"); }
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -93,11 +103,7 @@ Deno.serve(async (req) => {
   <p style="margin: 0; font-size: 13px; color: #6b7280;">Questions? Contact <strong>support@uridehub.com</strong></p>
 </div>`;
 
-    await base44.asServiceRole.integrations.Core.SendEmail({
-      to: user_email,
-      subject: `Payment Confirmed — $${amount} · ${vehicle_name || "UrideHub Booking"} · ${receiptRef}`,
-      body: emailBody,
-    });
+    await sendEmail(user_email, `Payment Confirmed — $${amount} · ${vehicle_name || "UrideHub Booking"} · ${receiptRef}`, emailBody, "uRide");
 
     return Response.json({ success: true });
   } catch (error) {

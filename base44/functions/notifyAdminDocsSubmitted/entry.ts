@@ -1,5 +1,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+async function sendEmail(to, subject, html, fromName = "uRide") {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: `${fromName} <noreply@uridehub.com>`, to: [to], subject, html }),
+  });
+  if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Email failed"); }
+}
+
 const APP_URL = "https://uridehub.com";
 
 Deno.serve(async (req) => {
@@ -38,12 +48,7 @@ Deno.serve(async (req) => {
 
     for (const admin of admins) {
       if (admin.email) {
-        await base44.asServiceRole.integrations.Core.SendEmail({
-          to: admin.email,
-          subject: `📋 Host Docs Submitted — ${host.full_name} is ready for review`,
-          body: emailBody,
-          from_name: "uRide Alerts",
-        });
+        await sendEmail(admin.email, `📋 Host Docs Submitted — ${host.full_name} is ready for review`, emailBody, "uRide Alerts");
       }
     }
 
