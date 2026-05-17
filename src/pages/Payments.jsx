@@ -198,7 +198,7 @@ export default function Payments() {
   const [dateTo, setDateTo] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
   const [vehicleFilter, setVehicleFilter] = useState("");
-  const [scoreFilter, setScoreFilter] = useState(null); // null = no filter
+  const [scoreFilter, setScoreFilter] = useState(null); // null | "paid" | "failed" | "due_today" | "due_week"
   const [backfilling, setBackfilling] = useState(false);
 
   const handleBackfill = async () => {
@@ -232,22 +232,28 @@ export default function Payments() {
 
   // Scorecard stats
   const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
   const weekStart = startOfWeek(now);
   const weekEnd = endOfWeek(now);
   const totalCollected = allPayments.filter(b => b.payment_status === "paid").reduce((s, b) => s + (b.weekly_rate || 0), 0);
   const failedCount = allPayments.filter(b => b.payment_status === "failed").length;
-  const overdueCount = allPayments.filter(b => b.payment_status === "overdue").length;
-  const dueSoonCount = allPayments.filter(b => {
+
+  const dueTodayBookings = allPayments.filter(b => {
+    if (!b.next_billing_date) return false;
+    return b.next_billing_date.slice(0, 10) === todayStr && ["active", "confirmed", "approved"].includes(b.booking_status);
+  });
+
+  const dueThisWeekBookings = allPayments.filter(b => {
     if (!b.next_billing_date) return false;
     const d = new Date(b.next_billing_date);
-    return d >= weekStart && d <= weekEnd;
-  }).length;
+    return d >= weekStart && d <= weekEnd && ["active", "confirmed", "approved"].includes(b.booking_status);
+  });
 
   const SCORECARDS = [
-    { id: "paid", label: "Total Collected", value: `$${totalCollected.toLocaleString()}`, icon: TrendingUp, cls: "border-emerald-500/20 bg-emerald-500/[0.06]", valueCls: "text-emerald-400", filterStatus: "paid" },
-    { id: "stripe", label: "Stripe Auto", value: allPayments.filter(b => b.stripe_payment_intent_id && b.payment_status === "paid").length, icon: CreditCard, cls: "border-blue-500/20 bg-blue-500/[0.06]", valueCls: "text-blue-400", filterStatus: null },
-    { id: "failed", label: "Failed", value: failedCount, icon: XCircle, cls: "border-red-500/20 bg-red-500/[0.06]", valueCls: "text-red-400", filterStatus: "failed" },
-    { id: "due_soon", label: "Due This Week", value: dueSoonCount, icon: CalendarClock, cls: "border-yellow-500/20 bg-yellow-500/[0.06]", valueCls: "text-yellow-400", filterStatus: "due_soon" },
+    { id: "paid", label: "Total Collected", value: `$${totalCollected.toLocaleString()}`, icon: TrendingUp, cls: "border-emerald-500/20 bg-emerald-500/[0.06]", valueCls: "text-emerald-400", filterKey: "paid" },
+    { id: "failed", label: "Failed / Overdue", value: failedCount, icon: XCircle, cls: "border-red-500/20 bg-red-500/[0.06]", valueCls: "text-red-400", filterKey: "failed" },
+    { id: "due_today", label: "Due Today", value: dueTodayBookings.length, icon: CalendarClock, cls: "border-pink-500/20 bg-pink-500/[0.06]", valueCls: "text-pink-400", filterKey: "due_today" },
+    { id: "due_week", label: "Due This Week", value: dueThisWeekBookings.length, icon: CreditCard, cls: "border-yellow-500/20 bg-yellow-500/[0.06]", valueCls: "text-yellow-400", filterKey: "due_week" },
   ];
 
   // Apply all filters
@@ -257,10 +263,22 @@ export default function Payments() {
       if (!`${b.customer_full_name} ${b.user_email} ${b.vehicle_name}`.toLowerCase().includes(q)) return false;
     }
     if (paymentStatus && b.payment_status !== paymentStatus) return false;
-    if (scoreFilter && b.payment_status !== scoreFilter) return false;
     if (vehicleFilter && b.vehicle_name !== vehicleFilter) return false;
     if (dateFrom && new Date(b.submitted_at || b.created_date) < new Date(dateFrom)) return false;
     if (dateTo && new Date(b.submitted_at || b.created_date) > new Date(dateTo + "T23:59:59")) return false;
+    // Scorecard filters
+    if (scoreFilter === "paid" && b.payment_status !== "paid") return false;
+    if (scoreFilter === "failed" && !["failed", "overdue"].includes(b.payment_status)) return false;
+    if (scoreFilter === "due_today") {
+      if (!b.next_billing_date || b.next_billing_date.slice(0, 10) !== todayStr) return false;
+      if (!["active", "confirmed", "approved"].includes(b.booking_status)) return false;
+    }
+    if (scoreFilter === "due_week") {
+      if (!b.next_billing_date) return false;
+      const d = new Date(b.next_billing_date);
+      if (d < weekStart || d > weekEnd) return false;
+      if (!["active", "confirmed", "approved"].includes(b.booking_status)) return false;
+    }
     return true;
   });
 
@@ -268,6 +286,9 @@ export default function Payments() {
     setSearch(""); setDateFrom(""); setDateTo(""); setPaymentStatus(""); setVehicleFilter(""); setScoreFilter(null);
   };
   const hasFilters = search || dateFrom || dateTo || paymentStatus || vehicleFilter || scoreFilter;
+
+  // Active filter label
+  const scoreLabel = scoreFilter === "due_today" ? `Due Today (${todayStr})` : scoreFilter === "due_week" ? "Due This Week" : null;
 
   if (!isLoading && allPayments.length === 0) {
     return <EmptyState icon={DollarSign} title="No payments yet" description="Payments will appear here once customers pay." />;
@@ -301,20 +322,40 @@ export default function Payments() {
       {/* Scorecards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {SCORECARDS.map(s => {
-          const isActive = scoreFilter === s.filterStatus && s.filterStatus !== null;
+          const isActive = scoreFilter === s.filterKey;
           return (
             <button key={s.id}
-              onClick={() => s.filterStatus ? setScoreFilter(isActive ? null : s.filterStatus) : null}
-              className={`text-left rounded-2xl border p-4 transition-all ${s.filterStatus ? "cursor-pointer hover:opacity-90" : "cursor-default"} ${isActive ? "ring-1 ring-primary/40" : ""} ${s.cls}`}>
+              onClick={() => setScoreFilter(isActive ? null : s.filterKey)}
+              className={`text-left rounded-2xl border p-4 transition-all cursor-pointer hover:opacity-90 ${isActive ? "ring-2 ring-primary/50" : ""} ${s.cls}`}>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold text-white/35 uppercase tracking-wider">{s.label}</p>
                 <s.icon className={`h-4 w-4 ${s.valueCls}`} />
               </div>
               <p className={`text-2xl font-black ${s.valueCls}`} style={{ fontFamily: "var(--font-syne)" }}>{s.value}</p>
+              {s.id === "due_today" && dueTodayBookings.length > 0 && (
+                <p className="text-[10px] text-white/30 mt-1">
+                  ${dueTodayBookings.reduce((s, b) => s + (b.weekly_rate || 0), 0).toLocaleString()} to draw
+                </p>
+              )}
+              {s.id === "due_week" && dueThisWeekBookings.length > 0 && (
+                <p className="text-[10px] text-white/30 mt-1">
+                  ${dueThisWeekBookings.reduce((s, b) => s + (b.weekly_rate || 0), 0).toLocaleString()} this week
+                </p>
+              )}
             </button>
           );
         })}
       </div>
+
+      {/* Active filter banner */}
+      {scoreLabel && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-yellow-500/20 bg-yellow-500/[0.06] text-yellow-400 text-sm font-semibold">
+          <CalendarClock className="h-4 w-4" />
+          Showing: <span className="font-bold">{scoreLabel}</span>
+          <span className="text-white/30 font-normal">— {payments.length} booking{payments.length !== 1 ? "s" : ""}, autopay draws at midnight UTC</span>
+          <button onClick={() => setScoreFilter(null)} className="ml-auto text-xs text-white/40 hover:text-white underline">Clear</button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="rounded-2xl border border-white/[0.07] p-4 space-y-3" style={{ background: "hsl(222 24% 10% / 0.9)" }}>
