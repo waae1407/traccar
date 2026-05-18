@@ -5,11 +5,8 @@ import { useAuth } from "@/lib/AuthContext";
 import { Plus, Car, CheckCircle2, Clock, MoreVertical, AlertTriangle, Shield, Zap } from "lucide-react";
 import TelematicsAdminPanel from "@/components/admin/TelematicsAdminPanel";
 import HostPageHeader from "@/components/host/HostPageHeader";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import VehicleFormDialog from "@/components/vehicles/VehicleFormDialog";
 import { Link } from "react-router-dom";
-
-const inputClass = "w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-pink-400 text-sm";
 
 const statusColors = {
   Available: "text-emerald-600 bg-emerald-50",
@@ -29,7 +26,6 @@ export default function HostVehicles() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "", moovetrax_device_id: "", contactless_pickup: false });
 
   const { data: hosts = [] } = useQuery({ queryKey: ["my-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user?.email }), enabled: !!user?.email });
   const host = hosts[0];
@@ -59,10 +55,8 @@ export default function HostVehicles() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["host-vehicles"] }); setOpen(false); setEditing(null); },
   });
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const openEdit = (v) => { setEditing(v); setForm({ ...v }); setOpen(true); };
-  const openNew = () => { setEditing(null); setForm({ make: "", model: "", year: "", color: "", city: "", state: "", weekly_rate: "", mileage: "", vin: "", plate: "", rent_to_own_eligible: false, pickup_address: "", pickup_hours: "", moovetrax_device_id: "", contactless_pickup: false }); setOpen(true); };
-  const handleSubmit = (e) => { e.preventDefault(); saveMutation.mutate({ ...form, year: Number(form.year), weekly_rate: Number(form.weekly_rate), mileage: Number(form.mileage) }); };
+  const openEdit = (v) => { setEditing(v); setOpen(true); };
+  const openNew = () => { setEditing(null); setOpen(true); };
   const activeForVehicle = (vid) => bookings.filter(b => b.vehicle_id === vid && ["active", "confirmed", "approved"].includes(b.booking_status));
 
   // Compute compliance status per vehicle
@@ -184,78 +178,13 @@ export default function HostVehicles() {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto bg-white border-gray-200">
-          <DialogHeader>
-            <DialogTitle className="text-gray-900">{editing ? "Edit Vehicle" : "Add Vehicle"}</DialogTitle>
-          </DialogHeader>
-          {!editing && (
-            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700">
-              ⚠️ After adding your vehicle, upload <strong>Insurance</strong> and <strong>Registration</strong> documents in the Compliance section. Your vehicle will go live automatically once both are verified.
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            <div className="grid grid-cols-3 gap-3">
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Make *</label><input className={inputClass} required value={form.make} onChange={e => set("make", e.target.value)} /></div>
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Model *</label><input className={inputClass} required value={form.model} onChange={e => set("model", e.target.value)} /></div>
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Year *</label><input className={inputClass} required type="number" value={form.year} onChange={e => set("year", e.target.value)} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Color</label><input className={inputClass} value={form.color} onChange={e => set("color", e.target.value)} /></div>
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Weekly Rate ($) *</label><input className={inputClass} required type="number" value={form.weekly_rate} onChange={e => set("weekly_rate", e.target.value)} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">City *</label><input className={inputClass} required value={form.city} onChange={e => set("city", e.target.value)} /></div>
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">State *</label><input className={inputClass} required value={form.state} onChange={e => set("state", e.target.value)} maxLength={2} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">VIN</label><input className={inputClass} value={form.vin} onChange={e => set("vin", e.target.value)} /></div>
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Plate</label><input className={inputClass} value={form.plate} onChange={e => set("plate", e.target.value)} /></div>
-            </div>
-            <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Pickup Address</label><input className={inputClass} value={form.pickup_address} onChange={e => set("pickup_address", e.target.value)} placeholder="1234 Main St, Houston TX 77001" /></div>
-            <div><label className="block text-xs font-semibold text-gray-500 mb-1.5">Pickup Hours</label><input className={inputClass} value={form.pickup_hours} onChange={e => set("pickup_hours", e.target.value)} placeholder="Mon–Fri 9am–5pm" /></div>
-            <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
-              <label className="block text-xs font-semibold text-gray-500">📡 Moovetrax Device ID</label>
-              <input className={inputClass} value={form.moovetrax_device_id || ""} onChange={e => set("moovetrax_device_id", e.target.value)} placeholder="e.g. MT-123456" />
-              <p className="text-[10px] text-gray-400">Used for remote kill switch. Leave blank if not equipped.</p>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-200">
-              <button type="button" onClick={() => set("rent_to_own_eligible", !form.rent_to_own_eligible)}
-                className={`relative h-5 w-9 rounded-full transition-all ${form.rent_to_own_eligible ? "bg-pink-500" : "bg-gray-300"}`}>
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${form.rent_to_own_eligible ? "left-4" : "left-0.5"}`} />
-              </button>
-              <span className="text-sm text-gray-600 font-medium">Rent-to-Own Eligible</span>
-            </div>
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-200">
-              <button type="button" onClick={() => set("contactless_pickup", !form.contactless_pickup)}
-                className={`relative h-5 w-9 rounded-full transition-all ${form.contactless_pickup ? "bg-purple-500" : "bg-gray-300"}`}>
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${form.contactless_pickup ? "left-4" : "left-0.5"}`} />
-              </button>
-              <div>
-                <span className="text-sm text-purple-800 font-semibold">Contactless Pickup</span>
-                <p className="text-[10px] text-purple-500">Auto-approves after payment. Requires MooveTrax device.</p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 bg-gray-100 hover:bg-gray-200">Cancel</button>
-              <button type="submit" disabled={saveMutation.isPending} className="px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50"
-                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                {saveMutation.isPending ? "Saving..." : editing ? "Update" : "Add Vehicle"}
-              </button>
-            </div>
-          </form>
-
-          {/* MooveTrax controls — show in edit mode when vehicle has active booking */}
-          {editing && editing.moovetrax_device_id && (() => {
-            const activeBk = activeForVehicle(editing.id);
-            return activeBk.length > 0 ? (
-              <div className="mt-4 border-t border-gray-100 pt-4">
-                <TelematicsAdminPanel booking={activeBk[0]} />
-              </div>
-            ) : null;
-          })()}
-        </DialogContent>
-      </Dialog>
+      <VehicleFormDialog
+        open={open}
+        onOpenChange={(v) => { setOpen(v); if (!v) setEditing(null); }}
+        onSave={(data) => saveMutation.mutate(data)}
+        vehicle={editing}
+        isSaving={saveMutation.isPending}
+      />
     </div>
   );
 }
