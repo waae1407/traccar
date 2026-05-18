@@ -51,6 +51,11 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
   const [form, setForm] = useState(emptyForm);
   const [decodingVIN, setDecodingVIN] = useState(false);
   const [vinError, setVinError] = useState("");
+  const [hosts, setHosts] = useState([]);
+
+  useEffect(() => {
+    base44.entities.Host.list("-created_date", 200).then(h => setHosts(h.filter(x => x.status === "approved")));
+  }, []);
 
   useEffect(() => {
     setForm(vehicle ? {
@@ -170,6 +175,25 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             <FormField label="Status">{sel("status", ["Available", "Booked", "Maintenance", "Transferred"])}</FormField>
             <FormField label="Last Service"><input type="date" className={inputClass} value={form.last_service_date} onChange={(e) => set("last_service_date", e.target.value)} /></FormField>
           </div>
+
+          {/* Host Assignment */}
+          {hosts.length > 0 && (
+            <FormField label="Assign to Host (optional)">
+              <Select value={form.host_id || "__none__"} onValueChange={(v) => set("host_id", v === "__none__" ? "" : v)}>
+                <SelectTrigger className="h-9 rounded-xl bg-white/[0.06] border-white/[0.1] text-white focus:ring-0">
+                  <SelectValue placeholder="No host assigned (admin fleet)" />
+                </SelectTrigger>
+                <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
+                  <SelectItem value="__none__" className="focus:bg-white/10 focus:text-white">No host assigned (admin fleet)</SelectItem>
+                  {hosts.map(h => (
+                    <SelectItem key={h.id} value={h.id} className="focus:bg-white/10 focus:text-white">
+                      {h.full_name}{h.business_name ? ` — ${h.business_name}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
 
           {/* ── Rental Settings ── */}
           <div className="space-y-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
