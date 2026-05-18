@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useTenant } from "@/lib/useTenant";
-import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock, Bell, ImageIcon, CheckCircle, Loader2, WrenchIcon } from "lucide-react";
+import { Car, Users, CalendarDays, DollarSign, FileKey, AlertTriangle, ArrowUpRight, Clock, Bell, ImageIcon, CheckCircle, Loader2, WrenchIcon, Play } from "lucide-react";
 import StatCard from "@/components/shared/StatCard";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
@@ -37,6 +37,22 @@ export default function Dashboard() {
   const scopeKey = companyId || "all";
   const [activeDrawer, setActiveDrawer] = useState(null);
   const [backfillState, setBackfillState] = useState("idle"); // idle | running | done
+  const [billingState, setBillingState] = useState("idle"); // idle | running | done | error
+
+  const handleRunBilling = async () => {
+    if (!window.confirm("Run weekly billing now? This will charge all active renters whose billing date is today or overdue.")) return;
+    setBillingState("running");
+    try {
+      const res = await base44.functions.invoke("processWeeklyBilling", {});
+      console.log("Billing result:", res.data);
+      setBillingState("done");
+      setTimeout(() => setBillingState("idle"), 8000);
+    } catch (e) {
+      console.error("Billing error:", e);
+      setBillingState("error");
+      setTimeout(() => setBillingState("idle"), 8000);
+    }
+  };
 
   const handleBackfillInspectionImages = async () => {
     setBackfillState("running");
@@ -185,6 +201,31 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+
+      {/* Run Weekly Billing */}
+      <div className="rounded-2xl border border-green-500/30 p-4 flex items-center justify-between gap-4 flex-wrap"
+        style={{ background: "hsl(152 60% 46% / 0.07)" }}>
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center flex-shrink-0">
+            <DollarSign className="h-4 w-4 text-green-400" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-green-300">Weekly Billing</p>
+            <p className="text-xs text-white/40">Charge active renters whose billing date is due</p>
+          </div>
+        </div>
+        <button
+          onClick={handleRunBilling}
+          disabled={billingState === "running"}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white disabled:opacity-60 transition-all"
+          style={{ background: "linear-gradient(135deg, hsl(152 60% 40%), hsl(199 90% 44%))" }}
+        >
+          {billingState === "running" && <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>}
+          {billingState === "done" && <><CheckCircle className="h-4 w-4" /> Done!</>}
+          {billingState === "error" && <>⚠️ Failed — check logs</>}
+          {billingState === "idle" && <><Play className="h-4 w-4" /> Run Now</>}
+        </button>
+      </div>
 
       {/* Pending Host Applications Alert */}
       {pendingHosts.length > 0 && (
