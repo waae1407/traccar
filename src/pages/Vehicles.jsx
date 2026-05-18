@@ -23,6 +23,12 @@ export default function Vehicles() {
     queryFn: () => base44.entities.Vehicle.filter(tenantFilter(), "-created_date"),
   });
 
+  const { data: hosts = [] } = useQuery({
+    queryKey: ["hosts-all"],
+    queryFn: () => base44.entities.Host.list("-created_date", 200),
+  });
+  const hostMap = Object.fromEntries(hosts.map(h => [h.id, h]));
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Vehicle.create({ ...data, ...tenantFilter() }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["vehicles", scopeKey] }); setDialogOpen(false); },
@@ -94,6 +100,12 @@ export default function Vehicles() {
     { key: "mileage", label: "Mileage", render: (r) => r.mileage
       ? <span className="text-white/60">{r.mileage.toLocaleString()} mi</span>
       : <span className="text-white/20">—</span> },
+    { key: "host", label: "Host", render: (r) => {
+      const h = r.host_id ? hostMap[r.host_id] : null;
+      return h
+        ? <span className="text-xs text-white/70">{h.full_name}{h.business_name ? ` — ${h.business_name}` : ""}</span>
+        : <span className="text-white/20 text-xs">Admin fleet</span>;
+    }},
     { key: "rto", label: "RTO", render: (r) => r.rent_to_own_eligible
       ? <span className="text-xs font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">Eligible</span>
       : <span className="text-white/20">—</span> },
