@@ -36,7 +36,7 @@ export default function PublicHome() {
       </header>
 
       {/* HERO */}
-      <div className="relative overflow-hidden" style={{ background: "linear-gradient(160deg, hsl(338 90% 56%) 0%, hsl(265 80% 55%) 60%, hsl(240 70% 45%) 100%)" }}>
+      <div className="relative" style={{ background: "linear-gradient(160deg, hsl(338 90% 56%) 0%, hsl(265 80% 55%) 60%, hsl(240 70% 45%) 100%)" }}>
         {/* Decorative blobs */}
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-20" style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translate(30%, -30%)" }} />
         <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translate(-30%, 30%)" }} />
