@@ -31,14 +31,14 @@ export default function HomeHero() {
       <div className="relative z-10 border-b border-white/10">
         <div className="max-w-3xl mx-auto px-5 py-2 flex items-center gap-4 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-300 animate-pulse shadow-lg" style={{ boxShadow: "0 0 12px rgba(134, 239, 172, 0.8)" }} />
-            <span className="text-white text-[10px] font-semibold uppercase tracking-wider" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>Fleet Operations Platform</span>
+            <span className="h-3 w-3 rounded-full bg-emerald-200 animate-pulse shadow-lg" style={{ boxShadow: "0 0 16px rgba(187, 247, 208, 1), 0 0 8px rgba(134, 239, 172, 0.9)" }} />
+            <span className="text-white text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#ffffff", textShadow: "0 2px 6px rgba(0,0,0,0.5)" }}>Fleet Operations Platform</span>
           </div>
           <div className="h-3 w-px bg-white/15 flex-shrink-0" />
           <div className="flex items-center gap-3 flex-shrink-0">
             {["GPS Tracking", "Remote Controls", "Stripe Connect"].map((t, i) => (
-              <span key={i} className="text-white text-[10px] font-medium flex items-center gap-1" style={{ color: "rgba(255,255,255,0.90)", textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}>
-                <span className="h-1.5 w-1.5 rounded-full bg-white/50" />{t}
+              <span key={i} className="text-white text-[10px] font-medium flex items-center gap-1" style={{ color: "#ffffff", textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+                <span className="h-1.5 w-1.5 rounded-full bg-white/70" />{t}
               </span>
             ))}
           </div>
