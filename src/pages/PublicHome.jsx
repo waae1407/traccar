@@ -65,9 +65,9 @@ export default function PublicHome() {
         </div>
 
         {/* Wave divider */}
-        <div className="h-8 relative">
-          <svg viewBox="0 0 375 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute bottom-0 w-full" preserveAspectRatio="none">
-            <path d="M0 32L375 32L375 8C300 28 180 2 0 20L0 32Z" fill="white"/>
+        <div className="h-4 relative">
+          <svg viewBox="0 0 375 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute bottom-0 w-full" preserveAspectRatio="none">
+            <path d="M0 16L375 16L375 4C300 14 180 1 0 10L0 16Z" fill="white"/>
           </svg>
         </div>
       </div>
