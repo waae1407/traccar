@@ -48,21 +48,21 @@ export default function HomeHero() {
       <div className="max-w-3xl mx-auto px-5 pt-10 pb-12 text-center relative z-10">
 
         {/* Eyebrow */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-6">
-          <Shield className="h-3 w-3 text-white/70" />
-          <span className="text-white/70 text-[11px] font-semibold tracking-wide">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/16 border border-white/24 backdrop-blur-sm mb-6">
+          <Shield className="h-3 w-3 text-white" style={{ color: "rgba(255,255,255,0.92)" }} />
+          <span className="text-[11px] font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
             Contactless weekly rentals · Independent fleet partners
           </span>
         </div>
 
         <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.05] mb-4 tracking-tight"
-          style={{ fontFamily: "var(--font-syne)" }}>
+          style={{ fontFamily: "var(--font-syne)", textShadow: "0 2px 12px rgba(0,0,0,0.25)" }}>
           Get on the road fast.
           <br />
-          <span className="text-white/70">Or build your rental fleet.</span>
+          <span style={{ color: "rgba(255,255,255,0.92)" }}>Or build your rental fleet.</span>
         </h1>
 
-        <p className="text-white/70 text-sm sm:text-base leading-relaxed max-w-md mx-auto mb-8">
+        <p style={{ color: "rgba(255,255,255,0.92)" }} className="text-sm sm:text-base leading-relaxed max-w-md mx-auto mb-8">
           uRideHub connects drivers with weekly rental vehicles while giving fleet owners, dealerships, and auto shops their own contactless rental storefront.
         </p>
 
@@ -81,8 +81,8 @@ export default function HomeHero() {
         {/* Operational trust row */}
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           {TRUST_CHECKS.map((t, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5 text-white/55 text-[11px] font-medium">
-              <CheckCircle2 className="h-3 w-3 text-emerald-400/80 flex-shrink-0" />
+            <span key={i} className="inline-flex items-center gap-1.5 text-white text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.92)" }}>
+              <CheckCircle2 className="h-3 w-3 text-emerald-300 flex-shrink-0" style={{ color: "rgb(134, 239, 172)" }} />
               {t}
             </span>
           ))}

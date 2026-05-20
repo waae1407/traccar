@@ -109,12 +109,12 @@ export default function PublicHome() {
             <div className="absolute inset-0"
               style={{ background: "radial-gradient(ellipse at 60% 40%, hsl(338 90% 56% / 0.3) 0%, transparent 60%)" }} />
             <div className="relative z-10">
-              <p className="text-white/50 text-[11px] font-bold uppercase tracking-widest mb-3">Get started today</p>
-              <h3 className="text-2xl sm:text-3xl font-black text-white mb-2 leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+              <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.92)" }}>Get started today</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-white mb-2 leading-tight" style={{ fontFamily: "var(--font-syne)", textShadow: "0 2px 12px rgba(0,0,0,0.25)" }}>
                 Launch your rental fleet.<br />
-                <span className="text-white/75">Or get on the road today.</span>
+                <span style={{ color: "rgba(255,255,255,0.95)" }}>Or get on the road today.</span>
               </h3>
-              <p className="text-white/55 text-sm mb-7 max-w-sm mx-auto leading-relaxed">
+              <p className="text-sm mb-7 max-w-sm mx-auto leading-relaxed" style={{ color: "rgba(255,255,255,0.92)" }}>
                 uRideHub helps drivers access weekly rentals while helping fleet operators build automated rental businesses.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -123,8 +123,8 @@ export default function PublicHome() {
                   <Car className="h-4 w-4" /> Browse Vehicles
                 </Link>
                 <Link to="/become-a-host"
-                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl border border-white/25 text-white/90 font-semibold text-sm hover:bg-white/10 hover:border-white/40 transition-all">
-                  <Building2 className="h-4 w-4" /> Become a Fleet Partner
+                   className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm hover:bg-white/15 transition-all" style={{ border: "1px solid rgba(255,255,255,0.45)", color: "#ffffff" }}>
+                   <Building2 className="h-4 w-4" /> Become a Fleet Partner
                 </Link>
               </div>
             </div>

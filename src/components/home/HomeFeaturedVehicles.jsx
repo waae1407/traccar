@@ -81,8 +81,8 @@ export default function HomeFeaturedVehicles() {
               {/* Trust mini badges */}
               <div className="flex gap-1 mt-2 flex-wrap">
                 {TRUST_BADGES.map((b, bi) => (
-                  <span key={bi} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-50 border border-gray-100 text-gray-400 text-[9px] font-semibold">
-                    <b.icon className="h-2 w-2" />{b.label}
+                  <span key={bi} className="inline-flex items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-semibold" style={{ background: "#f8fafc", border: "1px solid #e2e8f0", color: "#475569" }}>
+                    <b.icon className="h-2.5 w-2.5" />{b.label}
                   </span>
                 ))}
               </div>

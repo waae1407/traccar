@@ -37,14 +37,14 @@ export default function HomePathCards() {
             </div>
           </div>
 
-          <h2 className="text-xl font-black text-white mt-3 mb-1" style={{ fontFamily: "var(--font-syne)" }}>I Need a Car</h2>
-          <p className="text-white/70 text-xs mb-4">Find weekly rental vehicles for rideshare, delivery, work, or personal use.</p>
+          <h2 className="text-xl font-black text-white mt-3 mb-1" style={{ fontFamily: "var(--font-syne)", textShadow: "0 1px 6px rgba(0,0,0,0.2)" }}>I Need a Car</h2>
+          <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.92)" }}>Find weekly rental vehicles for rideshare, delivery, work, or personal use.</p>
 
           <div className="space-y-2 mb-4">
             {DRIVER_BULLETS.map((b, i) => (
               <div key={i} className="flex items-center gap-2">
-                <b.icon className="h-3.5 w-3.5 text-white/60 flex-shrink-0" />
-                <span className="text-xs text-white/80">{b.text}</span>
+                <b.icon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.82)" }} />
+                <span className="text-xs" style={{ color: "rgba(255,255,255,0.90)" }}>{b.text}</span>
               </div>
             ))}
           </div>
@@ -73,14 +73,14 @@ export default function HomePathCards() {
             </div>
           </div>
 
-          <h2 className="text-xl font-black mt-3 mb-1" style={{ fontFamily: "var(--font-syne)", color: "hsl(265 60% 85%)" }}>I Own Vehicles</h2>
-          <p className="text-white/60 text-xs mb-4">Launch your own rental storefront and turn idle vehicles into recurring income.</p>
+          <h2 className="text-xl font-black mt-3 mb-1" style={{ fontFamily: "var(--font-syne)", color: "rgba(255,255,255,0.95)", textShadow: "0 1px 6px rgba(0,0,0,0.2)" }}>I Own Vehicles</h2>
+          <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.88)" }}>Launch your own rental storefront and turn idle vehicles into recurring income.</p>
 
           <div className="space-y-2 mb-4">
             {HOST_BULLETS.map((b, i) => (
               <div key={i} className="flex items-center gap-2">
-                <b.icon className="h-3.5 w-3.5 text-white/40 flex-shrink-0" />
-                <span className="text-xs text-white/70">{b.text}</span>
+                <b.icon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.72)" }} />
+                <span className="text-xs" style={{ color: "rgba(255,255,255,0.86)" }}>{b.text}</span>
               </div>
             ))}
           </div>
