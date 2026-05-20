@@ -66,7 +66,7 @@ export default function HomePathCards() {
               <div className="h-8 w-8 rounded-lg bg-white/15 flex items-center justify-center">
                 <Home className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">For Fleet Owners</span>
+              <span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">For Fleet Partners</span>
             </div>
             <div className="h-9 w-9 rounded-full bg-white/15 flex items-center justify-center">
               <ArrowRight className="h-4 w-4 text-white" />
@@ -86,7 +86,7 @@ export default function HomePathCards() {
           </div>
 
           <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/15 text-white text-xs font-bold">
-            Become a Host <ArrowRight className="h-3 w-3" />
+            Become a Fleet Partner <ArrowRight className="h-3 w-3" />
           </span>
         </div>
       </Link>

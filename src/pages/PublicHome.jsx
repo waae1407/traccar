@@ -124,7 +124,7 @@ export default function PublicHome() {
                 </Link>
                 <Link to="/become-a-host"
                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-sm hover:bg-white/15 transition-all" style={{ border: "1px solid rgba(255,255,255,0.45)", color: "#ffffff" }}>
-                   <Building2 className="h-4 w-4" /> Become a Fleet Partner
+                   <Building2 className="h-4 w-4" /> Become a Fleet Partner →
                 </Link>
               </div>
             </div>

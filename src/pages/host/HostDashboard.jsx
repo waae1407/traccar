@@ -95,7 +95,7 @@ export default function HostDashboard() {
         <Clock className="h-7 w-7 text-gray-400" />
       </div>
       <h2 className="text-xl font-bold text-gray-900 mb-2">Application Pending</h2>
-      <p className="text-gray-400 text-sm max-w-sm">Your host application is under review. You'll receive an email once approved with your Stripe Connect onboarding link.</p>
+      <p className="text-gray-500 text-sm max-w-sm">Your Fleet Partner application is under review. You'll receive an email once approved with your Stripe Connect onboarding link.</p>
     </div>
   );
 
@@ -114,14 +114,14 @@ export default function HostDashboard() {
     <div className="space-y-5">
       {/* Premium header */}
       <div className="rounded-3xl overflow-hidden -mx-1" style={{ background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" }}>
-        <div className="relative px-6 py-6">
+        <div className="relative px-5 py-5">
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 20%, hsl(338 90% 56% / 0.25) 0%, transparent 60%)" }} />
           <div className="relative z-10">
-            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-2">Fleet Partner Portal</p>
-            <h1 className="text-2xl font-black text-white mb-2" style={{ fontFamily: "var(--font-syne)" }}>
+            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-1">Fleet Partner Portal</p>
+            <h1 className="text-2xl font-black text-white mb-1" style={{ fontFamily: "var(--font-syne)" }}>
               Welcome back, {host.full_name?.split(" ")[0]}!
             </h1>
-            <p className="text-white/70 text-sm leading-relaxed">Your operator dashboard — everything in one place.</p>
+            <p className="text-white/70 text-sm leading-snug">Your operator dashboard — everything in one place.</p>
           </div>
         </div>
       </div>
@@ -170,7 +170,7 @@ export default function HostDashboard() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-emerald-900">Your storefront is LIVE 🎉</p>
             <p className="text-xs text-emerald-600 truncate">{window.location.origin}{storeUrl}</p>
-            <p className="text-xs text-emerald-600 mt-0.5">Share your storefront link to accept bookings.</p>
+            <p className="text-xs text-emerald-600 mt-0.5">Share your link to start accepting bookings.</p>
           </div>
           <a href={storeUrl} target="_blank" rel="noreferrer"
             className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 transition-all">
@@ -208,7 +208,7 @@ export default function HostDashboard() {
                 </div>
                 <p className={`text-sm flex-1 ${step.done ? "text-emerald-800 font-semibold" : "text-gray-700 font-medium"}`}>{step.label}</p>
                 {step.done && (
-                  <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full flex-shrink-0">Done</span>
+                  <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Done</span>
                 )}
                 {!step.done && step.href && (
                   <a href={step.href} className="text-xs font-bold px-3 py-1 rounded-lg text-white flex-shrink-0"
@@ -229,7 +229,7 @@ export default function HostDashboard() {
             <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
             <div>
               <p className="text-sm font-bold text-yellow-900">Set Up Your Payouts</p>
-              <p className="text-xs text-yellow-700">Complete Stripe Connect onboarding to receive automatic payouts</p>
+              <p className="text-xs text-yellow-700">Complete Stripe Connect onboarding to receive automatic fleet payouts.</p>
             </div>
           </div>
           <Link to="/host/payouts" className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-yellow-800 bg-yellow-200 hover:bg-yellow-300 transition-all">
@@ -244,7 +244,7 @@ export default function HostDashboard() {
             <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0" />
             <div>
               <p className="text-sm font-bold text-red-900">{expiringDocs.length} Document{expiringDocs.length > 1 ? "s" : ""} Need Attention</p>
-              <p className="text-xs text-red-700">Insurance or registration documents expiring soon</p>
+              <p className="text-xs text-red-700">Insurance or registration documents expiring soon.</p>
             </div>
           </div>
           <Link to="/host/compliance" className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-red-800 bg-red-200 hover:bg-red-300 transition-all">
@@ -265,10 +265,10 @@ export default function HostDashboard() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h3 className="font-bold text-gray-900 text-base">Fleet Score</h3>
-            <p className="text-xs text-gray-500 mt-1 leading-relaxed">Compliance, payment readiness, vehicle availability, and customer satisfaction.</p>
-          </div>
-          <div className="text-right flex-shrink-0 ml-3">
+            <div className="flex items-center gap-2 mb-0.5">
+              <h3 className="font-bold text-gray-900 text-base">Fleet Score</h3>
+              <span className="text-[10px] text-gray-400 border border-gray-200 rounded-full px-1.5 py-0.5 cursor-default" title="Based on compliance docs, payment readiness, vehicle availability, and customer satisfaction.">How is this calculated?</span>
+            </div>
             <span className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{host.fleet_score || 100}<span className="text-base text-gray-500 font-semibold">/100</span></span>
             <p className={`text-[10px] font-bold mt-1 ${(host.fleet_score || 100) >= 80 ? "text-emerald-600" : "text-gray-600"}`}>
               {(host.fleet_score || 100) >= 80 ? "Excellent standing" : "Build your fleet to improve."}
@@ -292,14 +292,14 @@ export default function HostDashboard() {
           </div>
           <div className="space-y-3">
             {activeBookings.slice(0, 5).map(b => (
-              <div key={b.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <div key={b.id} className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{b.vehicle_name}</p>
-                  <p className="text-xs text-gray-400">{b.customer_full_name || b.user_email}</p>
+                  <p className="text-xs text-gray-500">{b.customer_full_name || b.user_email}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold text-emerald-600">${b.weekly_rate}/wk</p>
-                  <p className="text-xs text-gray-400 capitalize">{b.booking_status}</p>
+                  <p className="text-xs text-gray-500 capitalize">{b.booking_status}</p>
                 </div>
               </div>
             ))}
@@ -315,10 +315,11 @@ export default function HostDashboard() {
           { label: "Brand Builder", sub: "Customize your storefront", href: "/host/brand", icon: Sparkles, color: "text-pink-600", bg: "bg-pink-50" },
           { label: "Reports", sub: "View fleet performance", href: "/host/reports", icon: BarChart2, color: "text-violet-600", bg: "bg-violet-50" },
           { label: "Maintenance", sub: "Track service needs", href: "/host/maintenance", icon: Wrench, color: "text-orange-600", bg: "bg-orange-50" },
+          { label: "Customers", sub: "Manage your renters", href: "/host/customers", icon: Users, color: "text-cyan-600", bg: "bg-cyan-50" },
         ].map(item => (
           <Link key={item.href} to={item.href}
             className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 bg-white hover:border-pink-200 hover:shadow-sm transition-all group">
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${item.bg}`}>
+            <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 ${item.bg}`}>
               <item.icon className={`h-4 w-4 ${item.color}`} />
             </div>
             <div className="min-w-0">
@@ -348,7 +349,7 @@ export default function HostDashboard() {
               <div className="h-10 w-10 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
                 <Activity className="h-5 w-5 text-gray-300" />
               </div>
-              <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">Activity will appear here as your rentals, payouts, vehicles, and customer actions update.</p>
+              <p className="text-sm text-gray-500 leading-relaxed max-w-xs mx-auto">Activity will appear here as rentals, payouts, and fleet actions update.</p>
             </div>
           );
           return (
