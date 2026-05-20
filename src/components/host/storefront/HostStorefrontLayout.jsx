@@ -94,6 +94,14 @@ export default function HostStorefrontLayout() {
         <Outlet context={{ brand, businessSlug, user }} />
       </main>
 
+      {/* Powered by uRideHub strip */}
+      <div className="fixed bottom-[72px] left-0 right-0 z-40 flex justify-center pointer-events-none">
+        <Link to="/" className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/70 shadow-sm mb-1">
+          <span className="text-[10px] text-gray-400 font-medium">Powered by</span>
+          <span className="text-[10px] font-bold text-gray-600">uRideHub</span>
+        </Link>
+      </div>
+
       {/* Bottom nav — branded colors */}
       <nav className="fixed bottom-0 left-0 right-0 z-50"
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(0,0,0,0.06)" }}>

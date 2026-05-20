@@ -27,7 +27,7 @@ export default function StorefrontFooter({ brand, host }) {
           <div className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-100 bg-gray-50">
             <img src={LOGO_ICON} alt="uRide" className="h-6 w-6 rounded-lg object-cover" />
             <div>
-              <p className="text-[10px] font-bold text-gray-700">Powered by uRide</p>
+              <p className="text-[10px] font-bold text-gray-700">Powered by uRideHub</p>
               <p className="text-[9px] text-gray-400">Secure booking & payments</p>
             </div>
             <Shield className="h-4 w-4 text-emerald-500 ml-1" />
