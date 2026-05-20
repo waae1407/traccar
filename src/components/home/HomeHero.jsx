@@ -1,58 +1,98 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Car, Home, Fingerprint, MapPin, CreditCard, CalendarDays } from "lucide-react";
+import { Car, Building2, MapPin, CreditCard, Fingerprint, Shield, CheckCircle2 } from "lucide-react";
+
+const TRUST_CHECKS = [
+  "GPS-monitored vehicles",
+  "Verified fleet partners",
+  "Secure Stripe payouts",
+  "Contactless rentals",
+];
 
 export default function HomeHero() {
   return (
-    <div className="relative" style={{ background: "linear-gradient(160deg, hsl(338 90% 56%) 0%, hsl(265 80% 55%) 60%, hsl(240 70% 45%) 100%)" }}>
-      <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-15" style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translate(30%, -30%)" }} />
-      <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full opacity-10" style={{ background: "radial-gradient(circle, white 0%, transparent 70%)", transform: "translate(-30%, 30%)" }} />
+    <div className="relative overflow-hidden"
+      style={{ background: "linear-gradient(160deg, hsl(338 90% 48%) 0%, hsl(265 80% 45%) 55%, hsl(240 70% 35%) 100%)" }}>
 
-      <div className="max-w-3xl mx-auto px-5 pt-12 pb-14 text-center relative z-10">
-        <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-5">
-          Contactless weekly rentals powered by independent fleet partners
-        </p>
+      {/* Background grid pattern for tech feel */}
+      <div className="absolute inset-0 opacity-[0.06]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)`,
+          backgroundSize: "32px 32px"
+        }} />
 
-        <h1 className="text-3xl sm:text-5xl font-black text-white leading-[1.1] mb-4" style={{ fontFamily: "var(--font-syne)" }}>
-          Get on the road fast.<br />
-          <span className="opacity-80">Or build your own rental fleet.</span>
+      {/* Glow orbs */}
+      <div className="absolute top-0 right-0 w-80 h-80 rounded-full"
+        style={{ background: "radial-gradient(circle, hsl(338 90% 70% / 0.25) 0%, transparent 70%)", transform: "translate(25%, -25%)" }} />
+      <div className="absolute bottom-0 left-0 w-56 h-56 rounded-full"
+        style={{ background: "radial-gradient(circle, hsl(265 80% 70% / 0.2) 0%, transparent 70%)", transform: "translate(-25%, 25%)" }} />
+
+      {/* Fleet status bar — gives operational feel */}
+      <div className="relative z-10 border-b border-white/10">
+        <div className="max-w-3xl mx-auto px-5 py-2 flex items-center gap-4 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-white/60 text-[10px] font-semibold uppercase tracking-wider">Fleet Operations Platform</span>
+          </div>
+          <div className="h-3 w-px bg-white/15 flex-shrink-0" />
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {["GPS Tracking", "Remote Controls", "Stripe Connect"].map((t, i) => (
+              <span key={i} className="text-white/40 text-[10px] font-medium flex items-center gap-1">
+                <span className="h-1 w-1 rounded-full bg-white/30" />{t}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-3xl mx-auto px-5 pt-10 pb-12 text-center relative z-10">
+
+        {/* Eyebrow */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm mb-6">
+          <Shield className="h-3 w-3 text-white/70" />
+          <span className="text-white/70 text-[11px] font-semibold tracking-wide">
+            Contactless weekly rentals · Independent fleet partners
+          </span>
+        </div>
+
+        <h1 className="text-4xl sm:text-5xl font-black text-white leading-[1.05] mb-4 tracking-tight"
+          style={{ fontFamily: "var(--font-syne)" }}>
+          Get on the road fast.
+          <br />
+          <span className="text-white/70">Or build your rental fleet.</span>
         </h1>
 
-        <p className="text-white/75 text-sm sm:text-base leading-relaxed max-w-lg mx-auto mb-8">
+        <p className="text-white/70 text-sm sm:text-base leading-relaxed max-w-md mx-auto mb-8">
           uRideHub connects drivers with weekly rental vehicles while giving fleet owners, dealerships, and auto shops their own contactless rental storefront.
         </p>
 
-        {/* Trust badges */}
-        <div className="flex flex-wrap items-center justify-center gap-3 mb-9">
-          {[
-            { icon: Fingerprint, label: "Contactless pickup" },
-            { icon: MapPin, label: "GPS-protected vehicles" },
-            { icon: CreditCard, label: "Stripe-powered payouts" },
-            { icon: CalendarDays, label: "Weekly rentals" },
-          ].map((b, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-sm text-white text-[11px] font-semibold">
-              <b.icon className="h-3.5 w-3.5" /> {b.label}
-            </span>
-          ))}
-        </div>
-
         {/* CTA buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
           <Link to="/book-now"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-white text-gray-900 font-bold text-sm shadow-lg hover:shadow-xl transition-all">
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-white text-gray-900 font-bold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
             <Car className="h-4 w-4" /> I Need a Vehicle
           </Link>
           <Link to="/become-a-host"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl border-2 border-white/40 text-white font-bold text-sm hover:bg-white/10 transition-all">
-            <Home className="h-4 w-4" /> Become a Fleet Partner
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl border border-white/25 text-white/90 font-semibold text-sm hover:bg-white/10 hover:border-white/40 transition-all">
+            <Building2 className="h-4 w-4" /> Become a Fleet Partner
           </Link>
+        </div>
+
+        {/* Operational trust row */}
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          {TRUST_CHECKS.map((t, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5 text-white/55 text-[11px] font-medium">
+              <CheckCircle2 className="h-3 w-3 text-emerald-400/80 flex-shrink-0" />
+              {t}
+            </span>
+          ))}
         </div>
       </div>
 
       {/* Wave */}
-      <div className="h-4 relative">
-        <svg viewBox="0 0 375 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute bottom-0 w-full" preserveAspectRatio="none">
-          <path d="M0 16L375 16L375 4C300 14 180 1 0 10L0 16Z" fill="white"/>
+      <div className="h-5 relative">
+        <svg viewBox="0 0 375 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="absolute bottom-0 w-full" preserveAspectRatio="none">
+          <path d="M0 20L375 20L375 5C300 18 180 1 0 12L0 20Z" fill="white"/>
         </svg>
       </div>
     </div>

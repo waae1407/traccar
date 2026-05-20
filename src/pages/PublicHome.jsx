@@ -4,11 +4,13 @@ import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
 import HomeHero from "@/components/home/HomeHero";
 import HomePathCards from "@/components/home/HomePathCards";
+import HomeHowItWorks from "@/components/home/HomeHowItWorks";
+import HomeWhyDifferent from "@/components/home/HomeWhyDifferent";
+import HomeFleetDashboard from "@/components/home/HomeFleetDashboard";
 import HomeStorefrontSection from "@/components/home/HomeStorefrontSection";
 import HomeAutoBusinessSection from "@/components/home/HomeAutoBusinessSection";
-import HomeWhyDifferent from "@/components/home/HomeWhyDifferent";
 import HomeFeaturedVehicles from "@/components/home/HomeFeaturedVehicles";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Building2, Car } from "lucide-react";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -23,18 +25,19 @@ export default function PublicHome() {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: "var(--font-inter)" }}>
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
+
       {/* NAV */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="max-w-3xl mx-auto px-5 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src={LOGO_ICON} alt="uRide" className="h-7 w-7 rounded-lg object-cover" />
             <span className="font-black text-gray-900 text-base tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>uRide</span>
+            <span className="hidden sm:inline text-[10px] font-semibold text-gray-300 ml-1 border border-gray-200 px-1.5 py-0.5 rounded-full tracking-wide uppercase">Fleet Platform</span>
           </div>
           <button
             onClick={() => base44.auth.redirectToLogin(window.location.href)}
-            className="px-4 py-1.5 rounded-full text-sm font-bold text-white shadow-sm"
-            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+            className="px-4 py-1.5 rounded-full text-sm font-semibold text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 transition-all"
           >
             Sign In
           </button>
@@ -44,60 +47,100 @@ export default function PublicHome() {
       {/* HERO */}
       <HomeHero />
 
-      {/* MAIN CONTENT */}
-      <div className="max-w-3xl mx-auto px-4 pb-16 mt-6 space-y-10">
+      {/* MAIN CONTENT — white bg sections */}
+      <div className="bg-white">
+        <div className="max-w-3xl mx-auto px-4 py-10 space-y-12">
 
-        {/* 1. Path cards */}
-        <HomePathCards />
+          {/* 1. Path cards — driver vs fleet owner */}
+          <HomePathCards />
 
-        {/* 2. Storefront section */}
-        <HomeStorefrontSection />
+          {/* 2. How it works */}
+          <HomeHowItWorks />
 
-        {/* 3. Auto business section */}
-        <HomeAutoBusinessSection />
-
-        {/* 4. Why different */}
-        <HomeWhyDifferent />
-
-        {/* 5. Featured vehicles */}
-        <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-1">Available Now</p>
-          <HomeFeaturedVehicles />
-        </div>
-
-        {/* 6. Final CTA */}
-        <div className="rounded-2xl text-center py-10 px-6 overflow-hidden relative"
-          style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #1a1040 100%)" }}>
-          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 60% 40%, hsl(338 90% 56% / 0.3) 0%, transparent 60%)" }} />
-          <div className="relative z-10">
-            <h3 className="text-2xl font-black text-white mb-2" style={{ fontFamily: "var(--font-syne)" }}>
-              Ready to get started?
-            </h3>
-            <p className="text-white/60 text-sm mb-6">
-              Find a vehicle or launch your rental business today.
-            </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link to="/book-now"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3 rounded-2xl bg-white text-gray-900 font-bold text-sm shadow-lg">
-                Browse Available Cars <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link to="/become-a-host"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3 rounded-2xl border border-white/30 text-white font-bold text-sm hover:bg-white/10 transition-all">
-                Become a Host <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-center gap-4 text-xs text-gray-300 pt-2">
-          <Link to="/privacy" className="hover:text-gray-500 transition-colors">Privacy</Link>
-          <span>·</span>
-          <Link to="/terms" className="hover:text-gray-500 transition-colors">Terms</Link>
-          <span>·</span>
-          <span>© {new Date().getFullYear()} uRide</span>
         </div>
       </div>
+
+      {/* WHY DIFFERENT — slightly tinted bg */}
+      <div className="bg-gray-50 border-y border-gray-100">
+        <div className="max-w-3xl mx-auto px-4 py-10">
+          <HomeWhyDifferent />
+        </div>
+      </div>
+
+      {/* FLEET DASHBOARD VISUAL */}
+      <div className="bg-white">
+        <div className="max-w-3xl mx-auto px-4 py-10">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Operational visibility</p>
+          <h3 className="text-lg font-black text-gray-900 mb-4" style={{ fontFamily: "var(--font-syne)" }}>
+            Fleet Operations Dashboard
+          </h3>
+          <p className="text-sm text-gray-500 mb-5 max-w-lg">
+            uRideHub is operational infrastructure — not just listings. Hosts get real-time vehicle status, GPS tracking, payment automation, and remote controls in one dashboard.
+          </p>
+          <HomeFleetDashboard />
+        </div>
+      </div>
+
+      {/* STOREFRONT + AUTO BUSINESS — tinted */}
+      <div className="bg-gray-50 border-y border-gray-100">
+        <div className="max-w-3xl mx-auto px-4 py-10 space-y-10">
+          <HomeStorefrontSection />
+          <HomeAutoBusinessSection />
+        </div>
+      </div>
+
+      {/* FEATURED VEHICLES */}
+      <div className="bg-white">
+        <div className="max-w-3xl mx-auto px-4 py-10">
+          <HomeFeaturedVehicles />
+        </div>
+      </div>
+
+      {/* FINAL CTA */}
+      <div className="px-4 pb-12 bg-gray-50">
+        <div className="max-w-3xl mx-auto">
+          <div className="rounded-2xl overflow-hidden relative text-center py-12 px-6"
+            style={{ background: "linear-gradient(160deg, hsl(338 90% 48%) 0%, hsl(265 80% 45%) 55%, hsl(240 70% 35%) 100%)" }}>
+            <div className="absolute inset-0 opacity-[0.06]"
+              style={{
+                backgroundImage: `linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)`,
+                backgroundSize: "32px 32px"
+              }} />
+            <div className="absolute inset-0"
+              style={{ background: "radial-gradient(ellipse at 60% 40%, hsl(338 90% 56% / 0.3) 0%, transparent 60%)" }} />
+            <div className="relative z-10">
+              <p className="text-white/50 text-[11px] font-bold uppercase tracking-widest mb-3">Get started today</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-white mb-2 leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+                Launch your rental fleet.<br />
+                <span className="text-white/75">Or get on the road today.</span>
+              </h3>
+              <p className="text-white/55 text-sm mb-7 max-w-sm mx-auto leading-relaxed">
+                uRideHub helps drivers access weekly rentals while helping fleet operators build automated rental businesses.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link to="/book-now"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-white text-gray-900 font-bold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
+                  <Car className="h-4 w-4" /> Browse Vehicles
+                </Link>
+                <Link to="/become-a-host"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl border border-white/25 text-white/90 font-semibold text-sm hover:bg-white/10 hover:border-white/40 transition-all">
+                  <Building2 className="h-4 w-4" /> Become a Fleet Partner
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-center gap-4 text-xs text-gray-300 mt-6">
+            <Link to="/privacy" className="hover:text-gray-500 transition-colors">Privacy</Link>
+            <span>·</span>
+            <Link to="/terms" className="hover:text-gray-500 transition-colors">Terms</Link>
+            <span>·</span>
+            <span>© {new Date().getFullYear()} uRide</span>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
