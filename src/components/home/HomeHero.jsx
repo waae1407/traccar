@@ -51,7 +51,7 @@ export default function HomeHero() {
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/16 border border-white/24 backdrop-blur-sm mb-6">
           <Shield className="h-3 w-3 text-white" style={{ color: "rgba(255,255,255,0.92)" }} />
           <span className="text-[11px] font-semibold tracking-wide" style={{ color: "rgba(255,255,255,0.92)" }}>
-            Contactless weekly rentals · Independent fleet partners
+            Flexible rental options · Independent fleet partners
           </span>
         </div>
 
@@ -63,7 +63,7 @@ export default function HomeHero() {
         </h1>
 
         <p style={{ color: "rgba(255,255,255,0.92)" }} className="text-sm sm:text-base leading-relaxed max-w-md mx-auto mb-8">
-          uRideHub connects drivers with weekly rental vehicles while giving fleet owners, dealerships, and auto shops their own contactless rental storefront.
+          uRideHub connects drivers with rental vehicles while giving fleet owners, dealerships, and auto shops their own contactless rental storefront.
         </p>
 
         {/* CTA buttons */}

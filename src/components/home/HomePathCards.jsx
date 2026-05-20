@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Car, Home, ArrowRight, CalendarDays, Fingerprint, ShieldCheck, Zap, Palette, MapPin, CreditCard, BarChart2 } from "lucide-react";
 
 const DRIVER_BULLETS = [
-  { icon: CalendarDays, text: "Flexible weekly rentals" },
+  { icon: CalendarDays, text: "Flexible rental periods" },
   { icon: Fingerprint, text: "Contactless pickup options" },
   { icon: ShieldCheck, text: "Verified fleet partners" },
   { icon: Zap, text: "Fast online booking" },
@@ -38,7 +38,7 @@ export default function HomePathCards() {
           </div>
 
           <h2 className="text-xl font-black text-white mt-3 mb-1" style={{ fontFamily: "var(--font-syne)", textShadow: "0 1px 6px rgba(0,0,0,0.2)" }}>I Need a Car</h2>
-          <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.92)" }}>Find weekly rental vehicles for rideshare, delivery, work, or personal use.</p>
+          <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.92)" }}>Find rental vehicles for rideshare, delivery, work, or personal use.</p>
 
           <div className="space-y-2 mb-4">
             {DRIVER_BULLETS.map((b, i) => (

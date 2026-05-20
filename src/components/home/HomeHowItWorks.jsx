@@ -2,8 +2,8 @@ import React from "react";
 import { Search, UserCheck, Fingerprint, Car, CreditCard, Store } from "lucide-react";
 
 const DRIVER_STEPS = [
-  { icon: Search, label: "Browse vehicles", desc: "Find weekly rentals near you" },
-  { icon: UserCheck, label: "Verify online", desc: "Fast approval, no showroom visit" },
+  { icon: Search, label: "Browse vehicles", desc: "Find rentals near you" },
+  { icon: UserCheck, label: "Verify online", desc: "Get approved fast, no showroom visit" },
   { icon: Fingerprint, label: "Contactless pickup", desc: "Access keys or unlock remotely" },
 ];
 
@@ -54,7 +54,7 @@ export default function HomeHowItWorks() {
             </div>
             <div>
               <p className="text-[10px] font-bold text-pink-600 uppercase tracking-wider">For Drivers</p>
-              <p className="text-xs text-gray-500">Get approved online, rent weekly</p>
+              <p className="text-xs text-gray-500">Get approved online, start renting</p>
             </div>
           </div>
           <StepFlow steps={DRIVER_STEPS} accent="pink" />

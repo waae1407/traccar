@@ -115,7 +115,7 @@ export default function PublicHome() {
                 <span style={{ color: "rgba(255,255,255,0.95)" }}>Or get on the road today.</span>
               </h3>
               <p className="text-sm mb-7 max-w-sm mx-auto leading-relaxed" style={{ color: "rgba(255,255,255,0.92)" }}>
-                uRideHub helps drivers access weekly rentals while helping fleet operators build automated rental businesses.
+                uRideHub helps drivers access rentals while helping fleet operators build automated rental businesses.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link to="/book-now"
