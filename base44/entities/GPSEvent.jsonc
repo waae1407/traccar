@@ -1,0 +1,68 @@
+{
+  "name": "GPSEvent",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "device_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "kill_sent",
+        "kill_confirmed",
+        "kill_failed",
+        "reinstate_sent",
+        "reinstate_confirmed",
+        "reinstate_failed",
+        "unlock_sent",
+        "unlock_confirmed",
+        "unlock_failed",
+        "command_sent",
+        "command_failed",
+        "device_offline",
+        "device_online",
+        "location_ping"
+      ]
+    },
+    "command_sent_by": {
+      "type": "string"
+    },
+    "command_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "response_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "confirmed",
+        "failed",
+        "timeout"
+      ],
+      "default": "pending"
+    },
+    "response_payload": {
+      "type": "object"
+    },
+    "lat": {
+      "type": "number"
+    },
+    "lon": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "event_type",
+    "command_sent_by"
+  ]
+}

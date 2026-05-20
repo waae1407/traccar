@@ -40,6 +40,8 @@ import AdminHosts from '@/pages/admin/AdminHosts';
 import AdminPnL from '@/pages/AdminPnL';
 import AdminPayouts from '@/pages/admin/AdminPayouts';
 import AdminAIChat from '@/pages/admin/AdminAIChat';
+import AdminAuditLog from '@/pages/admin/AdminAuditLog';
+import AdminDisputes from '@/pages/admin/AdminDisputes';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
 
 // Host pages
@@ -173,6 +175,8 @@ const AuthenticatedApp = () => {
         <Route path="/admin/payouts" element={<AdminPayouts />} />
         <Route path="/admin/ai-chat" element={<AdminAIChat />} />
         <Route path="/admin/pnl" element={<AdminPnL />} />
+        <Route path="/admin/audit-log" element={<AdminAuditLog />} />
+        <Route path="/admin/disputes" element={<AdminDisputes />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

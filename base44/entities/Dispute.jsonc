@@ -1,0 +1,119 @@
+{
+  "name": "Dispute",
+  "type": "object",
+  "properties": {
+    "booking_request_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "dispute_type": {
+      "type": "string",
+      "enum": [
+        "damage",
+        "smoking",
+        "cleaning",
+        "late_return",
+        "payment_dispute",
+        "chargeback",
+        "unauthorized_driver",
+        "gps_tampering"
+      ]
+    },
+    "opened_by": {
+      "type": "string",
+      "enum": [
+        "host",
+        "customer",
+        "admin",
+        "stripe"
+      ],
+      "default": "admin"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "under_review",
+        "evidence_requested",
+        "payout_held",
+        "resolved_host_favor",
+        "resolved_customer_favor",
+        "resolved_split",
+        "closed_no_action",
+        "chargeback"
+      ],
+      "default": "open"
+    },
+    "description": {
+      "type": "string"
+    },
+    "host_statement": {
+      "type": "string"
+    },
+    "customer_statement": {
+      "type": "string"
+    },
+    "host_evidence_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "customer_evidence_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "assigned_admin_id": {
+      "type": "string"
+    },
+    "payout_hold_id": {
+      "type": "string"
+    },
+    "resolution_amount_to_host": {
+      "type": "number"
+    },
+    "resolution_amount_to_customer": {
+      "type": "number"
+    },
+    "stripe_dispute_id": {
+      "type": "string"
+    },
+    "stripe_dispute_status": {
+      "type": "string"
+    },
+    "stripe_dispute_amount": {
+      "type": "number"
+    },
+    "due_by": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "dispute_type",
+    "opened_by"
+  ]
+}

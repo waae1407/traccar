@@ -3,6 +3,31 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
 
+async function logEvent(base44, data) {
+  try {
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: data.event_type,
+      actor_id: data.actor_id || 'system',
+      actor_email: data.actor_email || 'system',
+      actor_role: data.actor_role || 'automation',
+      target_entity: data.target_entity || '',
+      target_id: data.target_id || '',
+      host_id: data.host_id || '',
+      booking_id: data.booking_id || '',
+      vehicle_id: data.vehicle_id || '',
+      customer_id: data.customer_id || '',
+      summary: data.summary || '',
+      metadata: data.metadata || {},
+      source: data.source || 'automation',
+      user_email: data.customer_id || 'system',
+      event_title: data.summary || data.event_type,
+      event_status: data.event_status || 'success',
+    });
+  } catch (e) {
+    console.error('[AuditLog]', e.message);
+  }
+}
+
 // MooveTrax kill switch — real API call
 async function moovetraxKillSwitch(deviceId, enable) {
   const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
@@ -198,6 +223,21 @@ Deno.serve(async (req) => {
 
           results.push({ id: booking.id, status: "charged", week: weekNum });
           console.log(`[WeeklyBilling] ✓ Charged ${booking.id} Week ${weekNum} $${amount}`);
+          await logEvent(base44, {
+            event_type: 'payment.succeeded',
+            actor_id: 'autopay',
+            actor_email: 'autopay@uridehub.com',
+            actor_role: 'automation',
+            target_entity: 'BookingRequest',
+            target_id: booking.id,
+            host_id: booking.host_id || '',
+            booking_id: booking.id,
+            vehicle_id: booking.vehicle_id || '',
+            customer_id: booking.user_email || '',
+            summary: `Autopay week ${weekNum} — $${amount} charged for ${booking.vehicle_name || booking.id}`,
+            metadata: { week_number: weekNum, amount, payment_intent_id: paymentIntent.id },
+            source: 'automation',
+          });
         }
       } catch (err) {
         console.error(`[WeeklyBilling] Charge failed for ${booking.id}:`, err.message);
@@ -260,5 +300,22 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     to: booking.user_email,
     subject: `⚠️ Payment Failed — Your Vehicle Has Been Temporarily Disabled`,
     body: `Hi ${booking.customer_full_name || ""},\n\nYour weekly payment of $${booking.weekly_rate || ""} for ${booking.vehicle_name} failed.\n\n🚫 Your vehicle has been temporarily disabled.\n\nWe will retry your payment in 1 hour automatically. To restore access sooner, please open the app and update your payment method.\n\nThe uRide Team`,
+  });
+
+  await logEvent(base44, {
+    event_type: 'payment.failed',
+    actor_id: 'autopay',
+    actor_email: 'autopay@uridehub.com',
+    actor_role: 'automation',
+    target_entity: 'BookingRequest',
+    target_id: booking.id,
+    host_id: booking.host_id || '',
+    booking_id: booking.id,
+    vehicle_id: booking.vehicle_id || '',
+    customer_id: booking.user_email || '',
+    summary: `Autopay FAILED for ${booking.vehicle_name || booking.id} — vehicle disabled — attempt ${attemptNum}`,
+    metadata: { reason, attempt_num: attemptNum, vehicle_name: booking.vehicle_name },
+    source: 'automation',
+    event_status: 'error',
   });
 }

@@ -4,6 +4,33 @@ import Stripe from 'npm:stripe@14.21.0';
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
 
+async function logEvent(base44, data) {
+  try {
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: data.event_type,
+      actor_id: data.actor_id || 'system',
+      actor_email: data.actor_email || 'system',
+      actor_role: data.actor_role || 'automation',
+      target_entity: data.target_entity || '',
+      target_id: data.target_id || '',
+      target_label: data.target_label || '',
+      host_id: data.host_id || '',
+      booking_id: data.booking_id || '',
+      vehicle_id: data.vehicle_id || '',
+      customer_id: data.customer_id || '',
+      summary: data.summary || '',
+      metadata: data.metadata || {},
+      source: data.source || 'webhook',
+      user_email: data.actor_email || 'system',
+      event_title: data.summary || data.event_type,
+      event_description: data.summary || '',
+      event_status: 'success',
+    });
+  } catch (e) {
+    console.error('[AuditLog]', e.message);
+  }
+}
+
 Deno.serve(async (req) => {
   const body = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -42,7 +69,6 @@ Deno.serve(async (req) => {
               ...(isContactless && { booking_status: 'active' }),
             });
 
-            // Notify customer if contactless — vehicle is ready immediately
             if (isContactless) {
               await base44.asServiceRole.entities.Notification.create({
                 user_email: booking.user_email,
@@ -54,7 +80,7 @@ Deno.serve(async (req) => {
               console.log(`[Webhook] Contactless booking ${bookingRequestId} auto-approved → active`);
             }
 
-            const grossAmount = pi.amount / 100; // dollars
+            const grossAmount = pi.amount / 100;
 
             if (booking.vehicle_id && grossAmount > 0) {
               const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
@@ -67,27 +93,21 @@ Deno.serve(async (req) => {
                 if (host?.stripe_account_id && host?.stripe_onboarding_complete) {
                   const commissionRate = host.commission_rate ?? 0.08;
 
-                  // --- Retrieve actual Stripe fee from balance_transaction ---
                   let stripeFeeAmount = 0;
                   let stripeEffectiveRate = 0;
                   const chargeId = pi.charges?.data?.[0]?.id;
                   if (chargeId) {
-                    const charge = await stripe.charges.retrieve(chargeId, {
-                      expand: ['balance_transaction'],
-                    });
+                    const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
                     if (charge.balance_transaction?.fee) {
-                      stripeFeeAmount = charge.balance_transaction.fee / 100; // cents → dollars
+                      stripeFeeAmount = charge.balance_transaction.fee / 100;
                       stripeEffectiveRate = (stripeFeeAmount / grossAmount) * 100;
                     }
                   }
 
-                  // --- Fee calculations ---
                   const uridePlatformFee = Math.round(grossAmount * commissionRate * 100) / 100;
-                  // Transfer = gross - uride_platform_fee (Stripe already took their fee from your balance)
-                  const hostTransferAmount = Math.round((grossAmount - uridePlatformFee) * 100); // cents
+                  const hostTransferAmount = Math.round((grossAmount - uridePlatformFee) * 100);
                   const netHostPayout = hostTransferAmount / 100;
 
-                  // Create Stripe transfer to host's connected account
                   const transfer = await stripe.transfers.create({
                     amount: hostTransferAmount,
                     currency: 'usd',
@@ -98,7 +118,6 @@ Deno.serve(async (req) => {
 
                   const vehicleName = vehicle ? `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim() : null;
 
-                  // Create detailed HostPayout record
                   await base44.asServiceRole.entities.HostPayout.create({
                     host_id: host.id,
                     host_email: host.email,
@@ -107,14 +126,12 @@ Deno.serve(async (req) => {
                     vehicle_name: vehicleName,
                     period_start: booking.start_date || new Date().toISOString().slice(0, 10),
                     period_end: booking.end_date || new Date().toISOString().slice(0, 10),
-                    // New detailed fields
                     gross_booking_amount: grossAmount,
                     stripe_fee_amount: stripeFeeAmount,
                     stripe_effective_rate: Math.round(stripeEffectiveRate * 100) / 100,
                     uride_platform_fee_amount: uridePlatformFee,
                     uride_platform_fee_rate: commissionRate,
                     net_host_payout: netHostPayout,
-                    // Legacy aliases
                     gross_collected: grossAmount,
                     platform_fee: uridePlatformFee,
                     net_payout: netHostPayout,
@@ -125,13 +142,11 @@ Deno.serve(async (req) => {
                     vehicle_count: 1,
                   });
 
-                  // Update host totals
                   await base44.asServiceRole.entities.Host.update(host.id, {
                     total_earnings: (host.total_earnings || 0) + grossAmount,
                     total_payouts: (host.total_payouts || 0) + netHostPayout,
                   });
 
-                  // Notify host with transparent breakdown
                   const feeLabel = `${(commissionRate * 100).toFixed(0)}% Uride Platform Fee`;
                   await base44.asServiceRole.entities.Notification.create({
                     user_email: host.email,
@@ -140,12 +155,42 @@ Deno.serve(async (req) => {
                     type: 'payment',
                   });
 
-                  console.log(`[AutoPayout] ✓ Transfer ${transfer.id} — $${netHostPayout} to ${host.stripe_account_id} for booking ${bookingRequestId} | Gross: $${grossAmount} | Uride Fee: $${uridePlatformFee} (${(commissionRate*100).toFixed(0)}%) | Stripe Fee: $${stripeFeeAmount}`);
+                  console.log(`[AutoPayout] ✓ Transfer ${transfer.id} — $${netHostPayout} to ${host.stripe_account_id} for booking ${bookingRequestId}`);
+
+                  await logEvent(base44, {
+                    event_type: 'payout.sent',
+                    actor_id: 'stripe_webhook',
+                    actor_email: 'stripe@stripe.com',
+                    actor_role: 'stripe',
+                    target_entity: 'HostPayout',
+                    host_id: host.id,
+                    booking_id: bookingRequestId,
+                    vehicle_id: booking.vehicle_id || '',
+                    summary: `Payout $${netHostPayout} sent to ${host.full_name} for booking ${bookingRequestId}`,
+                    metadata: { transfer_id: transfer.id, gross: grossAmount, platform_fee: uridePlatformFee, net: netHostPayout },
+                    source: 'webhook',
+                  });
                 } else {
                   console.log(`[AutoPayout] Host ${vehicle.host_id} not eligible for auto-payout (no Stripe account or onboarding incomplete)`);
                 }
               }
             }
+
+            await logEvent(base44, {
+              event_type: 'payment.succeeded',
+              actor_id: 'stripe_webhook',
+              actor_email: 'stripe@stripe.com',
+              actor_role: 'stripe',
+              target_entity: 'BookingRequest',
+              target_id: bookingRequestId,
+              booking_id: bookingRequestId,
+              vehicle_id: booking.vehicle_id || '',
+              host_id: booking.host_id || '',
+              customer_id: booking.user_email || '',
+              summary: `Payment $${grossAmount} received for booking ${bookingRequestId}`,
+              metadata: { payment_intent_id: pi.id, amount: pi.amount / 100, receipt_url: receiptUrl },
+              source: 'webhook',
+            });
           }
         }
         break;
@@ -165,6 +210,19 @@ Deno.serve(async (req) => {
             type: 'payment',
             booking_request_id: bookingRequestId,
             user_email: pi.metadata?.user_email || '',
+          });
+          await logEvent(base44, {
+            event_type: 'payment.failed',
+            actor_id: 'stripe_webhook',
+            actor_email: 'stripe@stripe.com',
+            actor_role: 'stripe',
+            target_entity: 'BookingRequest',
+            target_id: bookingRequestId,
+            booking_id: bookingRequestId,
+            customer_id: pi.metadata?.user_email || '',
+            summary: `Payment failed for booking ${bookingRequestId}: ${pi.last_payment_error?.message || 'unknown reason'}`,
+            metadata: { payment_intent_id: pi.id, reason: pi.last_payment_error?.message },
+            source: 'webhook',
           });
         }
         break;
@@ -188,6 +246,18 @@ Deno.serve(async (req) => {
           await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
             payment_status: 'refunded',
           });
+          await logEvent(base44, {
+            event_type: 'payment.refunded',
+            actor_id: 'stripe_webhook',
+            actor_email: 'stripe@stripe.com',
+            actor_role: 'stripe',
+            target_entity: 'BookingRequest',
+            target_id: bookingRequestId,
+            booking_id: bookingRequestId,
+            summary: `Refund processed for booking ${bookingRequestId}`,
+            metadata: { charge_id: charge.id, amount_refunded: charge.amount_refunded / 100 },
+            source: 'webhook',
+          });
         }
         break;
       }
@@ -203,13 +273,178 @@ Deno.serve(async (req) => {
             });
             await base44.asServiceRole.entities.Notification.create({
               user_email: hosts[0].email,
-              title: "✅ Stripe Payouts Activated!",
-              body: "Your Stripe Connect account is verified. You'll now automatically receive payouts after each rental. Uride Platform Fee is 8% — you keep 92% before Stripe processing.",
-              type: "system",
+              title: '✅ Stripe Payouts Activated!',
+              body: 'Your Stripe Connect account is verified. You\'ll now automatically receive payouts after each rental. Uride Platform Fee is 8% — you keep 92% before Stripe processing.',
+              type: 'system',
+            });
+            await logEvent(base44, {
+              event_type: 'host.stripe_connected',
+              actor_id: 'stripe_webhook',
+              actor_email: 'stripe@stripe.com',
+              actor_role: 'stripe',
+              target_entity: 'Host',
+              target_id: account.metadata.host_id,
+              host_id: account.metadata.host_id,
+              summary: `Host ${hosts[0].email} completed Stripe Connect onboarding`,
+              metadata: { stripe_account_id: account.id },
+              source: 'webhook',
             });
             console.log(`[Webhook] Host ${account.metadata.host_id} Stripe onboarding complete`);
           }
         }
+        break;
+      }
+
+      case 'charge.dispute.created': {
+        const dispute = event.data.object;
+        const stripeDisputeId = dispute.id;
+
+        // Idempotency: skip if already processed
+        const existingDisputes = await base44.asServiceRole.entities.Dispute.filter({ stripe_dispute_id: stripeDisputeId });
+        if (existingDisputes.length > 0) {
+          console.log(`[Webhook] Duplicate dispute event for ${stripeDisputeId} — skipping`);
+          break;
+        }
+
+        // Find the booking via payment_intent
+        const paymentIntentId = dispute.payment_intent;
+        let booking = null;
+        if (paymentIntentId) {
+          const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ stripe_payment_intent_id: paymentIntentId });
+          booking = bookings[0];
+        }
+
+        const dueBy = dispute.evidence_details?.due_by
+          ? new Date(dispute.evidence_details.due_by * 1000).toISOString()
+          : null;
+
+        // Create Dispute record
+        const disputeRecord = await base44.asServiceRole.entities.Dispute.create({
+          booking_request_id: booking?.id || '',
+          vehicle_id: booking?.vehicle_id || '',
+          vehicle_name: booking?.vehicle_name || '',
+          host_id: booking?.host_id || '',
+          customer_email: booking?.user_email || '',
+          dispute_type: 'chargeback',
+          opened_by: 'stripe',
+          status: 'chargeback',
+          description: `Stripe chargeback received: ${dispute.reason || 'unknown reason'} — $${(dispute.amount / 100).toFixed(2)}`,
+          stripe_dispute_id: stripeDisputeId,
+          stripe_dispute_status: dispute.status,
+          stripe_dispute_amount: dispute.amount / 100,
+          due_by: dueBy,
+        });
+
+        if (booking) {
+          // Mark booking under review
+          await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+            booking_status: 'under_review',
+          });
+
+          // Hold any unpaid/pending payouts for this booking
+          const payouts = await base44.asServiceRole.entities.HostPayout.filter({ booking_request_id: booking.id });
+          for (const payout of payouts) {
+            if (['pending', 'processing'].includes(payout.status)) {
+              await base44.asServiceRole.entities.HostPayout.update(payout.id, {
+                status: 'held',
+                hold_reason: 'chargeback',
+                hold_notes: `Stripe chargeback ${stripeDisputeId} — $${(dispute.amount / 100).toFixed(2)}`,
+                held_at: new Date().toISOString(),
+                held_by: 'stripe_webhook',
+              });
+              console.log(`[Webhook] Payout ${payout.id} held for chargeback ${stripeDisputeId}`);
+            } else if (payout.status === 'paid') {
+              // Already paid out — flag for admin review only
+              await base44.asServiceRole.entities.HostPayout.update(payout.id, {
+                hold_notes: `⚠️ CHARGEBACK ALERT: ${stripeDisputeId} — payout already sent, admin review needed`,
+              });
+            }
+          }
+
+          // Increment customer chargeback count
+          if (booking.user_email) {
+            const customers = await base44.asServiceRole.entities.Customer.filter({ email: booking.user_email });
+            if (customers[0]) {
+              await base44.asServiceRole.entities.Customer.update(customers[0].id, {
+                chargeback_count: (customers[0].chargeback_count || 0) + 1,
+              });
+            }
+          }
+        }
+
+        await logEvent(base44, {
+          event_type: 'dispute.chargeback_received',
+          actor_id: 'stripe_webhook',
+          actor_email: 'stripe@stripe.com',
+          actor_role: 'stripe',
+          target_entity: 'Dispute',
+          target_id: disputeRecord.id,
+          booking_id: booking?.id || '',
+          vehicle_id: booking?.vehicle_id || '',
+          host_id: booking?.host_id || '',
+          customer_id: booking?.user_email || '',
+          summary: `CHARGEBACK received: $${(dispute.amount / 100).toFixed(2)} — ${dispute.reason || 'unknown'} — due ${dueBy ? new Date(dueBy).toLocaleDateString() : 'unknown'}`,
+          metadata: { stripe_dispute_id: stripeDisputeId, amount: dispute.amount / 100, reason: dispute.reason, due_by: dueBy, stripe_status: dispute.status },
+          source: 'webhook',
+        });
+
+        console.log(`[Webhook] ⚠️ CHARGEBACK: ${stripeDisputeId} — $${(dispute.amount / 100).toFixed(2)} — Due: ${dueBy}`);
+        break;
+      }
+
+      case 'charge.dispute.updated': {
+        const dispute = event.data.object;
+        const existing = await base44.asServiceRole.entities.Dispute.filter({ stripe_dispute_id: dispute.id });
+        if (existing[0]) {
+          await base44.asServiceRole.entities.Dispute.update(existing[0].id, {
+            stripe_dispute_status: dispute.status,
+          });
+        }
+        console.log(`[Webhook] Dispute updated: ${dispute.id} → ${dispute.status}`);
+        break;
+      }
+
+      case 'charge.dispute.closed': {
+        const dispute = event.data.object;
+        const existing = await base44.asServiceRole.entities.Dispute.filter({ stripe_dispute_id: dispute.id });
+        if (existing[0]) {
+          const won = dispute.status === 'won';
+          const newStatus = won ? 'resolved_host_favor' : 'resolved_customer_favor';
+          await base44.asServiceRole.entities.Dispute.update(existing[0].id, {
+            stripe_dispute_status: dispute.status,
+            status: newStatus,
+            resolved_at: new Date().toISOString(),
+            resolved_by: 'stripe',
+          });
+
+          // If won, release held payout
+          if (won && existing[0].booking_request_id) {
+            const payouts = await base44.asServiceRole.entities.HostPayout.filter({ booking_request_id: existing[0].booking_request_id });
+            for (const payout of payouts) {
+              if (payout.status === 'held' && payout.hold_reason === 'chargeback') {
+                await base44.asServiceRole.entities.HostPayout.update(payout.id, {
+                  status: 'pending',
+                  released_at: new Date().toISOString(),
+                  hold_notes: (payout.hold_notes || '') + ' — Released: dispute won',
+                });
+              }
+            }
+          }
+
+          await logEvent(base44, {
+            event_type: 'dispute.resolved',
+            actor_id: 'stripe_webhook',
+            actor_email: 'stripe@stripe.com',
+            actor_role: 'stripe',
+            target_entity: 'Dispute',
+            target_id: existing[0].id,
+            booking_id: existing[0].booking_request_id || '',
+            summary: `Dispute ${dispute.id} closed: ${dispute.status} — ${won ? 'payout hold released' : 'customer wins'}`,
+            metadata: { stripe_dispute_id: dispute.id, outcome: dispute.status },
+            source: 'webhook',
+          });
+        }
+        console.log(`[Webhook] Dispute closed: ${dispute.id} → ${dispute.status}`);
         break;
       }
 

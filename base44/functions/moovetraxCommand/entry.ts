@@ -3,6 +3,30 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // MooveTrax Base URL — adjust if they provide a different one
 const MOOVETRAX_BASE = "https://www.moovetrax.com/api";
 
+async function logEvent(base44, data) {
+  try {
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: data.event_type,
+      actor_id: data.actor_id || 'admin',
+      actor_email: data.actor_email || 'admin',
+      actor_role: data.actor_role || 'admin',
+      target_entity: data.target_entity || 'Vehicle',
+      target_id: data.target_id || '',
+      host_id: data.host_id || '',
+      booking_id: data.booking_id || '',
+      vehicle_id: data.vehicle_id || '',
+      summary: data.summary || '',
+      metadata: data.metadata || {},
+      source: data.source || 'admin_panel',
+      user_email: data.actor_email || 'admin',
+      event_title: data.summary || data.event_type,
+      event_status: data.event_status || 'success',
+    });
+  } catch (e) {
+    console.error('[AuditLog]', e.message);
+  }
+}
+
 /**
  * Unified MooveTrax command handler.
  * Commands: location, lock, unlock, panic, kill, unkill, mileage, speed
@@ -110,7 +134,76 @@ Deno.serve(async (req) => {
       extraParams.speed = String(value);
     }
 
-    const result = await callMoovetrax(command, deviceKey, extraParams);
+    // Map command to GPS event type
+    const gpsEventMap = { kill: 'kill_sent', unkill: 'reinstate_sent', unlock: 'unlock_sent' };
+    const activityEventMap = { kill: 'gps.kill_sent', unkill: 'gps.reinstate_sent', unlock: 'gps.command_sent' };
+    const gpsEventType = gpsEventMap[command] || 'command_sent';
+    const activityEventType = activityEventMap[command] || 'gps.command_sent';
+
+    let result;
+    let commandFailed = false;
+    let failureReason = '';
+
+    try {
+      result = await callMoovetrax(command, deviceKey, extraParams);
+    } catch (cmdErr) {
+      commandFailed = true;
+      failureReason = cmdErr.message;
+      // Write failed GPS event
+      await base44.asServiceRole.entities.GPSEvent.create({
+        vehicle_id: vehicleDoc.id,
+        booking_request_id: booking_id || '',
+        device_id: deviceKey,
+        event_type: gpsEventType.replace('_sent', '_failed'),
+        command_sent_by: user.email,
+        command_sent_at: new Date().toISOString(),
+        response_status: 'failed',
+        response_payload: { error: failureReason },
+        notes: `Command ${command} failed: ${failureReason}`,
+      });
+      await logEvent(base44, {
+        event_type: 'gps.command_failed',
+        actor_id: user.id || user.email,
+        actor_email: user.email,
+        actor_role: user.role,
+        target_entity: 'Vehicle',
+        target_id: vehicleDoc.id,
+        vehicle_id: vehicleDoc.id,
+        booking_id: booking_id || '',
+        summary: `GPS command '${command}' FAILED on device ${deviceKey}: ${failureReason}`,
+        metadata: { command, device_id: deviceKey, error: failureReason },
+        source: user.role === 'admin' ? 'admin_panel' : 'customer_app',
+        event_status: 'error',
+      });
+      return Response.json({ error: failureReason, command_failed: true }, { status: 500 });
+    }
+
+    // Write success GPS event
+    await base44.asServiceRole.entities.GPSEvent.create({
+      vehicle_id: vehicleDoc.id,
+      booking_request_id: booking_id || '',
+      device_id: deviceKey,
+      event_type: gpsEventType,
+      command_sent_by: user.email,
+      command_sent_at: new Date().toISOString(),
+      response_status: 'confirmed',
+      response_payload: result || {},
+      notes: `Command ${command} executed successfully`,
+    });
+
+    await logEvent(base44, {
+      event_type: activityEventType,
+      actor_id: user.id || user.email,
+      actor_email: user.email,
+      actor_role: user.role,
+      target_entity: 'Vehicle',
+      target_id: vehicleDoc.id,
+      vehicle_id: vehicleDoc.id,
+      booking_id: booking_id || '',
+      summary: `GPS command '${command}' sent to device ${deviceKey} for vehicle ${vehicleDoc.id}`,
+      metadata: { command, device_id: deviceKey },
+      source: user.role === 'admin' ? 'admin_panel' : 'customer_app',
+    });
 
     // Post-command side-effects
     if (command === "kill" && booking_id) {

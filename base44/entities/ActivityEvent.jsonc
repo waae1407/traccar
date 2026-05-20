@@ -2,15 +2,6 @@
   "name": "ActivityEvent",
   "type": "object",
   "properties": {
-    "company_id": {
-      "type": "string"
-    },
-    "user_email": {
-      "type": "string"
-    },
-    "booking_request_id": {
-      "type": "string"
-    },
     "event_type": {
       "type": "string",
       "enum": [
@@ -29,8 +20,121 @@
         "payment_overdue",
         "under_review",
         "booking_completed",
-        "profile_updated"
+        "profile_updated",
+        "host.approved",
+        "host.rejected",
+        "host.suspended",
+        "host.doc_uploaded",
+        "host.stripe_connected",
+        "vehicle.created",
+        "vehicle.updated",
+        "vehicle.status_changed",
+        "vehicle.deleted",
+        "booking.submitted",
+        "booking.approved",
+        "booking.rejected",
+        "booking.activated",
+        "booking.completed",
+        "booking.cancelled",
+        "booking.suspended",
+        "payment.succeeded",
+        "payment.failed",
+        "payment.refunded",
+        "payment.retry",
+        "payout.created",
+        "payout.sent",
+        "payout.held",
+        "payout.released",
+        "payout.failed",
+        "dispute.opened",
+        "dispute.evidence_uploaded",
+        "dispute.resolved",
+        "dispute.chargeback_received",
+        "gps.kill_sent",
+        "gps.kill_confirmed",
+        "gps.kill_failed",
+        "gps.reinstate_sent",
+        "gps.reinstate_confirmed",
+        "gps.command_sent",
+        "gps.command_failed",
+        "gps.device_offline",
+        "gps.device_online",
+        "compliance.doc_uploaded",
+        "compliance.approved",
+        "compliance.expired",
+        "compliance.booking_blocked",
+        "storefront.published",
+        "storefront.unpublished",
+        "admin.override",
+        "admin.note_added",
+        "admin.payout_held",
+        "maintenance.logged",
+        "maintenance.vehicle_offline"
       ]
+    },
+    "actor_id": {
+      "type": "string"
+    },
+    "actor_email": {
+      "type": "string"
+    },
+    "actor_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "host",
+        "customer",
+        "automation",
+        "system",
+        "stripe"
+      ]
+    },
+    "target_entity": {
+      "type": "string"
+    },
+    "target_id": {
+      "type": "string"
+    },
+    "target_label": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "admin_panel",
+        "host_portal",
+        "customer_app",
+        "automation",
+        "webhook",
+        "system"
+      ]
+    },
+    "company_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
     },
     "event_title": {
       "type": "string"
@@ -53,8 +157,6 @@
     }
   },
   "required": [
-    "user_email",
-    "event_type",
-    "event_title"
+    "event_type"
   ]
 }

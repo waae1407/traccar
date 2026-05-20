@@ -40,7 +40,7 @@
     },
     "pickup_address": {
       "type": "string",
-      "description": "Full street address for vehicle pickup \u2014 revealed to customer after payment"
+      "description": "Full street address for vehicle pickup"
     },
     "pickup_hours": {
       "type": "string",
@@ -59,7 +59,8 @@
         "Booked",
         "Maintenance",
         "Transferred",
-        "Out of Service"
+        "Out of Service",
+        "Compliance Hold"
       ],
       "default": "Available"
     },
@@ -119,8 +120,7 @@
     },
     "contactless_pickup": {
       "type": "boolean",
-      "default": false,
-      "description": "If true, vehicle is fully contactless \u2014 no admin approval needed after payment. Requires moovetrax_device_id."
+      "default": false
     },
     "deployment_type": {
       "type": "string",
@@ -185,7 +185,7 @@
     },
     "current_city": {
       "type": "string",
-      "description": "Deprecated - use city and state instead"
+      "description": "Deprecated \u2014 use city and state instead"
     },
     "moovetrax_device_id": {
       "type": "string"

@@ -53,6 +53,16 @@
         "Website",
         "Other"
       ]
+    },
+    "chargeback_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of Stripe chargebacks filed by or against this customer"
+    },
+    "dispute_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Total disputes opened involving this customer"
     }
   },
   "required": [

@@ -34,22 +34,22 @@
     "stripe_fee_amount": {
       "type": "number",
       "default": 0,
-      "description": "Actual Stripe processing fee from balance_transaction.fee"
+      "description": "Actual Stripe processing fee"
     },
     "stripe_effective_rate": {
       "type": "number",
       "default": 0,
-      "description": "Stripe fee as percentage of gross (stripe_fee / gross * 100)"
+      "description": "Stripe fee as percentage of gross"
     },
     "uride_platform_fee_amount": {
       "type": "number",
       "default": 0,
-      "description": "Uride Platform Fee (gross * commission_rate)"
+      "description": "Uride Platform Fee"
     },
     "uride_platform_fee_rate": {
       "type": "number",
       "default": 0.08,
-      "description": "The commission_rate applied for this payout"
+      "description": "The commission_rate applied"
     },
     "net_host_payout": {
       "type": "number",
@@ -59,17 +59,17 @@
     "gross_collected": {
       "type": "number",
       "default": 0,
-      "description": "Legacy alias for gross_booking_amount"
+      "description": "Legacy alias"
     },
     "platform_fee": {
       "type": "number",
       "default": 0,
-      "description": "Legacy alias for uride_platform_fee_amount"
+      "description": "Legacy alias"
     },
     "net_payout": {
       "type": "number",
       "default": 0,
-      "description": "Legacy alias for net_host_payout"
+      "description": "Legacy alias"
     },
     "status": {
       "type": "string",
@@ -77,9 +77,40 @@
         "pending",
         "processing",
         "paid",
-        "failed"
+        "failed",
+        "held",
+        "released"
       ],
       "default": "pending"
+    },
+    "hold_reason": {
+      "type": "string",
+      "enum": [
+        "dispute",
+        "chargeback",
+        "compliance",
+        "admin_override",
+        "reserve_window",
+        ""
+      ]
+    },
+    "hold_notes": {
+      "type": "string"
+    },
+    "held_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "held_by": {
+      "type": "string"
+    },
+    "release_after": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "released_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "stripe_transfer_id": {
       "type": "string"

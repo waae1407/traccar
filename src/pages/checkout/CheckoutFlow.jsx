@@ -43,6 +43,7 @@ export default function CheckoutFlow() {
 
   const [booking, setBooking] = useState(null);
   const [currentStep, setCurrentStep] = useState("select_vehicle");
+  const [complianceError, setComplianceError] = useState(null);
   // Track whether we've done the initial hydration from the DB so we never override currentStep again
   const initializedRef = React.useRef(false);
 
@@ -224,6 +225,16 @@ export default function CheckoutFlow() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-5">
+        {complianceError && currentStep === "select_vehicle" && (
+          <div className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 flex items-start gap-3">
+            <span className="text-red-500 text-lg flex-shrink-0">⚠️</span>
+            <div>
+              <p className="text-sm font-bold text-red-900">Vehicle Unavailable</p>
+              <p className="text-xs text-red-700 mt-0.5">{complianceError}</p>
+            </div>
+            <button onClick={() => setComplianceError(null)} className="ml-auto text-red-400 hover:text-red-600 text-xs">✕</button>
+          </div>
+        )}
         {currentStep === "select_vehicle" && <StepVehicle {...commonProps} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} onSelect={async (v, type, opts = {}) => {
           if (!user) {
             // Redirect to login, then come back to checkout with vehicle pre-selected
@@ -231,6 +242,19 @@ export default function CheckoutFlow() {
             return;
           }
           if (hardBlockingBooking) return;
+
+          // Compliance check — block booking if vehicle has expired/missing docs
+          try {
+            const compRes = await base44.functions.invoke("validateVehicleBooking", { vehicle_id: v.id });
+            if (compRes.data?.blocked) {
+              setComplianceError(compRes.data.reason || "This vehicle is temporarily unavailable.");
+              return;
+            }
+          } catch (e) {
+            console.warn("[ComplianceCheck] Failed:", e);
+          }
+          setComplianceError(null);
+
           // Auto-cancel any stale/draft bookings before creating the new one
           const allStaleToCancel = allUserBookings.filter(
             (b) => [...STALE_STATUSES, "draft", "pending_payment"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId

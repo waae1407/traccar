@@ -3,6 +3,30 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
 
+async function logEvent(base44, adminEmail, data) {
+  try {
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: data.event_type,
+      actor_id: adminEmail,
+      actor_email: adminEmail,
+      actor_role: 'admin',
+      target_entity: data.target_entity || 'BookingRequest',
+      target_id: data.target_id || '',
+      booking_id: data.booking_id || '',
+      vehicle_id: data.vehicle_id || '',
+      host_id: data.host_id || '',
+      summary: data.summary || '',
+      metadata: data.metadata || {},
+      source: 'admin_panel',
+      user_email: adminEmail,
+      event_title: data.summary || data.event_type,
+      event_status: data.event_status || 'success',
+    });
+  } catch (e) {
+    console.error('[AuditLog]', e.message);
+  }
+}
+
 // MooveTrax kill switch — real API call
 async function moovetraxKillSwitch(deviceId, enable) {
   const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
@@ -61,7 +85,7 @@ Deno.serve(async (req) => {
         if (!booking.stripe_payment_intent_id) {
           return Response.json({ error: "No payment intent found for this booking" }, { status: 400 });
         }
-        const refundAmount = amount ? Math.round(amount * 100) : undefined; // undefined = full refund
+        const refundAmount = amount ? Math.round(amount * 100) : undefined;
         const refund = await stripe.refunds.create({
           payment_intent: booking.stripe_payment_intent_id,
           ...(refundAmount && { amount: refundAmount }),
@@ -80,6 +104,16 @@ Deno.serve(async (req) => {
           body: `A refund of $${amount || "full amount"} has been issued for your ${booking.vehicle_name} rental. Please allow 5-10 business days.`,
           type: "payment",
           booking_request_id,
+        });
+
+        await logEvent(base44, user.email, {
+          event_type: 'payment.refunded',
+          target_id: booking_request_id,
+          booking_id: booking_request_id,
+          vehicle_id: booking.vehicle_id || '',
+          host_id: booking.host_id || '',
+          summary: `Admin refund $${amount || 'full'} for booking ${booking_request_id} — ${reason || 'no reason given'}`,
+          metadata: { refund_id: refund.id, amount, reason },
         });
 
         return Response.json({ ok: true, refund_id: refund.id, status: refund.status });
@@ -120,11 +154,19 @@ Deno.serve(async (req) => {
           booking_request_id,
         });
 
+        await logEvent(base44, user.email, {
+          event_type: 'payment.succeeded',
+          target_id: booking_request_id,
+          booking_id: booking_request_id,
+          vehicle_id: booking.vehicle_id || '',
+          summary: `Admin charge $${amount} on booking ${booking_request_id} — ${action}: ${description || reason || ''}`,
+          metadata: { action, amount, payment_intent_id: paymentIntent.id, description },
+        });
+
         return Response.json({ ok: true, payment_intent_id: paymentIntent.id, status: paymentIntent.status });
       }
 
       case "reinstate": {
-        // Admin manually reinstates after suspended — re-enable vehicle
         await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
           booking_status: "active",
           payment_status: "paid",
@@ -133,7 +175,6 @@ Deno.serve(async (req) => {
           suspended_at: null,
         });
 
-        // Re-enable vehicle via Moovetrax
         if (booking.vehicle_id) {
           const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
           const vehicle = vehicles[0];
@@ -150,11 +191,19 @@ Deno.serve(async (req) => {
           booking_request_id,
         });
 
+        await logEvent(base44, user.email, {
+          event_type: 'gps.reinstate_sent',
+          target_id: booking_request_id,
+          booking_id: booking_request_id,
+          vehicle_id: booking.vehicle_id || '',
+          summary: `Admin reinstated booking ${booking_request_id} — vehicle unkilled for ${booking.customer_full_name || booking.user_email}`,
+          metadata: { reason },
+        });
+
         return Response.json({ ok: true, action: "reinstated" });
       }
 
       case "kill_vehicle": {
-        // Admin manually kills vehicle
         if (booking.vehicle_id) {
           const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
           const vehicle = vehicles[0];
@@ -172,11 +221,20 @@ Deno.serve(async (req) => {
           type: "booking",
           booking_request_id,
         });
+
+        await logEvent(base44, user.email, {
+          event_type: 'gps.kill_sent',
+          target_id: booking_request_id,
+          booking_id: booking_request_id,
+          vehicle_id: booking.vehicle_id || '',
+          summary: `Admin killed vehicle on booking ${booking_request_id} — ${reason || 'no reason given'}`,
+          metadata: { reason },
+        });
+
         return Response.json({ ok: true, action: "vehicle_killed" });
       }
 
       case "unkill_vehicle": {
-        // Admin manually restores vehicle
         if (booking.vehicle_id) {
           const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
           const vehicle = vehicles[0];
@@ -194,6 +252,16 @@ Deno.serve(async (req) => {
           type: "booking",
           booking_request_id,
         });
+
+        await logEvent(base44, user.email, {
+          event_type: 'gps.reinstate_sent',
+          target_id: booking_request_id,
+          booking_id: booking_request_id,
+          vehicle_id: booking.vehicle_id || '',
+          summary: `Admin restored vehicle on booking ${booking_request_id}`,
+          metadata: { reason },
+        });
+
         return Response.json({ ok: true, action: "vehicle_restored" });
       }
 

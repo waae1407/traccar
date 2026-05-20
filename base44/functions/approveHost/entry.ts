@@ -13,6 +13,28 @@ async function sendEmail(to, subject, html, fromName = "uRide") {
 const APP_URL = "https://uridehub.com";
 const LOGO_URL = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
+async function logEvent(base44, data) {
+  try {
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: data.event_type,
+      actor_id: data.actor_id || 'admin',
+      actor_email: data.actor_email || 'admin',
+      actor_role: data.actor_role || 'admin',
+      target_entity: data.target_entity || '',
+      target_id: data.target_id || '',
+      host_id: data.host_id || '',
+      summary: data.summary || '',
+      metadata: data.metadata || {},
+      source: data.source || 'admin_panel',
+      user_email: data.actor_email || 'admin',
+      event_title: data.summary || data.event_type,
+      event_status: 'success',
+    });
+  } catch (e) {
+    console.error('[AuditLog]', e.message);
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -164,6 +186,21 @@ Deno.serve(async (req) => {
     });
 
     console.log(`[ApproveHost] ✓ Approved and emailed host ${host_id}`);
+
+    await logEvent(base44, {
+      event_type: 'host.approved',
+      actor_id: 'admin',
+      actor_email: 'admin@uridehub.com',
+      actor_role: 'admin',
+      target_entity: 'Host',
+      target_id: host_id,
+      target_label: host_name || host_email,
+      host_id: host_id,
+      summary: `Fleet Partner approved: ${host_name || host_email}`,
+      metadata: { host_email, host_name },
+      source: 'admin_panel',
+    });
+
     return Response.json({ success: true });
   } catch (error) {
     console.error("[ApproveHost] Error:", error.message);
