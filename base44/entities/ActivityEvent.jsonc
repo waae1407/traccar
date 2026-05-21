@@ -37,6 +37,7 @@
         "booking.completed",
         "booking.cancelled",
         "booking.suspended",
+        "booking.status_changed",
         "payment.succeeded",
         "payment.failed",
         "payment.refunded",
@@ -47,8 +48,11 @@
         "payout.released",
         "payout.failed",
         "dispute.opened",
+        "dispute.status_changed",
         "dispute.evidence_uploaded",
+        "dispute.evidence_requested",
         "dispute.resolved",
+        "dispute.closed",
         "dispute.chargeback_received",
         "gps.kill_sent",
         "gps.kill_confirmed",
@@ -154,6 +158,10 @@
     },
     "amount": {
       "type": "number"
+    },
+    "dedupe_key": {
+      "type": "string",
+      "description": "Optional idempotency key: event_type_targetId_newValue. Used to identify duplicate writes in audit analysis."
     }
   },
   "required": [

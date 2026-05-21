@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
   FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2, Eye, Gift, Home, Wallet, Zap,
+  Shield, FileText, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -36,6 +37,12 @@ const hostNavItems = [
 
 const superadminNavItems = [
   { label: "Companies", icon: Building2, path: "/companies" },
+];
+
+const operationsNavItems = [
+  { label: "Disputes", icon: Shield, path: "/admin/disputes" },
+  { label: "Audit Log", icon: FileText, path: "/admin/audit-log" },
+  { label: "Operational Alerts", icon: Bell, path: "/admin/operational-alerts" },
 ];
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
@@ -116,6 +123,20 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                   <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-yellow-500" />
                 )}
                 {isActive && !collapsed && !showBadge && <div className="ml-auto relative z-10 h-1.5 w-1.5 rounded-full bg-primary" />}
+              </Link>
+            );
+          })}
+          {!collapsed && <div className="my-2 border-t border-white/[0.06]" />}
+          {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-primary/50 px-3 mb-2 mt-1">Operations</p>}
+          {operationsNavItems.map((item) => {
+            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+            return (
+              <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
+                className={cn("group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden",
+                  isActive ? "nav-active shadow-glow-sm" : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]")}>
+                <item.icon className={cn("flex-shrink-0 relative z-10", isActive ? "text-primary" : "text-white/40 group-hover:text-white/70")} style={{ height: '1.125rem', width: '1.125rem' }} />
+                {!collapsed && <span className="relative z-10">{item.label}</span>}
+                {isActive && !collapsed && <div className="ml-auto relative z-10 h-1.5 w-1.5 rounded-full bg-primary" />}
               </Link>
             );
           })}
