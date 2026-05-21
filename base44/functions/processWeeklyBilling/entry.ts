@@ -215,6 +215,29 @@ Deno.serve(async (req) => {
                 stripe_transfer_id: transfer.id,
               });
 
+              // ── CREATE HostPayout RECORD ─────────────────────────────────────
+              await base44.asServiceRole.entities.HostPayout.create({
+                host_id: host.id,
+                host_email: host.email,
+                host_name: host.full_name,
+                booking_request_id: booking.id,
+                vehicle_name: booking.vehicle_name || "",
+                period_start: booking.next_billing_date,
+                period_end: nextBillingDate,
+                gross_booking_amount: amount,
+                stripe_fee_amount: stripeFee,
+                stripe_effective_rate: parseFloat(((stripeFee / amount) * 100).toFixed(2)),
+                uride_platform_fee_amount: platformFee,
+                uride_platform_fee_rate: commissionRate,
+                net_host_payout: hostAmount,
+                net_payout: hostAmount,
+                gross_collected: amount,
+                platform_fee: platformFee,
+                stripe_transfer_id: transfer.id,
+                status: "paid",
+                payout_date: new Date().toISOString().split('T')[0],
+              });
+
               console.log(`[WeeklyBilling] ✓ Host transfer ${transfer.id} — $${hostAmount} to ${host.stripe_account_id}`);
             }
           }

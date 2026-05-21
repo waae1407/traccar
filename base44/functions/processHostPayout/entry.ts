@@ -52,15 +52,35 @@ Deno.serve(async (req) => {
       metadata: { host_id, payout_id, platform: "uride" },
     });
 
+    // ── CREATE HostPayout RECORD ──────────────────────────────────────────────
+    const payoutCommissionRate = host.commission_rate ?? 0.08;
+    const payoutPlatformFee = Math.round(amount * payoutCommissionRate * 100) / 100;
+
+    await base44.asServiceRole.entities.HostPayout.create({
+      host_id: host_id,
+      host_email: host.email,
+      host_name: host.full_name,
+      booking_request_id: payout_id,
+      gross_booking_amount: amount,
+      uride_platform_fee_amount: payoutPlatformFee,
+      uride_platform_fee_rate: payoutCommissionRate,
+      net_host_payout: amount,
+      net_payout: amount,
+      gross_collected: amount,
+      platform_fee: payoutPlatformFee,
+      stripe_transfer_id: transfer.id,
+      status: "paid",
+      payout_date: new Date().toISOString().split('T')[0],
+    });
+
     await base44.asServiceRole.entities.Host.update(host_id, {
       total_payouts: (host.total_payouts || 0) + amount,
     });
 
-    const commissionRate = host.commission_rate ?? 0.08;
     await base44.asServiceRole.entities.Notification.create({
       user_email: host.email,
       title: `💰 Payout Sent — $${amount.toLocaleString()}`,
-      body: `Your payout of $${amount.toLocaleString()} has been transferred to your bank account. Uride Platform Fee: ${(commissionRate * 100).toFixed(0)}%. Arrives within 2 business days.`,
+      body: `Your payout of $${amount.toLocaleString()} has been transferred to your bank account. Uride Platform Fee: ${(payoutCommissionRate * 100).toFixed(0)}%. Arrives within 2 business days.`,
       type: "payment",
     });
 
