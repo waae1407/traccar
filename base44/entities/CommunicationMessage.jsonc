@@ -1,0 +1,103 @@
+{
+  "name": "CommunicationMessage",
+  "type": "object",
+  "properties": {
+    "thread_id": {
+      "type": "string"
+    },
+    "sender_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "host",
+        "customer",
+        "system"
+      ]
+    },
+    "sender_id": {
+      "type": "string"
+    },
+    "sender_name": {
+      "type": "string"
+    },
+    "sender_email": {
+      "type": "string"
+    },
+    "message_type": {
+      "type": "string",
+      "enum": [
+        "text",
+        "image",
+        "document",
+        "system_event",
+        "payout_note",
+        "dispute_note",
+        "maintenance_note",
+        "internal_note"
+      ]
+    },
+    "body": {
+      "type": "string"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "internal_note": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, only visible to admins"
+    },
+    "visible_to_customer": {
+      "type": "boolean",
+      "default": true
+    },
+    "visible_to_host": {
+      "type": "boolean",
+      "default": true
+    },
+    "visible_to_admin": {
+      "type": "boolean",
+      "default": true
+    },
+    "edited": {
+      "type": "boolean",
+      "default": false
+    },
+    "deleted": {
+      "type": "boolean",
+      "default": false
+    },
+    "moderation_flag": {
+      "type": "boolean",
+      "default": false
+    },
+    "parent_message_id": {
+      "type": "string",
+      "description": "For threaded replies"
+    }
+  },
+  "required": [
+    "thread_id",
+    "sender_role",
+    "sender_id",
+    "message_type",
+    "body"
+  ]
+}

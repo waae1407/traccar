@@ -1,0 +1,104 @@
+{
+  "name": "CommunicationThread",
+  "type": "object",
+  "properties": {
+    "thread_type": {
+      "type": "string",
+      "enum": [
+        "booking_conversation",
+        "support_ticket",
+        "dispute_thread",
+        "maintenance_discussion",
+        "compliance_request",
+        "admin_notice",
+        "payout_discussion",
+        "vehicle_issue"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "awaiting_host",
+        "awaiting_customer",
+        "awaiting_admin",
+        "resolved",
+        "archived"
+      ],
+      "default": "open"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ],
+      "default": "normal"
+    },
+    "subject": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "dispute_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "assigned_admin_id": {
+      "type": "string"
+    },
+    "last_message_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "unread_count_host": {
+      "type": "number",
+      "default": 0
+    },
+    "unread_count_customer": {
+      "type": "number",
+      "default": 0
+    },
+    "unread_count_admin": {
+      "type": "number",
+      "default": 0
+    },
+    "escalation_flag": {
+      "type": "boolean",
+      "default": false
+    },
+    "archived": {
+      "type": "boolean",
+      "default": false
+    },
+    "closed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sla_response_due_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "SLA deadline for first response"
+    },
+    "sla_breached": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "thread_type",
+    "subject",
+    "host_id"
+  ]
+}
