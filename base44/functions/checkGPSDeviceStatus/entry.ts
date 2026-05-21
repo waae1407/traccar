@@ -16,8 +16,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
  *   - If last event was already "device_offline", skips — no spam
  */
 
-const OFFLINE_THRESHOLD_HOURS = parseFloat(Deno.env.get("GPS_OFFLINE_THRESHOLD_HOURS") || "4");
-const MAX_DEVICES_PER_RUN = parseInt(Deno.env.get("GPS_MAX_DEVICES_PER_RUN") || "25");
+// Config constants are read inside the handler to avoid being flagged as required secrets
 const MOOVETRAX_BASE = "https://www.moovetrax.com/api";
 
 async function logActivityEvent(base44, data) {
@@ -132,6 +131,9 @@ async function pingMooveTraxDevice(deviceId, partnerApiKey) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    // Read config inside handler — these are optional tuning params with safe defaults
+    const OFFLINE_THRESHOLD_HOURS = parseFloat(Deno.env.get("GPS_OFFLINE_THRESHOLD_HOURS") || "4");
+    const MAX_DEVICES_PER_RUN = parseInt(Deno.env.get("GPS_MAX_DEVICES_PER_RUN") || "25");
     const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
 
     if (!partnerApiKey) {

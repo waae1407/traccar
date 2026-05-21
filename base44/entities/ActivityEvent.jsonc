@@ -68,6 +68,7 @@
         "compliance.approved",
         "compliance.expired",
         "compliance.booking_blocked",
+        "compliance.reminder_sent",
         "storefront.published",
         "storefront.unpublished",
         "admin.override",

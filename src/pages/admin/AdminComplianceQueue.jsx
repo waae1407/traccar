@@ -135,14 +135,15 @@ export default function AdminComplianceQueue() {
   const handleSendReminder = async (doc) => {
     setSendingReminder(doc.id);
     try {
-      const host = hosts.find(h => h.id === doc.host_id);
-      if (host?.email) {
-        await base44.integrations.Core.SendEmail({
-          to: host.email,
-          subject: `⚠️ Action Required: ${DOC_LABELS[doc.doc_type] || doc.doc_type} for ${doc.vehicle_name}`,
-          body: `This is a reminder that your ${DOC_LABELS[doc.doc_type] || doc.doc_type} for ${doc.vehicle_name} ${doc.status === "expired" ? "has expired" : `expires on ${doc.expiry_date}`}.\n\nPlease upload a renewal at: https://uridehub.com/host/compliance\n\nuRide Compliance Team`,
-        });
-      }
+      await base44.functions.invoke('sendComplianceReminder', {
+        host_id: doc.host_id,
+        vehicle_id: doc.vehicle_id,
+        doc_id: doc.id,
+        doc_type: doc.doc_type,
+        vehicle_name: doc.vehicle_name,
+        expiry_date: doc.expiry_date,
+        doc_status: doc.status,
+      });
     } catch (err) {
       console.error("Reminder failed:", err);
     } finally {
