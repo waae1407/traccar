@@ -184,6 +184,7 @@ export default function HostVehicles() {
         onSave={(data) => saveMutation.mutate(data)}
         vehicle={editing}
         isSaving={saveMutation.isPending}
+        requiredHostId={host?.id || ""}
       />
     </div>
   );

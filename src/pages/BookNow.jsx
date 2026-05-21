@@ -81,7 +81,7 @@ export default function BookNow() {
 
   // All available vehicles, sorted by distance if location is known (no hard distance cutoff)
   const available = useMemo(() => {
-    const avail = vehicles.filter((v) => v.status === "Available");
+    const avail = vehicles.filter((v) => v.status === "Available" && v.host_id);
     if (!location.lat || !location.lon) return avail;
     return avail
       .map((v) => ({

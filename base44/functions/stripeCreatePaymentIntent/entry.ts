@@ -36,6 +36,20 @@ Deno.serve(async (req) => {
     const { booking_request_id, amount_cents, booking_type, setup_future_usage, existing_payment_intent_id } = payload;
     console.log(`[STRIPE] Request: booking_request_id=${booking_request_id}, amount_cents=${amount_cents}, booking_type=${booking_type}`);
 
+    if (booking_request_id) {
+      const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ id: booking_request_id });
+      const booking = bookings[0];
+      if (!booking) return Response.json({ error: 'Booking not found' }, { status: 404 });
+      if (!booking.host_id && booking.vehicle_id) {
+        const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+        const vehicle = vehicles[0];
+        if (!vehicle?.host_id) {
+          return Response.json({ error: 'Vehicle is missing required host assignment' }, { status: 400 });
+        }
+        await base44.asServiceRole.entities.BookingRequest.update(booking.id, { host_id: vehicle.host_id });
+      }
+    }
+
     // Validate amount
     if (!Number.isInteger(amount_cents) || amount_cents < 50) {
       console.error(`[STRIPE] Invalid amount: ${amount_cents} (must be integer >= 50 cents)`);

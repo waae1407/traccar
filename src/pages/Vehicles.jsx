@@ -39,6 +39,10 @@ export default function Vehicles() {
   });
 
   const handleSave = async (data) => {
+    if (!data.host_id) {
+      toast.error("Please assign this vehicle to a host before saving.");
+      return;
+    }
     if (editingVehicle) {
       const wasBooked = editingVehicle.status === "Booked";
       const nowAvailable = data.status === "Available";
@@ -104,7 +108,7 @@ export default function Vehicles() {
       const h = r.host_id ? hostMap[r.host_id] : null;
       return h
         ? <span className="text-xs text-white/70">{h.full_name}{h.business_name ? ` — ${h.business_name}` : ""}</span>
-        : <span className="text-white/20 text-xs">Admin fleet</span>;
+        : <span className="text-red-400 text-xs font-semibold">Missing host</span>;
     }},
     { key: "rto", label: "RTO", render: (r) => r.rent_to_own_eligible
       ? <span className="text-xs font-semibold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">Eligible</span>

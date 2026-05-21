@@ -8,12 +8,10 @@ import { Loader } from "lucide-react";
 import { calculateRentalPrice } from "@/utils/rentalPricing";
 
 const emptyForm = {
-  vin: "", plate: "", make: "", model: "", year: "", color: "",
+  host_id: "", vin: "", plate: "", make: "", model: "", year: "", color: "",
   purchase_price: "", city: "", state: "", status: "Available",
   mileage: "", last_service_date: "", weekly_rate: "", rent_to_own_eligible: false,
-  pickup_address: "", pickup_hours: "",
-  moovetrax_device_id: "", contactless_pickup: false,
-  // Rental duration settings
+  pickup_address: "", pickup_hours: "", moovetrax_device_id: "", contactless_pickup: false,
   minimum_rental_days: 7, maximum_rental_days: "", rental_duration_type: "weekly",
   daily_rate: "", monthly_rate: "",
   allow_daily_booking: false, allow_weekly_booking: true, allow_monthly_booking: false,
@@ -22,10 +20,10 @@ const emptyForm = {
 const PREVIEW_DAYS = [1, 3, 7, 14, 30];
 
 function PricingPreview({ form }) {
-  const previews = PREVIEW_DAYS.map(d => ({
-    days: d,
-    result: calculateRentalPrice(form, d),
-  })).filter(p => p.result !== null);
+  const previews = PREVIEW_DAYS.map((days) => ({
+    days,
+    result: calculateRentalPrice(form, days),
+  })).filter((p) => p.result !== null);
 
   if (previews.length === 0) return null;
 
@@ -47,19 +45,20 @@ function PricingPreview({ form }) {
   );
 }
 
-export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving }) {
+export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving, requiredHostId = "" }) {
   const [form, setForm] = useState(emptyForm);
   const [decodingVIN, setDecodingVIN] = useState(false);
   const [vinError, setVinError] = useState("");
   const [hosts, setHosts] = useState([]);
 
   useEffect(() => {
-    base44.entities.Host.list("-created_date", 200).then(h => setHosts(h.filter(x => x.status === "approved")));
+    base44.entities.Host.list("-created_date", 200).then((h) => setHosts(h.filter((x) => x.status === "approved")));
   }, []);
 
   useEffect(() => {
     setForm(vehicle ? {
-      ...emptyForm, ...vehicle,
+      ...emptyForm,
+      ...vehicle,
       year: vehicle.year || "",
       purchase_price: vehicle.purchase_price || "",
       mileage: vehicle.mileage || "",
@@ -78,16 +77,22 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
       allow_daily_booking: vehicle.allow_daily_booking ?? false,
       allow_weekly_booking: vehicle.allow_weekly_booking ?? true,
       allow_monthly_booking: vehicle.allow_monthly_booking ?? false,
-    } : emptyForm);
+      host_id: vehicle.host_id || requiredHostId || "",
+    } : { ...emptyForm, host_id: requiredHostId || "" });
     setVinError("");
-  }, [vehicle, open]);
+  }, [vehicle, open, requiredHostId]);
 
-  const set = (field, value) => setForm((p) => ({ ...p, [field]: value }));
+  const set = (field, value) => setForm((previous) => ({ ...previous, [field]: value }));
 
   const handleDecodeVIN = async () => {
-    if (!form.vin || form.vin.length < 10) { setVinError("VIN must be at least 10 characters"); return; }
+    if (!form.vin || form.vin.length < 10) {
+      setVinError("VIN must be at least 10 characters");
+      return;
+    }
+
     setDecodingVIN(true);
     setVinError("");
+
     try {
       const res = await base44.functions.invoke("decodeVIN", { vin: form.vin });
       if (res.data?.year && res.data?.make && res.data?.model) {
@@ -106,8 +111,14 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!form.host_id && !requiredHostId) {
+      setVinError("Please assign this vehicle to a host before saving.");
+      return;
+    }
+
     onSave({
       ...form,
+      host_id: form.host_id || requiredHostId,
       year: form.year ? Number(form.year) : undefined,
       purchase_price: form.purchase_price ? Number(form.purchase_price) : undefined,
       mileage: form.mileage ? Number(form.mileage) : undefined,
@@ -120,19 +131,26 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
   };
 
   const sel = (field, options, placeholder) => (
-    <Select value={String(form[field])} onValueChange={(v) => set(field, v)}>
+    <Select value={String(form[field])} onValueChange={(value) => set(field, value)}>
       <SelectTrigger className="h-9 rounded-xl bg-white/[0.06] border-white/[0.1] text-white focus:ring-0">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
-        {options.map((o) => <SelectItem key={o} value={o} className="focus:bg-white/10 focus:text-white">{o}</SelectItem>)}
+        {options.map((option) => (
+          <SelectItem key={option} value={option} className="focus:bg-white/10 focus:text-white">
+            {option}
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );
 
   const toggle = (field) => (
-    <button type="button" onClick={() => set(field, !form[field])}
-      className={`relative h-5 w-9 rounded-full transition-all flex-shrink-0 ${form[field] ? "bg-primary" : "bg-white/10"}`}>
+    <button
+      type="button"
+      onClick={() => set(field, !form[field])}
+      className={`relative h-5 w-9 rounded-full transition-all flex-shrink-0 ${form[field] ? "bg-primary" : "bg-white/10"}`}
+    >
       <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${form[field] ? "left-4" : "left-0.5"}`} />
     </button>
   );
@@ -143,18 +161,19 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
         <DialogHeader>
           <DialogTitle className="font-syne text-white">{vehicle ? "Edit Vehicle" : "Add Vehicle"}</DialogTitle>
         </DialogHeader>
+
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-3 gap-4">
             <FormField label="Make" required><input className={inputClass} value={form.make} onChange={(e) => set("make", e.target.value)} required /></FormField>
             <FormField label="Model" required><input className={inputClass} value={form.model} onChange={(e) => set("model", e.target.value)} required /></FormField>
             <FormField label="Year" required><input type="number" className={inputClass} value={form.year} onChange={(e) => set("year", e.target.value)} required /></FormField>
           </div>
+
           <div className="space-y-2">
             <FormField label="VIN">
               <div className="flex gap-2">
                 <input className={inputClass} value={form.vin} onChange={(e) => { set("vin", e.target.value); setVinError(""); }} placeholder="Enter full VIN" />
-                <button type="button" onClick={handleDecodeVIN} disabled={decodingVIN || !form.vin}
-                  className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 transition-all text-sm font-medium whitespace-nowrap flex items-center gap-1">
+                <button type="button" onClick={handleDecodeVIN} disabled={decodingVIN || !form.vin} className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-50 transition-all text-sm font-medium whitespace-nowrap flex items-center gap-1">
                   {decodingVIN ? <><Loader className="h-3 w-3 animate-spin" /> Decode</> : "Decode"}
                 </button>
               </div>
@@ -162,121 +181,75 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             </FormField>
             <FormField label="Plate"><input className={inputClass} value={form.plate} onChange={(e) => set("plate", e.target.value)} /></FormField>
           </div>
+
           <div className="grid grid-cols-3 gap-4">
             <FormField label="Color"><input className={inputClass} value={form.color} onChange={(e) => set("color", e.target.value)} /></FormField>
             <FormField label="City"><input className={inputClass} value={form.city} onChange={(e) => set("city", e.target.value)} /></FormField>
             <FormField label="State"><input className={inputClass} value={form.state} onChange={(e) => set("state", e.target.value)} placeholder="CA, TX..." maxLength="2" /></FormField>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Purchase Price"><input type="number" className={inputClass} value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} /></FormField>
             <FormField label="Mileage"><input type="number" className={inputClass} value={form.mileage} onChange={(e) => set("mileage", e.target.value)} /></FormField>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Status">{sel("status", ["Available", "Booked", "Maintenance", "Transferred"])}</FormField>
             <FormField label="Last Service"><input type="date" className={inputClass} value={form.last_service_date} onChange={(e) => set("last_service_date", e.target.value)} /></FormField>
           </div>
 
-          {/* Host Assignment */}
-          {hosts.length > 0 && (
-            <FormField label="Assign to Host (optional)">
-              <Select value={form.host_id || "__none__"} onValueChange={(v) => set("host_id", v === "__none__" ? "" : v)}>
+          {!requiredHostId && (
+            <FormField label="Assign to Host" required>
+              <Select value={form.host_id || ""} onValueChange={(value) => set("host_id", value)} required>
                 <SelectTrigger className="h-9 rounded-xl bg-white/[0.06] border-white/[0.1] text-white focus:ring-0">
-                  <SelectValue placeholder="No host assigned (admin fleet)" />
+                  <SelectValue placeholder="Select required host" />
                 </SelectTrigger>
                 <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
-                  <SelectItem value="__none__" className="focus:bg-white/10 focus:text-white">No host assigned (admin fleet)</SelectItem>
-                  {hosts.map(h => (
-                    <SelectItem key={h.id} value={h.id} className="focus:bg-white/10 focus:text-white">
-                      {h.full_name}{h.business_name ? ` — ${h.business_name}` : ""}
+                  {hosts.map((host) => (
+                    <SelectItem key={host.id} value={host.id} className="focus:bg-white/10 focus:text-white">
+                      {host.full_name}{host.business_name ? ` — ${host.business_name}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-[10px] text-white/30 mt-1">Required to keep bookings, payouts, and reports linked correctly.</p>
             </FormField>
           )}
 
-          {/* ── Rental Settings ── */}
           <div className="space-y-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             <p className="text-xs font-bold text-white/50 uppercase tracking-wider">⏱ Rental Duration Settings</p>
-
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="Min Rental Days">
-                <input type="number" min="1" className={inputClass} value={form.minimum_rental_days}
-                  onChange={(e) => set("minimum_rental_days", e.target.value)} placeholder="7" />
-              </FormField>
-              <FormField label="Max Rental Days (optional)">
-                <input type="number" min="1" className={inputClass} value={form.maximum_rental_days}
-                  onChange={(e) => set("maximum_rental_days", e.target.value)} placeholder="No limit" />
-              </FormField>
+              <FormField label="Min Rental Days"><input type="number" min="1" className={inputClass} value={form.minimum_rental_days} onChange={(e) => set("minimum_rental_days", e.target.value)} placeholder="7" /></FormField>
+              <FormField label="Max Rental Days (optional)"><input type="number" min="1" className={inputClass} value={form.maximum_rental_days} onChange={(e) => set("maximum_rental_days", e.target.value)} placeholder="No limit" /></FormField>
             </div>
 
-            {/* Booking type toggles */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-white/60">Allow Weekly Booking</span>
-                {toggle("allow_weekly_booking")}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-white/60">Allow Daily Booking</span>
-                {toggle("allow_daily_booking")}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-white/60">Allow Monthly Booking</span>
-                {toggle("allow_monthly_booking")}
-              </div>
+              <div className="flex items-center justify-between"><span className="text-sm text-white/60">Allow Weekly Booking</span>{toggle("allow_weekly_booking")}</div>
+              <div className="flex items-center justify-between"><span className="text-sm text-white/60">Allow Daily Booking</span>{toggle("allow_daily_booking")}</div>
+              <div className="flex items-center justify-between"><span className="text-sm text-white/60">Allow Monthly Booking</span>{toggle("allow_monthly_booking")}</div>
             </div>
 
-            {/* Rate inputs */}
             <div className="space-y-2">
-              {form.allow_weekly_booking && (
-                <FormField label="Weekly Rate ($)">
-                  <input type="number" className={inputClass} value={form.weekly_rate}
-                    onChange={(e) => set("weekly_rate", e.target.value)} placeholder="e.g. 350" />
-                </FormField>
-              )}
-              {form.allow_daily_booking && (
-                <FormField label="Daily Rate ($)">
-                  <input type="number" className={inputClass} value={form.daily_rate}
-                    onChange={(e) => set("daily_rate", e.target.value)} placeholder="e.g. 65" />
-                </FormField>
-              )}
-              {form.allow_monthly_booking && (
-                <FormField label="Monthly Rate ($)">
-                  <input type="number" className={inputClass} value={form.monthly_rate}
-                    onChange={(e) => set("monthly_rate", e.target.value)} placeholder="e.g. 1200" />
-                </FormField>
-              )}
-              {!form.allow_daily_booking && !form.allow_weekly_booking && !form.allow_monthly_booking && (
-                <FormField label="Weekly Rate ($)">
-                  <input type="number" className={inputClass} value={form.weekly_rate}
-                    onChange={(e) => set("weekly_rate", e.target.value)} placeholder="e.g. 350" />
-                </FormField>
-              )}
+              {form.allow_weekly_booking && <FormField label="Weekly Rate ($)"><input type="number" className={inputClass} value={form.weekly_rate} onChange={(e) => set("weekly_rate", e.target.value)} placeholder="e.g. 350" /></FormField>}
+              {form.allow_daily_booking && <FormField label="Daily Rate ($)"><input type="number" className={inputClass} value={form.daily_rate} onChange={(e) => set("daily_rate", e.target.value)} placeholder="e.g. 65" /></FormField>}
+              {form.allow_monthly_booking && <FormField label="Monthly Rate ($)"><input type="number" className={inputClass} value={form.monthly_rate} onChange={(e) => set("monthly_rate", e.target.value)} placeholder="e.g. 1200" /></FormField>}
+              {!form.allow_daily_booking && !form.allow_weekly_booking && !form.allow_monthly_booking && <FormField label="Weekly Rate ($)"><input type="number" className={inputClass} value={form.weekly_rate} onChange={(e) => set("weekly_rate", e.target.value)} placeholder="e.g. 350" /></FormField>}
             </div>
 
-            {/* Pricing preview */}
             <PricingPreview form={form} />
           </div>
 
-          {/* Pickup Info */}
           <div className="space-y-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             <p className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
               📍 Pickup Info <span className="text-white/25 font-normal normal-case tracking-normal">(revealed after payment)</span>
             </p>
-            <FormField label="Full Pickup Address">
-              <input className={inputClass} value={form.pickup_address} onChange={(e) => set("pickup_address", e.target.value)} placeholder="e.g. 1234 Main St, Detroit, MI 48201" />
-            </FormField>
-            <FormField label="Pickup Hours (optional)">
-              <input className={inputClass} value={form.pickup_hours} onChange={(e) => set("pickup_hours", e.target.value)} placeholder="e.g. Mon–Fri 9am–5pm" />
-            </FormField>
+            <FormField label="Full Pickup Address"><input className={inputClass} value={form.pickup_address} onChange={(e) => set("pickup_address", e.target.value)} placeholder="e.g. 1234 Main St, Detroit, MI 48201" /></FormField>
+            <FormField label="Pickup Hours (optional)"><input className={inputClass} value={form.pickup_hours} onChange={(e) => set("pickup_hours", e.target.value)} placeholder="e.g. Mon–Fri 9am–5pm" /></FormField>
           </div>
 
-          {/* Telematics / Moovetrax */}
           <div className="space-y-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             <p className="text-xs font-bold text-white/50 uppercase tracking-wider">📡 Telematics (Moovetrax)</p>
-            <FormField label="Moovetrax Device ID">
-              <input className={inputClass} value={form.moovetrax_device_id || ""} onChange={(e) => set("moovetrax_device_id", e.target.value)} placeholder="e.g. MT-123456" />
-            </FormField>
+            <FormField label="Moovetrax Device ID"><input className={inputClass} value={form.moovetrax_device_id || ""} onChange={(e) => set("moovetrax_device_id", e.target.value)} placeholder="e.g. MT-123456" /></FormField>
             <p className="text-[10px] text-white/25">Used for remote kill switch control on payment failure. Leave blank if not equipped.</p>
             <div className="flex items-center justify-between pt-1">
               <div>

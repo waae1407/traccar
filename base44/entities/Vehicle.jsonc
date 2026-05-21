@@ -8,7 +8,7 @@
     },
     "host_id": {
       "type": "string",
-      "description": "Host owner (if marketplace vehicle)"
+      "description": "Required host owner for all bookable vehicles"
     },
     "vin": {
       "type": "string",
@@ -196,6 +196,7 @@
     }
   },
   "required": [
+    "host_id",
     "make",
     "model",
     "year"

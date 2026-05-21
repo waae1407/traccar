@@ -41,7 +41,7 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const [userCoords, setUserCoords] = useState(null);
   const [zipcodeCoords, setZipcodeCoords] = useState(null);
 
-  const available = vehicles.filter((v) => v.status === "Available");
+  const available = vehicles.filter((v) => v.status === "Available" && v.host_id);
   const typeFiltered = type === "Rent-to-Own" ? available.filter((v) => v.rent_to_own_eligible) : available;
 
   // Geo-filter by radius if coords are available

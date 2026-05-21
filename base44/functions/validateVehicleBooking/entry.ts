@@ -21,6 +21,14 @@ Deno.serve(async (req) => {
       return Response.json({ blocked: true, reason: 'This vehicle is temporarily unavailable.', internal_reason: 'Vehicle not found' });
     }
 
+    if (!vehicle.host_id) {
+      return Response.json({
+        blocked: true,
+        reason: 'This vehicle is temporarily unavailable.',
+        internal_reason: 'Vehicle is missing required host assignment'
+      });
+    }
+
     if (vehicle.status === 'Compliance Hold') {
       return Response.json({
         blocked: true,
@@ -62,7 +70,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({ blocked: false });
+    return Response.json({ blocked: false, host_id: vehicle.host_id });
   } catch (error) {
     console.error('[ValidateVehicleBooking]', error.message);
     // Fail open — don't block booking if check itself errors

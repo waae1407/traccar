@@ -261,6 +261,9 @@ export default function CheckoutFlow() {
               setComplianceError(compRes.data.reason || "This vehicle is temporarily unavailable.");
               return;
             }
+            if (compRes.data?.host_id && !v.host_id) {
+              v.host_id = compRes.data.host_id;
+            }
           } catch (e) {
             console.warn("[ComplianceCheck] Failed:", e);
           }
