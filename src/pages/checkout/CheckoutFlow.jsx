@@ -150,7 +150,11 @@ export default function CheckoutFlow() {
     if (booking?.id) {
       updateMutation.mutate({
         id: booking.id,
-        data: { ...stepData, checkout_step: nextStep },
+        data: {
+          ...stepData,
+          ...(!booking.host_id && selectedVehicle?.host_id ? { host_id: selectedVehicle.host_id } : {}),
+          checkout_step: nextStep,
+        },
       });
     }
     setCurrentStep(nextStep);
@@ -160,7 +164,14 @@ export default function CheckoutFlow() {
   // Called by StepPayment after Stripe confirms — bypasses saveAndAdvance to avoid re-render loops
   const onPaymentSuccess = (updateData) => {
     if (booking?.id) {
-      updateMutation.mutate({ id: booking.id, data: { ...updateData, checkout_step: "confirmation" } });
+      updateMutation.mutate({
+        id: booking.id,
+        data: {
+          ...updateData,
+          ...(!booking.host_id && selectedVehicle?.host_id ? { host_id: selectedVehicle.host_id } : {}),
+          checkout_step: "confirmation",
+        },
+      });
     }
     setCurrentStep("confirmation");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -263,6 +274,7 @@ export default function CheckoutFlow() {
           // Use mutateAsync so we await the creation before advancing
           await createMutation.mutateAsync({
             vehicle_id: v.id, vehicle_name: `${v.year} ${v.make} ${v.model}`,
+            host_id: v.host_id || "",
             vehicle_image: v.image_url, booking_type: type, city: v.city || v.current_city,
             weekly_rate: v.weekly_rate, deposit_amount: 0,
             first_payment_amount: v.weekly_rate || 0, total_due_now: v.weekly_rate || 0,

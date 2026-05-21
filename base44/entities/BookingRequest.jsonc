@@ -6,6 +6,10 @@
       "type": "string",
       "description": "Owning company"
     },
+    "host_id": {
+      "type": "string",
+      "description": "Host owner resolved from the selected vehicle"
+    },
     "user_id": {
       "type": "string"
     },
