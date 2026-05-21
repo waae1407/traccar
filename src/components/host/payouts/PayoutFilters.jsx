@@ -46,10 +46,10 @@ const controlBase = "appearance-none cursor-pointer focus:outline-none transitio
 const controlIdle = "bg-white border-2 border-gray-300 text-gray-800 placeholder-gray-500 hover:border-gray-400 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20";
 const controlActive = "bg-pink-50 border-2 border-pink-500 text-gray-900 font-semibold";
 
-function Sel({ value, onChange, options }) {
+function Sel({ value, onChange, options, minWidth = "120px" }) {
   const isActive = !!value && value !== options[0]?.value;
   return (
-    <div className="relative">
+    <div className="relative" style={{ minWidth }}>
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
@@ -95,8 +95,8 @@ export default function PayoutFilters({ filters, onChange, vehicles = [], onExpo
 
         {/* Row 2: Dropdowns + Export */}
         <div className="flex flex-wrap gap-2">
-          <Sel value={filters.dateRange} onChange={v => onChange({ ...filters, dateRange: v })} options={DATE_OPTIONS} />
-          <Sel value={filters.status} onChange={v => onChange({ ...filters, status: v })} options={STATUS_OPTIONS} />
+          <Sel value={filters.dateRange} onChange={v => onChange({ ...filters, dateRange: v })} options={DATE_OPTIONS} minWidth="130px" />
+          <Sel value={filters.status} onChange={v => onChange({ ...filters, status: v })} options={STATUS_OPTIONS} minWidth="120px" />
 
           <div className="relative flex-1 min-w-[140px]">
             <select
