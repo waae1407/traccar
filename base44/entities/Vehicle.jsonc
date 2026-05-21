@@ -39,12 +39,10 @@
       "type": "string"
     },
     "pickup_address": {
-      "type": "string",
-      "description": "Full street address for vehicle pickup"
+      "type": "string"
     },
     "pickup_hours": {
-      "type": "string",
-      "description": "Pickup availability hours"
+      "type": "string"
     },
     "vehicle_lat": {
       "type": "number"
@@ -56,11 +54,17 @@
       "type": "string",
       "enum": [
         "Available",
+        "Reserved",
+        "Active Rental",
         "Booked",
+        "Payment Due",
+        "Grace Period",
+        "Suspended",
         "Maintenance",
+        "Compliance Hold",
         "Transferred",
         "Out of Service",
-        "Compliance Hold"
+        "Retired"
       ],
       "default": "Available"
     },

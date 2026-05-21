@@ -46,7 +46,8 @@ Deno.serve(async (req) => {
     });
 
     const retryTargets = failedBookings.filter((b) => {
-      if (b.booking_status === "suspended") return false;
+      // Skip bookings managed by the grace period automation (processGracePeriod)
+      if (["payment_due", "grace_period", "suspended"].includes(b.booking_status)) return false;
       if (!b.stripe_payment_method_id || !b.stripe_customer_id) return false;
       if ((b.payment_failure_attempts || 0) >= 3) return false;
       if (!b.last_payment_failure_at) return false;

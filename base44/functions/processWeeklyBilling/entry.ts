@@ -262,28 +262,29 @@ async function schedulePreChargeWarning(base44, booking, nextBillingDate, amount
 }
 
 async function handleFailedPayment(base44, booking, reason, attemptNum) {
+  // Phase 2A: No immediate GPS kill on first failure.
+  // Grace period system (processGracePeriod) handles retries and suspension.
+  const now = new Date();
+  const gracePeriodHours = parseInt(Deno.env.get("GRACE_PERIOD_HOURS") || "72");
+  const graceEndsAt = new Date(now.getTime() + gracePeriodHours * 60 * 60 * 1000);
+
   await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
     payment_status: "failed",
     payment_failure_reason: reason,
     payment_failure_attempts: attemptNum,
-    last_payment_failure_at: new Date().toISOString(),
-    moovetrax_kill_active: true,
+    last_payment_failure_at: now.toISOString(),
+    last_retry_at: now.toISOString(),
+    booking_status: "payment_due",
+    grace_period_started_at: now.toISOString(),
+    grace_period_ends_at: graceEndsAt.toISOString(),
+    // moovetrax_kill_active remains false — GPS kill only on suspension after grace period
   });
 
-  // Kill vehicle immediately on first failure
-  if (booking.vehicle_id) {
-    const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
-    const vehicle = vehicles[0];
-    if (vehicle?.moovetrax_device_id) {
-      await moovetraxKillSwitch(vehicle.moovetrax_device_id, true);
-    }
-  }
-
-  // In-app notification
+  // In-app notification — grace period language
   await base44.asServiceRole.entities.Notification.create({
     user_email: booking.user_email,
-    title: "⚠️ Payment Failed — Vehicle Disabled",
-    body: `Your weekly payment for ${booking.vehicle_name} failed. Your vehicle has been temporarily disabled. We'll retry in 1 hour. Open the app to resolve now.`,
+    title: "⚠️ Payment Failed — Action Required",
+    body: `Your weekly payment for ${booking.vehicle_name} failed. You have ${gracePeriodHours} hours to resolve this before your rental is suspended. Please update your payment method. We will retry automatically.`,
     type: "payment",
     booking_request_id: booking.id,
   });
@@ -291,15 +292,15 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
   // SMS
   if (booking.customer_phone) {
     await sendSMS(booking.customer_phone,
-      `⚠️ uRide: Payment failed for ${booking.vehicle_name}. Your vehicle has been disabled. Open the app now to resolve or we'll retry in 1 hour.`
+      `⚠️ uRide: Payment failed for ${booking.vehicle_name}. You have ${gracePeriodHours}h to resolve before suspension. Open the app to update your payment method.`
     );
   }
 
   // Email
   await base44.asServiceRole.integrations.Core.SendEmail({
     to: booking.user_email,
-    subject: `⚠️ Payment Failed — Your Vehicle Has Been Temporarily Disabled`,
-    body: `Hi ${booking.customer_full_name || ""},\n\nYour weekly payment of $${booking.weekly_rate || ""} for ${booking.vehicle_name} failed.\n\n🚫 Your vehicle has been temporarily disabled.\n\nWe will retry your payment in 1 hour automatically. To restore access sooner, please open the app and update your payment method.\n\nThe uRide Team`,
+    subject: `⚠️ Payment Failed — ${gracePeriodHours} Hours to Resolve`,
+    body: `Hi ${booking.customer_full_name || ""},\n\nYour weekly payment of $${booking.weekly_rate || ""} for ${booking.vehicle_name} failed.\n\n📌 What happens next:\n• We will retry your payment automatically every 24 hours\n• You have ${gracePeriodHours} hours to resolve this\n• Your vehicle remains active during the grace period\n• If unresolved after ${gracePeriodHours} hours, your rental will be suspended\n\n✅ To resolve now: open the app and update your payment method.\n\nThe uRide Team`,
   });
 
   await logEvent(base44, {
@@ -313,8 +314,8 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     booking_id: booking.id,
     vehicle_id: booking.vehicle_id || '',
     customer_id: booking.user_email || '',
-    summary: `Autopay FAILED for ${booking.vehicle_name || booking.id} — vehicle disabled — attempt ${attemptNum}`,
-    metadata: { reason, attempt_num: attemptNum, vehicle_name: booking.vehicle_name },
+    summary: `Payment FAILED — grace period started (${gracePeriodHours}h window) for ${booking.vehicle_name || booking.id}`,
+    metadata: { reason, attempt_num: attemptNum, grace_ends_at: graceEndsAt.toISOString(), vehicle_name: booking.vehicle_name },
     source: 'automation',
     event_status: 'error',
   });

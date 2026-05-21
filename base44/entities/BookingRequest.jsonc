@@ -69,6 +69,8 @@
         "pending_review",
         "confirmed",
         "active",
+        "payment_due",
+        "grace_period",
         "completed",
         "cancelled",
         "under_review",
@@ -272,8 +274,7 @@
     },
     "pending_referral_credit": {
       "type": "number",
-      "default": 0,
-      "description": "Dollar amount of referral credit to deduct from next weekly payment"
+      "default": 0
     },
     "abandoned_checkout": {
       "type": "boolean",
@@ -281,13 +282,11 @@
     },
     "abandoned_reminder_count": {
       "type": "number",
-      "default": 0,
-      "description": "Number of abandoned checkout reminder messages sent"
+      "default": 0
     },
     "last_abandoned_reminder_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When the last abandoned checkout reminder was sent"
+      "format": "date-time"
     },
     "submitted_at": {
       "type": "string",
@@ -478,6 +477,26 @@
     },
     "rental_ended_by": {
       "type": "string"
+    },
+    "grace_period_started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the payment grace period began after first failure"
+    },
+    "grace_period_ends_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the grace period expires \u2014 suspension triggers if unpaid"
+    },
+    "last_retry_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last automated payment retry attempt"
+    },
+    "suspension_triggered_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When automated suspension was triggered by grace period expiry"
     }
   },
   "required": [

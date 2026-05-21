@@ -257,7 +257,7 @@ export default function HostDashboard() {
       <div className="grid grid-cols-2 gap-4">
         <StatCard label="Pending Payout" value={`$${pendingPayout.toLocaleString()}`} sub={pendingPayout === 0 ? "No payout pending" : "Next transfer scheduled"} icon={DollarSign} color="text-emerald-600" bg="bg-emerald-50" href="/host/payouts" />
         <StatCard label="Total Earned" value={`$${totalEarned.toLocaleString()}`} sub="All-time earnings" icon={TrendingUp} color="text-pink-600" bg="bg-pink-50" href="/host/payouts" />
-        <StatCard label="Active Vehicles" value={vehicles.filter(v => v.status === "Booked" || v.status === "Available").length} sub="Available on storefront" icon={Car} color="text-blue-600" bg="bg-blue-50" href="/host/vehicles" />
+        <StatCard label="Active Vehicles" value={vehicles.filter(v => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"].includes(v.status)).length} sub="Available on storefront" icon={Car} color="text-blue-600" bg="bg-blue-50" href="/host/vehicles" />
         <StatCard label="Active Rentals" value={activeBookings.length} sub={activeBookings.length === 0 ? "No active rentals yet" : "Currently on the road"} icon={CheckCircle2} color="text-violet-600" bg="bg-violet-50" href="/host/payments" />
       </div>
 
