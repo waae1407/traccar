@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Users, CheckCircle2, XCircle, Clock, AlertTriangle, Search, ChevronDown, ChevronUp, Shield, FileText, Eye } from "lucide-react";
+import { Users, CheckCircle2, AlertTriangle, Search, ChevronDown, ChevronUp, Shield, FileText, DollarSign, Lock, Settings } from "lucide-react";
+import HostRestrictionsPanel from "@/components/admin/HostRestrictionsPanel";
 import HostVerificationPanel from "@/components/admin/HostVerificationPanel";
 
 const statusConfig = {
@@ -25,6 +26,7 @@ export default function AdminHosts() {
   const [filter, setFilter] = useState("all");
   const [expanded, setExpanded] = useState(null);
   const [verifyingHost, setVerifyingHost] = useState(null);
+  const [restrictingHost, setRestrictingHost] = useState(null);
 
   const { data: hosts = [], isLoading } = useQuery({
     queryKey: ["admin-hosts"],
@@ -151,6 +153,10 @@ export default function AdminHosts() {
                     {h.stripe_onboarding_complete
                       ? <span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">Stripe ✓</span>
                       : <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-white/40">No Stripe</span>}
+                    {h.payout_frozen && <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold">💸 Frozen</span>}
+                    {h.booking_blocked && <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 font-bold">🔒 Blocked</span>}
+                    {h.host_under_review && <span className="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-bold">👁 Review</span>}
+                    {h.require_manual_approval && <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-bold">✋ Manual</span>}
                     {isExpanded ? <ChevronUp className="h-4 w-4 text-white/40" /> : <ChevronDown className="h-4 w-4 text-white/40" />}
                   </div>
                 </div>
@@ -187,11 +193,21 @@ export default function AdminHosts() {
                     {h.bio && <p className="text-sm text-white/50 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">{h.bio}</p>}
                     {h.verification_notes && <p className="text-xs text-white/40 italic">Notes: {h.verification_notes}</p>}
 
+                    {h.restriction_reason && (
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                        <AlertTriangle className="h-3.5 w-3.5 text-yellow-400 flex-shrink-0" />
+                        <p className="text-xs text-yellow-300">{h.restriction_reason}</p>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 flex-wrap">
                       <button onClick={() => setVerifyingHost(h)}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white"
                         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                         <Shield className="h-4 w-4" /> Verify & Manage
+                      </button>
+                      <button onClick={() => setRestrictingHost(h)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 transition-all">
+                        <Settings className="h-4 w-4" /> Restrictions
                       </button>
                       {h.status === "approved" && (
                         <button onClick={() => handleSuspend(h)} disabled={updateMutation.isPending}
@@ -220,6 +236,14 @@ export default function AdminHosts() {
           host={verifyingHost}
           open={!!verifyingHost}
           onClose={() => setVerifyingHost(null)}
+        />
+      )}
+
+      {/* Restrictions Panel Modal */}
+      {restrictingHost && (
+        <HostRestrictionsPanel
+          host={restrictingHost}
+          onClose={() => setRestrictingHost(null)}
         />
       )}
     </div>

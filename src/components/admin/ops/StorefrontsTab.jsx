@@ -1,17 +1,22 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Globe, CheckCircle2, Clock, EyeOff, ExternalLink, RefreshCw, Search } from "lucide-react";
+import { Globe, EyeOff, ExternalLink, RefreshCw, Search, AlertTriangle, Flag, ChevronRight } from "lucide-react";
+import StorefrontModerationPanel from "@/components/admin/ops/StorefrontModerationPanel";
 
 const STATUS_CONFIG = {
-  live:    { label: "Live",    color: "text-emerald-400", bg: "bg-emerald-500/20 border-emerald-500/30", dot: "bg-emerald-400" },
-  preview: { label: "Preview", color: "text-blue-400",    bg: "bg-blue-500/20 border-blue-500/30",       dot: "bg-blue-400" },
-  draft:   { label: "Draft",   color: "text-muted-foreground", bg: "bg-muted/30 border-border",          dot: "bg-muted-foreground/40" },
+  live:         { label: "Live",         color: "text-emerald-400", bg: "bg-emerald-500/20 border-emerald-500/30",   dot: "bg-emerald-400" },
+  preview:      { label: "Preview",      color: "text-blue-400",    bg: "bg-blue-500/20 border-blue-500/30",       dot: "bg-blue-400" },
+  draft:        { label: "Draft",        color: "text-muted-foreground", bg: "bg-muted/30 border-border",           dot: "bg-muted-foreground/40" },
+  suspended:    { label: "Suspended",    color: "text-red-400",     bg: "bg-red-500/20 border-red-500/30",         dot: "bg-red-400" },
+  unpublished:  { label: "Unpublished",  color: "text-orange-400",  bg: "bg-orange-500/20 border-orange-500/30",   dot: "bg-orange-400" },
+  under_review: { label: "Under Review", color: "text-yellow-400",  bg: "bg-yellow-500/20 border-yellow-500/30",   dot: "bg-yellow-400" },
 };
 
 export default function StorefrontsTab() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [selected, setSelected] = useState(null);
 
   const { data: brands = [], isLoading, refetch } = useQuery({
     queryKey: ["ops-storefronts"],
@@ -30,6 +35,7 @@ export default function StorefrontsTab() {
   const filtered = brands.filter(b => {
     if (filter === "live" && b.published_status !== "live") return false;
     if (filter === "draft" && b.published_status !== "draft") return false;
+    if (filter === "moderated" && (!b.moderation_status || b.moderation_status === "active")) return false;
     if (search) {
       const q = search.toLowerCase();
       if (!b.business_display_name?.toLowerCase().includes(q) && !b.business_slug?.toLowerCase().includes(q)) return false;
@@ -37,9 +43,10 @@ export default function StorefrontsTab() {
     return true;
   });
 
-  const liveCount = brands.filter(b => b.published_status === "live").length;
+  const liveCount = brands.filter(b => b.published_status === "live" && (!b.moderation_status || b.moderation_status === "active")).length;
   const previewCount = brands.filter(b => b.published_status === "preview").length;
   const draftCount = brands.filter(b => b.published_status === "draft").length;
+  const moderatedCount = brands.filter(b => b.moderation_status && b.moderation_status !== "active").length;
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
@@ -54,7 +61,7 @@ export default function StorefrontsTab() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="glass rounded-xl p-3 text-center border border-emerald-500/20">
           <p className="text-2xl font-black text-emerald-400">{liveCount}</p>
           <p className="text-[10px] text-muted-foreground font-semibold">Live</p>
@@ -67,6 +74,10 @@ export default function StorefrontsTab() {
           <p className="text-2xl font-black text-muted-foreground">{draftCount}</p>
           <p className="text-[10px] text-muted-foreground font-semibold">Draft</p>
         </div>
+        <div className={`glass rounded-xl p-3 text-center ${moderatedCount > 0 ? "border border-red-500/20" : ""}`}>
+          <p className={`text-2xl font-black ${moderatedCount > 0 ? "text-red-400" : "text-muted-foreground"}`}>{moderatedCount}</p>
+          <p className="text-[10px] text-muted-foreground font-semibold">Moderated</p>
+        </div>
       </div>
 
       {/* Filters */}
@@ -77,7 +88,7 @@ export default function StorefrontsTab() {
             placeholder="Search store name or slug..."
             className="w-full h-9 pl-9 pr-3 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
         </div>
-        {["all", "live", "draft"].map(f => (
+        {["all", "live", "draft", "moderated"].map(f => (
           <button key={f} onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all flex-shrink-0 ${
               filter === f ? "text-white" : "bg-muted/40 text-muted-foreground hover:bg-muted/60"
@@ -98,13 +109,22 @@ export default function StorefrontsTab() {
           <p className="text-sm text-muted-foreground">No storefronts found</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 space-y-2">
           {filtered.map(brand => {
-            const st = STATUS_CONFIG[brand.published_status] || STATUS_CONFIG.draft;
+            const modSt = brand.moderation_status && brand.moderation_status !== "active"
+              ? STATUS_CONFIG[brand.moderation_status]
+              : null;
+            const st = modSt || STATUS_CONFIG[brand.published_status] || STATUS_CONFIG.draft;
             const host = hostMap[brand.host_id];
             const storeUrl = `/host/${brand.business_slug}`;
+            const isModerated = !!modSt;
+            const isSelected = selected?.id === brand.id;
             return (
-              <div key={brand.id} className="glass rounded-xl p-4 border border-border flex items-center gap-4">
+              <button key={brand.id} onClick={() => setSelected(isSelected ? null : brand)}
+                className={`w-full text-left glass rounded-xl p-4 border flex items-center gap-4 transition-all ${
+                  isSelected ? "border-primary bg-primary/10" : isModerated ? "border-red-500/30" : "border-border hover:border-primary/40"
+                }`}>
                 <div className={`h-2 w-2 rounded-full flex-shrink-0 ${st.dot}`} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
@@ -117,26 +137,33 @@ export default function StorefrontsTab() {
                   </div>
                   <p className="text-[10px] text-muted-foreground font-mono">/{brand.business_slug}</p>
                   {host && <p className="text-[10px] text-muted-foreground mt-0.5">{host.full_name || host.email}</p>}
-                  {brand.store_score > 0 && (
-                    <p className="text-[10px] text-primary/70 mt-0.5">Store score: {brand.store_score}</p>
+                  {brand.suspension_reason && (
+                    <p className="text-[10px] text-red-400/80 mt-0.5 truncate">⚠ {brand.suspension_reason}</p>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  {brand.published_status === "live" && (
+                  {brand.published_status === "live" && !isModerated && (
                     <a href={storeUrl} target="_blank" rel="noreferrer"
+                      onClick={e => e.stopPropagation()}
                       className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline">
                       <ExternalLink className="h-3 w-3" /> View
                     </a>
                   )}
-                  {brand.last_published_at && (
-                    <p className="text-[9px] text-muted-foreground">
-                      Published {new Date(brand.last_published_at).toLocaleDateString()}
-                    </p>
-                  )}
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-              </div>
+              </button>
             );
           })}
+          </div>
+          {selected && (
+            <div className="lg:w-96 flex-shrink-0">
+              <StorefrontModerationPanel
+                brand={selected}
+                host={hostMap[selected.host_id]}
+                onClose={() => { setSelected(null); refetch(); }}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -53,16 +53,34 @@ export default function PublicHostStorefront() {
     );
   }
 
-  if (!brand || brand.published_status !== "live") {
+  // Determine unavailability
+  const isSuspended = brand?.moderation_status === "suspended" || host?.status === "suspended";
+  const isUnavailable = isSuspended || brand?.moderation_status === "under_review";
+  const isUnpublished = !brand || brand.published_status !== "live" || brand?.moderation_status === "unpublished";
+  const isBookingBlocked = host?.booking_blocked;
+
+  if (isUnavailable || isUnpublished) {
+    const title = !brand
+      ? "Store Not Found"
+      : isSuspended
+      ? "Store Temporarily Unavailable"
+      : isUnavailable
+      ? "Store Coming Soon"
+      : "Store Coming Soon";
+
+    const message = !brand
+      ? "We couldn't find a store at this address."
+      : isSuspended
+      ? "This rental store is temporarily unavailable. Please check back later or browse other vehicles."
+      : "This rental store is almost ready. Check back soon!";
+
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center text-center px-6">
         <img src={LOGO_ICON} alt="uRide" className="h-14 w-14 rounded-2xl object-cover mb-5 shadow-lg" />
         <h1 className="text-3xl font-black text-gray-900 mb-3" style={{ fontFamily: "var(--font-syne)" }}>
-          {brand ? "Store Coming Soon" : "Store Not Found"}
+          {title}
         </h1>
-        <p className="text-gray-400 text-sm mb-6 max-w-sm">
-          {brand ? "This rental store is almost ready. Check back soon!" : "We couldn't find a store at this address."}
-        </p>
+        <p className="text-gray-400 text-sm mb-6 max-w-sm">{message}</p>
         <Link to="/book-now" className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           Browse All Vehicles <ArrowRight className="h-4 w-4" />
@@ -87,11 +105,18 @@ export default function PublicHostStorefront() {
               {brand.business_display_name}
             </span>
           </div>
-          <Link to={`/book-now?host_id=${host?.id}`}
-            className="px-4 py-2 rounded-full text-sm font-bold text-white shadow-sm"
-            style={{ background: `linear-gradient(135deg, ${brand.brand_color}, ${brand.secondary_color})` }}>
-            {brand.cta_button_text || "Book Now"}
-          </Link>
+          {isBookingBlocked ? (
+            <span className="px-4 py-2 rounded-full text-sm font-bold text-white/80 opacity-60 cursor-not-allowed"
+              style={{ background: `linear-gradient(135deg, ${brand.brand_color}, ${brand.secondary_color})` }}>
+              Currently Unavailable
+            </span>
+          ) : (
+            <Link to={`/book-now?host_id=${host?.id}`}
+              className="px-4 py-2 rounded-full text-sm font-bold text-white shadow-sm"
+              style={{ background: `linear-gradient(135deg, ${brand.brand_color}, ${brand.secondary_color})` }}>
+              {brand.cta_button_text || "Book Now"}
+            </Link>
+          )}
         </div>
       </header>
 

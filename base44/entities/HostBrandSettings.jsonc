@@ -116,6 +116,37 @@
     "last_published_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "moderation_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "suspended",
+        "unpublished",
+        "under_review"
+      ],
+      "default": "active",
+      "description": "Admin moderation override. suspended/unpublished/under_review blocks public visibility."
+    },
+    "suspension_reason": {
+      "type": "string",
+      "description": "Internal reason for suspension (admin-facing)"
+    },
+    "host_visible_reason": {
+      "type": "string",
+      "description": "Optional reason shown to host when their store is moderated"
+    },
+    "admin_moderation_notes": {
+      "type": "string",
+      "description": "Internal admin notes on this storefront"
+    },
+    "moderated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "moderated_by": {
+      "type": "string",
+      "description": "Admin email who last moderated"
     }
   },
   "required": [

@@ -199,26 +199,64 @@
     },
     "logo_generations_used": {
       "type": "number",
-      "default": 0,
-      "description": "Total AI logo/icon generations used. First 2 are free, $5 each after."
+      "default": 0
     },
     "logo_stripe_customer_id": {
-      "type": "string",
-      "description": "Stripe customer ID for logo generation charges"
+      "type": "string"
     },
     "generated_logos": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "URLs of all AI-generated logos saved for this host"
+      }
     },
     "generated_icons": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "URLs of all AI-generated icons saved for this host"
+      }
+    },
+    "payout_frozen": {
+      "type": "boolean",
+      "default": false,
+      "description": "Admin-controlled: freeze all outgoing payouts for this host"
+    },
+    "booking_blocked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Admin-controlled: prevent new bookings on this host's vehicles"
+    },
+    "require_manual_approval": {
+      "type": "boolean",
+      "default": false,
+      "description": "Admin-controlled: all new bookings require manual admin approval"
+    },
+    "host_under_review": {
+      "type": "boolean",
+      "default": false,
+      "description": "Admin-controlled: host is under operational review"
+    },
+    "restriction_reason": {
+      "type": "string",
+      "description": "Reason for current operational restriction (required when setting restrictions)"
+    },
+    "restriction_admin_notes": {
+      "type": "string",
+      "description": "Internal admin notes on the restriction"
+    },
+    "restriction_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional: when the restriction automatically expires"
+    },
+    "restriction_set_by": {
+      "type": "string",
+      "description": "Admin email who set the restriction"
+    },
+    "restriction_set_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the restriction was set"
     }
   },
   "required": [
