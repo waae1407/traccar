@@ -1,5 +1,5 @@
 import { base44 } from "@/api/base44Client";
-import { assertOperationalScope, isWithinSharedDateRange, textMatches } from "./sharedOperationalFilters";
+import { assertOperationalScope, getEffectiveOperationalFilters, isWithinSharedDateRange, textMatches } from "./sharedOperationalFilters";
 
 const TAX_DEDUCTIBLE_TYPES = new Set(["fuel", "insurance", "repair", "registration", "maintenance", "gps", "tires", "toll", "parking"]);
 
@@ -25,16 +25,17 @@ function applyExpenseFilters(expenses, filters = {}) {
   });
 }
 
-export async function loadSharedExpenseEngine({ mode = "host", hostId = "", filters = {}, limit = 1000 } = {}) {
-  assertOperationalScope({ mode, hostId });
+export async function loadSharedExpenseEngine({ mode = "host", hostId = "", user = null, filters = {}, limit = 1000, skip = 0 } = {}) {
+  assertOperationalScope({ mode, hostId, user });
+  const effectiveFilters = getEffectiveOperationalFilters(mode, filters);
 
   const [hosts, vehicles, bookings, disputes, expenses, recurringExpenses] = await Promise.all([
-    base44.entities.Host.list("-created_date", 500),
-    base44.entities.Vehicle.list("-created_date", 1000),
-    base44.entities.BookingRequest.list("-created_date", 1000),
-    base44.entities.Dispute.list("-created_date", 500),
-    mode === "host" ? base44.entities.HostExpense.filter({ host_id: hostId }, "-date", limit) : base44.entities.HostExpense.list("-date", limit),
-    mode === "host" ? base44.entities.RecurringExpense.filter({ host_id: hostId }, "-next_due_date", limit) : base44.entities.RecurringExpense.list("-next_due_date", limit),
+    mode === "host" ? base44.entities.Host.filter({ id: hostId }, "-created_date", 1) : base44.entities.Host.list("-created_date", limit),
+    mode === "host" ? base44.entities.Vehicle.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.Vehicle.list("-created_date", limit),
+    mode === "host" ? base44.entities.BookingRequest.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.BookingRequest.list("-created_date", limit),
+    mode === "host" ? base44.entities.Dispute.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.Dispute.list("-created_date", limit),
+    mode === "host" ? base44.entities.HostExpense.filter({ host_id: hostId }, "-date", limit, skip) : base44.entities.HostExpense.list("-date", limit),
+    mode === "host" ? base44.entities.RecurringExpense.filter({ host_id: hostId }, "-next_due_date", limit, skip) : base44.entities.RecurringExpense.list("-next_due_date", limit),
   ]);
 
   const hostsById = indexById(hosts);
@@ -76,7 +77,7 @@ export async function loadSharedExpenseEngine({ mode = "host", hostId = "", filt
     })
     .filter((recurring) => mode !== "host" || recurring.host_id === hostId);
 
-  const filteredExpenses = applyExpenseFilters(enrichedExpenses, { ...filters, hostId: mode === "host" ? hostId : filters.hostId });
+  const filteredExpenses = applyExpenseFilters(enrichedExpenses, { ...effectiveFilters, hostId: mode === "host" ? hostId : effectiveFilters.hostId });
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
   const taxDeductibleTotal = filteredExpenses.filter((expense) => expense.tax_deductible).reduce((sum, expense) => sum + (expense.amount || 0), 0);
   const reimbursableTotal = filteredExpenses.filter((expense) => expense.reimbursable).reduce((sum, expense) => sum + (expense.amount || 0), 0);

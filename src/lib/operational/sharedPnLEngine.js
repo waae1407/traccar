@@ -1,5 +1,5 @@
 import { base44 } from "@/api/base44Client";
-import { assertOperationalScope, isWithinSharedDateRange } from "./sharedOperationalFilters";
+import { assertOperationalScope, getEffectiveOperationalFilters, isWithinSharedDateRange } from "./sharedOperationalFilters";
 import { loadSharedExpenseEngine } from "./sharedExpenseEngine";
 import { loadSharedMaintenanceEngine } from "./sharedMaintenanceEngine";
 import { loadSharedPayoutEngine } from "./sharedPayoutEngine";
@@ -12,18 +12,19 @@ function resolveHostId(record, vehiclesById, bookingsById) {
   return record.host_id || vehiclesById[record.vehicle_id]?.host_id || bookingsById[record.booking_request_id]?.host_id || "";
 }
 
-export async function loadSharedPnLEngine({ mode = "host", hostId = "", filters = {}, limit = 1000 } = {}) {
-  assertOperationalScope({ mode, hostId });
+export async function loadSharedPnLEngine({ mode = "host", hostId = "", user = null, filters = {}, limit = 1000, skip = 0 } = {}) {
+  assertOperationalScope({ mode, hostId, user });
+  const effectiveFilters = getEffectiveOperationalFilters(mode, filters);
 
   const [hosts, vehicles, bookings, disputes, paymentLogs, expenseEngine, maintenanceEngine, payoutEngine] = await Promise.all([
-    base44.entities.Host.list("-created_date", 500),
-    base44.entities.Vehicle.list("-created_date", 1000),
-    base44.entities.BookingRequest.list("-created_date", limit),
-    base44.entities.Dispute.list("-created_date", 500),
-    mode === "host" ? base44.entities.PaymentLog.filter({ host_id: hostId }, "-paid_at", limit) : base44.entities.PaymentLog.list("-paid_at", limit),
-    loadSharedExpenseEngine({ mode, hostId, filters, limit }),
-    loadSharedMaintenanceEngine({ mode, hostId, filters, limit }),
-    loadSharedPayoutEngine({ mode, hostId, filters, limit }),
+    mode === "host" ? base44.entities.Host.filter({ id: hostId }, "-created_date", 1) : base44.entities.Host.list("-created_date", limit),
+    mode === "host" ? base44.entities.Vehicle.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.Vehicle.list("-created_date", limit),
+    mode === "host" ? base44.entities.BookingRequest.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.BookingRequest.list("-created_date", limit),
+    mode === "host" ? base44.entities.Dispute.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.Dispute.list("-created_date", limit),
+    mode === "host" ? base44.entities.PaymentLog.filter({ host_id: hostId }, "-paid_at", limit, skip) : base44.entities.PaymentLog.list("-paid_at", limit),
+    loadSharedExpenseEngine({ mode, hostId, user, filters: effectiveFilters, limit, skip }),
+    loadSharedMaintenanceEngine({ mode, hostId, user, filters: effectiveFilters, limit, skip }),
+    loadSharedPayoutEngine({ mode, hostId, user, filters: effectiveFilters, limit, skip }),
   ]);
 
   const vehiclesById = indexById(vehicles);
@@ -33,10 +34,10 @@ export async function loadSharedPnLEngine({ mode = "host", hostId = "", filters 
   const scopedPaymentLogs = paymentLogs
     .map((log) => ({ ...log, host_id: resolveHostId(log, vehiclesById, bookingsById) }))
     .filter((log) => mode !== "host" || log.host_id === hostId)
-    .filter((log) => !filters.hostId || log.host_id === filters.hostId)
-    .filter((log) => !filters.vehicleId || log.vehicle_id === filters.vehicleId)
-    .filter((log) => !filters.bookingId || log.booking_request_id === filters.bookingId)
-    .filter((log) => isWithinSharedDateRange(log.paid_at || log.created_date, filters.dateRange));
+    .filter((log) => !effectiveFilters.hostId || log.host_id === effectiveFilters.hostId)
+    .filter((log) => !effectiveFilters.vehicleId || log.vehicle_id === effectiveFilters.vehicleId)
+    .filter((log) => !effectiveFilters.bookingId || log.booking_request_id === effectiveFilters.bookingId)
+    .filter((log) => isWithinSharedDateRange(log.paid_at || log.created_date, effectiveFilters.dateRange));
 
   const paidLogs = scopedPaymentLogs.filter((log) => log.status === "paid");
   const grossRevenue = paidLogs.reduce((sum, log) => sum + (log.amount || 0), 0);
@@ -47,14 +48,14 @@ export async function loadSharedPnLEngine({ mode = "host", hostId = "", filters 
   const maintenance = maintenanceEngine.kpis.totalCost;
   const disputeExposure = disputes
     .filter((dispute) => mode !== "host" || dispute.host_id === hostId)
-    .filter((dispute) => !filters.hostId || dispute.host_id === filters.hostId)
+    .filter((dispute) => !effectiveFilters.hostId || dispute.host_id === effectiveFilters.hostId)
     .reduce((sum, dispute) => sum + (dispute.stripe_dispute_amount || dispute.resolution_amount_to_customer || 0), 0);
 
   const vehicleProfitability = {};
   vehicles.forEach((vehicle) => {
     if (mode === "host" && vehicle.host_id !== hostId) return;
-    if (filters.hostId && vehicle.host_id !== filters.hostId) return;
-    if (filters.vehicleId && vehicle.id !== filters.vehicleId) return;
+    if (effectiveFilters.hostId && vehicle.host_id !== effectiveFilters.hostId) return;
+    if (effectiveFilters.vehicleId && vehicle.id !== effectiveFilters.vehicleId) return;
     vehicleProfitability[vehicle.id] = {
       vehicle_id: vehicle.id,
       vehicle_name: `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim(),

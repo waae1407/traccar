@@ -5,3 +5,4 @@ export * from "./sharedMaintenanceEngine";
 export * from "./sharedPayoutEngine";
 export * from "./sharedPnLEngine";
 export * from "./reconciliationUtility";
+export * from "./rawHostIdAudit";

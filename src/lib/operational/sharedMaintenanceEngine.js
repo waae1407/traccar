@@ -1,5 +1,5 @@
 import { base44 } from "@/api/base44Client";
-import { assertOperationalScope, isWithinSharedDateRange, textMatches } from "./sharedOperationalFilters";
+import { assertOperationalScope, getEffectiveOperationalFilters, isWithinSharedDateRange, textMatches } from "./sharedOperationalFilters";
 
 function indexById(records = []) {
   return Object.fromEntries(records.filter(Boolean).map((record) => [record.id, record]));
@@ -84,14 +84,15 @@ function applyMaintenanceFilters(records, filters = {}) {
   });
 }
 
-export async function loadSharedMaintenanceEngine({ mode = "host", hostId = "", filters = {}, limit = 1000 } = {}) {
-  assertOperationalScope({ mode, hostId });
+export async function loadSharedMaintenanceEngine({ mode = "host", hostId = "", user = null, filters = {}, limit = 1000, skip = 0 } = {}) {
+  assertOperationalScope({ mode, hostId, user });
+  const effectiveFilters = getEffectiveOperationalFilters(mode, filters);
 
   const [hosts, vehicles, hostLogs, legacyLogs] = await Promise.all([
-    base44.entities.Host.list("-created_date", 500),
-    base44.entities.Vehicle.list("-created_date", 1000),
-    mode === "host" ? base44.entities.HostMaintenanceLog.filter({ host_id: hostId }, "-date", limit) : base44.entities.HostMaintenanceLog.list("-date", limit),
-    base44.entities.Maintenance.list("-created_date", limit),
+    mode === "host" ? base44.entities.Host.filter({ id: hostId }, "-created_date", 1) : base44.entities.Host.list("-created_date", limit),
+    mode === "host" ? base44.entities.Vehicle.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.Vehicle.list("-created_date", limit),
+    mode === "host" ? base44.entities.HostMaintenanceLog.filter({ host_id: hostId }, "-date", limit, skip) : base44.entities.HostMaintenanceLog.list("-date", limit),
+    mode === "host" ? base44.entities.Maintenance.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.Maintenance.list("-created_date", limit),
   ]);
 
   const hostsById = indexById(hosts);
@@ -99,7 +100,7 @@ export async function loadSharedMaintenanceEngine({ mode = "host", hostId = "", 
   const normalizedHostLogs = hostLogs.map((record) => normalizeHostMaintenanceLog(record, hostsById, vehiclesById));
   const normalizedLegacyLogs = legacyLogs.map((record) => normalizeLegacyMaintenance(record, hostsById, vehiclesById));
   const allRecords = [...normalizedHostLogs, ...normalizedLegacyLogs].filter((record) => mode !== "host" || record.host_id === hostId);
-  const filteredRecords = applyMaintenanceFilters(allRecords, { ...filters, hostId: mode === "host" ? hostId : filters.hostId });
+  const filteredRecords = applyMaintenanceFilters(allRecords, { ...effectiveFilters, hostId: mode === "host" ? hostId : effectiveFilters.hostId });
 
   const totalCost = filteredRecords.reduce((sum, record) => sum + (record.cost || 0), 0);
   const dueSoon = filteredRecords.filter((record) => record.computed_status === "due_soon");

@@ -29,13 +29,13 @@ export async function runOperationalReconciliation({ user, hostId, filters = {},
 
   const [hostExpenses, adminExpenses, hostMaintenance, adminMaintenance, hostPayouts, adminPayouts, hostPnL, adminPnL] = await Promise.all([
     loadSharedExpenseEngine({ mode: "host", hostId, filters, limit }),
-    loadSharedExpenseEngine({ mode: "admin", filters: { ...filters, hostId }, limit }),
+    loadSharedExpenseEngine({ mode: "admin", user, filters: { ...filters, hostId }, limit }),
     loadSharedMaintenanceEngine({ mode: "host", hostId, filters, limit }),
-    loadSharedMaintenanceEngine({ mode: "admin", filters: { ...filters, hostId }, limit }),
+    loadSharedMaintenanceEngine({ mode: "admin", user, filters: { ...filters, hostId }, limit }),
     loadSharedPayoutEngine({ mode: "host", hostId, filters, limit }),
-    loadSharedPayoutEngine({ mode: "admin", filters: { ...filters, hostId }, limit }),
+    loadSharedPayoutEngine({ mode: "admin", user, filters: { ...filters, hostId }, limit }),
     loadSharedPnLEngine({ mode: "host", hostId, filters, limit }),
-    loadSharedPnLEngine({ mode: "admin", filters: { ...filters, hostId }, limit }),
+    loadSharedPnLEngine({ mode: "admin", user, filters: { ...filters, hostId }, limit }),
   ]);
 
   const missingHostIdRecords = {

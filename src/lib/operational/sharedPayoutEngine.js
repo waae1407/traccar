@@ -1,5 +1,5 @@
 import { base44 } from "@/api/base44Client";
-import { assertOperationalScope, isWithinSharedDateRange, textMatches } from "./sharedOperationalFilters";
+import { assertOperationalScope, getEffectiveOperationalFilters, isWithinSharedDateRange, textMatches } from "./sharedOperationalFilters";
 
 function indexById(records = []) {
   return Object.fromEntries(records.filter(Boolean).map((record) => [record.id, record]));
@@ -33,10 +33,19 @@ function enrichPayout(payout, hostsById, vehiclesById, bookingsById, disputesByB
   };
 }
 
+function payoutMatchKey(record) {
+  const bookingId = record.booking_request_id || "";
+  const week = record.week_number || record._week_number || "";
+  const date = record.period_end || record.payout_date || record.paid_at?.split("T")?.[0] || record.created_date?.split("T")?.[0] || "";
+  return `${bookingId}::${week || date}`;
+}
+
 function synthesizePayoutsFromPaymentLogs(paymentLogs, payouts, hostsById, vehiclesById, bookingsById) {
+  const existingPayoutKeys = new Set(payouts.filter((payout) => payout.booking_request_id).map((payout) => payoutMatchKey(payout)));
+
   return paymentLogs
     .filter((log) => log.status === "paid" && log.booking_request_id)
-    .filter((log) => !payouts.some((payout) => payout.booking_request_id === log.booking_request_id))
+    .filter((log) => !existingPayoutKeys.has(payoutMatchKey(log)))
     .map((log) => {
       const hostId = resolveHostId(log, vehiclesById, bookingsById);
       const host = hostsById[hostId] || null;
@@ -91,16 +100,17 @@ function applyPayoutFilters(payouts, filters = {}) {
   });
 }
 
-export async function loadSharedPayoutEngine({ mode = "host", hostId = "", filters = {}, limit = 1000 } = {}) {
-  assertOperationalScope({ mode, hostId });
+export async function loadSharedPayoutEngine({ mode = "host", hostId = "", user = null, filters = {}, limit = 1000, skip = 0 } = {}) {
+  assertOperationalScope({ mode, hostId, user });
+  const effectiveFilters = getEffectiveOperationalFilters(mode, filters);
 
   const [hosts, vehicles, bookings, disputes, payouts, paymentLogs] = await Promise.all([
-    base44.entities.Host.list("-created_date", 500),
-    base44.entities.Vehicle.list("-created_date", 1000),
-    base44.entities.BookingRequest.list("-created_date", 1000),
-    base44.entities.Dispute.list("-created_date", 500),
-    mode === "host" ? base44.entities.HostPayout.filter({ host_id: hostId }, "-created_date", limit) : base44.entities.HostPayout.list("-created_date", limit),
-    mode === "host" ? base44.entities.PaymentLog.filter({ host_id: hostId }, "-paid_at", limit) : base44.entities.PaymentLog.list("-paid_at", limit),
+    mode === "host" ? base44.entities.Host.filter({ id: hostId }, "-created_date", 1) : base44.entities.Host.list("-created_date", limit),
+    mode === "host" ? base44.entities.Vehicle.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.Vehicle.list("-created_date", limit),
+    mode === "host" ? base44.entities.BookingRequest.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.BookingRequest.list("-created_date", limit),
+    mode === "host" ? base44.entities.Dispute.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.Dispute.list("-created_date", limit),
+    mode === "host" ? base44.entities.HostPayout.filter({ host_id: hostId }, "-created_date", limit, skip) : base44.entities.HostPayout.list("-created_date", limit),
+    mode === "host" ? base44.entities.PaymentLog.filter({ host_id: hostId }, "-paid_at", limit, skip) : base44.entities.PaymentLog.list("-paid_at", limit),
   ]);
 
   const hostsById = indexById(hosts);
@@ -111,7 +121,7 @@ export async function loadSharedPayoutEngine({ mode = "host", hostId = "", filte
   const enrichedPayouts = payouts.map((payout) => enrichPayout(payout, hostsById, vehiclesById, bookingsById, disputesByBookingId));
   const synthesizedPayouts = synthesizePayoutsFromPaymentLogs(paymentLogs, enrichedPayouts, hostsById, vehiclesById, bookingsById);
   const scopedPayouts = [...enrichedPayouts, ...synthesizedPayouts].filter((payout) => mode !== "host" || payout.host_id === hostId);
-  const filteredPayouts = applyPayoutFilters(scopedPayouts, { ...filters, hostId: mode === "host" ? hostId : filters.hostId });
+  const filteredPayouts = applyPayoutFilters(scopedPayouts, { ...effectiveFilters, hostId: mode === "host" ? hostId : effectiveFilters.hostId });
 
   const pending = filteredPayouts.filter((payout) => ["pending", "processing"].includes(payout.status));
   const paid = filteredPayouts.filter((payout) => ["paid", "released"].includes(payout.status));

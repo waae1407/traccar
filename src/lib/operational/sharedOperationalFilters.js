@@ -27,10 +27,20 @@ export function getOperationalFilterDefinitions(mode = OPERATIONAL_MODES.HOST) {
   return Object.values(SHARED_OPERATIONAL_FILTERS).filter((filter) => mode === OPERATIONAL_MODES.ADMIN || !filter.adminOnly);
 }
 
-export function assertOperationalScope({ mode = OPERATIONAL_MODES.HOST, hostId } = {}) {
+export function assertOperationalScope({ mode = OPERATIONAL_MODES.HOST, hostId, user } = {}) {
   if (mode === OPERATIONAL_MODES.HOST && !hostId) {
     throw new Error("Host mode requires a hostId to prevent cross-host data exposure.");
   }
+  if (mode === OPERATIONAL_MODES.ADMIN && user?.role !== "admin") {
+    throw new Error("Admin mode requires confirmed admin access.");
+  }
+}
+
+export function getEffectiveOperationalFilters(mode = OPERATIONAL_MODES.HOST, filters = {}, defaults = {}) {
+  if (mode === OPERATIONAL_MODES.ADMIN) {
+    return { dateRange: defaults.adminDateRange || "last30", ...filters };
+  }
+  return { ...filters };
 }
 
 export function getDateRangeBounds(range) {
