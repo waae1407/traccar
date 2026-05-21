@@ -2,14 +2,16 @@ import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Plus, Receipt, Loader2, Upload, Trash2, X, RefreshCw } from "lucide-react";
+import { Plus, Receipt, Loader2, Upload, Trash2, X, RefreshCw, Bell } from "lucide-react";
 import { uploadFile } from "@/utils/uploadFile";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import ExpenseFilters, { DEFAULT_FILTERS, EXPENSE_TYPES, TYPE_COLORS } from "@/components/host/expenses/ExpenseFilters";
 import FleetProfitability from "@/components/host/expenses/FleetProfitability";
 import ExpenseInsights from "@/components/host/expenses/ExpenseInsights";
 import ExpenseDrawer from "@/components/host/expenses/ExpenseDrawer";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, startOfYear, isWithinInterval } from "date-fns";
+import RecurringExpenseForm from "@/components/host/expenses/RecurringExpenseForm";
+import RecurringExpenseSection from "@/components/host/expenses/RecurringExpenseSection";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, startOfYear, isWithinInterval, differenceInDays } from "date-fns";
 
 const inputClass = "w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-pink-400 text-sm";
 
@@ -39,6 +41,7 @@ export default function HostExpenses() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [showRecurringForm, setShowRecurringForm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [selectedExpense, setSelectedExpense] = useState(null);
@@ -61,13 +64,18 @@ export default function HostExpenses() {
     enabled: !!host?.id,
   });
 
+  const { data: recurringExpenses = [] } = useQuery({
+    queryKey: ["host-recurring-expenses", host?.id],
+    queryFn: () => base44.entities.RecurringExpense.filter({ host_id: host.id }, "-created_date", 200),
+    enabled: !!host?.id,
+  });
+
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["host-expenses", host?.id],
     queryFn: () => base44.entities.HostExpense.filter({ host_id: host.id }, "-date", 500),
     enabled: !!host?.id,
   });
 
-  // Supporting data for profitability
   const { data: paymentLogs = [] } = useQuery({
     queryKey: ["host-payments-exp", host?.id, vehicles.map(v => v.id).join(",")],
     queryFn: async () => {
@@ -120,7 +128,7 @@ export default function HostExpenses() {
         target_label: data.vehicle_name || "Fleet",
         host_id: host.id,
         vehicle_id: data.vehicle_id || undefined,
-        summary: `Expense logged: ${data.expense_type} $${data.amount}${data.vehicle_name ? ` — ${data.vehicle_name}` : ""}`,
+        summary: "Expense logged: " + data.expense_type + " $" + data.amount + (data.vehicle_name ? " \u2014 " + data.vehicle_name : ""),
         source: "host_portal",
         event_status: "success",
       }).catch(() => {});
@@ -138,6 +146,23 @@ export default function HostExpenses() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["host-expenses"] }),
   });
 
+  const createRecurringMutation = useMutation({
+    mutationFn: async (data) => {
+      const rec = await base44.entities.RecurringExpense.create(data);
+      base44.entities.ActivityEvent.create({
+        event_type: "maintenance.logged",
+        actor_email: user.email, actor_role: "host",
+        target_entity: "RecurringExpense", target_id: rec.id,
+        target_label: data.vehicle_name || "Fleet",
+        host_id: host.id, vehicle_id: data.vehicle_id || undefined,
+        summary: "Recurring expense: " + data.category + " $" + data.amount + "/" + data.frequency,
+        source: "host_portal", event_status: "success",
+      }).catch(() => {});
+      return rec;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["host-recurring-expenses"] }),
+  });
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const vehicle = vehicles.find(v => v.id === form.vehicle_id);
@@ -145,12 +170,11 @@ export default function HostExpenses() {
       ...form,
       host_id: host.id,
       amount: Number(form.amount),
-      vehicle_name: vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "",
+      vehicle_name: vehicle ? vehicle.year + " " + vehicle.make + " " + vehicle.model : "",
       tax_deductible: TAX_DEDUCTIBLE_TYPES.has(form.expense_type),
     });
   };
 
-  // Enrich expenses with tax deductible flag
   const enrichedExpenses = useMemo(() =>
     expenses.map(e => ({
       ...e,
@@ -159,7 +183,6 @@ export default function HostExpenses() {
     [expenses]
   );
 
-  // KPIs
   const kpis = useMemo(() => {
     const now = new Date();
     const monthStart = startOfMonth(now);
@@ -176,18 +199,14 @@ export default function HostExpenses() {
     const avgPerVehicle = vehicleIds.size > 0 ? totalExpenses / vehicleIds.size : 0;
     const reimbursableTotal = enrichedExpenses.filter(e => e.reimbursable).reduce((s, e) => s + (e.amount || 0), 0);
     const taxDeductibleTotal = enrichedExpenses.filter(e => e.tax_deductible).reduce((s, e) => s + (e.amount || 0), 0);
-
-    // Highest cost vehicle
     const byCostMap = {};
     enrichedExpenses.forEach(e => {
       if (e.vehicle_name) byCostMap[e.vehicle_name] = (byCostMap[e.vehicle_name] || 0) + (e.amount || 0);
     });
     const topVehicle = Object.entries(byCostMap).sort((a, b) => b[1] - a[1])[0];
-
     return { totalExpenses, monthlyExpenses, netProfit, avgPerVehicle, reimbursableTotal, taxDeductibleTotal, topVehicle };
   }, [enrichedExpenses, paymentLogs, maintenanceLogs]);
 
-  // Filtered list
   const filtered = useMemo(() => {
     return enrichedExpenses.filter(e => {
       if (filters.search) {
@@ -213,7 +232,6 @@ export default function HostExpenses() {
     }).sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [enrichedExpenses, filters]);
 
-  // Category breakdown for filtered
   const byCategory = useMemo(() => {
     const map = {};
     filtered.forEach(e => { map[e.expense_type] = (map[e.expense_type] || 0) + (e.amount || 0); });
@@ -222,7 +240,6 @@ export default function HostExpenses() {
     }));
   }, [filtered]);
 
-  // CSV Export
   const handleExport = () => {
     const rows = [
       ["Vehicle", "Expense Type", "Amount", "Date", "Description", "Tax Deductible", "Reimbursable", "Recurring"],
@@ -232,21 +249,20 @@ export default function HostExpenses() {
         e.tax_deductible ? "Yes" : "No", e.reimbursable ? "Yes" : "No", e.recurring ? "Yes" : "No",
       ]),
     ];
-    exportCSV(rows, `expenses-${new Date().toISOString().split("T")[0]}.csv`);
+    exportCSV(rows, "expenses-" + new Date().toISOString().split("T")[0] + ".csv");
   };
 
-  // Tax Summary Export
   const handleExportTax = () => {
     const taxItems = filtered.filter(e => e.tax_deductible);
     const rows = [
       ["Vehicle", "Category", "Amount", "Date", "Description"],
       ...taxItems.map(e => [e.vehicle_name || "Fleet", EXPENSE_TYPES.find(t => t.value === e.expense_type)?.label || e.expense_type, e.amount || "", e.date || "", e.description || ""]),
     ];
-    exportCSV(rows, `tax-summary-${new Date().toISOString().split("T")[0]}.csv`);
+    exportCSV(rows, "tax-summary-" + new Date().toISOString().split("T")[0] + ".csv");
   };
 
   function exportCSV(rows, filename) {
-    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const csv = rows.map(r => r.map(v => '"' + v + '"').join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -254,34 +270,47 @@ export default function HostExpenses() {
     URL.revokeObjectURL(url);
   }
 
-  const vehicleLabel = (v) => `${v.year} ${v.make} ${v.model}${v.plate ? ` · ${v.plate}` : ""}`;
+  const vehicleLabel = (v) => v.year + " " + v.make + " " + v.model + (v.plate ? " \u00b7 " + v.plate : "");
+
+  const dueSoonRecurring = recurringExpenses.filter(r => {
+    if (r.status !== "active" || !r.next_due_date) return false;
+    return differenceInDays(new Date(r.next_due_date), new Date()) <= 7;
+  });
+
+  const CAT_LABELS = { insurance: "Insurance", gps_subscription: "GPS", loan_payment: "Loan", storage_parking: "Storage", software_tools: "Software", service_contract: "Contract", registration: "Registration", fuel: "Fuel", cleaning: "Cleaning", other: "Other" };
 
   return (
     <div className="space-y-5">
       <HostPageHeader
         title="Expenses"
-        subtitle="Fleet financial intelligence · costs, profitability & insights"
+        subtitle="Fleet financial intelligence \u00b7 costs, profitability & insights"
         action={
-          <button onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
-            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-            <Plus className="h-4 w-4" /> Add Expense
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowRecurringForm(true)}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-bold text-gray-600 bg-white border border-gray-200 shadow-sm hover:bg-gray-50">
+              <RefreshCw className="h-3.5 w-3.5 text-blue-500" /> Recurring
+            </button>
+            <button onClick={() => setShowForm(!showForm)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              <Plus className="h-4 w-4" /> Add Expense
+            </button>
+          </div>
         }
       />
 
       {/* KPI CARDS */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-        <KpiCard value={`$${Math.round(kpis.totalExpenses).toLocaleString()}`} label="Total Expenses" color="text-red-500" bg="bg-white border-gray-100" />
-        <KpiCard value={`$${Math.round(kpis.monthlyExpenses).toLocaleString()}`} label="This Month" color="text-orange-500" bg="bg-orange-50 border-orange-200" />
-        <KpiCard value={kpis.netProfit >= 0 ? `+$${Math.round(kpis.netProfit).toLocaleString()}` : `-$${Math.round(Math.abs(kpis.netProfit)).toLocaleString()}`}
+        <KpiCard value={"$" + Math.round(kpis.totalExpenses).toLocaleString()} label="Total Expenses" color="text-red-500" bg="bg-white border-gray-100" />
+        <KpiCard value={"$" + Math.round(kpis.monthlyExpenses).toLocaleString()} label="This Month" color="text-orange-500" bg="bg-orange-50 border-orange-200" />
+        <KpiCard value={kpis.netProfit >= 0 ? "+$" + Math.round(kpis.netProfit).toLocaleString() : "-$" + Math.round(Math.abs(kpis.netProfit)).toLocaleString()}
           label="Net Profit" color={kpis.netProfit >= 0 ? "text-emerald-600" : "text-red-500"}
           bg={kpis.netProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"} />
-        <KpiCard value={`$${Math.round(kpis.avgPerVehicle).toLocaleString()}`} label="Avg/Vehicle" color="text-gray-700" bg="bg-white border-gray-100" />
-        <KpiCard value={`$${Math.round(kpis.reimbursableTotal).toLocaleString()}`} label="Reimbursable"
+        <KpiCard value={"$" + Math.round(kpis.avgPerVehicle).toLocaleString()} label="Avg/Vehicle" color="text-gray-700" bg="bg-white border-gray-100" />
+        <KpiCard value={"$" + Math.round(kpis.reimbursableTotal).toLocaleString()} label="Reimbursable"
           color={kpis.reimbursableTotal > 0 ? "text-yellow-600" : "text-gray-400"}
           bg={kpis.reimbursableTotal > 0 ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-100"} />
-        <KpiCard value={`$${Math.round(kpis.taxDeductibleTotal).toLocaleString()}`} label="Tax Deductible" color="text-purple-600" bg="bg-purple-50 border-purple-200" />
+        <KpiCard value={"$" + Math.round(kpis.taxDeductibleTotal).toLocaleString()} label="Tax Deductible" color="text-purple-600" bg="bg-purple-50 border-purple-200" />
       </div>
 
       {/* SMART INSIGHTS + ALERTS */}
@@ -291,6 +320,29 @@ export default function HostExpenses() {
         maintenanceLogs={maintenanceLogs}
         paymentLogs={paymentLogs}
       />
+
+      {/* RECURRING DUE SOON ALERTS */}
+      {dueSoonRecurring.length > 0 && (
+        <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Bell className="h-4 w-4 text-orange-500" />
+            <p className="text-xs font-bold text-orange-800 uppercase tracking-wider">Recurring Expenses Due Soon</p>
+          </div>
+          <div className="space-y-1">
+            {dueSoonRecurring.map(r => {
+              const days = differenceInDays(new Date(r.next_due_date), new Date());
+              return (
+                <p key={r.id} className="text-xs text-orange-700">
+                  {days < 0 ? "OVERDUE" : "Due in " + days + "d"}: {CAT_LABELS[r.category] || r.category} {"\u2014"} ${(r.amount || 0).toLocaleString()} ({r.vehicle_name || "Fleet"})
+                </p>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* RECURRING EXPENSES SECTION */}
+      <RecurringExpenseSection recurringExpenses={recurringExpenses} vehicles={vehicles} hostId={host?.id} user={user} />
 
       {/* ADD EXPENSE FORM */}
       {showForm && (
@@ -333,22 +385,18 @@ export default function HostExpenses() {
               <input type="checkbox" checked={form.reimbursable} onChange={e => setF("reimbursable", e.target.checked)} className="rounded border-gray-300 text-pink-500" />
               Reimbursable
             </label>
-            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
-              <input type="checkbox" checked={form.recurring} onChange={e => setF("recurring", e.target.checked)} className="rounded border-gray-300 text-pink-500" />
-              Recurring
-            </label>
           </div>
           <div className="flex items-center justify-between">
             <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100">
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-              {form.receipt_url ? "Receipt ✓" : "Upload Receipt"}
+              {form.receipt_url ? "Receipt \u2713" : "Upload Receipt"}
               <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleUpload} />
             </label>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 bg-gray-100">Cancel</button>
               <button type="submit" disabled={createMutation.isPending} className="px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                {createMutation.isPending ? "Saving…" : "Add Expense"}
+                {createMutation.isPending ? "Saving\u2026" : "Add Expense"}
               </button>
             </div>
           </div>
@@ -391,7 +439,7 @@ export default function HostExpenses() {
                       <span className="text-xs font-bold text-gray-900">${c.total.toLocaleString()}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-gray-100">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
+                      <div className="h-full rounded-full" style={{ width: pct + "%", background: c.color }} />
                     </div>
                   </div>
                   <span className="text-[10px] text-gray-400 flex-shrink-0">{pct.toFixed(0)}%</span>
@@ -426,11 +474,10 @@ export default function HostExpenses() {
               const color = TYPE_COLORS[e.expense_type] || "#6b7280";
               const typeLabel = EXPENSE_TYPES.find(t => t.value === e.expense_type)?.label || e.expense_type;
               const isHighCost = (e.amount || 0) >= 500;
-              const isPendingReimburse = e.reimbursable;
               return (
                 <button key={e.id} onClick={() => setSelectedExpense(e)}
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50/60 transition-colors text-left">
-                  <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + "18" }}>
                     <div className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -440,10 +487,10 @@ export default function HostExpenses() {
                       {e.reimbursable && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-600 border border-yellow-100">REIMB</span>}
                       {e.recurring && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">REC</span>}
                     </div>
-                    <p className="text-xs text-gray-400 truncate">{e.vehicle_name || "Fleet"} · {e.date}{e.description ? ` · ${e.description}` : ""}</p>
+                    <p className="text-xs text-gray-400 truncate">{e.vehicle_name || "Fleet"} {"\u00b7"} {e.date}{e.description ? " \u00b7 " + e.description : ""}</p>
                   </div>
                   {e.receipt_url && <Receipt className="h-3.5 w-3.5 text-pink-400 flex-shrink-0" />}
-                  <p className={`text-sm font-bold flex-shrink-0 ${isHighCost ? "text-red-600" : isPendingReimburse ? "text-yellow-600" : "text-gray-700"}`}>
+                  <p className={"text-sm font-bold flex-shrink-0 " + (isHighCost ? "text-red-600" : e.reimbursable ? "text-yellow-600" : "text-gray-700")}>
                     ${(e.amount || 0).toLocaleString()}
                   </p>
                   <button onClick={(ev) => { ev.stopPropagation(); deleteMutation.mutate(e.id); }}
@@ -456,6 +503,16 @@ export default function HostExpenses() {
           </div>
         )}
       </div>
+
+      {/* RECURRING EXPENSE FORM MODAL */}
+      {showRecurringForm && (
+        <RecurringExpenseForm
+          vehicles={vehicles}
+          hostId={host?.id}
+          onSave={async (data) => { await createRecurringMutation.mutateAsync(data); setShowRecurringForm(false); }}
+          onClose={() => setShowRecurringForm(false)}
+        />
+      )}
 
       {/* DETAIL DRAWER */}
       {selectedExpense && (
@@ -471,8 +528,8 @@ export default function HostExpenses() {
 
 function KpiCard({ value, label, color, bg }) {
   return (
-    <div className={`rounded-3xl border shadow-sm p-3 text-center ${bg}`}>
-      <p className={`text-lg font-black ${color}`} style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
+    <div className={"rounded-3xl border shadow-sm p-3 text-center " + bg}>
+      <p className={"text-lg font-black " + color} style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
       <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{label}</p>
     </div>
   );
