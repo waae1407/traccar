@@ -1,33 +1,120 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Plus, Receipt, Loader2, Upload, Trash2 } from "lucide-react";
+import { Plus, Receipt, Loader2, Upload, Trash2, X, RefreshCw } from "lucide-react";
 import { uploadFile } from "@/utils/uploadFile";
 import HostPageHeader from "@/components/host/HostPageHeader";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { format, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import ExpenseFilters, { DEFAULT_FILTERS, EXPENSE_TYPES, TYPE_COLORS } from "@/components/host/expenses/ExpenseFilters";
+import FleetProfitability from "@/components/host/expenses/FleetProfitability";
+import ExpenseInsights from "@/components/host/expenses/ExpenseInsights";
+import ExpenseDrawer from "@/components/host/expenses/ExpenseDrawer";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, startOfYear, isWithinInterval } from "date-fns";
 
-const EXPENSE_TYPES = ["fuel", "insurance", "repair", "cleaning", "registration", "toll", "parking", "other"];
-const TYPE_COLORS = { fuel: "#f59e0b", insurance: "#3b82f6", repair: "#ef4444", cleaning: "#10b981", registration: "#8b5cf6", toll: "#f97316", parking: "#06b6d4", other: "#6b7280" };
 const inputClass = "w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-pink-400 text-sm";
+
+const TAX_DEDUCTIBLE_TYPES = new Set(["fuel", "insurance", "repair", "registration", "maintenance", "gps", "tires", "toll", "parking"]);
+
+function getDateRange(range) {
+  const now = new Date();
+  if (range === "this_week") return { start: startOfWeek(now), end: now };
+  if (range === "this_month") return { start: startOfMonth(now), end: endOfMonth(now) };
+  if (range === "last30") return { start: subDays(now, 30), end: now };
+  if (range === "last90") return { start: subDays(now, 90), end: now };
+  if (range === "this_year") return { start: startOfYear(now), end: now };
+  return null;
+}
+
+function matchesCostRange(amount, range) {
+  if (!range) return true;
+  const a = amount || 0;
+  if (range === "0-100") return a >= 0 && a <= 100;
+  if (range === "100-500") return a > 100 && a <= 500;
+  if (range === "500-1000") return a > 500 && a <= 1000;
+  if (range === "1000+") return a > 1000;
+  return true;
+}
 
 export default function HostExpenses() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [form, setForm] = useState({ vehicle_id: "", expense_type: "fuel", amount: "", date: format(new Date(), "yyyy-MM-dd"), description: "", receipt_url: "", reimbursable: false });
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [selectedExpense, setSelectedExpense] = useState(null);
+  const [form, setForm] = useState({
+    vehicle_id: "", expense_type: "fuel", amount: "",
+    date: format(new Date(), "yyyy-MM-dd"), description: "",
+    receipt_url: "", reimbursable: false, recurring: false,
+  });
 
-  const { data: hosts = [] } = useQuery({ queryKey: ["my-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user?.email }), enabled: !!user?.email });
+  const { data: hosts = [] } = useQuery({
+    queryKey: ["my-host", user?.email],
+    queryFn: () => base44.entities.Host.filter({ email: user?.email }),
+    enabled: !!user?.email,
+  });
   const host = hosts[0];
 
-  const { data: vehicles = [] } = useQuery({ queryKey: ["host-vehicles", host?.id], queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }), enabled: !!host?.id });
-  const { data: expenses = [], isLoading } = useQuery({ queryKey: ["host-expenses", host?.id], queryFn: () => base44.entities.HostExpense.filter({ host_id: host.id }), enabled: !!host?.id });
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["host-vehicles", host?.id],
+    queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }),
+    enabled: !!host?.id,
+  });
+
+  const { data: expenses = [], isLoading } = useQuery({
+    queryKey: ["host-expenses", host?.id],
+    queryFn: () => base44.entities.HostExpense.filter({ host_id: host.id }, "-date", 500),
+    enabled: !!host?.id,
+  });
+
+  // Supporting data for profitability
+  const { data: paymentLogs = [] } = useQuery({
+    queryKey: ["host-payments-exp", host?.id, vehicles.map(v => v.id).join(",")],
+    queryFn: async () => {
+      const results = [];
+      if (host?.id) { try { const r = await base44.entities.PaymentLog.filter({ host_id: host.id }, "-paid_at", 200); results.push(...r); } catch (_) {} }
+      if (vehicles.length > 0) {
+        const perV = await Promise.all(vehicles.slice(0, 15).map(v => base44.entities.PaymentLog.filter({ vehicle_id: v.id }, "-paid_at", 50).catch(() => [])));
+        results.push(...perV.flat());
+      }
+      const seen = new Set();
+      return results.filter(l => { if (seen.has(l.id)) return false; seen.add(l.id); return true; });
+    },
+    enabled: !!host?.id,
+  });
+
+  const { data: maintenanceLogs = [] } = useQuery({
+    queryKey: ["host-maint-exp", host?.id],
+    queryFn: () => base44.entities.HostMaintenanceLog.filter({ host_id: host.id }, "-date", 200),
+    enabled: !!host?.id,
+  });
+
+  const { data: payouts = [] } = useQuery({
+    queryKey: ["host-payouts-exp", host?.id],
+    queryFn: () => base44.entities.HostPayout.filter({ host_id: host.id }, "-created_date", 200),
+    enabled: !!host?.id,
+  });
+
+  const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles]);
+
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const res = await uploadFile(file);
+    setF("receipt_url", res.file_url);
+    setUploading(false);
+  };
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.HostExpense.create(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["host-expenses"] }); setShowForm(false); setForm({ vehicle_id: "", expense_type: "fuel", amount: "", date: format(new Date(), "yyyy-MM-dd"), description: "", receipt_url: "", reimbursable: false }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["host-expenses"] });
+      setShowForm(false);
+      setForm({ vehicle_id: "", expense_type: "fuel", amount: "", date: format(new Date(), "yyyy-MM-dd"), description: "", receipt_url: "", reimbursable: false, recurring: false });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -35,176 +122,342 @@ export default function HostExpenses() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["host-expenses"] }),
   });
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setUploading(true);
-    const res = await uploadFile(file);
-    set("receipt_url", res.file_url);
-    setUploading(false);
-  };
-
-  const vinSuffix = (v) => v.vin ? ` [${v.vin.slice(-6).toUpperCase()}]` : "";
-  const vehicleLabel = (v) => `${v.year} ${v.make} ${v.model}${vinSuffix(v)}`;
-
   const handleSubmit = (e) => {
     e.preventDefault();
     const vehicle = vehicles.find(v => v.id === form.vehicle_id);
-    createMutation.mutate({ ...form, host_id: host.id, amount: Number(form.amount), vehicle_name: vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "" });
+    createMutation.mutate({
+      ...form,
+      host_id: host.id,
+      amount: Number(form.amount),
+      vehicle_name: vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "",
+      tax_deductible: TAX_DEDUCTIBLE_TYPES.has(form.expense_type),
+    });
   };
 
-  const now = new Date();
-  const thisMonthExpenses = expenses.filter(e => {
-    if (!e.date) return false;
-    return isWithinInterval(new Date(e.date), { start: startOfMonth(now), end: endOfMonth(now) });
-  });
+  // Enrich expenses with tax deductible flag
+  const enrichedExpenses = useMemo(() =>
+    expenses.map(e => ({
+      ...e,
+      tax_deductible: e.tax_deductible ?? TAX_DEDUCTIBLE_TYPES.has(e.expense_type),
+    })),
+    [expenses]
+  );
 
-  const totalThisMonth = thisMonthExpenses.reduce((s, e) => s + (e.amount || 0), 0);
-  const totalAllTime = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  // KPIs
+  const kpis = useMemo(() => {
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+    const totalExpenses = enrichedExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+    const monthlyExpenses = enrichedExpenses
+      .filter(e => e.date && isWithinInterval(new Date(e.date), { start: monthStart, end: monthEnd }))
+      .reduce((s, e) => s + (e.amount || 0), 0);
+    const totalRevenue = paymentLogs.filter(p => p.status === "paid").reduce((s, p) => s + (p.amount || 0), 0);
+    const maintCost = maintenanceLogs.reduce((s, m) => s + (m.cost || 0), 0);
+    const totalCosts = totalExpenses + maintCost;
+    const netProfit = totalRevenue - totalCosts;
+    const vehicleIds = new Set(enrichedExpenses.map(e => e.vehicle_id).filter(Boolean));
+    const avgPerVehicle = vehicleIds.size > 0 ? totalExpenses / vehicleIds.size : 0;
+    const reimbursableTotal = enrichedExpenses.filter(e => e.reimbursable).reduce((s, e) => s + (e.amount || 0), 0);
+    const taxDeductibleTotal = enrichedExpenses.filter(e => e.tax_deductible).reduce((s, e) => s + (e.amount || 0), 0);
 
-  const byCategory = EXPENSE_TYPES.map(t => ({
-    name: t.charAt(0).toUpperCase() + t.slice(1),
-    value: expenses.filter(e => e.expense_type === t).reduce((s, e) => s + (e.amount || 0), 0),
-    color: TYPE_COLORS[t],
-  })).filter(d => d.value > 0);
+    // Highest cost vehicle
+    const byCostMap = {};
+    enrichedExpenses.forEach(e => {
+      if (e.vehicle_name) byCostMap[e.vehicle_name] = (byCostMap[e.vehicle_name] || 0) + (e.amount || 0);
+    });
+    const topVehicle = Object.entries(byCostMap).sort((a, b) => b[1] - a[1])[0];
 
-  const sorted = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+    return { totalExpenses, monthlyExpenses, netProfit, avgPerVehicle, reimbursableTotal, taxDeductibleTotal, topVehicle };
+  }, [enrichedExpenses, paymentLogs, maintenanceLogs]);
+
+  // Filtered list
+  const filtered = useMemo(() => {
+    return enrichedExpenses.filter(e => {
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        if (
+          !(e.vehicle_name || "").toLowerCase().includes(q) &&
+          !(e.description || "").toLowerCase().includes(q) &&
+          !(e.expense_type || "").toLowerCase().includes(q)
+        ) return false;
+      }
+      if (filters.vehicleId && e.vehicle_id !== filters.vehicleId) return false;
+      if (filters.expenseType && e.expense_type !== filters.expenseType) return false;
+      if (filters.dateRange) {
+        const range = getDateRange(filters.dateRange);
+        if (range && e.date) {
+          if (!isWithinInterval(new Date(e.date), { start: range.start, end: range.end })) return false;
+        }
+      }
+      if (!matchesCostRange(e.amount, filters.costRange)) return false;
+      if (filters.reimbursable === "yes" && !e.reimbursable) return false;
+      if (filters.reimbursable === "no" && e.reimbursable) return false;
+      return true;
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [enrichedExpenses, filters]);
+
+  // Category breakdown for filtered
+  const byCategory = useMemo(() => {
+    const map = {};
+    filtered.forEach(e => { map[e.expense_type] = (map[e.expense_type] || 0) + (e.amount || 0); });
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([type, total]) => ({
+      type, total, label: EXPENSE_TYPES.find(t => t.value === type)?.label || type, color: TYPE_COLORS[type] || "#6b7280",
+    }));
+  }, [filtered]);
+
+  // CSV Export
+  const handleExport = () => {
+    const rows = [
+      ["Vehicle", "Expense Type", "Amount", "Date", "Description", "Tax Deductible", "Reimbursable", "Recurring"],
+      ...filtered.map(e => [
+        e.vehicle_name || "", EXPENSE_TYPES.find(t => t.value === e.expense_type)?.label || e.expense_type || "",
+        e.amount || "", e.date || "", (e.description || "").replace(/"/g, '""'),
+        e.tax_deductible ? "Yes" : "No", e.reimbursable ? "Yes" : "No", e.recurring ? "Yes" : "No",
+      ]),
+    ];
+    exportCSV(rows, `expenses-${new Date().toISOString().split("T")[0]}.csv`);
+  };
+
+  // Tax Summary Export
+  const handleExportTax = () => {
+    const taxItems = filtered.filter(e => e.tax_deductible);
+    const rows = [
+      ["Vehicle", "Category", "Amount", "Date", "Description"],
+      ...taxItems.map(e => [e.vehicle_name || "Fleet", EXPENSE_TYPES.find(t => t.value === e.expense_type)?.label || e.expense_type, e.amount || "", e.date || "", e.description || ""]),
+    ];
+    exportCSV(rows, `tax-summary-${new Date().toISOString().split("T")[0]}.csv`);
+  };
+
+  function exportCSV(rows, filename) {
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const vehicleLabel = (v) => `${v.year} ${v.make} ${v.model}${v.plate ? ` · ${v.plate}` : ""}`;
 
   return (
     <div className="space-y-5">
       <HostPageHeader
         title="Expenses"
-        subtitle="Track and categorize all fleet costs"
+        subtitle="Fleet financial intelligence · costs, profitability & insights"
         action={
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+          <button onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
             <Plus className="h-4 w-4" /> Add Expense
           </button>
         }
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-3xl shadow-sm p-5 text-center" style={{ background: "linear-gradient(135deg, hsl(0 72% 58% / 0.08), hsl(338 90% 56% / 0.05))", border: "1px solid hsl(0 72% 58% / 0.15)" }}>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">This Month</p>
-          <p className="text-3xl font-black text-red-500" style={{ fontFamily: "var(--font-syne)" }}>${totalThisMonth.toLocaleString()}</p>
-          <p className="text-xs text-gray-400 mt-1">Fleet costs</p>
-        </div>
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 text-center hover:shadow-md transition-shadow">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">All Time</p>
-          <p className="text-3xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>${totalAllTime.toLocaleString()}</p>
-          <p className="text-xs text-gray-400 mt-1">Total recorded</p>
-        </div>
+      {/* KPI CARDS */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        <KpiCard value={`$${Math.round(kpis.totalExpenses).toLocaleString()}`} label="Total Expenses" color="text-red-500" bg="bg-white border-gray-100" />
+        <KpiCard value={`$${Math.round(kpis.monthlyExpenses).toLocaleString()}`} label="This Month" color="text-orange-500" bg="bg-orange-50 border-orange-200" />
+        <KpiCard value={kpis.netProfit >= 0 ? `+$${Math.round(kpis.netProfit).toLocaleString()}` : `-$${Math.round(Math.abs(kpis.netProfit)).toLocaleString()}`}
+          label="Net Profit" color={kpis.netProfit >= 0 ? "text-emerald-600" : "text-red-500"}
+          bg={kpis.netProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"} />
+        <KpiCard value={`$${Math.round(kpis.avgPerVehicle).toLocaleString()}`} label="Avg/Vehicle" color="text-gray-700" bg="bg-white border-gray-100" />
+        <KpiCard value={`$${Math.round(kpis.reimbursableTotal).toLocaleString()}`} label="Reimbursable"
+          color={kpis.reimbursableTotal > 0 ? "text-yellow-600" : "text-gray-400"}
+          bg={kpis.reimbursableTotal > 0 ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-100"} />
+        <KpiCard value={`$${Math.round(kpis.taxDeductibleTotal).toLocaleString()}`} label="Tax Deductible" color="text-purple-600" bg="bg-purple-50 border-purple-200" />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-5">
-        {/* Chart */}
-        {byCategory.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="font-bold text-gray-900 text-sm mb-4">By Category</h3>
-            <ResponsiveContainer width="100%" height={160}>
-              <PieChart>
-                <Pie data={byCategory} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value">
-                  {byCategory.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                </Pie>
-                <Tooltip formatter={(val) => [`$${val.toLocaleString()}`, ""]} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-1.5 mt-3">
-              {byCategory.map(c => (
-                <div key={c.name} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
-                    <span className="text-gray-600">{c.name}</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">${c.value.toLocaleString()}</span>
-                </div>
-              ))}
+      {/* SMART INSIGHTS + ALERTS */}
+      <ExpenseInsights
+        expenses={enrichedExpenses}
+        vehicles={vehicles}
+        maintenanceLogs={maintenanceLogs}
+        paymentLogs={paymentLogs}
+      />
+
+      {/* ADD EXPENSE FORM */}
+      {showForm && (
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-pink-200 shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-900 text-sm">New Expense</h3>
+            <button type="button" onClick={() => setShowForm(false)}><X className="h-4 w-4 text-gray-400" /></button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Vehicle</label>
+              <select className={inputClass} value={form.vehicle_id} onChange={e => setF("vehicle_id", e.target.value)}>
+                <option value="">Fleet / General</option>
+                {vehicles.map(v => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Expense Type</label>
+              <select className={inputClass} value={form.expense_type} onChange={e => setF("expense_type", e.target.value)}>
+                {EXPENSE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
             </div>
           </div>
-        )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Amount ($) *</label>
+              <input className={inputClass} type="number" step="0.01" required value={form.amount} onChange={e => setF("amount", e.target.value)} placeholder="0.00" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Date *</label>
+              <input className={inputClass} type="date" required value={form.date} onChange={e => setF("date", e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Description / Vendor</label>
+            <input className={inputClass} value={form.description} onChange={e => setF("description", e.target.value)} placeholder="Vendor name or notes…" />
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+              <input type="checkbox" checked={form.reimbursable} onChange={e => setF("reimbursable", e.target.checked)} className="rounded border-gray-300 text-pink-500" />
+              Reimbursable
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+              <input type="checkbox" checked={form.recurring} onChange={e => setF("recurring", e.target.checked)} className="rounded border-gray-300 text-pink-500" />
+              Recurring
+            </label>
+          </div>
+          <div className="flex items-center justify-between">
+            <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100">
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              {form.receipt_url ? "Receipt ✓" : "Upload Receipt"}
+              <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleUpload} />
+            </label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 bg-gray-100">Cancel</button>
+              <button type="submit" disabled={createMutation.isPending} className="px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+                {createMutation.isPending ? "Saving…" : "Add Expense"}
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
 
-        {/* List */}
-        <div className={`${byCategory.length > 0 ? "lg:col-span-2" : "lg:col-span-3"}`}>
-          {showForm && (
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-pink-200 shadow-sm p-5 mb-4 space-y-3">
-              <h3 className="font-bold text-gray-900 text-sm">New Expense</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Vehicle</label>
-                  <select className={inputClass} value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)}>
-                    <option value="">All vehicles</option>
-                    {vehicles.map(v => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Type</label>
-                  <select className={inputClass} value={form.expense_type} onChange={e => set("expense_type", e.target.value)}>
-                    {EXPENSE_TYPES.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Amount ($)</label>
-                  <input className={inputClass} type="number" required value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="0.00" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Date</label>
-                  <input className={inputClass} type="date" required value={form.date} onChange={e => set("date", e.target.value)} />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Description</label>
-                <input className={inputClass} value={form.description} onChange={e => set("description", e.target.value)} placeholder="Optional notes..." />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100">
-                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  {form.receipt_url ? "Receipt uploaded ✓" : "Upload Receipt"}
-                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleUpload} />
-                </label>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 bg-gray-100">Cancel</button>
-                  <button type="submit" disabled={createMutation.isPending} className="px-5 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50"
-                    style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-                    {createMutation.isPending ? "Saving…" : "Add Expense"}
-                  </button>
-                </div>
-              </div>
-            </form>
-          )}
+      {/* FLEET PROFITABILITY */}
+      <FleetProfitability
+        vehicles={vehicles}
+        expenses={enrichedExpenses}
+        paymentLogs={paymentLogs}
+        maintenanceLogs={maintenanceLogs}
+        payouts={payouts}
+      />
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            {isLoading ? <div className="p-5 space-y-3">{[1,2,3].map(i => <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />)}</div>
-            : sorted.length === 0 ? (
-              <div className="text-center py-16"><Receipt className="h-8 w-8 text-gray-300 mx-auto mb-3" /><p className="text-gray-400 text-sm">No expenses recorded yet</p></div>
-            ) : (
-              <div className="divide-y divide-gray-50">
-                {sorted.map(e => (
-                  <div key={e.id} className="flex items-center gap-3 px-5 py-4">
-                    <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${TYPE_COLORS[e.expense_type]}20` }}>
-                      <div className="h-2.5 w-2.5 rounded-full" style={{ background: TYPE_COLORS[e.expense_type] }} />
+      {/* FILTERS */}
+      <ExpenseFilters
+        filters={filters}
+        onChange={setFilters}
+        vehicles={vehicles}
+        resultCount={filtered.length}
+        onExport={handleExport}
+        onExportTax={handleExportTax}
+      />
+
+      {/* CATEGORY BREAKDOWN */}
+      {byCategory.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">By Category</p>
+          <div className="space-y-2">
+            {byCategory.map(c => {
+              const totalFiltered = filtered.reduce((s, e) => s + (e.amount || 0), 0);
+              const pct = totalFiltered > 0 ? (c.total / totalFiltered) * 100 : 0;
+              return (
+                <div key={c.type} className="flex items-center gap-3">
+                  <div className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs text-gray-600">{c.label}</span>
+                      <span className="text-xs font-bold text-gray-900">${c.total.toLocaleString()}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 capitalize">{e.expense_type}</p>
-                      <p className="text-xs text-gray-400 truncate">{e.vehicle_name || "Fleet"} · {e.date}</p>
+                    <div className="h-1.5 rounded-full bg-gray-100">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: c.color }} />
                     </div>
-                    {e.description && <p className="text-xs text-gray-400 truncate max-w-[120px] hidden md:block">{e.description}</p>}
-                    {e.receipt_url && <a href={e.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-pink-500 font-semibold flex-shrink-0">View</a>}
-                    <p className="text-sm font-bold text-red-500 flex-shrink-0">${(e.amount || 0).toLocaleString()}</p>
-                    <button onClick={() => deleteMutation.mutate(e.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 flex-shrink-0">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
                   </div>
-                ))}
-              </div>
-            )}
+                  <span className="text-[10px] text-gray-400 flex-shrink-0">{pct.toFixed(0)}%</span>
+                </div>
+              );
+            })}
           </div>
         </div>
+      )}
+
+      {/* EXPENSE LIST */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">Expense Records</h3>
+          <p className="text-xs text-gray-400">{filtered.length} record{filtered.length !== 1 ? "s" : ""}</p>
+        </div>
+
+        {isLoading ? (
+          <div className="p-5 space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />)}</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <Receipt className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm">
+              {expenses.length === 0
+                ? "No expenses recorded yet. Add your first expense to track fleet costs."
+                : "No expenses match these filters."}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {filtered.map(e => {
+              const color = TYPE_COLORS[e.expense_type] || "#6b7280";
+              const typeLabel = EXPENSE_TYPES.find(t => t.value === e.expense_type)?.label || e.expense_type;
+              const isHighCost = (e.amount || 0) >= 500;
+              const isPendingReimburse = e.reimbursable;
+              return (
+                <button key={e.id} onClick={() => setSelectedExpense(e)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50/60 transition-colors text-left">
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-semibold text-gray-900">{typeLabel}</p>
+                      {e.tax_deductible && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-50 text-green-600 border border-green-100">TAX</span>}
+                      {e.reimbursable && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-50 text-yellow-600 border border-yellow-100">REIMB</span>}
+                      {e.recurring && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">REC</span>}
+                    </div>
+                    <p className="text-xs text-gray-400 truncate">{e.vehicle_name || "Fleet"} · {e.date}{e.description ? ` · ${e.description}` : ""}</p>
+                  </div>
+                  {e.receipt_url && <Receipt className="h-3.5 w-3.5 text-pink-400 flex-shrink-0" />}
+                  <p className={`text-sm font-bold flex-shrink-0 ${isHighCost ? "text-red-600" : isPendingReimburse ? "text-yellow-600" : "text-gray-700"}`}>
+                    ${(e.amount || 0).toLocaleString()}
+                  </p>
+                  <button onClick={(ev) => { ev.stopPropagation(); deleteMutation.mutate(e.id); }}
+                    className="p-1 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 flex-shrink-0">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* DETAIL DRAWER */}
+      {selectedExpense && (
+        <ExpenseDrawer
+          expense={selectedExpense}
+          vehicle={vehicleMap[selectedExpense.vehicle_id] || null}
+          onClose={() => setSelectedExpense(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function KpiCard({ value, label, color, bg }) {
+  return (
+    <div className={`rounded-3xl border shadow-sm p-3 text-center ${bg}`}>
+      <p className={`text-lg font-black ${color}`} style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
+      <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{label}</p>
     </div>
   );
 }
