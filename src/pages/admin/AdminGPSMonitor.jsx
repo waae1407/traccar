@@ -90,6 +90,22 @@ export default function AdminGPSMonitor() {
     ? gpsEvents.filter(e => e.device_id === selectedVehicle.moovetrax_device_id).slice(0, 20)
     : [];
 
+  // ── GPS PROVIDER VALIDATION PENDING BANNER ──────────────────────────────
+  const validationBanner = (
+    <div className="flex items-start gap-3 p-4 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 mb-5">
+      <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+      <div>
+        <p className="text-sm font-bold text-yellow-300">GPS Provider Validation Pending</p>
+        <p className="text-xs text-yellow-400/80 mt-0.5 leading-relaxed">
+          Device data will appear after MooveTrax API credentials and live device testing are completed.
+          Set <code className="bg-yellow-500/20 px-1 rounded font-mono">MOOVETRAX_PARTNER_API_KEY</code> and
+          run a manual test from Dashboard → Code → Functions → <code className="bg-yellow-500/20 px-1 rounded font-mono">checkGPSDeviceStatus</code>.
+        </p>
+        <p className="text-[10px] text-yellow-400/60 mt-1 font-semibold uppercase tracking-wide">Status: Code-complete · Pending vendor API validation</p>
+      </div>
+    </div>
+  );
+
   if (loadingVehicles || loadingEvents) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -100,6 +116,7 @@ export default function AdminGPSMonitor() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
+      {validationBanner}
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

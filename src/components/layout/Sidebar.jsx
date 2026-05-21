@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
   FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2, Eye, Gift, Home, Wallet, Zap,
-  Shield, FileText, Bell, MapPin, ClipboardList,
+  Shield, FileText, Bell, MapPin, ClipboardList, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -40,6 +40,7 @@ const superadminNavItems = [
 ];
 
 const operationsNavItems = [
+  { label: "Operations Center", icon: Activity, path: "/admin/operations" },
   { label: "Disputes", icon: Shield, path: "/admin/disputes" },
   { label: "Audit Log", icon: FileText, path: "/admin/audit-log" },
   { label: "Operational Alerts", icon: Bell, path: "/admin/operational-alerts" },
