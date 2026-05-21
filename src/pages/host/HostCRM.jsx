@@ -12,16 +12,6 @@ import { startOfMonth } from "date-fns";
 
 const ACTIVE_STATUSES = new Set(["active", "confirmed", "approved", "payment_due", "grace_period", "under_review"]);
 
-function KpiCard({ icon: Icon, label, value, color, bg }) {
-  return (
-    <div className={`rounded-3xl border shadow-sm p-4 text-center ${bg}`}>
-      <Icon className={`h-4 w-4 mx-auto mb-1.5 ${color}`} />
-      <p className={`text-2xl font-black ${color}`} style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
-      <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
-    </div>
-  );
-}
-
 export default function HostCRM() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -71,9 +61,28 @@ export default function HostCRM() {
     enabled: !!host?.id,
   });
 
+  // Fetch payment logs by BOTH host_id and vehicle_id to catch all records
   const { data: paymentLogs = [] } = useQuery({
-    queryKey: ["host-crm-payments", host?.id],
-    queryFn: () => base44.entities.PaymentLog.filter({ host_id: host.id }, "-paid_at", 200),
+    queryKey: ["host-crm-payments-v2", host?.id, vehicles.map(v => v.id).join(",")],
+    queryFn: async () => {
+      const results = [];
+      if (host?.id) {
+        try {
+          const byHost = await base44.entities.PaymentLog.filter({ host_id: host.id }, "-paid_at", 200);
+          results.push(...byHost);
+        } catch (_) {}
+      }
+      if (vehicles.length > 0) {
+        const perVehicle = await Promise.all(
+          vehicles.slice(0, 15).map(v =>
+            base44.entities.PaymentLog.filter({ vehicle_id: v.id }, "-paid_at", 100).catch(() => [])
+          )
+        );
+        results.push(...perVehicle.flat());
+      }
+      const seen = new Set();
+      return results.filter(l => { if (seen.has(l.id)) return false; seen.add(l.id); return true; });
+    },
     enabled: !!host?.id,
   });
 
@@ -203,16 +212,43 @@ export default function HostCRM() {
         subtitle={`${kpis.total} total · ${kpis.activeRentals} active rentals`}
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard icon={Users} label="Total Customers" value={kpis.total} color="text-gray-900" bg="bg-white border-gray-100" />
-        <KpiCard icon={Activity} label="Active Rentals" value={kpis.activeRentals} color="text-emerald-600" bg="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200" />
-        <KpiCard icon={DollarSign} label="Monthly Revenue" value={`$${Math.round(kpis.monthlyRevenue).toLocaleString()}`} color="text-pink-600" bg="bg-gradient-to-br from-pink-50 to-purple-50 border-pink-200" />
+      {/* KPI CARDS — clickable to filter */}
+      <div className="grid grid-cols-2 gap-3">
         <KpiCard
-          icon={AlertTriangle}
+          IconComponent={Users}
+          label="Total Customers"
+          value={kpis.total}
+          color="text-gray-900"
+          bg="bg-white border-gray-100"
+          onClick={() => setFilters(DEFAULT_FILTERS)}
+          active={Object.values(filters).every(v => v === "")}
+        />
+        <KpiCard
+          IconComponent={Activity}
+          label="Active Rentals"
+          value={kpis.activeRentals}
+          color="text-emerald-600"
+          bg="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200"
+          onClick={() => setFilters({ ...DEFAULT_FILTERS, status: "active" })}
+          active={filters.status === "active"}
+        />
+        <KpiCard
+          IconComponent={DollarSign}
+          label="Monthly Revenue"
+          value={`$${Math.round(kpis.monthlyRevenue).toLocaleString()}`}
+          color="text-pink-600"
+          bg="bg-gradient-to-br from-pink-50 to-purple-50 border-pink-200"
+          onClick={() => setFilters({ ...DEFAULT_FILTERS, paymentStatus: "current" })}
+          active={filters.paymentStatus === "current"}
+        />
+        <KpiCard
+          IconComponent={AlertTriangle}
           label="Needs Attention"
           value={kpis.needsAttention}
           color={kpis.needsAttention > 0 ? "text-yellow-600" : "text-gray-400"}
           bg={kpis.needsAttention > 0 ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-100"}
+          onClick={() => setFilters({ ...DEFAULT_FILTERS, risk: "needs_attention" })}
+          active={filters.risk === "needs_attention"}
         />
       </div>
 
@@ -233,7 +269,9 @@ export default function HostCRM() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loadingCustomers ? (
           <div className="p-5 space-y-3">
-            {[1, 2, 3, 4].map(i => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />
+            ))}
           </div>
         ) : filteredCustomers.length === 0 ? (
           <div className="text-center py-14">
@@ -277,5 +315,18 @@ export default function HostCRM() {
         />
       )}
     </div>
+  );
+}
+
+function KpiCard({ IconComponent, label, value, color, bg, onClick, active }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-3xl border shadow-sm p-4 text-center w-full transition-all active:scale-95 ${bg} ${active ? "ring-2 ring-pink-400" : "hover:shadow-md"}`}
+    >
+      <IconComponent className={`h-4 w-4 mx-auto mb-1.5 ${color}`} />
+      <p className={`text-2xl font-black ${color}`} style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
+      <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
+    </button>
   );
 }
