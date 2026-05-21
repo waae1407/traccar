@@ -2,29 +2,33 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { CheckCircle2, AlertTriangle, ExternalLink, Zap, Loader2, Clock } from "lucide-react";
+import { CheckCircle2, AlertTriangle, ExternalLink, Zap, Loader2, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import HostPayoutReceipt from "@/components/host/HostPayoutReceipt";
 import HostPageHeader from "@/components/host/HostPageHeader";
-import PayoutFilters, { getDateRange } from "@/components/host/payouts/PayoutFilters";
+import PayoutFilters, { DEFAULT_FILTERS, getDateRange } from "@/components/host/payouts/PayoutFilters";
 import UpcomingTransfers from "@/components/host/payouts/UpcomingTransfers";
 import HeldPayouts from "@/components/host/payouts/HeldPayouts";
 import PayoutRow from "@/components/host/payouts/PayoutRow";
+import PayoutDetailDrawer from "@/components/host/payouts/PayoutDetailDrawer";
+
+const PAGE_SIZE = 20;
 
 function fmt(n) {
   return (n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const DEFAULT_FILTERS = { search: "", dateRange: "all", status: "", vehicleId: "" };
-
 export default function HostPayouts() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [selectedPayout, setSelectedPayout] = useState(null);
+  const [receiptPayout, setReceiptPayout] = useState(null);
   const [stripeLoading, setStripeLoading] = useState(false);
   const [stripeError, setStripeError] = useState(null);
   const [checkingReturn, setCheckingReturn] = useState(false);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [page, setPage] = useState(1);
 
+  // ── DATA FETCHING (all host-scoped) ───────────────────────────────────────
   const { data: hosts = [] } = useQuery({
     queryKey: ["my-host", user?.email],
     queryFn: () => base44.entities.Host.filter({ email: user?.email }),
@@ -32,9 +36,9 @@ export default function HostPayouts() {
   });
   const host = hosts[0];
 
-  const { data: payouts = [], isLoading } = useQuery({
+  const { data: allPayouts = [], isLoading: loadingPayouts } = useQuery({
     queryKey: ["host-payouts", host?.id],
-    queryFn: () => base44.entities.HostPayout.filter({ host_id: host.id }),
+    queryFn: () => base44.entities.HostPayout.filter({ host_id: host.id }, "-created_date", 500),
     enabled: !!host?.id,
   });
 
@@ -44,13 +48,32 @@ export default function HostPayouts() {
     enabled: !!host?.id,
   });
 
-  const { data: activeBookings = [] } = useQuery({
-    queryKey: ["host-active-bookings", host?.id],
-    queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id, booking_status: "active" }),
+  const { data: myBookings = [] } = useQuery({
+    queryKey: ["host-bookings", host?.id],
+    queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }, "-created_date", 300),
     enabled: !!host?.id,
   });
 
-  // Handle Stripe return
+  const { data: myDisputes = [] } = useQuery({
+    queryKey: ["host-disputes", host?.id],
+    queryFn: () => base44.entities.Dispute.filter({ host_id: host.id }),
+    enabled: !!host?.id,
+  });
+
+  // ── LOOKUP MAPS ───────────────────────────────────────────────────────────
+  const bookingMap = useMemo(() =>
+    Object.fromEntries(myBookings.map(b => [b.id, b])), [myBookings]);
+
+  const disputeMap = useMemo(() => {
+    // Key by booking_request_id for fast lookup
+    const map = {};
+    for (const d of myDisputes) {
+      if (d.booking_request_id) map[d.booking_request_id] = d;
+    }
+    return map;
+  }, [myDisputes]);
+
+  // ── HANDLE STRIPE RETURN ──────────────────────────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const isReturn = params.get("stripe_success") || params.get("stripe_refresh");
@@ -58,7 +81,7 @@ export default function HostPayouts() {
 
     setCheckingReturn(true);
     base44.functions.invoke("getStripeConnectStatus", { host_id: host.id })
-      .then(async (res) => {
+      .then(async res => {
         if (res.data?.charges_enabled || res.data?.onboarding_complete) {
           await base44.entities.Host.update(host.id, { stripe_onboarding_complete: true });
           qc.invalidateQueries({ queryKey: ["my-host"] });
@@ -71,25 +94,11 @@ export default function HostPayouts() {
       .catch(() => setCheckingReturn(false));
   }, [host?.id]); // eslint-disable-line
 
-  const commissionRate = host?.commission_rate ?? 0.08;
-  const hostKeepPct = `${(100 - commissionRate * 100).toFixed(0)}%`;
-  const platformFeeLabel = `${(commissionRate * 100).toFixed(0)}%`;
-
   // ── FILTER LOGIC ──────────────────────────────────────────────────────────
   const filteredPayouts = useMemo(() => {
-    let list = [...payouts].sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+    let list = [...allPayouts];
 
-    if (filters.status) {
-      list = list.filter(p => p.status === filters.status);
-    }
-    if (filters.vehicleId) {
-      // Match by vehicle name (payouts store vehicle_name, not vehicle_id)
-      const v = myVehicles.find(v => v.id === filters.vehicleId);
-      if (v) {
-        const vname = `${v.year} ${v.make} ${v.model}`.toLowerCase();
-        list = list.filter(p => (p.vehicle_name || "").toLowerCase().includes(v.make.toLowerCase()));
-      }
-    }
+    // Date range
     if (filters.dateRange !== "all") {
       const range = getDateRange(filters.dateRange);
       if (range) {
@@ -99,43 +108,108 @@ export default function HostPayouts() {
         });
       }
     }
+
+    // Status
+    if (filters.status) {
+      list = list.filter(p => p.status === filters.status);
+    }
+
+    // Vehicle — match host's vehicle list
+    if (filters.vehicleId) {
+      const v = myVehicles.find(v => v.id === filters.vehicleId);
+      if (v) {
+        const makeLower = v.make.toLowerCase();
+        const modelLower = v.model.toLowerCase();
+        list = list.filter(p =>
+          (p.vehicle_name || "").toLowerCase().includes(makeLower) ||
+          (p.vehicle_name || "").toLowerCase().includes(modelLower)
+        );
+      }
+    }
+
+    // Search: booking ID, renter, vehicle, payout ID
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      list = list.filter(p =>
-        (p.vehicle_name || "").toLowerCase().includes(q) ||
-        (p.host_name || "").toLowerCase().includes(q) ||
-        (p.booking_request_id || "").toLowerCase().includes(q) ||
-        (p.id || "").toLowerCase().includes(q)
-      );
+      list = list.filter(p => {
+        const booking = p.booking_request_id ? bookingMap[p.booking_request_id] : null;
+        return (
+          (p.vehicle_name || "").toLowerCase().includes(q) ||
+          (p.booking_request_id || "").toLowerCase().includes(q) ||
+          (p.id || "").toLowerCase().includes(q) ||
+          (p.stripe_transfer_id || "").toLowerCase().includes(q) ||
+          (booking?.customer_full_name || "").toLowerCase().includes(q) ||
+          (booking?.user_email || "").toLowerCase().includes(q)
+        );
+      });
     }
-    return list;
-  }, [payouts, filters, myVehicles]);
 
-  // ── KPI CARDS ─────────────────────────────────────────────────────────────
-  const pendingNet = payouts.filter(p => p.status === "pending" || p.status === "processing")
-    .reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
-  const totalPaid = payouts.filter(p => p.status === "paid" || p.status === "released")
-    .reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
-  const heldTotal = payouts.filter(p => p.status === "held" || p.status === "failed")
-    .reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
-  const heldCount = payouts.filter(p => p.status === "held" || p.status === "failed").length;
+    return list.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+  }, [allPayouts, filters, myVehicles, bookingMap]);
+
+  // ── KPI CARDS (from FILTERED payouts) ─────────────────────────────────────
+  const kpis = useMemo(() => {
+    const pending = filteredPayouts.filter(p => ["pending", "processing"].includes(p.status));
+    const paid = filteredPayouts.filter(p => ["paid", "released"].includes(p.status));
+    const held = filteredPayouts.filter(p => ["held", "failed"].includes(p.status));
+
+    const pendingTotal = pending.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+    const paidTotal = paid.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+    const heldTotal = held.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+
+    // Average keep % from payouts with gross > 0
+    const withGross = paid.filter(p => (p.gross_booking_amount || p.gross_collected || 0) > 0);
+    let avgKeepPct = null;
+    if (withGross.length > 0) {
+      const ratios = withGross.map(p => {
+        const gross = p.gross_booking_amount || p.gross_collected || 0;
+        const net = p.net_host_payout || p.net_payout || 0;
+        return net / gross;
+      });
+      avgKeepPct = (ratios.reduce((s, r) => s + r, 0) / ratios.length * 100).toFixed(1);
+    }
+
+    return { pendingTotal, paidTotal, heldTotal, heldCount: held.length, avgKeepPct };
+  }, [filteredPayouts]);
+
+  // ── PAGINATION ────────────────────────────────────────────────────────────
+  // Exclude pending/processing/held from history (shown in upcoming/held sections)
+  const historyPayouts = filteredPayouts.filter(p => !["pending", "processing", "held"].includes(p.status));
+  const totalPages = Math.max(1, Math.ceil(historyPayouts.length / PAGE_SIZE));
+  const pagedHistory = historyPayouts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [filters]);
 
   // ── CSV EXPORT ────────────────────────────────────────────────────────────
   const handleExport = () => {
     const rows = [
-      ["Date", "Vehicle", "Booking ID", "Gross", "Platform Fee", "Stripe Fee", "Net Payout", "Status"],
-      ...filteredPayouts.map(p => [
-        p.payout_date || p.period_end || "",
-        p.vehicle_name || "",
-        p.booking_request_id || "",
-        (p.gross_booking_amount || p.gross_collected || 0).toFixed(2),
-        (p.uride_platform_fee_amount || p.platform_fee || 0).toFixed(2),
-        (p.stripe_fee_amount || 0).toFixed(2),
-        (p.net_host_payout || p.net_payout || 0).toFixed(2),
-        p.status || "",
-      ]),
+      ["Payout ID", "Date", "Booking ID", "Customer", "Vehicle", "Gross", "Platform Fee", "Stripe Fee", "Reserve/Hold", "Net Payout", "Status", "Hold Reason", "Paid Date", "Stripe Transfer ID"],
+      ...filteredPayouts.map(p => {
+        const booking = p.booking_request_id ? bookingMap[p.booking_request_id] : null;
+        const gross = p.gross_booking_amount || p.gross_collected || 0;
+        const net = p.net_host_payout || p.net_payout || 0;
+        const stripeFee = p.stripe_fee_amount || 0;
+        const platformFee = p.uride_platform_fee_amount || p.platform_fee || 0;
+        const reserve = Math.max(0, gross - platformFee - stripeFee - net);
+        return [
+          p.id || "",
+          p.created_date ? new Date(p.created_date).toISOString().split("T")[0] : "",
+          p.booking_request_id || "",
+          booking?.customer_full_name || booking?.user_email || "",
+          p.vehicle_name || "",
+          gross.toFixed(2),
+          platformFee.toFixed(2),
+          stripeFee.toFixed(2),
+          reserve.toFixed(2),
+          net.toFixed(2),
+          p.status || "",
+          p.hold_reason || "",
+          p.payout_date || "",
+          p.stripe_transfer_id || "",
+        ];
+      }),
     ];
-    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -149,11 +223,6 @@ export default function HostPayouts() {
     setStripeLoading(true);
     setStripeError(null);
     try {
-      if (!host?.id || !host?.email) {
-        setStripeError("Host profile not loaded. Please refresh and try again.");
-        setStripeLoading(false);
-        return;
-      }
       const res = await base44.functions.invoke("createStripeConnectAccount", {
         host_id: host.id, host_email: host.email, host_name: host.full_name,
       });
@@ -163,19 +232,20 @@ export default function HostPayouts() {
         setStripeError(res.data?.error || "Could not generate onboarding link.");
       }
     } catch (err) {
-      setStripeError(err.message || "Something went wrong. Please try again.");
+      setStripeError(err.message || "Something went wrong.");
     } finally {
       setStripeLoading(false);
     }
   };
 
+  const commissionRate = host?.commission_rate ?? 0.08;
+  const platformFeeLabel = `${(commissionRate * 100).toFixed(0)}%`;
+  const defaultKeepPct = `${(100 - commissionRate * 100).toFixed(0)}%`;
+
   return (
     <div className="space-y-5">
       {/* 1. HERO */}
-      <HostPageHeader
-        title="Payouts"
-        subtitle="Automated via Stripe Connect — deposits go directly to your bank"
-      />
+      <HostPageHeader title="Payouts" subtitle="Automated via Stripe Connect — deposits go directly to your bank" />
 
       {/* 2. STRIPE CONNECT STATUS */}
       {checkingReturn && (
@@ -190,8 +260,8 @@ export default function HostPayouts() {
             <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <h3 className="font-bold text-yellow-800 mb-1">Connect Your Bank Account</h3>
-              <p className="text-sm text-yellow-700 mb-4">
-                Complete Stripe Connect onboarding to receive automated payouts. Takes about 5 minutes.
+              <p className="text-sm text-yellow-700 mb-3">
+                Payouts cannot be sent until you complete Stripe Connect onboarding. Takes about 5 minutes.
               </p>
               <button onClick={handleStripeConnect} disabled={stripeLoading || !host?.id}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60"
@@ -213,53 +283,58 @@ export default function HostPayouts() {
         </div>
       )}
 
-      {/* 3. KPI CARDS */}
+      {/* 3. KPI CARDS — data-driven from filtered payouts */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Pending Transfers</p>
           <p className="text-2xl font-black text-yellow-500" style={{ fontFamily: "var(--font-syne)" }}>
-            ${fmt(pendingNet)}
+            ${fmt(kpis.pendingTotal)}
           </p>
           <p className="text-[10px] text-gray-400 mt-1">In transit to bank</p>
         </div>
         <div className="rounded-3xl shadow-sm p-4 text-center"
           style={{ background: "linear-gradient(135deg, hsl(152 60% 46% / 0.12), hsl(199 90% 54% / 0.08))", border: "1px solid hsl(152 60% 46% / 0.2)" }}>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Total Paid Out</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Total Paid</p>
           <p className="text-2xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>
-            ${fmt(totalPaid)}
+            ${fmt(kpis.paidTotal)}
           </p>
-          <p className="text-[10px] text-gray-400 mt-1">Net received to date</p>
+          <p className="text-[10px] text-gray-400 mt-1">Net received · filtered period</p>
         </div>
-        <div className={`bg-white rounded-3xl border shadow-sm p-4 text-center ${heldCount > 0 ? "border-orange-200" : "border-gray-100"}`}>
+        <div className={`bg-white rounded-3xl border shadow-sm p-4 text-center ${kpis.heldCount > 0 ? "border-orange-200" : "border-gray-100"}`}>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Held / Review</p>
-          <p className={`text-2xl font-black ${heldCount > 0 ? "text-orange-500" : "text-gray-300"}`}
+          <p className={`text-2xl font-black ${kpis.heldCount > 0 ? "text-orange-500" : "text-gray-300"}`}
             style={{ fontFamily: "var(--font-syne)" }}>
-            {heldCount > 0 ? `$${fmt(heldTotal)}` : "$0.00"}
+            {kpis.heldCount > 0 ? `$${fmt(kpis.heldTotal)}` : "$0.00"}
           </p>
-          <p className="text-[10px] text-gray-400 mt-1">{heldCount > 0 ? `${heldCount} payout${heldCount > 1 ? "s" : ""} held` : "Nothing held"}</p>
+          <p className="text-[10px] text-gray-400 mt-1">
+            {kpis.heldCount > 0 ? `${kpis.heldCount} payout${kpis.heldCount > 1 ? "s" : ""} on hold` : "Nothing held"}
+          </p>
         </div>
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">You Keep</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Avg Keep %</p>
           <p className="text-2xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>
-            {hostKeepPct}
+            {kpis.avgKeepPct !== null ? `${kpis.avgKeepPct}%` : defaultKeepPct}
           </p>
-          <p className="text-[10px] text-gray-400 mt-1">before Stripe processing</p>
+          <p className="text-[10px] text-gray-400 mt-1">
+            {kpis.avgKeepPct !== null ? "avg after all fees" : "before Stripe processing"}
+          </p>
         </div>
       </div>
 
       {/* 4. FILTERS */}
       <PayoutFilters
         filters={filters}
-        onChange={setFilters}
+        onChange={f => { setFilters(f); setPage(1); }}
         vehicles={myVehicles}
         onExport={handleExport}
+        resultCount={filteredPayouts.length}
       />
 
       {/* 5. UPCOMING TRANSFERS */}
       <UpcomingTransfers
-        payouts={payouts}
-        bookings={activeBookings}
-        commissionRate={commissionRate}
+        payouts={filteredPayouts}
+        bookingMap={bookingMap}
+        onSelect={setSelectedPayout}
       />
 
       {/* 6. PAYOUT HISTORY */}
@@ -268,36 +343,64 @@ export default function HostPayouts() {
           <div>
             <h3 className="font-bold text-gray-900">Payout History</h3>
             <p className="text-xs text-gray-400 mt-0.5">
-              {filteredPayouts.length} record{filteredPayouts.length !== 1 ? "s" : ""}
-              {filters.status || filters.dateRange !== "all" || filters.search || filters.vehicleId ? " matching filters" : " total"}
+              {historyPayouts.length} record{historyPayouts.length !== 1 ? "s" : ""}
+              {totalPages > 1 && ` · Page ${page} of ${totalPages}`}
             </p>
           </div>
         </div>
-        {isLoading ? (
+        {loadingPayouts ? (
           <div className="p-5 space-y-3">
-            {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}
           </div>
-        ) : filteredPayouts.length === 0 ? (
+        ) : pagedHistory.length === 0 ? (
           <div className="text-center py-12">
             <Clock className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-400 text-sm">
-              {payouts.length === 0 ? "No payouts yet" : "No payouts match your filters"}
+              {allPayouts.length === 0
+                ? "Payouts will appear here after your first successful booking payment."
+                : "No payouts match your current filters."}
             </p>
           </div>
         ) : (
-          filteredPayouts.map(p => (
-            <PayoutRow
-              key={p.id}
-              payout={p}
-              commissionRate={commissionRate}
-              onReceipt={setSelectedPayout}
-            />
-          ))
+          <>
+            {pagedHistory.map(p => (
+              <PayoutRow
+                key={p.id}
+                payout={p}
+                booking={p.booking_request_id ? bookingMap[p.booking_request_id] : null}
+                onSelect={setSelectedPayout}
+                onReceipt={setReceiptPayout}
+              />
+            ))}
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-5 py-3 border-t border-gray-50 flex items-center justify-between">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                  <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                </button>
+                <span className="text-xs text-gray-400">{page} / {totalPages}</span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                  Next <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {/* 7. HELD / UNDER REVIEW */}
-      <HeldPayouts payouts={payouts} />
+      <HeldPayouts
+        payouts={allPayouts}
+        bookingMap={bookingMap}
+        disputeMap={disputeMap}
+        onSelect={setSelectedPayout}
+      />
 
       {/* 8. HOW PAYOUTS WORK */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -308,14 +411,14 @@ export default function HostPayouts() {
           {[
             "Renter is charged on their weekly billing date",
             `uRide Platform Fee: ${platformFeeLabel} of booking revenue`,
-            `You keep ${hostKeepPct} of booking revenue before Stripe processing fees`,
-            "Stripe processing fee is deducted at actual cost (2.9% + $0.30 per charge) — shown transparently per payout",
+            `You keep ${defaultKeepPct} of booking revenue before Stripe processing fees`,
+            "Stripe processing fee is deducted at actual cost (2.9% + $0.30 per charge) — shown on each payout",
             "Net payout is transferred to your Stripe Connected account",
             "Funds arrive in your bank within 2 business days",
             "Stripe automatically issues 1099-K at year end for earnings over $600",
           ].map((step, i) => (
-            <div key={i} className="flex items-center gap-3 text-sm text-gray-600">
-              <span className="h-6 w-6 rounded-full bg-pink-50 text-pink-600 text-xs font-bold flex items-center justify-center flex-shrink-0">
+            <div key={i} className="flex items-start gap-3 text-sm text-gray-600">
+              <span className="h-6 w-6 rounded-full bg-pink-50 text-pink-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                 {i + 1}
               </span>
               {step}
@@ -323,13 +426,23 @@ export default function HostPayouts() {
           ))}
         </div>
         <div className="mt-4 p-3 rounded-xl bg-gray-50 border border-gray-100 text-xs text-gray-500">
-          Stripe processing fees are collected by Stripe. uRideHub does not treat Stripe processing fees as platform revenue. Your net payout may vary slightly by transaction.
+          Stripe fees are collected by Stripe and not treated as uRideHub platform revenue. Your actual keep % varies slightly per transaction based on Stripe's processing fee.
         </div>
       </div>
 
-      {/* Receipt modal */}
+      {/* DETAIL DRAWER */}
       {selectedPayout && (
-        <HostPayoutReceipt payout={selectedPayout} onClose={() => setSelectedPayout(null)} />
+        <PayoutDetailDrawer
+          payout={selectedPayout}
+          booking={selectedPayout.booking_request_id ? bookingMap[selectedPayout.booking_request_id] : null}
+          dispute={selectedPayout.booking_request_id ? disputeMap[selectedPayout.booking_request_id] : null}
+          onClose={() => setSelectedPayout(null)}
+        />
+      )}
+
+      {/* RECEIPT MODAL */}
+      {receiptPayout && (
+        <HostPayoutReceipt payout={receiptPayout} onClose={() => setReceiptPayout(null)} />
       )}
     </div>
   );
