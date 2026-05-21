@@ -60,18 +60,79 @@ export default function HostPayouts() {
     enabled: !!host?.id,
   });
 
+  // Also load PaymentLog to backfill missing HostPayout records
+  const { data: paymentLogs = [] } = useQuery({
+    queryKey: ["host-payment-logs", host?.id],
+    queryFn: () => base44.entities.PaymentLog.filter({ host_id: host.id }, "-paid_at", 300),
+    enabled: !!host?.id,
+  });
+
   // ── LOOKUP MAPS ───────────────────────────────────────────────────────────
   const bookingMap = useMemo(() =>
     Object.fromEntries(myBookings.map(b => [b.id, b])), [myBookings]);
 
   const disputeMap = useMemo(() => {
-    // Key by booking_request_id for fast lookup
     const map = {};
     for (const d of myDisputes) {
       if (d.booking_request_id) map[d.booking_request_id] = d;
     }
     return map;
   }, [myDisputes]);
+
+  // ── SYNTHESIZE MISSING PAYOUT RECORDS FROM PAYMENT LOGS ───────────────────
+  // For payments that predate the HostPayout fix, build display records from PaymentLog
+  const mergedPayouts = useMemo(() => {
+    const existingBookingIds = new Set(
+      allPayouts.filter(p => p.booking_request_id).map(p => `${p.booking_request_id}_${p.period_start || ""}`)
+    );
+
+    const synthesized = paymentLogs
+      .filter(log => log.status === "paid") // only paid logs
+      .filter(log => {
+        // Skip if there's already a HostPayout for this booking+period
+        if (!log.booking_request_id) return false;
+        // If ANY HostPayout exists for this booking, skip (payout system is active)
+        const hasPayoutForBooking = allPayouts.some(p => p.booking_request_id === log.booking_request_id);
+        return !hasPayoutForBooking;
+      })
+      .map(log => {
+        const gross = log.amount || 0;
+        const commRate = host?.commission_rate ?? 0.08;
+        const platformFee = Math.round(gross * commRate * 100) / 100;
+        const stripeFee = Math.round(((gross + 0.30) / (1 - 0.029) - gross) * 100) / 100;
+        const net = Math.max(0, gross - platformFee - stripeFee);
+        const booking = log.booking_request_id ? bookingMap[log.booking_request_id] : null;
+
+        return {
+          id: `log_${log.id}`,
+          _synthesized: true,
+          host_id: host?.id,
+          booking_request_id: log.booking_request_id,
+          vehicle_name: log.vehicle_name || "",
+          vehicle_id: log.vehicle_id || "",
+          gross_booking_amount: gross,
+          gross_collected: gross,
+          stripe_fee_amount: stripeFee,
+          uride_platform_fee_amount: platformFee,
+          uride_platform_fee_rate: commRate,
+          net_host_payout: net,
+          net_payout: net,
+          platform_fee: platformFee,
+          status: "paid",
+          payout_date: log.paid_at ? log.paid_at.split("T")[0] : log.created_date?.split("T")[0],
+          period_start: booking?.start_date || "",
+          period_end: log.paid_at ? log.paid_at.split("T")[0] : "",
+          stripe_transfer_id: "",
+          created_date: log.paid_at || log.created_date,
+          _from_payment_log: true,
+          _week_number: log.week_number,
+          _customer_name: log.customer_name || "",
+          _customer_email: log.customer_email || "",
+        };
+      });
+
+    return [...allPayouts, ...synthesized];
+  }, [allPayouts, paymentLogs, host, bookingMap]);
 
   // ── HANDLE STRIPE RETURN ──────────────────────────────────────────────────
   useEffect(() => {
@@ -96,7 +157,7 @@ export default function HostPayouts() {
 
   // ── FILTER LOGIC ──────────────────────────────────────────────────────────
   const filteredPayouts = useMemo(() => {
-    let list = [...allPayouts];
+    let list = [...mergedPayouts];
 
     // Date range
     if (filters.dateRange !== "all") {
@@ -144,7 +205,7 @@ export default function HostPayouts() {
     }
 
     return list.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-  }, [allPayouts, filters, myVehicles, bookingMap]);
+  }, [mergedPayouts, filters, myVehicles, bookingMap]);
 
   // ── KPI CARDS (from FILTERED payouts) ─────────────────────────────────────
   const kpis = useMemo(() => {
@@ -356,7 +417,7 @@ export default function HostPayouts() {
           <div className="text-center py-12">
             <Clock className="h-8 w-8 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-400 text-sm">
-              {allPayouts.length === 0
+              {mergedPayouts.length === 0
                 ? "Payouts will appear here after your first successful booking payment."
                 : "No payouts match your current filters."}
             </p>
@@ -396,7 +457,7 @@ export default function HostPayouts() {
 
       {/* 7. HELD / UNDER REVIEW */}
       <HeldPayouts
-        payouts={allPayouts}
+        payouts={mergedPayouts}
         bookingMap={bookingMap}
         disputeMap={disputeMap}
         onSelect={setSelectedPayout}

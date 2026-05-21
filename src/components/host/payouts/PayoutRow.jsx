@@ -24,6 +24,8 @@ export default function PayoutRow({ payout, booking, onSelect, onReceipt }) {
   const appliedRate = p.uride_platform_fee_rate || 0.08;
   const cfg = STATUS_CFG[p.status] || STATUS_CFG.pending;
 
+  const renterName = booking?.customer_full_name || p._customer_name || booking?.user_email || p._customer_email || null;
+
   return (
     <div className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 transition-colors">
       <button className="w-full text-left px-5 py-4" onClick={() => onSelect?.(p)}>
@@ -41,8 +43,11 @@ export default function PayoutRow({ payout, booking, onSelect, onReceipt }) {
               {p.period_start && (
                 <span>{p.period_start} — {p.period_end}</span>
               )}
-              {booking?.customer_full_name && (
-                <span className="text-gray-500">· {booking.customer_full_name}</span>
+              {renterName && (
+                <span className="text-gray-500">· {renterName}</span>
+              )}
+              {p._synthesized && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-400 font-medium">from billing</span>
               )}
               {p.payout_date && (
                 <span>· Paid {p.payout_date}</span>
