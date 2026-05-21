@@ -42,6 +42,7 @@
         "payment.failed",
         "payment.refunded",
         "payment.retry",
+        "payment.retry_deferred",
         "payout.created",
         "payout.sent",
         "payout.held",
@@ -161,7 +162,7 @@
     },
     "dedupe_key": {
       "type": "string",
-      "description": "Optional idempotency key: event_type_targetId_newValue. Used to identify duplicate writes in audit analysis."
+      "description": "Idempotency key: event_type_targetId_newValue. Used for dedup checks in audit functions."
     }
   },
   "required": [

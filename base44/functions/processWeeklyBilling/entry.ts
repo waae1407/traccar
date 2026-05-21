@@ -22,6 +22,7 @@ async function logEvent(base44, data) {
       user_email: data.customer_id || 'system',
       event_title: data.summary || data.event_type,
       event_status: data.event_status || 'success',
+      ...(data.dedupe_key ? { dedupe_key: data.dedupe_key } : {}),
     });
   } catch (e) {
     console.error('[AuditLog]', e.message);
@@ -71,9 +72,17 @@ Deno.serve(async (req) => {
       autopay_enabled: true,
     });
 
+    // ── STATUS GUARD ──────────────────────────────────────────────────────────
+    // WHITELIST: only process active/confirmed/approved bookings.
+    // payment_due, grace_period, suspended are INTENTIONALLY excluded — those states
+    // are owned by processGracePeriod. Charging them here would:
+    //   • reset grace_period_started_at and lose retry context
+    //   • cause duplicate Stripe charges during the grace window
+    //   • send duplicate failure notifications to customers
+    // This guard must never be relaxed without updating processGracePeriod coordination.
     const billingTargets = activeBookings.filter((b) => {
-      if (!["approved", "confirmed", "active"].includes(b.booking_status)) return false;
-      if (b.clean_return_status === "approved_clean") return false; // rental ended
+      if (!['approved', 'confirmed', 'active'].includes(b.booking_status)) return false;
+      if (b.clean_return_status === 'approved_clean') return false; // rental ended
       if (!b.stripe_payment_method_id || !b.stripe_customer_id) return false;
       if (!b.start_date) return false;
       if (!b.next_billing_date) return false;
@@ -83,7 +92,52 @@ Deno.serve(async (req) => {
       return nextBilling.getTime() === today.getTime();
     });
 
-    console.log(`[WeeklyBilling] Found ${billingTargets.length} bookings to charge today`);
+    // ── DEFERRED BILLING LOG ──────────────────────────────────────────────────
+    // Find bookings in grace-period states whose next_billing_date is today.
+    // They were skipped by the status guard above. Log once per day for ops visibility.
+    const deferredTargets = activeBookings.filter((b) => {
+      if (!['payment_due', 'grace_period'].includes(b.booking_status)) return false;
+      if (!b.next_billing_date) return false;
+      const nextBilling = new Date(b.next_billing_date);
+      nextBilling.setHours(0, 0, 0, 0);
+      return nextBilling.getTime() === today.getTime();
+    });
+
+    if (deferredTargets.length > 0) {
+      const todayStr = today.toISOString().split('T')[0];
+      // Fetch recent events once — avoids per-booking query in the loop
+      const recentEvents = await base44.asServiceRole.entities.ActivityEvent.list('-created_date', 50);
+      for (const deferred of deferredTargets) {
+        const dedupeKey = `payment.retry_deferred_${deferred.id}_${todayStr}`;
+        const alreadyLogged = recentEvents.some(e =>
+          e.dedupe_key === dedupeKey &&
+          (Date.now() - new Date(e.created_date).getTime()) < 25 * 60 * 60 * 1000
+        );
+        if (!alreadyLogged) {
+          await logEvent(base44, {
+            event_type: 'payment.retry_deferred',
+            target_id: deferred.id,
+            host_id: deferred.host_id || '',
+            booking_id: deferred.id,
+            vehicle_id: deferred.vehicle_id || '',
+            customer_id: deferred.user_email || '',
+            summary: `Weekly billing deferred — ${deferred.vehicle_name} is in "${deferred.booking_status}" state, managed by processGracePeriod`,
+            metadata: {
+              booking_status: deferred.booking_status,
+              payment_failure_attempts: deferred.payment_failure_attempts,
+              grace_period_ends_at: deferred.grace_period_ends_at,
+              next_billing_date: deferred.next_billing_date,
+              managed_by: 'processGracePeriod',
+            },
+            event_status: 'warning',
+            dedupe_key: dedupeKey,
+          });
+        }
+        console.log(`[WeeklyBilling] DEFERRED ${deferred.id} (${deferred.booking_status}) — skipped, owned by processGracePeriod`);
+      }
+    }
+
+    console.log(`[WeeklyBilling] Found ${billingTargets.length} to charge today, ${deferredTargets.length} deferred (grace period)`);
 
     const results = [];
 
@@ -264,9 +318,23 @@ async function schedulePreChargeWarning(base44, booking, nextBillingDate, amount
 async function handleFailedPayment(base44, booking, reason, attemptNum) {
   // Phase 2A: No immediate GPS kill on first failure.
   // Grace period system (processGracePeriod) handles retries and suspension.
+  //
+  // This function is only reached for bookings that were active/confirmed/approved
+  // (guaranteed by billingTargets status guard above). Defensive preservation guards
+  // below protect against future code changes that might bypass the status filter.
   const now = new Date();
   const gracePeriodHours = parseInt(Deno.env.get("GRACE_PERIOD_HOURS") || "72");
-  const graceEndsAt = new Date(now.getTime() + gracePeriodHours * 60 * 60 * 1000);
+
+  // ── GRACE PERIOD PRESERVATION GUARDS ──────────────────────────────────────
+  // Never overwrite grace_period_started_at if already set — doing so would lose
+  // the original failure timestamp and corrupt the 72h countdown in processGracePeriod.
+  const graceStartedAt = booking.grace_period_started_at || now.toISOString();
+
+  // Never reset grace_period_ends_at if still in the future — preserve the existing window.
+  const existingGraceEnd = booking.grace_period_ends_at ? new Date(booking.grace_period_ends_at) : null;
+  const graceEndsAt = (existingGraceEnd && existingGraceEnd > now)
+    ? existingGraceEnd
+    : new Date(now.getTime() + gracePeriodHours * 60 * 60 * 1000);
 
   await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
     payment_status: "failed",
@@ -275,7 +343,7 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     last_payment_failure_at: now.toISOString(),
     last_retry_at: now.toISOString(),
     booking_status: "payment_due",
-    grace_period_started_at: now.toISOString(),
+    grace_period_started_at: graceStartedAt,
     grace_period_ends_at: graceEndsAt.toISOString(),
     // moovetrax_kill_active remains false — GPS kill only on suspension after grace period
   });
