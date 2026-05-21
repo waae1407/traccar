@@ -179,11 +179,14 @@ Deno.serve(async (req) => {
 
       // ── PAYMENT RETRY ─────────────────────────────────────────────
       try {
-        const amount = booking.weekly_rate || 0;
-        console.log(`[GracePeriod] Retry ${attempts + 1}/${MAX_RETRY_ATTEMPTS} for ${booking.id} — $${amount}`);
+        const baseAmount = booking.weekly_rate || 0;
+        // Gross up to cover Stripe fee so platform receives full weekly_rate
+        const grossedAmount = Math.round(((baseAmount + 0.30) / (1 - 0.029)) * 100) / 100;
+        const stripeFee = Math.round((grossedAmount - baseAmount) * 100) / 100;
+        console.log(`[GracePeriod] Retry ${attempts + 1}/${MAX_RETRY_ATTEMPTS} for ${booking.id} — base=$${baseAmount} gross=$${grossedAmount}`);
 
         const pi = await stripe.paymentIntents.create({
-          amount: Math.round(amount * 100),
+          amount: Math.round(grossedAmount * 100),
           currency: "usd",
           customer: booking.stripe_customer_id,
           payment_method: booking.stripe_payment_method_id,
@@ -240,9 +243,44 @@ Deno.serve(async (req) => {
             booking_id: booking.id,
             vehicle_id: booking.vehicle_id || '',
             customer_id: booking.user_email || '',
-            summary: `RECOVERED: Payment on grace period retry ${attempts + 1} for ${booking.vehicle_name} — $${amount}`,
-            metadata: { payment_intent_id: pi.id, amount, retry_attempt: attempts + 1, next_billing_date: nextBillingDate },
+            summary: `RECOVERED: Payment on grace period retry ${attempts + 1} for ${booking.vehicle_name} — $${baseAmount}`,
+            metadata: { payment_intent_id: pi.id, amount: baseAmount, retry_attempt: attempts + 1, next_billing_date: nextBillingDate },
           });
+
+          // ── HOST PAYOUT SPLIT on recovery ──────────────────────────
+          if (booking.host_id) {
+            const recHosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
+            const recHost = recHosts[0];
+            if (recHost?.stripe_onboarding_complete && recHost?.stripe_account_id) {
+              const commissionRate = recHost.commission_rate || 0.20;
+              const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
+              const hostAmount = Math.round((baseAmount - platformFee) * 100) / 100;
+              const recTransfer = await stripe.transfers.create({
+                amount: Math.round(hostAmount * 100),
+                currency: "usd",
+                destination: recHost.stripe_account_id,
+                description: `uRide grace recovery — ${booking.vehicle_name}`,
+                metadata: { booking_id: booking.id, host_id: recHost.id },
+              });
+              await base44.asServiceRole.entities.HostPayout.create({
+                host_id: recHost.id,
+                host_email: recHost.email,
+                host_name: recHost.full_name,
+                booking_request_id: booking.id,
+                vehicle_name: booking.vehicle_name || "",
+                gross_booking_amount: grossedAmount,
+                stripe_fee_amount: stripeFee,
+                uride_platform_fee_amount: platformFee,
+                uride_platform_fee_rate: commissionRate,
+                net_host_payout: hostAmount,
+                net_payout: hostAmount,
+                stripe_transfer_id: recTransfer.id,
+                status: "paid",
+                payout_date: now.toISOString().split('T')[0],
+              });
+              console.log(`[GracePeriod] ✓ Host transfer ${recTransfer.id} — $${hostAmount} to ${recHost.stripe_account_id}`);
+            }
+          }
 
           recoveredList.push({ email: booking.user_email, vehicle: booking.vehicle_name });
           results.recovered++;

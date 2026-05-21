@@ -42,7 +42,11 @@ Deno.serve(async (req) => {
     if (!host.stripe_account_id) return Response.json({ error: "Host has no Stripe account" }, { status: 400 });
     if (!host.stripe_onboarding_complete) return Response.json({ error: "Host has not completed Stripe onboarding" }, { status: 400 });
 
-    const amountCents = Math.round(amount * 100);
+    // Deduct platform fee before transferring — admin passes gross booking amount
+    const commissionRate = host.commission_rate ?? 0.08;
+    const platformFee = Math.round(amount * commissionRate * 100) / 100;
+    const hostNetAmount = Math.round((amount - platformFee) * 100) / 100;
+    const amountCents = Math.round(hostNetAmount * 100);
 
     const transfer = await stripe.transfers.create({
       amount: amountCents,
@@ -52,54 +56,50 @@ Deno.serve(async (req) => {
       metadata: { host_id, payout_id, platform: "uride" },
     });
 
-    // ── CREATE HostPayout RECORD ──────────────────────────────────────────────
-    const payoutCommissionRate = host.commission_rate ?? 0.08;
-    const payoutPlatformFee = Math.round(amount * payoutCommissionRate * 100) / 100;
-
     await base44.asServiceRole.entities.HostPayout.create({
       host_id: host_id,
       host_email: host.email,
       host_name: host.full_name,
       booking_request_id: payout_id,
       gross_booking_amount: amount,
-      uride_platform_fee_amount: payoutPlatformFee,
-      uride_platform_fee_rate: payoutCommissionRate,
-      net_host_payout: amount,
-      net_payout: amount,
+      uride_platform_fee_amount: platformFee,
+      uride_platform_fee_rate: commissionRate,
+      net_host_payout: hostNetAmount,
+      net_payout: hostNetAmount,
       gross_collected: amount,
-      platform_fee: payoutPlatformFee,
+      platform_fee: platformFee,
       stripe_transfer_id: transfer.id,
       status: "paid",
       payout_date: new Date().toISOString().split('T')[0],
     });
 
     await base44.asServiceRole.entities.Host.update(host_id, {
-      total_payouts: (host.total_payouts || 0) + amount,
+      total_payouts: (host.total_payouts || 0) + hostNetAmount,
     });
 
     await base44.asServiceRole.entities.Notification.create({
       user_email: host.email,
-      title: `💰 Payout Sent — $${amount.toLocaleString()}`,
-      body: `Your payout of $${amount.toLocaleString()} has been transferred to your bank account. Uride Platform Fee: ${(payoutCommissionRate * 100).toFixed(0)}%. Arrives within 2 business days.`,
+      title: `💰 Payout Sent — $${hostNetAmount.toLocaleString()}`,
+      body: `Your payout of $${hostNetAmount.toLocaleString()} has been transferred to your bank account (after ${(commissionRate * 100).toFixed(0)}% platform fee). Arrives within 2 business days.`,
       type: "payment",
     });
 
-    console.log(`[HostPayout] ✓ Transfer ${transfer.id} — $${amount} to ${host.stripe_account_id}`);
+    console.log(`[HostPayout] ✓ Transfer ${transfer.id} — $${hostNetAmount} to ${host.stripe_account_id} (platform kept $${platformFee})`);
 
     await logEvent(base44, {
       event_type: 'payout.sent',
-      actor_id: user?.id || 'admin',
-      actor_email: user?.email || 'admin',
+      actor_id: 'admin',
+      actor_email: 'admin',
       actor_role: 'admin',
       target_entity: 'HostPayout',
       target_id: payout_id,
       host_id: host_id,
-      summary: `Manual payout $${amount} sent to ${host.full_name} (${host.email})`,
-      metadata: { transfer_id: transfer.id, amount, host_name: host.full_name },
+      summary: `Manual payout $${hostNetAmount} sent to ${host.full_name} (gross $${amount}, platform fee $${platformFee})`,
+      metadata: { transfer_id: transfer.id, gross: amount, platform_fee: platformFee, net: hostNetAmount },
       source: 'admin_panel',
     });
 
-    return Response.json({ success: true, transfer_id: transfer.id, amount_cents: amountCents });
+    return Response.json({ success: true, transfer_id: transfer.id, amount_cents: amountCents, net: hostNetAmount, platform_fee: platformFee });
   } catch (error) {
     console.error("[HostPayout] Error:", error.message);
     return Response.json({ error: error.message }, { status: 500 });
