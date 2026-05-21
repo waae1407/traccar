@@ -31,6 +31,12 @@ Deno.serve(async (req) => {
       });
       const existingWeeks = new Set(existing.map(l => l.week_number));
 
+      let resolvedHostId = booking.host_id || '';
+      if (!resolvedHostId && booking.vehicle_id) {
+        const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+        resolvedHostId = vehicles[0]?.host_id || '';
+      }
+
       // Reconstruct one log per completed week (weeks 1 through billing_week_number)
       const weeksCompleted = booking.billing_week_number || 1;
 
@@ -50,7 +56,7 @@ Deno.serve(async (req) => {
 
         await base44.asServiceRole.entities.PaymentLog.create({
           booking_request_id: booking.id,
-          host_id: booking.host_id || '',
+          host_id: resolvedHostId,
           customer_email: booking.user_email,
           customer_name: booking.customer_full_name || '',
           vehicle_id: booking.vehicle_id,

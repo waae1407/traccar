@@ -143,6 +143,13 @@ Deno.serve(async (req) => {
 
     for (const booking of billingTargets) {
       try {
+        let resolvedHostId = booking.host_id || '';
+        let resolvedHost = null;
+        if (!resolvedHostId && booking.vehicle_id) {
+          const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+          resolvedHostId = vehicles[0]?.host_id || '';
+        }
+
         const weekNum = (booking.billing_week_number || 1) + 1;
         const referralCredit = booking.pending_referral_credit || 0;
         const baseAmount = Math.max(0, (booking.weekly_rate || 0) - referralCredit);
@@ -190,9 +197,10 @@ Deno.serve(async (req) => {
           });
 
           // ── HOST PAYOUT SPLIT (Stripe Connect) ──
-          if (booking.host_id) {
-            const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
+          if (resolvedHostId) {
+            const hosts = await base44.asServiceRole.entities.Host.filter({ id: resolvedHostId });
             const host = hosts[0];
+            resolvedHost = host;
             if (host?.stripe_onboarding_complete && host?.stripe_account_id) {
               const commissionRate = host.commission_rate || 0.20;
               // Platform fee is on baseAmount (what the platform receives after Stripe takes its cut).
@@ -275,7 +283,7 @@ Deno.serve(async (req) => {
           // ── PAYMENT LOG ──
           await base44.asServiceRole.entities.PaymentLog.create({
             booking_request_id: booking.id,
-            host_id: booking.host_id || "",
+            host_id: resolvedHostId,
             customer_email: booking.user_email,
             customer_name: booking.customer_full_name || "",
             vehicle_id: booking.vehicle_id,
@@ -311,7 +319,7 @@ Deno.serve(async (req) => {
             actor_role: 'automation',
             target_entity: 'BookingRequest',
             target_id: booking.id,
-            host_id: booking.host_id || '',
+            host_id: resolvedHostId,
             booking_id: booking.id,
             vehicle_id: booking.vehicle_id || '',
             customer_id: booking.user_email || '',

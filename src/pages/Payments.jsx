@@ -25,6 +25,12 @@ function ActionModal({ booking, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const MANUAL_PAYMENT_METHODS = ["Zelle", "Cash", "CashApp", "Venmo", "Check", "Other"];
   const [manualMethod, setManualMethod] = useState("Zelle");
+  const { data: bookingVehicles = [] } = useQuery({
+    queryKey: ["payment-action-vehicle", booking?.vehicle_id],
+    queryFn: () => base44.entities.Vehicle.filter({ id: booking.vehicle_id }),
+    enabled: !!booking?.vehicle_id,
+  });
+  const resolvedHostId = booking.host_id || bookingVehicles[0]?.host_id || "";
 
   const handleManualPaid = async () => {
     setLoading(true);
@@ -42,7 +48,7 @@ function ActionModal({ booking, onClose, onSuccess }) {
     });
     await base44.entities.PaymentLog.create({
       booking_request_id: booking.id,
-      host_id: booking.host_id || "",
+      host_id: resolvedHostId,
       customer_email: booking.user_email,
       customer_name: booking.customer_full_name || "",
       vehicle_id: booking.vehicle_id,

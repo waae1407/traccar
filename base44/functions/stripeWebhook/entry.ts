@@ -81,12 +81,16 @@ Deno.serve(async (req) => {
             }
 
             const grossAmount = pi.amount / 100;
+            let resolvedHostId = booking.host_id || '';
+            let resolvedVehicleName = booking.vehicle_name || '';
 
             if (booking.vehicle_id && grossAmount > 0) {
               const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
               const vehicle = vehicles[0];
 
               if (vehicle?.host_id) {
+                resolvedHostId = resolvedHostId || vehicle.host_id;
+                resolvedVehicleName = `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim() || resolvedVehicleName;
                 const hosts = await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id });
                 const host = hosts[0];
 
@@ -176,6 +180,26 @@ Deno.serve(async (req) => {
               }
             }
 
+            const existingPaymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({ stripe_payment_intent_id: pi.id });
+            if (existingPaymentLogs.length === 0 && grossAmount > 0) {
+              await base44.asServiceRole.entities.PaymentLog.create({
+                booking_request_id: bookingRequestId,
+                host_id: resolvedHostId,
+                customer_email: booking.user_email,
+                customer_name: booking.customer_full_name || '',
+                vehicle_id: booking.vehicle_id,
+                vehicle_name: resolvedVehicleName,
+                week_number: booking.billing_week_number || Number(pi.metadata?.week_number) || 1,
+                amount: grossAmount,
+                payment_method: 'stripe',
+                stripe_payment_intent_id: pi.id,
+                receipt_url: receiptUrl || '',
+                status: 'paid',
+                recorded_by: 'stripe_webhook',
+                paid_at: new Date().toISOString(),
+              });
+            }
+
             await logEvent(base44, {
               event_type: 'payment.succeeded',
               actor_id: 'stripe_webhook',
@@ -185,7 +209,7 @@ Deno.serve(async (req) => {
               target_id: bookingRequestId,
               booking_id: bookingRequestId,
               vehicle_id: booking.vehicle_id || '',
-              host_id: booking.host_id || '',
+              host_id: resolvedHostId,
               customer_id: booking.user_email || '',
               summary: `Payment $${grossAmount} received for booking ${bookingRequestId}`,
               metadata: { payment_intent_id: pi.id, amount: pi.amount / 100, receipt_url: receiptUrl },
