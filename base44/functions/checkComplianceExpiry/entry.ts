@@ -68,20 +68,63 @@ Deno.serve(async (req) => {
             // Auto-suspend the vehicle
             const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: doc.vehicle_id });
             const vehicle = vehicles[0];
-            if (vehicle && vehicle.status !== "Out of Service") {
-              await base44.asServiceRole.entities.Vehicle.update(doc.vehicle_id, { status: "Out of Service" });
+            if (vehicle && !['Out of Service', 'Compliance Hold'].includes(vehicle.status)) {
+              await base44.asServiceRole.entities.Vehicle.update(doc.vehicle_id, { status: 'Compliance Hold' });
               suspendedVehicles.push(doc.vehicle_id);
+
+              // Log compliance expiry ActivityEvent
+              await base44.asServiceRole.entities.ActivityEvent.create({
+                event_type: 'compliance.expired',
+                actor_id: 'compliance_automation',
+                actor_email: 'automation@uridehub.com',
+                actor_role: 'automation',
+                target_entity: 'Vehicle',
+                target_id: doc.vehicle_id,
+                target_label: doc.vehicle_name || doc.vehicle_id,
+                host_id: doc.host_id || '',
+                vehicle_id: doc.vehicle_id || '',
+                summary: `Compliance EXPIRED: ${label} for ${doc.vehicle_name} — vehicle placed on Compliance Hold`,
+                metadata: { doc_type: doc.doc_type, expiry_date: doc.expiry_date, vehicle_name: doc.vehicle_name, host_email: host.email },
+                source: 'automation',
+                event_status: 'error',
+              });
+
+              // Check for active bookings affected by this compliance hold
+              const allBookingsForVehicle = await base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id: doc.vehicle_id });
+              const affectedBookings = allBookingsForVehicle.filter(b =>
+                ['active', 'confirmed', 'approved'].includes(b.booking_status)
+              );
+              for (const affectedBooking of affectedBookings) {
+                await base44.asServiceRole.entities.ActivityEvent.create({
+                  event_type: 'compliance.booking_blocked',
+                  actor_id: 'compliance_automation',
+                  actor_email: 'automation@uridehub.com',
+                  actor_role: 'automation',
+                  target_entity: 'BookingRequest',
+                  target_id: affectedBooking.id,
+                  target_label: `${affectedBooking.vehicle_name} — ${affectedBooking.user_email}`,
+                  host_id: affectedBooking.host_id || '',
+                  booking_id: affectedBooking.id,
+                  vehicle_id: doc.vehicle_id || '',
+                  customer_id: affectedBooking.user_email || '',
+                  summary: `Compliance hold affects ACTIVE booking: ${label} expired for ${doc.vehicle_name}`,
+                  metadata: { doc_type: doc.doc_type, expiry_date: doc.expiry_date, booking_status: affectedBooking.booking_status, customer_email: affectedBooking.user_email },
+                  source: 'automation',
+                  event_status: 'warning',
+                });
+                console.log(`[ComplianceCheck] BOOKING AFFECTED: ${affectedBooking.id} — ${label} expired for ${doc.vehicle_name}`);
+              }
 
               await base44.asServiceRole.integrations.Core.SendEmail({
                 to: host.email,
                 subject: `🚨 Vehicle Suspended — ${doc.vehicle_name} (${label} Expired)`,
-                body: `Your ${doc.vehicle_name} has been automatically placed out of service because its ${label} expired on ${doc.expiry_date}.\n\nTo reinstate the vehicle:\n1. Renew your ${label}\n2. Upload the new document at https://uridehub.com/host/compliance\n3. Our AI will verify the document and automatically reinstate your vehicle\n\nWe apologize for any inconvenience.\n\nuRide Compliance Team`,
+                body: `Your ${doc.vehicle_name} has been automatically placed on Compliance Hold because its ${label} expired on ${doc.expiry_date}.\n\nTo reinstate the vehicle:\n1. Renew your ${label}\n2. Upload the new document at https://uridehub.com/host/compliance\n3. Our AI will verify the document and automatically reinstate your vehicle\n\nWe apologize for any inconvenience.\n\nuRide Compliance Team`,
               });
               await base44.asServiceRole.entities.Notification.create({
                 user_email: host.email,
-                title: `🚨 Vehicle Suspended — ${doc.vehicle_name}`,
+                title: `🚨 Vehicle on Compliance Hold — ${doc.vehicle_name}`,
                 body: `${label} expired. Upload renewal to reinstate automatically.`,
-                type: "alert",
+                type: 'alert',
               });
             }
             alerts.push({ host_email: host.email, doc_type: doc.doc_type, vehicle: doc.vehicle_name, status: newStatus });
@@ -106,9 +149,25 @@ Deno.serve(async (req) => {
       if (hasValidInsurance && hasValidRegistration) {
         const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: vehicleId });
         const vehicle = vehicles[0];
-        if (vehicle && vehicle.status === "Out of Service" && vehicle.approval_status === "approved") {
-          await base44.asServiceRole.entities.Vehicle.update(vehicleId, { status: "Available" });
+        if (vehicle && ['Out of Service', 'Compliance Hold'].includes(vehicle.status) && vehicle.approval_status === 'approved') {
+          await base44.asServiceRole.entities.Vehicle.update(vehicleId, { status: 'Available' });
           reinstatedVehicles.push(vehicleId);
+
+          // Log compliance reinstatement ActivityEvent
+          await base44.asServiceRole.entities.ActivityEvent.create({
+            event_type: 'compliance.approved',
+            actor_id: 'compliance_automation',
+            actor_email: 'automation@uridehub.com',
+            actor_role: 'automation',
+            target_entity: 'Vehicle',
+            target_id: vehicleId,
+            target_label: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+            vehicle_id: vehicleId,
+            summary: `Compliance REINSTATED: ${vehicle.year} ${vehicle.make} ${vehicle.model} — all required docs valid`,
+            metadata: { vehicle_id: vehicleId, previous_status: vehicle.status },
+            source: 'automation',
+            event_status: 'success',
+          });
 
           const vehicleDomain = vehicleDocs[0];
           if (vehicleDomain) {

@@ -43,6 +43,8 @@ import AdminAIChat from '@/pages/admin/AdminAIChat';
 import AdminAuditLog from '@/pages/admin/AdminAuditLog';
 import AdminOperationalAlerts from '@/pages/admin/AdminOperationalAlerts';
 import AdminDisputes from '@/pages/admin/AdminDisputes';
+import AdminGPSMonitor from '@/pages/admin/AdminGPSMonitor';
+import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
 
 // Host pages
@@ -179,6 +181,8 @@ const AuthenticatedApp = () => {
         <Route path="/admin/audit-log" element={<AdminAuditLog />} />
         <Route path="/admin/disputes" element={<AdminDisputes />} />
         <Route path="/admin/operational-alerts" element={<AdminOperationalAlerts />} />
+        <Route path="/admin/gps-monitor" element={<AdminGPSMonitor />} />
+        <Route path="/admin/compliance-queue" element={<AdminComplianceQueue />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}
