@@ -129,7 +129,7 @@ export default function AdminPnL() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-syne font-bold text-white">Platform P&L</h1>
+          <h1 className="text-2xl font-syne font-bold text-white">Platform P&amp;L</h1>
           <p className="text-sm text-white/40 mt-0.5">uRideHub financial performance</p>
         </div>
         <div className="flex gap-1 rounded-xl p-1 border border-white/[0.07]" style={{ background: "hsl(222 24% 10% / 0.9)" }}>
