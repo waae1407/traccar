@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bell, Shield, Lock, AlertTriangle, Globe, FileText } from "lucide-react";
+import { Bell, Shield, Lock, AlertTriangle, Globe, FileText, Wrench } from "lucide-react";
 
 // Existing admin components — rendered directly inside tabs
 import AdminOperationalAlerts from "@/pages/admin/AdminOperationalAlerts";
@@ -10,6 +10,7 @@ import AdminAuditLog from "@/pages/admin/AdminAuditLog";
 // New focused tab components
 import PayoutHoldsTab from "@/components/admin/ops/PayoutHoldsTab";
 import StorefrontsTab from "@/components/admin/ops/StorefrontsTab";
+import FleetHealthTab from "@/components/admin/ops/FleetHealthTab";
 
 const TABS = [
   { id: "alerts",      label: "Alerts",        icon: Bell,          component: AdminOperationalAlerts },
@@ -17,6 +18,7 @@ const TABS = [
   { id: "payouts",     label: "Payout Holds",   icon: Lock,          component: PayoutHoldsTab },
   { id: "disputes",    label: "Disputes",       icon: AlertTriangle, component: AdminDisputes },
   { id: "storefronts", label: "Storefronts",    icon: Globe,         component: StorefrontsTab },
+  { id: "fleet",       label: "Fleet Health",   icon: Wrench,        component: FleetHealthTab },
   { id: "audit",       label: "Audit Log",      icon: FileText,      component: AdminAuditLog },
 ];
 
@@ -33,7 +35,7 @@ export default function AdminOperationsCenter() {
         <h1 className="text-xl font-black text-foreground" style={{ fontFamily: "var(--font-syne)" }}>
           Operations Center
         </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Unified admin oversight — alerts, compliance, payouts, disputes, and audit.</p>
+        <p className="text-sm text-muted-foreground mt-0.5">Unified admin oversight — alerts, compliance, payouts, disputes, fleet health, and audit.</p>
       </div>
 
       {/* Tab Bar */}

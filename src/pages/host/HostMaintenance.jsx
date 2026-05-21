@@ -171,7 +171,20 @@ export default function HostMaintenance() {
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const log = await base44.entities.HostMaintenanceLog.create(data);
-      // Mark vehicle unavailable if requested
+      // Always log maintenance creation
+      base44.entities.ActivityEvent.create({
+        event_type: "maintenance.logged",
+        actor_email: user.email,
+        actor_role: "host",
+        target_entity: "HostMaintenanceLog",
+        target_id: log.id,
+        target_label: data.vehicle_name || data.vehicle_id,
+        host_id: host.id,
+        vehicle_id: data.vehicle_id,
+        summary: `${data.service_type?.replace(/_/g, " ")} logged for ${data.vehicle_name || "vehicle"}${data.cost ? ` — $${data.cost}` : ""}`,
+        source: "host_portal",
+        event_status: "success",
+      }).catch(() => {});
       if (markUnavailable && data.vehicle_id) {
         await base44.entities.Vehicle.update(data.vehicle_id, { status: "Maintenance" });
         await base44.entities.ActivityEvent.create({

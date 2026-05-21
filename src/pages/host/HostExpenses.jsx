@@ -109,7 +109,23 @@ export default function HostExpenses() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.HostExpense.create(data),
+    mutationFn: async (data) => {
+      const exp = await base44.entities.HostExpense.create(data);
+      base44.entities.ActivityEvent.create({
+        event_type: "maintenance.logged",
+        actor_email: user.email,
+        actor_role: "host",
+        target_entity: "HostExpense",
+        target_id: exp.id,
+        target_label: data.vehicle_name || "Fleet",
+        host_id: host.id,
+        vehicle_id: data.vehicle_id || undefined,
+        summary: `Expense logged: ${data.expense_type} $${data.amount}${data.vehicle_name ? ` — ${data.vehicle_name}` : ""}`,
+        source: "host_portal",
+        event_status: "success",
+      }).catch(() => {});
+      return exp;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["host-expenses"] });
       setShowForm(false);
