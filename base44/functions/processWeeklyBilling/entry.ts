@@ -195,8 +195,12 @@ Deno.serve(async (req) => {
             const host = hosts[0];
             if (host?.stripe_onboarding_complete && host?.stripe_account_id) {
               const commissionRate = host.commission_rate || 0.20;
-              const platformFee = Math.round(amount * commissionRate * 100) / 100;
-              const hostAmount = Math.round((amount - platformFee) * 100) / 100;
+              // Platform fee is on baseAmount (what the platform receives after Stripe takes its cut).
+              // hostAmount = baseAmount - platformFee so Stripe fee is NOT sent to the host.
+              // grossedAmount = baseAmount + stripeFee, and Stripe deducts stripeFee from the charge,
+              // leaving baseAmount in the platform's balance to split correctly.
+              const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
+              const hostAmount = Math.round((baseAmount - platformFee) * 100) / 100;
               const hostAmountCents = Math.round(hostAmount * 100);
 
               // Transfer to host's connected Stripe account
