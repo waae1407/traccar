@@ -50,6 +50,24 @@ export function buildMaintenanceExportRows(records = []) {
   ];
 }
 
+export function buildRecurringExpenseExportRows(records = []) {
+  return [
+    ["Host", "Vehicle", "Category", "Vendor", "Amount", "Frequency", "Monthly Projection", "Next Due", "Due Status", "Status"],
+    ...records.map((item) => [
+      item.host_name || "",
+      item.vehicle_name || "Fleet",
+      item.category || "",
+      item.vendor || "",
+      item.amount || 0,
+      item.frequency || "",
+      item.monthly_amount || 0,
+      item.next_due_date || "",
+      item.due_status || "",
+      item.status || "",
+    ]),
+  ];
+}
+
 export function buildPayoutExportRows(payouts = []) {
   return [
     ["Payout ID", "Synthesized", "Host", "Booking", "Customer", "Vehicle", "Gross", "Platform Fee", "Stripe Fee", "Net", "Status", "Date"],

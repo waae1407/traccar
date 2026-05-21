@@ -25,6 +25,32 @@ function applyExpenseFilters(expenses, filters = {}) {
   });
 }
 
+function getRecurringMonthlyAmount(recurring) {
+  if (recurring.frequency === "weekly") return (recurring.amount || 0) * 4.33;
+  if (recurring.frequency === "quarterly") return (recurring.amount || 0) / 3;
+  if (recurring.frequency === "yearly") return (recurring.amount || 0) / 12;
+  return recurring.amount || 0;
+}
+
+function getRecurringDueStatus(recurring) {
+  if (!recurring.next_due_date) return "no_due_date";
+  const days = Math.ceil((new Date(recurring.next_due_date) - new Date()) / (24 * 60 * 60 * 1000));
+  if (days < 0) return "overdue";
+  if (days <= 14) return "due_soon";
+  return "scheduled";
+}
+
+function applyRecurringFilters(recurringExpenses, filters = {}) {
+  return recurringExpenses.filter((recurring) => {
+    if (filters.hostId && recurring.host_id !== filters.hostId) return false;
+    if (filters.vehicleId && recurring.vehicle_id !== filters.vehicleId) return false;
+    if (filters.category && recurring.category !== filters.category) return false;
+    if (filters.status && recurring.due_status !== filters.status && recurring.status !== filters.status) return false;
+    if (filters.search && !textMatches(`${recurring.host_name || ""} ${recurring.vehicle_name || ""} ${recurring.category || ""} ${recurring.vendor || ""}`, filters.search)) return false;
+    return true;
+  });
+}
+
 export async function loadSharedExpenseEngine({ mode = "host", hostId = "", user = null, filters = {}, limit = 1000, skip = 0 } = {}) {
   assertOperationalScope({ mode, hostId, user });
   const effectiveFilters = getEffectiveOperationalFilters(mode, filters);
@@ -73,14 +99,21 @@ export async function loadSharedExpenseEngine({ mode = "host", hostId = "", user
         host_name: host?.business_name || host?.full_name || "",
         host_email: host?.email || "",
         vehicle_name: recurring.vehicle_name || (vehicle ? `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() : "Fleet"),
+        monthly_amount: getRecurringMonthlyAmount(recurring),
+        due_status: getRecurringDueStatus(recurring),
       };
     })
     .filter((recurring) => mode !== "host" || recurring.host_id === hostId);
 
   const filteredExpenses = applyExpenseFilters(enrichedExpenses, { ...effectiveFilters, hostId: mode === "host" ? hostId : effectiveFilters.hostId });
+  const filteredRecurringExpenses = applyRecurringFilters(enrichedRecurringExpenses, { ...effectiveFilters, hostId: mode === "host" ? hostId : effectiveFilters.hostId });
   const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
   const taxDeductibleTotal = filteredExpenses.filter((expense) => expense.tax_deductible).reduce((sum, expense) => sum + (expense.amount || 0), 0);
   const reimbursableTotal = filteredExpenses.filter((expense) => expense.reimbursable).reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const recurringObligations = filteredRecurringExpenses.filter((expense) => expense.status !== "cancelled").reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const projectedMonthlyRecurring = filteredRecurringExpenses.filter((expense) => expense.status !== "cancelled").reduce((sum, expense) => sum + (expense.monthly_amount || 0), 0);
+  const recurringDueSoonCount = filteredRecurringExpenses.filter((expense) => expense.due_status === "due_soon").length;
+  const recurringOverdueCount = filteredRecurringExpenses.filter((expense) => expense.due_status === "overdue").length;
 
   const byVehicle = {};
   const byHost = {};
@@ -94,9 +127,10 @@ export async function loadSharedExpenseEngine({ mode = "host", hostId = "", user
   return {
     mode,
     expenses: filteredExpenses,
-    recurringExpenses: enrichedRecurringExpenses,
+    recurringExpenses: filteredRecurringExpenses,
     allExpenses: enrichedExpenses,
-    kpis: { totalExpenses, taxDeductibleTotal, reimbursableTotal, count: filteredExpenses.length },
+    allRecurringExpenses: enrichedRecurringExpenses,
+    kpis: { totalExpenses, taxDeductibleTotal, reimbursableTotal, recurringObligations, projectedMonthlyRecurring, recurringDueSoonCount, recurringOverdueCount, count: filteredExpenses.length, recurringCount: filteredRecurringExpenses.length },
     breakdowns: { byVehicle, byHost, byCategory },
     sources: { hosts, vehicles, bookings, disputes },
   };

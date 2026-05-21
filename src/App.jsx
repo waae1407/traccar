@@ -39,6 +39,9 @@ import Referrals from '@/pages/Referrals';
 import AdminHosts from '@/pages/admin/AdminHosts';
 import AdminPnL from '@/pages/AdminPnL';
 import AdminPayouts from '@/pages/admin/AdminPayouts';
+import AdminExpenses from '@/pages/admin/AdminExpenses';
+import AdminMaintenanceV2 from '@/pages/admin/AdminMaintenanceV2';
+import AdminRecurringExpenses from '@/pages/admin/AdminRecurringExpenses';
 import AdminAIChat from '@/pages/admin/AdminAIChat';
 import AdminAuditLog from '@/pages/admin/AdminAuditLog';
 import AdminOperationalAlerts from '@/pages/admin/AdminOperationalAlerts';
@@ -183,6 +186,9 @@ const AuthenticatedApp = () => {
         <Route path="/referrals" element={<Referrals />} />
         <Route path="/admin/hosts" element={<AdminHosts />} />
         <Route path="/admin/payouts" element={<AdminPayouts />} />
+        <Route path="/admin/expenses-prototype" element={<AdminExpenses />} />
+        <Route path="/admin/maintenance-v2" element={<AdminMaintenanceV2 />} />
+        <Route path="/admin/recurring-expenses" element={<AdminRecurringExpenses />} />
         <Route path="/admin/ai-chat" element={<AdminAIChat />} />
         <Route path="/admin/pnl" element={<AdminPnL />} />
         <Route path="/admin/audit-log" element={<AdminAuditLog />} />
