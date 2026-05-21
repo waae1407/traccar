@@ -1,109 +1,162 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Plus, Wrench, AlertTriangle, CheckCircle2, Clock, Upload, Loader2, Trash2, Info } from "lucide-react";
+import { Plus, Wrench, Loader2, Upload, Download, AlertTriangle, CheckCircle2, Clock, X } from "lucide-react";
 import { uploadFile } from "@/utils/uploadFile";
 import HostPageHeader from "@/components/host/HostPageHeader";
-import { format, differenceInDays } from "date-fns";
+import MaintenanceFilters, { DEFAULT_FILTERS } from "@/components/host/maintenance/MaintenanceFilters";
+import MaintenanceAlerts from "@/components/host/maintenance/MaintenanceAlerts";
+import MaintenanceCard, { SERVICE_LABELS, STATUS_CONFIG } from "@/components/host/maintenance/MaintenanceCard";
+import MaintenanceDrawer from "@/components/host/maintenance/MaintenanceDrawer";
+import CostInsights from "@/components/host/maintenance/CostInsights";
+import { format, differenceInDays, startOfDay, endOfDay, startOfMonth, endOfMonth, subDays, addDays } from "date-fns";
 
 const SERVICE_TYPES = ["oil_change", "tire_rotation", "brake_service", "inspection", "wash", "tire_replacement", "battery", "ac_service", "other"];
-const SERVICE_LABELS = { oil_change: "Oil Change", tire_rotation: "Tire Rotation", brake_service: "Brake Service", inspection: "Inspection", wash: "Detailing / Wash", tire_replacement: "Tire Replacement", battery: "Battery", ac_service: "A/C Service", other: "Other" };
 
-// Default mileage intervals per service type
 const DEFAULT_MILEAGE_INTERVALS = {
-  oil_change: 5000,
-  tire_rotation: 7500,
-  brake_service: 12000,
-  tire_replacement: 40000,
-  battery: 0,
-  ac_service: 0,
-  inspection: 0,
-  wash: 0,
-  other: 0,
+  oil_change: 5000, tire_rotation: 7500, brake_service: 12000,
+  tire_replacement: 40000, battery: 0, ac_service: 0, inspection: 0, wash: 0, other: 0,
 };
 
 const inputClass = "w-full px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-pink-400 text-sm";
 
-function computeStatus(log, vehicleMileage) {
-  if (log.status === "overdue") return "overdue";
+export function computeStatus(log, vehicleMileage, vehicleStatus) {
+  if (vehicleStatus === "Maintenance") return "in_maintenance";
   const today = new Date();
-
-  // Date check
   if (log.next_service_date) {
     const days = differenceInDays(new Date(log.next_service_date), today);
     if (days < 0) return "overdue";
     if (days <= 14) return "due_soon";
   }
-
-  // Mileage check
   if (log.next_service_mileage && vehicleMileage) {
     const milesLeft = log.next_service_mileage - vehicleMileage;
     if (milesLeft <= 0) return "overdue";
     if (milesLeft <= 500) return "due_soon";
   }
-
-  return log.status || "completed";
+  if (log.status === "overdue") return "overdue";
+  if (log.status === "scheduled") return "scheduled";
+  return "completed";
 }
 
-const STATUS_CONFIG = {
-  completed: { label: "Completed", cls: "bg-emerald-50 text-emerald-700", icon: CheckCircle2 },
-  scheduled: { label: "Scheduled", cls: "bg-blue-50 text-blue-700", icon: Clock },
-  due_soon: { label: "Due Soon", cls: "bg-yellow-50 text-yellow-700", icon: AlertTriangle },
-  overdue: { label: "Overdue", cls: "bg-red-50 text-red-600", icon: AlertTriangle },
-};
+function matchesDateRange(dateStr, range) {
+  if (!range || !dateStr) return true;
+  const d = new Date(dateStr);
+  const now = new Date();
+  if (range === "today") return d >= startOfDay(now) && d <= endOfDay(now);
+  if (range === "next7") return d >= now && d <= addDays(now, 7);
+  if (range === "next14") return d >= now && d <= addDays(now, 14);
+  if (range === "this_month") return d >= startOfMonth(now) && d <= endOfMonth(now);
+  if (range === "last30") return d >= subDays(now, 30) && d <= now;
+  return true;
+}
+
+function matchesCostRange(cost, range) {
+  if (!range) return true;
+  const c = cost || 0;
+  if (range === "0-100") return c >= 0 && c <= 100;
+  if (range === "100-500") return c > 100 && c <= 500;
+  if (range === "500+") return c > 500;
+  return true;
+}
 
 export default function HostMaintenance() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [markUnavailable, setMarkUnavailable] = useState(false);
   const [form, setForm] = useState({
     vehicle_id: "", service_type: "oil_change", cost: "",
     date: format(new Date(), "yyyy-MM-dd"), mileage_at_service: "",
-    next_service_date: "", next_service_mileage: "", shop_name: "", notes: "", receipt_url: "", status: "completed",
+    next_service_date: "", next_service_mileage: "", shop_name: "", notes: "",
+    receipt_url: "", status: "completed", expected_return_date: "",
   });
 
-  const { data: hosts = [] } = useQuery({ queryKey: ["my-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user?.email }), enabled: !!user?.email });
+  const { data: hosts = [] } = useQuery({
+    queryKey: ["my-host", user?.email],
+    queryFn: () => base44.entities.Host.filter({ email: user?.email }),
+    enabled: !!user?.email,
+  });
   const host = hosts[0];
 
-  const { data: vehicles = [] } = useQuery({ queryKey: ["host-vehicles", host?.id], queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }), enabled: !!host?.id });
-  const { data: logs = [], isLoading } = useQuery({ queryKey: ["host-maintenance", host?.id], queryFn: () => base44.entities.HostMaintenanceLog.filter({ host_id: host.id }), enabled: !!host?.id });
-
-  // Build vehicle mileage map
-  const vehicleMileageMap = Object.fromEntries(vehicles.map(v => [v.id, v.mileage || 0]));
-
-  const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.HostMaintenanceLog.create(data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["host-maintenance"] });
-      setShowForm(false);
-      setForm({ vehicle_id: "", service_type: "oil_change", cost: "", date: format(new Date(), "yyyy-MM-dd"), mileage_at_service: "", next_service_date: "", next_service_mileage: "", shop_name: "", notes: "", receipt_url: "", status: "completed" });
-    },
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["host-vehicles", host?.id],
+    queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }),
+    enabled: !!host?.id,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.HostMaintenanceLog.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["host-maintenance"] }),
+  const { data: logs = [], isLoading } = useQuery({
+    queryKey: ["host-maintenance", host?.id],
+    queryFn: () => base44.entities.HostMaintenanceLog.filter({ host_id: host.id }, "-date", 300),
+    enabled: !!host?.id,
   });
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles]);
+  const vehicleMileageMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v.mileage || 0])), [vehicles]);
+  const vehicleStatusMap = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v.status])), [vehicles]);
 
-  // Auto-suggest next service mileage when service type or mileage changes
+  // Enrich logs with computed status and vehicle data
+  const enriched = useMemo(() =>
+    logs.map(l => ({
+      ...l,
+      _status: computeStatus(l, vehicleMileageMap[l.vehicle_id], vehicleStatusMap[l.vehicle_id]),
+      vehicle: vehicleMap[l.vehicle_id] || null,
+    })).sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [logs, vehicleMileageMap, vehicleStatusMap, vehicleMap]
+  );
+
+  // KPI calculations
+  const kpis = useMemo(() => {
+    const totalCost = enriched.reduce((s, l) => s + (l.cost || 0), 0);
+    const dueSoon = enriched.filter(l => l._status === "due_soon").length;
+    const overdue = enriched.filter(l => l._status === "overdue").length;
+    const inMaintenance = vehicles.filter(v => v.status === "Maintenance").length;
+    const vehicleIds = new Set(enriched.map(l => l.vehicle_id).filter(Boolean));
+    const avgCostPerVehicle = vehicleIds.size > 0 ? totalCost / vehicleIds.size : 0;
+    return { total: enriched.length, totalCost, dueSoon, overdue, inMaintenance, avgCostPerVehicle };
+  }, [enriched, vehicles]);
+
+  // Filter
+  const filteredLogs = useMemo(() => {
+    return enriched.filter(l => {
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        const v = vehicleMap[l.vehicle_id];
+        if (
+          !(l.vehicle_name || "").toLowerCase().includes(q) &&
+          !(v?.plate || "").toLowerCase().includes(q) &&
+          !(v?.vin || "").toLowerCase().includes(q) &&
+          !(l.service_type || "").toLowerCase().includes(q) &&
+          !(SERVICE_LABELS[l.service_type] || "").toLowerCase().includes(q) &&
+          !(l.notes || "").toLowerCase().includes(q) &&
+          !(l.shop_name || "").toLowerCase().includes(q)
+        ) return false;
+      }
+      if (filters.vehicleId && l.vehicle_id !== filters.vehicleId) return false;
+      if (filters.status && l._status !== filters.status) return false;
+      if (filters.serviceType && l.service_type !== filters.serviceType) return false;
+      if (!matchesDateRange(l.date, filters.dateRange)) return false;
+      if (!matchesCostRange(l.cost, filters.costRange)) return false;
+      return true;
+    });
+  }, [enriched, filters, vehicleMap]);
+
+  // Form handlers
+  const setF = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
   const handleServiceTypeChange = (type) => {
-    set("service_type", type);
+    setF("service_type", type);
     const interval = DEFAULT_MILEAGE_INTERVALS[type];
-    if (interval && form.mileage_at_service) {
-      set("next_service_mileage", String(Number(form.mileage_at_service) + interval));
-    }
+    if (interval && form.mileage_at_service) setF("next_service_mileage", String(Number(form.mileage_at_service) + interval));
   };
 
   const handleMileageChange = (val) => {
-    set("mileage_at_service", val);
+    setF("mileage_at_service", val);
     const interval = DEFAULT_MILEAGE_INTERVALS[form.service_type];
-    if (interval && val) {
-      set("next_service_mileage", String(Number(val) + interval));
-    }
+    if (interval && val) setF("next_service_mileage", String(Number(val) + interval));
   };
 
   const handleUpload = async (e) => {
@@ -111,12 +164,44 @@ export default function HostMaintenance() {
     if (!file) return;
     setUploading(true);
     const res = await uploadFile(file);
-    set("receipt_url", res.file_url);
+    setF("receipt_url", res.file_url);
     setUploading(false);
   };
 
-  const vinSuffix = (v) => v.vin ? ` [${v.vin.slice(-6).toUpperCase()}]` : "";
-  const vehicleLabel = (v) => `${v.year} ${v.make} ${v.model}${vinSuffix(v)}`;
+  const createMutation = useMutation({
+    mutationFn: async (data) => {
+      const log = await base44.entities.HostMaintenanceLog.create(data);
+      // Mark vehicle unavailable if requested
+      if (markUnavailable && data.vehicle_id) {
+        await base44.entities.Vehicle.update(data.vehicle_id, { status: "Maintenance" });
+        await base44.entities.ActivityEvent.create({
+          event_type: "maintenance.logged",
+          actor_email: user.email,
+          actor_role: "host",
+          target_entity: "Vehicle",
+          target_id: data.vehicle_id,
+          host_id: host.id,
+          vehicle_id: data.vehicle_id,
+          summary: `Vehicle marked Maintenance — ${data.service_type?.replace(/_/g, " ")} logged`,
+          source: "host_portal",
+          event_status: "warning",
+        }).catch(() => {});
+      }
+      return log;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["host-maintenance"] });
+      qc.invalidateQueries({ queryKey: ["host-vehicles"] });
+      setShowForm(false);
+      setMarkUnavailable(false);
+      setForm({ vehicle_id: "", service_type: "oil_change", cost: "", date: format(new Date(), "yyyy-MM-dd"), mileage_at_service: "", next_service_date: "", next_service_mileage: "", shop_name: "", notes: "", receipt_url: "", status: "completed", expected_return_date: "" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.HostMaintenanceLog.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["host-maintenance"] }),
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -133,87 +218,95 @@ export default function HostMaintenance() {
     });
   };
 
-  const enriched = logs.map(l => ({ ...l, _status: computeStatus(l, vehicleMileageMap[l.vehicle_id]) }))
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-  const alerts = enriched.filter(l => l._status === "overdue" || l._status === "due_soon");
-  const totalCost = logs.reduce((s, l) => s + (l.cost || 0), 0);
+  // CSV export
+  const handleExport = () => {
+    const rows = [
+      ["Vehicle", "VIN", "Plate", "Service Type", "Date", "Mileage", "Cost", "Status", "Next Service Date", "Next Service Mileage", "Shop", "Notes"],
+      ...filteredLogs.map(l => {
+        const v = vehicleMap[l.vehicle_id];
+        return [
+          l.vehicle_name || "",
+          v?.vin || "",
+          v?.plate || "",
+          SERVICE_LABELS[l.service_type] || l.service_type || "",
+          l.date || "",
+          l.mileage_at_service || "",
+          l.cost || "",
+          l._status || "",
+          l.next_service_date || "",
+          l.next_service_mileage || "",
+          l.shop_name || "",
+          (l.notes || "").replace(/"/g, '""'),
+        ];
+      }),
+    ];
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `maintenance-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const openFormForVehicle = (vehicleId) => {
+    setForm(f => ({ ...f, vehicle_id: vehicleId || "" }));
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const vehicleLabel = (v) => `${v.year} ${v.make} ${v.model}${v.plate ? ` · ${v.plate}` : ""}`;
 
   return (
     <div className="space-y-5">
       <HostPageHeader
         title="Maintenance"
-        subtitle="Service history, scheduled maintenance & mileage alerts"
+        subtitle="Fleet service tracking, cost analysis & maintenance alerts"
         action={
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
-            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-            <Plus className="h-4 w-4" /> Log Service
-          </button>
+          <div className="flex gap-2">
+            <button onClick={handleExport} className="flex items-center gap-1.5 px-3 py-2.5 rounded-2xl text-xs font-bold text-gray-600 bg-white border border-gray-200 shadow-sm hover:bg-gray-50">
+              <Download className="h-4 w-4" /> CSV
+            </button>
+            <button onClick={() => setShowForm(!showForm)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              <Plus className="h-4 w-4" /> Log Service
+            </button>
+          </div>
         }
       />
 
-      {/* How it works */}
-      <div className="p-4 rounded-2xl border border-blue-100 bg-blue-50">
-        <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-blue-900 mb-1">Smart Maintenance Alerts</p>
-            <p className="text-xs text-blue-700 leading-relaxed">
-              Log a service with a next service date or mileage threshold — we'll alert you when it's due.
-              Warnings trigger <strong>14 days</strong> before the date or within <strong>500 miles</strong> of the mileage target.
-              Mileage intervals are auto-suggested based on service type.
-            </p>
-          </div>
-        </div>
+      {/* KPI CARDS */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        <KpiCard value={kpis.total} label="Total Services" color="text-gray-900" bg="bg-white border-gray-100" />
+        <KpiCard value={`$${Math.round(kpis.totalCost).toLocaleString()}`} label="Total Cost" color="text-red-500" bg="bg-white border-gray-100" />
+        <KpiCard value={kpis.dueSoon} label="Due Soon" color="text-yellow-600" bg="bg-yellow-50 border-yellow-200" />
+        <KpiCard value={kpis.overdue} label="Overdue" color={kpis.overdue > 0 ? "text-red-600" : "text-gray-400"} bg={kpis.overdue > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-100"} />
+        <KpiCard value={kpis.inMaintenance} label="In Maint." color={kpis.inMaintenance > 0 ? "text-orange-600" : "text-gray-400"} bg={kpis.inMaintenance > 0 ? "bg-orange-50 border-orange-200" : "bg-white border-gray-100"} />
+        <KpiCard value={`$${Math.round(kpis.avgCostPerVehicle).toLocaleString()}`} label="Avg/Vehicle" color="text-pink-600" bg="bg-pink-50 border-pink-200" />
       </div>
 
-      {/* Alerts */}
-      {alerts.length > 0 && (
-        <div className="p-4 rounded-2xl border border-yellow-200 bg-yellow-50">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-            <p className="font-bold text-yellow-800 text-sm">{alerts.length} service{alerts.length > 1 ? "s" : ""} need attention</p>
-          </div>
-          <div className="space-y-1">
-            {alerts.map(l => {
-              const milesLeft = l.next_service_mileage && vehicleMileageMap[l.vehicle_id]
-                ? l.next_service_mileage - vehicleMileageMap[l.vehicle_id] : null;
-              return (
-                <p key={l.id} className="text-xs text-yellow-700">
-                  • {l.vehicle_name} — {SERVICE_LABELS[l.service_type]}
-                  {l._status === "overdue" ? " (OVERDUE)" : l.next_service_date ? ` (due ${l.next_service_date})` : ""}
-                  {milesLeft !== null && milesLeft > 0 && ` · ${milesLeft.toLocaleString()} miles remaining`}
-                  {milesLeft !== null && milesLeft <= 0 && ` · mileage exceeded`}
-                </p>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {/* ALERTS */}
+      <MaintenanceAlerts
+        logs={enriched}
+        vehicles={vehicles}
+        vehicleMileageMap={vehicleMileageMap}
+        onLogService={openFormForVehicle}
+      />
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>{logs.length}</p>
-          <p className="text-xs text-gray-400 mt-1">Total Services</p>
-        </div>
-        <div className="rounded-3xl shadow-sm p-4 text-center" style={{ background: "linear-gradient(135deg, hsl(0 72% 58% / 0.08), hsl(338 90% 56% / 0.05))", border: "1px solid hsl(0 72% 58% / 0.15)" }}>
-          <p className="text-2xl font-black text-red-500" style={{ fontFamily: "var(--font-syne)" }}>${totalCost.toLocaleString()}</p>
-          <p className="text-xs text-gray-400 mt-1">Total Cost</p>
-        </div>
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center">
-          <p className="text-2xl font-black text-yellow-500" style={{ fontFamily: "var(--font-syne)" }}>{alerts.length}</p>
-          <p className="text-xs text-gray-400 mt-1">Need Attention</p>
-        </div>
-      </div>
-
-      {/* Form */}
+      {/* LOG SERVICE FORM */}
       {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-pink-200 shadow-sm p-5 space-y-3">
-          <h3 className="font-bold text-gray-900 text-sm">Log Maintenance Service</h3>
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-pink-200 shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-gray-900 text-sm">Log Maintenance Service</h3>
+            <button type="button" onClick={() => setShowForm(false)}><X className="h-4 w-4 text-gray-400" /></button>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Vehicle *</label>
-              <select className={inputClass} required value={form.vehicle_id} onChange={e => set("vehicle_id", e.target.value)}>
+              <select className={inputClass} required value={form.vehicle_id} onChange={e => setF("vehicle_id", e.target.value)}>
                 <option value="">Select vehicle</option>
                 {vehicles.map(v => <option key={v.id} value={v.id}>{vehicleLabel(v)}</option>)}
               </select>
@@ -225,52 +318,71 @@ export default function HostMaintenance() {
               </select>
             </div>
           </div>
+
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Cost ($)</label>
-              <input className={inputClass} type="number" value={form.cost} onChange={e => set("cost", e.target.value)} placeholder="0.00" />
-            </div>
-            <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Date *</label>
-              <input className={inputClass} type="date" required value={form.date} onChange={e => set("date", e.target.value)} />
+              <input className={inputClass} type="date" required value={form.date} onChange={e => setF("date", e.target.value)} />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Mileage Now</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Cost ($)</label>
+              <input className={inputClass} type="number" value={form.cost} onChange={e => setF("cost", e.target.value)} placeholder="0.00" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Mileage</label>
               <input className={inputClass} type="number" value={form.mileage_at_service} onChange={e => handleMileageChange(e.target.value)} placeholder="50000" />
             </div>
           </div>
 
-          {/* Next service thresholds */}
           <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 space-y-3">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">⚠️ Set Alert Thresholds (optional)</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Alert Thresholds (optional)</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Next Service Date</label>
-                <input className={inputClass} type="date" value={form.next_service_date} onChange={e => set("next_service_date", e.target.value)} />
+                <input className={inputClass} type="date" value={form.next_service_date} onChange={e => setF("next_service_date", e.target.value)} />
                 <p className="text-[10px] text-gray-400 mt-0.5">Alert 14 days before</p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Next Service Mileage</label>
-                <input className={inputClass} type="number" value={form.next_service_mileage} onChange={e => set("next_service_mileage", e.target.value)} placeholder="55000" />
-                <p className="text-[10px] text-gray-400 mt-0.5">Alert within 500 miles</p>
+                <input className={inputClass} type="number" value={form.next_service_mileage} onChange={e => setF("next_service_mileage", e.target.value)} placeholder="55000" />
+                <p className="text-[10px] text-gray-400 mt-0.5">Alert within 500 mi</p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Shop Name</label>
-              <input className={inputClass} value={form.shop_name} onChange={e => set("shop_name", e.target.value)} placeholder="Jiffy Lube, etc." />
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Shop / Vendor</label>
+              <input className={inputClass} value={form.shop_name} onChange={e => setF("shop_name", e.target.value)} placeholder="Jiffy Lube, etc." />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Notes</label>
-              <input className={inputClass} value={form.notes} onChange={e => set("notes", e.target.value)} placeholder="Any notes…" />
+              <input className={inputClass} value={form.notes} onChange={e => setF("notes", e.target.value)} placeholder="Any notes…" />
             </div>
           </div>
+
+          {/* Mark unavailable */}
+          <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 space-y-2">
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={markUnavailable} onChange={e => setMarkUnavailable(e.target.checked)}
+                className="rounded border-gray-300 text-pink-500" />
+              <span className="text-sm font-semibold text-orange-800">Mark vehicle unavailable during service</span>
+            </label>
+            {markUnavailable && (
+              <>
+                <p className="text-xs text-orange-600 ml-6">This will set vehicle status to "Maintenance"</p>
+                <div className="ml-6">
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Expected Return Date</label>
+                  <input className={inputClass} type="date" value={form.expected_return_date} onChange={e => setF("expected_return_date", e.target.value)} />
+                </div>
+              </>
+            )}
+          </div>
+
           <div className="flex items-center justify-between">
             <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100">
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-              {form.receipt_url ? "Receipt uploaded ✓" : "Upload Receipt"}
+              {form.receipt_url ? "Receipt ✓" : "Upload Receipt"}
               <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleUpload} />
             </label>
             <div className="flex gap-2">
@@ -284,54 +396,67 @@ export default function HostMaintenance() {
         </form>
       )}
 
-      {/* Log */}
+      {/* FILTERS */}
+      <MaintenanceFilters
+        filters={filters}
+        onChange={setFilters}
+        vehicles={vehicles}
+        resultCount={filteredLogs.length}
+      />
+
+      {/* COST INSIGHTS */}
+      <CostInsights logs={enriched} />
+
+      {/* MAINTENANCE LIST */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {isLoading ? <div className="p-5 space-y-3">{[1,2,3].map(i => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}</div>
-        : enriched.length === 0 ? (
-          <div className="text-center py-16"><Wrench className="h-8 w-8 text-gray-300 mx-auto mb-3" /><p className="text-gray-400 text-sm">No maintenance logged yet</p></div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {enriched.map(l => {
-              const cfg = STATUS_CONFIG[l._status] || STATUS_CONFIG.completed;
-              const Icon = cfg.icon;
-              const vehicleMileage = vehicleMileageMap[l.vehicle_id];
-              const milesLeft = l.next_service_mileage && vehicleMileage ? l.next_service_mileage - vehicleMileage : null;
-              return (
-                <div key={l.id} className="flex items-center gap-3 px-5 py-4">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.cls}`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{SERVICE_LABELS[l.service_type]}</p>
-                    <p className="text-xs text-gray-400 truncate">{l.vehicle_name} · {l.date}{l.shop_name ? ` · ${l.shop_name}` : ""}</p>
-                    <div className="flex flex-wrap gap-3 mt-0.5">
-                      {l.next_service_date && <p className="text-[10px] text-gray-400">📅 Next: {l.next_service_date}</p>}
-                      {l.next_service_mileage && (
-                        <p className="text-[10px] text-gray-400">
-                          🔢 Next: {l.next_service_mileage.toLocaleString()} mi
-                          {milesLeft !== null && (
-                            <span className={milesLeft <= 0 ? " text-red-500 font-bold" : milesLeft <= 500 ? " text-yellow-600 font-bold" : ""}>
-                              {milesLeft > 0 ? ` (${milesLeft.toLocaleString()} mi left)` : ` (${Math.abs(milesLeft).toLocaleString()} mi overdue)`}
-                            </span>
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {l.receipt_url && <a href={l.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-pink-500 font-semibold flex-shrink-0">View</a>}
-                  <div className="text-right flex-shrink-0">
-                    {l.cost > 0 && <p className="text-sm font-bold text-gray-900">${l.cost.toLocaleString()}</p>}
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.cls}`}>{cfg.label}</span>
-                  </div>
-                  <button onClick={() => deleteMutation.mutate(l.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 flex-shrink-0">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              );
-            })}
+        <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900 text-sm">Service Records</h3>
+          <p className="text-xs text-gray-400">{filteredLogs.length} record{filteredLogs.length !== 1 ? "s" : ""}</p>
+        </div>
+
+        {isLoading ? (
+          <div className="p-5 space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}</div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="text-center py-16">
+            <Wrench className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm">
+              {logs.length === 0
+                ? "No maintenance logged yet. Log your first service to track costs, mileage, and upcoming alerts."
+                : "No maintenance records match these filters."}
+            </p>
           </div>
+        ) : (
+          filteredLogs.map(l => (
+            <MaintenanceCard
+              key={l.id}
+              log={l}
+              vehicleMileage={vehicleMileageMap[l.vehicle_id]}
+              isSelected={selectedLog?.id === l.id}
+              onClick={() => setSelectedLog(selectedLog?.id === l.id ? null : l)}
+            />
+          ))
         )}
       </div>
+
+      {/* DETAIL DRAWER */}
+      {selectedLog && (
+        <MaintenanceDrawer
+          log={selectedLog}
+          allLogs={enriched}
+          vehicle={vehicleMap[selectedLog.vehicle_id] || null}
+          hostId={host?.id}
+          onClose={() => setSelectedLog(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function KpiCard({ value, label, color, bg }) {
+  return (
+    <div className={`rounded-3xl border shadow-sm p-3 text-center ${bg}`}>
+      <p className={`text-xl font-black ${color}`} style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
+      <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
     </div>
   );
 }
