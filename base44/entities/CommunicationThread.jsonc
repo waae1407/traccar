@@ -82,6 +82,19 @@
       "type": "boolean",
       "default": false
     },
+    "frozen": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, only admins can add messages"
+    },
+    "muted_host": {
+      "type": "boolean",
+      "default": false
+    },
+    "muted_customer": {
+      "type": "boolean",
+      "default": false
+    },
     "closed_at": {
       "type": "string",
       "format": "date-time"
@@ -89,16 +102,19 @@
     "sla_response_due_at": {
       "type": "string",
       "format": "date-time",
-      "description": "SLA deadline for first response"
+      "description": "SLA deadline for response"
     },
     "sla_breached": {
       "type": "boolean",
       "default": false
+    },
+    "attachment_count": {
+      "type": "number",
+      "default": 0
     }
   },
   "required": [
     "thread_type",
-    "subject",
-    "host_id"
+    "subject"
   ]
 }

@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
   FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2, Eye, Gift, Home, Wallet, Zap,
-  Shield, FileText, Bell, MapPin, ClipboardList, Activity,
+  Shield, FileText, Bell, MapPin, ClipboardList, Activity, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -46,6 +46,7 @@ const operationsNavItems = [
   { label: "Operational Alerts", icon: Bell, path: "/admin/operational-alerts" },
   { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
   { label: "Compliance Queue", icon: ClipboardList, path: "/admin/compliance-queue" },
+  { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
 ];
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {

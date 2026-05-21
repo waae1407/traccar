@@ -4,82 +4,77 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { thread_id, message_type = 'text', body, attachments = [], internal_note = false } = await req.json();
-
-    if (!thread_id || !body) {
-      return Response.json({ error: 'thread_id and body are required' }, { status: 400 });
+    if (!thread_id || (!body && attachments.length === 0)) {
+      return Response.json({ error: 'thread_id and message content are required' }, { status: 400 });
     }
 
-    // Get thread
     const thread = await base44.entities.CommunicationThread.get(thread_id);
-    if (!thread) {
-      return Response.json({ error: 'Thread not found' }, { status: 404 });
-    }
+    if (!thread) return Response.json({ error: 'Thread not found' }, { status: 404 });
 
-    // Check permissions
     const isAdmin = user.role === 'admin';
-    const isHost = thread.host_id && await base44.entities.Host.filter({ email: user.email }).then(h => h.length > 0);
-    const isCustomer = thread.customer_id && user.email === thread.customer_id;
+    const hosts = await base44.entities.Host.filter({ email: user.email }, '-created_date', 1);
+    const host = hosts[0] || null;
+    const isHost = !!host && thread.host_id === host.id;
+    const isCustomer = thread.customer_id === user.email || thread.customer_id === user.id;
 
-    if (!isAdmin && !isHost && !isCustomer) {
-      return Response.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    if (!isAdmin && !isHost && !isCustomer) return Response.json({ error: 'Forbidden' }, { status: 403 });
+    if (thread.frozen && !isAdmin) return Response.json({ error: 'Thread is frozen by admin' }, { status: 403 });
+    if (isHost && thread.muted_host) return Response.json({ error: 'Host is muted in this thread' }, { status: 403 });
+    if (isCustomer && thread.muted_customer) return Response.json({ error: 'Customer is muted in this thread' }, { status: 403 });
 
-    // Determine visibility
     let visible_to_customer = true;
     let visible_to_host = true;
     let visible_to_admin = true;
 
     if (internal_note || message_type === 'internal_note') {
       visible_to_customer = false;
-      visible_to_host = false;
+      visible_to_host = isHost;
       visible_to_admin = true;
     }
 
-    // Create message
+    const senderRole = isAdmin ? 'admin' : isHost ? 'host' : 'customer';
+    const now = new Date().toISOString();
+
     const message = await base44.entities.CommunicationMessage.create({
       thread_id,
-      sender_role: isAdmin ? 'admin' : isHost ? 'host' : 'customer',
+      sender_role: senderRole,
       sender_id: user.id,
       sender_name: user.full_name,
       sender_email: user.email,
-      message_type,
-      body,
+      message_type: internal_note ? 'internal_note' : message_type,
+      body: body || 'Attachment shared',
       attachments,
-      internal_note: visible_to_customer === false,
+      internal_note: !!internal_note,
       visible_to_customer,
       visible_to_host,
       visible_to_admin,
+      created_at: now,
     });
 
-    // Update thread last_message_at
-    await base44.entities.CommunicationThread.update(thread_id, {
-      last_message_at: new Date().toISOString(),
-      status: thread.status === 'open' ? thread.status : 
-        isAdmin ? 'awaiting_host' : 
-        isHost ? 'awaiting_admin' : 'awaiting_admin',
-    });
+    const updates = {
+      last_message_at: now,
+      attachment_count: (thread.attachment_count || 0) + attachments.length,
+    };
 
-    // Update unread counts
-    const updates = {};
+    if (!internal_note) {
+      updates.status = isAdmin
+        ? (thread.customer_id ? 'awaiting_customer' : 'awaiting_host')
+        : 'awaiting_admin';
+    }
+
     if (visible_to_host && !isHost) updates.unread_count_host = (thread.unread_count_host || 0) + 1;
     if (visible_to_customer && !isCustomer) updates.unread_count_customer = (thread.unread_count_customer || 0) + 1;
     if (visible_to_admin && !isAdmin) updates.unread_count_admin = (thread.unread_count_admin || 0) + 1;
 
-    if (Object.keys(updates).length > 0) {
-      await base44.entities.CommunicationThread.update(thread_id, updates);
-    }
+    await base44.entities.CommunicationThread.update(thread_id, updates);
 
-    // Log activity event
     await base44.entities.ActivityEvent.create({
-      event_type: 'maintenance.logged',
+      event_type: 'admin.note_added',
       actor_email: user.email,
-      actor_role: isAdmin ? 'admin' : isHost ? 'host' : 'customer',
+      actor_role: senderRole,
       target_entity: 'CommunicationMessage',
       target_id: message.id,
       target_label: thread.subject,
@@ -87,9 +82,10 @@ Deno.serve(async (req) => {
       customer_id: thread.customer_id,
       booking_request_id: thread.booking_request_id,
       vehicle_id: thread.vehicle_id,
-      summary: `Message sent in ${thread.thread_type}: ${body.substring(0, 50)}...`,
+      summary: `${internal_note ? 'Internal note' : 'Message'} sent in ${thread.thread_type}: ${(body || 'Attachment shared').substring(0, 80)}`,
       source: isAdmin ? 'admin_panel' : isHost ? 'host_portal' : 'customer_app',
       event_status: 'success',
+      metadata: { communication_action: internal_note ? 'internal_note_added' : 'message_sent', attachment_count: attachments.length },
     }).catch(() => {});
 
     return Response.json({ message });

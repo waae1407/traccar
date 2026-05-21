@@ -47,6 +47,8 @@ import AdminOperationsCenter from '@/pages/admin/AdminOperationsCenter';
 import AdminGPSMonitor from '@/pages/admin/AdminGPSMonitor';
 import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import AdminCommunications from '@/pages/admin/AdminCommunications';
+import HostCommunications from '@/pages/host/HostCommunications';
+import CustomerCommunications from '@/pages/customer/CustomerCommunications';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
 
 // Host pages
@@ -139,6 +141,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/pnl" element={<HostPnL />} />
         <Route path="/host/verification" element={<HostVerificationDocs />} />
         <Route path="/host/payment-history" element={<HostPaymentHistory />} />
+        <Route path="/host/communications" element={<HostCommunications />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
@@ -147,6 +150,7 @@ const AuthenticatedApp = () => {
         <Route path="bookings" element={<MyBookings />} />
         <Route path="activity" element={<ActivityPage />} />
         <Route path="support" element={<RenterAIChat />} />
+        <Route path="messages" element={<CustomerCommunications />} />
         <Route path="account" element={<AccountPage />} />
       </Route>
 
@@ -158,6 +162,7 @@ const AuthenticatedApp = () => {
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/support" element={<RenterAIChat />} />
+        <Route path="/messages" element={<CustomerCommunications />} />
       </Route>
 
       {/* ── CHECKOUT (standalone, no customer layout chrome) ── */}

@@ -62,7 +62,7 @@
     "internal_note": {
       "type": "boolean",
       "default": false,
-      "description": "If true, only visible to admins"
+      "description": "If true, hidden from customers"
     },
     "visible_to_customer": {
       "type": "boolean",
@@ -91,6 +91,10 @@
     "parent_message_id": {
       "type": "string",
       "description": "For threaded replies"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": [
