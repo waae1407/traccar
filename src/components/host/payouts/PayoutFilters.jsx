@@ -42,14 +42,22 @@ export function getDateRange(value) {
   }
 }
 
+const controlBase = "appearance-none cursor-pointer focus:outline-none transition-all";
+const controlIdle = "bg-white border-2 border-gray-300 text-gray-800 placeholder-gray-500 hover:border-gray-400 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20";
+const controlActive = "bg-pink-50 border-2 border-pink-500 text-gray-900 font-semibold";
+
 function Sel({ value, onChange, options }) {
+  const isActive = !!value && value !== options[0]?.value;
   return (
     <div className="relative">
-      <select value={value} onChange={e => onChange(e.target.value)}
-        className="h-9 pl-3 pr-7 rounded-xl bg-muted/40 border border-border text-xs text-foreground appearance-none focus:outline-none focus:border-primary cursor-pointer">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`h-10 pl-3 pr-8 rounded-xl text-sm ${controlBase} ${isActive ? controlActive : controlIdle}`}
+      >
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
-      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+      <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${isActive ? "text-pink-600" : "text-gray-500"}`} />
     </div>
   );
 }
@@ -68,33 +76,48 @@ export default function PayoutFilters({ filters, onChange, vehicles = [], onExpo
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[160px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input type="text" value={filters.search}
-            onChange={e => onChange({ ...filters, search: e.target.value })}
-            placeholder="Booking ID, renter, vehicle, payout ID…"
-            className="w-full h-9 pl-9 pr-3 rounded-xl bg-muted/40 border border-border text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary" />
-        </div>
-
-        <Sel value={filters.dateRange} onChange={v => onChange({ ...filters, dateRange: v })} options={DATE_OPTIONS} />
-        <Sel value={filters.status} onChange={v => onChange({ ...filters, status: v })} options={STATUS_OPTIONS} />
-
+      <div className="flex flex-col gap-2">
+        {/* Row 1: Search */}
         <div className="relative">
-          <select value={filters.vehicleId} onChange={e => onChange({ ...filters, vehicleId: e.target.value })}
-            className="h-9 pl-3 pr-7 rounded-xl bg-muted/40 border border-border text-xs text-foreground appearance-none focus:outline-none focus:border-primary cursor-pointer">
-            <option value="">All Vehicles</option>
-            {vehicles.map(v => (
-              <option key={v.id} value={v.id}>{v.year} {v.make} {v.model}{v.plate ? ` · ${v.plate}` : ""}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${filters.search ? "text-pink-500" : "text-gray-400"}`} />
+          <input
+            type="text"
+            value={filters.search}
+            onChange={e => onChange({ ...filters, search: e.target.value })}
+            placeholder="Search by booking ID, renter, vehicle, payout ID…"
+            className={`w-full h-10 pl-10 pr-3 rounded-xl text-sm transition-all focus:outline-none ${
+              filters.search
+                ? "bg-pink-50 border-2 border-pink-500 text-gray-900 placeholder-pink-300 focus:ring-2 focus:ring-pink-500/20"
+                : "bg-white border-2 border-gray-300 text-gray-800 placeholder-gray-400 hover:border-gray-400 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20"
+            }`}
+          />
         </div>
 
-        <button onClick={onExport}
-          className="h-9 px-3 rounded-xl border border-border bg-muted/40 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all flex items-center gap-1.5 flex-shrink-0">
-          <Download className="h-3.5 w-3.5" /> Export CSV
-        </button>
+        {/* Row 2: Dropdowns + Export */}
+        <div className="flex flex-wrap gap-2">
+          <Sel value={filters.dateRange} onChange={v => onChange({ ...filters, dateRange: v })} options={DATE_OPTIONS} />
+          <Sel value={filters.status} onChange={v => onChange({ ...filters, status: v })} options={STATUS_OPTIONS} />
+
+          <div className="relative flex-1 min-w-[140px]">
+            <select
+              value={filters.vehicleId}
+              onChange={e => onChange({ ...filters, vehicleId: e.target.value })}
+              className={`w-full h-10 pl-3 pr-8 rounded-xl text-sm ${controlBase} ${filters.vehicleId ? controlActive : controlIdle}`}
+            >
+              <option value="">All Vehicles</option>
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>{v.year} {v.make} {v.model}{v.plate ? ` · ${v.plate}` : ""}</option>
+              ))}
+            </select>
+            <ChevronDown className={`absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none ${filters.vehicleId ? "text-pink-600" : "text-gray-500"}`} />
+          </div>
+
+          <button
+            onClick={onExport}
+            className="h-10 px-4 rounded-xl border-2 border-gray-700 bg-gray-900 text-xs font-bold text-white hover:bg-gray-800 hover:border-gray-600 active:scale-95 transition-all flex items-center gap-1.5 flex-shrink-0 shadow-sm">
+            <Download className="h-3.5 w-3.5" /> Export CSV
+          </button>
+        </div>
       </div>
 
       {(hasActive || resultCount !== undefined) && (
