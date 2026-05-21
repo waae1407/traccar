@@ -49,9 +49,29 @@ export default function HostPayouts() {
   });
 
   const { data: myBookings = [] } = useQuery({
-    queryKey: ["host-bookings", host?.id],
-    queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }, "-created_date", 300),
-    enabled: !!host?.id,
+    queryKey: ["host-bookings-v2", host?.id, myVehicles.map(v => v.id).join(",")],
+    queryFn: async () => {
+      const results = [];
+      // By host_id
+      if (host?.id) {
+        try {
+          const byHost = await base44.entities.BookingRequest.filter({ host_id: host.id }, "-created_date", 300);
+          results.push(...byHost);
+        } catch (_) { /* ignore */ }
+      }
+      // By vehicle_id for each host vehicle
+      if (myVehicles.length > 0) {
+        const perVehicle = await Promise.all(
+          myVehicles.slice(0, 15).map(v =>
+            base44.entities.BookingRequest.filter({ vehicle_id: v.id }, "-created_date", 50).catch(() => [])
+          )
+        );
+        results.push(...perVehicle.flat());
+      }
+      const seen = new Set();
+      return results.filter(b => { if (seen.has(b.id)) return false; seen.add(b.id); return true; });
+    },
+    enabled: !!host?.id || myVehicles.length > 0,
   });
 
   const { data: myDisputes = [] } = useQuery({
@@ -60,11 +80,37 @@ export default function HostPayouts() {
     enabled: !!host?.id,
   });
 
-  // Also load PaymentLog to backfill missing HostPayout records
+  // Also load PaymentLog to backfill missing HostPayout records.
+  // Query BOTH by host_id AND by each vehicle_id, since older records may have
+  // an empty host_id if booking.host_id wasn't set at payment time.
   const { data: paymentLogs = [] } = useQuery({
-    queryKey: ["host-payment-logs", host?.id],
-    queryFn: () => base44.entities.PaymentLog.filter({ host_id: host.id }, "-paid_at", 300),
-    enabled: !!host?.id,
+    queryKey: ["host-payment-logs-v2", host?.id, myVehicles.map(v => v.id).join(",")],
+    queryFn: async () => {
+      const results = [];
+
+      // Approach 1: by host_id (works for newer records)
+      if (host?.id) {
+        try {
+          const byHost = await base44.entities.PaymentLog.filter({ host_id: host.id }, "-paid_at", 300);
+          results.push(...byHost);
+        } catch (_) { /* ignore */ }
+      }
+
+      // Approach 2: by vehicle_id (catches records where host_id was blank)
+      if (myVehicles.length > 0) {
+        const perVehicle = await Promise.all(
+          myVehicles.slice(0, 15).map(v =>
+            base44.entities.PaymentLog.filter({ vehicle_id: v.id }, "-paid_at", 100).catch(() => [])
+          )
+        );
+        results.push(...perVehicle.flat());
+      }
+
+      // Dedup by id
+      const seen = new Set();
+      return results.filter(l => { if (seen.has(l.id)) return false; seen.add(l.id); return true; });
+    },
+    enabled: !!host?.id || myVehicles.length > 0,
   });
 
   // ── LOOKUP MAPS ───────────────────────────────────────────────────────────
