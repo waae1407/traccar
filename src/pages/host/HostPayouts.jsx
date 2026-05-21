@@ -145,8 +145,11 @@ export default function HostPayouts() {
         const gross = log.amount || 0;
         const commRate = host?.commission_rate ?? 0.08;
         const platformFee = Math.round(gross * commRate * 100) / 100;
-        const stripeFee = Math.round(((gross + 0.30) / (1 - 0.029) - gross) * 100) / 100;
-        const net = Math.max(0, gross - platformFee - stripeFee);
+        // Stripe fee is already grossed into the charge — the actual transfer to host
+        // is gross - platformFee only (matching processWeeklyBilling logic exactly).
+        const net = Math.max(0, gross - platformFee);
+        // Stripe fee is informational: what Stripe took from the gross before settling
+        const stripeFee = Math.round((gross - gross / (1 + 0.029) - 0.30 / (1 - 0.029)) * 100) / 100;
         const booking = log.booking_request_id ? bookingMap[log.booking_request_id] : null;
 
         return {
