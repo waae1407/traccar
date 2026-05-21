@@ -75,7 +75,7 @@ async function getLastGPSEventType(base44, deviceId) {
   }
 }
 
-async function pingMooveTraxDevice(deviceId, partnerApiKey) {
+async function pingMooveTraxDevice(deviceId, partnerApiKey, offlineThresholdHours = 4) {
   /**
    * Calls MooveTrax API to get the last known position of a device.
    * Returns: { online: boolean, lastUpdate: Date|null, rawResponse: object|null }
@@ -117,7 +117,7 @@ async function pingMooveTraxDevice(deviceId, partnerApiKey) {
     }
 
     const hoursSinceUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);
-    const online = hoursSinceUpdate < OFFLINE_THRESHOLD_HOURS;
+    const online = hoursSinceUpdate < offlineThresholdHours;
 
     return { online, lastUpdate, rawResponse: data };
   } catch (err) {
@@ -131,9 +131,9 @@ async function pingMooveTraxDevice(deviceId, partnerApiKey) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    // Read config inside handler — these are optional tuning params with safe defaults
-    const OFFLINE_THRESHOLD_HOURS = parseFloat(Deno.env.get("GPS_OFFLINE_THRESHOLD_HOURS") || "4");
-    const MAX_DEVICES_PER_RUN = parseInt(Deno.env.get("GPS_MAX_DEVICES_PER_RUN") || "25");
+    // Optional tuning params — hardcoded defaults, adjust here if needed
+    const OFFLINE_THRESHOLD_HOURS = 4;   // hours before device considered offline
+    const MAX_DEVICES_PER_RUN = 25;      // max devices to check per hourly run
     const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
 
     if (!partnerApiKey) {
@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
         const wasOffline = lastEventType === 'device_offline';
 
         // Ping MooveTrax
-        const { online, lastUpdate, rawResponse } = await pingMooveTraxDevice(deviceId, partnerApiKey);
+        const { online, lastUpdate, rawResponse } = await pingMooveTraxDevice(deviceId, partnerApiKey, OFFLINE_THRESHOLD_HOURS);
 
         if (online) {
           results.online++;
@@ -216,7 +216,7 @@ Deno.serve(async (req) => {
               event_type: 'device_offline',
               response_status: rawResponse?.error === 'timeout' ? 'timeout' : 'failed',
               response_payload: rawResponse,
-              notes: `Device not responding or last update exceeds ${OFFLINE_THRESHOLD_HOURS}h threshold`,
+              notes: `Device not responding or last update exceeds ${OFFLINE_THRESHOLD_HOURS}h threshold (offline threshold)`,
             });
             await logActivityEvent(base44, {
               event_type: 'gps.device_offline',
