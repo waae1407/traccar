@@ -274,11 +274,11 @@ export default function CheckoutFlow() {
           // Use mutateAsync so we await the creation before advancing
           await createMutation.mutateAsync({
             vehicle_id: v.id, vehicle_name: `${v.year} ${v.make} ${v.model}`,
-            host_id: v.host_id || "",
             vehicle_image: v.image_url, booking_type: type, city: v.city || v.current_city,
             weekly_rate: v.weekly_rate, deposit_amount: 0,
             first_payment_amount: v.weekly_rate || 0, total_due_now: v.weekly_rate || 0,
             booking_status: "draft", checkout_step: "account", user_email: user?.email, user_id: user?.id,
+            host_id: v.host_id || "",
             ...(refCode && { referral_code: refCode }),
             ...(bookingCompanyId && { company_id: bookingCompanyId }),
             ...(opts.startDate && { start_date: opts.startDate }),
