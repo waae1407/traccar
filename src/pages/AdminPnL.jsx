@@ -4,7 +4,18 @@ import { useQuery } from "@tanstack/react-query";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie } from "recharts";
 import { TrendingUp, DollarSign, CreditCard, Landmark } from "lucide-react";
 import { subDays, isAfter } from "date-fns";
-import { OperationalPageShell, OperationalHero, OperationalKpiGrid, OperationalFilterBar, OperationalDataSection } from "@/components/operational";
+import { OperationalPageShell, OperationalHero, OperationalKpiGrid, OperationalFilterBar, OperationalExportToolbar, OperationalDataSection } from "@/components/operational";
+
+const downloadCsv = (rows, filename) => {
+  const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 const COLORS = ["hsl(338,90%,56%)", "hsl(265,80%,62%)", "hsl(152,60%,46%)", "hsl(38,95%,54%)", "hsl(199,90%,54%)"];
 const RANGES = [{ label: "30 Days", value: "30" }, { label: "90 Days", value: "90" }, { label: "1 Year", value: "365" }, { label: "All Time", value: "99999" }];
@@ -16,7 +27,7 @@ const Tooltip_ = ({ active, payload, label, prefix = "$" }) => {
 
 export default function AdminPnL() {
   const [range, setRange] = useState(30);
-  const filters = { search: "", dateRange: String(range) };
+  const filters = { dateRange: String(range) };
 
   const { data: paymentLogs = [] } = useQuery({ queryKey: ["pnl-payment-logs"], queryFn: () => base44.entities.PaymentLog.list("-paid_at", 1000) });
   const { data: hostPayouts = [] } = useQuery({ queryKey: ["pnl-host-payouts"], queryFn: () => base44.entities.HostPayout.list("-created_date", 500) });
@@ -48,17 +59,29 @@ export default function AdminPnL() {
   paidLogs.forEach(p => { const b = bookingRequests.find(b => b.id === p.booking_request_id); const city = b?.city || "Unknown"; cityRevMap[city] = (cityRevMap[city] || 0) + (p.amount || 0); });
   const cityData = Object.entries(cityRevMap).map(([city, rev]) => ({ city, rev: Math.round(rev) })).sort((a, b) => b.rev - a.rev).slice(0, 8);
   const splitData = [{ name: "Host Payouts", value: Math.round(totalHostPayouts) }, { name: "Stripe Fees", value: Math.round(totalStripeFees) }, { name: "Platform Net", value: Math.round(netPlatformRevenue > 0 ? netPlatformRevenue : 0) }];
+  const exportPnL = () => downloadCsv([
+    ["Metric", "Value"],
+    ["Gross Revenue", grossRevenue],
+    ["Net Platform Revenue", netPlatformRevenue],
+    ["Host Payouts Sent", totalHostPayouts],
+    ["Stripe Fees Paid", totalStripeFees],
+    ["Platform Fee Collected", totalPlatformFees],
+    ["Estimated MRR", mrr],
+    ["Margin", `${margin}%`],
+    ["Churn Rate", `${churnRate}%`],
+    ["Paid Records", paidLogs.length],
+  ], `admin-pnl-${new Date().toISOString().split("T")[0]}.csv`);
 
   return (
     <OperationalPageShell mode="admin">
-      <OperationalHero mode="admin" title="Platform P&L" subtitle="Revenue, payout, margin, and fleet performance visibility" eyebrow="Operations" />
+      <OperationalHero mode="admin" title="Platform P&L" subtitle="Revenue, payout, margin, and fleet performance visibility" eyebrow="Operations" actions={<OperationalExportToolbar mode="admin" exports={[{ label: "Export", onClick: exportPnL }]} />} />
       <OperationalKpiGrid mode="admin" metrics={[
         { label: "Gross Revenue", value: grossRevenue, type: "currency", note: "total collected", icon: DollarSign, variant: "success" },
         { label: "Net Platform Revenue", value: netPlatformRevenue, type: "currency", note: `${margin}% margin`, icon: TrendingUp, variant: netPlatformRevenue >= 0 ? "primary" : "danger" },
         { label: "Host Payouts Sent", value: totalHostPayouts, type: "currency", note: "platform expense", icon: Landmark, variant: "warning" },
         { label: "Est. MRR", value: mrr, type: "currency", note: `${activeBookings.length} active rentals`, icon: CreditCard, variant: "info" },
       ]} />
-      <OperationalFilterBar mode="admin" filters={filters} onChange={(next) => setRange(Number(next.dateRange || 30))} dateRanges={RANGES} resultCount={paidLogs.length} totalCount={paymentLogs.length} placeholder="P&L search reserved" />
+      <OperationalFilterBar mode="admin" filters={filters} onChange={(next) => setRange(Number(next.dateRange || 30))} dateRanges={RANGES} resultCount={paidLogs.length} totalCount={paymentLogs.length} showSearch={false} />
 
       <OperationalDataSection mode="admin" title="Secondary Metrics" bodyClassName="p-4">
         <OperationalKpiGrid mode="admin" metrics={[

@@ -7,11 +7,13 @@ import {
   OperationalHero,
   OperationalKpiGrid,
   OperationalFilterBar,
+  OperationalAdvancedFilters,
   OperationalExportToolbar,
   OperationalDataSection,
   OperationalDetailDrawer,
   OperationalPagination,
 } from "@/components/operational";
+import { SHARED_DATE_RANGES, isWithinSharedDateRange } from "@/lib/operational/sharedOperationalFilters";
 
 const PAGE_SIZE = 50;
 
@@ -26,7 +28,7 @@ const statusConfig = {
 
 export default function AdminPayouts() {
   const qc = useQueryClient();
-  const [filters, setFilters] = useState({ search: "", status: "" });
+  const [filters, setFilters] = useState({ search: "", status: "", dateRange: "last30", hostId: "", vehicleId: "" });
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState(null);
 
@@ -34,6 +36,8 @@ export default function AdminPayouts() {
     queryKey: ["admin-payouts"],
     queryFn: () => base44.entities.HostPayout.list("-created_date", 300),
   });
+  const { data: hosts = [] } = useQuery({ queryKey: ["admin-payout-hosts"], queryFn: () => base44.entities.Host.list("full_name", 500) });
+  const { data: vehicles = [] } = useQuery({ queryKey: ["admin-payout-vehicles"], queryFn: () => base44.entities.Vehicle.list("make", 500) });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.HostPayout.update(id, data),
@@ -49,9 +53,14 @@ export default function AdminPayouts() {
   const filtered = useMemo(() => payouts.filter(p => {
     const q = (filters.search || "").toLowerCase();
     const matchSearch = !q || p.host_name?.toLowerCase().includes(q) || p.host_email?.toLowerCase().includes(q) || p.vehicle_name?.toLowerCase().includes(q);
-    const matchFilter = !filters.status || p.status === filters.status;
-    return matchSearch && matchFilter;
-  }), [payouts, filters]);
+    const matchStatus = !filters.status || p.status === filters.status;
+    const matchDate = isWithinSharedDateRange(p.payout_date || p.period_start || p.created_date, filters.dateRange);
+    const matchHost = !filters.hostId || p.host_id === filters.hostId;
+    const selectedVehicle = filters.vehicleId ? vehicles.find(v => v.id === filters.vehicleId) : null;
+    const selectedVehicleName = selectedVehicle ? `${selectedVehicle.year || ""} ${selectedVehicle.make || ""} ${selectedVehicle.model || ""}`.trim() : "";
+    const matchVehicle = !filters.vehicleId || p.vehicle_id === filters.vehicleId || (selectedVehicleName && p.vehicle_name === selectedVehicleName);
+    return matchSearch && matchStatus && matchDate && matchHost && matchVehicle;
+  }), [payouts, filters, vehicles]);
 
   const paged = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
   const totalPending = payouts.filter(p => p.status === "pending").reduce((s, p) => s + (p.net_payout || p.net_host_payout || 0), 0);
@@ -86,7 +95,8 @@ export default function AdminPayouts() {
       />
 
       <OperationalKpiGrid mode="admin" metrics={metrics} />
-      <OperationalFilterBar mode="admin" filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} statuses={["pending", "processing", "paid", "failed", "held", "released"]} resultCount={filtered.length} totalCount={payouts.length} placeholder="Search host, email, vehicle..." />
+      <OperationalFilterBar mode="admin" filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} vehicles={vehicles} statuses={["pending", "processing", "paid", "failed", "held", "released"]} dateRanges={SHARED_DATE_RANGES} resultCount={filtered.length} totalCount={payouts.length} placeholder="Search host, email, vehicle..." />
+      <OperationalAdvancedFilters mode="admin" filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} />
 
       <OperationalDataSection mode="admin" title="Payout Records" count={filtered.length} loading={isLoading} empty={filtered.length === 0} emptyIcon={DollarSign} emptyTitle="No payouts found" emptyDescription="Adjust filters to review host payout records.">
         <div className="divide-y divide-white/[0.06]">

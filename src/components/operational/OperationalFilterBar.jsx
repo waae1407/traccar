@@ -20,6 +20,7 @@ export default function OperationalFilterBar({
   totalCount,
   actions,
   className,
+  showSearch = true,
 }) {
   const set = (key, value) => onChange?.({ ...filters, [key]: value });
   const controlClass = cn("h-10 rounded-xl border px-3 text-sm outline-none transition-colors", inputStyles[mode] || inputStyles.host);
@@ -27,10 +28,12 @@ export default function OperationalFilterBar({
   return (
     <section className={cn("rounded-3xl border p-4 shadow-sm", mode === "admin" ? "border-white/[0.08] bg-white/[0.04] shadow-card" : "border-gray-100 bg-white", className)}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <div className="relative sm:col-span-2">
-          <Search className={cn("absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2", mode === "admin" ? "text-white/30" : "text-gray-400")} />
-          <input className={cn(controlClass, "w-full pl-9")} placeholder={placeholder} value={filters.search || ""} onChange={(event) => set("search", event.target.value)} />
-        </div>
+        {showSearch && (
+          <div className="relative sm:col-span-2">
+            <Search className={cn("absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2", mode === "admin" ? "text-white/30" : "text-gray-400")} />
+            <input className={cn(controlClass, "w-full pl-9")} placeholder={placeholder} value={filters.search || ""} onChange={(event) => set("search", event.target.value)} />
+          </div>
+        )}
 
         {dateRanges.length > 0 && (
           <select className={controlClass} value={filters.dateRange || ""} onChange={(event) => set("dateRange", event.target.value)}>

@@ -18,6 +18,17 @@ import {
   OperationalDataSection,
 } from "@/components/operational";
 
+const downloadCsv = (rows, filename) => {
+  const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 const PAYMENT_STATUS_STYLE = {
   paid: "bg-green-500/15 text-green-400 border-green-500/25",
   failed: "bg-red-500/15 text-red-400 border-red-500/25",
@@ -97,7 +108,7 @@ export default function Payments() {
   const { tenantFilter } = useTenant();
   const [actionBooking, setActionBooking] = useState(null);
   const [historyBooking, setHistoryBooking] = useState(null);
-  const [filters, setFilters] = useState({ search: "", dateFrom: "", dateTo: "", paymentStatus: "", vehicleFilter: "" });
+  const [filters, setFilters] = useState({ search: "", dateFrom: "", dateTo: "", status: "", vehicleId: "" });
   const [scoreFilter, setScoreFilter] = useState(null);
   const [backfilling, setBackfilling] = useState(false);
 
@@ -124,7 +135,7 @@ export default function Payments() {
 
   const payments = allPayments.filter((b) => {
     if (filters.search && !`${b.customer_full_name} ${b.user_email} ${b.vehicle_name}`.toLowerCase().includes(filters.search.toLowerCase())) return false;
-    if (filters.paymentStatus && b.payment_status !== filters.paymentStatus) return false;
+    if (filters.status && b.payment_status !== filters.status) return false;
     if (filters.vehicleId && b.vehicle_name !== filters.vehicleId) return false;
     if (filters.dateFrom && new Date(b.submitted_at || b.created_date) < new Date(filters.dateFrom)) return false;
     if (filters.dateTo && new Date(b.submitted_at || b.created_date) > new Date(filters.dateTo + "T23:59:59")) return false;
@@ -135,13 +146,18 @@ export default function Payments() {
     return true;
   });
 
+  const exportPayments = () => downloadCsv([
+    ["Customer", "Email", "Vehicle", "Booking Type", "Amount", "Status", "Week", "Next Charge", "Submitted"],
+    ...payments.map(row => [row.customer_full_name || "", row.user_email || "", row.vehicle_name || "", row.booking_type || "", row.total_due_now || row.weekly_rate || 0, row.payment_status || "", row.billing_week_number || "", row.next_billing_date || "", row.submitted_at || row.created_date || ""]),
+  ], `payments-${new Date().toISOString().split("T")[0]}.csv`);
+
   if (!isLoading && allPayments.length === 0) return <EmptyState icon={DollarSign} title="No payments yet" description="Payments will appear here once customers pay." />;
 
   return (
     <OperationalPageShell mode="admin">
       {actionBooking && <ActionModal booking={actionBooking} onClose={() => setActionBooking(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["stripe-payments"] })} />}
       {historyBooking && <PaymentHistoryDrawer booking={historyBooking} onClose={() => setHistoryBooking(null)} />}
-      <OperationalHero mode="admin" title="Payments" subtitle={`${allPayments.length} payment records · billing visibility and customer payment actions`} eyebrow="Operations" actions={<OperationalExportToolbar mode="admin" syncAction={{ label: "Sync Payment History", loadingLabel: "Updating…", loading: backfilling, onClick: handleBackfill }} />} />
+      <OperationalHero mode="admin" title="Payments" subtitle={`${allPayments.length} payment records · billing visibility and customer payment actions`} eyebrow="Operations" actions={<OperationalExportToolbar mode="admin" exports={[{ label: "Export", onClick: exportPayments }]} syncAction={{ label: "Sync Payment History", loadingLabel: "Updating…", loading: backfilling, onClick: handleBackfill }} />} />
       <OperationalKpiGrid mode="admin" metrics={scorecards.map(s => ({ ...s, active: scoreFilter === s.filterKey, onClick: () => setScoreFilter(scoreFilter === s.filterKey ? null : s.filterKey) }))} />
       {scoreFilter && <div className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/[0.06] px-4 py-2.5 text-sm font-semibold text-yellow-400"><CalendarClock className="h-4 w-4" /> Active payment focus: {scoreFilter.replaceAll("_", " ")}<button onClick={() => setScoreFilter(null)} className="ml-auto text-xs text-white/40 underline hover:text-white">Clear</button></div>}
       <OperationalFilterBar mode="admin" filters={filters} onChange={setFilters} vehicles={vehicleOptions} statuses={["paid", "failed", "overdue", "due_soon", "pending", "unpaid", "refunded"]} resultCount={payments.length} totalCount={allPayments.length} placeholder="Search customer, vehicle…" />

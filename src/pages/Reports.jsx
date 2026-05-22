@@ -8,8 +8,20 @@ import {
   OperationalKpiGrid,
   OperationalFilterBar,
   OperationalAdvancedFilters,
+  OperationalExportToolbar,
   OperationalDataSection,
 } from "@/components/operational";
+
+const downloadCsv = (rows, filename) => {
+  const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 const COLORS = ["hsl(338,90%,56%)", "hsl(265,80%,62%)", "hsl(152,60%,46%)", "hsl(38,95%,54%)", "hsl(199,90%,54%)"];
 
@@ -73,12 +85,19 @@ export default function Reports() {
     { label: "Total Revenue", value: totalRevenue, type: "currency", note: "all time collected", variant: "primary" },
   ];
 
+  const exportReports = () => downloadCsv([
+    ["Customer", "Email", "Vehicle", "Booking Status", "Payment Status", "Total Due", "Submitted"],
+    ...filteredBookingRequests.map(b => [b.customer_full_name || "", b.user_email || "", b.vehicle_name || "", b.booking_status || "", b.payment_status || "", b.total_due_now || 0, b.submitted_at || b.created_date || ""]),
+  ], `reports-${new Date().toISOString().split("T")[0]}.csv`);
+
   return (
     <OperationalPageShell mode="admin">
-      <OperationalHero mode="admin" title="Reports" subtitle="Revenue, utilization, lead source, and vehicle performance reporting" eyebrow="Operations" />
+      <OperationalHero mode="admin" title="Reports" subtitle="Revenue, utilization, lead source, and vehicle performance reporting" eyebrow="Operations" actions={<OperationalExportToolbar mode="admin" exports={[{ label: "Export", onClick: exportReports }]} />} />
       <OperationalKpiGrid mode="admin" metrics={kpis} />
       <OperationalFilterBar mode="admin" filters={filters} onChange={setFilters} resultCount={filteredBookingRequests.length} totalCount={bookingRequests.length} placeholder="Search customer, email, vehicle..." />
       <OperationalAdvancedFilters mode="admin" filters={filters} onChange={setFilters} fields={[
+        { key: "dateFrom", label: "From date", type: "date" },
+        { key: "dateTo", label: "To date", type: "date" },
         { key: "bookingStatus", label: "booking status", options: ["active", "confirmed", "completed", "cancelled", "pending_review", "approved", "rejected"] },
         { key: "paymentStatus", label: "payment status", options: ["paid", "pending", "failed", "overdue", "unpaid", "refunded"] },
       ]} />
