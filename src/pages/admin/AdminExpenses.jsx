@@ -11,6 +11,9 @@ import PrototypeFilters from "@/components/admin/prototypes/PrototypeFilters";
 import PrototypePagination from "@/components/admin/prototypes/PrototypePagination";
 import PrototypeDetailDrawer from "@/components/admin/prototypes/PrototypeDetailDrawer";
 import PrototypeReconciliationPanel from "@/components/admin/prototypes/PrototypeReconciliationPanel";
+import GlobalGovernanceBanner from "@/components/admin/governance/GlobalGovernanceBanner";
+import ProductionActivationStatus from "@/components/admin/stabilization/ProductionActivationStatus";
+import { PRODUCTION_ACTIVATION_FLAGS } from "@/lib/operational/productionActivationFlags";
 
 const PAGE_SIZE = 50;
 
@@ -49,6 +52,8 @@ export default function AdminExpenses() {
         subtitle="Parallel read-only preview powered only by the shared expense engine. Existing admin pages remain untouched."
         action={<Button onClick={() => downloadCsv(buildExpenseExportRows(expenses), "admin-expenses-prototype.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
       />
+      <GlobalGovernanceBanner />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.AdminExpenses} title="AdminExpenses Phase 1 activation" />
       <PrototypeFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} showCostRange showReimbursable showTaxDeductible />
       <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary capitalize">
         Date range: {currentDateFilter.replaceAll("_", " ")}
