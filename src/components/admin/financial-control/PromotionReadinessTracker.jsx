@@ -12,8 +12,10 @@ export default function PromotionReadinessTracker({ items = [] }) {
               <span className="text-xs text-primary font-bold">{item.readiness}%</span>
             </div>
             <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mt-3"><div className="h-full bg-primary" style={{ width: `${Math.min(100, item.readiness)}%` }} /></div>
-            <p className="text-xs text-white/45 mt-3">Rollback: {item.rollbackReadiness}</p>
+            <p className="text-xs text-white/45 mt-3">Rollback: {item.rollbackReadiness} · Confidence: {item.rollbackConfidence || "high"}</p>
             <p className="text-xs text-white/45">Status: {item.reconciliationStatus}</p>
+            <p className="text-xs text-white/45">Remediation: {Math.round(item.remediationReadiness || item.readiness)}% · Simulation: {Math.round(item.simulationConfidence || item.readiness)}%</p>
+            <p className="text-xs text-white/45">Payout recovery: {Math.round(item.payoutRecoveryReadiness || item.readiness)}% · External recon: {Math.round(item.externalReconciliationReadiness || item.readiness)}%</p>
             <p className="text-xs text-white/35 mt-2">{(item.blockers || []).slice(0, 2).join(" ") || "No active blockers."}</p>
           </div>
         ))}

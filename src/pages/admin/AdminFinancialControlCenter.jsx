@@ -2,6 +2,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Lock } from "lucide-react";
 import { loadFinancialControlCenterData } from "@/lib/operational/financialControlCenterEngine";
+import { loadRemediationSimulationData } from "@/lib/operational/remediationSimulationEngine";
 import { downloadCsv } from "@/lib/operational/sharedExportUtils";
 import FinancialIntegrityDashboard from "@/components/admin/payment-reconciliation/FinancialIntegrityDashboard";
 import PaymentReconciliationKpis from "@/components/admin/payment-reconciliation/PaymentReconciliationKpis";
@@ -15,11 +16,16 @@ import PayoutReadinessPanel from "@/components/admin/financial-control/PayoutRea
 import IntegrityScorePanel from "@/components/admin/financial-control/IntegrityScorePanel";
 import PromotionReadinessTracker from "@/components/admin/financial-control/PromotionReadinessTracker";
 import RemediationPlanningPanel from "@/components/admin/financial-control/RemediationPlanningPanel";
+import RemediationSimulationTools from "@/components/admin/financial-control/RemediationSimulationTools";
+import RemediationQueuePanel from "@/components/admin/financial-control/RemediationQueuePanel";
+import ExposureForecastPanel from "@/components/admin/financial-control/ExposureForecastPanel";
+import SimulationAuditPanel from "@/components/admin/financial-control/SimulationAuditPanel";
 
 export default function AdminFinancialControlCenter() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-financial-control-center"], queryFn: loadFinancialControlCenterData });
+  const { data: simulationData, isLoading: isLoadingSimulation } = useQuery({ queryKey: ["admin-remediation-simulation"], queryFn: loadRemediationSimulationData });
 
-  if (isLoading) return <div className="p-6 text-white/60">Loading financial control center…</div>;
+  if (isLoading || isLoadingSimulation) return <div className="p-6 text-white/60">Loading financial control center…</div>;
 
   return (
     <div className="space-y-5 animate-fade-in-up">
@@ -27,7 +33,7 @@ export default function AdminFinancialControlCenter() {
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Convergence Sprint 1 · Read-only</p>
           <h1 className="text-3xl font-bold text-white mt-1">Unified Financial Control Center</h1>
-          <p className="text-sm text-muted-foreground mt-2 max-w-4xl">Central review workspace for reconciliation, confidence, payout readiness, exceptions, audit history, remediation planning, promotion readiness, and standardized exports. No Stripe, payout, booking, or legacy-row mutations are available here.</p>
+          <p className="text-sm text-muted-foreground mt-2 max-w-4xl">Central review workspace for reconciliation, confidence, payout readiness, exceptions, audit history, remediation planning, simulation previews, promotion readiness, and standardized exports. No Stripe, payout, booking, or legacy-row mutations are available here.</p>
         </div>
         <button onClick={() => downloadCsv(data?.standardizedExportRows || [], `financial-control-center-${new Date().toISOString().slice(0, 10)}.csv`)} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white/70 hover:bg-white/10">
           <Download className="h-4 w-4" /> Export standardized CSV
@@ -38,11 +44,14 @@ export default function AdminFinancialControlCenter() {
         <Lock className="h-5 w-5 text-primary mt-0.5" />
         <div>
           <p className="font-bold text-white">Safety lock active</p>
-          <p className="text-sm text-white/55">Read-only, rollback-safe, non-executable, no Stripe mutation, no payout execution, no booking mutation, no automatic remediation.</p>
+          <p className="text-sm text-white/55">Read-only, simulation only, rollback-safe, non-executable, no Stripe mutation, no payout execution, no booking mutation, no automatic cleanup.</p>
         </div>
       </div>
 
-      <IntegrityScorePanel integrity={data?.financialIntegrityScore} recommendation={data?.convergenceRecommendation} />
+      <IntegrityScorePanel integrity={data?.financialIntegrityScore} recommendation={simulationData?.recommendation || data?.convergenceRecommendation} />
+      <RemediationSimulationTools scenarios={simulationData?.scenarios || []} readinessScore={simulationData?.remediationReadinessScore || 0} recommendation={simulationData?.recommendation} />
+      <ExposureForecastPanel forecast={simulationData?.exposureForecast} conflicts={simulationData?.conflictCategories || []} />
+      <RemediationQueuePanel queue={simulationData?.remediationQueue} />
       <RevenueSeparationPanel revenue={data?.revenueSeparation} />
       <FinancialIntegrityDashboard summary={data?.summary} />
       <PaymentReconciliationKpis summary={data?.summary} />
@@ -52,7 +61,8 @@ export default function AdminFinancialControlCenter() {
       <BookingStateReviewPanel rows={data?.issueRows || []} />
       <HistoricalPayoutBackfillPreview rows={data?.payoutBackfillCandidates || []} />
       <RemediationPlanningPanel actions={data?.recommendedCleanupActions || []} legacyRows={data?.legacyClassifications || []} />
-      <PromotionReadinessTracker items={data?.promotionReadiness || []} />
+      <PromotionReadinessTracker items={simulationData?.expandedPromotionReadiness || data?.promotionReadiness || []} />
+      <SimulationAuditPanel audit={simulationData?.simulationAudit || []} simulatedBy={simulationData?.simulatedBy} generatedAt={simulationData?.generatedAt} />
       <FinancialAuditTimeline events={data?.auditTimeline || []} />
     </div>
   );
