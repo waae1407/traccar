@@ -31,6 +31,22 @@ async function logEvent(base44, data) {
   }
 }
 
+function generatePaymentDedupeKey({ sourceType = 'unknown', bookingId = '', weekNumber = '', amount = '', paidAt = '', paymentIntentId = '', externalReference = '', paymentMethod = '' }) {
+  if (paymentIntentId) return `payment:stripe:${paymentIntentId}`;
+  const paidDate = paidAt ? String(paidAt).slice(0, 10) : 'no-date';
+  return `payment:${sourceType}:${bookingId}:week:${weekNumber}:amount:${amount}:date:${paidDate}:method:${paymentMethod || 'other'}:ref:${externalReference || 'none'}`;
+}
+
+function classifyPaymentSource({ sourceType, paymentIntentId, recordedBy } = {}) {
+  if (sourceType) return sourceType;
+  if (paymentIntentId) return recordedBy === 'stripe_webhook' ? 'stripe_webhook' : 'scheduled_billing';
+  return 'unknown';
+}
+
+function classifyPaymentConfidence({ paymentIntentId } = {}) {
+  return paymentIntentId ? 'trusted' : 'unresolved';
+}
+
 Deno.serve(async (req) => {
   const body = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -49,7 +65,10 @@ Deno.serve(async (req) => {
       case 'payment_intent.succeeded': {
         const pi = event.data.object;
         const bookingRequestId = pi.metadata?.booking_request_id;
-        const receiptUrl = pi.charges?.data?.[0]?.receipt_url;
+        const chargeData = pi.charges?.data?.[0];
+        const receiptUrl = chargeData?.receipt_url;
+        const chargeId = chargeData?.id;
+        const balanceTransactionId = typeof chargeData?.balance_transaction === 'string' ? chargeData.balance_transaction : chargeData?.balance_transaction?.id;
 
         if (bookingRequestId) {
           const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });
@@ -99,7 +118,6 @@ Deno.serve(async (req) => {
 
                   let stripeFeeAmount = 0;
                   let stripeEffectiveRate = 0;
-                  const chargeId = pi.charges?.data?.[0]?.id;
                   if (chargeId) {
                     const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
                     if (charge.balance_transaction?.fee) {
@@ -182,21 +200,53 @@ Deno.serve(async (req) => {
 
             const existingPaymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({ stripe_payment_intent_id: pi.id });
             if (existingPaymentLogs.length === 0 && grossAmount > 0) {
-              await base44.asServiceRole.entities.PaymentLog.create({
+              const weekNumber = booking.billing_week_number || Number(pi.metadata?.week_number) || 1;
+              const paidAt = new Date().toISOString();
+              const sourceType = classifyPaymentSource({ paymentIntentId: pi.id, recordedBy: 'stripe_webhook' });
+              const dedupeKey = generatePaymentDedupeKey({ sourceType, bookingId: bookingRequestId, weekNumber, amount: grossAmount, paidAt, paymentIntentId: pi.id, paymentMethod: 'stripe' });
+              const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
                 booking_request_id: bookingRequestId,
                 host_id: resolvedHostId,
                 customer_email: booking.user_email,
                 customer_name: booking.customer_full_name || '',
                 vehicle_id: booking.vehicle_id,
                 vehicle_name: resolvedVehicleName,
-                week_number: booking.billing_week_number || Number(pi.metadata?.week_number) || 1,
+                week_number: weekNumber,
+                billing_period_start: booking.start_date || '',
+                billing_period_end: booking.end_date || '',
                 amount: grossAmount,
+                currency: pi.currency || 'usd',
                 payment_method: 'stripe',
+                source_type: sourceType,
+                source_confidence: classifyPaymentConfidence({ paymentIntentId: pi.id }),
+                legacy_flag: false,
+                external_reconcilable: true,
+                dedupe_key: dedupeKey,
                 stripe_payment_intent_id: pi.id,
+                stripe_charge_id: chargeId || '',
+                stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
+                stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
+                stripe_balance_transaction_id: balanceTransactionId || '',
+                stripe_receipt_url: receiptUrl || '',
                 receipt_url: receiptUrl || '',
                 status: 'paid',
                 recorded_by: 'stripe_webhook',
-                paid_at: new Date().toISOString(),
+                paid_at: paidAt,
+              });
+              await logEvent(base44, {
+                event_type: 'payment.logged',
+                actor_id: 'stripe_webhook',
+                actor_email: 'stripe@stripe.com',
+                actor_role: 'stripe',
+                target_entity: 'PaymentLog',
+                target_id: paymentLog.id,
+                booking_id: bookingRequestId,
+                vehicle_id: booking.vehicle_id || '',
+                host_id: resolvedHostId,
+                customer_id: booking.user_email || '',
+                summary: `Hardened PaymentLog created for booking ${bookingRequestId}`,
+                metadata: { payment_log_id: paymentLog.id, dedupe_key: dedupeKey, source_type: sourceType },
+                source: 'webhook',
               });
             }
 

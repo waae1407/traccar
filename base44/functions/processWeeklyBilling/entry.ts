@@ -29,6 +29,22 @@ async function logEvent(base44, data) {
   }
 }
 
+function generatePaymentDedupeKey({ sourceType = 'unknown', bookingId = '', weekNumber = '', amount = '', paidAt = '', paymentIntentId = '', externalReference = '', paymentMethod = '' }) {
+  if (paymentIntentId) return `payment:stripe:${paymentIntentId}`;
+  const paidDate = paidAt ? String(paidAt).slice(0, 10) : 'no-date';
+  return `payment:${sourceType}:${bookingId}:week:${weekNumber}:amount:${amount}:date:${paidDate}:method:${paymentMethod || 'other'}:ref:${externalReference || 'none'}`;
+}
+
+function classifyPaymentSource({ sourceType, paymentIntentId } = {}) {
+  if (sourceType) return sourceType;
+  if (paymentIntentId) return 'scheduled_billing';
+  return 'unknown';
+}
+
+function classifyPaymentConfidence({ paymentIntentId } = {}) {
+  return paymentIntentId ? 'trusted' : 'unresolved';
+}
+
 // MooveTrax kill switch — real API call
 async function moovetraxKillSwitch(deviceId, enable) {
   const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
@@ -281,7 +297,12 @@ Deno.serve(async (req) => {
           }
 
           // ── PAYMENT LOG ──
-          await base44.asServiceRole.entities.PaymentLog.create({
+          const paidAt = new Date().toISOString();
+          const chargeData = paymentIntent.charges?.data?.[0];
+          const receiptUrl = chargeData?.receipt_url || "";
+          const sourceType = classifyPaymentSource({ paymentIntentId: paymentIntent.id });
+          const dedupeKey = generatePaymentDedupeKey({ sourceType, bookingId: booking.id, weekNumber: weekNum, amount, paidAt, paymentIntentId: paymentIntent.id, paymentMethod: "stripe" });
+          const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
             booking_request_id: booking.id,
             host_id: resolvedHostId,
             customer_email: booking.user_email,
@@ -289,13 +310,42 @@ Deno.serve(async (req) => {
             vehicle_id: booking.vehicle_id,
             vehicle_name: booking.vehicle_name || "",
             week_number: weekNum,
+            billing_period_start: booking.next_billing_date,
+            billing_period_end: nextBillingDate,
             amount: amount,
+            currency: paymentIntent.currency || "usd",
             payment_method: "stripe",
+            source_type: sourceType,
+            source_confidence: classifyPaymentConfidence({ paymentIntentId: paymentIntent.id }),
+            legacy_flag: false,
+            external_reconcilable: true,
+            dedupe_key: dedupeKey,
             stripe_payment_intent_id: paymentIntent.id,
-            receipt_url: paymentIntent.charges?.data?.[0]?.receipt_url || "",
+            stripe_charge_id: chargeData?.id || "",
+            stripe_customer_id: paymentIntent.customer || booking.stripe_customer_id || "",
+            stripe_payment_method_id: paymentIntent.payment_method || booking.stripe_payment_method_id || "",
+            stripe_balance_transaction_id: typeof chargeData?.balance_transaction === "string" ? chargeData.balance_transaction : chargeData?.balance_transaction?.id || "",
+            stripe_receipt_url: receiptUrl,
+            receipt_url: receiptUrl,
             status: "paid",
             recorded_by: "autopay",
-            paid_at: new Date().toISOString(),
+            paid_at: paidAt,
+          });
+
+          await logEvent(base44, {
+            event_type: 'payment.logged',
+            actor_id: 'autopay',
+            actor_email: 'autopay@uridehub.com',
+            actor_role: 'automation',
+            target_entity: 'PaymentLog',
+            target_id: paymentLog.id,
+            host_id: resolvedHostId,
+            booking_id: booking.id,
+            vehicle_id: booking.vehicle_id || '',
+            customer_id: booking.user_email || '',
+            summary: `Hardened PaymentLog created for week ${weekNum} autopay`,
+            metadata: { payment_log_id: paymentLog.id, dedupe_key: dedupeKey, source_type: sourceType },
+            source: 'automation',
           });
 
           // Send receipt notification

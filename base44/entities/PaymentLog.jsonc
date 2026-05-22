@@ -23,8 +23,20 @@
     "week_number": {
       "type": "number"
     },
+    "billing_period_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "billing_period_end": {
+      "type": "string",
+      "format": "date"
+    },
     "amount": {
       "type": "number"
+    },
+    "currency": {
+      "type": "string",
+      "default": "usd"
     },
     "payment_method": {
       "type": "string",
@@ -39,7 +51,59 @@
       ],
       "default": "stripe"
     },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "stripe_webhook",
+        "scheduled_billing",
+        "grace_retry",
+        "admin_manual",
+        "admin_charge",
+        "backfill",
+        "manual_import",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "source_confidence": {
+      "type": "string",
+      "enum": [
+        "trusted",
+        "partially_trusted",
+        "unresolved"
+      ],
+      "default": "unresolved"
+    },
+    "legacy_flag": {
+      "type": "boolean",
+      "default": false
+    },
+    "external_reconcilable": {
+      "type": "boolean",
+      "default": false
+    },
+    "dedupe_key": {
+      "type": "string"
+    },
+    "external_reference": {
+      "type": "string"
+    },
     "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "stripe_charge_id": {
+      "type": "string"
+    },
+    "stripe_customer_id": {
+      "type": "string"
+    },
+    "stripe_payment_method_id": {
+      "type": "string"
+    },
+    "stripe_balance_transaction_id": {
+      "type": "string"
+    },
+    "stripe_receipt_url": {
       "type": "string"
     },
     "receipt_url": {
@@ -56,7 +120,7 @@
     },
     "recorded_by": {
       "type": "string",
-      "description": "autopay or admin email"
+      "description": "autopay, admin email, webhook, or backfill source"
     },
     "notes": {
       "type": "string"

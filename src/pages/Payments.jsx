@@ -7,6 +7,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import PaymentHistoryDrawer from "@/components/payments/PaymentHistoryDrawer";
+import { generatePaymentDedupeKey, classifyPaymentSource, classifyPaymentConfidence, normalizePaymentMethod } from "@/lib/financial/paymentLedger";
 
 const PAYMENT_STATUS_STYLE = {
   paid:     "bg-green-500/15 text-green-400 border-green-500/25",
@@ -46,7 +47,19 @@ function ActionModal({ booking, onClose, onSuccess }) {
       payment_failure_attempts: 0,
       admin_notes: `Week ${nextWeek} paid manually via ${manualMethod}${description ? ` — ${description}` : ""} (admin confirmed ${new Date().toISOString().split("T")[0]})`,
     });
-    await base44.entities.PaymentLog.create({
+    const paidAt = new Date().toISOString();
+    const paymentMethod = normalizePaymentMethod(manualMethod);
+    const sourceType = classifyPaymentSource({ paymentMethod, recordedBy: "admin" });
+    const dedupeKey = generatePaymentDedupeKey({
+      sourceType,
+      bookingId: booking.id,
+      weekNumber: nextWeek,
+      amount: booking.weekly_rate || 0,
+      paidAt,
+      paymentMethod,
+      externalReference: description || ""
+    });
+    const paymentLog = await base44.entities.PaymentLog.create({
       booking_request_id: booking.id,
       host_id: resolvedHostId,
       customer_email: booking.user_email,
@@ -54,12 +67,39 @@ function ActionModal({ booking, onClose, onSuccess }) {
       vehicle_id: booking.vehicle_id,
       vehicle_name: booking.vehicle_name || "",
       week_number: nextWeek,
+      billing_period_start: booking.next_billing_date || paidAt.slice(0, 10),
+      billing_period_end: nextBillingStr,
       amount: booking.weekly_rate || 0,
-      payment_method: manualMethod.toLowerCase(),
+      currency: "usd",
+      payment_method: paymentMethod,
+      source_type: sourceType,
+      source_confidence: classifyPaymentConfidence({ sourceType, paymentMethod, externalReference: description || "" }),
+      legacy_flag: false,
+      external_reconcilable: !!description,
+      dedupe_key: dedupeKey,
+      external_reference: description || "",
       status: "paid",
       recorded_by: "admin",
       notes: description || "",
-      paid_at: new Date().toISOString(),
+      paid_at: paidAt,
+    });
+    await base44.entities.ActivityEvent.create({
+      event_type: "payment.logged",
+      actor_id: "admin",
+      actor_email: "admin",
+      actor_role: "admin",
+      target_entity: "PaymentLog",
+      target_id: paymentLog.id,
+      host_id: resolvedHostId,
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || "",
+      customer_id: booking.user_email || "",
+      summary: `Manual PaymentLog created for week ${nextWeek}`,
+      metadata: { payment_log_id: paymentLog.id, dedupe_key: dedupeKey, source_type: sourceType },
+      source: "admin_panel",
+      user_email: "admin",
+      event_title: "Manual PaymentLog created",
+      event_status: "success",
     });
     toast.success(`Week ${nextWeek} marked as paid via ${manualMethod}`);
     onSuccess();

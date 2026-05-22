@@ -1,5 +1,39 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+function generatePaymentDedupeKey({ sourceType = 'backfill', bookingId = '', weekNumber = '', amount = '', paidAt = '', externalReference = '', paymentMethod = 'other' }) {
+  const paidDate = paidAt ? String(paidAt).slice(0, 10) : 'no-date';
+  return `payment:${sourceType}:${bookingId}:week:${weekNumber}:amount:${amount}:date:${paidDate}:method:${paymentMethod}:ref:${externalReference || 'none'}`;
+}
+
+function classifyPaymentSource() {
+  return 'backfill';
+}
+
+function classifyPaymentConfidence() {
+  return 'partially_trusted';
+}
+
+async function logPaymentLogged(base44, paymentLog, booking) {
+  await base44.asServiceRole.entities.ActivityEvent.create({
+    event_type: 'payment.logged',
+    actor_id: 'backfill',
+    actor_email: 'backfill@uridehub.com',
+    actor_role: 'automation',
+    target_entity: 'PaymentLog',
+    target_id: paymentLog.id,
+    host_id: paymentLog.host_id || '',
+    booking_id: paymentLog.booking_request_id || '',
+    vehicle_id: paymentLog.vehicle_id || '',
+    customer_id: booking.user_email || '',
+    summary: `PaymentLog created from backfill for week ${paymentLog.week_number}`,
+    metadata: { source_type: paymentLog.source_type, source_confidence: paymentLog.source_confidence, dedupe_key: paymentLog.dedupe_key },
+    source: 'automation',
+    user_email: 'backfill@uridehub.com',
+    event_title: 'PaymentLog created from backfill',
+    event_status: 'warning',
+  });
+}
+
 // One-time backfill: reconstructs PaymentLog entries from existing BookingRequest data.
 // For each active/completed booking, creates one PaymentLog per billing week completed.
 Deno.serve(async (req) => {
@@ -54,7 +88,13 @@ Deno.serve(async (req) => {
           paidAt = d.toISOString();
         }
 
-        await base44.asServiceRole.entities.PaymentLog.create({
+        const periodStart = new Date(paidAt);
+        const periodEnd = new Date(periodStart);
+        periodEnd.setDate(periodEnd.getDate() + 7);
+        const sourceType = classifyPaymentSource();
+        const sourceConfidence = classifyPaymentConfidence();
+        const dedupeKey = generatePaymentDedupeKey({ sourceType, bookingId: booking.id, weekNumber: week, amount: booking.weekly_rate, paidAt, paymentMethod: 'other' });
+        const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
           booking_request_id: booking.id,
           host_id: resolvedHostId,
           customer_email: booking.user_email,
@@ -62,13 +102,22 @@ Deno.serve(async (req) => {
           vehicle_id: booking.vehicle_id,
           vehicle_name: booking.vehicle_name || '',
           week_number: week,
+          billing_period_start: periodStart.toISOString().slice(0, 10),
+          billing_period_end: periodEnd.toISOString().slice(0, 10),
           amount: booking.weekly_rate,
+          currency: 'usd',
           payment_method: 'other',
+          source_type: sourceType,
+          source_confidence: sourceConfidence,
+          legacy_flag: true,
+          external_reconcilable: false,
+          dedupe_key: dedupeKey,
           status: 'paid',
           recorded_by: 'backfill',
           notes: 'Backfilled — exact payment method unknown. Please update manually if needed.',
           paid_at: paidAt,
         });
+        await logPaymentLogged(base44, paymentLog, booking);
         created++;
       }
     }

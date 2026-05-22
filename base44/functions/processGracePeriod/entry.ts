@@ -42,6 +42,22 @@ async function logEvent(base44, data) {
   }
 }
 
+function generatePaymentDedupeKey({ sourceType = 'unknown', bookingId = '', weekNumber = '', amount = '', paidAt = '', paymentIntentId = '', externalReference = '', paymentMethod = '' }) {
+  if (paymentIntentId) return `payment:stripe:${paymentIntentId}`;
+  const paidDate = paidAt ? String(paidAt).slice(0, 10) : 'no-date';
+  return `payment:${sourceType}:${bookingId}:week:${weekNumber}:amount:${amount}:date:${paidDate}:method:${paymentMethod || 'other'}:ref:${externalReference || 'none'}`;
+}
+
+function classifyPaymentSource({ sourceType, paymentIntentId } = {}) {
+  if (sourceType) return sourceType;
+  if (paymentIntentId) return 'grace_retry';
+  return 'unknown';
+}
+
+function classifyPaymentConfidence({ paymentIntentId } = {}) {
+  return paymentIntentId ? 'trusted' : 'unresolved';
+}
+
 async function sendSMS(to, message) {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
@@ -245,6 +261,58 @@ Deno.serve(async (req) => {
             customer_id: booking.user_email || '',
             summary: `RECOVERED: Payment on grace period retry ${attempts + 1} for ${booking.vehicle_name} — $${baseAmount}`,
             metadata: { payment_intent_id: pi.id, amount: baseAmount, retry_attempt: attempts + 1, next_billing_date: nextBillingDate },
+          });
+
+          const paymentPaidAt = now.toISOString();
+          const paymentWeekNumber = (booking.billing_week_number || 1) + 1;
+          const sourceType = classifyPaymentSource({ paymentIntentId: pi.id });
+          const paymentDedupeKey = generatePaymentDedupeKey({
+            sourceType,
+            bookingId: booking.id,
+            weekNumber: paymentWeekNumber,
+            amount: grossedAmount,
+            paidAt: paymentPaidAt,
+            paymentIntentId: pi.id,
+            paymentMethod: 'stripe'
+          });
+          const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
+            booking_request_id: booking.id,
+            host_id: booking.host_id || '',
+            customer_email: booking.user_email,
+            customer_name: booking.customer_full_name || '',
+            vehicle_id: booking.vehicle_id,
+            vehicle_name: booking.vehicle_name || '',
+            week_number: paymentWeekNumber,
+            billing_period_start: now.toISOString().slice(0, 10),
+            billing_period_end: nextBillingDate,
+            amount: grossedAmount,
+            currency: pi.currency || 'usd',
+            payment_method: 'stripe',
+            source_type: sourceType,
+            source_confidence: classifyPaymentConfidence({ paymentIntentId: pi.id }),
+            legacy_flag: false,
+            external_reconcilable: true,
+            dedupe_key: paymentDedupeKey,
+            stripe_payment_intent_id: pi.id,
+            stripe_charge_id: pi.charges?.data?.[0]?.id || '',
+            stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
+            stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
+            stripe_balance_transaction_id: typeof pi.charges?.data?.[0]?.balance_transaction === 'string' ? pi.charges.data[0].balance_transaction : pi.charges?.data?.[0]?.balance_transaction?.id || '',
+            stripe_receipt_url: pi.charges?.data?.[0]?.receipt_url || '',
+            receipt_url: pi.charges?.data?.[0]?.receipt_url || '',
+            status: 'paid',
+            recorded_by: 'grace_period_automation',
+            paid_at: paymentPaidAt,
+          });
+          await logEvent(base44, {
+            event_type: 'payment.logged',
+            target_id: paymentLog.id,
+            host_id: booking.host_id || '',
+            booking_id: booking.id,
+            vehicle_id: booking.vehicle_id || '',
+            customer_id: booking.user_email || '',
+            summary: `Hardened PaymentLog created for grace recovery week ${paymentWeekNumber}`,
+            metadata: { payment_log_id: paymentLog.id, dedupe_key: paymentDedupeKey, source_type: sourceType },
           });
 
           // ── HOST PAYOUT SPLIT on recovery ──────────────────────────
