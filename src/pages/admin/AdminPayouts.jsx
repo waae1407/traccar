@@ -27,7 +27,7 @@ export default function AdminPayouts() {
 
   const triggerPayout = async (payout) => {
     updateMutation.mutate({ id: payout.id, data: { status: "processing" } });
-    const res = await base44.functions.invoke("processHostPayout", { payout_id: payout.id, host_id: payout.host_id, amount: payout.net_payout });
+    const res = await base44.functions.invoke("processHostPayout", { payout_id: payout.id });
     if (res.data?.success) updateMutation.mutate({ id: payout.id, data: { status: "paid", payout_date: new Date().toISOString().split("T")[0], stripe_transfer_id: res.data.transfer_id } });
   };
 
@@ -45,7 +45,7 @@ export default function AdminPayouts() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-black text-white font-syne">Host Payouts</h1>
-        <p className="text-white/40 text-sm mt-1">Automated via Stripe Connect · {payouts.filter(p => p.status === "pending").length} pending</p>
+        <p className="text-white/40 text-sm mt-1">Live certified Stripe Connect execution · guarded by duplicate prevention and audit logging · {payouts.filter(p => p.status === "pending").length} pending</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

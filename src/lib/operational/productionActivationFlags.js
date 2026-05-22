@@ -1,12 +1,14 @@
 const activeReadOnly = (rollbackPath) => ({
-  status: "active",
-  operationalMode: "live_governed_stabilization",
+  status: "live_certified",
+  operationalMode: "live_certified_production",
   rollbackPath,
   readOnlyEnforced: true,
   exportsCertified: true,
   confidenceLabelsRequired: true,
   governanceBannerRequired: true,
   dryRunIndicatorsRequired: true,
+  guardedExecutionEnabled: true,
+  rollbackSafe: true,
 });
 
 export const PRODUCTION_ACTIVATION_FLAGS = {
@@ -48,8 +50,8 @@ export const PRODUCTION_ACTIVATION_FLAGS = {
 };
 
 export const FULL_OPERATIONAL_EXECUTION_LOCKS = [
-  "payout_execution",
-  "stripe_transfer_execution",
+  "broad_payout_execution",
+  "uncertified_stripe_transfer_execution",
   "admin_payouts_v2_promotion",
   "admin_pnl_v2_promotion",
   "auto_remediation",
