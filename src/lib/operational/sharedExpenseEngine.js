@@ -18,6 +18,17 @@ function applyExpenseFilters(expenses, filters = {}) {
     if (filters.bookingId && expense.booking_request_id !== filters.bookingId) return false;
     if (filters.category && expense.expense_type !== filters.category && expense.category !== filters.category) return false;
     if (filters.status && expense.status !== filters.status) return false;
+    if (filters.costRange) {
+      const amount = expense.amount || 0;
+      if (filters.costRange === "0-100" && (amount < 0 || amount > 100)) return false;
+      if (filters.costRange === "100-500" && (amount <= 100 || amount > 500)) return false;
+      if (filters.costRange === "500-1000" && (amount <= 500 || amount > 1000)) return false;
+      if (filters.costRange === "1000+" && amount <= 1000) return false;
+    }
+    if (filters.reimbursable === "yes" && !expense.reimbursable) return false;
+    if (filters.reimbursable === "no" && expense.reimbursable) return false;
+    if (filters.taxDeductible === "yes" && !expense.tax_deductible) return false;
+    if (filters.taxDeductible === "no" && expense.tax_deductible) return false;
     if (!isWithinSharedDateRange(expense.date || expense.created_date, filters.dateRange)) return false;
     if (filters.customer && !textMatches(`${expense.customer_name || ""} ${expense.customer_email || ""}`, filters.customer)) return false;
     if (filters.search && !textMatches(`${expense.host_name || ""} ${expense.vehicle_name || ""} ${expense.expense_type || ""} ${expense.description || ""}`, filters.search)) return false;

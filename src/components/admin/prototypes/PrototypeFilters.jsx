@@ -3,7 +3,7 @@ import { SHARED_DATE_RANGES } from "@/lib/operational/sharedOperationalFilters";
 
 const inputClass = "h-10 rounded-xl bg-card border border-white/[0.08] px-3 text-sm text-white outline-none focus:border-primary/50";
 
-export default function PrototypeFilters({ filters, onChange, hosts = [], vehicles = [], categories = [], statuses = [], showVehicle = true }) {
+export default function PrototypeFilters({ filters, onChange, hosts = [], vehicles = [], categories = [], statuses = [], showVehicle = true, showCostRange = false, showReimbursable = false, showTaxDeductible = false }) {
   const set = (key, value) => onChange({ ...filters, [key]: value });
 
   return (
@@ -32,6 +32,29 @@ export default function PrototypeFilters({ filters, onChange, hosts = [], vehicl
       <select className={inputClass} value={filters.dateRange || "last30"} onChange={(event) => set("dateRange", event.target.value)}>
         {SHARED_DATE_RANGES.map((range) => <option key={range.value} value={range.value}>{range.label}</option>)}
       </select>
+      {showCostRange && (
+        <select className={inputClass} value={filters.costRange || ""} onChange={(event) => set("costRange", event.target.value)}>
+          <option value="">All amounts</option>
+          <option value="0-100">$0–$100</option>
+          <option value="100-500">$100–$500</option>
+          <option value="500-1000">$500–$1k</option>
+          <option value="1000+">$1k+</option>
+        </select>
+      )}
+      {showReimbursable && (
+        <select className={inputClass} value={filters.reimbursable || ""} onChange={(event) => set("reimbursable", event.target.value)}>
+          <option value="">All reimbursement</option>
+          <option value="yes">Reimbursable</option>
+          <option value="no">Non-reimbursable</option>
+        </select>
+      )}
+      {showTaxDeductible && (
+        <select className={inputClass} value={filters.taxDeductible || ""} onChange={(event) => set("taxDeductible", event.target.value)}>
+          <option value="">All tax status</option>
+          <option value="yes">Tax deductible</option>
+          <option value="no">Not tax deductible</option>
+        </select>
+      )}
     </div>
   );
 }

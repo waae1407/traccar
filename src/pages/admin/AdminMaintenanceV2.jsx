@@ -10,6 +10,7 @@ import PrototypeMetricGrid from "@/components/admin/prototypes/PrototypeMetricGr
 import PrototypeFilters from "@/components/admin/prototypes/PrototypeFilters";
 import PrototypePagination from "@/components/admin/prototypes/PrototypePagination";
 import PrototypeDetailDrawer from "@/components/admin/prototypes/PrototypeDetailDrawer";
+import PrototypeReconciliationPanel from "@/components/admin/prototypes/PrototypeReconciliationPanel";
 
 const PAGE_SIZE = 50;
 const STATUSES = ["overdue", "due_soon", "scheduled", "completed", "in_maintenance"];
@@ -28,6 +29,11 @@ export default function AdminMaintenanceV2() {
   });
 
   const records = data?.records || [];
+  const currentDateFilter = filters.dateRange || "last30";
+  const legacyRecords = data?.legacyMaintenanceRecords || [];
+  const unresolvedLegacyRecords = legacyRecords.filter((record) => !record.host_id);
+  const legacyTotalCost = legacyRecords.reduce((sum, record) => sum + (record.cost || 0), 0);
+  const affectedLegacyVehicles = [...new Set(legacyRecords.map((record) => record.vehicle_name).filter(Boolean))];
   const hosts = data?.sources?.hosts || [];
   const vehicles = data?.sources?.vehicles || [];
   const categories = useMemo(() => [...new Set(records.map((item) => item.service_type).filter(Boolean))], [records]);
@@ -49,7 +55,16 @@ export default function AdminMaintenanceV2() {
         action={<Button onClick={() => downloadCsv(buildMaintenanceExportRows(records), "admin-maintenance-v2-prototype.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
       />
       <PrototypeFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} statuses={STATUSES} />
+      <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary capitalize">
+        Date range: {currentDateFilter.replaceAll("_", " ")}
+      </div>
+      {legacyRecords.length > 0 && (
+        <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
+          Legacy maintenance records found. Some records may not be linked to a host.
+        </div>
+      )}
       <PrototypeMetricGrid metrics={metrics} />
+      <PrototypeReconciliationPanel modernCount={data?.hostMaintenanceLogs?.length || 0} legacyCount={legacyRecords.length} unresolvedCount={unresolvedLegacyRecords.length} dateFilter={currentDateFilter} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 glass rounded-2xl overflow-hidden">
@@ -62,6 +77,18 @@ export default function AdminMaintenanceV2() {
           ))}
         </div>
         <div className="space-y-4">
+          <div className="glass rounded-2xl p-4">
+            <h3 className="font-semibold mb-3">Legacy Records</h3>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="flex justify-between"><span>Count</span><span className="text-white">{legacyRecords.length}</span></div>
+              <div className="flex justify-between"><span>Total cost</span><span className="text-white">${legacyTotalCost.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span>Unresolved host attribution</span><span className="text-white">{unresolvedLegacyRecords.length}</span></div>
+              <div>
+                <p>Affected vehicles</p>
+                <p className="text-white mt-1">{affectedLegacyVehicles.length ? affectedLegacyVehicles.join(", ") : "—"}</p>
+              </div>
+            </div>
+          </div>
           <div className="glass rounded-2xl p-4"><h3 className="font-semibold mb-3">Overdue / due soon</h3><p className="text-sm text-muted-foreground">{data?.alerts?.overdue?.length || 0} overdue and {data?.alerts?.dueSoon?.length || 0} due soon records from shared alerts.</p></div>
           <div className="glass rounded-2xl p-4"><h3 className="font-semibold mb-3">Cost insights by host</h3><div className="space-y-3">{costInsights.map(([hostId, amount]) => { const host = hosts.find((item) => item.id === hostId); return <div key={hostId} className="flex justify-between text-sm"><span className="text-muted-foreground">{host?.business_name || host?.full_name || "Unknown"}</span><span>${amount.toLocaleString()}</span></div>; })}</div></div>
         </div>

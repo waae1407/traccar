@@ -10,6 +10,7 @@ import PrototypeMetricGrid from "@/components/admin/prototypes/PrototypeMetricGr
 import PrototypeFilters from "@/components/admin/prototypes/PrototypeFilters";
 import PrototypePagination from "@/components/admin/prototypes/PrototypePagination";
 import PrototypeDetailDrawer from "@/components/admin/prototypes/PrototypeDetailDrawer";
+import PrototypeReconciliationPanel from "@/components/admin/prototypes/PrototypeReconciliationPanel";
 
 const PAGE_SIZE = 50;
 
@@ -27,6 +28,7 @@ export default function AdminExpenses() {
   });
 
   const expenses = data?.expenses || [];
+  const currentDateFilter = filters.dateRange || "last30";
   const hosts = data?.sources?.hosts || [];
   const vehicles = data?.sources?.vehicles || [];
   const categories = useMemo(() => [...new Set((data?.allExpenses || []).map((item) => item.expense_type || item.category).filter(Boolean))], [data]);
@@ -47,8 +49,12 @@ export default function AdminExpenses() {
         subtitle="Parallel read-only preview powered only by the shared expense engine. Existing admin pages remain untouched."
         action={<Button onClick={() => downloadCsv(buildExpenseExportRows(expenses), "admin-expenses-prototype.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
       />
-      <PrototypeFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} />
+      <PrototypeFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} showCostRange showReimbursable showTaxDeductible />
+      <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary capitalize">
+        Date range: {currentDateFilter.replaceAll("_", " ")}
+      </div>
       <PrototypeMetricGrid metrics={metrics} />
+      <PrototypeReconciliationPanel modernCount={data?.allExpenses?.length || 0} legacyCount={0} unresolvedCount={(data?.allExpenses || []).filter((item) => !item.host_id).length} dateFilter={currentDateFilter} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 glass rounded-2xl overflow-hidden">

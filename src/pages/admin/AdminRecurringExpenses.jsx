@@ -10,6 +10,7 @@ import PrototypeMetricGrid from "@/components/admin/prototypes/PrototypeMetricGr
 import PrototypeFilters from "@/components/admin/prototypes/PrototypeFilters";
 import PrototypePagination from "@/components/admin/prototypes/PrototypePagination";
 import PrototypeDetailDrawer from "@/components/admin/prototypes/PrototypeDetailDrawer";
+import PrototypeReconciliationPanel from "@/components/admin/prototypes/PrototypeReconciliationPanel";
 
 const PAGE_SIZE = 50;
 
@@ -31,6 +32,7 @@ export default function AdminRecurringExpenses() {
   });
 
   const recurring = data?.recurringExpenses || [];
+  const currentDateFilter = filters.dateRange || "last30";
   const hosts = data?.sources?.hosts || [];
   const vehicles = data?.sources?.vehicles || [];
   const categories = useMemo(() => [...new Set((data?.allRecurringExpenses || []).map((item) => item.category).filter(Boolean))], [data]);
@@ -51,7 +53,11 @@ export default function AdminRecurringExpenses() {
         action={<Button onClick={() => downloadCsv(buildRecurringExpenseExportRows(recurring), "admin-recurring-expenses-prototype.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
       />
       <PrototypeFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} />
+      <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary capitalize">
+        Date range: {currentDateFilter.replaceAll("_", " ")}
+      </div>
       <PrototypeMetricGrid metrics={metrics} />
+      <PrototypeReconciliationPanel modernCount={data?.allRecurringExpenses?.length || 0} legacyCount={0} unresolvedCount={(data?.allRecurringExpenses || []).filter((item) => !item.host_id).length} dateFilter={currentDateFilter} />
 
       <div className="glass rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-white/10 font-semibold">Recurring obligations by host</div>
