@@ -9,6 +9,9 @@ import ReconciliationTotals from "@/components/admin/payment-reconciliation/Reco
 import AdminReviewQueue from "@/components/admin/payment-reconciliation/AdminReviewQueue";
 import HistoricalPayoutBackfillPreview from "@/components/admin/payment-reconciliation/HistoricalPayoutBackfillPreview";
 import BookingStateReviewPanel from "@/components/admin/payment-reconciliation/BookingStateReviewPanel";
+import FinancialIntegrityDashboard from "@/components/admin/payment-reconciliation/FinancialIntegrityDashboard";
+import FinancialExceptionRegistry from "@/components/admin/payment-reconciliation/FinancialExceptionRegistry";
+import FinancialAuditTimeline from "@/components/admin/payment-reconciliation/FinancialAuditTimeline";
 
 function csvEscape(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -16,7 +19,7 @@ function csvEscape(value) {
 
 function downloadCsv(rows) {
   const headers = [
-    "severity", "confidence", "issue_type", "recommended_action",
+    "severity", "confidence", "confidence_score", "review_state", "authoritative_flag", "issue_type", "payout_candidate_status", "recommended_remediation",
     "payment_log_id", "booking_request_id", "host_id", "vehicle_id", "customer_id", "customer_email",
     "amount", "expected_amount", "amount_delta", "paid_date", "week_number",
     "billing_period_start", "billing_period_end", "payment_method", "source_type", "source_confidence",
@@ -27,7 +30,11 @@ function downloadCsv(rows) {
     return issues.map((issueType) => [
       row.severity,
       row.confidence,
+      row.confidenceScore || "",
+      row.reviewState || "pending_review",
+      row.authoritative ? "true" : "false",
       issueType,
+      row.payoutCandidateStatus || "",
       row.recommendedAction || "",
       row.payment?.id || "",
       row.payment?.booking_request_id || row.booking?.id || row.payout?.booking_request_id || "",
@@ -107,11 +114,14 @@ export default function AdminPaymentReconciliationPreview() {
         </button>
       </div>
 
+      <FinancialIntegrityDashboard summary={data?.summary} />
       <PaymentReconciliationKpis summary={data?.summary} />
       <ReconciliationTotals summary={data?.summary} />
       <AdminReviewQueue rows={data?.issueRows || []} />
       <BookingStateReviewPanel rows={data?.issueRows || []} />
       <HistoricalPayoutBackfillPreview rows={data?.historicalPayoutBackfillPreviewRows || []} />
+      <FinancialExceptionRegistry exceptions={data?.exceptionRegistry || []} />
+      <FinancialAuditTimeline events={data?.auditTimeline || []} />
 
       <div className="glass rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3 text-white font-semibold"><ShieldAlert className="h-4 w-4 text-primary" /> Recommended cleanup actions</div>

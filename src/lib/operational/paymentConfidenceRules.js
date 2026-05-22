@@ -26,19 +26,40 @@ const BLOCKING_ISSUES = new Set([
   "host_payout_without_source_paymentlog",
 ]);
 
-export function classifyPaymentConfidence(payment = {}, issueTypes = []) {
+export function scorePaymentConfidence(payment = {}, issueTypes = [], context = {}) {
   const issues = new Set(issueTypes);
+  const factors = [];
+  let score = 50;
 
-  if (PROBLEM_PAYMENT_STATUSES.has(payment.status) || issues.has("failed_or_refunded")) return "excluded";
-  if ([...issues].some((issue) => BLOCKING_ISSUES.has(issue))) return "unresolved";
-  if (payment.source_confidence === "trusted" && (payment.stripe_payment_intent_id || payment.stripe_charge_id)) return "trusted";
-  if ((payment.stripe_payment_intent_id || payment.stripe_charge_id) && payment.status === "paid" && issueTypes.length === 0) return "trusted";
-  if (payment.source_confidence === "partially_trusted") return "partially_trusted";
-  if (payment.source_type === "backfill" || payment.legacy_flag || payment.recorded_by === "backfill") return "partially_trusted";
-  if (NON_STRIPE_METHODS.has(payment.payment_method) || issues.has("manual_payment")) return "partially_trusted";
-  if (issues.has("missing_stripe_id") || issues.has("missing_customer_id") || issues.has("missing_host_payout")) return "unresolved";
+  if (payment.status === "paid") { score += 10; factors.push("Payment status is paid."); }
+  if (payment.stripe_payment_intent_id || payment.stripe_charge_id) { score += 25; factors.push("Stripe payment identifier exists."); }
+  if (context.hasBooking) { score += 10; factors.push("Linked booking exists."); }
+  if (context.amountMatches) { score += 10; factors.push("Payment amount matches expected booking amount."); }
+  if (payment.external_reference) { score += 10; factors.push("External reference exists."); }
+  if (payment.notes && NON_STRIPE_METHODS.has(payment.payment_method)) { score += 5; factors.push("Manual payment includes an admin/source note."); }
 
-  return payment.source_confidence || "unresolved";
+  if (PROBLEM_PAYMENT_STATUSES.has(payment.status) || issues.has("failed_or_refunded")) { score -= 80; factors.push("Payment is failed or refunded."); }
+  if (issues.has("booking_state_mismatch")) { score -= 35; factors.push("Booking/payment state mismatch exists."); }
+  if (issues.has("duplicate_risk")) { score -= 35; factors.push("Duplicate payment risk exists."); }
+  if (issues.has("missing_stripe_id") && payment.payment_method === "stripe") { score -= 25; factors.push("Stripe payment is missing Stripe identifiers."); }
+  if (issues.has("missing_customer_id")) { score -= 10; factors.push("Customer attribution is incomplete."); }
+  if (issues.has("missing_host_payout")) { score -= 10; factors.push("No linked HostPayout exists."); }
+  if (payment.source_type === "backfill" || payment.legacy_flag || payment.recorded_by === "backfill") { score -= 10; factors.push("Record is legacy/backfilled."); }
+  if (NON_STRIPE_METHODS.has(payment.payment_method)) { score -= 5; factors.push("Payment method is manual/non-Stripe."); }
+
+  score = Math.max(0, Math.min(100, score));
+
+  let label = "unresolved";
+  if (score >= 85 && ![...issues].some((issue) => BLOCKING_ISSUES.has(issue))) label = "trusted";
+  else if (score >= 45 && !PROBLEM_PAYMENT_STATUSES.has(payment.status)) label = "partially_trusted";
+  if (score < 30 || PROBLEM_PAYMENT_STATUSES.has(payment.status) || issues.has("failed_or_refunded")) label = "excluded";
+  if ([...issues].some((issue) => BLOCKING_ISSUES.has(issue))) label = "unresolved";
+
+  return { label, score, factors };
+}
+
+export function classifyPaymentConfidence(payment = {}, issueTypes = [], context = {}) {
+  return scorePaymentConfidence(payment, issueTypes, context).label;
 }
 
 export function getRecommendedPaymentAction(row = {}) {
