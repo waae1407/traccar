@@ -235,7 +235,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           <div className="px-4 pb-3">
             <div className="rounded-xl p-3 border border-white/[0.06] bg-white/[0.03]">
               <p className="text-[10px] text-white/30 text-center">uRide Fleet Management</p>
-              <p className="text-[10px] text-primary/60 text-center mt-0.5">v1.0 · All systems operational</p>
+              <p className="text-[10px] text-primary/60 text-center mt-0.5">Live governed stabilization · execution locked</p>
             </div>
           </div>
         )}

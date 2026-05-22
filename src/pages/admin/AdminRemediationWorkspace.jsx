@@ -33,9 +33,9 @@ export default function AdminRemediationWorkspace() {
         <p className="text-sm text-muted-foreground mt-2 max-w-4xl">Draft remediation cases, staged non-executable actions, approval-flow simulation, bundle previews, rollback simulation, and readiness scoring. No live financial data is changed here.</p>
       </div>
       <GlobalGovernanceBanner />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.RemediationWorkspace} title="Remediation Workspace full operational activation" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.GovernanceDashboards} title="Governance dashboards activation" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReadinessMatrix} title="Readiness Matrix activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.RemediationWorkspace} title="Remediation staging validation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.GovernanceDashboards} title="Governance dashboard monitoring" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReadinessMatrix} title="Readiness and rollback validation" />
       <OperationalReviewerActions systemArea="remediation_workspace" />
       <RemediationSafetyBanner banners={data?.workspace?.safetyBanners || []} />
       <GovernanceScorePanel governance={data?.governance} />

@@ -1,5 +1,6 @@
 const activeReadOnly = (rollbackPath) => ({
   status: "active",
+  operationalMode: "live_governed_stabilization",
   rollbackPath,
   readOnlyEnforced: true,
   exportsCertified: true,
@@ -56,6 +57,17 @@ export const FULL_OPERATIONAL_EXECUTION_LOCKS = [
   "automatic_booking_correction",
   "automatic_dispute_resolution",
   "destructive_financial_mutations",
+];
+
+export const STABILIZATION_PRIORITIES = [
+  "reduce_unresolved_payment_exposure",
+  "increase_trusted_revenue_percent",
+  "reduce_payout_gaps",
+  "validate_manual_backfill_payments",
+  "improve_stripe_linkage_coverage",
+  "validate_reviewer_workflows",
+  "validate_export_parity",
+  "validate_rollback_readiness",
 ];
 
 export const PHASE_1_EXECUTION_LOCKS = FULL_OPERATIONAL_EXECUTION_LOCKS;

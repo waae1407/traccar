@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Lock, RotateCcw, ShieldCheck } from "lucide-react";
 
-export default function ProductionActivationStatus({ flag, title = "Phase 1 production activation" }) {
+export default function ProductionActivationStatus({ flag, title = "Live governed stabilization" }) {
   if (!flag) return null;
 
   return (
@@ -11,8 +11,8 @@ export default function ProductionActivationStatus({ flag, title = "Phase 1 prod
         <div className="flex items-start gap-3">
           <ShieldCheck className="h-5 w-5 text-primary mt-0.5" />
           <div>
-            <p className="font-bold text-white">{title}: {String(flag.status).replaceAll("_", " ")}</p>
-            <p className="text-sm text-white/55">Read-only enforced · governance banner active · certified exports only · confidence labels required.</p>
+            <p className="font-bold text-white">{title}: {String(flag.operationalMode || flag.status).replaceAll("_", " ")}</p>
+            <p className="text-sm text-white/55">Stabilization operations only · reviewer workflows active · certified exports only · rollback and execution locks preserved.</p>
           </div>
         </div>
         <Link to={flag.rollbackPath} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-white/70 hover:bg-white/10">

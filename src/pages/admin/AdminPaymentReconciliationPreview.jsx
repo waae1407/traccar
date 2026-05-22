@@ -115,8 +115,8 @@ export default function AdminPaymentReconciliationPreview() {
   return (
     <div className="space-y-5 animate-fade-in-up">
       <GlobalGovernanceBanner />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.PaymentReconciliationPreview} title="Payment Reconciliation full operational activation" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReconciliationExports} title="Certified reconciliation exports activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.PaymentReconciliationPreview} title="Payment Reconciliation stabilization review" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReconciliationExports} title="Export parity verification" />
       <OperationalReviewerActions systemArea="payment_reconciliation" />
 
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">

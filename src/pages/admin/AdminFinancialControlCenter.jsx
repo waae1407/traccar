@@ -52,9 +52,9 @@ export default function AdminFinancialControlCenter() {
       </div>
 
       <GlobalGovernanceBanner />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.FinancialControlCenter} title="Financial Control Center full operational activation" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.StabilizationDashboard} title="Stabilization Dashboard full operational activation" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReviewerWorkflows} title="Reviewer workflows activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.FinancialControlCenter} title="Financial Control Center stabilization operations" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.StabilizationDashboard} title="Stabilization Dashboard operations" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReviewerWorkflows} title="Reviewer workflow validation" />
       <OperationalReviewerActions systemArea="financial_control_center" />
 
       <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 flex items-start gap-3">
