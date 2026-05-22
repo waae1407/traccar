@@ -1,11 +1,9 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { loadDryRunCertificationData } from "@/lib/operational/dryRunCertificationEngine";
-import RemediationSafetyBanner from "@/components/admin/remediation/RemediationSafetyBanner";
 import ExecutionReadinessPanel from "@/components/admin/remediation/ExecutionReadinessPanel";
 import RemediationCaseWorkspace from "@/components/admin/remediation/RemediationCaseWorkspace";
 import RemediationBundlesPanel from "@/components/admin/remediation/RemediationBundlesPanel";
-import GlobalGovernanceBanner from "@/components/admin/governance/GlobalGovernanceBanner";
 import GovernanceScorePanel from "@/components/admin/governance/GovernanceScorePanel";
 import ReadinessMatrixPanel from "@/components/admin/governance/ReadinessMatrixPanel";
 import ExposureReportingPanel from "@/components/admin/governance/ExposureReportingPanel";
@@ -16,9 +14,7 @@ import ExportGovernancePanel from "@/components/admin/governance/ExportGovernanc
 import FinalBlockersPanel from "@/components/admin/governance/FinalBlockersPanel";
 import FinalCertificationDashboard from "@/components/admin/governance/FinalCertificationDashboard";
 import DryRunValidationPanel from "@/components/admin/governance/DryRunValidationPanel";
-import ProductionActivationStatus from "@/components/admin/stabilization/ProductionActivationStatus";
-import OperationalReviewerActions from "@/components/admin/stabilization/OperationalReviewerActions";
-import { PRODUCTION_ACTIVATION_FLAGS } from "@/lib/operational/productionActivationFlags";
+
 
 export default function AdminRemediationWorkspace() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-dry-run-certification"], queryFn: loadDryRunCertificationData });
@@ -28,16 +24,11 @@ export default function AdminRemediationWorkspace() {
   return (
     <div className="space-y-5 animate-fade-in-up">
       <div>
-        <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Controlled Manual Remediation · Staging only</p>
+        <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Operations Review</p>
         <h1 className="text-3xl font-bold text-white mt-1">Remediation Workspace</h1>
-        <p className="text-sm text-muted-foreground mt-2 max-w-4xl">Draft remediation cases, staged non-executable actions, approval-flow simulation, bundle previews, rollback simulation, and readiness scoring. No live financial data is changed here.</p>
+        <p className="text-sm text-muted-foreground mt-2 max-w-4xl">Review remediation cases, approval readiness, operational bundles, rollback readiness, and financial integrity scoring.</p>
       </div>
-      <GlobalGovernanceBanner />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.RemediationWorkspace} title="Remediation staging validation" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.GovernanceDashboards} title="Governance dashboard monitoring" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReadinessMatrix} title="Readiness and rollback validation" />
-      <OperationalReviewerActions systemArea="remediation_workspace" />
-      <RemediationSafetyBanner banners={data?.workspace?.safetyBanners || []} />
+
       <GovernanceScorePanel governance={data?.governance} />
       <FinalCertificationDashboard certification={data?.dryRunCertification} exposure={data?.exposure} governance={data?.governance} />
       <DryRunValidationPanel certification={data?.dryRunCertification} />

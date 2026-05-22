@@ -4,15 +4,15 @@ export default function PrototypeReconciliationPanel({ modernCount = 0, legacyCo
   const label = String(dateFilter || "all").replaceAll("_", " ");
 
   const items = [
-    { label: "Modern records", value: modernCount },
-    { label: "Legacy records", value: legacyCount },
-    { label: "Unresolved records", value: unresolvedCount },
+    { label: "Current records", value: modernCount },
+    { label: "Historical records", value: legacyCount },
+    { label: "Needs review", value: unresolvedCount },
     { label: "Date filter", value: label },
   ];
 
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold mb-3">Data Reconciliation</p>
+      <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold mb-3">Record Health</p>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {items.map((item) => (
           <div key={item.label} className="rounded-xl bg-white/[0.04] border border-white/[0.08] p-3">

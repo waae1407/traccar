@@ -6,8 +6,8 @@ export default function ExecutionGatePanel({ gates = [] }) {
     <div className="glass rounded-2xl p-4">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Controlled Execution Gate System</p>
-          <p className="text-sm text-white/45 mt-1">Execution remains disabled; these gates only prepare future approval controls.</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Operational Controls</p>
+          <p className="text-sm text-white/45 mt-1">Review control status, thresholds, and required operational checks.</p>
         </div>
         <span className="rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1 text-sm text-red-200">{blocked.length} blocking gates</span>
       </div>

@@ -42,20 +42,16 @@ const superadminNavItems = [
 const operationsNavItems = [
   { label: "Operations Center", icon: Activity, path: "/admin/operations" },
   { label: "Financial Control", icon: Shield, path: "/admin/financial-control-center" },
-  { label: "Payment Reconciliation", icon: ClipboardList, path: "/admin/payment-reconciliation-preview" },
-  { label: "Remediation Workspace", icon: FileText, path: "/admin/remediation-workspace" },
-  { label: "Expenses", icon: DollarSign, path: "/admin/expenses-preview" },
-  { label: "Recurring Expenses", icon: DollarSign, path: "/admin/recurring-expenses-preview" },
+  { label: "Payment Reconciliation", icon: ClipboardList, path: "/admin/payment-reconciliation" },
+  { label: "Remediation", icon: FileText, path: "/admin/remediation-workspace" },
+  { label: "Expenses", icon: DollarSign, path: "/admin/expenses" },
+  { label: "Recurring Expenses", icon: DollarSign, path: "/admin/recurring-expenses" },
   { label: "Disputes", icon: Shield, path: "/admin/disputes" },
   { label: "Audit Log", icon: FileText, path: "/admin/audit-log" },
   { label: "Operational Alerts", icon: Bell, path: "/admin/operational-alerts" },
   { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
   { label: "Compliance Queue", icon: ClipboardList, path: "/admin/compliance-queue" },
   { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
-];
-
-const previewNavItems = [
-  { label: "Maintenance V2 Preview", icon: Eye, path: "/admin/maintenance-v2" },
 ];
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
@@ -154,20 +150,6 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
             );
           })}
           {!collapsed && <div className="my-2 border-t border-white/[0.06]" />}
-          {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-primary/50 px-3 mb-2 mt-1">Admin Preview</p>}
-          {previewNavItems.map((item) => {
-            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
-            return (
-              <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
-                className={cn("group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden",
-                  isActive ? "nav-active shadow-glow-sm" : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]")}>
-                <item.icon className={cn("flex-shrink-0 relative z-10", isActive ? "text-primary" : "text-white/40 group-hover:text-white/70")} style={{ height: '1.125rem', width: '1.125rem' }} />
-                {!collapsed && <span className="relative z-10 text-xs">{item.label}</span>}
-                {isActive && !collapsed && <div className="ml-auto relative z-10 h-1.5 w-1.5 rounded-full bg-primary" />}
-              </Link>
-            );
-          })}
-          {!collapsed && <div className="my-2 border-t border-white/[0.06]" />}
           {isSuperadmin && (
             <>
               {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-primary/50 px-3 mb-2 mt-3">Platform</p>}
@@ -235,7 +217,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           <div className="px-4 pb-3">
             <div className="rounded-xl p-3 border border-white/[0.06] bg-white/[0.03]">
               <p className="text-[10px] text-white/30 text-center">uRide Fleet Management</p>
-              <p className="text-[10px] text-primary/60 text-center mt-0.5">Live governed stabilization · execution locked</p>
+              <p className="text-[10px] text-primary/60 text-center mt-0.5">Production Operations</p>
             </div>
           </div>
         )}

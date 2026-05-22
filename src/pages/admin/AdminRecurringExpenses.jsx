@@ -11,9 +11,7 @@ import PrototypeFilters from "@/components/admin/prototypes/PrototypeFilters";
 import PrototypePagination from "@/components/admin/prototypes/PrototypePagination";
 import PrototypeDetailDrawer from "@/components/admin/prototypes/PrototypeDetailDrawer";
 import PrototypeReconciliationPanel from "@/components/admin/prototypes/PrototypeReconciliationPanel";
-import GlobalGovernanceBanner from "@/components/admin/governance/GlobalGovernanceBanner";
-import ProductionActivationStatus from "@/components/admin/stabilization/ProductionActivationStatus";
-import { PRODUCTION_ACTIVATION_FLAGS } from "@/lib/operational/productionActivationFlags";
+
 
 const PAGE_SIZE = 50;
 
@@ -51,12 +49,10 @@ export default function AdminRecurringExpenses() {
   return (
     <div className="p-6 space-y-6 mesh-bg min-h-screen">
       <PrototypePageHeader
-        title="Admin Recurring Expenses Prototype"
-        subtitle="Read-only recurring obligations preview sourced through the shared expense engine."
-        action={<Button onClick={() => downloadCsv(buildRecurringExpenseExportRows(recurring), "admin-recurring-expenses-prototype.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
+        title="Admin Recurring Expenses"
+        subtitle="Recurring fleet obligations, vendor commitments, and upcoming expense visibility."
+        action={<Button onClick={() => downloadCsv(buildRecurringExpenseExportRows(recurring), "admin-recurring-expenses.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
       />
-      <GlobalGovernanceBanner />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.AdminRecurringExpenses} title="AdminRecurringExpenses Phase 1 activation" />
       <PrototypeFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} />
       <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary capitalize">
         Date range: {currentDateFilter.replaceAll("_", " ")}
@@ -66,7 +62,7 @@ export default function AdminRecurringExpenses() {
 
       <div className="glass rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-white/10 font-semibold">Recurring obligations by host</div>
-        {isLoading ? <div className="p-6 text-muted-foreground">Loading shared engine data...</div> : pagedRecurring.map((item) => (
+        {isLoading ? <div className="p-6 text-muted-foreground">Loading recurring expenses...</div> : pagedRecurring.map((item) => (
           <button key={item.id} onClick={() => setSelected(item)} className="w-full text-left p-4 border-b border-white/5 hover:bg-white/[0.04] transition-all">
             <div className="flex justify-between gap-4"><span className="font-medium">{item.category || "Recurring"}</span><span>${Number(item.monthly_amount || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</span></div>
             <div className="text-xs text-muted-foreground mt-1">{item.host_name || "Unknown host"} · {item.vehicle_name || "Fleet"} · {item.frequency || "monthly"} · {formatDueStatus(item.due_status)}</div>

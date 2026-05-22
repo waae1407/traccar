@@ -47,7 +47,7 @@ export default function AdminExpenses() {
     <div className="p-6 space-y-6 mesh-bg min-h-screen">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-white font-syne">Expenses</h1>
+          <h1 className="text-2xl font-black text-white font-syne">Admin Expenses</h1>
           <p className="text-white/40 text-sm mt-1">Fleet and operational expense tracking</p>
         </div>
         <Button onClick={() => downloadCsv(buildExpenseExportRows(expenses), "admin-expenses.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>
@@ -63,7 +63,7 @@ export default function AdminExpenses() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2 glass rounded-2xl overflow-hidden">
           <div className="p-4 border-b border-white/10 font-semibold">Expense records</div>
-          {isLoading ? <div className="p-6 text-muted-foreground">Loading shared engine data...</div> : pagedExpenses.map((expense) => (
+          {isLoading ? <div className="p-6 text-muted-foreground">Loading expenses...</div> : pagedExpenses.map((expense) => (
             <button key={expense.id} onClick={() => setSelected(expense)} className="w-full text-left p-4 border-b border-white/5 hover:bg-white/[0.04] transition-all">
               <div className="flex justify-between gap-4"><span className="font-medium">{expense.vehicle_name || "Fleet"}</span><span>${Number(expense.amount || 0).toLocaleString()}</span></div>
               <div className="text-xs text-muted-foreground mt-1">{expense.host_name || "Unknown host"} · {expense.expense_type || expense.category || "other"} · {expense.date || "No date"}</div>

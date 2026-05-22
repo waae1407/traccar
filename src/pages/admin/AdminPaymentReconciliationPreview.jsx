@@ -12,10 +12,7 @@ import BookingStateReviewPanel from "@/components/admin/payment-reconciliation/B
 import FinancialIntegrityDashboard from "@/components/admin/payment-reconciliation/FinancialIntegrityDashboard";
 import FinancialExceptionRegistry from "@/components/admin/payment-reconciliation/FinancialExceptionRegistry";
 import FinancialAuditTimeline from "@/components/admin/payment-reconciliation/FinancialAuditTimeline";
-import GlobalGovernanceBanner from "@/components/admin/governance/GlobalGovernanceBanner";
-import ProductionActivationStatus from "@/components/admin/stabilization/ProductionActivationStatus";
-import { PRODUCTION_ACTIVATION_FLAGS } from "@/lib/operational/productionActivationFlags";
-import OperationalReviewerActions from "@/components/admin/stabilization/OperationalReviewerActions";
+
 
 function csvEscape(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -114,16 +111,11 @@ export default function AdminPaymentReconciliationPreview() {
 
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <GlobalGovernanceBanner />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.PaymentReconciliationPreview} title="Payment Reconciliation stabilization review" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReconciliationExports} title="Export parity verification" />
-      <OperationalReviewerActions systemArea="payment_reconciliation" />
-
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Read-only preview</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Financial Operations</p>
           <h1 className="text-3xl font-bold text-white mt-1">Payment Reconciliation</h1>
-          <p className="text-sm text-muted-foreground mt-2 max-w-3xl">Classifies PaymentLog integrity, booking/payment mismatches, payout gaps, Stripe ID gaps, manual entries, backfills, and dispute-linked payments without writing data.</p>
+          <p className="text-sm text-muted-foreground mt-2 max-w-3xl">Review payment integrity, booking/payment mismatches, payout gaps, Stripe references, manual entries, and dispute-linked payments.</p>
         </div>
         <button onClick={() => downloadCsv(filteredRows)} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white/70 hover:bg-white/10">
           <Download className="h-4 w-4" /> Export CSV
