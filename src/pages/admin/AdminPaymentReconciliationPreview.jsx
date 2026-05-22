@@ -25,7 +25,7 @@ function downloadCsv(rows) {
     "amount", "expected_amount", "amount_delta", "paid_date", "week_number",
     "billing_period_start", "billing_period_end", "payment_method", "source_type", "source_confidence",
     "legacy_flag", "external_reconcilable", "external_reference", "stripe_payment_intent_id", "stripe_charge_id",
-    "standardized_source_label", "synthesized_flag", "rollback_classification", "blocker_state", "reconciliation_status"
+    "source_label", "synthesized_flag", "rollback_classification", "blocker_status", "reconciliation_state", "governance_recommendation"
   ];
   const csvRows = rows.flatMap((row) => {
     const issues = row.issueTypes?.length ? row.issueTypes : [""];
@@ -64,6 +64,7 @@ function downloadCsv(rows) {
       row.confidence === "trusted" ? "rollback_safe" : "review_required",
       row.blockers?.length ? "blocked" : (row.issueTypes?.length ? "open" : "clear"),
       row.reviewState || "pending_review",
+      row.authoritative ? "export_ready" : "governance_review_required",
     ]);
   });
   const csv = [headers.join(","), ...csvRows.map((values) => values.map(csvEscape).join(","))].join("\n");

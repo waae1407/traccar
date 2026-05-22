@@ -10,6 +10,10 @@ import GovernanceScorePanel from "@/components/admin/governance/GovernanceScoreP
 import ReadinessMatrixPanel from "@/components/admin/governance/ReadinessMatrixPanel";
 import ExposureReportingPanel from "@/components/admin/governance/ExposureReportingPanel";
 import RollbackGovernancePanel from "@/components/admin/governance/RollbackGovernancePanel";
+import ExecutionGatePanel from "@/components/admin/governance/ExecutionGatePanel";
+import ImmutableAuditPreparationPanel from "@/components/admin/governance/ImmutableAuditPreparationPanel";
+import ExportGovernancePanel from "@/components/admin/governance/ExportGovernancePanel";
+import FinalBlockersPanel from "@/components/admin/governance/FinalBlockersPanel";
 
 export default function AdminRemediationWorkspace() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-financial-governance"], queryFn: loadFinancialGovernanceData });
@@ -28,8 +32,12 @@ export default function AdminRemediationWorkspace() {
       <GovernanceScorePanel governance={data?.governance} />
       <ReadinessMatrixPanel matrix={data?.readinessMatrix || []} />
       <ExposureReportingPanel exposure={data?.exposure} escalations={data?.escalationSummary || []} />
+      <ExecutionGatePanel gates={data?.executionGates || []} />
       <ExecutionReadinessPanel readiness={data?.workspace?.executionReadiness} recommendation={data?.recommendation} />
       <RollbackGovernancePanel rollback={data?.rollbackGovernance || []} audit={data?.immutableAuditReadiness || []} safeguards={data?.executionSafeguards || []} />
+      <ImmutableAuditPreparationPanel snapshots={data?.immutableAuditReadiness || []} />
+      <ExportGovernancePanel standard={data?.exportStandard || []} authoritativeExportsBlocked={data?.authoritativeExportsBlocked} />
+      <FinalBlockersPanel blockers={data?.finalBlockers || []} recommendation={data?.recommendation} />
       <RemediationBundlesPanel bundles={data?.workspace?.bundles || []} />
       <RemediationCaseWorkspace cases={data?.workspace?.cases || []} />
     </div>

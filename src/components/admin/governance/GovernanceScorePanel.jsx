@@ -5,9 +5,11 @@ export default function GovernanceScorePanel({ governance = {} }) {
   const cards = [
     ["Operational integrity", scores.operationalIntegrityScore],
     ["Payout readiness", scores.payoutReadinessScore],
-    ["Stripe reconciliation", scores.stripeReconciliationScore],
+    ["Stripe reconciliation", scores.stripeReconciliationReadinessScore],
     ["Rollback safety", scores.rollbackSafetyScore],
     ["Accounting confidence", scores.accountingConfidenceScore],
+    ["Remediation completeness", scores.remediationCompletenessScore],
+    ["Execution readiness", scores.executionReadinessScore],
     ["Promotion readiness", scores.promotionReadinessScore],
   ];
   return (
