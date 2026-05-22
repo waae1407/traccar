@@ -42,6 +42,7 @@ const superadminNavItems = [
 const operationsNavItems = [
   { label: "Operations Center", icon: Activity, path: "/admin/operations" },
   { label: "Expenses", icon: DollarSign, path: "/admin/expenses-preview" },
+  { label: "Recurring Expenses", icon: DollarSign, path: "/admin/recurring-expenses-preview" },
   { label: "Disputes", icon: Shield, path: "/admin/disputes" },
   { label: "Audit Log", icon: FileText, path: "/admin/audit-log" },
   { label: "Operational Alerts", icon: Bell, path: "/admin/operational-alerts" },
@@ -52,7 +53,7 @@ const operationsNavItems = [
 
 const previewNavItems = [
   { label: "Maintenance V2 Preview", icon: Eye, path: "/admin/maintenance-v2" },
-  { label: "Recurring Expenses Preview", icon: Eye, path: "/admin/recurring-expenses-preview" },
+  { label: "Recurring Expenses (Legacy)", icon: Eye, path: "/admin/recurring-expenses-preview" },
   { label: "Expenses (Legacy)", icon: Eye, path: "/admin/expenses-preview" },
 ];
 
