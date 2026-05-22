@@ -1,21 +1,21 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
 import { loadSharedExpenseEngine } from "@/lib/operational/sharedExpenseEngine";
 import { buildExpenseExportRows, downloadCsv } from "@/lib/operational/sharedExportUtils";
+import { SHARED_DATE_RANGES } from "@/lib/operational/sharedOperationalFilters";
 import {
-  OperationalPageHeader,
-  OperationalMetricGrid,
-  OperationalFilters,
-  OperationalSectionCard,
-  OperationalListContainer,
-  OperationalRecordHealth,
-} from "@/components/admin/operational";
-import PrototypePagination from "@/components/admin/prototypes/PrototypePagination";
-import PrototypeDetailDrawer from "@/components/admin/prototypes/PrototypeDetailDrawer";
-
+  OperationalPageShell,
+  OperationalHero,
+  OperationalKpiGrid,
+  OperationalFilterBar,
+  OperationalAdvancedFilters,
+  OperationalExportToolbar,
+  OperationalDataSection,
+  OperationalDetailDrawer,
+  OperationalPagination,
+} from "@/components/operational";
+import { Receipt } from "lucide-react";
 
 const PAGE_SIZE = 50;
 
@@ -33,7 +33,6 @@ export default function AdminExpenses() {
   });
 
   const expenses = data?.expenses || [];
-  const currentDateFilter = filters.dateRange || "last30";
   const hosts = data?.sources?.hosts || [];
   const vehicles = data?.sources?.vehicles || [];
   const categories = useMemo(() => [...new Set((data?.allExpenses || []).map((item) => item.expense_type || item.category).filter(Boolean))], [data]);
@@ -41,55 +40,77 @@ export default function AdminExpenses() {
   const pagedExpenses = expenses.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
   const metrics = [
-    { label: "Total expenses", value: data?.kpis?.totalExpenses, type: "currency" },
-    { label: "Recurring obligations", value: data?.kpis?.recurringObligations, type: "currency" },
-    { label: "Reimbursable totals", value: data?.kpis?.reimbursableTotal, type: "currency" },
-    { label: "Tax deductible totals", value: data?.kpis?.taxDeductibleTotal, type: "currency" },
+    { label: "Total expenses", value: data?.kpis?.totalExpenses, type: "currency", variant: "danger" },
+    { label: "Recurring obligations", value: data?.kpis?.recurringObligations, type: "currency", variant: "warning" },
+    { label: "Reimbursable totals", value: data?.kpis?.reimbursableTotal, type: "currency", variant: "info" },
+    { label: "Tax deductible totals", value: data?.kpis?.taxDeductibleTotal, type: "currency", variant: "primary" },
   ];
 
   return (
-    <div className="space-y-5 animate-fade-in-up">
-      <OperationalPageHeader
+    <OperationalPageShell mode="admin">
+      <OperationalHero
+        mode="admin"
         title="Admin Expenses"
         subtitle="Fleet and operational expense tracking across hosts and vehicles"
         eyebrow="Operations"
-        action={<Button onClick={() => downloadCsv(buildExpenseExportRows(expenses), "admin-expenses.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
+        actions={<OperationalExportToolbar mode="admin" exports={[{ label: "Export", onClick: () => downloadCsv(buildExpenseExportRows(expenses), "admin-expenses.csv") }]} />}
       />
 
-      <OperationalFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} showCostRange showReimbursable showTaxDeductible resultCount={expenses.length} totalCount={data?.allExpenses?.length || 0} />
-      <OperationalMetricGrid metrics={metrics} />
-      <OperationalRecordHealth currentCount={data?.allExpenses?.length || 0} historicalCount={0} needsReviewCount={(data?.allExpenses || []).filter((item) => !item.host_id).length} dateFilter={currentDateFilter} />
+      <OperationalKpiGrid mode="admin" metrics={metrics} />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2">
-          <OperationalListContainer title="Expense Records" count={pagedExpenses.length} loading={isLoading} emptyTitle="No expenses found" emptyDescription="Adjust filters or sync operational records to review expenses.">
-            <div className="divide-y divide-white/[0.06]">
-              {pagedExpenses.map((expense) => (
-                <button key={expense.id} onClick={() => setSelected(expense)} className="w-full text-left px-4 py-3 hover:bg-white/[0.04] transition-all">
-                  <div className="flex items-center justify-between gap-4"><span className="font-medium text-white truncate">{expense.vehicle_name || "Fleet"}</span><span className="font-bold text-white">${Number(expense.amount || 0).toLocaleString()}</span></div>
-                  <div className="text-xs text-white/40 mt-1 truncate">{expense.host_name || "Unknown host"} · {expense.expense_type || expense.category || "other"} · {expense.date || "No date"}</div>
-                </button>
-              ))}
+      <OperationalDataSection mode="admin" title="Expense Insights" subtitle="Highest-cost vehicles and record health" bodyClassName="p-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 lg:col-span-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-white/35">Record Health</p>
+            <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+              <div><p className="text-white/35">Current</p><p className="font-bold text-white">{(data?.allExpenses?.length || 0).toLocaleString()}</p></div>
+              <div><p className="text-white/35">Needs review</p><p className="font-bold text-yellow-400">{(data?.allExpenses || []).filter((item) => !item.host_id).length.toLocaleString()}</p></div>
+              <div><p className="text-white/35">Period</p><p className="font-bold text-white">{filters.dateRange || "last30"}</p></div>
             </div>
-          </OperationalListContainer>
-        </div>
-        <OperationalSectionCard title="High-Cost Vehicles">
-          <div className="p-4 space-y-3">
-            {highCostVehicles.map(([vehicleId, amount]) => {
-              const vehicle = vehicles.find((item) => item.id === vehicleId);
-              return <div key={vehicleId} className="flex justify-between gap-3 text-sm"><span className="text-white/45 truncate">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "Fleet/Unknown"}</span><span className="font-semibold text-white">${amount.toLocaleString()}</span></div>;
-            })}
           </div>
-        </OperationalSectionCard>
-      </div>
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-white/35">High-Cost Vehicles</p>
+            <div className="mt-3 space-y-2">
+              {highCostVehicles.map(([vehicleId, amount]) => {
+                const vehicle = vehicles.find((item) => item.id === vehicleId);
+                return <div key={vehicleId} className="flex justify-between gap-3 text-sm"><span className="truncate text-white/45">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "Fleet/Unknown"}</span><span className="font-semibold text-white">${amount.toLocaleString()}</span></div>;
+              })}
+            </div>
+          </div>
+        </div>
+      </OperationalDataSection>
 
-      <PrototypePagination page={page} pageSize={PAGE_SIZE} total={expenses.length} onPageChange={setPage} />
-      <PrototypeDetailDrawer title="Expense detail" record={selected} open={!!selected} onOpenChange={() => setSelected(null)} fields={[
+      <OperationalFilterBar mode="admin" filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} vehicles={vehicles} categories={categories} dateRanges={SHARED_DATE_RANGES} resultCount={expenses.length} totalCount={data?.allExpenses?.length || 0} />
+      <OperationalAdvancedFilters
+        mode="admin"
+        filters={filters}
+        onChange={(next) => { setFilters(next); setPage(0); }}
+        hosts={hosts}
+        fields={[
+          { key: "costRange", label: "amounts", options: ["0-100", "100-500", "500-1000", "1000+"] },
+          { key: "reimbursable", label: "reimbursement", options: [{ value: "yes", label: "Reimbursable" }, { value: "no", label: "Non-reimbursable" }] },
+          { key: "taxDeductible", label: "tax status", options: [{ value: "yes", label: "Tax deductible" }, { value: "no", label: "Not tax deductible" }] },
+        ]}
+      />
+
+      <OperationalDataSection mode="admin" title="Expense Records" count={expenses.length} loading={isLoading} empty={expenses.length === 0} emptyIcon={Receipt} emptyTitle="No expenses found" emptyDescription="Adjust filters or sync operational records to review expenses.">
+        <div className="divide-y divide-white/[0.06]">
+          {pagedExpenses.map((expense) => (
+            <button key={expense.id} onClick={() => setSelected(expense)} className="w-full px-4 py-3 text-left transition-all hover:bg-white/[0.04]">
+              <div className="flex items-center justify-between gap-4"><span className="truncate font-medium text-white">{expense.vehicle_name || "Fleet"}</span><span className="font-bold text-white">${Number(expense.amount || 0).toLocaleString()}</span></div>
+              <div className="mt-1 truncate text-xs text-white/40">{expense.host_name || "Unknown host"} · {expense.expense_type || expense.category || "other"} · {expense.date || "No date"}</div>
+            </button>
+          ))}
+        </div>
+      </OperationalDataSection>
+
+      <OperationalPagination mode="admin" page={page} pageSize={PAGE_SIZE} total={expenses.length} onPageChange={setPage} />
+      <OperationalDetailDrawer mode="admin" title="Expense detail" record={selected} open={!!selected} onClose={() => setSelected(null)} fields={[
         { key: "host_name", label: "Host" }, { key: "vehicle_name", label: "Vehicle" }, { key: "expense_type", label: "Category" },
         { key: "amount", label: "Amount", render: (r) => `$${Number(r.amount || 0).toLocaleString()}` }, { key: "date", label: "Date" },
         { key: "description", label: "Description" }, { key: "reimbursable", label: "Reimbursable", render: (r) => r.reimbursable ? "Yes" : "No" },
         { key: "tax_deductible", label: "Tax deductible", render: (r) => r.tax_deductible ? "Yes" : "No" },
       ]} />
-    </div>
+    </OperationalPageShell>
   );
 }

@@ -30,12 +30,27 @@ export default function OperationalAdvancedFilters({ mode = "admin", filters = {
             </select>
           )}
 
-          {fields.map((field) => (
-            <select key={field.key} className={controlClass} value={filters[field.key] || ""} onChange={(event) => set(field.key, event.target.value)}>
-              <option value="">{field.placeholder || `All ${field.label || field.key}`}</option>
-              {(field.options || []).map((option) => <option key={option.value || option} value={option.value || option}>{option.label || option}</option>)}
-            </select>
-          ))}
+          {fields.map((field) => {
+            if (field.type === "date" || field.type === "text") {
+              return (
+                <input
+                  key={field.key}
+                  type={field.type}
+                  className={controlClass}
+                  placeholder={field.placeholder || field.label || field.key}
+                  value={filters[field.key] || ""}
+                  onChange={(event) => set(field.key, event.target.value)}
+                />
+              );
+            }
+
+            return (
+              <select key={field.key} className={controlClass} value={filters[field.key] || ""} onChange={(event) => set(field.key, event.target.value)}>
+                <option value="">{field.placeholder || `All ${field.label || field.key}`}</option>
+                {(field.options || []).map((option) => <option key={option.value || option} value={option.value || option}>{option.label || option}</option>)}
+              </select>
+            );
+          })}
         </div>
       )}
     </section>
