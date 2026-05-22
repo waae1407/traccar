@@ -1,0 +1,92 @@
+{
+  "name": "OperationalReviewAction",
+  "type": "object",
+  "properties": {
+    "system_area": {
+      "type": "string",
+      "enum": [
+        "expenses",
+        "recurring_expenses",
+        "payment_reconciliation",
+        "financial_control_center",
+        "remediation_workspace",
+        "stabilization_dashboard",
+        "governance_dashboard",
+        "readiness_matrix",
+        "operational_monitoring",
+        "exports"
+      ],
+      "default": "operational_monitoring"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "reviewer_assignment",
+        "confidence_classification",
+        "approval_staging",
+        "remediation_ownership",
+        "certification_approval",
+        "operational_note"
+      ]
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "pending_review",
+        "assigned",
+        "in_review",
+        "staged_approval",
+        "certified_read_only",
+        "blocked"
+      ],
+      "default": "pending_review"
+    },
+    "confidence_label": {
+      "type": "string",
+      "enum": [
+        "trusted",
+        "partially_trusted",
+        "unresolved",
+        "excluded",
+        "not_applicable"
+      ],
+      "default": "not_applicable"
+    },
+    "assigned_reviewer": {
+      "type": "string"
+    },
+    "remediation_owner": {
+      "type": "string"
+    },
+    "target_label": {
+      "type": "string"
+    },
+    "target_reference": {
+      "type": "string"
+    },
+    "operational_notes": {
+      "type": "string"
+    },
+    "governance_label": {
+      "type": "string",
+      "default": "controlled_operational_activation"
+    },
+    "execution_locked": {
+      "type": "boolean",
+      "default": true
+    },
+    "export_certified": {
+      "type": "boolean",
+      "default": false
+    },
+    "rollback_required": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "system_area",
+    "action_type",
+    "review_status"
+  ]
+}

@@ -15,6 +15,7 @@ import FinancialAuditTimeline from "@/components/admin/payment-reconciliation/Fi
 import GlobalGovernanceBanner from "@/components/admin/governance/GlobalGovernanceBanner";
 import ProductionActivationStatus from "@/components/admin/stabilization/ProductionActivationStatus";
 import { PRODUCTION_ACTIVATION_FLAGS } from "@/lib/operational/productionActivationFlags";
+import OperationalReviewerActions from "@/components/admin/stabilization/OperationalReviewerActions";
 
 function csvEscape(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -114,7 +115,9 @@ export default function AdminPaymentReconciliationPreview() {
   return (
     <div className="space-y-5 animate-fade-in-up">
       <GlobalGovernanceBanner />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.PaymentReconciliationPreview} title="Payment Reconciliation Phase 1 activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.PaymentReconciliationPreview} title="Payment Reconciliation full operational activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReconciliationExports} title="Certified reconciliation exports activation" />
+      <OperationalReviewerActions systemArea="payment_reconciliation" />
 
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>

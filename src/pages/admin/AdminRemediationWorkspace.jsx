@@ -16,6 +16,9 @@ import ExportGovernancePanel from "@/components/admin/governance/ExportGovernanc
 import FinalBlockersPanel from "@/components/admin/governance/FinalBlockersPanel";
 import FinalCertificationDashboard from "@/components/admin/governance/FinalCertificationDashboard";
 import DryRunValidationPanel from "@/components/admin/governance/DryRunValidationPanel";
+import ProductionActivationStatus from "@/components/admin/stabilization/ProductionActivationStatus";
+import OperationalReviewerActions from "@/components/admin/stabilization/OperationalReviewerActions";
+import { PRODUCTION_ACTIVATION_FLAGS } from "@/lib/operational/productionActivationFlags";
 
 export default function AdminRemediationWorkspace() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-dry-run-certification"], queryFn: loadDryRunCertificationData });
@@ -30,6 +33,10 @@ export default function AdminRemediationWorkspace() {
         <p className="text-sm text-muted-foreground mt-2 max-w-4xl">Draft remediation cases, staged non-executable actions, approval-flow simulation, bundle previews, rollback simulation, and readiness scoring. No live financial data is changed here.</p>
       </div>
       <GlobalGovernanceBanner />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.RemediationWorkspace} title="Remediation Workspace full operational activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.GovernanceDashboards} title="Governance dashboards activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReadinessMatrix} title="Readiness Matrix activation" />
+      <OperationalReviewerActions systemArea="remediation_workspace" />
       <RemediationSafetyBanner banners={data?.workspace?.safetyBanners || []} />
       <GovernanceScorePanel governance={data?.governance} />
       <FinalCertificationDashboard certification={data?.dryRunCertification} exposure={data?.exposure} governance={data?.governance} />

@@ -30,6 +30,7 @@ import ProductionReadinessHeatmap from "@/components/admin/stabilization/Product
 import StabilizationExportPanel from "@/components/admin/stabilization/StabilizationExportPanel";
 import ProductionActivationStatus from "@/components/admin/stabilization/ProductionActivationStatus";
 import { PRODUCTION_ACTIVATION_FLAGS } from "@/lib/operational/productionActivationFlags";
+import OperationalReviewerActions from "@/components/admin/stabilization/OperationalReviewerActions";
 
 export default function AdminFinancialControlCenter() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-financial-control-center"], queryFn: loadFinancialControlCenterData });
@@ -51,8 +52,10 @@ export default function AdminFinancialControlCenter() {
       </div>
 
       <GlobalGovernanceBanner />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.FinancialControlCenter} title="Financial Control Center Phase 1 activation" />
-      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.StabilizationDashboard} title="Stabilization Dashboard Phase 1 activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.FinancialControlCenter} title="Financial Control Center full operational activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.StabilizationDashboard} title="Stabilization Dashboard full operational activation" />
+      <ProductionActivationStatus flag={PRODUCTION_ACTIVATION_FLAGS.ReviewerWorkflows} title="Reviewer workflows activation" />
+      <OperationalReviewerActions systemArea="financial_control_center" />
 
       <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 flex items-start gap-3">
         <Lock className="h-5 w-5 text-primary mt-0.5" />

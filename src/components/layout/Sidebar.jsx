@@ -42,6 +42,7 @@ const superadminNavItems = [
 const operationsNavItems = [
   { label: "Operations Center", icon: Activity, path: "/admin/operations" },
   { label: "Financial Control", icon: Shield, path: "/admin/financial-control-center" },
+  { label: "Payment Reconciliation", icon: ClipboardList, path: "/admin/payment-reconciliation-preview" },
   { label: "Remediation Workspace", icon: FileText, path: "/admin/remediation-workspace" },
   { label: "Expenses", icon: DollarSign, path: "/admin/expenses-preview" },
   { label: "Recurring Expenses", icon: DollarSign, path: "/admin/recurring-expenses-preview" },
@@ -55,8 +56,6 @@ const operationsNavItems = [
 
 const previewNavItems = [
   { label: "Maintenance V2 Preview", icon: Eye, path: "/admin/maintenance-v2" },
-  { label: "Recurring Expenses (Legacy)", icon: Eye, path: "/admin/recurring-expenses-preview" },
-  { label: "Expenses (Legacy)", icon: Eye, path: "/admin/expenses-preview" },
 ];
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {

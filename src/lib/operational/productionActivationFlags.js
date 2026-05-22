@@ -1,45 +1,39 @@
+const activeReadOnly = (rollbackPath) => ({
+  status: "active",
+  rollbackPath,
+  readOnlyEnforced: true,
+  exportsCertified: true,
+  confidenceLabelsRequired: true,
+  governanceBannerRequired: true,
+  dryRunIndicatorsRequired: true,
+});
+
 export const PRODUCTION_ACTIVATION_FLAGS = {
-  AdminExpenses: {
-    status: "active",
-    rollbackPath: "/expenses",
-    readOnlyEnforced: true,
-    exportsCertified: true,
-    confidenceLabelsRequired: true,
-  },
-  AdminRecurringExpenses: {
-    status: "active",
-    rollbackPath: "/admin/expenses-preview",
-    readOnlyEnforced: true,
-    exportsCertified: true,
-    confidenceLabelsRequired: true,
-  },
-  PaymentReconciliationPreview: {
-    status: "active",
-    rollbackPath: "/payments",
-    readOnlyEnforced: true,
-    exportsCertified: true,
-    confidenceLabelsRequired: true,
-  },
-  FinancialControlCenter: {
-    status: "active",
-    rollbackPath: "/admin/payment-reconciliation-preview",
-    readOnlyEnforced: true,
-    exportsCertified: true,
-    confidenceLabelsRequired: true,
-  },
-  StabilizationDashboard: {
-    status: "active",
-    rollbackPath: "/admin/financial-control-center",
-    readOnlyEnforced: true,
-    exportsCertified: true,
-    confidenceLabelsRequired: true,
-  },
+  AdminExpenses: activeReadOnly("/expenses"),
+  AdminRecurringExpenses: activeReadOnly("/admin/expenses-preview"),
+  PaymentReconciliationPreview: activeReadOnly("/payments"),
+  FinancialControlCenter: activeReadOnly("/admin/payment-reconciliation-preview"),
+  StabilizationDashboard: activeReadOnly("/admin/financial-control-center"),
+  RemediationWorkspace: activeReadOnly("/admin/financial-control-center"),
+  GovernanceDashboards: activeReadOnly("/admin/remediation-workspace"),
+  ReadinessMatrix: activeReadOnly("/admin/remediation-workspace"),
+  OperationalMonitoring: activeReadOnly("/admin/operations"),
+  ReviewerWorkflows: activeReadOnly("/admin/financial-control-center"),
+  TrustedRevenueReporting: activeReadOnly("/reports"),
+  PayoutExposureReporting: activeReadOnly("/admin/payouts"),
+  CertificationDashboards: activeReadOnly("/admin/remediation-workspace"),
+  ReconciliationExports: activeReadOnly("/admin/payment-reconciliation-preview"),
+  RemediationBundles: activeReadOnly("/admin/remediation-workspace"),
+  RollbackPreviews: activeReadOnly("/admin/remediation-workspace"),
+  DryRunSimulation: activeReadOnly("/admin/financial-control-center"),
   AdminPayoutsV2: {
     status: "disabled",
     rollbackPath: "/admin/payouts",
     readOnlyEnforced: true,
     exportsCertified: false,
     confidenceLabelsRequired: true,
+    governanceBannerRequired: true,
+    dryRunIndicatorsRequired: true,
   },
   AdminPnLV2: {
     status: "disabled",
@@ -47,16 +41,21 @@ export const PRODUCTION_ACTIVATION_FLAGS = {
     readOnlyEnforced: true,
     exportsCertified: false,
     confidenceLabelsRequired: true,
+    governanceBannerRequired: true,
+    dryRunIndicatorsRequired: true,
   },
 };
 
-export const PHASE_1_EXECUTION_LOCKS = [
-  "automated_payout_execution",
+export const FULL_OPERATIONAL_EXECUTION_LOCKS = [
+  "payout_execution",
   "stripe_transfer_execution",
-  "host_payout_auto_creation",
-  "remediation_execution",
-  "automatic_corrections",
-  "dispute_auto_resolution",
   "admin_payouts_v2_promotion",
   "admin_pnl_v2_promotion",
+  "auto_remediation",
+  "automatic_payout_creation",
+  "automatic_booking_correction",
+  "automatic_dispute_resolution",
+  "destructive_financial_mutations",
 ];
+
+export const PHASE_1_EXECUTION_LOCKS = FULL_OPERATIONAL_EXECUTION_LOCKS;
