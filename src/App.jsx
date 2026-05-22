@@ -44,6 +44,7 @@ import AdminMaintenanceV2 from '@/pages/admin/AdminMaintenanceV2';
 import AdminRecurringExpenses from '@/pages/admin/AdminRecurringExpenses';
 import AdminPaymentReconciliationPreview from '@/pages/admin/AdminPaymentReconciliationPreview';
 import AdminFinancialControlCenter from '@/pages/admin/AdminFinancialControlCenter';
+import AdminRemediationWorkspace from '@/pages/admin/AdminRemediationWorkspace';
 import AdminAIChat from '@/pages/admin/AdminAIChat';
 import AdminAuditLog from '@/pages/admin/AdminAuditLog';
 import AdminOperationalAlerts from '@/pages/admin/AdminOperationalAlerts';
@@ -193,6 +194,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/recurring-expenses-preview" element={<AdminRecurringExpenses />} />
         <Route path="/admin/payment-reconciliation-preview" element={<AdminPaymentReconciliationPreview />} />
         <Route path="/admin/financial-control-center" element={<AdminFinancialControlCenter />} />
+        <Route path="/admin/remediation-workspace" element={<AdminRemediationWorkspace />} />
         <Route path="/admin/ai-chat" element={<AdminAIChat />} />
         <Route path="/admin/pnl" element={<AdminPnL />} />
         <Route path="/admin/audit-log" element={<AdminAuditLog />} />

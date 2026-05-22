@@ -42,6 +42,7 @@ const superadminNavItems = [
 const operationsNavItems = [
   { label: "Operations Center", icon: Activity, path: "/admin/operations" },
   { label: "Financial Control", icon: Shield, path: "/admin/financial-control-center" },
+  { label: "Remediation Workspace", icon: FileText, path: "/admin/remediation-workspace" },
   { label: "Expenses", icon: DollarSign, path: "/admin/expenses-preview" },
   { label: "Recurring Expenses", icon: DollarSign, path: "/admin/recurring-expenses-preview" },
   { label: "Disputes", icon: Shield, path: "/admin/disputes" },
