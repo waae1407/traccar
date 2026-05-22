@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie
 } from "recharts";
 import { TrendingUp, DollarSign, CreditCard, Landmark, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { OperationalPageHeader } from "@/components/admin/operational";
 import { subDays, isAfter } from "date-fns";
 
 const COLORS = ["hsl(338,90%,56%)", "hsl(265,80%,62%)", "hsl(152,60%,46%)", "hsl(38,95%,54%)", "hsl(199,90%,54%)"];
@@ -126,21 +127,21 @@ export default function AdminPnL() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-syne font-bold text-white">Platform P&amp;L</h1>
-          <p className="text-sm text-white/40 mt-0.5">uRideHub financial performance</p>
-        </div>
-        <div className="flex gap-1 rounded-xl p-1 border border-white/[0.07]" style={{ background: "hsl(222 24% 10% / 0.9)" }}>
-          {RANGES.map(r => (
-            <button key={r.days} onClick={() => setRange(r.days)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${range === r.days ? "bg-primary text-white" : "text-white/40 hover:text-white"}`}>
-              {r.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <OperationalPageHeader
+        title="Platform P&L"
+        subtitle="Revenue, payout, margin, and fleet performance visibility"
+        eyebrow="Operations"
+        action={
+          <div className="flex gap-1 rounded-2xl p-1 border border-white/[0.08] bg-white/[0.04]">
+            {RANGES.map(r => (
+              <button key={r.days} onClick={() => setRange(r.days)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${range === r.days ? "bg-primary text-white" : "text-white/40 hover:text-white"}`}>
+                {r.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

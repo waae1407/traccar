@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import AdminFilters from "@/components/shared/AdminFilters";
+import { OperationalPageHeader } from "@/components/admin/operational";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, AreaChart, Area, CartesianGrid, Cell, PieChart, Pie
@@ -135,8 +136,9 @@ export default function Reports() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
-      {/* Filters */}
+    <div className="space-y-5 animate-fade-in-up">
+      <OperationalPageHeader title="Reports" subtitle="Revenue, utilization, lead source, and vehicle performance reporting" eyebrow="Operations" />
+
       <AdminFilters
         filters={filters}
         onChange={setFilter}

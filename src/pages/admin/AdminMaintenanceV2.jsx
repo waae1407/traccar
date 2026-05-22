@@ -5,12 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { loadSharedMaintenanceEngine } from "@/lib/operational/sharedMaintenanceEngine";
 import { buildMaintenanceExportRows, downloadCsv } from "@/lib/operational/sharedExportUtils";
-import PrototypePageHeader from "@/components/admin/prototypes/PrototypePageHeader";
-import PrototypeMetricGrid from "@/components/admin/prototypes/PrototypeMetricGrid";
-import PrototypeFilters from "@/components/admin/prototypes/PrototypeFilters";
+import {
+  OperationalPageHeader,
+  OperationalMetricGrid,
+  OperationalFilters,
+  OperationalSectionCard,
+  OperationalListContainer,
+  OperationalRecordHealth,
+} from "@/components/admin/operational";
 import PrototypePagination from "@/components/admin/prototypes/PrototypePagination";
 import PrototypeDetailDrawer from "@/components/admin/prototypes/PrototypeDetailDrawer";
-import PrototypeReconciliationPanel from "@/components/admin/prototypes/PrototypeReconciliationPanel";
 
 const PAGE_SIZE = 50;
 const STATUSES = ["overdue", "due_soon", "scheduled", "completed", "in_maintenance"];
@@ -48,49 +52,49 @@ export default function AdminMaintenanceV2() {
   ];
 
   return (
-    <div className="p-6 space-y-6 mesh-bg min-h-screen">
-      <PrototypePageHeader
+    <div className="space-y-5 animate-fade-in-up">
+      <OperationalPageHeader
         title="Admin Maintenance"
-        subtitle="Fleet maintenance tracking, service alerts, and operational cost visibility."
+        subtitle="Fleet service tracking, alerts, and operational cost visibility across hosts"
+        eyebrow="Operations"
         action={<Button onClick={() => downloadCsv(buildMaintenanceExportRows(records), "admin-maintenance.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
       />
-      <PrototypeFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} statuses={STATUSES} />
-      <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary capitalize">
-        Date range: {currentDateFilter.replaceAll("_", " ")}
-      </div>
+      <OperationalFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} statuses={STATUSES} resultCount={records.length} totalCount={data?.hostMaintenanceLogs?.length || records.length} />
       {legacyRecords.length > 0 && (
-        <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-200">
-          Some historical maintenance records need host review.
+        <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/[0.06] px-4 py-3 text-sm text-yellow-200">
+          {legacyRecords.length} historical maintenance record{legacyRecords.length === 1 ? "" : "s"} available for review.
         </div>
       )}
-      <PrototypeMetricGrid metrics={metrics} />
-      <PrototypeReconciliationPanel modernCount={data?.hostMaintenanceLogs?.length || 0} legacyCount={legacyRecords.length} unresolvedCount={unresolvedLegacyRecords.length} dateFilter={currentDateFilter} />
+      <OperationalMetricGrid metrics={metrics} />
+      <OperationalRecordHealth currentCount={data?.hostMaintenanceLogs?.length || 0} historicalCount={legacyRecords.length} needsReviewCount={unresolvedLegacyRecords.length} dateFilter={currentDateFilter} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 glass rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-white/10 font-semibold">Maintenance records</div>
-          {isLoading ? <div className="p-6 text-muted-foreground">Loading maintenance records...</div> : pagedRecords.map((record) => (
-            <button key={`${record.source}_${record.source_id}`} onClick={() => setSelected(record)} className="w-full text-left p-4 border-b border-white/5 hover:bg-white/[0.04] transition-all">
-              <div className="flex justify-between gap-4"><span className="font-medium">{record.vehicle_name || "Unknown vehicle"}</span><span>${Number(record.cost || 0).toLocaleString()}</span></div>
-              <div className="text-xs text-muted-foreground mt-1">{record.host_name || "Unknown host"} · {record.service_type || "service"} · {record.computed_status?.replaceAll("_", " ")}</div>
-            </button>
-          ))}
+        <div className="xl:col-span-2">
+          <OperationalListContainer title="Maintenance Records" count={pagedRecords.length} loading={isLoading} emptyTitle="No maintenance records found" emptyDescription="Adjust filters to review service records.">
+            <div className="divide-y divide-white/[0.06]">
+              {pagedRecords.map((record) => (
+                <button key={`${record.source}_${record.source_id}`} onClick={() => setSelected(record)} className="w-full text-left px-4 py-3 hover:bg-white/[0.04] transition-all">
+                  <div className="flex items-center justify-between gap-4"><span className="font-medium text-white truncate">{record.vehicle_name || "Unknown vehicle"}</span><span className="font-bold text-white">${Number(record.cost || 0).toLocaleString()}</span></div>
+                  <div className="text-xs text-white/40 mt-1 truncate">{record.host_name || "Unknown host"} · {record.service_type || "service"} · {record.computed_status?.replaceAll("_", " ")}</div>
+                </button>
+              ))}
+            </div>
+          </OperationalListContainer>
         </div>
         <div className="space-y-4">
-          <div className="glass rounded-2xl p-4">
-            <h3 className="font-semibold mb-3">Historical Records</h3>
-            <div className="space-y-2 text-sm text-muted-foreground">
+          <OperationalSectionCard title="Historical Records">
+            <div className="p-4 space-y-2 text-sm text-white/45">
               <div className="flex justify-between"><span>Count</span><span className="text-white">{legacyRecords.length}</span></div>
               <div className="flex justify-between"><span>Total cost</span><span className="text-white">${legacyTotalCost.toLocaleString()}</span></div>
-              <div className="flex justify-between"><span>Unresolved host attribution</span><span className="text-white">{unresolvedLegacyRecords.length}</span></div>
+              <div className="flex justify-between"><span>Needs review</span><span className="text-white">{unresolvedLegacyRecords.length}</span></div>
               <div>
                 <p>Affected vehicles</p>
                 <p className="text-white mt-1">{affectedLegacyVehicles.length ? affectedLegacyVehicles.join(", ") : "—"}</p>
               </div>
             </div>
-          </div>
-          <div className="glass rounded-2xl p-4"><h3 className="font-semibold mb-3">Overdue / due soon</h3><p className="text-sm text-muted-foreground">{data?.alerts?.overdue?.length || 0} overdue and {data?.alerts?.dueSoon?.length || 0} due soon records from shared alerts.</p></div>
-          <div className="glass rounded-2xl p-4"><h3 className="font-semibold mb-3">Cost insights by host</h3><div className="space-y-3">{costInsights.map(([hostId, amount]) => { const host = hosts.find((item) => item.id === hostId); return <div key={hostId} className="flex justify-between text-sm"><span className="text-muted-foreground">{host?.business_name || host?.full_name || "Unknown"}</span><span>${amount.toLocaleString()}</span></div>; })}</div></div>
+          </OperationalSectionCard>
+          <OperationalSectionCard title="Service Alerts"><p className="p-4 text-sm text-white/45">{data?.alerts?.overdue?.length || 0} overdue and {data?.alerts?.dueSoon?.length || 0} due soon records.</p></OperationalSectionCard>
+          <OperationalSectionCard title="Cost Insights by Host"><div className="p-4 space-y-3">{costInsights.map(([hostId, amount]) => { const host = hosts.find((item) => item.id === hostId); return <div key={hostId} className="flex justify-between gap-3 text-sm"><span className="text-white/45 truncate">{host?.business_name || host?.full_name || "Unknown"}</span><span className="font-semibold text-white">${amount.toLocaleString()}</span></div>; })}</div></OperationalSectionCard>
         </div>
       </div>
 

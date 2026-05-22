@@ -5,12 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { loadSharedExpenseEngine } from "@/lib/operational/sharedExpenseEngine";
 import { buildExpenseExportRows, downloadCsv } from "@/lib/operational/sharedExportUtils";
-import PrototypePageHeader from "@/components/admin/prototypes/PrototypePageHeader";
-import PrototypeMetricGrid from "@/components/admin/prototypes/PrototypeMetricGrid";
-import PrototypeFilters from "@/components/admin/prototypes/PrototypeFilters";
+import {
+  OperationalPageHeader,
+  OperationalMetricGrid,
+  OperationalFilters,
+  OperationalSectionCard,
+  OperationalListContainer,
+  OperationalRecordHealth,
+} from "@/components/admin/operational";
 import PrototypePagination from "@/components/admin/prototypes/PrototypePagination";
 import PrototypeDetailDrawer from "@/components/admin/prototypes/PrototypeDetailDrawer";
-import PrototypeReconciliationPanel from "@/components/admin/prototypes/PrototypeReconciliationPanel";
 
 
 const PAGE_SIZE = 50;
@@ -44,41 +48,39 @@ export default function AdminExpenses() {
   ];
 
   return (
-    <div className="p-6 space-y-6 mesh-bg min-h-screen">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-white font-syne">Admin Expenses</h1>
-          <p className="text-white/40 text-sm mt-1">Fleet and operational expense tracking</p>
-        </div>
-        <Button onClick={() => downloadCsv(buildExpenseExportRows(expenses), "admin-expenses.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>
-      </div>
+    <div className="space-y-5 animate-fade-in-up">
+      <OperationalPageHeader
+        title="Admin Expenses"
+        subtitle="Fleet and operational expense tracking across hosts and vehicles"
+        eyebrow="Operations"
+        action={<Button onClick={() => downloadCsv(buildExpenseExportRows(expenses), "admin-expenses.csv")} className="gap-2"><Download className="h-4 w-4" /> Export</Button>}
+      />
 
-      <PrototypeFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} showCostRange showReimbursable showTaxDeductible />
-      <div className="inline-flex rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-bold text-primary capitalize">
-        Date range: {currentDateFilter.replaceAll("_", " ")}
-      </div>
-      <PrototypeMetricGrid metrics={metrics} />
-      <PrototypeReconciliationPanel modernCount={data?.allExpenses?.length || 0} legacyCount={0} unresolvedCount={(data?.allExpenses || []).filter((item) => !item.host_id).length} dateFilter={currentDateFilter} />
+      <OperationalFilters filters={filters} onChange={(next) => { setFilters(next); setPage(0); }} hosts={hosts} vehicles={vehicles} categories={categories} showCostRange showReimbursable showTaxDeductible resultCount={expenses.length} totalCount={data?.allExpenses?.length || 0} />
+      <OperationalMetricGrid metrics={metrics} />
+      <OperationalRecordHealth currentCount={data?.allExpenses?.length || 0} historicalCount={0} needsReviewCount={(data?.allExpenses || []).filter((item) => !item.host_id).length} dateFilter={currentDateFilter} />
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 glass rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-white/10 font-semibold">Expense records</div>
-          {isLoading ? <div className="p-6 text-muted-foreground">Loading expenses...</div> : pagedExpenses.map((expense) => (
-            <button key={expense.id} onClick={() => setSelected(expense)} className="w-full text-left p-4 border-b border-white/5 hover:bg-white/[0.04] transition-all">
-              <div className="flex justify-between gap-4"><span className="font-medium">{expense.vehicle_name || "Fleet"}</span><span>${Number(expense.amount || 0).toLocaleString()}</span></div>
-              <div className="text-xs text-muted-foreground mt-1">{expense.host_name || "Unknown host"} · {expense.expense_type || expense.category || "other"} · {expense.date || "No date"}</div>
-            </button>
-          ))}
+        <div className="xl:col-span-2">
+          <OperationalListContainer title="Expense Records" count={pagedExpenses.length} loading={isLoading} emptyTitle="No expenses found" emptyDescription="Adjust filters or sync operational records to review expenses.">
+            <div className="divide-y divide-white/[0.06]">
+              {pagedExpenses.map((expense) => (
+                <button key={expense.id} onClick={() => setSelected(expense)} className="w-full text-left px-4 py-3 hover:bg-white/[0.04] transition-all">
+                  <div className="flex items-center justify-between gap-4"><span className="font-medium text-white truncate">{expense.vehicle_name || "Fleet"}</span><span className="font-bold text-white">${Number(expense.amount || 0).toLocaleString()}</span></div>
+                  <div className="text-xs text-white/40 mt-1 truncate">{expense.host_name || "Unknown host"} · {expense.expense_type || expense.category || "other"} · {expense.date || "No date"}</div>
+                </button>
+              ))}
+            </div>
+          </OperationalListContainer>
         </div>
-        <div className="glass rounded-2xl p-4">
-          <h3 className="font-semibold mb-3">High-cost vehicles</h3>
-          <div className="space-y-3">
+        <OperationalSectionCard title="High-Cost Vehicles">
+          <div className="p-4 space-y-3">
             {highCostVehicles.map(([vehicleId, amount]) => {
               const vehicle = vehicles.find((item) => item.id === vehicleId);
-              return <div key={vehicleId} className="flex justify-between text-sm"><span className="text-muted-foreground">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "Fleet/Unknown"}</span><span>${amount.toLocaleString()}</span></div>;
+              return <div key={vehicleId} className="flex justify-between gap-3 text-sm"><span className="text-white/45 truncate">{vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : "Fleet/Unknown"}</span><span className="font-semibold text-white">${amount.toLocaleString()}</span></div>;
             })}
           </div>
-        </div>
+        </OperationalSectionCard>
       </div>
 
       <PrototypePagination page={page} pageSize={PAGE_SIZE} total={expenses.length} onPageChange={setPage} />

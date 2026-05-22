@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 export default function PrototypeDetailDrawer({ title, record, open, onOpenChange, fields = [] }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="bg-background border-white/10 text-white overflow-y-auto">
+      <SheetContent className="bg-background border-white/10 text-white overflow-y-auto w-full sm:max-w-md">
         <SheetHeader>
           <SheetTitle className="text-white">{title}</SheetTitle>
         </SheetHeader>

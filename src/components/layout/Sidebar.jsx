@@ -40,14 +40,9 @@ const superadminNavItems = [
 ];
 
 const operationsNavItems = [
-  { label: "Operations Center", icon: Activity, path: "/admin/operations" },
-  { label: "Financial Control", icon: Shield, path: "/admin/financial-control-center" },
-  { label: "Payment Reconciliation", icon: ClipboardList, path: "/admin/payment-reconciliation" },
-  { label: "Remediation", icon: FileText, path: "/admin/remediation-workspace" },
   { label: "Expenses", icon: DollarSign, path: "/admin/expenses" },
   { label: "Recurring Expenses", icon: DollarSign, path: "/admin/recurring-expenses" },
   { label: "Disputes", icon: Shield, path: "/admin/disputes" },
-  { label: "Audit Log", icon: FileText, path: "/admin/audit-log" },
   { label: "Operational Alerts", icon: Bell, path: "/admin/operational-alerts" },
   { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
   { label: "Compliance Queue", icon: ClipboardList, path: "/admin/compliance-queue" },

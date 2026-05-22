@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { DollarSign, CheckCircle2, Clock, AlertTriangle, Zap, Search } from "lucide-react";
+import { DollarSign, Zap, Search, Download } from "lucide-react";
+import { OperationalPageHeader, OperationalMetricGrid, OperationalListContainer } from "@/components/admin/operational";
 
 const statusConfig = {
   pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400" },
@@ -37,31 +38,37 @@ export default function AdminPayouts() {
     return matchSearch && matchFilter;
   });
 
-  const totalPending = payouts.filter(p => p.status === "pending").reduce((s, p) => s + (p.net_payout || 0), 0);
-  const totalPaid = payouts.filter(p => p.status === "paid").reduce((s, p) => s + (p.net_payout || 0), 0);
-  const totalPlatformFees = payouts.reduce((s, p) => s + (p.platform_fee || 0), 0);
+  const totalPending = payouts.filter(p => p.status === "pending").reduce((s, p) => s + (p.net_payout || p.net_host_payout || 0), 0);
+  const totalPaid = payouts.filter(p => p.status === "paid").reduce((s, p) => s + (p.net_payout || p.net_host_payout || 0), 0);
+  const totalPlatformFees = payouts.reduce((s, p) => s + (p.platform_fee || p.uride_platform_fee_amount || 0), 0);
+
+  const exportCsv = () => {
+    const rows = [["Host", "Email", "Vehicle", "Gross", "Platform Fee", "Net Payout", "Status", "Period Start", "Period End", "Transfer ID"], ...filtered.map(p => [p.host_name || "", p.host_email || "", p.vehicle_name || "", p.gross_collected || p.gross_booking_amount || 0, p.platform_fee || p.uride_platform_fee_amount || 0, p.net_payout || p.net_host_payout || 0, p.status || "", p.period_start || "", p.period_end || "", p.stripe_transfer_id || ""])];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `admin-payouts-${new Date().toISOString().split("T")[0]}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const metrics = [
+    { label: "Pending Payouts", value: totalPending, type: "currency", color: "text-yellow-400", bg: "bg-yellow-500/[0.06] border-yellow-500/20" },
+    { label: "Total Paid Out", value: totalPaid, type: "currency", color: "text-green-400", bg: "bg-green-500/[0.06] border-green-500/20" },
+    { label: "Platform Revenue", value: totalPlatformFees, type: "currency", color: "text-primary", bg: "bg-primary/[0.06] border-primary/20" },
+    { label: "Filtered Records", value: filtered.length, color: "text-white" },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black text-white font-syne">Host Payouts</h1>
-        <p className="text-white/40 text-sm mt-1">Stripe Connect payout operations · {payouts.filter(p => p.status === "pending").length} pending</p>
-      </div>
+    <div className="space-y-5 animate-fade-in-up">
+      <OperationalPageHeader
+        title="Host Payouts"
+        subtitle={`Stripe Connect payout operations · ${payouts.filter(p => p.status === "pending").length} pending`}
+        eyebrow="Operations"
+        action={<button onClick={exportCsv} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white bg-primary hover:bg-primary/90"><Download className="h-4 w-4" /> Export</button>}
+      />
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-5 text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Pending Payouts</p>
-          <p className="text-2xl font-black text-yellow-400 font-syne">${totalPending.toLocaleString()}</p>
-        </div>
-        <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-5 text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Total Paid Out</p>
-          <p className="text-2xl font-black text-green-400 font-syne">${totalPaid.toLocaleString()}</p>
-        </div>
-        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 text-center">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-2">Platform Revenue</p>
-          <p className="text-2xl font-black text-primary font-syne">${totalPlatformFees.toLocaleString()}</p>
-        </div>
-      </div>
+      <OperationalMetricGrid metrics={metrics} />
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-48">
@@ -85,21 +92,21 @@ export default function AdminPayouts() {
           <p className="text-white/40">No payouts found</p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-white/[0.08] glass overflow-hidden">
+        <OperationalListContainer title="Payout Records" count={filtered.length} loading={isLoading} emptyIcon={DollarSign} emptyTitle="No payouts found" emptyDescription="Adjust filters to review host payout records.">
           <div className="divide-y divide-white/[0.06]">
             {filtered.map(p => {
               const cfg = statusConfig[p.status] || statusConfig.pending;
               return (
-                <div key={p.id} className="px-6 py-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-white">{p.host_name}</p>
-                    <p className="text-xs text-white/40">{p.period_start} → {p.period_end} · {p.booking_count} bookings</p>
-                    {p.stripe_transfer_id && <p className="text-xs font-mono text-white/20 mt-0.5">{p.stripe_transfer_id}</p>}
+                <div key={p.id} className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{p.host_name || p.host_email || "Unknown host"}</p>
+                    <p className="text-xs text-white/40">{p.period_start} → {p.period_end} · {p.booking_count || 0} bookings</p>
+                    {p.stripe_transfer_id && <p className="text-xs font-mono text-white/20 mt-0.5 truncate">{p.stripe_transfer_id}</p>}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
                     <div className="text-right">
-                      <p className="text-sm font-bold text-white">${p.net_payout?.toLocaleString()}</p>
-                      <p className="text-xs text-white/30">${p.gross_collected?.toLocaleString()} gross · ${p.platform_fee?.toLocaleString()} fee</p>
+                      <p className="text-sm font-bold text-white">${(p.net_payout || p.net_host_payout || 0).toLocaleString()}</p>
+                      <p className="text-xs text-white/30">${(p.gross_collected || p.gross_booking_amount || 0).toLocaleString()} gross · ${(p.platform_fee || p.uride_platform_fee_amount || 0).toLocaleString()} fee</p>
                     </div>
                     <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${cfg.color}`}>{cfg.label}</span>
                     {p.status === "pending" && (
@@ -113,7 +120,7 @@ export default function AdminPayouts() {
               );
             })}
           </div>
-        </div>
+        </OperationalListContainer>
       )}
     </div>
   );

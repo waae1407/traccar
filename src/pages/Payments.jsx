@@ -7,6 +7,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import PaymentHistoryDrawer from "@/components/payments/PaymentHistoryDrawer";
+import { OperationalPageHeader } from "@/components/admin/operational";
 import { generatePaymentDedupeKey, classifyPaymentSource, classifyPaymentConfidence, normalizePaymentMethod } from "@/lib/financial/paymentLedger";
 
 const PAYMENT_STATUS_STYLE = {
@@ -350,20 +351,21 @@ export default function Payments() {
         <PaymentHistoryDrawer booking={historyBooking} onClose={() => setHistoryBooking(null)} />
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-white">Stripe Payments</h2>
-          <p className="text-xs text-white/40 mt-0.5">{allPayments.length} total records</p>
-        </div>
-        <button
-          onClick={handleBackfill}
-          disabled={backfilling}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white/70 bg-white/[0.06] border border-white/[0.1] hover:bg-white/10 transition-all disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${backfilling ? "animate-spin" : ""}`} />
-          {backfilling ? "Updating…" : "Sync Payment History"}
-        </button>
-      </div>
+      <OperationalPageHeader
+        title="Payments"
+        subtitle={`${allPayments.length} payment records · billing visibility and customer payment actions`}
+        eyebrow="Operations"
+        action={
+          <button
+            onClick={handleBackfill}
+            disabled={backfilling}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold text-white/70 bg-white/[0.06] border border-white/[0.1] hover:bg-white/10 transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${backfilling ? "animate-spin" : ""}`} />
+            {backfilling ? "Updating…" : "Sync Payment History"}
+          </button>
+        }
+      />
 
       {/* Scorecards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -404,7 +406,7 @@ export default function Payments() {
       )}
 
       {/* Filters */}
-      <div className="rounded-2xl border border-white/[0.07] p-4 space-y-3" style={{ background: "hsl(222 24% 10% / 0.9)" }}>
+      <div className="rounded-3xl border border-white/[0.08] bg-white/[0.04] p-4 space-y-3 shadow-card">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
             className="h-9 px-3 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white text-sm placeholder:text-white/25 focus:outline-none focus:border-primary/50"
@@ -437,8 +439,7 @@ export default function Payments() {
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl border border-white/[0.07] overflow-hidden"
-        style={{ background: "hsl(222 24% 10% / 0.9)", boxShadow: "0 4px 32px hsl(222 28% 5% / 0.5)" }}>
+      <div className="rounded-3xl border border-white/[0.08] bg-white/[0.04] shadow-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
