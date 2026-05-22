@@ -17,7 +17,7 @@ export default function HistoricalPayoutBackfillPreview({ rows = [] }) {
       <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
         <table className="w-full text-sm">
           <thead className="bg-white/[0.03]">
-            <tr>{["Source Payment", "Host", "Booking", "Week", "Gross", "Platform Fee", "Host Payout", "Confidence", "Safety", "Stripe Evidence"].map((h) => <th key={h} className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-white/40">{h}</th>)}</tr>
+            <tr>{["Source Payment", "Host", "Booking", "Week", "Gross", "Platform Fee", "Host Payout", "Confidence", "Candidate State", "Safety", "Stripe Evidence"].map((h) => <th key={h} className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-white/40">{h}</th>)}</tr>
           </thead>
           <tbody>
             {rows.slice(0, 12).map((row) => (
@@ -30,11 +30,12 @@ export default function HistoricalPayoutBackfillPreview({ rows = [] }) {
                 <td className="px-3 py-2 text-white/70">{money(row.estimatedPlatformFee)}</td>
                 <td className="px-3 py-2 text-white/70">{money(row.estimatedHostPayout)}</td>
                 <td className="px-3 py-2 text-white/60 capitalize">{String(row.confidence).replaceAll("_", " ")}</td>
+                <td className="px-3 py-2 text-white/60 capitalize">{String(row.candidateStatus || "review_required").replaceAll("_", " ")}</td>
                 <td className="px-3 py-2 text-white/50 max-w-md">{row.safetyReason}</td>
                 <td className="px-3 py-2 text-white/60">{row.hasStripeTransferEvidence ? "Yes" : "No"}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={10} className="px-3 py-8 text-center text-white/40">No payout backfill preview rows.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={11} className="px-3 py-8 text-center text-white/40">No payout backfill preview rows.</td></tr>}
           </tbody>
         </table>
       </div>

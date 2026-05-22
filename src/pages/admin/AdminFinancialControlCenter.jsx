@@ -1,0 +1,59 @@
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Download, Lock } from "lucide-react";
+import { loadFinancialControlCenterData } from "@/lib/operational/financialControlCenterEngine";
+import { downloadCsv } from "@/lib/operational/sharedExportUtils";
+import FinancialIntegrityDashboard from "@/components/admin/payment-reconciliation/FinancialIntegrityDashboard";
+import PaymentReconciliationKpis from "@/components/admin/payment-reconciliation/PaymentReconciliationKpis";
+import BookingStateReviewPanel from "@/components/admin/payment-reconciliation/BookingStateReviewPanel";
+import HistoricalPayoutBackfillPreview from "@/components/admin/payment-reconciliation/HistoricalPayoutBackfillPreview";
+import FinancialExceptionRegistry from "@/components/admin/payment-reconciliation/FinancialExceptionRegistry";
+import FinancialAuditTimeline from "@/components/admin/payment-reconciliation/FinancialAuditTimeline";
+import RevenueSeparationPanel from "@/components/admin/financial-control/RevenueSeparationPanel";
+import ConfidenceDistributionPanel from "@/components/admin/financial-control/ConfidenceDistributionPanel";
+import PayoutReadinessPanel from "@/components/admin/financial-control/PayoutReadinessPanel";
+import IntegrityScorePanel from "@/components/admin/financial-control/IntegrityScorePanel";
+import PromotionReadinessTracker from "@/components/admin/financial-control/PromotionReadinessTracker";
+import RemediationPlanningPanel from "@/components/admin/financial-control/RemediationPlanningPanel";
+
+export default function AdminFinancialControlCenter() {
+  const { data, isLoading } = useQuery({ queryKey: ["admin-financial-control-center"], queryFn: loadFinancialControlCenterData });
+
+  if (isLoading) return <div className="p-6 text-white/60">Loading financial control center…</div>;
+
+  return (
+    <div className="space-y-5 animate-fade-in-up">
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Convergence Sprint 1 · Read-only</p>
+          <h1 className="text-3xl font-bold text-white mt-1">Unified Financial Control Center</h1>
+          <p className="text-sm text-muted-foreground mt-2 max-w-4xl">Central review workspace for reconciliation, confidence, payout readiness, exceptions, audit history, remediation planning, promotion readiness, and standardized exports. No Stripe, payout, booking, or legacy-row mutations are available here.</p>
+        </div>
+        <button onClick={() => downloadCsv(data?.standardizedExportRows || [], `financial-control-center-${new Date().toISOString().slice(0, 10)}.csv`)} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white/70 hover:bg-white/10">
+          <Download className="h-4 w-4" /> Export standardized CSV
+        </button>
+      </div>
+
+      <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 flex items-start gap-3">
+        <Lock className="h-5 w-5 text-primary mt-0.5" />
+        <div>
+          <p className="font-bold text-white">Safety lock active</p>
+          <p className="text-sm text-white/55">Read-only, rollback-safe, non-executable, no Stripe mutation, no payout execution, no booking mutation, no automatic remediation.</p>
+        </div>
+      </div>
+
+      <IntegrityScorePanel integrity={data?.financialIntegrityScore} recommendation={data?.convergenceRecommendation} />
+      <RevenueSeparationPanel revenue={data?.revenueSeparation} />
+      <FinancialIntegrityDashboard summary={data?.summary} />
+      <PaymentReconciliationKpis summary={data?.summary} />
+      <PayoutReadinessPanel metrics={data?.payoutReadinessMetrics} />
+      <ConfidenceDistributionPanel distribution={data?.confidenceDistribution} records={data?.unifiedConfidenceRecords || []} />
+      <FinancialExceptionRegistry exceptions={data?.exceptionRegistry || []} />
+      <BookingStateReviewPanel rows={data?.issueRows || []} />
+      <HistoricalPayoutBackfillPreview rows={data?.payoutBackfillCandidates || []} />
+      <RemediationPlanningPanel actions={data?.recommendedCleanupActions || []} legacyRows={data?.legacyClassifications || []} />
+      <PromotionReadinessTracker items={data?.promotionReadiness || []} />
+      <FinancialAuditTimeline events={data?.auditTimeline || []} />
+    </div>
+  );
+}
