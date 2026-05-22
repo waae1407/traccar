@@ -49,6 +49,12 @@ const operationsNavItems = [
   { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
 ];
 
+const previewNavItems = [
+  { label: "Expenses Preview", icon: Eye, path: "/admin/expenses-preview" },
+  { label: "Maintenance V2 Preview", icon: Eye, path: "/admin/maintenance-v2" },
+  { label: "Recurring Expenses Preview", icon: Eye, path: "/admin/recurring-expenses-preview" },
+];
+
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
   const { isSuperadmin } = useTenant();
@@ -140,6 +146,20 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                   isActive ? "nav-active shadow-glow-sm" : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]")}>
                 <item.icon className={cn("flex-shrink-0 relative z-10", isActive ? "text-primary" : "text-white/40 group-hover:text-white/70")} style={{ height: '1.125rem', width: '1.125rem' }} />
                 {!collapsed && <span className="relative z-10">{item.label}</span>}
+                {isActive && !collapsed && <div className="ml-auto relative z-10 h-1.5 w-1.5 rounded-full bg-primary" />}
+              </Link>
+            );
+          })}
+          {!collapsed && <div className="my-2 border-t border-white/[0.06]" />}
+          {!collapsed && <p className="text-[10px] font-semibold uppercase tracking-widest text-primary/50 px-3 mb-2 mt-1">Admin Preview</p>}
+          {previewNavItems.map((item) => {
+            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+            return (
+              <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
+                className={cn("group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden",
+                  isActive ? "nav-active shadow-glow-sm" : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]")}>
+                <item.icon className={cn("flex-shrink-0 relative z-10", isActive ? "text-primary" : "text-white/40 group-hover:text-white/70")} style={{ height: '1.125rem', width: '1.125rem' }} />
+                {!collapsed && <span className="relative z-10 text-xs">{item.label}</span>}
                 {isActive && !collapsed && <div className="ml-auto relative z-10 h-1.5 w-1.5 rounded-full bg-primary" />}
               </Link>
             );
