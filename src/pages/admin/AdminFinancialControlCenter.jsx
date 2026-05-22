@@ -20,6 +20,7 @@ import RemediationSimulationTools from "@/components/admin/financial-control/Rem
 import RemediationQueuePanel from "@/components/admin/financial-control/RemediationQueuePanel";
 import ExposureForecastPanel from "@/components/admin/financial-control/ExposureForecastPanel";
 import SimulationAuditPanel from "@/components/admin/financial-control/SimulationAuditPanel";
+import GlobalGovernanceBanner from "@/components/admin/governance/GlobalGovernanceBanner";
 
 export default function AdminFinancialControlCenter() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-financial-control-center"], queryFn: loadFinancialControlCenterData });
@@ -39,6 +40,8 @@ export default function AdminFinancialControlCenter() {
           <Download className="h-4 w-4" /> Export standardized CSV
         </button>
       </div>
+
+      <GlobalGovernanceBanner />
 
       <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 flex items-start gap-3">
         <Lock className="h-5 w-5 text-primary mt-0.5" />

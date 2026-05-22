@@ -12,6 +12,7 @@ import BookingStateReviewPanel from "@/components/admin/payment-reconciliation/B
 import FinancialIntegrityDashboard from "@/components/admin/payment-reconciliation/FinancialIntegrityDashboard";
 import FinancialExceptionRegistry from "@/components/admin/payment-reconciliation/FinancialExceptionRegistry";
 import FinancialAuditTimeline from "@/components/admin/payment-reconciliation/FinancialAuditTimeline";
+import GlobalGovernanceBanner from "@/components/admin/governance/GlobalGovernanceBanner";
 
 function csvEscape(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -23,7 +24,8 @@ function downloadCsv(rows) {
     "payment_log_id", "booking_request_id", "host_id", "vehicle_id", "customer_id", "customer_email",
     "amount", "expected_amount", "amount_delta", "paid_date", "week_number",
     "billing_period_start", "billing_period_end", "payment_method", "source_type", "source_confidence",
-    "legacy_flag", "external_reconcilable", "external_reference", "stripe_payment_intent_id", "stripe_charge_id"
+    "legacy_flag", "external_reconcilable", "external_reference", "stripe_payment_intent_id", "stripe_charge_id",
+    "standardized_source_label", "synthesized_flag", "rollback_classification", "blocker_state", "reconciliation_status"
   ];
   const csvRows = rows.flatMap((row) => {
     const issues = row.issueTypes?.length ? row.issueTypes : [""];
@@ -57,6 +59,11 @@ function downloadCsv(rows) {
       row.payment?.external_reference || "",
       row.payment?.stripe_payment_intent_id || "",
       row.payment?.stripe_charge_id || "",
+      row.payment?.source_type || row.payment?.payment_method || "unknown",
+      row.payout?._synthesized ? "true" : "false",
+      row.confidence === "trusted" ? "rollback_safe" : "review_required",
+      row.blockers?.length ? "blocked" : (row.issueTypes?.length ? "open" : "clear"),
+      row.reviewState || "pending_review",
     ]);
   });
   const csv = [headers.join(","), ...csvRows.map((values) => values.map(csvEscape).join(","))].join("\n");
@@ -103,6 +110,8 @@ export default function AdminPaymentReconciliationPreview() {
 
   return (
     <div className="space-y-5 animate-fade-in-up">
+      <GlobalGovernanceBanner />
+
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Read-only preview</p>
