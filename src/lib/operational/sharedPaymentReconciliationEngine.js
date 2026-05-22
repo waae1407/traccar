@@ -1,4 +1,5 @@
 import { base44 } from "@/api/base44Client";
+import { classifyPaymentConfidence, getRecommendedPaymentAction } from "@/lib/operational/paymentConfidenceRules";
 
 const MONEY_TOLERANCE = 0.05;
 const SUCCESS_STATUSES = new Set(["paid"]);
@@ -17,18 +18,6 @@ function expectedAmountForPayment(payment, booking) {
   if (!booking) return 0;
   if (toNumber(payment.week_number) > 1 && booking.weekly_rate) return toNumber(booking.weekly_rate);
   return toNumber(booking.total_due_now || booking.first_payment_amount || booking.weekly_rate || 0);
-}
-
-function classifyConfidence(payment, issues) {
-  if (issues.includes("duplicate_risk")) return "duplicate_risk";
-  if (issues.includes("booking_state_mismatch")) return "booking_state_mismatch";
-  if (PROBLEM_PAYMENT_STATUSES.has(payment.status)) return "failed_or_refunded";
-  if (payment.source_type === "backfill" || payment.legacy_flag) return "backfill";
-  if (["zelle", "cash", "cashapp", "venmo", "check", "other"].includes(payment.payment_method) && !payment.stripe_payment_intent_id) return "manual_payment";
-  if (payment.source_confidence) return payment.source_confidence;
-  if (payment.stripe_payment_intent_id) return "trusted";
-  if (issues.includes("missing_stripe_id")) return "missing_stripe_id";
-  return "unresolved";
 }
 
 function addIssue(issues, type, severity, message) {
@@ -107,9 +96,9 @@ export function reconcilePayments({ payments = [], bookings = [], payouts = [], 
     if (isSuccessful && relatedDisputes.length > 0) addIssue(issues, "dispute_linked_paid_payment", "critical", "Paid payment is linked to one or more disputes.");
 
     issues.forEach((issue) => issueTypes.push(issue.type));
-    const confidence = classifyConfidence(payment, issueTypes);
+    const confidence = classifyPaymentConfidence(payment, issueTypes);
 
-    return {
+    const row = {
       id: payment.id,
       payment,
       booking,
@@ -125,7 +114,11 @@ export function reconcilePayments({ payments = [], bookings = [], payouts = [], 
       relatedPayoutCount: relatedPayouts.length,
       relatedDisputeCount: relatedDisputes.length,
       paidDate: payment.paid_at || payment.created_date,
+      recommendedAction: "",
     };
+
+    row.recommendedAction = getRecommendedPaymentAction(row);
+    return row;
   });
 
   const paidPaymentBookingIds = new Set(payments.filter((payment) => norm(payment.status) === "paid").map((payment) => payment.booking_request_id).filter(Boolean));
@@ -139,6 +132,7 @@ export function reconcilePayments({ payments = [], bookings = [], payouts = [], 
         severity: "critical",
         issueTypes: ["booking_paid_no_successful_paymentlog"],
         issues: [{ type: "booking_paid_no_successful_paymentlog", severity: "critical", message: "Booking is marked paid with no successful PaymentLog." }],
+        recommendedAction: "Review booking payment state; do not treat as paid until a source payment is confirmed.",
         expectedAmount: toNumber(booking.total_due_now || booking.weekly_rate || 0),
         collectedAmount: 0,
         amountDelta: -toNumber(booking.total_due_now || booking.weekly_rate || 0),
@@ -158,6 +152,7 @@ export function reconcilePayments({ payments = [], bookings = [], payouts = [], 
       severity: "critical",
       issueTypes: ["host_payout_without_source_paymentlog"],
       issues: [{ type: "host_payout_without_source_paymentlog", severity: "critical", message: "HostPayout has no successful source PaymentLog for its booking." }],
+      recommendedAction: "Review payout source; link to payment evidence before authoritative payout reporting.",
       expectedAmount: toNumber(payout.gross_booking_amount || payout.gross_collected || 0),
       collectedAmount: 0,
       amountDelta: 0,
@@ -167,6 +162,39 @@ export function reconcilePayments({ payments = [], bookings = [], payouts = [], 
 
   const issueRows = [...paymentRows.filter((row) => row.issues.length > 0), ...bookingIssues, ...payoutIssues];
   const countRows = (predicate) => paymentRows.filter(predicate).length;
+  const successfulPaymentRows = paymentRows.filter((row) => row.payment?.status === "paid");
+  const authoritativeRows = successfulPaymentRows.filter((row) => row.confidence === "trusted");
+  const nonAuthoritativeRows = successfulPaymentRows.filter((row) => row.confidence !== "trusted");
+  const stripeRows = successfulPaymentRows.filter((row) => row.payment?.stripe_payment_intent_id || row.payment?.stripe_charge_id);
+  const manualBackfillRows = successfulPaymentRows.filter((row) => row.issueTypes.includes("manual_payment") || row.issueTypes.includes("backfill"));
+  const unresolvedRows = successfulPaymentRows.filter((row) => row.confidence === "unresolved");
+  const coveredPayoutRows = successfulPaymentRows.filter((row) => row.relatedPayoutCount > 0);
+
+  const sumRows = (rows) => rows.reduce((total, row) => total + toNumber(row.collectedAmount), 0);
+
+  const historicalPayoutBackfillPreviewRows = successfulPaymentRows
+    .filter((row) => row.relatedPayoutCount === 0)
+    .map((row) => {
+      const grossAmount = toNumber(row.collectedAmount);
+      const platformFeeRate = toNumber(row.host?.commission_rate || 0.08);
+      const estimatedPlatformFee = grossAmount * platformFeeRate;
+      return {
+        _previewOnly: true,
+        _nonExecutable: true,
+        sourcePaymentId: row.payment.id,
+        hostId: row.payment.host_id || row.booking?.host_id || row.host?.id,
+        hostName: row.host?.business_name || row.host?.full_name || row.host?.email,
+        bookingId: row.payment.booking_request_id || row.booking?.id,
+        vehicleId: row.payment.vehicle_id || row.booking?.vehicle_id,
+        weekNumber: row.payment.week_number,
+        grossAmount,
+        estimatedPlatformFee,
+        estimatedHostPayout: Math.max(0, grossAmount - estimatedPlatformFee),
+        confidence: row.confidence,
+        safetyReason: row.confidence === "trusted" ? "Potentially safe after admin confirms no prior external payout." : "Unsafe until source evidence, booking state, and payout history are reviewed.",
+        hasStripeTransferEvidence: Boolean(row.payment.stripe_balance_transaction_id || row.payment.stripe_charge_id || row.payment.stripe_payment_intent_id),
+      };
+    });
 
   const issueCategories = issueRows.reduce((acc, row) => {
     row.issueTypes.forEach((type) => {
@@ -206,7 +234,18 @@ export function reconcilePayments({ payments = [], bookings = [], payouts = [], 
       bookingMismatchRows: countRows((row) => row.issueTypes.includes("booking_state_mismatch") || row.issueTypes.includes("successful_payment_booking_not_paid")),
       payoutMissingRows: countRows((row) => row.issueTypes.includes("missing_host_payout")),
       issueRows: issueRows.length,
+      authoritativeCollectedTotal: sumRows(authoritativeRows),
+      nonAuthoritativeCollectedTotal: sumRows(nonAuthoritativeRows),
+      stripeReconciledTotal: sumRows(stripeRows),
+      manualBackfillTotal: sumRows(manualBackfillRows),
+      unresolvedTotal: sumRows(unresolvedRows),
+      payoutCoveragePercent: successfulPaymentRows.length ? (coveredPayoutRows.length / successfulPaymentRows.length) * 100 : 0,
+      reconciliationConfidencePercent: paymentRows.length ? (authoritativeRows.length / paymentRows.length) * 100 : 0,
+      trustedRows: countRows((row) => row.confidence === "trusted"),
+      partiallyTrustedRows: countRows((row) => row.confidence === "partially_trusted"),
+      excludedRows: countRows((row) => row.confidence === "excluded"),
     },
+    historicalPayoutBackfillPreviewRows,
     issueCategories,
     paymentRows,
     issueRows,

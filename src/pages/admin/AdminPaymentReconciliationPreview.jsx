@@ -5,24 +5,54 @@ import { loadPaymentReconciliationData } from "@/lib/operational/sharedPaymentRe
 import PaymentReconciliationKpis from "@/components/admin/payment-reconciliation/PaymentReconciliationKpis";
 import PaymentReconciliationFilters from "@/components/admin/payment-reconciliation/PaymentReconciliationFilters";
 import PaymentIssueTable from "@/components/admin/payment-reconciliation/PaymentIssueTable";
+import ReconciliationTotals from "@/components/admin/payment-reconciliation/ReconciliationTotals";
+import AdminReviewQueue from "@/components/admin/payment-reconciliation/AdminReviewQueue";
+import HistoricalPayoutBackfillPreview from "@/components/admin/payment-reconciliation/HistoricalPayoutBackfillPreview";
+import BookingStateReviewPanel from "@/components/admin/payment-reconciliation/BookingStateReviewPanel";
 
 function csvEscape(value) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
 function downloadCsv(rows) {
-  const headers = ["severity", "confidence", "issue_types", "booking_request_id", "payment_log_id", "customer_email", "expected_amount", "collected_amount", "paid_date"];
-  const csv = [headers.join(","), ...rows.map((row) => [
-    row.severity,
-    row.confidence,
-    row.issueTypes.join("|"),
-    row.payment?.booking_request_id || row.booking?.id || row.payout?.booking_request_id || "",
-    row.payment?.id || "",
-    row.payment?.customer_email || row.booking?.user_email || "",
-    row.expectedAmount,
-    row.collectedAmount,
-    row.paidDate ? String(row.paidDate).slice(0, 10) : "",
-  ].map(csvEscape).join(","))].join("\n");
+  const headers = [
+    "severity", "confidence", "issue_type", "recommended_action",
+    "payment_log_id", "booking_request_id", "host_id", "vehicle_id", "customer_id", "customer_email",
+    "amount", "expected_amount", "amount_delta", "paid_date", "week_number",
+    "billing_period_start", "billing_period_end", "payment_method", "source_type", "source_confidence",
+    "legacy_flag", "external_reconcilable", "external_reference", "stripe_payment_intent_id", "stripe_charge_id"
+  ];
+  const csvRows = rows.flatMap((row) => {
+    const issues = row.issueTypes?.length ? row.issueTypes : [""];
+    return issues.map((issueType) => [
+      row.severity,
+      row.confidence,
+      issueType,
+      row.recommendedAction || "",
+      row.payment?.id || "",
+      row.payment?.booking_request_id || row.booking?.id || row.payout?.booking_request_id || "",
+      row.payment?.host_id || row.booking?.host_id || row.payout?.host_id || "",
+      row.payment?.vehicle_id || row.booking?.vehicle_id || "",
+      row.payment?.customer_id || row.booking?.user_id || "",
+      row.payment?.customer_email || row.booking?.user_email || "",
+      row.collectedAmount,
+      row.expectedAmount,
+      row.amountDelta,
+      row.paidDate ? String(row.paidDate).slice(0, 10) : "",
+      row.payment?.week_number || "",
+      row.payment?.billing_period_start || row.payout?.period_start || "",
+      row.payment?.billing_period_end || row.payout?.period_end || "",
+      row.payment?.payment_method || "",
+      row.payment?.source_type || "",
+      row.payment?.source_confidence || "",
+      row.payment?.legacy_flag ?? "",
+      row.payment?.external_reconcilable ?? "",
+      row.payment?.external_reference || "",
+      row.payment?.stripe_payment_intent_id || "",
+      row.payment?.stripe_charge_id || "",
+    ]);
+  });
+  const csv = [headers.join(","), ...csvRows.map((values) => values.map(csvEscape).join(","))].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -78,6 +108,10 @@ export default function AdminPaymentReconciliationPreview() {
       </div>
 
       <PaymentReconciliationKpis summary={data?.summary} />
+      <ReconciliationTotals summary={data?.summary} />
+      <AdminReviewQueue rows={data?.issueRows || []} />
+      <BookingStateReviewPanel rows={data?.issueRows || []} />
+      <HistoricalPayoutBackfillPreview rows={data?.historicalPayoutBackfillPreviewRows || []} />
 
       <div className="glass rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3 text-white font-semibold"><ShieldAlert className="h-4 w-4 text-primary" /> Recommended cleanup actions</div>
