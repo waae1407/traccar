@@ -7,7 +7,7 @@ export default function PrototypeFilters({ filters, onChange, hosts = [], vehicl
   const set = (key, value) => onChange({ ...filters, [key]: value });
 
   return (
-    <div className="glass rounded-2xl p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+    <div className="rounded-3xl border border-white/[0.08] bg-white/[0.04] p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3 shadow-card">
       <input className={`${inputClass} xl:col-span-2`} placeholder="Search" value={filters.search || ""} onChange={(event) => set("search", event.target.value)} />
       <select className={inputClass} value={filters.hostId || ""} onChange={(event) => set("hostId", event.target.value)}>
         <option value="">All hosts</option>

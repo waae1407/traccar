@@ -7,14 +7,14 @@ const ITEMS = [
   ["excludedPercent", "Excluded"],
   ["payoutCoveragePercent", "Payout coverage"],
   ["stripeLinkedPaymentPercent", "Stripe-linked payments"],
-  ["exportCertificationPercent", "Export certification"],
-  ["rollbackCertificationPercent", "Rollback certification"],
+  ["exportCertificationPercent", "Export readiness"],
+  ["rollbackCertificationPercent", "Rollback readiness"],
 ];
 
 export default function TrustedDataProgressTracker({ progress = {} }) {
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold mb-3">Trusted Data Progress Tracking</p>
+      <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold mb-3">Data Quality</p>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {ITEMS.map(([key, label]) => (
           <div key={key} className="rounded-xl bg-white/[0.04] border border-white/[0.08] p-3">

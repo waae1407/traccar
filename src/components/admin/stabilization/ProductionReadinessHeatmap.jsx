@@ -10,7 +10,7 @@ const colorMap = {
 export default function ProductionReadinessHeatmap({ heatmap = [] }) {
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold mb-3">Production Readiness Heatmap</p>
+      <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold mb-3">Operational Readiness</p>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {heatmap.map((item) => (
           <div key={item.area} className={`rounded-xl border p-3 ${colorMap[item.status] || colorMap.unresolved}`}>

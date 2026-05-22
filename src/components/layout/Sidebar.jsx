@@ -21,7 +21,7 @@ const navItems = [
   { label: "Bookings", icon: CalendarDays, path: "/bookings-admin" },
   { label: "Payments", icon: DollarSign, path: "/payments" },
   { label: "Rent-to-Own", icon: FileKey, path: "/rent-to-own" },
-  { label: "Maintenance", icon: Wrench, path: "/maintenance" },
+  { label: "Maintenance", icon: Wrench, path: "/admin/maintenance" },
   { label: "Reports", icon: BarChart3, path: "/reports" },
   { label: "P&L Dashboard 💰", icon: BarChart3, path: "/admin/pnl" },
   { label: "Referrals 🎁", icon: Gift, path: "/referrals" },

@@ -22,11 +22,11 @@ export default function RemediationSimulationTools({ scenarios = [], readinessSc
     <div className="glass rounded-2xl p-4">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Remediation Simulation Tools</p>
-          <p className="text-sm text-white/45 mt-1">Preview-only scenarios for cleanup outcomes. No writes or executions.</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Planning Tools</p>
+          <p className="text-sm text-white/45 mt-1">Review projected cleanup outcomes and operational impact.</p>
         </div>
         <div className="rounded-xl bg-primary/10 border border-primary/20 px-4 py-2 text-right">
-          <p className="text-xs text-primary font-bold uppercase">Remediation readiness</p>
+          <p className="text-xs text-primary font-bold uppercase">Readiness</p>
           <p className="text-2xl font-black text-white">{Math.round(readinessScore)}%</p>
         </div>
       </div>

@@ -191,6 +191,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/payouts" element={<AdminPayouts />} />
         <Route path="/admin/expenses" element={<AdminExpenses />} />
         <Route path="/admin/expenses-preview" element={<AdminExpenses />} />
+        <Route path="/admin/maintenance" element={<AdminMaintenanceV2 />} />
         <Route path="/admin/maintenance-v2" element={<AdminMaintenanceV2 />} />
         <Route path="/admin/recurring-expenses" element={<AdminRecurringExpenses />} />
         <Route path="/admin/recurring-expenses-preview" element={<AdminRecurringExpenses />} />

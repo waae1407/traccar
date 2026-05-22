@@ -7,11 +7,11 @@ function formatValue(value, type) {
 
 export default function PrototypeMetricGrid({ metrics = [] }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {metrics.map((metric) => (
-        <div key={metric.label} className="glass rounded-2xl p-5">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">{metric.label}</p>
-          <p className="text-2xl font-bold text-foreground mt-2">{formatValue(metric.value, metric.type)}</p>
+        <div key={metric.label} className="rounded-3xl border border-white/[0.08] bg-white/[0.04] p-4 shadow-card">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{metric.label}</p>
+          <p className="text-2xl font-black text-foreground mt-2 font-syne">{formatValue(metric.value, metric.type)}</p>
           {metric.note && <p className="text-xs text-muted-foreground mt-1">{metric.note}</p>}
         </div>
       ))}

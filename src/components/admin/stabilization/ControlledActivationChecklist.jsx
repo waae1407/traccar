@@ -3,7 +3,7 @@ import React from "react";
 export default function ControlledActivationChecklist({ checklists = [] }) {
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold mb-3">Controlled Activation Checklist</p>
+      <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold mb-3">Operational Checklist</p>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
         {checklists.map((item) => (
           <div key={item.module} className="rounded-xl bg-white/[0.04] border border-white/[0.08] p-3">

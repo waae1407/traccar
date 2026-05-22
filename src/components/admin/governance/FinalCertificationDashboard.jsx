@@ -23,8 +23,8 @@ export default function FinalCertificationDashboard({ certification = {}, exposu
     <div className="glass rounded-2xl p-4">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Final Readiness Certification Dashboard</p>
-          <p className="text-sm text-white/45 mt-1">Dry-run validation only — no financial actions or data mutations executed.</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-primary font-bold">Operational Readiness</p>
+          <p className="text-sm text-white/45 mt-1">Readiness, reconciliation, export consistency, and reviewer coverage.</p>
         </div>
         <span className={`rounded-full border px-3 py-1 text-sm font-bold ${statusClass(certification.status)}`}>{String(certification.status || "blocked").replaceAll("_", " ")}</span>
       </div>
@@ -41,7 +41,7 @@ export default function FinalCertificationDashboard({ certification = {}, exposu
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3 text-sm">
         <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 text-white/60">Operational integrity: {Math.round(governance.scores?.operationalIntegrityScore || 0)}%</div>
         <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 text-white/60">Unresolved exposure: ${Math.round((exposure.unresolvedPayoutExposure || 0) + (exposure.unresolvedStripeReconciliationExposure || 0)).toLocaleString()}</div>
-        <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 text-white/60">Governance confidence: {certification.averageScore || 0}%</div>
+        <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 text-white/60">Operational confidence: {certification.averageScore || 0}%</div>
       </div>
     </div>
   );

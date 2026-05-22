@@ -361,7 +361,7 @@ export default function Payments() {
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white/70 bg-white/[0.06] border border-white/[0.1] hover:bg-white/10 transition-all disabled:opacity-50"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${backfilling ? "animate-spin" : ""}`} />
-          {backfilling ? "Backfilling…" : "Backfill Payment History"}
+          {backfilling ? "Updating…" : "Sync Payment History"}
         </button>
       </div>
 
