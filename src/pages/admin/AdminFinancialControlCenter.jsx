@@ -21,6 +21,13 @@ import RemediationQueuePanel from "@/components/admin/financial-control/Remediat
 import ExposureForecastPanel from "@/components/admin/financial-control/ExposureForecastPanel";
 import SimulationAuditPanel from "@/components/admin/financial-control/SimulationAuditPanel";
 import GlobalGovernanceBanner from "@/components/admin/governance/GlobalGovernanceBanner";
+import DailyStabilizationOperationsDashboard from "@/components/admin/stabilization/DailyStabilizationOperationsDashboard";
+import ReviewerTaskQueues from "@/components/admin/stabilization/ReviewerTaskQueues";
+import TrustedDataProgressTracker from "@/components/admin/stabilization/TrustedDataProgressTracker";
+import ControlledActivationChecklist from "@/components/admin/stabilization/ControlledActivationChecklist";
+import ReviewerSignoffSimulation from "@/components/admin/stabilization/ReviewerSignoffSimulation";
+import ProductionReadinessHeatmap from "@/components/admin/stabilization/ProductionReadinessHeatmap";
+import StabilizationExportPanel from "@/components/admin/stabilization/StabilizationExportPanel";
 
 export default function AdminFinancialControlCenter() {
   const { data, isLoading } = useQuery({ queryKey: ["admin-financial-control-center"], queryFn: loadFinancialControlCenterData });
@@ -52,6 +59,13 @@ export default function AdminFinancialControlCenter() {
       </div>
 
       <IntegrityScorePanel integrity={data?.financialIntegrityScore} recommendation={simulationData?.recommendation || data?.convergenceRecommendation} />
+      <DailyStabilizationOperationsDashboard metrics={data?.dailyOperationsMetrics} />
+      <ReviewerTaskQueues queues={data?.reviewerTaskQueues || []} />
+      <TrustedDataProgressTracker progress={data?.trustedDataProgress} />
+      <ControlledActivationChecklist checklists={data?.activationChecklists || []} />
+      <ReviewerSignoffSimulation signoffs={data?.reviewerSignoffSimulation || []} />
+      <ProductionReadinessHeatmap heatmap={data?.productionReadinessHeatmap || []} />
+      <StabilizationExportPanel exports={data?.stabilizationExports || {}} />
       <RemediationSimulationTools scenarios={simulationData?.scenarios || []} readinessScore={simulationData?.remediationReadinessScore || 0} recommendation={simulationData?.recommendation} />
       <ExposureForecastPanel forecast={simulationData?.exposureForecast} conflicts={simulationData?.conflictCategories || []} />
       <RemediationQueuePanel queue={simulationData?.remediationQueue} />

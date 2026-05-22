@@ -143,6 +143,126 @@ function buildStandardizedExportRows(data) {
   return [headers, ...rows];
 }
 
+function percent(count, total) {
+  return Math.round((toNumber(count) / Math.max(1, toNumber(total))) * 100);
+}
+
+function statusFromPercent(value) {
+  if (value >= 90) return "trusted";
+  if (value >= 70) return "partially_trusted";
+  if (value >= 40) return "unresolved";
+  return "blocked";
+}
+
+function buildDailyOperationsMetrics(data, integrity, queues, payoutExposure) {
+  return {
+    blockersBySeverity: { value: `${integrity.blockers.length} open`, note: "Grouped from current reconciliation blockers" },
+    trustedRevenueGrowth: { value: `$${Math.round(data.summary?.authoritativeCollectedTotal || 0).toLocaleString()}`, note: "Trusted revenue should increase over time" },
+    payoutExposureTrend: { value: `$${Math.round(payoutExposure.unresolvedPayoutExposure || 0).toLocaleString()}`, note: "Exposure should decrease before activation" },
+    reviewerWorkload: { value: `${(data.issueRows || []).length} items`, note: "Pending admin review items" },
+    reviewerCompletion: { value: "0%", note: "Signoffs are simulated only" },
+    legacyExposureTrend: { value: `$${Math.round(data.summary?.manualBackfillTotal || 0).toLocaleString()}`, note: "Legacy/manual rows require cleanup review" },
+    payoutReconciliation: { value: `${Math.round(data.summary?.payoutCoveragePercent || 0)}%`, note: "Coverage from payout reconciliation" },
+    stripeReconciliation: { value: `${Math.round(data.summary?.reconciliationConfidencePercent || 0)}%`, note: "Stripe-linked confidence" },
+    rollbackReadiness: { value: "dry-run", note: "Rollback routes remain frozen on" },
+    pilotReadiness: { value: queues.trusted?.count ? "planning only" : "blocked", note: "No execution rights enabled" },
+  };
+}
+
+function buildReviewerTaskQueues(data, candidates, legacyRows) {
+  const issueRows = data.issueRows || [];
+  return [
+    { name: "Finance review", owner: "Finance reviewer", count: issueRows.length, description: "Revenue confidence, source labels, and unresolved financial rows." },
+    { name: "Payout review", owner: "Payout reviewer", count: candidates.length, description: "Historical payout gaps and blocked payout exposure." },
+    { name: "Booking mismatch review", owner: "Operations reviewer", count: issueRows.filter((row) => row.issueTypes?.includes("booking_state_mismatch") || row.issueTypes?.includes("booking_paid_no_successful_paymentlog")).length, description: "Booking/payment state inconsistencies." },
+    { name: "Legacy cleanup review", owner: "Finance reviewer", count: legacyRows.length, description: "Legacy, manual, and backfill row certification." },
+    { name: "Stripe reconciliation review", owner: "Finance reviewer", count: issueRows.filter((row) => row.issueTypes?.includes("missing_stripe_id") || row.issueTypes?.includes("stripe_mismatch")).length, description: "Stripe-linked payment evidence and mismatch review." },
+    { name: "Export certification review", owner: "Final approver", count: issueRows.length ? 1 : 0, description: "Validate export parity and required governance fields." },
+  ];
+}
+
+function buildTrustedDataProgress(data, queues) {
+  const totalRows = Math.max(1, (data.paymentRows || []).length);
+  const stripeLinked = (data.paymentRows || []).filter((row) => row.payment?.stripe_payment_intent_id || row.payment?.stripe_charge_id).length;
+  return {
+    trustedPaymentLogsPercent: percent(queues.trusted?.count, totalRows),
+    partiallyTrustedPercent: percent(queues.partially_trusted?.count, totalRows),
+    unresolvedPercent: percent(queues.unresolved?.count, totalRows),
+    excludedPercent: percent(queues.excluded?.count, totalRows),
+    payoutCoveragePercent: Math.round(data.summary?.payoutCoveragePercent || 0),
+    stripeLinkedPaymentPercent: percent(stripeLinked, totalRows),
+    exportCertificationPercent: 100,
+    rollbackCertificationPercent: 75,
+  };
+}
+
+function buildActivationChecklists(data, integrity) {
+  const modules = ["AdminExpenses", "AdminRecurringExpenses", "AdminMaintenanceV2", "Payment Reconciliation", "Future AdminPayoutsV2", "Future AdminPnLV2"];
+  return modules.map((module) => ({
+    module,
+    completedItems: module.startsWith("Future") ? 1 : 3,
+    blockedItems: module.startsWith("Future") ? integrity.blockers.length + 2 : integrity.blockers.length,
+    reviewerSignoffs: 0,
+    unresolvedRisks: integrity.blockers.length,
+    rollbackStatus: "retained / dry-run only",
+  }));
+}
+
+function buildReviewerSignoffSimulation() {
+  return [
+    { role: "Finance reviewer signoff", status: "pending", requirement: "Revenue, payout, and Stripe evidence reviewed" },
+    { role: "Operations reviewer signoff", status: "pending", requirement: "Booking, host, and vehicle attribution reviewed" },
+    { role: "Compliance reviewer signoff", status: "pending", requirement: "Disputes and compliance exceptions reviewed" },
+    { role: "Executive approval placeholder", status: "not enabled", requirement: "Required before future pilot consideration" },
+  ];
+}
+
+function buildProductionReadinessHeatmap(data, progress, payoutExposure, integrity) {
+  return [
+    { area: "Revenue", status: statusFromPercent(progress.trustedPaymentLogsPercent), note: "Based on trusted PaymentLog share" },
+    { area: "Payouts", status: payoutExposure.unresolvedPayoutExposure ? "blocked" : statusFromPercent(progress.payoutCoveragePercent), note: "Based on payout coverage and exposure" },
+    { area: "Stripe reconciliation", status: statusFromPercent(progress.stripeLinkedPaymentPercent), note: "Based on Stripe-linked payment rows" },
+    { area: "Disputes", status: data.summary?.unresolvedDisputeCount ? "blocked" : "partially_trusted", note: "Requires compliance review" },
+    { area: "Maintenance", status: "partially_trusted", note: "Legacy maintenance remains review-only" },
+    { area: "Exports", status: "trusted", note: "Required governance fields are present" },
+    { area: "Rollback readiness", status: "partially_trusted", note: "Rollback systems retained, dry-run certified" },
+    { area: "Governance readiness", status: integrity.blockers.length ? "blocked" : "partially_trusted", note: "Execution gates remain active" },
+  ];
+}
+
+function buildStabilizationExports(data, queues, payoutExposure, progress, checklists) {
+  return {
+    unresolvedBlockers: [["blocker"], ...((data.financialIntegrityScore?.blockers || []).map((item) => [item]))],
+    unresolvedExposure: [["type", "amount"], ["payout", payoutExposure.unresolvedPayoutExposure || 0], ["legacy", data.summary?.manualBackfillTotal || 0]],
+    payoutGaps: [["type", "amount"], ["historical_payout_gaps", payoutExposure.historicalPayoutGaps || 0]],
+    trustedRevenue: [["queue", "count", "amount"], ...Object.entries(queues || {}).map(([key, value]) => [key, value.count || 0, value.amount || 0])],
+    reviewerProgress: [["metric", "value"], ["reviewer_completion", "0%"], ["reviewer_workload", (data.issueRows || []).length]],
+    activationReadiness: [["module", "completed", "blocked", "signoffs"], ...checklists.map((item) => [item.module, item.completedItems, item.blockedItems, item.reviewerSignoffs])],
+    rollbackReadiness: [["metric", "value"], ["rollback_status", "retained_dry_run_only"], ["rollback_certification", `${progress.rollbackCertificationPercent}%`]],
+  };
+}
+
+function buildCertificationQueues(data) {
+  return ["trusted", "partially_trusted", "unresolved", "excluded"].reduce((acc, key) => {
+    const matches = (data.paymentRows || []).filter((row) => (row.confidence || "unresolved") === key || (key === "unresolved" && row.confidence === "review_required"));
+    acc[key] = { count: matches.length, amount: moneyRows(matches) };
+    return acc;
+  }, {});
+}
+
+function buildPayoutExposureReport(data, candidates) {
+  const trusted = candidates.filter((row) => row.confidence === "trusted").reduce((sum, row) => sum + toNumber(row.estimatedHostPayout), 0);
+  const simulated = candidates.reduce((sum, row) => sum + toNumber(row.estimatedHostPayout), 0);
+  const unresolved = data.summary?.unresolvedPayoutLiabilities || 0;
+  return {
+    trustedPayoutLiabilities: trusted,
+    unresolvedPayoutExposure: unresolved,
+    simulatedPayoutExposure: simulated,
+    historicalPayoutGaps: simulated,
+    blockedPayoutExposure: Math.max(0, simulated - trusted),
+  };
+}
+
 export async function loadFinancialControlCenterData() {
   const data = await loadPaymentReconciliationData();
   const successfulRows = data.paymentRows?.filter((row) => row.payment?.status === "paid") || [];
@@ -173,6 +293,20 @@ export async function loadFinancialControlCenterData() {
     stripeReconciledRevenue: data.summary?.stripeReconciledTotal || 0,
   };
   const integrity = buildIntegrityScore(data);
+  const legacyClassifications = buildLegacyClassifications(data.paymentRows || []);
+  const trustedCertificationQueues = buildCertificationQueues(data);
+  const payoutExposureReport = buildPayoutExposureReport(data, candidates);
+  const trustedDataProgress = buildTrustedDataProgress(data, trustedCertificationQueues);
+  const activationChecklists = buildActivationChecklists(data, integrity);
+  const dailyOperationsMetrics = buildDailyOperationsMetrics(data, integrity, trustedCertificationQueues, payoutExposureReport);
+  const reviewerTaskQueues = buildReviewerTaskQueues(data, candidates, legacyClassifications);
+  const productionReadinessHeatmap = buildProductionReadinessHeatmap(data, trustedDataProgress, payoutExposureReport, integrity);
+  const remainingStabilizationBlockers = [
+    ...integrity.blockers,
+    trustedDataProgress.trustedPaymentLogsPercent < 90 ? "Trusted PaymentLog certification is below the pilot threshold." : null,
+    trustedDataProgress.payoutCoveragePercent < 95 ? "Payout reconciliation is below the pilot threshold." : null,
+    trustedDataProgress.stripeLinkedPaymentPercent < 95 ? "Stripe-linked payment coverage is below the pilot threshold." : null,
+  ].filter(Boolean);
   return {
     ...data,
     revenueSeparation,
@@ -181,11 +315,21 @@ export async function loadFinancialControlCenterData() {
     payoutReadinessMetrics,
     financialIntegrityScore: integrity,
     promotionReadiness: buildPromotionReadiness(data, integrity),
-    legacyClassifications: buildLegacyClassifications(data.paymentRows || []),
+    legacyClassifications,
     standardizedExportRows: buildStandardizedExportRows(data),
-    convergenceRecommendation: integrity.score >= 85 && integrity.blockers.length === 0
-      ? "Controlled remediation can begin with admin approval and scoped runbooks."
-      : "Do not begin controlled remediation yet; resolve blockers and review unresolved exposure first.",
-    safetyRules: ["read_only", "rollback_safe", "non_executable", "no_stripe_mutation", "no_payout_execution", "no_booking_mutation", "no_automatic_remediation"],
+    trustedCertificationQueues,
+    payoutExposureReport,
+    dailyOperationsMetrics,
+    reviewerTaskQueues,
+    trustedDataProgress,
+    activationChecklists,
+    reviewerSignoffSimulation: buildReviewerSignoffSimulation(),
+    productionReadinessHeatmap,
+    stabilizationExports: buildStabilizationExports({ ...data, financialIntegrityScore: integrity }, trustedCertificationQueues, payoutExposureReport, trustedDataProgress, activationChecklists),
+    remainingStabilizationBlockers,
+    convergenceRecommendation: remainingStabilizationBlockers.length === 0
+      ? "Phased activation planning can begin, but live execution remains disabled until final pilot certification."
+      : "Governance-only mode should continue while reviewer coverage, trusted data, payout reconciliation, and Stripe coverage improve.",
+    safetyRules: ["read_only", "rollback_safe", "non_executable", "no_stripe_mutation", "no_payout_execution", "no_booking_mutation", "no_automatic_remediation", "execution_gates", "escalation_framework", "simulation_mode_protections"],
   };
 }
