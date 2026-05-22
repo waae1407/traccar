@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { loadFinancialGovernanceData } from "@/lib/operational/financialGovernanceEngine";
+import { loadDryRunCertificationData } from "@/lib/operational/dryRunCertificationEngine";
 import RemediationSafetyBanner from "@/components/admin/remediation/RemediationSafetyBanner";
 import ExecutionReadinessPanel from "@/components/admin/remediation/ExecutionReadinessPanel";
 import RemediationCaseWorkspace from "@/components/admin/remediation/RemediationCaseWorkspace";
@@ -14,9 +14,11 @@ import ExecutionGatePanel from "@/components/admin/governance/ExecutionGatePanel
 import ImmutableAuditPreparationPanel from "@/components/admin/governance/ImmutableAuditPreparationPanel";
 import ExportGovernancePanel from "@/components/admin/governance/ExportGovernancePanel";
 import FinalBlockersPanel from "@/components/admin/governance/FinalBlockersPanel";
+import FinalCertificationDashboard from "@/components/admin/governance/FinalCertificationDashboard";
+import DryRunValidationPanel from "@/components/admin/governance/DryRunValidationPanel";
 
 export default function AdminRemediationWorkspace() {
-  const { data, isLoading } = useQuery({ queryKey: ["admin-financial-governance"], queryFn: loadFinancialGovernanceData });
+  const { data, isLoading } = useQuery({ queryKey: ["admin-dry-run-certification"], queryFn: loadDryRunCertificationData });
 
   if (isLoading) return <div className="p-6 text-white/60">Loading remediation workspace…</div>;
 
@@ -30,6 +32,8 @@ export default function AdminRemediationWorkspace() {
       <GlobalGovernanceBanner />
       <RemediationSafetyBanner banners={data?.workspace?.safetyBanners || []} />
       <GovernanceScorePanel governance={data?.governance} />
+      <FinalCertificationDashboard certification={data?.dryRunCertification} exposure={data?.exposure} governance={data?.governance} />
+      <DryRunValidationPanel certification={data?.dryRunCertification} />
       <ReadinessMatrixPanel matrix={data?.readinessMatrix || []} />
       <ExposureReportingPanel exposure={data?.exposure} escalations={data?.escalationSummary || []} />
       <ExecutionGatePanel gates={data?.executionGates || []} />
