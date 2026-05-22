@@ -10,7 +10,7 @@ const activeReadOnly = (rollbackPath) => ({
 });
 
 export const PRODUCTION_ACTIVATION_FLAGS = {
-  AdminExpenses: activeReadOnly("/expenses"),
+  AdminExpenses: activeReadOnly("/admin/expenses-preview"),
   AdminRecurringExpenses: activeReadOnly("/admin/expenses-preview"),
   PaymentReconciliationPreview: activeReadOnly("/payments"),
   FinancialControlCenter: activeReadOnly("/admin/payment-reconciliation-preview"),
