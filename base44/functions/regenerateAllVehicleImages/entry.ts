@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// Regenerates images for all current vehicles using the unified luxury neon studio standard
-// Uses the saved vehicle color exactly with blue light only from front lights plus floor glow
+// Regenerates images for all current vehicles using the unified luxury California lifestyle standard
+// Uses the saved vehicle color exactly with accurate make/model/year styling
 
 Deno.serve(async (req) => {
   try {
@@ -26,13 +26,14 @@ Deno.serve(async (req) => {
         const colorStr = v.color ? `${v.color.trim()} ` : '';
 
         const prompt =
-          `Ultra-realistic luxury automotive studio photo of a ${colorStr}${v.year} ${v.make} ${v.model}. ` +
-          `The vehicle paint color must be exactly ${v.color ? v.color.trim() : 'the correct factory color from the vehicle record'} — do not change it to silver, gray, black, or any other color unless that is the saved vehicle color. ` +
-          `Use one consistent hero composition for every vehicle: premium 3/4 front-left angle, perfectly centered, symmetrical alignment, same scale, full vehicle visible, wheels straight, no cropping, no tilted camera, no unusual angle deviations. ` +
-          `Scene must feel like a dark luxury studio showroom with a black charcoal background, cinematic reflections, realistic body panels, real tires, detailed wheels, glass, trim, and showroom-clean finish. ` +
-          `All front headlights, daytime running lights, and front light elements are ON with vivid electric blue/cyan neon light. Blue illumination must emanate only from the actual front lights, not from random body outlines, wheel arches, trim lines, doors, roof, or rear edges. ` +
-          `Add a refined electric blue floor glow and soft ground reflection created by the front lights to make a premium luxury environment. ` +
-          `No blue outline tracing around the vehicle body, no people, no text, no watermarks, no extra logos, no distorted proportions, no fantasy body kit. ` +
+          `Ultra-realistic luxury automotive lifestyle photo of a ${colorStr}${v.year} ${v.make} ${v.model} in an exotic California front scene. ` +
+          `The vehicle paint color must be exactly ${v.color ? v.color.trim() : 'the correct factory color from the vehicle record'} — do not change it to silver, gray, black, white, or any other color unless that is the saved vehicle color. ` +
+          `Keep the make, model, year, body shape, trim proportions, headlights, grille, wheels, and factory styling accurate to the real ${v.year} ${v.make} ${v.model}. ` +
+          `Use one consistent premium hero composition for every vehicle: 3/4 front-left angle, perfectly centered, same scale, full vehicle visible, wheels straight, no cropping, no tilted camera, no unusual angle deviations. ` +
+          `Scene must feel bright, aspirational, and expensive: Pacific Coast Highway / Malibu coastal cliffs at golden hour, soft ocean horizon, warm amber sunlight, subtle atmospheric haze, polished road surface, cinematic reflections, showroom-clean finish. ` +
+          `All front headlights, daytime running lights, and front light elements are ON with tasteful electric blue/cyan glow. Blue illumination must come only from the actual front lights, not random body outlines, wheel arches, trim lines, doors, roof, or rear edges. ` +
+          `Add refined warm rim lighting and natural ground reflection so the vehicle feels luxurious and dimensional, not dark or flat. ` +
+          `No people, no text, no watermarks, no extra logos, no distorted proportions, no fantasy body kit, no incorrect vehicle color. ` +
           `Photorealistic, luxury automotive catalog quality, sharp focus, accurate make/model/year styling, unified fleet image style.`;
 
         const imageResult = await base44.asServiceRole.integrations.Core.GenerateImage({ prompt });
