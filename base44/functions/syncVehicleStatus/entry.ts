@@ -63,8 +63,12 @@ Deno.serve(async (req) => {
 
     // Fetch booking if not in payload (payload_too_large scenario)
     if (!booking) {
-      const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingId });
-      booking = records[0];
+      try {
+        const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingId });
+        booking = records[0];
+      } catch {
+        return Response.json({ ok: true, skipped: 'booking_not_found' });
+      }
     }
 
     if (!booking) {
