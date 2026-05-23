@@ -38,6 +38,7 @@ const operationsNavItems = [
   { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
   { label: "Compliance Queue", icon: ClipboardList, path: "/admin/compliance-queue" },
   { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
+  { label: "Reputation Validation", icon: Activity, path: "/admin/reputation-validation" },
   { label: "Operations Center", icon: Activity, path: "/admin/operations" },
 ];
 

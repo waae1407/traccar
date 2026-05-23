@@ -9,6 +9,10 @@
       "type": "number",
       "default": 70
     },
+    "vehicle_quality_score": {
+      "type": "number",
+      "default": 70
+    },
     "fleet_reliability_score": {
       "type": "number",
       "default": 70
@@ -55,11 +59,33 @@
         "type": "string"
       }
     },
+    "badge_explanations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "coaching_signals": {
       "type": "array",
       "items": {
         "type": "string"
       }
+    },
+    "score_breakdown": {
+      "type": "object"
+    },
+    "confidence_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "moderate",
+        "high"
+      ],
+      "default": "low"
+    },
+    "data_points_count": {
+      "type": "number",
+      "default": 0
     },
     "suppression_recommended": {
       "type": "boolean",
@@ -77,6 +103,20 @@
         "critical"
       ],
       "default": "low"
+    },
+    "score_volatility_flag": {
+      "type": "boolean",
+      "default": false
+    },
+    "score_volatility_reason": {
+      "type": "string"
+    },
+    "previous_score": {
+      "type": "number"
+    },
+    "score_delta": {
+      "type": "number",
+      "default": 0
     },
     "last_calculated_at": {
       "type": "string",

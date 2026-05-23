@@ -53,6 +53,7 @@ import AdminOperationsCenter from '@/pages/admin/AdminOperationsCenter';
 import AdminGPSMonitor from '@/pages/admin/AdminGPSMonitor';
 import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import AdminCommunications from '@/pages/admin/AdminCommunications';
+import AdminReputationValidation from '@/pages/admin/AdminReputationValidation';
 import HostCommunications from '@/pages/host/HostCommunications';
 import CustomerCommunications from '@/pages/customer/CustomerCommunications';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
@@ -208,6 +209,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/operations" element={<AdminOperationsCenter />} />
         <Route path="/admin/compliance-queue" element={<AdminComplianceQueue />} />
         <Route path="/admin/communications" element={<AdminCommunications />} />
+        <Route path="/admin/reputation-validation" element={<AdminReputationValidation />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}
