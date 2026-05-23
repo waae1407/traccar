@@ -52,6 +52,27 @@
     "review_text": {
       "type": "string"
     },
+    "review_submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "review_confidence_weight": {
+      "type": "number",
+      "default": 1
+    },
+    "severe_dispute_flag": {
+      "type": "boolean",
+      "default": false
+    },
+    "review_source": {
+      "type": "string",
+      "enum": [
+        "completed_booking_prompt",
+        "admin_import",
+        "legacy"
+      ],
+      "default": "completed_booking_prompt"
+    },
     "host_response": {
       "type": "string"
     },
@@ -107,7 +128,9 @@
   },
   "required": [
     "host_id",
-    "reviewer_email"
+    "reviewer_email",
+    "booking_request_id",
+    "review_submitted_at"
   ],
   "unique_fields": [
     "booking_request_id"

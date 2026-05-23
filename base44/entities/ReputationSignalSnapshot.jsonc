@@ -46,11 +46,19 @@
       "type": "number",
       "default": 0
     },
+    "repeat_renter_retention_pct": {
+      "type": "number",
+      "default": 0
+    },
     "maintenance_logs_count": {
       "type": "number",
       "default": 0
     },
     "verified_maintenance_count": {
+      "type": "number",
+      "default": 0
+    },
+    "self_reported_maintenance_count": {
       "type": "number",
       "default": 0
     },
@@ -80,6 +88,13 @@
       "type": "number",
       "default": 0
     },
+    "compliance_streak_days": {
+      "type": "number",
+      "default": 0
+    },
+    "admin_verification_recency_days": {
+      "type": "number"
+    },
     "pickup_inspection_completion_rate": {
       "type": "number",
       "default": 0
@@ -92,11 +107,19 @@
       "type": "number",
       "default": 0
     },
+    "inspection_completeness_pct": {
+      "type": "number",
+      "default": 0
+    },
     "inspection_timestamp_rate": {
       "type": "number",
       "default": 0
     },
     "inspection_gps_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "missing_inspection_count": {
       "type": "number",
       "default": 0
     },
@@ -116,6 +139,14 @@
       "type": "number",
       "default": 0
     },
+    "response_consistency_avg": {
+      "type": "number",
+      "default": 0
+    },
+    "escalation_count": {
+      "type": "number",
+      "default": 0
+    },
     "gps_required": {
       "type": "boolean",
       "default": false
@@ -132,18 +163,31 @@
       "type": "boolean",
       "default": false
     },
+    "stale_gps_device_flag": {
+      "type": "boolean",
+      "default": false
+    },
     "signal_completeness_score": {
+      "type": "number",
+      "default": 0
+    },
+    "evidence_coverage_pct": {
+      "type": "number",
+      "default": 0
+    },
+    "confidence_adjusted_score": {
       "type": "number",
       "default": 0
     },
     "confidence_level": {
       "type": "string",
       "enum": [
+        "insufficient_evidence",
         "low",
         "moderate",
         "high"
       ],
-      "default": "low"
+      "default": "insufficient_evidence"
     },
     "missing_signals": {
       "type": "array",
@@ -155,6 +199,10 @@
       "type": "object"
     },
     "public_badge_threshold_met": {
+      "type": "boolean",
+      "default": false
+    },
+    "stale_signal_flag": {
       "type": "boolean",
       "default": false
     },

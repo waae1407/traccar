@@ -105,7 +105,8 @@ export default function AdminReputationValidation() {
     vehicles: vehicleSummaries.length,
     previewSuppressions: [...hostSummaries, ...vehicleSummaries].filter((s) => s.suppression_recommended).length,
     volatility: [...hostSummaries, ...vehicleSummaries].filter((s) => s.score_volatility_flag).length,
-    lowSignal: signalSnapshots.filter((s) => s.confidence_level === "low").length,
+    lowSignal: signalSnapshots.filter((s) => ["low", "insufficient_evidence"].includes(s.confidence_level)).length,
+    staleSignal: signalSnapshots.filter((s) => s.stale_signal_flag || s.stale_gps_device_flag).length,
   }), [hostSummaries, vehicleSummaries, signalSnapshots]);
 
   return (
@@ -128,7 +129,7 @@ export default function AdminReputationValidation() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[{ label: "Host summaries", value: stats.hosts, icon: ShieldCheck }, { label: "Vehicle summaries", value: stats.vehicles, icon: BarChart3 }, { label: "Preview flags", value: stats.previewSuppressions, icon: AlertTriangle }, { label: "Volatility flags", value: stats.volatility, icon: Activity }, { label: "Low signal coverage", value: stats.lowSignal, icon: AlertTriangle }].map(({ label, value, icon: Icon }) => (
+        {[{ label: "Host summaries", value: stats.hosts, icon: ShieldCheck }, { label: "Vehicle summaries", value: stats.vehicles, icon: BarChart3 }, { label: "Preview flags", value: stats.previewSuppressions, icon: AlertTriangle }, { label: "Volatility flags", value: stats.volatility, icon: Activity }, { label: "Low/insufficient signals", value: stats.lowSignal, icon: AlertTriangle }, { label: "Stale signals", value: stats.staleSignal, icon: AlertTriangle }].map(({ label, value, icon: Icon }) => (
           <div key={label} className="glass rounded-2xl p-4 border border-white/[0.08]">
             <Icon className="h-4 w-4 text-primary mb-2" />
             <p className="text-2xl font-black text-white font-syne">{value}</p>
@@ -167,7 +168,10 @@ export default function AdminReputationValidation() {
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.confidence_level === "high" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : s.confidence_level === "moderate" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>{s.confidence_level}</span>
               </div>
               <p className="text-2xl font-black text-white font-syne">{s.signal_completeness_score || 0}%</p>
-              <p className="text-[10px] text-white/35 mt-1">Completed: {s.completed_bookings_count || 0} · Reviews: {s.verified_review_count || 0} · Inspections: {s.pickup_inspection_completion_rate || 0}%/{s.dropoff_inspection_completion_rate || 0}%</p>
+              <p className="text-[10px] text-white/35 mt-1">Evidence coverage: {s.evidence_coverage_pct || 0}% · Adjusted: {s.confidence_adjusted_score || 0}%</p>
+              <p className="text-[10px] text-white/35 mt-1">Completed: {s.completed_bookings_count || 0} · Reviews: {s.verified_review_count || 0} · Inspections: {s.inspection_completeness_pct || 0}%</p>
+              <p className="text-[10px] text-white/35 mt-1">Maintenance: {s.verified_maintenance_count || 0} verified / {s.self_reported_maintenance_count || 0} self-reported · GPS: {s.gps_required ? `${s.gps_uptime_pct || 0}% uptime` : "not required"}</p>
+              {(s.stale_signal_flag || s.stale_gps_device_flag) && <p className="text-[10px] text-red-300 mt-2">Stale signal detected — validate before public eligibility.</p>}
               {s.missing_signals?.length > 0 && <p className="text-[10px] text-orange-300 mt-2">Missing: {s.missing_signals.slice(0, 4).join(", ")}</p>}
             </div>
           ))}

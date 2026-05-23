@@ -46,6 +46,31 @@
       "type": "string",
       "format": "date-time"
     },
+    "renewal_submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "renewal_timeliness_status": {
+      "type": "string",
+      "enum": [
+        "early",
+        "on_time",
+        "late",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "compliance_streak_days": {
+      "type": "number",
+      "default": 0
+    },
+    "active_rental_gap_flag": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_verification_recency_days": {
+      "type": "number"
+    },
     "notes": {
       "type": "string"
     }

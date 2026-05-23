@@ -52,21 +52,9 @@ export default function CompletedBookingReviewPrompt({ booking, user, existingRe
 
   const submitReview = async () => {
     setSaving(true);
-    await base44.entities.HostReview.create({
-      host_id: booking.host_id,
-      vehicle_id: booking.vehicle_id,
-      vehicle_name: booking.vehicle_name,
-      booking_request_id: booking.id,
-      reviewer_name: user?.full_name || booking.customer_full_name,
-      reviewer_email: user?.email || booking.user_email,
-      renter_user_id: user?.id || booking.user_id,
-      rating: form.overall_rating,
+    await base44.functions.invoke("submitCompletedBookingReview", {
+      booking_id: booking.id,
       ...form,
-      status: "pending",
-      moderation_status: "pending",
-      visibility_status: "hidden",
-      verified_booking: true,
-      fake_review_flag: false,
     });
     setSaving(false);
     setOpen(false);
