@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, ArrowRight, Sparkles, Users, BarChart2, Wrench, ExternalLink, Rocket, Activity, Star } from "lucide-react";
 import confetti from "canvas-confetti";
+import OperationalEvidenceNudges from "@/components/host/reputation/OperationalEvidenceNudges";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -59,6 +60,12 @@ export default function HostDashboard() {
   const { data: bookings = [] } = useQuery({
     queryKey: ["host-bookings", host?.id],
     queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }),
+    enabled: !!host?.id,
+  });
+
+  const { data: maintenanceLogs = [] } = useQuery({
+    queryKey: ["host-maintenance-adoption", host?.id],
+    queryFn: () => base44.entities.HostMaintenanceLog.filter({ host_id: host.id }, "-date", 300),
     enabled: !!host?.id,
   });
 
@@ -255,6 +262,13 @@ export default function HostDashboard() {
           </Link>
         </div>
       )}
+
+      <OperationalEvidenceNudges
+        maintenanceLogs={maintenanceLogs}
+        compliance={compliance}
+        activeBookings={activeBookings}
+        vehicles={vehicles}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">

@@ -10,6 +10,8 @@ import BookingTabs from "@/components/customer/mybookings/BookingTabs";
 import ActiveRentalCard from "@/components/customer/mybookings/ActiveRentalCard";
 import PastRentalCard from "@/components/customer/mybookings/PastRentalCard";
 import ContractModal from "@/components/customer/mybookings/ContractModal";
+import ReviewCompletionNudge from "@/components/customer/mybookings/ReviewCompletionNudge";
+import InspectionCompletionNudge from "@/components/customer/mybookings/InspectionCompletionNudge";
 
 const STATUS_PRIORITY = {
   active: 7, confirmed: 6, approved: 6, pending_review: 5, pending_payment: 4,
@@ -93,6 +95,11 @@ export default function MyBookings() {
   const activeBookings = deduplicated.filter((b) => ACTIVE_STATUSES.includes(b.booking_status));
   const pastBookings   = deduplicated.filter((b) => PAST_STATUSES.includes(b.booking_status))
     .sort((a, b) => new Date(b.rental_ended_at || b.updated_date) - new Date(a.rental_ended_at || a.updated_date));
+  const pendingReviewBookings = pastBookings.filter((b) => b.booking_status === "completed" && !reviewMap[b.id]);
+  const missingInspectionBookings = activeBookings.filter((b) =>
+    ["active", "confirmed", "approved"].includes(b.booking_status) &&
+    (!b.pickup_photos?.length || (b.rental_ended_at && !b.return_exterior_photos?.length && !b.return_interior_photos?.length))
+  );
 
   const handleDelete = (id) => {
     if (confirm("Remove this booking?")) deleteMutation.mutate(id);
@@ -124,6 +131,18 @@ export default function MyBookings() {
       />
 
       <div className="px-5 py-4">
+        {activeTab === "active" && (
+          <InspectionCompletionNudge
+            missingCount={missingInspectionBookings.length}
+            onOpenFirst={() => {
+              const target = missingInspectionBookings[0];
+              if (target) setInspectionTarget({ booking: target, type: target.pickup_photos?.length ? "dropoff" : "pickup" });
+            }}
+          />
+        )}
+        {activeTab === "past" && (
+          <ReviewCompletionNudge pendingCount={pendingReviewBookings.length} onOpenPast={() => setActiveTab("past")} />
+        )}
         {/* Active Tab */}
         {activeTab === "active" && (
           activeBookings.length === 0 ? (

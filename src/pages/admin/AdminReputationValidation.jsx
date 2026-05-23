@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Activity, AlertTriangle, Award, BarChart3, RefreshCw, ShieldCheck } from "lucide-react";
+import AdoptionMonitoringPanel from "@/components/admin/reputation/AdoptionMonitoringPanel";
 
 function scoreTone(score = 0) {
   if (score >= 80) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
@@ -127,6 +128,8 @@ export default function AdminReputationValidation() {
           {runMutation.isPending ? "Running Simulation…" : "Run Internal Simulation"}
         </button>
       </div>
+
+      <AdoptionMonitoringPanel signalSnapshots={signalSnapshots} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[{ label: "Host summaries", value: stats.hosts, icon: ShieldCheck }, { label: "Vehicle summaries", value: stats.vehicles, icon: BarChart3 }, { label: "Preview flags", value: stats.previewSuppressions, icon: AlertTriangle }, { label: "Volatility flags", value: stats.volatility, icon: Activity }, { label: "Low/insufficient signals", value: stats.lowSignal, icon: AlertTriangle }, { label: "Stale signals", value: stats.staleSignal, icon: AlertTriangle }].map(({ label, value, icon: Icon }) => (

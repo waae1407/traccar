@@ -392,6 +392,12 @@ export default function HostMaintenance() {
             )}
           </div>
 
+          {!form.receipt_url && (
+            <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 text-xs text-blue-700">
+              Receipt-backed service records create stronger internal evidence than self-reported maintenance.
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <label className="cursor-pointer flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100">
               {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}

@@ -125,6 +125,7 @@ export default function HostCompliance() {
               ))}
             </div>
             <p className="text-xs text-blue-600 mt-2">🤖 Our AI automatically reads your documents, extracts expiry dates, and approves vehicles. You'll be notified 30 days before expiry.</p>
+            <p className="text-xs text-blue-600 mt-1">Complete, current documents improve internal operational evidence coverage only — no public scores are shown.</p>
           </div>
         </div>
       </div>
