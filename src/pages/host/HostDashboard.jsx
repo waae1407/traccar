@@ -88,6 +88,9 @@ export default function HostDashboard() {
   const totalEarned = payouts.filter(p => p.status === "paid").reduce((s, p) => s + (p.net_payout || 0), 0);
   const activeBookings = bookings.filter(b => ["active", "confirmed", "approved"].includes(b.booking_status));
   const expiringDocs = compliance.filter(c => c.status === "expiring_soon" || c.status === "expired");
+  const availableVehicles = vehicles.filter(v => v.status === "Available").length;
+  const rentedVehicles = vehicles.filter(v => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"].includes(v.status)).length;
+  const fleetUtilization = vehicles.length > 0 ? Math.round((rentedVehicles / vehicles.length) * 100) : 0;
 
   if (!host) return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -261,6 +264,23 @@ export default function HostDashboard() {
         <StatCard label="Active Rentals" value={activeBookings.length} sub={activeBookings.length === 0 ? "No active rentals yet" : "Currently on the road"} icon={CheckCircle2} color="text-violet-600" bg="bg-violet-50" href="/host/payments" />
       </div>
 
+      {/* Fleet Health & Readiness */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-bold text-gray-900 text-base">Fleet Health & Readiness</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Operational readiness from vehicle status and compliance signals.</p>
+          </div>
+          <Link to="/host/vehicles" className="text-xs font-bold text-pink-600 flex items-center gap-1">Manage <ArrowRight className="h-3 w-3" /></Link>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-2xl bg-blue-50 border border-blue-100 p-3"><p className="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Available</p><p className="text-xl font-black text-blue-700 mt-1">{availableVehicles}</p></div>
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-3"><p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">In Use</p><p className="text-xl font-black text-emerald-700 mt-1">{rentedVehicles}</p></div>
+          <div className="rounded-2xl bg-violet-50 border border-violet-100 p-3"><p className="text-[10px] font-bold text-violet-500 uppercase tracking-wider">Utilization</p><p className="text-xl font-black text-violet-700 mt-1">{fleetUtilization}%</p></div>
+          <div className="rounded-2xl bg-red-50 border border-red-100 p-3"><p className="text-[10px] font-bold text-red-500 uppercase tracking-wider">Docs Due</p><p className="text-xl font-black text-red-700 mt-1">{expiringDocs.length}</p></div>
+        </div>
+      </div>
+
       {/* Fleet Score */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="flex items-center justify-between mb-2">
@@ -313,7 +333,7 @@ export default function HostDashboard() {
           { label: "Add Vehicle", sub: "List or manage inventory", href: "/host/vehicles", icon: Car, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "View Payouts", sub: "Track transfers & earnings", href: "/host/payouts", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
           { label: "Brand Builder", sub: "Customize your storefront", href: "/host/brand", icon: Sparkles, color: "text-pink-600", bg: "bg-pink-50" },
-          { label: "Reports", sub: "View fleet performance", href: "/host/reports", icon: BarChart2, color: "text-violet-600", bg: "bg-violet-50" },
+          { label: "Reports & Exports", sub: "P&L reports and downloads", href: "/host/pnl", icon: BarChart2, color: "text-violet-600", bg: "bg-violet-50" },
           { label: "Maintenance", sub: "Track service needs", href: "/host/maintenance", icon: Wrench, color: "text-orange-600", bg: "bg-orange-50" },
           { label: "Customers", sub: "Manage your renters", href: "/host/customers", icon: Users, color: "text-cyan-600", bg: "bg-cyan-50" },
         ].map(item => (

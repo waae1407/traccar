@@ -1,25 +1,27 @@
 import React, { useState } from "react";
 import { Bell, Shield, Lock, AlertTriangle, Globe, FileText, Wrench } from "lucide-react";
+import OpsShortcutTab from "@/components/admin/ops/OpsShortcutTab";
 
-// Existing admin components — rendered directly inside tabs
+// Operational Alerts remains canonical here; other workflows stay standalone and are summarized with shortcuts.
 import AdminOperationalAlerts from "@/pages/admin/AdminOperationalAlerts";
-import AdminComplianceQueue from "@/pages/admin/AdminComplianceQueue";
-import AdminDisputes from "@/pages/admin/AdminDisputes";
-import AdminAuditLog from "@/pages/admin/AdminAuditLog";
 
 // New focused tab components
 import PayoutHoldsTab from "@/components/admin/ops/PayoutHoldsTab";
 import StorefrontsTab from "@/components/admin/ops/StorefrontsTab";
 import FleetHealthTab from "@/components/admin/ops/FleetHealthTab";
 
+const ComplianceSummary = () => <OpsShortcutTab title="Compliance Queue" description="Compliance remains a dedicated workflow. Use this shortcut for document review, reminders, and approval actions." href="/admin/compliance-queue" items={[{ label: "Workflow", value: "Standalone queue preserved" }, { label: "Primary action", value: "Review host and vehicle documents" }, { label: "Route", value: "/admin/compliance-queue" }]} />;
+const DisputesSummary = () => <OpsShortcutTab title="Disputes" description="Disputes remain standalone to preserve evidence, payout holds, Stripe references, and resolution workflows." href="/admin/disputes" items={[{ label: "Workflow", value: "Standalone dispute workspace" }, { label: "Primary action", value: "Review and resolve cases" }, { label: "Route", value: "/admin/disputes" }]} />;
+const AuditSummary = () => <OpsShortcutTab title="Audit Log" description="Audit records remain separate for governance and review. Operations Center only links to the immutable activity trail." href="/admin/audit-log" items={[{ label: "Workflow", value: "Standalone audit trail" }, { label: "Primary action", value: "Review platform events" }, { label: "Route", value: "/admin/audit-log" }]} />;
+
 const TABS = [
   { id: "alerts",      label: "Alerts",        icon: Bell,          component: AdminOperationalAlerts },
-  { id: "compliance",  label: "Compliance",     icon: Shield,        component: AdminComplianceQueue },
+  { id: "compliance",  label: "Compliance",     icon: Shield,        component: ComplianceSummary },
   { id: "payouts",     label: "Payout Holds",   icon: Lock,          component: PayoutHoldsTab },
-  { id: "disputes",    label: "Disputes",       icon: AlertTriangle, component: AdminDisputes },
+  { id: "disputes",    label: "Disputes",       icon: AlertTriangle, component: DisputesSummary },
   { id: "storefronts", label: "Storefronts",    icon: Globe,         component: StorefrontsTab },
   { id: "fleet",       label: "Fleet Health",   icon: Wrench,        component: FleetHealthTab },
-  { id: "audit",       label: "Audit Log",      icon: FileText,      component: AdminAuditLog },
+  { id: "audit",       label: "Audit Log",      icon: FileText,      component: AuditSummary },
 ];
 
 export default function AdminOperationsCenter() {
@@ -35,7 +37,7 @@ export default function AdminOperationsCenter() {
         <h1 className="text-xl font-black text-foreground" style={{ fontFamily: "var(--font-syne)" }}>
           Operations Center
         </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Unified admin oversight — alerts, compliance, payouts, disputes, fleet health, and audit.</p>
+        <p className="text-sm text-muted-foreground mt-0.5">Unified admin oversight — alerts are managed here; compliance, disputes, and audit remain linked standalone workflows.</p>
       </div>
 
       {/* Tab Bar */}

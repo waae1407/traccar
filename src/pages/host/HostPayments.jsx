@@ -45,6 +45,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { DollarSign, AlertTriangle, CheckCircle2, Clock, XCircle, Search, UserCheck, X } from "lucide-react";
 import HostPageHeader from "@/components/host/HostPageHeader";
+import HostPaymentHistory from "@/pages/host/HostPaymentHistory";
 import { format } from "date-fns";
 
 const PAYMENT_STATUS_CONFIG = {
@@ -64,6 +65,7 @@ export default function HostPayments() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
+  const [activeTab, setActiveTab] = useState("overview");
 
   const { data: hosts = [] } = useQuery({
     queryKey: ["my-host", user?.email],
@@ -148,6 +150,23 @@ export default function HostPayments() {
         subtitle="Payment status across all your active rentals"
       />
 
+      <div className="flex gap-2 rounded-2xl bg-white border border-gray-100 p-1 shadow-sm">
+        {[
+          { id: "overview", label: "Overview" },
+          { id: "history", label: "History" },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className="flex-1 rounded-xl px-4 py-2 text-sm font-bold transition-all"
+            style={activeTab === tab.id ? { color: "white", background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" } : { color: "#6b7280" }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "overview" ? <>
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
@@ -270,6 +289,7 @@ export default function HostPayments() {
           </div>
         )}
       </div>
+      </> : <HostPaymentHistory />}
     </div>
   );
 }
