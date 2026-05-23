@@ -1,11 +1,17 @@
 import React from "react";
-import { X, MapPin, Star, Zap, ChevronRight, Check } from "lucide-react";
+import { X, MapPin, Zap, ChevronRight, Check } from "lucide-react";
+import PublicTrustBadges from "@/components/trust/PublicTrustBadges";
+import PublicRating from "@/components/trust/PublicRating";
+import { latestSnapshotFor, publicRating, publicVehicleLabels } from "@/lib/reputation/publicTrust";
 
-export default function VehicleDetailSheet({ vehicle, onClose, onBook, user }) {
+export default function VehicleDetailSheet({ vehicle, onClose, onBook, user, reviews = [], signalSnapshots = [] }) {
   if (!vehicle) return null;
 
   const weeklyRate = vehicle.weekly_rate || 0;
   const deposit = Math.round(weeklyRate * 0.5);
+  const snapshot = latestSnapshotFor(signalSnapshots, "vehicle", vehicle.id);
+  const labels = publicVehicleLabels(snapshot);
+  const rating = publicRating(reviews.filter((r) => r.vehicle_id === vehicle.id));
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end">
@@ -38,11 +44,7 @@ export default function VehicleDetailSheet({ vehicle, onClose, onBook, user }) {
                   <MapPin className="h-3.5 w-3.5 text-gray-400" />
                   <span className="text-sm text-gray-500">{vehicle.current_city || "Available"}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
-                  <span className="text-sm font-semibold">4.8</span>
-                  <span className="text-sm text-gray-400">(24 trips)</span>
-                </div>
+                <PublicRating rating={rating.rating} count={rating.count} />
               </div>
             </div>
             <div className="text-right">
@@ -50,6 +52,8 @@ export default function VehicleDetailSheet({ vehicle, onClose, onBook, user }) {
               <p className="text-xs text-gray-400">per week</p>
             </div>
           </div>
+
+          <div className="mt-3"><PublicTrustBadges labels={labels} /></div>
 
           {/* Specs */}
           <div className="grid grid-cols-3 gap-3 mt-4">

@@ -7,6 +7,8 @@ import TelematicsAdminPanel from "@/components/admin/TelematicsAdminPanel";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import VehicleFormDialog from "@/components/vehicles/VehicleFormDialog";
 import { Link } from "react-router-dom";
+import VehicleQualityCoaching from "@/components/host/reputation/VehicleQualityCoaching";
+import { latestSnapshotFor } from "@/lib/reputation/publicTrust";
 
 const statusColors = {
   Available: "text-emerald-600 bg-emerald-50",
@@ -45,6 +47,12 @@ export default function HostVehicles() {
   const { data: complianceDocs = [] } = useQuery({
     queryKey: ["host-compliance", host?.id],
     queryFn: () => base44.entities.HostVehicleCompliance.filter({ host_id: host.id }),
+    enabled: !!host?.id,
+  });
+
+  const { data: signalSnapshots = [] } = useQuery({
+    queryKey: ["host-vehicle-quality-signals", host?.id],
+    queryFn: () => base44.entities.ReputationSignalSnapshot.list("-created_date", 500),
     enabled: !!host?.id,
   });
 
@@ -103,6 +111,7 @@ export default function HostVehicles() {
           {vehicles.map(v => {
             const active = activeForVehicle(v.id);
             const complianceStatus = getVehicleComplianceStatus(v.id);
+            const snapshot = latestSnapshotFor(signalSnapshots, "vehicle", v.id);
             return (
               <div key={v.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all hover:-translate-y-0.5">
                 {v.image_url ? (
@@ -155,6 +164,8 @@ export default function HostVehicles() {
                       <p className="text-xs font-bold text-emerald-700">Compliance Verified ✓</p>
                     </div>
                   )}
+
+                  <VehicleQualityCoaching vehicle={v} snapshot={snapshot} complianceStatus={complianceStatus} />
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-bold text-emerald-600">${v.weekly_rate}/wk</span>

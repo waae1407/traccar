@@ -12,6 +12,8 @@ import BookNowVehicleGrid from "@/components/customer/booknow/BookNowVehicleGrid
 import WaitlistEmptyState from "@/components/customer/booknow/WaitlistEmptyState";
 import useUserLocation from "@/hooks/useUserLocation";
 import { Gift, CalendarCheck, Key, ChevronRight } from "lucide-react";
+import HostTrustPanel from "@/components/trust/HostTrustPanel";
+import { latestSnapshotFor, publicHostLabels, publicRating } from "@/lib/reputation/publicTrust";
 
 // Haversine distance in miles
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -39,6 +41,18 @@ export default function HostStorefrontHome() {
   const showMarketplace = brand?.show_marketplace_vehicles;
   const showRto = brand?.show_rto_options !== false;
   const showRentForFree = brand?.show_rent_for_free !== false;
+
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["storefront-public-reviews", brand?.host_id],
+    queryFn: () => base44.entities.HostReview.filter({ host_id: brand.host_id, moderation_status: "approved", visibility_status: "public" }, "-created_date", 500),
+    enabled: !!brand?.host_id,
+  });
+
+  const { data: signalSnapshots = [] } = useQuery({
+    queryKey: ["storefront-signal-snapshots", brand?.host_id],
+    queryFn: () => base44.entities.ReputationSignalSnapshot.list("-created_date", 500),
+    enabled: !!brand?.host_id,
+  });
 
   // Host's own vehicles
   const { data: hostVehicles = [], isLoading: loadingHost } = useQuery({
@@ -90,6 +104,10 @@ export default function HostStorefrontHome() {
     : available;
 
   const isLoading = loadingHost || (showMarketplace && loadingMarket);
+  const hostSnapshot = latestSnapshotFor(signalSnapshots, "host", brand?.host_id);
+  const hostLabels = publicHostLabels(hostSnapshot, { status: "approved" });
+  const hostRating = publicRating(reviews);
+  const completedTrips = hostSnapshot?.completed_bookings_count || 0;
 
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
@@ -151,6 +169,8 @@ export default function HostStorefrontHome() {
         {brand?.hero_subtitle && <p className="text-gray-400 text-sm mt-1">{brand.hero_subtitle}</p>}
       </div>
 
+      <HostTrustPanel labels={hostLabels} rating={hostRating.rating} reviewCount={hostRating.count} completedTrips={completedTrips} />
+
       {/* Rent for Free banner */}
       {showRentForFree && <RentForFreeBanner />}
 
@@ -210,6 +230,8 @@ export default function HostStorefrontHome() {
           location={location}
           onSelect={setSelectedVehicle}
           isExpandedRadius={false}
+          reviews={reviews}
+          signalSnapshots={signalSnapshots}
         />
       )}
 
@@ -218,6 +240,8 @@ export default function HostStorefrontHome() {
         onClose={() => setSelectedVehicle(null)}
         onBook={handleBook}
         user={user}
+        reviews={reviews}
+        signalSnapshots={signalSnapshots}
       />
     </div>
   );

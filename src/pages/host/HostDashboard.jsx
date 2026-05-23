@@ -6,6 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { DollarSign, Car, Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock, ArrowRight, Sparkles, Users, BarChart2, Wrench, ExternalLink, Rocket, Activity, Star } from "lucide-react";
 import confetti from "canvas-confetti";
 import OperationalEvidenceNudges from "@/components/host/reputation/OperationalEvidenceNudges";
+import HostCoachingDashboard from "@/components/host/reputation/HostCoachingDashboard";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -66,6 +67,12 @@ export default function HostDashboard() {
   const { data: maintenanceLogs = [] } = useQuery({
     queryKey: ["host-maintenance-adoption", host?.id],
     queryFn: () => base44.entities.HostMaintenanceLog.filter({ host_id: host.id }, "-date", 300),
+    enabled: !!host?.id,
+  });
+
+  const { data: hostSignalSnapshots = [] } = useQuery({
+    queryKey: ["host-coaching-signals", host?.id],
+    queryFn: () => base44.entities.ReputationSignalSnapshot.filter({ entity_type: "host", entity_id: host.id }, "-created_date", 20),
     enabled: !!host?.id,
   });
 
@@ -262,6 +269,8 @@ export default function HostDashboard() {
           </Link>
         </div>
       )}
+
+      <HostCoachingDashboard snapshots={hostSignalSnapshots} />
 
       <OperationalEvidenceNudges
         maintenanceLogs={maintenanceLogs}

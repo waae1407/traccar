@@ -65,6 +65,16 @@ export default function BookNow() {
     staleTime: 5 * 60_000,
   });
 
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["public-approved-reviews"],
+    queryFn: () => base44.entities.HostReview.filter({ moderation_status: "approved", visibility_status: "public" }, "-created_date", 500),
+  });
+
+  const { data: signalSnapshots = [] } = useQuery({
+    queryKey: ["public-signal-snapshots"],
+    queryFn: () => base44.entities.ReputationSignalSnapshot.list("-created_date", 500),
+  });
+
   const { data: vehicles = [], isLoading } = useQuery({
     queryKey: ["vehicles-public", tenantCompany?.id],
     queryFn: () => tenantCompany?.id
@@ -175,6 +185,8 @@ export default function BookNow() {
           location={location}
           onSelect={setSelectedVehicle}
           isExpandedRadius={false}
+          reviews={reviews}
+          signalSnapshots={signalSnapshots}
         />
       )}
 
@@ -184,6 +196,8 @@ export default function BookNow() {
         onClose={() => setSelectedVehicle(null)}
         onBook={handleBook}
         user={user}
+        reviews={reviews}
+        signalSnapshots={signalSnapshots}
       />
     </div>
   );

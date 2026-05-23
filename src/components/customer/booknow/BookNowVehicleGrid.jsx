@@ -1,5 +1,8 @@
 import React from "react";
-import { MapPin, Star, Zap, ChevronRight, Clock } from "lucide-react";
+import { MapPin, Zap, ChevronRight, Clock } from "lucide-react";
+import PublicTrustBadges from "@/components/trust/PublicTrustBadges";
+import PublicRating from "@/components/trust/PublicRating";
+import { latestSnapshotFor, publicRating, publicVehicleLabels } from "@/lib/reputation/publicTrust";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&q=80";
@@ -22,8 +25,11 @@ function getVehicleTags(v) {
   return tags;
 }
 
-function VehicleCard({ v, onSelect, featured = false }) {
+function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapshots = [] }) {
   const tags = getVehicleTags(v);
+  const snapshot = latestSnapshotFor(signalSnapshots, "vehicle", v.id);
+  const labels = publicVehicleLabels(snapshot);
+  const rating = publicRating(reviews.filter((r) => r.vehicle_id === v.id));
 
   return (
     <button
@@ -86,12 +92,11 @@ function VehicleCard({ v, onSelect, featured = false }) {
               {v.distance !== undefined && <span className="ml-1 text-gray-300">· {v.distance.toFixed(1)} mi</span>}
             </span>
           </div>
-          <span className="text-gray-200">·</span>
-          <div className="flex items-center gap-0.5">
-            <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
-            <span className="text-xs text-gray-400">4.9</span>
-          </div>
+          {rating.count > 0 && <span className="text-gray-200">·</span>}
+          <PublicRating rating={rating.rating} count={rating.count} compact />
         </div>
+
+        <div className="mt-2"><PublicTrustBadges labels={labels} compact /></div>
 
         {/* Gig tags + min rental */}
         <div className="flex gap-1 mt-2 flex-wrap">
@@ -133,7 +138,7 @@ function SkeletonCard() {
   );
 }
 
-export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSelect, isExpandedRadius }) {
+export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSelect, isExpandedRadius, reviews = [], signalSnapshots = [] }) {
   if (isLoading) {
     return (
       <div className="px-5">
@@ -181,7 +186,7 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {vehicles.map((v, i) => (
-          <VehicleCard key={v.id} v={v} onSelect={onSelect} featured={i === 0} />
+          <VehicleCard key={v.id} v={v} onSelect={onSelect} featured={i === 0} reviews={reviews} signalSnapshots={signalSnapshots} />
         ))}
       </div>
     </div>

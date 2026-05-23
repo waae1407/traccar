@@ -4,6 +4,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { CheckCircle2, CalendarDays, Car, ArrowRight, Home, Smartphone, Camera, Shield } from "lucide-react";
 import PickupAddressCard from "@/components/customer/mybookings/PickupAddressCard";
+import CheckoutTrustSection from "@/components/trust/CheckoutTrustSection";
+import { latestSnapshotFor, publicVehicleLabels } from "@/lib/reputation/publicTrust";
 
 export default function StepConfirmation({ booking, user }) {
   const { data: vehicle } = useQuery({
@@ -13,7 +15,15 @@ export default function StepConfirmation({ booking, user }) {
     staleTime: 5 * 60_000,
   });
 
+  const { data: signalSnapshots = [] } = useQuery({
+    queryKey: ["checkout-trust-signals", booking?.vehicle_id],
+    queryFn: () => base44.entities.ReputationSignalSnapshot.list("-created_date", 500),
+    enabled: !!booking?.vehicle_id,
+  });
+
   const isContactless = !!(vehicle?.contactless_pickup && vehicle?.moovetrax_device_id);
+  const vehicleSnapshot = latestSnapshotFor(signalSnapshots, "vehicle", booking?.vehicle_id);
+  const trustLabels = publicVehicleLabels(vehicleSnapshot);
 
   const logMutation = useMutation({
     mutationFn: (data) => base44.entities.ActivityEvent.create(data),
@@ -84,6 +94,8 @@ export default function StepConfirmation({ booking, user }) {
           </div>
         </div>
       </div>
+
+      <CheckoutTrustSection labels={trustLabels} />
 
       {/* Pickup Address — revealed immediately after payment */}
       {vehicle?.pickup_address && (

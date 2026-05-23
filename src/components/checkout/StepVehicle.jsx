@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Car, Calendar, RefreshCw, AlertCircle, ChevronRight, Check, MapPin, Search, Zap, Star, SlidersHorizontal, X, Loader } from "lucide-react";
 import { addWeeks, format } from "date-fns";
 import { base44 } from "@/api/base44Client";
+import PublicTrustBadges from "@/components/trust/PublicTrustBadges";
+import { latestSnapshotFor, publicVehicleLabels } from "@/lib/reputation/publicTrust";
 
 const BOOKING_TYPES = ["Weekly", "Rent-to-Own"];
 const RADIUS_OPTIONS = [10, 25, 50, 100, 250];
@@ -74,6 +76,11 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const endDate = calcEndDate(startDate, type);
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
   const smartTip = getSmartTip(type, filtered, startDate);
+  const [signalSnapshots, setSignalSnapshots] = useState([]);
+
+  useEffect(() => {
+    base44.entities.ReputationSignalSnapshot.list("-created_date", 500).then(setSignalSnapshots);
+  }, []);
 
   const handleLocate = () => {
     setLocating(true);
@@ -304,6 +311,7 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
             filtered.map((v) => {
               const isSelected = selectedId === v.id;
               const deposit = Math.round((v.weekly_rate || 0) * 0.5);
+              const trustLabels = publicVehicleLabels(latestSnapshotFor(signalSnapshots, "vehicle", v.id));
               return (
                 <button
                   key={v.id}
@@ -373,6 +381,8 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
                         {isSelected && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
                       </div>
                     </div>
+
+                    <div className="mt-2"><PublicTrustBadges labels={trustLabels} compact /></div>
 
                     {/* Pricing row */}
                     <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-gray-100">

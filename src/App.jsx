@@ -54,6 +54,7 @@ import AdminGPSMonitor from '@/pages/admin/AdminGPSMonitor';
 import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import AdminCommunications from '@/pages/admin/AdminCommunications';
 import AdminReputationValidation from '@/pages/admin/AdminReputationValidation.jsx';
+import AdminReviewModeration from '@/pages/admin/AdminReviewModeration.jsx';
 import HostCommunications from '@/pages/host/HostCommunications';
 import CustomerCommunications from '@/pages/customer/CustomerCommunications';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
@@ -210,6 +211,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/compliance-queue" element={<AdminComplianceQueue />} />
         <Route path="/admin/communications" element={<AdminCommunications />} />
         <Route path="/admin/reputation-validation" element={<AdminReputationValidation />} />
+        <Route path="/admin/review-moderation" element={<AdminReviewModeration />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}
