@@ -54,10 +54,29 @@ Deno.serve(async (req) => {
       created_at: now,
     });
 
+    const previousLastMessageAt = thread.last_message_at || thread.created_date;
+    const firstResponseMinutes = !thread.first_response_at && previousLastMessageAt
+      ? Math.max(0, Math.round((new Date(now).getTime() - new Date(previousLastMessageAt).getTime()) / 60000))
+      : thread.first_response_minutes;
+    const unreadAgeHours = previousLastMessageAt
+      ? Math.max(0, Math.round((new Date(now).getTime() - new Date(previousLastMessageAt).getTime()) / 3600000))
+      : 0;
+
     const updates = {
       last_message_at: now,
       attachment_count: (thread.attachment_count || 0) + attachments.length,
+      unread_age_hours: unreadAgeHours,
+      response_consistency_score: firstResponseMinutes ? Math.max(0, Math.min(100, 100 - Math.floor(firstResponseMinutes / 60) * 5)) : (thread.response_consistency_score || 70),
     };
+
+    if (!thread.first_response_at && previousLastMessageAt) {
+      updates.first_response_at = now;
+      updates.first_response_minutes = firstResponseMinutes;
+      updates.first_response_by_role = senderRole;
+      if (thread.sla_response_due_at && new Date(now) > new Date(thread.sla_response_due_at)) {
+        updates.sla_breached = true;
+      }
+    }
 
     if (!internal_note) {
       updates.status = isAdmin

@@ -6,6 +6,7 @@
       "type": "string",
       "enum": [
         "score_calculated",
+        "signal_collected",
         "review_submitted",
         "review_moderated",
         "badge_awarded",

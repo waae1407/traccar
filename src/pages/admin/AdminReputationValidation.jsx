@@ -82,15 +82,21 @@ export default function AdminReputationValidation() {
   const { data: vehicleSummaries = [] } = useQuery({ queryKey: ["vehicle-reputation-validation"], queryFn: () => base44.entities.VehicleReputationSummary.list("-updated_date", 300) });
   const { data: events = [] } = useQuery({ queryKey: ["reputation-event-log"], queryFn: () => base44.entities.ReputationEventLog.list("-created_date", 50) });
   const { data: snapshots = [] } = useQuery({ queryKey: ["reputation-history-snapshots"], queryFn: () => base44.entities.ReputationHistorySnapshot.list("-created_date", 80) });
+  const { data: signalSnapshots = [] } = useQuery({ queryKey: ["reputation-signal-snapshots"], queryFn: () => base44.entities.ReputationSignalSnapshot.list("-created_date", 100) });
 
   const runMutation = useMutation({
-    mutationFn: () => base44.functions.invoke("calculateReputationSummaries", {}),
+    mutationFn: async () => {
+      const signals = await base44.functions.invoke("collectReputationSignals", {});
+      const scores = await base44.functions.invoke("calculateReputationSummaries", {});
+      return { data: { ...scores.data, signal_collection: signals.data } };
+    },
     onSuccess: (res) => {
       setLastRun(res.data);
       qc.invalidateQueries({ queryKey: ["host-reputation-validation"] });
       qc.invalidateQueries({ queryKey: ["vehicle-reputation-validation"] });
       qc.invalidateQueries({ queryKey: ["reputation-event-log"] });
       qc.invalidateQueries({ queryKey: ["reputation-history-snapshots"] });
+      qc.invalidateQueries({ queryKey: ["reputation-signal-snapshots"] });
     },
   });
 
@@ -99,7 +105,8 @@ export default function AdminReputationValidation() {
     vehicles: vehicleSummaries.length,
     previewSuppressions: [...hostSummaries, ...vehicleSummaries].filter((s) => s.suppression_recommended).length,
     volatility: [...hostSummaries, ...vehicleSummaries].filter((s) => s.score_volatility_flag).length,
-  }), [hostSummaries, vehicleSummaries]);
+    lowSignal: signalSnapshots.filter((s) => s.confidence_level === "low").length,
+  }), [hostSummaries, vehicleSummaries, signalSnapshots]);
 
   return (
     <div className="space-y-6">
@@ -121,7 +128,7 @@ export default function AdminReputationValidation() {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[{ label: "Host summaries", value: stats.hosts, icon: ShieldCheck }, { label: "Vehicle summaries", value: stats.vehicles, icon: BarChart3 }, { label: "Preview flags", value: stats.previewSuppressions, icon: AlertTriangle }, { label: "Volatility flags", value: stats.volatility, icon: Activity }].map(({ label, value, icon: Icon }) => (
+        {[{ label: "Host summaries", value: stats.hosts, icon: ShieldCheck }, { label: "Vehicle summaries", value: stats.vehicles, icon: BarChart3 }, { label: "Preview flags", value: stats.previewSuppressions, icon: AlertTriangle }, { label: "Volatility flags", value: stats.volatility, icon: Activity }, { label: "Low signal coverage", value: stats.lowSignal, icon: AlertTriangle }].map(({ label, value, icon: Icon }) => (
           <div key={label} className="glass rounded-2xl p-4 border border-white/[0.08]">
             <Icon className="h-4 w-4 text-primary mb-2" />
             <p className="text-2xl font-black text-white font-syne">{value}</p>
@@ -148,6 +155,23 @@ export default function AdminReputationValidation() {
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="space-y-3"><h2 className="text-lg font-black text-white font-syne">Host validation</h2>{hostSummaries.slice(0, 8).map((item) => <SummaryCard key={item.id} item={item} type="host" />)}</div>
         <div className="space-y-3"><h2 className="text-lg font-black text-white font-syne">Vehicle validation</h2>{vehicleSummaries.slice(0, 8).map((item) => <SummaryCard key={item.id} item={item} type="vehicle" />)}</div>
+      </div>
+
+      <div className="glass rounded-2xl p-4 border border-white/[0.08]">
+        <h3 className="text-sm font-bold text-white mb-3">Signal completeness indicators</h3>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {signalSnapshots.slice(0, 9).map((s) => (
+            <div key={s.id} className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <p className="text-xs font-bold text-white capitalize">{s.entity_type} signal</p>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${s.confidence_level === "high" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : s.confidence_level === "moderate" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>{s.confidence_level}</span>
+              </div>
+              <p className="text-2xl font-black text-white font-syne">{s.signal_completeness_score || 0}%</p>
+              <p className="text-[10px] text-white/35 mt-1">Completed: {s.completed_bookings_count || 0} · Reviews: {s.verified_review_count || 0} · Inspections: {s.pickup_inspection_completion_rate || 0}%/{s.dropoff_inspection_completion_rate || 0}%</p>
+              {s.missing_signals?.length > 0 && <p className="text-[10px] text-orange-300 mt-2">Missing: {s.missing_signals.slice(0, 4).join(", ")}</p>}
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

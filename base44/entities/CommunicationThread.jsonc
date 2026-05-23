@@ -108,6 +108,31 @@
       "type": "boolean",
       "default": false
     },
+    "first_response_minutes": {
+      "type": "number"
+    },
+    "first_response_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "first_response_by_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "host",
+        "customer",
+        "system",
+        ""
+      ]
+    },
+    "response_consistency_score": {
+      "type": "number",
+      "default": 70
+    },
+    "unread_age_hours": {
+      "type": "number",
+      "default": 0
+    },
     "attachment_count": {
       "type": "number",
       "default": 0

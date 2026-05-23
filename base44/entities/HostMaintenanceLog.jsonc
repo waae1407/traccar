@@ -53,6 +53,45 @@
     "receipt_url": {
       "type": "string"
     },
+    "receipt_verification_status": {
+      "type": "string",
+      "enum": [
+        "unverified",
+        "pending",
+        "verified",
+        "rejected"
+      ],
+      "default": "unverified"
+    },
+    "receipt_verified_by": {
+      "type": "string"
+    },
+    "receipt_verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mileage_delta_since_last_service": {
+      "type": "number"
+    },
+    "service_cadence_status": {
+      "type": "string",
+      "enum": [
+        "on_track",
+        "due_soon",
+        "overdue",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "maintenance_signal_confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "moderate",
+        "high"
+      ],
+      "default": "low"
+    },
     "status": {
       "type": "string",
       "enum": [

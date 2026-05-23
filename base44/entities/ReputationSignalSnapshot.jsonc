@@ -1,0 +1,170 @@
+{
+  "name": "ReputationSignalSnapshot",
+  "type": "object",
+  "properties": {
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "host",
+        "vehicle"
+      ]
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "signal_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "completed_bookings_count": {
+      "type": "number",
+      "default": 0
+    },
+    "review_count": {
+      "type": "number",
+      "default": 0
+    },
+    "verified_review_count": {
+      "type": "number",
+      "default": 0
+    },
+    "would_rent_again_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "repeat_renter_count": {
+      "type": "number",
+      "default": 0
+    },
+    "repeat_booking_count": {
+      "type": "number",
+      "default": 0
+    },
+    "maintenance_logs_count": {
+      "type": "number",
+      "default": 0
+    },
+    "verified_maintenance_count": {
+      "type": "number",
+      "default": 0
+    },
+    "service_cadence_status": {
+      "type": "string",
+      "enum": [
+        "on_track",
+        "due_soon",
+        "overdue",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "compliance_docs_count": {
+      "type": "number",
+      "default": 0
+    },
+    "expired_compliance_count": {
+      "type": "number",
+      "default": 0
+    },
+    "expiring_compliance_count": {
+      "type": "number",
+      "default": 0
+    },
+    "active_rental_compliance_gap_count": {
+      "type": "number",
+      "default": 0
+    },
+    "pickup_inspection_completion_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "dropoff_inspection_completion_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "required_photo_coverage_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "inspection_timestamp_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "inspection_gps_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "communication_threads_count": {
+      "type": "number",
+      "default": 0
+    },
+    "first_response_avg_minutes": {
+      "type": "number",
+      "default": 0
+    },
+    "sla_breach_count": {
+      "type": "number",
+      "default": 0
+    },
+    "unread_aging_count": {
+      "type": "number",
+      "default": 0
+    },
+    "gps_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "gps_event_count": {
+      "type": "number",
+      "default": 0
+    },
+    "gps_uptime_pct": {
+      "type": "number",
+      "default": 0
+    },
+    "gps_available_during_active_rentals": {
+      "type": "boolean",
+      "default": false
+    },
+    "signal_completeness_score": {
+      "type": "number",
+      "default": 0
+    },
+    "confidence_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "moderate",
+        "high"
+      ],
+      "default": "low"
+    },
+    "missing_signals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "threshold_results": {
+      "type": "object"
+    },
+    "public_badge_threshold_met": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "entity_type",
+    "entity_id",
+    "signal_date"
+  ]
+}

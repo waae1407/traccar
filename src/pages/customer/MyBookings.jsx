@@ -38,6 +38,13 @@ export default function MyBookings() {
     enabled: !!user?.email,
   });
 
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["my-host-reviews", user?.email],
+    queryFn: () => base44.entities.HostReview.filter({ reviewer_email: user?.email }),
+    enabled: !!user?.email,
+  });
+  const reviewMap = Object.fromEntries(reviews.map((r) => [r.booking_request_id, r]));
+
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.BookingRequest.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-booking-requests", user?.email] }),
@@ -169,6 +176,9 @@ export default function MyBookings() {
                 <PastRentalCard
                   key={b.id}
                   booking={b}
+                  user={user}
+                  existingReview={reviewMap[b.id]}
+                  onReviewSubmitted={() => queryClient.invalidateQueries({ queryKey: ["my-host-reviews", user?.email] })}
                   onViewContract={setContractBooking}
                 />
               ))}

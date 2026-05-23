@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ChevronDown, ChevronUp, MapPin, Clock, CheckCircle2, XCircle, FileText, Shield } from "lucide-react";
 import { format } from "date-fns";
 import InspectionPhotoGallery from "./InspectionPhotoGallery";
+import CompletedBookingReviewPrompt from "./CompletedBookingReviewPrompt";
 
 const CLEAN_RETURN_LABELS = {
   approved_clean: { label: "✓ Clean Return Approved", cls: "text-green-600 bg-green-50 border-green-200" },
@@ -11,7 +12,7 @@ const CLEAN_RETURN_LABELS = {
   not_returned:   { label: "No Return Photos", cls: "text-gray-500 bg-gray-50 border-gray-200" },
 };
 
-export default function PastRentalCard({ booking, onViewContract }) {
+export default function PastRentalCard({ booking, user, existingReview, onReviewSubmitted, onViewContract }) {
   const [expanded, setExpanded] = useState(false);
 
   const isCancelled = booking.booking_status === "cancelled";
@@ -73,6 +74,15 @@ export default function PastRentalCard({ booking, onViewContract }) {
           <div className={`mb-3 px-3 py-1.5 rounded-xl border text-[11px] font-semibold inline-flex items-center gap-1.5 ${cleanReturn.cls}`}>
             {cleanReturn.label}
           </div>
+        )}
+
+        {!isCancelled && (
+          <CompletedBookingReviewPrompt
+            booking={booking}
+            user={user}
+            existingReview={existingReview}
+            onSubmitted={onReviewSubmitted}
+          />
         )}
 
         {/* Quick badges row */}
