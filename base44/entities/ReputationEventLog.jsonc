@@ -1,0 +1,76 @@
+{
+  "name": "ReputationEventLog",
+  "type": "object",
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "score_calculated",
+        "review_submitted",
+        "review_moderated",
+        "badge_awarded",
+        "badge_removed",
+        "dispute_opened",
+        "dispute_resolved",
+        "maintenance_logged",
+        "compliance_changed",
+        "inspection_submitted",
+        "communication_sla_breached",
+        "vehicle_status_changed",
+        "host_restriction_changed"
+      ]
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "host",
+        "vehicle",
+        "booking",
+        "review",
+        "dispute",
+        "maintenance",
+        "compliance"
+      ]
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "source_entity": {
+      "type": "string"
+    },
+    "source_entity_id": {
+      "type": "string"
+    },
+    "score_impact": {
+      "type": "number",
+      "default": 0
+    },
+    "subscores_affected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reason": {
+      "type": "string"
+    },
+    "processed_by": {
+      "type": "string",
+      "default": "trust_scoring_engine"
+    }
+  },
+  "required": [
+    "event_type",
+    "entity_type",
+    "entity_id"
+  ]
+}

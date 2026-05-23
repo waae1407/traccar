@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { Users, CheckCircle2, AlertTriangle, Search, ChevronDown, ChevronUp, Shield, FileText, DollarSign, Lock, Settings } from "lucide-react";
 import HostRestrictionsPanel from "@/components/admin/HostRestrictionsPanel";
 import HostVerificationPanel from "@/components/admin/HostVerificationPanel";
+import AdminHostReputationPanel from "@/components/admin/reputation/AdminHostReputationPanel";
 
 const statusConfig = {
   pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400" },
@@ -32,6 +33,12 @@ export default function AdminHosts() {
     queryKey: ["admin-hosts"],
     queryFn: () => base44.entities.Host.list("-created_date", 200),
   });
+
+  const { data: reputationSummaries = [] } = useQuery({
+    queryKey: ["admin-host-reputation-summaries"],
+    queryFn: () => base44.entities.HostReputationSummary.list("-updated_date", 500),
+  });
+  const reputationMap = Object.fromEntries(reputationSummaries.map((s) => [s.host_id, s]));
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Host.update(id, data),
@@ -199,6 +206,9 @@ export default function AdminHosts() {
                         <p className="text-xs text-yellow-300">{h.restriction_reason}</p>
                       </div>
                     )}
+
+                    <AdminHostReputationPanel summary={reputationMap[h.id]} />
+
                     <div className="flex items-center gap-3 flex-wrap">
                       <button onClick={() => setVerifyingHost(h)}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white"

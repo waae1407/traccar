@@ -1,0 +1,58 @@
+{
+  "name": "ReputationHistorySnapshot",
+  "type": "object",
+  "properties": {
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "host",
+        "vehicle"
+      ]
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "snapshot_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "overall_score": {
+      "type": "number",
+      "default": 70
+    },
+    "subscores": {
+      "type": "object"
+    },
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "low"
+    },
+    "ranking_score": {
+      "type": "number",
+      "default": 70
+    }
+  },
+  "required": [
+    "entity_type",
+    "entity_id",
+    "snapshot_date"
+  ]
+}

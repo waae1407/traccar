@@ -1,0 +1,56 @@
+{
+  "name": "ReviewModerationQueue",
+  "type": "object",
+  "properties": {
+    "review_id": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "moderation_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "flagged",
+        "hidden"
+      ],
+      "default": "pending"
+    },
+    "visibility_status": {
+      "type": "string",
+      "enum": [
+        "hidden",
+        "public",
+        "admin_only"
+      ],
+      "default": "hidden"
+    },
+    "flag_reason": {
+      "type": "string"
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "review_id",
+    "booking_request_id",
+    "host_id"
+  ]
+}

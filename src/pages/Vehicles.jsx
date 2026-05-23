@@ -8,6 +8,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import EmptyState from "@/components/shared/EmptyState";
 import PageHeader from "@/components/shared/PageHeader";
 import VehicleFormDialog from "@/components/vehicles/VehicleFormDialog";
+import AdminVehicleReputationPanel from "@/components/admin/reputation/AdminVehicleReputationPanel";
 import { toast } from "sonner";
 
 export default function Vehicles() {
@@ -28,6 +29,11 @@ export default function Vehicles() {
     queryFn: () => base44.entities.Host.list("-created_date", 200),
   });
   const hostMap = Object.fromEntries(hosts.map(h => [h.id, h]));
+
+  const { data: vehicleReputationSummaries = [] } = useQuery({
+    queryKey: ["vehicle-reputation-summaries"],
+    queryFn: () => base44.entities.VehicleReputationSummary.list("-updated_date", 500),
+  });
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Vehicle.create({ ...data, ...tenantFilter() }),
@@ -163,6 +169,7 @@ export default function Vehicles() {
           </p>
         </div>
       )}
+      <AdminVehicleReputationPanel summaries={vehicleReputationSummaries} />
       <DataTable columns={columns} data={vehicles} isLoading={isLoading}
         onRowClick={(row) => { setEditingVehicle(row); setDialogOpen(true); }} />
       <VehicleFormDialog

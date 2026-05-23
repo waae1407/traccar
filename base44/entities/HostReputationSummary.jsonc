@@ -1,0 +1,92 @@
+{
+  "name": "HostReputationSummary",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "host_trust_score": {
+      "type": "number",
+      "default": 70
+    },
+    "fleet_reliability_score": {
+      "type": "number",
+      "default": 70
+    },
+    "cleanliness_score": {
+      "type": "number",
+      "default": 70
+    },
+    "maintenance_confidence_score": {
+      "type": "number",
+      "default": 70
+    },
+    "communication_reliability_score": {
+      "type": "number",
+      "default": 70
+    },
+    "booking_reliability_score": {
+      "type": "number",
+      "default": 70
+    },
+    "repeat_renter_score": {
+      "type": "number",
+      "default": 50
+    },
+    "compliance_consistency_score": {
+      "type": "number",
+      "default": 70
+    },
+    "dispute_adjusted_risk_score": {
+      "type": "number",
+      "default": 70
+    },
+    "public_rating": {
+      "type": "number",
+      "default": 0
+    },
+    "review_count": {
+      "type": "number",
+      "default": 0
+    },
+    "active_badges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "coaching_signals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "suppression_recommended": {
+      "type": "boolean",
+      "default": false
+    },
+    "suppression_reason": {
+      "type": "string"
+    },
+    "admin_risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "low"
+    },
+    "last_calculated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "host_id"
+  ],
+  "unique_fields": [
+    "host_id"
+  ]
+}

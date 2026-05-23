@@ -20,14 +20,44 @@
     "reviewer_email": {
       "type": "string"
     },
+    "renter_user_id": {
+      "type": "string"
+    },
     "rating": {
+      "type": "number",
+      "description": "Legacy overall rating alias"
+    },
+    "overall_rating": {
       "type": "number"
+    },
+    "host_experience_rating": {
+      "type": "number"
+    },
+    "vehicle_condition_rating": {
+      "type": "number"
+    },
+    "cleanliness_rating": {
+      "type": "number"
+    },
+    "communication_rating": {
+      "type": "number"
+    },
+    "pickup_dropoff_rating": {
+      "type": "number"
+    },
+    "would_rent_again": {
+      "type": "boolean",
+      "default": true
     },
     "review_text": {
       "type": "string"
     },
     "host_response": {
       "type": "string"
+    },
+    "host_response_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "status": {
       "type": "string",
@@ -39,14 +69,47 @@
       ],
       "default": "pending"
     },
+    "moderation_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "flagged",
+        "hidden"
+      ],
+      "default": "pending"
+    },
+    "visibility_status": {
+      "type": "string",
+      "enum": [
+        "hidden",
+        "public",
+        "admin_only"
+      ],
+      "default": "hidden"
+    },
     "verified_booking": {
       "type": "boolean",
       "default": true
+    },
+    "dispute_adjusted_weight": {
+      "type": "number",
+      "default": 1
+    },
+    "fake_review_flag": {
+      "type": "boolean",
+      "default": false
+    },
+    "moderation_notes": {
+      "type": "string"
     }
   },
   "required": [
     "host_id",
-    "reviewer_email",
-    "rating"
+    "reviewer_email"
+  ],
+  "unique_fields": [
+    "booking_request_id"
   ]
 }
