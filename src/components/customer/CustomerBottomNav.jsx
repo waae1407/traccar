@@ -1,13 +1,13 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, Activity, User, MessageSquare } from "lucide-react";
+import { Home, CalendarDays, HelpCircle, User, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
-  { label: "Home", icon: Home, path: "/" },
+  { label: "Home", icon: Home, path: "/book-now" },
   { label: "Bookings", icon: CalendarDays, path: "/my-bookings" },
-  { label: "Activity", icon: Activity, path: "/activity" },
   { label: "Messages", icon: MessageSquare, path: "/messages" },
+  { label: "Support", icon: HelpCircle, path: "/support" },
   { label: "Account", icon: User, path: "/account" },
 ];
 

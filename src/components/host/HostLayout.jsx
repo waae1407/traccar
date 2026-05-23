@@ -12,20 +12,22 @@ const navItems = [
   { label: "Brand Builder", icon: Sparkles, path: "/host/brand" },
   { label: "Customers", icon: Users, path: "/host/customers" },
   { label: "Payments", icon: CreditCard, path: "/host/payments" },
-  { label: "Payment History", icon: Receipt, path: "/host/payment-history" },
   { label: "Communications", icon: MessageSquare, path: "/host/communications" },
   { label: "Payouts", icon: DollarSign, path: "/host/payouts" },
   { label: "Expenses", icon: Receipt, path: "/host/expenses" },
   { label: "Maintenance", icon: Wrench, path: "/host/maintenance" },
-  { label: "Reports", icon: BarChart2, path: "/host/reports" },
   { label: "P&L Dashboard 💰", icon: BarChart2, path: "/host/pnl" },
   { label: "Compliance", icon: Shield, path: "/host/compliance" },
   { label: "RTO Contracts", icon: FileKey, path: "/host/rto" },
-  { label: "Fleet Insights", icon: TrendingUp, path: "/host/fleet-insights" },
-  { label: "AV Readiness", icon: Zap, path: "/host/av-readiness" },
   { label: "Verification & Tax", icon: Shield, path: "/host/verification" },
   { label: "AI Assistant", icon: MessageSquare, path: "/host/chat" },
 ];
+
+// Internal-only / secondary host routes — accessible via direct URL, hidden from nav:
+// /host/payment-history   (merge target into /host/payments)
+// /host/fleet-insights    (secondary — covered by P&L/Dashboard)
+// /host/reports           (secondary — covered by P&L)
+// /host/av-readiness      (niche/beta — not active product line)
 
 export default function HostLayout() {
   const { user, logout } = useAuth();

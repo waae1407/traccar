@@ -2,8 +2,8 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
-  FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2, Eye, Gift, Home, Wallet, Zap,
-  Shield, FileText, Bell, MapPin, ClipboardList, Activity, MessageSquare,
+  FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2, Gift, Home, Wallet, Zap,
+  Shield, Bell, MapPin, ClipboardList, Activity, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -20,12 +20,9 @@ const navItems = [
   { label: "Vehicles", icon: Car, path: "/vehicles" },
   { label: "Bookings", icon: CalendarDays, path: "/bookings-admin" },
   { label: "Payments", icon: DollarSign, path: "/payments" },
-  { label: "Rent-to-Own", icon: FileKey, path: "/rent-to-own" },
-  { label: "Maintenance", icon: Wrench, path: "/admin/maintenance" },
   { label: "Reports", icon: BarChart3, path: "/reports" },
   { label: "P&L Dashboard 💰", icon: BarChart3, path: "/admin/pnl" },
   { label: "Referrals 🎁", icon: Gift, path: "/referrals" },
-  { label: "Customer Preview", icon: Eye, path: "/customer-preview" },
   { label: "AI Oracle 🤖", icon: Zap, path: "/admin/ai-chat" },
   { label: "Book Now ↗", icon: Car, path: "/", divider: true },
 ];
@@ -33,10 +30,6 @@ const navItems = [
 const hostNavItems = [
   { label: "Hosts", icon: Home, path: "/admin/hosts" },
   { label: "Host Payouts", icon: Wallet, path: "/admin/payouts" },
-];
-
-const superadminNavItems = [
-  { label: "Companies", icon: Building2, path: "/companies" },
 ];
 
 const operationsNavItems = [
@@ -47,7 +40,23 @@ const operationsNavItems = [
   { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
   { label: "Compliance Queue", icon: ClipboardList, path: "/admin/compliance-queue" },
   { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
+  { label: "Operations Center", icon: Activity, path: "/admin/operations" },
 ];
+
+const superadminNavItems = [
+  { label: "Companies", icon: Building2, path: "/companies" },
+];
+
+// Internal-only tools — kept for direct URL access, removed from sidebar nav:
+// /admin/expenses-preview        (duplicate preview route)
+// /admin/maintenance-v2          (duplicate route)
+// /admin/recurring-expenses-preview (duplicate preview route)
+// /admin/payment-reconciliation-preview (duplicate preview route)
+// /admin/payment-reconciliation  (internal reconciliation tool)
+// /admin/financial-control-center (internal stabilization tool)
+// /admin/remediation-workspace   (internal remediation tool)
+// /customer-preview              (internal QA tool)
+// /maintenance                   (legacy — superseded by /admin/maintenance)
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
   const location = useLocation();
