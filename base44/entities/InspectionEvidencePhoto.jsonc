@@ -1,0 +1,64 @@
+{
+  "name": "InspectionEvidencePhoto",
+  "type": "object",
+  "properties": {
+    "packet_id": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "photo_slot": {
+      "type": "string"
+    },
+    "photo_url": {
+      "type": "string"
+    },
+    "uploaded_by_role": {
+      "type": "string",
+      "enum": [
+        "renter",
+        "host",
+        "admin"
+      ],
+      "default": "renter"
+    },
+    "uploaded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "gps_lat": {
+      "type": "number"
+    },
+    "gps_lon": {
+      "type": "number"
+    },
+    "issue_flagged": {
+      "type": "boolean",
+      "default": false
+    },
+    "dispute_available_until": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dispute_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "open",
+        "resolved",
+        "expired"
+      ],
+      "default": "none"
+    },
+    "linked_dispute_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "packet_id",
+    "booking_request_id",
+    "photo_slot",
+    "photo_url"
+  ]
+}

@@ -64,7 +64,12 @@
         "Compliance Hold",
         "Transferred",
         "Out of Service",
-        "Retired"
+        "Retired",
+        "Dropoff Submitted",
+        "Return Pending Host Review",
+        "Dispute Hold",
+        "Cleaning Hold",
+        "Maintenance Hold"
       ],
       "default": "Available"
     },

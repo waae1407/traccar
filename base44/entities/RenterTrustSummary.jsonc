@@ -1,0 +1,67 @@
+{
+  "name": "RenterTrustSummary",
+  "type": "object",
+  "properties": {
+    "renter_user_id": {
+      "type": "string"
+    },
+    "renter_email": {
+      "type": "string"
+    },
+    "completed_rentals_count": {
+      "type": "number",
+      "default": 0
+    },
+    "pickup_compliance_count": {
+      "type": "number",
+      "default": 0
+    },
+    "dropoff_compliance_count": {
+      "type": "number",
+      "default": 0
+    },
+    "clean_return_count": {
+      "type": "number",
+      "default": 0
+    },
+    "damage_dispute_count": {
+      "type": "number",
+      "default": 0
+    },
+    "renter_fault_dispute_count": {
+      "type": "number",
+      "default": 0
+    },
+    "chargeback_count": {
+      "type": "number",
+      "default": 0
+    },
+    "gps_conflict_count": {
+      "type": "number",
+      "default": 0
+    },
+    "private_trust_band": {
+      "type": "string",
+      "enum": [
+        "insufficient_history",
+        "reliable",
+        "watch",
+        "needs_review"
+      ],
+      "default": "insufficient_history"
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "last_calculated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "renter_email"
+  ],
+  "unique_fields": [
+    "renter_email"
+  ]
+}

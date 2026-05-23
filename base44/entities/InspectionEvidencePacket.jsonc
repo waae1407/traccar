@@ -1,0 +1,159 @@
+{
+  "name": "InspectionEvidencePacket",
+  "type": "object",
+  "properties": {
+    "booking_request_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "renter_user_id": {
+      "type": "string"
+    },
+    "inspection_type": {
+      "type": "string",
+      "enum": [
+        "pickup",
+        "dropoff",
+        "host_dispute"
+      ],
+      "default": "pickup"
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "locked",
+        "disputed",
+        "accepted",
+        "auto_accepted"
+      ],
+      "default": "draft"
+    },
+    "submitted_by_role": {
+      "type": "string",
+      "enum": [
+        "renter",
+        "host",
+        "admin"
+      ],
+      "default": "renter"
+    },
+    "submitted_by_user_id": {
+      "type": "string"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "gps_lat": {
+      "type": "number"
+    },
+    "gps_lon": {
+      "type": "number"
+    },
+    "gps_accuracy": {
+      "type": "number"
+    },
+    "location_label": {
+      "type": "string"
+    },
+    "gps_distance_miles": {
+      "type": "number"
+    },
+    "gps_tolerance_status": {
+      "type": "string",
+      "enum": [
+        "within_5_miles",
+        "outside_5_miles",
+        "missing",
+        "not_checked"
+      ],
+      "default": "not_checked"
+    },
+    "evidence_confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "moderate",
+        "high"
+      ],
+      "default": "moderate"
+    },
+    "required_photo_slots_completed": {
+      "type": "number",
+      "default": 0
+    },
+    "additional_photo_count": {
+      "type": "number",
+      "default": 0
+    },
+    "issue_grade": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "fair",
+        "problematic"
+      ],
+      "default": "excellent"
+    },
+    "issue_categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "issue_description": {
+      "type": "string"
+    },
+    "linked_pickup_packet_id": {
+      "type": "string"
+    },
+    "linked_dropoff_packet_id": {
+      "type": "string"
+    },
+    "evidence_locked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lock_reason": {
+      "type": "string"
+    },
+    "dispute_window_expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dispute_window_closed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dispute_window_close_reason": {
+      "type": "string",
+      "enum": [
+        "host_accepted",
+        "timeout",
+        "vehicle_available",
+        "admin_override",
+        "dispute_opened",
+        ""
+      ]
+    },
+    "admin_override_reason": {
+      "type": "string"
+    },
+    "trust_attribution_preview": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "booking_request_id",
+    "vehicle_id",
+    "inspection_type",
+    "submitted_by_role"
+  ]
+}

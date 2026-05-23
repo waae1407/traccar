@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
     if (user?.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
     const today = new Date().toISOString().slice(0, 10);
-    const [hosts, vehicles, bookings, reviews, maintenance, compliance, gpsEvents, threads] = await Promise.all([
+    const [hosts, vehicles, bookings, reviews, maintenance, compliance, gpsEvents, threads, evidencePackets, disputes] = await Promise.all([
       base44.asServiceRole.entities.Host.list('-created_date', 500),
       base44.asServiceRole.entities.Vehicle.list('-created_date', 500),
       base44.asServiceRole.entities.BookingRequest.list('-created_date', 1000),
@@ -104,6 +104,8 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.HostVehicleCompliance.list('-created_date', 1000),
       base44.asServiceRole.entities.GPSEvent.list('-created_date', 1000),
       base44.asServiceRole.entities.CommunicationThread.list('-created_date', 1000),
+      base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 1000),
+      base44.asServiceRole.entities.Dispute.list('-created_date', 1000),
     ]);
 
     const activeBookings = bookings.filter((b) => ['active', 'confirmed', 'approved'].includes(b.booking_status));
@@ -124,6 +126,11 @@ Deno.serve(async (req) => {
       const hostThreads = threads.filter((t) => t.host_id === host.id);
       const repeat = repeatStats(hostBookings);
       const inspections = inspectionStats(hostBookings);
+      const hostEvidence = evidencePackets.filter((p) => p.host_id === host.id || vehicleIds.has(p.vehicle_id));
+      const pickupPackets = hostEvidence.filter((p) => p.inspection_type === 'pickup');
+      const problematicPickupCount = pickupPackets.filter((p) => p.issue_grade === 'problematic').length;
+      const gpsConflictCount = hostEvidence.filter((p) => p.gps_tolerance_status === 'outside_5_miles').length;
+      const hostFaultDisputes = disputes.filter((d) => d.host_id === host.id && d.status === 'resolved_customer_favor').length;
       const activeRentalComplianceGaps = hostCompliance.filter((c) => ['expired', 'expiring_soon'].includes(c.status) && activeBookings.some((b) => b.vehicle_id === c.vehicle_id)).length;
       const firstResponses = hostThreads.map((t) => t.first_response_minutes).filter((v) => Number.isFinite(v));
       const wouldRentAgain = verifiedReviews.length ? pct(verifiedReviews.filter((r) => r.would_rent_again).length, verifiedReviews.length) : 0;
@@ -153,9 +160,9 @@ Deno.serve(async (req) => {
         communication_threads_count: hostThreads.length, first_response_avg_minutes: avg(firstResponses), sla_breach_count: hostThreads.filter((t) => t.sla_breached).length,
         unread_aging_count: hostThreads.filter((t) => (t.unread_age_hours || 0) >= 24).length, response_consistency_avg: avg(hostThreads.map((t) => t.response_consistency_score)), escalation_count: hostThreads.filter((t) => t.escalation_flag).length,
         signal_completeness_score: score, evidence_coverage_pct: coverage, confidence_level: level, confidence_adjusted_score: confidenceAdjustedScore(score, level),
-        missing_signals: Object.entries(thresholdResults).filter(([, ok]) => !ok).map(([key]) => key), threshold_results: thresholdResults,
-        public_badge_threshold_met: level === 'high' && score >= 75, stale_signal_flag: false,
-        notes: 'Internal-only Phase 3 signal collection. Neutral-by-default: missing data is not treated as positive evidence.',
+        missing_signals: Object.entries(thresholdResults).filter(([, ok]) => !ok).map(([key]) => key), threshold_results: { ...thresholdResults, pickup_problematic_count: problematicPickupCount, gps_conflict_count: gpsConflictCount, host_fault_dispute_count: hostFaultDisputes },
+        public_badge_threshold_met: level === 'high' && score >= 75 && problematicPickupCount === 0 && hostFaultDisputes === 0, stale_signal_flag: false,
+        notes: 'Internal-only Phase 3 signal collection. Pickup evidence informs host/vehicle readiness only after repeated or confirmed issues. Dropoff evidence is private renter/return accountability and does not directly penalize host trust.',
       };
       await writeSnapshot(base44, snapshot);
       hostSnapshots.push(snapshot);
@@ -173,6 +180,12 @@ Deno.serve(async (req) => {
       const vehicleThreads = threads.filter((t) => t.vehicle_id === vehicle.id);
       const repeat = repeatStats(vehicleBookings);
       const inspections = inspectionStats(vehicleBookings);
+      const vehicleEvidence = evidencePackets.filter((p) => p.vehicle_id === vehicle.id);
+      const pickupPackets = vehicleEvidence.filter((p) => p.inspection_type === 'pickup');
+      const problematicPickupCount = pickupPackets.filter((p) => p.issue_grade === 'problematic').length;
+      const dropoffPackets = vehicleEvidence.filter((p) => p.inspection_type === 'dropoff');
+      const renterFaultDisputes = disputes.filter((d) => d.vehicle_id === vehicle.id && d.status === 'resolved_host_favor').length;
+      const gpsConflictCount = vehicleEvidence.filter((p) => p.gps_tolerance_status === 'outside_5_miles').length;
       const gps = gpsStats(vehicle, gpsEvents, activeBookings);
       const activeRentalComplianceGaps = vehicleCompliance.filter((c) => ['expired', 'expiring_soon'].includes(c.status) && activeBookings.some((b) => b.vehicle_id === c.vehicle_id)).length;
       const recencies = vehicleCompliance.map((c) => daysSince(c.verified_at)).filter((v) => v !== null);
@@ -203,9 +216,9 @@ Deno.serve(async (req) => {
         unread_aging_count: vehicleThreads.filter((t) => (t.unread_age_hours || 0) >= 24).length, response_consistency_avg: avg(vehicleThreads.map((t) => t.response_consistency_score)), escalation_count: vehicleThreads.filter((t) => t.escalation_flag).length,
         gps_required: gps.gpsRequired, gps_event_count: gps.eventCount, gps_uptime_pct: gps.uptime, gps_available_during_active_rentals: gps.availableDuringActiveRentals, stale_gps_device_flag: gps.stale,
         signal_completeness_score: score, evidence_coverage_pct: coverage, confidence_level: level, confidence_adjusted_score: confidenceAdjustedScore(score, level),
-        missing_signals: Object.entries(thresholdResults).filter(([, ok]) => !ok).map(([key]) => key), threshold_results: thresholdResults,
-        public_badge_threshold_met: level === 'high' && score >= 75, stale_signal_flag: gps.stale,
-        notes: 'Internal-only Phase 3 signal collection. Vehicles without GPS requirements are not penalized for missing GPS events.',
+        missing_signals: Object.entries(thresholdResults).filter(([, ok]) => !ok).map(([key]) => key), threshold_results: { ...thresholdResults, pickup_problematic_count: problematicPickupCount, dropoff_packet_count: dropoffPackets.length, renter_fault_dispute_count: renterFaultDisputes, gps_conflict_count: gpsConflictCount },
+        public_badge_threshold_met: level === 'high' && score >= 75 && problematicPickupCount === 0, stale_signal_flag: gps.stale,
+        notes: 'Internal-only Phase 3 signal collection. Vehicle quality uses pickup readiness, maintenance, compliance, GPS when required, and confirmed vehicle issues. Renter-caused dropoff damage is not counted as vehicle quality unless admin resolves it as vehicle_issue.',
       };
       await writeSnapshot(base44, snapshot);
       vehicleSnapshots.push(snapshot);

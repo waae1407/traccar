@@ -17,14 +17,16 @@ const STATUS_CONFIG = {
   pending_contract:       { label: "📄 Sign Contract",  style: { background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "#fff" } },
   draft:                  { label: "Draft",              style: { background: "#e5e7eb", color: "#6b7280" } },
   cancellation_requested: { label: "⏳ Cancel Pending", style: { background: "#fee2e2", color: "#dc2626" } },
+  return_pending_host_review: { label: "⏳ Return Review", style: { background: "linear-gradient(135deg, #d97706, #b45309)", color: "#fff" } },
+  under_review: { label: "⚠️ Under Review", style: { background: "linear-gradient(135deg, #dc2626, #991b1b)", color: "#fff" } },
 };
 
 const CANCELLABLE = ["pending_payment", "pending_review", "approved", "confirmed", "active"];
 const DELETABLE   = ["draft", "pending_verification", "pending_contract"];
 const RESUMABLE   = ["draft", "pending_verification", "pending_contract", "pending_payment"];
-const SHOW_INSPECTION = ["active", "approved", "confirmed"];
+const SHOW_INSPECTION = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"];
 // Statuses that have a fully active rental (signed agreement)
-const ACTIVE_RENTAL = ["active", "approved", "confirmed"];
+const ACTIVE_RENTAL = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"];
 
 function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || { label: status, style: { background: "#e5e7eb", color: "#6b7280" } };

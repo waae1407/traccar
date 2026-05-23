@@ -71,6 +71,7 @@
         "pending_contract",
         "pending_payment",
         "pending_review",
+        "return_pending_host_review",
         "confirmed",
         "active",
         "payment_due",

@@ -55,6 +55,7 @@ import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import AdminCommunications from '@/pages/admin/AdminCommunications';
 import AdminReputationValidation from '@/pages/admin/AdminReputationValidation.jsx';
 import AdminReviewModeration from '@/pages/admin/AdminReviewModeration.jsx';
+import AdminInspectionOversight from '@/pages/admin/AdminInspectionOversight.jsx';
 import HostCommunications from '@/pages/host/HostCommunications';
 import CustomerCommunications from '@/pages/customer/CustomerCommunications';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
@@ -78,6 +79,7 @@ import HostReports from '@/pages/host/HostReports';
 import HostPnL from '@/pages/host/HostPnL';
 import HostVerificationDocs from '@/pages/host/HostVerificationDocs';
 import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
+import HostReturnReviews from '@/pages/host/HostReturnReviews.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
 import HostStorefrontHome from '@/pages/host/HostStorefrontHome';
@@ -149,6 +151,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/pnl" element={<HostPnL />} />
         <Route path="/host/verification" element={<HostVerificationDocs />} />
         <Route path="/host/payment-history" element={<HostPaymentHistory />} />
+        <Route path="/host/return-reviews" element={<HostReturnReviews />} />
         <Route path="/host/communications" element={<HostCommunications />} />
       </Route>
 
@@ -212,6 +215,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/communications" element={<AdminCommunications />} />
         <Route path="/admin/reputation-validation" element={<AdminReputationValidation />} />
         <Route path="/admin/review-moderation" element={<AdminReviewModeration />} />
+        <Route path="/admin/inspection-oversight" element={<AdminInspectionOversight />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

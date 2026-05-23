@@ -226,9 +226,9 @@ Be objective and thorough.`;
         });
 
       } else {
-        // Clean return — auto complete rental
-        await _completeRental(base44, booking, booking_request_id);
-        return Response.json({ pass: "damage_check", result: "auto_completed", summary: damageResult.summary });
+      // Clean return — keep in host review window, do not instantly release vehicle
+      await _startHostReviewWindow(base44, booking, booking_request_id, damageResult.summary);
+      return Response.json({ pass: "damage_check", result: "host_review_window_started", summary: damageResult.summary });
       }
     }
 
@@ -240,6 +240,20 @@ Be objective and thorough.`;
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
+
+async function _startHostReviewWindow(base44, booking, booking_request_id, summary) {
+  await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
+    booking_status: "return_pending_host_review",
+    clean_return_status: "photos_submitted",
+    pending_review_alert_active: true,
+    viewed_by_admin: false,
+    admin_notes: [booking.admin_notes, `[AI Return Review] Clean return likely. Host has 24 hours to accept or dispute. ${summary || ""}`].filter(Boolean).join("\n"),
+  });
+
+  if (booking.vehicle_id) {
+    await base44.asServiceRole.entities.Vehicle.update(booking.vehicle_id, { status: "Return Pending Host Review" });
+  }
+}
 
 async function _completeRental(base44, booking, booking_request_id) {
   await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
