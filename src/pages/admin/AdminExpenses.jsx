@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { loadSharedExpenseEngine } from "@/lib/operational/sharedExpenseEngine";
-import { buildExpenseExportRows, downloadCsv } from "@/lib/operational/sharedExportUtils";
+import { buildExpenseExportRows, buildRecurringExpenseExportRows, downloadCsv } from "@/lib/operational/sharedExportUtils";
 import { SHARED_DATE_RANGES } from "@/lib/operational/sharedOperationalFilters";
 import {
   OperationalPageShell,
@@ -16,11 +16,13 @@ import {
   OperationalPagination,
 } from "@/components/operational";
 import { Receipt } from "lucide-react";
+import AdminRecurringExpensesSection from "@/components/admin/expenses/AdminRecurringExpensesSection";
 
 const PAGE_SIZE = 50;
 
 export default function AdminExpenses() {
   const [filters, setFilters] = useState({ dateRange: "last30" });
+  const [activeTab, setActiveTab] = useState("expenses");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState(null);
 
@@ -33,6 +35,7 @@ export default function AdminExpenses() {
   });
 
   const expenses = data?.expenses || [];
+  const recurringExpenses = data?.recurringExpenses || [];
   const hosts = data?.sources?.hosts || [];
   const vehicles = data?.sources?.vehicles || [];
   const categories = useMemo(() => [...new Set((data?.allExpenses || []).map((item) => item.expense_type || item.category).filter(Boolean))], [data]);
@@ -53,11 +56,28 @@ export default function AdminExpenses() {
         title="Admin Expenses"
         subtitle="Fleet and operational expense tracking across hosts and vehicles"
         eyebrow="Operations"
-        actions={<OperationalExportToolbar mode="admin" exports={[{ label: "Export", onClick: () => downloadCsv(buildExpenseExportRows(expenses), "admin-expenses.csv") }]} />}
+        actions={<OperationalExportToolbar mode="admin" exports={[{ label: activeTab === "recurring" ? "Export Recurring" : "Export", onClick: () => downloadCsv(activeTab === "recurring" ? buildRecurringExpenseExportRows(recurringExpenses) : buildExpenseExportRows(expenses), activeTab === "recurring" ? "admin-recurring-expenses.csv" : "admin-expenses.csv") }]} />}
       />
 
       <OperationalKpiGrid mode="admin" metrics={metrics} />
 
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-2">
+        {[
+          { id: "expenses", label: "Expense Records" },
+          { id: "recurring", label: "Recurring Expenses" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${activeTab === tab.id ? "text-white" : "text-white/45 hover:bg-white/[0.05] hover:text-white/75"}`}
+            style={activeTab === tab.id ? { background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" } : {}}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "expenses" && <>
       <OperationalDataSection mode="admin" title="Expense Insights" subtitle="Highest-cost vehicles and record health" bodyClassName="p-4">
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 lg:col-span-2">
@@ -105,6 +125,10 @@ export default function AdminExpenses() {
       </OperationalDataSection>
 
       <OperationalPagination mode="admin" page={page} pageSize={PAGE_SIZE} total={expenses.length} onPageChange={setPage} />
+      </>}
+
+      {activeTab === "recurring" && <AdminRecurringExpensesSection recurring={recurringExpenses} isLoading={isLoading} />}
+
       <OperationalDetailDrawer mode="admin" title="Expense detail" record={selected} open={!!selected} onClose={() => setSelected(null)} fields={[
         { key: "host_name", label: "Host" }, { key: "vehicle_name", label: "Vehicle" }, { key: "expense_type", label: "Category" },
         { key: "amount", label: "Amount", render: (r) => `$${Number(r.amount || 0).toLocaleString()}` }, { key: "date", label: "Date" },

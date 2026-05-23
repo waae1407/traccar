@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
   FileKey, Wrench, ChevronLeft, ChevronRight, BarChart3, X, Building2, Gift, Home, Wallet, Zap,
-  Shield, Bell, MapPin, ClipboardList, Activity, MessageSquare,
+  Shield, MapPin, ClipboardList, Activity, MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -34,9 +34,7 @@ const hostNavItems = [
 
 const operationsNavItems = [
   { label: "Expenses", icon: DollarSign, path: "/admin/expenses" },
-  { label: "Recurring Expenses", icon: DollarSign, path: "/admin/recurring-expenses" },
   { label: "Disputes", icon: Shield, path: "/admin/disputes" },
-  { label: "Operational Alerts", icon: Bell, path: "/admin/operational-alerts" },
   { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
   { label: "Compliance Queue", icon: ClipboardList, path: "/admin/compliance-queue" },
   { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
