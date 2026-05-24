@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     const reviewReasons = [];
 
     const duplicates = await base44.asServiceRole.entities.HostCustomDomain.filter({ normalized_domain: normalizedDomain });
-    const conflicting = duplicates.find((d) => d.id !== record.id && d.host_id !== record.host_id && d.active !== false);
+    const conflicting = duplicates.find((d) => d.id !== record.id && d.host_id !== record.host_id);
     if (conflicting) reviewReasons.push('Duplicate domain ownership conflict');
     if (isSuspiciousDomain(normalizedDomain)) reviewReasons.push('Protected or suspicious domain');
     if (host.status !== 'approved' || host.host_under_review || host.booking_blocked) reviewReasons.push('Host account requires review before domain activation');
