@@ -1,0 +1,114 @@
+{
+  "name": "HostCustomDomain",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "normalized_domain": {
+      "type": "string"
+    },
+    "domain_type": {
+      "type": "string",
+      "enum": [
+        "www",
+        "apex",
+        "subdomain"
+      ],
+      "default": "www"
+    },
+    "business_slug": {
+      "type": "string"
+    },
+    "verification_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "verified",
+        "failed",
+        "inactive",
+        "under_review"
+      ],
+      "default": "pending"
+    },
+    "ssl_status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "pending",
+        "active",
+        "failed"
+      ],
+      "default": "unknown"
+    },
+    "active": {
+      "type": "boolean",
+      "default": false
+    },
+    "dns_target": {
+      "type": "string",
+      "default": "base44.onrender.com"
+    },
+    "verification_token": {
+      "type": "string"
+    },
+    "txt_record_name": {
+      "type": "string"
+    },
+    "txt_record_value": {
+      "type": "string"
+    },
+    "cname_record_name": {
+      "type": "string"
+    },
+    "cname_record_value": {
+      "type": "string",
+      "default": "base44.onrender.com"
+    },
+    "connected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "created_by_host_email": {
+      "type": "string"
+    },
+    "requires_admin_review": {
+      "type": "boolean",
+      "default": false
+    },
+    "review_reason": {
+      "type": "string"
+    },
+    "redirect_to_canonical": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id",
+    "domain",
+    "normalized_domain",
+    "business_slug",
+    "verification_token"
+  ],
+  "unique_fields": [
+    "normalized_domain"
+  ]
+}

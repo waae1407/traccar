@@ -13,6 +13,7 @@ import StoreScoreWidget from "@/components/host/brand/StoreScoreWidget";
 import AIBrandBuilder from "@/components/host/brand/AIBrandBuilder";
 import QRShareCard from "@/components/host/brand/QRShareCard";
 import LogoIconGenerator from "@/components/host/brand/LogoIconGenerator";
+import HostCustomDomainManager from "@/components/host/brand/HostCustomDomainManager";
 
 const TEMPLATES = [
   { id: "prestige", label: "Prestige", desc: "Dark luxury, gold accents", bg: "#0f0c29", accent: "#c9a84c" },
@@ -588,24 +589,7 @@ export default function HostBrandBuilder() {
 
           {isLive && <QRShareCard slug={form.business_slug} />}
 
-          {/* Custom Domain — Coming Soon */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-gray-100">
-                <Globe className="h-5 w-5 text-gray-400" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="font-bold text-gray-900 text-sm">Custom Domain</p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">Coming Soon</span>
-                </div>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  Connect your own domain (e.g. <span className="font-mono text-gray-600">www.yourbrand.com</span>) so customers visit your branded URL instead of uridehub.com/host/slug. We're building infrastructure support for this — your uridehub.com/host/ link will always work as a fallback.
-                </p>
-                <p className="text-[10px] text-gray-300 mt-2">Available in a future update · No action needed now</p>
-              </div>
-            </div>
-          </div>
+          <HostCustomDomainManager host={host} brand={form} />
         </div>
       )}
 

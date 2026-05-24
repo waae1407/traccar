@@ -5,6 +5,7 @@ import { Users, CheckCircle2, AlertTriangle, Search, ChevronDown, ChevronUp, Shi
 import HostRestrictionsPanel from "@/components/admin/HostRestrictionsPanel";
 import HostVerificationPanel from "@/components/admin/HostVerificationPanel";
 import AdminHostReputationPanel from "@/components/admin/reputation/AdminHostReputationPanel";
+import HostDomainReviewPanel from "@/components/admin/HostDomainReviewPanel";
 
 const statusConfig = {
   pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400" },
@@ -208,6 +209,7 @@ export default function AdminHosts() {
                     )}
 
                     <AdminHostReputationPanel summary={reputationMap[h.id]} />
+                    <HostDomainReviewPanel host={h} />
 
                     <div className="flex items-center gap-3 flex-wrap">
                       <button onClick={() => setVerifyingHost(h)}

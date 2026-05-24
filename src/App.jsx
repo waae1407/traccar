@@ -82,6 +82,7 @@ import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
 import HostReturnReviews from '@/pages/host/HostReturnReviews.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
+import CustomDomainGate from '@/components/host/storefront/CustomDomainGate';
 import HostStorefrontHome from '@/pages/host/HostStorefrontHome';
 
 // Public pages
@@ -121,6 +122,7 @@ const AuthenticatedApp = () => {
   const isAdmin = user?.role === "admin";
 
   return (
+    <CustomDomainGate>
     <Routes>
       {/* ── PUBLIC PAGES (no login required) ── */}
       <Route path="/" element={<PublicHome />} />
@@ -226,6 +228,7 @@ const AuthenticatedApp = () => {
 
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+    </CustomDomainGate>
   );
 };
 

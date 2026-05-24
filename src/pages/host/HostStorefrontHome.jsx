@@ -12,6 +12,7 @@ import BookNowVehicleGrid from "@/components/customer/booknow/BookNowVehicleGrid
 import WaitlistEmptyState from "@/components/customer/booknow/WaitlistEmptyState";
 import useUserLocation from "@/hooks/useUserLocation";
 import { Gift, CalendarCheck, Key, ChevronRight } from "lucide-react";
+import { canonicalCheckoutUrl, isCustomDomainHost } from "@/lib/customDomain";
 import HostTrustPanel from "@/components/trust/HostTrustPanel";
 import { latestSnapshotFor, publicHostLabels, publicRating } from "@/lib/reputation/publicTrust";
 
@@ -111,7 +112,9 @@ export default function HostStorefrontHome() {
 
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
-    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}&storefront=${businessSlug}&return=/host/${businessSlug}`);
+    const params = new URLSearchParams({ vehicle: vehicle.id, type: bookingType, storefront: businessSlug, return: `/host/${businessSlug}` });
+    if (isCustomDomainHost()) window.location.href = canonicalCheckoutUrl(params);
+    else navigate(`/checkout?${params.toString()}`);
   };
 
   const handleLocationZipSearch = async (zipcode, altCity) => {
@@ -128,7 +131,11 @@ export default function HostStorefrontHome() {
     <div className="min-h-screen pb-4 bg-gray-50">
       {/* Gig worker hero banner */}
       <button
-        onClick={() => navigate(`/checkout?storefront=${businessSlug}&return=/host/${businessSlug}`)}
+        onClick={() => {
+          const params = new URLSearchParams({ storefront: businessSlug, return: `/host/${businessSlug}` });
+          if (isCustomDomainHost()) window.location.href = canonicalCheckoutUrl(params);
+          else navigate(`/checkout?${params.toString()}`);
+        }}
         className="mx-5 mt-5 mb-5 rounded-2xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block"
         style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${secondaryColor} 100%)` }}>
         <div className="absolute inset-0 pointer-events-none">
