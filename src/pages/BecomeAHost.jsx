@@ -219,7 +219,7 @@ export default function BecomeAHost() {
           </div>
 
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-700 leading-relaxed">
-            ✓ By submitting, you agree to uRide host terms. Once approved, Stripe Connect handles your 80% automatic payouts.
+            ✓ By submitting, you agree to uRide host terms. Once approved, Stripe Connect handles automatic payouts after the 8% marketplace fee.
           </div>
 
           <button type="submit" disabled={submitting}
@@ -264,7 +264,7 @@ export default function BecomeAHost() {
             </span>
           </h1>
           <p className="text-white/60 text-base leading-relaxed max-w-xs mx-auto mb-8">
-            List your fleet on uRide. We handle renters, payments & compliance. You keep 80% — automatically.
+            List your fleet on uRide. We handle renters, payments & compliance. Marketplace Partner pricing is an 8% marketplace booking fee.
           </p>
           <button onClick={() => {
             if (existingHost?.status === "pending") { setStep("pending"); return; }
