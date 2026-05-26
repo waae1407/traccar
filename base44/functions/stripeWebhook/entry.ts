@@ -131,7 +131,6 @@ Deno.serve(async (req) => {
         const billingContext = getBillingContext(pi.metadata || {});
         if (billingContext !== 'rental_marketplace_payment') {
           console.log(`[Webhook] Recognized non-rental billing context ${billingContext}; no live subscription/dealer/GPS billing action taken.`);
-          await createPaymentAlert(base44, { alert_type: 'unknown_billing_context', severity: 'info', billing_context: billingContext, stripe_event_type: event.type, stripe_payment_intent_id: pi.id, title: 'Non-rental Stripe payment recognized', message: `Stripe payment succeeded for non-rental context: ${billingContext}. No subscription, Dealer Network, or GPS action was activated.`, recommended_action: 'Review billing context routing before future activation.', financial_impact_amount: (pi.amount || 0) / 100, currency: pi.currency || 'usd', source: 'stripe_webhook' });
           await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.succeeded context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
           break;
         }
