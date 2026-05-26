@@ -41,6 +41,7 @@ const operationsNavItems = [
   { label: "Reputation Validation", icon: Activity, path: "/admin/reputation-validation" },
   { label: "Review Moderation", icon: Star, path: "/admin/review-moderation" },
   { label: "Inspection Oversight", icon: Camera, path: "/admin/inspection-oversight" },
+  { label: "Dealer Network", icon: Car, path: "/admin/dealer-network" },
   { label: "Operations Center", icon: Activity, path: "/admin/operations" },
 ];
 

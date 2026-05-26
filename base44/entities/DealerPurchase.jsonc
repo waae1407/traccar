@@ -1,0 +1,55 @@
+{
+  "name": "DealerPurchase",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "bid_request_id": {
+      "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "purchase_price": {
+      "type": "number"
+    },
+    "auction_fees": {
+      "type": "number"
+    },
+    "transport_cost": {
+      "type": "number"
+    },
+    "platform_fee_amount": {
+      "type": "number",
+      "default": 50
+    },
+    "payment_status": {
+      "type": "string"
+    },
+    "title_status": {
+      "type": "string"
+    },
+    "transport_status": {
+      "type": "string"
+    },
+    "onboarding_to_fleet_status": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "purchased",
+        "transporting",
+        "received",
+        "onboarded",
+        "cancelled"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "host_id"
+  ]
+}

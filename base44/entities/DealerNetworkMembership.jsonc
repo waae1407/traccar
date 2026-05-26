@@ -1,0 +1,55 @@
+{
+  "name": "DealerNetworkMembership",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "membership_status": {
+      "type": "string",
+      "enum": [
+        "inactive",
+        "pending_payment",
+        "active",
+        "expired",
+        "suspended"
+      ],
+      "default": "inactive"
+    },
+    "annual_fee_amount": {
+      "type": "number",
+      "default": 100
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "setup_pending",
+        "pending",
+        "paid",
+        "failed"
+      ],
+      "default": "setup_pending"
+    },
+    "stripe_subscription_id": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id"
+  ]
+}

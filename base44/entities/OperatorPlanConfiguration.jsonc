@@ -1,0 +1,87 @@
+{
+  "name": "OperatorPlanConfiguration",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "active_mode": {
+      "type": "string",
+      "enum": [
+        "marketplace_partner",
+        "fleetos_professional",
+        "hybrid_growth"
+      ],
+      "default": "marketplace_partner"
+    },
+    "marketplace_fee_rate": {
+      "type": "number",
+      "default": 0.08
+    },
+    "monthly_subscription_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "uses_uride_payments": {
+      "type": "boolean",
+      "default": true
+    },
+    "uses_own_payments": {
+      "type": "boolean",
+      "default": false
+    },
+    "contactless_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "dealer_network_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "dealer_network_membership_status": {
+      "type": "string",
+      "enum": [
+        "inactive",
+        "pending_payment",
+        "active",
+        "expired",
+        "suspended"
+      ],
+      "default": "inactive"
+    },
+    "gps_subscription_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "custom_domain_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "concierge_sourcing_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "concierge_liquidation_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "pending_review",
+        "configuration_pending",
+        "inactive"
+      ],
+      "default": "draft"
+    }
+  },
+  "required": [
+    "host_id"
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "name": "DealerTrustSummary",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "dealer_trust_score": {
+      "type": "number",
+      "default": 70
+    },
+    "membership_status": {
+      "type": "string"
+    },
+    "no_pay_count": {
+      "type": "number",
+      "default": 0
+    },
+    "cancelled_bid_count": {
+      "type": "number",
+      "default": 0
+    },
+    "purchase_completion_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "liquidation_completion_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "arbitration_issue_count": {
+      "type": "number",
+      "default": 0
+    },
+    "payment_reliability": {
+      "type": "number",
+      "default": 70
+    },
+    "admin_risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "low"
+    },
+    "last_calculated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "host_id"
+  ],
+  "unique_fields": [
+    "host_id"
+  ]
+}

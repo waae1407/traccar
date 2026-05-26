@@ -1,0 +1,85 @@
+{
+  "name": "DealerBidRequest",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_identifier": {
+      "type": "string"
+    },
+    "auction_source": {
+      "type": "string"
+    },
+    "auction_vehicle_url": {
+      "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "make": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "year": {
+      "type": "number"
+    },
+    "mileage": {
+      "type": "number"
+    },
+    "max_bid_amount": {
+      "type": "number"
+    },
+    "estimated_auction_fees": {
+      "type": "number"
+    },
+    "estimated_transport": {
+      "type": "number"
+    },
+    "authorization_hold_amount": {
+      "type": "number"
+    },
+    "platform_purchase_fee": {
+      "type": "number",
+      "default": 50
+    },
+    "bid_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "pending_hold",
+        "authorized",
+        "submitted",
+        "won",
+        "lost",
+        "cancelled",
+        "failed"
+      ],
+      "default": "draft"
+    },
+    "payment_hold_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "estimate_only",
+        "pending",
+        "authorized",
+        "released",
+        "failed"
+      ],
+      "default": "estimate_only"
+    },
+    "no_pay_risk_reserve": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id",
+    "max_bid_amount"
+  ]
+}

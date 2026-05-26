@@ -1,0 +1,38 @@
+{
+  "name": "OperatorRecommendationHistory",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "previous_mode": {
+      "type": "string"
+    },
+    "new_mode": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "changed_by": {
+      "type": "string"
+    },
+    "changed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "questionnaire",
+        "host_edit",
+        "admin_edit"
+      ],
+      "default": "questionnaire"
+    }
+  },
+  "required": [
+    "new_mode",
+    "source"
+  ]
+}

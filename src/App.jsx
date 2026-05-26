@@ -56,6 +56,7 @@ import AdminCommunications from '@/pages/admin/AdminCommunications';
 import AdminReputationValidation from '@/pages/admin/AdminReputationValidation.jsx';
 import AdminReviewModeration from '@/pages/admin/AdminReviewModeration.jsx';
 import AdminInspectionOversight from '@/pages/admin/AdminInspectionOversight.jsx';
+import AdminDealerNetwork from '@/pages/admin/AdminDealerNetwork.jsx';
 import HostCommunications from '@/pages/host/HostCommunications';
 import CustomerCommunications from '@/pages/customer/CustomerCommunications';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
@@ -80,6 +81,8 @@ import HostPnL from '@/pages/host/HostPnL';
 import HostVerificationDocs from '@/pages/host/HostVerificationDocs';
 import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
 import HostReturnReviews from '@/pages/host/HostReturnReviews.jsx';
+import HostDealerNetwork from '@/pages/host/HostDealerNetwork.jsx';
+import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
 import CustomDomainGate from '@/components/host/storefront/CustomDomainGate';
@@ -87,6 +90,7 @@ import HostStorefrontHome from '@/pages/host/HostStorefrontHome';
 
 // Public pages
 import BecomeAHost from '@/pages/BecomeAHost';
+import SmartOperatorQuestionnaire from '@/pages/SmartOperatorQuestionnaire.jsx';
 import Marketplace from '@/pages/Marketplace';
 import SwapMarketplace from '@/pages/SwapMarketplace';
 
@@ -131,6 +135,7 @@ const AuthenticatedApp = () => {
 
       {/* ── PUBLIC PAGES (no login required, no layout) ── */}
       <Route path="/become-a-host" element={<BecomeAHost />} />
+      <Route path="/operator-questionnaire" element={<SmartOperatorQuestionnaire />} />
       <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/swap" element={<SwapMarketplace />} />
 
@@ -155,6 +160,8 @@ const AuthenticatedApp = () => {
         <Route path="/host/payment-history" element={<HostPaymentHistory />} />
         <Route path="/host/return-reviews" element={<HostReturnReviews />} />
         <Route path="/host/communications" element={<HostCommunications />} />
+        <Route path="/host/business-operations" element={<HostBusinessOperations />} />
+        <Route path="/host/dealer-network" element={<HostDealerNetwork />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
@@ -218,6 +225,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/reputation-validation" element={<AdminReputationValidation />} />
         <Route path="/admin/review-moderation" element={<AdminReviewModeration />} />
         <Route path="/admin/inspection-oversight" element={<AdminInspectionOversight />} />
+        <Route path="/admin/dealer-network" element={<AdminDealerNetwork />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

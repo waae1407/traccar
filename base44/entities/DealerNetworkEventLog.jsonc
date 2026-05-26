@@ -1,0 +1,32 @@
+{
+  "name": "DealerNetworkEventLog",
+  "type": "object",
+  "properties": {
+    "event_type": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "admin_id": {
+      "type": "string"
+    },
+    "related_entity_type": {
+      "type": "string"
+    },
+    "related_entity_id": {
+      "type": "string"
+    },
+    "event_summary": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "event_type",
+    "event_summary"
+  ]
+}

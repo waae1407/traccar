@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { LayoutDashboard, Car, DollarSign, Shield, FileKey, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2, CreditCard, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
-const navItems = [
+const baseNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/host/dashboard" },
   { label: "My Vehicles", icon: Car, path: "/host/vehicles" },
   { label: "Brand Builder", icon: Sparkles, path: "/host/brand" },
@@ -21,6 +23,7 @@ const navItems = [
   { label: "Compliance", icon: Shield, path: "/host/compliance" },
   { label: "RTO Contracts", icon: FileKey, path: "/host/rto" },
   { label: "Verification & Tax", icon: Shield, path: "/host/verification" },
+  { label: "Business Operations", icon: Sparkles, path: "/host/business-operations" },
   { label: "AI Assistant", icon: MessageSquare, path: "/host/chat" },
 ];
 
@@ -34,6 +37,23 @@ export default function HostLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const { data: hosts = [] } = useQuery({
+    queryKey: ["host-layout-host", user?.email],
+    queryFn: () => base44.entities.Host.filter({ email: user.email }),
+    enabled: !!user?.email,
+  });
+  const host = hosts[0];
+  const { data: plans = [] } = useQuery({
+    queryKey: ["host-layout-plan", host?.id],
+    queryFn: () => base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }),
+    enabled: !!host?.id,
+  });
+  const plan = plans[0];
+  const showDealerNetwork = plan?.dealer_network_enabled || ["pending_payment", "active"].includes(plan?.dealer_network_membership_status);
+  const navItems = showDealerNetwork
+    ? [...baseNavItems.slice(0, 3), { label: "Dealer Network", icon: Car, path: "/host/dealer-network" }, ...baseNavItems.slice(3)]
+    : baseNavItems;
 
   return (
     <div className="min-h-screen" style={{ fontFamily: "var(--font-inter)", background: "#f8f8fa" }}>

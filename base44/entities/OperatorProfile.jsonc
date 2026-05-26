@@ -1,0 +1,90 @@
+{
+  "name": "OperatorProfile",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "business_type": {
+      "type": "string"
+    },
+    "fleet_size_range": {
+      "type": "string"
+    },
+    "has_existing_customers": {
+      "type": "string"
+    },
+    "website_branding_status": {
+      "type": "string"
+    },
+    "operational_needs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "wants_contactless": {
+      "type": "string"
+    },
+    "wants_marketplace_demand": {
+      "type": "string"
+    },
+    "payment_preference": {
+      "type": "string"
+    },
+    "vehicle_acquisition_interest": {
+      "type": "string"
+    },
+    "inventory_liquidation_interest": {
+      "type": "string"
+    },
+    "recommended_mode": {
+      "type": "string",
+      "enum": [
+        "marketplace_partner",
+        "fleetos_professional",
+        "hybrid_growth"
+      ]
+    },
+    "recommendation_confidence": {
+      "type": "number"
+    },
+    "recommendation_reasoning": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommended_addons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "onboarding_status": {
+      "type": "string",
+      "enum": [
+        "questionnaire_started",
+        "recommended",
+        "host_application_started",
+        "host_pending",
+        "active"
+      ],
+      "default": "questionnaire_started"
+    },
+    "editable_by_host": {
+      "type": "boolean",
+      "default": true
+    },
+    "last_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "user_id"
+  ]
+}

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Home, DollarSign, Shield, Zap, CheckCircle2, ArrowRight, Clock, AlertCircle, Star, TrendingUp } from "lucide-react";
+import { planDefaults } from "@/lib/operatorRecommendation";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -65,12 +66,25 @@ export default function BecomeAHost() {
     e.preventDefault();
     setSubmitting(true);
     const payload = { ...form, user_id: user?.id || "", status: "pending", commission_rate: 0.20 };
+    let savedHost;
     // If rejected previously, update the existing record instead of creating a new one
     if (existingHost && existingHost.status === "rejected") {
-      await base44.entities.Host.update(existingHost.id, { ...payload, verification_status: "not_started" });
+      savedHost = await base44.entities.Host.update(existingHost.id, { ...payload, verification_status: "not_started" });
     } else {
-      await base44.entities.Host.create(payload);
+      savedHost = await base44.entities.Host.create(payload);
     }
+
+    const operatorProfileId = localStorage.getItem("operator_profile_id");
+    if (operatorProfileId && savedHost?.id) {
+      const profiles = await base44.entities.OperatorProfile.filter({ id: operatorProfileId });
+      const profile = profiles[0];
+      if (profile) {
+        await base44.entities.OperatorProfile.update(profile.id, { host_id: savedHost.id, onboarding_status: "host_pending", last_updated_at: new Date().toISOString() });
+        await base44.entities.OperatorPlanConfiguration.create({ host_id: savedHost.id, ...planDefaults(profile.recommended_mode, profile) });
+        await base44.entities.OperatorRecommendationHistory.create({ host_id: savedHost.id, new_mode: profile.recommended_mode, reason: "Created from Smart Operator Questionnaire during host application.", changed_by: user?.email || form.email, changed_at: new Date().toISOString(), source: "questionnaire" });
+      }
+    }
+
     setStep(3);
     setSubmitting(false);
   };
@@ -242,7 +256,7 @@ export default function BecomeAHost() {
           <button onClick={() => {
             if (!user) { base44.auth.redirectToLogin(window.location.href + "?next=apply"); return; }
             if (existingHost?.status === "pending") { setStep("pending"); return; }
-            setStep(2);
+            navigate("/operator-questionnaire");
           }}
             className="px-8 py-4 rounded-2xl text-base font-bold text-white shadow-2xl transition-all active:scale-95"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
@@ -306,8 +320,8 @@ export default function BecomeAHost() {
         <button onClick={() => {
           if (!user) { base44.auth.redirectToLogin(window.location.href + "?next=apply"); return; }
           if (existingHost?.status === "pending") { setStep("pending"); return; }
-          setStep(2);
-        }}
+          navigate("/operator-questionnaire");
+          }}
           className="w-full py-4 rounded-2xl font-bold text-white text-sm shadow-lg transition-all active:scale-95 mb-4"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           Apply to Become a Host →

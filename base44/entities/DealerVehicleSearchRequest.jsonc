@@ -1,0 +1,69 @@
+{
+  "name": "DealerVehicleSearchRequest",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "requested_make": {
+      "type": "string"
+    },
+    "requested_model": {
+      "type": "string"
+    },
+    "year_min": {
+      "type": "number"
+    },
+    "year_max": {
+      "type": "number"
+    },
+    "mileage_max": {
+      "type": "number"
+    },
+    "budget_max": {
+      "type": "number"
+    },
+    "location_preference": {
+      "type": "string"
+    },
+    "title_preference": {
+      "type": "string"
+    },
+    "auction_sources": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "risk_tolerance": {
+      "type": "string"
+    },
+    "intended_use": {
+      "type": "string",
+      "enum": [
+        "rental",
+        "resale",
+        "fleet_expansion",
+        "rto"
+      ],
+      "default": "rental"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "in_review",
+        "matched",
+        "closed"
+      ],
+      "default": "submitted"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id"
+  ]
+}

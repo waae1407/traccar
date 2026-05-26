@@ -1,0 +1,65 @@
+{
+  "name": "DealerLiquidationRequest",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "desired_sale_channel": {
+      "type": "string",
+      "enum": [
+        "internal_marketplace",
+        "auction",
+        "sell_to_uride",
+        "retail"
+      ],
+      "default": "internal_marketplace"
+    },
+    "mmr_value": {
+      "type": "number"
+    },
+    "ai_wholesale_estimate": {
+      "type": "number"
+    },
+    "asking_price": {
+      "type": "number"
+    },
+    "condition_notes": {
+      "type": "string"
+    },
+    "inspection_photo_packet_id": {
+      "type": "string"
+    },
+    "liquidation_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "in_review",
+        "listed",
+        "sold",
+        "cancelled"
+      ],
+      "default": "submitted"
+    },
+    "platform_fee_amount": {
+      "type": "number",
+      "default": 50
+    },
+    "auction_fee_estimate": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id"
+  ]
+}
