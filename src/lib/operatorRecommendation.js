@@ -7,13 +7,13 @@ export const OPERATIONAL_MODES = {
   },
   fleetos_professional: {
     label: "FleetOS Professional",
-    price: "$49/month starting",
+    price: "$29.99/month",
     summary: "Best for operators with their own customers who need infrastructure.",
     tools: ["Booking system", "Contracts", "Operations dashboard", "Customer management", "Compliance tools"],
   },
   hybrid_growth: {
     label: "Hybrid Growth",
-    price: "$49/month + 4% on marketplace bookings",
+    price: "$29.99/month + 4% on marketplace bookings",
     summary: "Best when you have direct customers but also want uRideHub demand.",
     tools: ["Direct operations", "Marketplace demand", "Custom storefront", "Payments options", "Growth tools"],
   },
@@ -73,17 +73,29 @@ export function planDefaults(mode, answers = {}) {
   return {
     active_mode: mode,
     marketplace_fee_rate: mode === "fleetos_professional" ? 0 : mode === "hybrid_growth" ? 0.04 : 0.08,
-    monthly_subscription_amount: mode === "marketplace_partner" ? 0 : 49,
+    monthly_subscription_amount: mode === "marketplace_partner" ? 0 : 29.99,
     uses_uride_payments: answers.payment_preference !== "Use my own payment processor",
     uses_own_payments: answers.payment_preference === "Use my own payment processor",
     contactless_enabled: answers.wants_contactless === "Yes",
     dealer_network_enabled: ["Yes", "Maybe later"].includes(answers.vehicle_acquisition_interest) || ["Yes", "Maybe later"].includes(answers.inventory_liquidation_interest),
-    dealer_network_membership_status: "inactive",
+    dealer_network_membership_status: "pending_payment",
     gps_subscription_enabled: answers.wants_contactless === "Yes",
     custom_domain_enabled: ["Yes, basic presence", "Yes, established brand"].includes(answers.website_branding_status),
     concierge_sourcing_enabled: ["Yes", "Maybe later"].includes(answers.vehicle_acquisition_interest),
     concierge_liquidation_enabled: ["Yes", "Maybe later"].includes(answers.inventory_liquidation_interest),
     effective_date: new Date().toISOString().slice(0, 10),
-    status: "configuration_pending",
+    status: mode === "marketplace_partner" ? "active" : "pending_payment",
+    activation_source: mode === "marketplace_partner" ? "host_approval" : "subscription_payment",
+    payment_required: mode !== "marketplace_partner",
+    billing_activation_pending: mode !== "marketplace_partner",
+    last_payment_status: mode === "marketplace_partner" ? "not_required" : "pending",
+    status_audit_log: [{
+      from_status: "created",
+      to_status: mode === "marketplace_partner" ? "active" : "pending_payment",
+      changed_by: "system",
+      changed_at: new Date().toISOString(),
+      reason: mode === "marketplace_partner" ? "Marketplace Partner activates after normal host approval/onboarding." : "Paid plan requires successful subscription payment before activation.",
+      source: "questionnaire"
+    }],
   };
 }

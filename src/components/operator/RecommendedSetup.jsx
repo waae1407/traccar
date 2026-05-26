@@ -15,7 +15,7 @@ export default function RecommendedSetup({ result, onContinue, compact = false }
         <div className="mt-4 rounded-2xl bg-white/10 p-4">
           <p className="text-xs text-white/40">Pricing summary</p>
           <p className="font-black text-lg">{mode.price}</p>
-          <p className="text-[11px] text-white/35 mt-1">Setup pending — no new billing is activated from this screen.</p>
+          <p className="text-[11px] text-white/35 mt-1">Payment-driven activation for paid plans — no real billing is activated from this screen.</p>
         </div>
       </div>
 

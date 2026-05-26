@@ -17,6 +17,25 @@
     "related_entity_id": {
       "type": "string"
     },
+    "from_status": {
+      "type": "string"
+    },
+    "to_status": {
+      "type": "string"
+    },
+    "changed_by": {
+      "type": "string"
+    },
+    "change_source": {
+      "type": "string",
+      "enum": [
+        "payment",
+        "admin_override",
+        "system",
+        "host_request"
+      ],
+      "default": "system"
+    },
     "event_summary": {
       "type": "string"
     },

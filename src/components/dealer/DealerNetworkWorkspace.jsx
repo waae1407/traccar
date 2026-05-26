@@ -29,7 +29,7 @@ export default function DealerNetworkWorkspace({ scope = "host", hostId }) {
   return (
     <div className="space-y-5">
       <div className="rounded-3xl p-5 text-white" style={{ background: "linear-gradient(135deg, #0f0c29, #302b63)" }}>
-        <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold text-white/40 uppercase tracking-wider">uRideHub ecosystem app</p><h1 className="text-2xl font-black mt-1" style={{ fontFamily: "var(--font-syne)" }}>Dealer Network</h1><p className="text-white/60 text-sm mt-2">Source, buy, liquidate, and trade vehicles. Foundation mode only — no real auction bids or Stripe holds are active.</p></div><ShieldCheck className="h-8 w-8 text-pink-300" /></div>
+        <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold text-white/40 uppercase tracking-wider">uRideHub ecosystem app</p><h1 className="text-2xl font-black mt-1" style={{ fontFamily: "var(--font-syne)" }}>Dealer Network</h1><p className="text-white/60 text-sm mt-2">Self-service membership foundation: $100/year + $50 per successful purchased/sold vehicle, plus actual auction/listing/transport fees. No real auction bids or Stripe holds are active.</p></div><ShieldCheck className="h-8 w-8 text-pink-300" /></div>
       </div>
       <div className="flex gap-2 overflow-x-auto no-scrollbar">{tabs.map(([id, label, Icon]) => <button key={id} onClick={() => setTab(id)} className={`px-3 py-2 rounded-xl text-xs font-black whitespace-nowrap flex items-center gap-1.5 ${tab === id ? "bg-pink-600 text-white" : "bg-white text-gray-500 border border-gray-100"}`}><Icon className="h-3.5 w-3.5" />{label}</button>)}</div>
       {tab === "dashboard" && <Dashboard stats={stats} />}
@@ -38,7 +38,7 @@ export default function DealerNetworkWorkspace({ scope = "host", hostId }) {
       {tab === "watchlist" && <Placeholder title="Watchlist" text="Saved wholesale vehicles will appear here when auction integrations are approved later." />}
       {tab === "purchases" && <Placeholder title="Purchased Vehicles" text="Completed manual/future API purchases will be tracked here." />}
       {tab === "liquidate" && <ActionList title="Liquidation Requests" items={liquidations} action={scope === "host" ? () => createLiquidation.mutate() : null} actionLabel="Request Liquidation" />}
-      {tab === "settings" && <Placeholder title="Dealer Network Settings" text="$100/year membership, $50 platform fee per purchased/sold vehicle, plus actual auction/transport/listing fees. Billing setup is pending and not activated here." />}
+      {tab === "settings" && <Placeholder title="Dealer Network Settings" text="$100/year membership, $50 per successful purchased/sold vehicle, plus actual auction/listing/transport fees. Activation will be payment-driven when billing is approved; no admin approval or real billing is active here." />}
     </div>
   );
 }

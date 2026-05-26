@@ -11,17 +11,27 @@
     "membership_status": {
       "type": "string",
       "enum": [
-        "inactive",
         "pending_payment",
         "active",
+        "past_due",
         "expired",
-        "suspended"
+        "cancelled",
+        "suspended",
+        "under_review"
       ],
-      "default": "inactive"
+      "default": "pending_payment"
     },
     "annual_fee_amount": {
       "type": "number",
       "default": 100
+    },
+    "per_success_fee_amount": {
+      "type": "number",
+      "default": 50
+    },
+    "actual_fees_pass_through": {
+      "type": "boolean",
+      "default": true
     },
     "started_at": {
       "type": "string",
@@ -34,16 +44,99 @@
     "payment_status": {
       "type": "string",
       "enum": [
-        "not_started",
-        "setup_pending",
         "pending",
         "paid",
-        "failed"
+        "failed",
+        "past_due",
+        "cancelled"
       ],
-      "default": "setup_pending"
+      "default": "pending"
+    },
+    "activation_source": {
+      "type": "string",
+      "enum": [
+        "annual_membership_payment",
+        "admin_override",
+        "system"
+      ],
+      "default": "annual_membership_payment"
+    },
+    "billing_activation_pending": {
+      "type": "boolean",
+      "default": true
+    },
+    "annual_payment_succeeded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "activated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cancelled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "suspended_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "under_review_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "stripe_subscription_id": {
       "type": "string"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "admin_override_only": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_override_reason": {
+      "type": "string"
+    },
+    "admin_override_by": {
+      "type": "string"
+    },
+    "admin_override_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "billing_issue_note": {
+      "type": "string"
+    },
+    "fraud_safety_review_note": {
+      "type": "string"
+    },
+    "status_audit_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from_status": {
+            "type": "string"
+          },
+          "to_status": {
+            "type": "string"
+          },
+          "changed_by": {
+            "type": "string"
+          },
+          "changed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      }
     },
     "notes": {
       "type": "string"

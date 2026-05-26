@@ -41,13 +41,15 @@
     "dealer_network_membership_status": {
       "type": "string",
       "enum": [
-        "inactive",
         "pending_payment",
         "active",
+        "past_due",
         "expired",
-        "suspended"
+        "cancelled",
+        "suspended",
+        "under_review"
       ],
-      "default": "inactive"
+      "default": "pending_payment"
     },
     "gps_subscription_enabled": {
       "type": "boolean",
@@ -72,13 +74,113 @@
     "status": {
       "type": "string",
       "enum": [
-        "draft",
+        "pending_payment",
         "active",
-        "pending_review",
-        "configuration_pending",
-        "inactive"
+        "past_due",
+        "expired",
+        "cancelled",
+        "suspended",
+        "under_review"
       ],
-      "default": "draft"
+      "default": "pending_payment"
+    },
+    "activation_source": {
+      "type": "string",
+      "enum": [
+        "host_approval",
+        "subscription_payment",
+        "annual_membership_payment",
+        "admin_override",
+        "system"
+      ],
+      "default": "system"
+    },
+    "payment_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "billing_activation_pending": {
+      "type": "boolean",
+      "default": false
+    },
+    "last_payment_status": {
+      "type": "string",
+      "enum": [
+        "not_required",
+        "pending",
+        "paid",
+        "failed",
+        "past_due",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "subscription_payment_succeeded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "activated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cancelled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "suspended_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "under_review_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "admin_override_only": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_override_reason": {
+      "type": "string"
+    },
+    "admin_override_by": {
+      "type": "string"
+    },
+    "admin_override_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "billing_issue_note": {
+      "type": "string"
+    },
+    "fraud_safety_review_note": {
+      "type": "string"
+    },
+    "status_audit_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from_status": {
+            "type": "string"
+          },
+          "to_status": {
+            "type": "string"
+          },
+          "changed_by": {
+            "type": "string"
+          },
+          "changed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "required": [
