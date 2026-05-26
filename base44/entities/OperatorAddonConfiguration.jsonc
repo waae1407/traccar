@@ -18,6 +18,16 @@
         "inventory_liquidation"
       ]
     },
+    "addon_type": {
+      "type": "string",
+      "enum": [
+        "contactless_operations",
+        "gps_telematics",
+        "dealer_network",
+        "vehicle_sourcing",
+        "inventory_liquidation"
+      ]
+    },
     "status": {
       "type": "string",
       "enum": [
@@ -29,6 +39,18 @@
         "active",
         "paused",
         "cancelled",
+        "removed",
+        "suspended",
+        "pending_payment"
+      ],
+      "default": "recommended"
+    },
+    "interest_status": {
+      "type": "string",
+      "enum": [
+        "recommended",
+        "interested",
+        "selected",
         "removed"
       ],
       "default": "recommended"
@@ -54,28 +76,44 @@
     "activation_status": {
       "type": "string",
       "enum": [
-        "not_started",
-        "interest_recorded",
-        "setup_required",
+        "not_activated",
+        "pending_setup",
         "pending_payment",
         "active",
-        "cancelled",
-        "removed"
+        "paused",
+        "suspended",
+        "cancelled"
       ],
-      "default": "interest_recorded"
+      "default": "not_activated"
     },
     "billing_status": {
       "type": "string",
       "enum": [
-        "not_started",
-        "not_required_yet",
-        "pending_future_activation",
+        "not_required",
+        "pending_billing_activation",
+        "pending_payment",
         "active",
-        "cancelled"
+        "past_due",
+        "cancelled",
+        "suspended"
       ],
-      "default": "not_required_yet"
+      "default": "not_required"
+    },
+    "setup_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed",
+        "blocked"
+      ],
+      "default": "not_started"
     },
     "one_time_price": {
+      "type": "number",
+      "default": 0
+    },
+    "one_time_amount": {
       "type": "number",
       "default": 0
     },
@@ -83,11 +121,27 @@
       "type": "number",
       "default": 0
     },
+    "monthly_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "per_vehicle_amount": {
+      "type": "number",
+      "default": 0
+    },
     "annual_price": {
       "type": "number",
       "default": 0
     },
+    "annual_amount": {
+      "type": "number",
+      "default": 0
+    },
     "transaction_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "transaction_fee_amount": {
       "type": "number",
       "default": 0
     },
@@ -108,6 +162,10 @@
       "format": "date-time"
     },
     "removed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "suspended_at": {
       "type": "string",
       "format": "date-time"
     },

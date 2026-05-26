@@ -81,20 +81,34 @@ export function buildAddonPayload(addonKey, { hostId = "", userId = "", recommen
   const key = normalizeAddonKey(addonKey);
   const addon = OPERATOR_ADDONS[key];
   const now = new Date().toISOString();
+  const oneTimeAmount = addon?.oneTimePrice || 0;
+  const monthlyAmount = addon?.monthlyPrice || 0;
+  const annualAmount = addon?.annualPrice || 0;
+  const transactionFeeAmount = addon?.transactionFee || 0;
+  const pendingBilling = key === "contactless_operations" || key === "dealer_network";
+
   return {
     host_id: hostId,
     user_id: userId,
     addon_key: key,
+    addon_type: key,
     status: selected ? "selected" : "recommended",
+    interest_status: selected ? "selected" : "recommended",
     selected,
     recommended,
     selection_source: source,
-    activation_status: selected ? "interest_recorded" : "not_started",
-    billing_status: "not_required_yet",
-    one_time_price: addon?.oneTimePrice || 0,
-    monthly_price: addon?.monthlyPrice || 0,
-    annual_price: addon?.annualPrice || 0,
-    transaction_fee: addon?.transactionFee || 0,
+    activation_status: "not_activated",
+    billing_status: pendingBilling ? "pending_billing_activation" : "not_required",
+    setup_status: "not_started",
+    one_time_price: oneTimeAmount,
+    one_time_amount: oneTimeAmount,
+    monthly_price: monthlyAmount,
+    monthly_amount: monthlyAmount,
+    per_vehicle_amount: key === "contactless_operations" ? 15 : 0,
+    annual_price: annualAmount,
+    annual_amount: annualAmount,
+    transaction_fee: transactionFeeAmount,
+    transaction_fee_amount: transactionFeeAmount,
     pricing_note: addon?.pricing?.join(" · ") || "",
     billing_impact: addon?.billingImpact || "",
     operational_impact: addon?.operationalImpact || "",
