@@ -1,0 +1,154 @@
+{
+  "name": "OperatorAddonConfiguration",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "addon_key": {
+      "type": "string",
+      "enum": [
+        "contactless_operations",
+        "gps_telematics",
+        "dealer_network",
+        "vehicle_sourcing",
+        "inventory_liquidation"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "recommended",
+        "interested",
+        "selected",
+        "pending_setup",
+        "pending_billing_activation",
+        "active",
+        "paused",
+        "cancelled",
+        "removed"
+      ],
+      "default": "recommended"
+    },
+    "selected": {
+      "type": "boolean",
+      "default": false
+    },
+    "recommended": {
+      "type": "boolean",
+      "default": false
+    },
+    "selection_source": {
+      "type": "string",
+      "enum": [
+        "questionnaire",
+        "business_operations",
+        "admin",
+        "system"
+      ],
+      "default": "questionnaire"
+    },
+    "activation_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "interest_recorded",
+        "setup_required",
+        "pending_payment",
+        "active",
+        "cancelled",
+        "removed"
+      ],
+      "default": "interest_recorded"
+    },
+    "billing_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "not_required_yet",
+        "pending_future_activation",
+        "active",
+        "cancelled"
+      ],
+      "default": "not_required_yet"
+    },
+    "one_time_price": {
+      "type": "number",
+      "default": 0
+    },
+    "monthly_price": {
+      "type": "number",
+      "default": 0
+    },
+    "annual_price": {
+      "type": "number",
+      "default": 0
+    },
+    "transaction_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "pricing_note": {
+      "type": "string"
+    },
+    "billing_impact": {
+      "type": "string"
+    },
+    "operational_impact": {
+      "type": "string"
+    },
+    "setup_note": {
+      "type": "string"
+    },
+    "selected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "removed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "activated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cancelled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "audit_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "changed_by": {
+            "type": "string"
+          },
+          "changed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "addon_key"
+  ]
+}

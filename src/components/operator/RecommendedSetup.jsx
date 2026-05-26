@@ -1,8 +1,9 @@
 import React from "react";
 import { CheckCircle2, ArrowRight } from "lucide-react";
-import { ADDON_LABELS, OPERATIONAL_MODES } from "@/lib/operatorRecommendation";
+import { OPERATIONAL_MODES } from "@/lib/operatorRecommendation";
+import AddonSelectionCards from "@/components/operator/AddonSelectionCards";
 
-export default function RecommendedSetup({ result, onContinue, compact = false, selectedMode, onSelectMode }) {
+export default function RecommendedSetup({ result, onContinue, compact = false, selectedMode, onSelectMode, selectedAddons = [], onAddonsChange }) {
   const recommendedMode = result?.recommended_mode || "marketplace_partner";
   const mode = OPERATIONAL_MODES[recommendedMode];
   const currentSelection = selectedMode || recommendedMode;
@@ -45,15 +46,9 @@ export default function RecommendedSetup({ result, onContinue, compact = false, 
       </div>
 
       <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-        <p className="font-black text-gray-900 text-sm mb-3">Recommended add-ons</p>
-        <div className="flex flex-wrap gap-2">
-          {(addons.length ? addons : ["custom_domain", "dealer_network", "gps"]).map(a => <span key={a} className="text-xs font-bold bg-violet-50 text-violet-700 px-3 py-1.5 rounded-full">{ADDON_LABELS[a] || a}</span>)}
-        </div>
-      </div>
-
-      <div className="rounded-2xl bg-violet-50 border border-violet-100 p-4 text-sm text-violet-700">
-        <p className="font-black">Dealer Network add-on</p>
-        <p className="text-xs mt-1">$100/year membership · $50 per successful purchased/sold vehicle later · plus actual auction/listing/transport fees.</p>
+        <p className="font-black text-gray-900 text-sm mb-1">Recommended add-ons</p>
+        <p className="text-xs text-gray-500 mb-3">Select add-ons for setup planning. Billing/setup happens later and is not activated here.</p>
+        <AddonSelectionCards recommendedAddons={addons} selectedAddons={selectedAddons.length ? selectedAddons : addons} onChange={onAddonsChange} compact={compact} />
       </div>
 
       {!compact && <button onClick={onContinue} className="w-full py-4 rounded-2xl font-bold text-white text-sm flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Confirm Selected Setup <ArrowRight className="h-4 w-4" /></button>}
