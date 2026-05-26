@@ -7,6 +7,7 @@ import HostVerificationPanel from "@/components/admin/HostVerificationPanel";
 import AdminHostReputationPanel from "@/components/admin/reputation/AdminHostReputationPanel";
 import HostDomainReviewPanel from "@/components/admin/HostDomainReviewPanel";
 import OperatorPlanSummary from "@/components/admin/OperatorPlanSummary";
+import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 
 const statusConfig = {
   pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400" },
@@ -190,7 +191,7 @@ export default function AdminHosts() {
                       <div><p className="text-white/40 text-xs">Legal Name</p><p className="text-white">{h.business_legal_name || "—"}</p></div>
                       <div><p className="text-white/40 text-xs">Tax Class</p><p className="text-white">{h.tax_classification || "—"}</p></div>
                       <div><p className="text-white/40 text-xs">Total Earnings</p><p className="text-white">${(h.total_earnings || 0).toLocaleString()}</p></div>
-                      <div><p className="text-white/40 text-xs">Commission</p><p className="text-white">{((h.commission_rate || 0.20) * 100).toFixed(0)}%</p></div>
+                      <div><p className="text-white/40 text-xs">Commission</p><p className="text-white">{((h.commission_rate || 0.08) * 100).toFixed(0)}%</p></div>
                     </div>
 
                     {/* Document status chips */}
@@ -220,6 +221,7 @@ export default function AdminHosts() {
                     )}
 
                     <AdminHostReputationPanel summary={reputationMap[h.id]} />
+                    <PaymentOperationalAlertPanel scope="host" hostId={h.id} compact limit={2} title="Host Payment Alerts" />
                     <OperatorPlanSummary plan={operatorPlanMap[h.id]} dealerMembership={dealerMembershipMap[h.id]} />
                     <HostDomainReviewPanel host={h} />
 

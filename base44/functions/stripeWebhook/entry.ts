@@ -51,6 +51,21 @@ function getBillingContext(metadata = {}) {
   return metadata.billing_context || (metadata.booking_request_id ? 'rental_marketplace_payment' : 'unknown');
 }
 
+async function createPaymentAlert(base44, payload) {
+  try {
+    await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', payload);
+  } catch (e) {
+    console.error('[PaymentOperationalAlert]', e.message);
+  }
+}
+
+function alertTypeForInvoiceFailure(context) {
+  if (context === 'operator_subscription') return 'subscription_payment_failed';
+  if (context === 'dealer_network_membership') return 'dealer_membership_payment_failed';
+  if (context === 'contactless_gps' || context === 'gps_contactless_subscription') return 'contactless_gps_payment_failed';
+  return 'unknown_payment_failed';
+}
+
 async function resolveMarketplaceFee(base44, booking = {}) {
   const bookingSource = booking.booking_source || 'marketplace';
   let operatorMode = 'marketplace_partner';
@@ -116,6 +131,7 @@ Deno.serve(async (req) => {
         const billingContext = getBillingContext(pi.metadata || {});
         if (billingContext !== 'rental_marketplace_payment') {
           console.log(`[Webhook] Recognized non-rental billing context ${billingContext}; no live subscription/dealer/GPS billing action taken.`);
+          await createPaymentAlert(base44, { alert_type: 'unknown_billing_context', severity: 'info', billing_context: billingContext, stripe_event_type: event.type, stripe_payment_intent_id: pi.id, title: 'Non-rental Stripe payment recognized', message: `Stripe payment succeeded for non-rental context: ${billingContext}. No subscription, Dealer Network, or GPS action was activated.`, recommended_action: 'Review billing context routing before future activation.', financial_impact_amount: (pi.amount || 0) / 100, currency: pi.currency || 'usd', source: 'stripe_webhook' });
           await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.succeeded context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
           break;
         }
@@ -330,11 +346,20 @@ Deno.serve(async (req) => {
         const billingContext = getBillingContext(pi.metadata || {});
         if (billingContext !== 'rental_marketplace_payment') {
           console.log(`[Webhook] Recognized non-rental failed payment context ${billingContext}; no rental failure action taken.`);
+          await createPaymentAlert(base44, { alert_type: alertTypeForInvoiceFailure(billingContext), severity: 'critical', billing_context: billingContext, stripe_event_type: event.type, stripe_payment_intent_id: pi.id, renter_email: pi.metadata?.user_email || '', title: 'Non-rental payment failed', message: `A ${billingContext} payment failed. No automatic suspension or billing activation was performed.`, recommended_action: 'Review the billing issue and contact the operator if needed.', financial_impact_amount: (pi.amount || 0) / 100, currency: pi.currency || 'usd', requires_customer_action: false, source: 'stripe_webhook' });
           await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.payment_failed context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
           break;
         }
         const bookingRequestId = pi.metadata?.booking_request_id;
         if (bookingRequestId) {
+          const failedBookings = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });
+          const failedBooking = failedBookings[0];
+          let failedHostEmail = '';
+          if (failedBooking?.host_id) {
+            const failedHosts = await base44.asServiceRole.entities.Host.filter({ id: failedBooking.host_id });
+            failedHostEmail = failedHosts[0]?.email || '';
+          }
+          await createPaymentAlert(base44, { alert_type: 'rental_payment_failed', severity: 'critical', billing_context: 'rental_payment', booking_id: bookingRequestId, host_id: failedBooking?.host_id || '', customer_id: failedBooking?.user_id || '', vehicle_id: failedBooking?.vehicle_id || '', renter_email: failedBooking?.user_email || pi.metadata?.user_email || '', host_email: failedHostEmail, stripe_event_type: event.type, stripe_payment_intent_id: pi.id, related_entity_type: 'BookingRequest', related_entity_id: bookingRequestId, title: 'Rental payment failed', message: `Payment failed for booking ${bookingRequestId}: ${pi.last_payment_error?.message || 'unknown reason'}`, financial_impact_amount: (pi.amount || 0) / 100, currency: pi.currency || 'usd', source: 'stripe_webhook' });
           await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
             payment_status: 'failed',
             stripe_payment_intent_id: pi.id,
@@ -363,6 +388,33 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object;
+        const billingContext = getBillingContext(invoice.metadata || {});
+        await createPaymentAlert(base44, { alert_type: alertTypeForInvoiceFailure(billingContext), severity: 'critical', billing_context: billingContext, stripe_event_type: event.type, stripe_invoice_id: invoice.id, title: 'Invoice payment failed', message: `Invoice payment failed for ${billingContext}. No automatic suspension or subscription activation occurred.`, recommended_action: 'Review billing issue and contact the operator/customer as appropriate.', financial_impact_amount: (invoice.amount_due || 0) / 100, currency: invoice.currency || 'usd', requires_customer_action: false, source: 'stripe_webhook' });
+        break;
+      }
+
+      case 'invoice.payment_action_required': {
+        const invoice = event.data.object;
+        const billingContext = getBillingContext(invoice.metadata || {});
+        await createPaymentAlert(base44, { alert_type: 'payment_authentication_required', severity: billingContext === 'rental_marketplace_payment' ? 'critical' : 'warning', billing_context: billingContext, stripe_event_type: event.type, stripe_invoice_id: invoice.id, title: 'Payment authentication required', message: `Payment authentication is required for ${billingContext}.`, recommended_action: 'Prompt the payer to authenticate payment or update payment method.', financial_impact_amount: (invoice.amount_due || 0) / 100, currency: invoice.currency || 'usd', source: 'stripe_webhook' });
+        break;
+      }
+
+      case 'transfer.failed': {
+        const transfer = event.data.object;
+        await createPaymentAlert(base44, { alert_type: 'transfer_failed', severity: 'critical', billing_context: 'payout', stripe_event_type: event.type, stripe_transfer_id: transfer.id, host_id: transfer.metadata?.host_id || '', booking_id: transfer.metadata?.booking_id || transfer.metadata?.booking_request_id || '', related_entity_type: 'StripeTransfer', related_entity_id: transfer.id, title: 'Stripe transfer failed', message: `Stripe transfer ${transfer.id} failed.`, recommended_action: 'Review payout destination and contact host before retrying payout.', financial_impact_amount: (transfer.amount || 0) / 100, currency: transfer.currency || 'usd', source: 'stripe_webhook' });
+        break;
+      }
+
+      case 'payout.failed':
+      case 'payout.canceled': {
+        const payout = event.data.object;
+        await createPaymentAlert(base44, { alert_type: 'payout_reversal', severity: 'critical', billing_context: 'payout', stripe_event_type: event.type, stripe_payout_id: payout.id, related_entity_type: 'StripePayout', related_entity_id: payout.id, title: 'Stripe payout issue', message: `Stripe payout event ${event.type} received for ${payout.id}.`, recommended_action: 'Review payout issue in Stripe and notify finance operations.', financial_impact_amount: (payout.amount || 0) / 100, currency: payout.currency || 'usd', source: 'stripe_webhook' });
+        break;
+      }
+
       case 'setup_intent.succeeded': {
         const si = event.data.object;
         const customerId = si.customer;
@@ -383,6 +435,7 @@ Deno.serve(async (req) => {
           break;
         }
         const bookingRequestId = charge.metadata?.booking_request_id;
+        await createPaymentAlert(base44, { alert_type: 'refund_recorded', severity: charge.amount_refunded > 0 ? 'warning' : 'info', billing_context: 'refund', booking_id: bookingRequestId || '', stripe_event_type: event.type, stripe_charge_id: charge.id, related_entity_type: bookingRequestId ? 'BookingRequest' : 'StripeCharge', related_entity_id: bookingRequestId || charge.id, title: 'Refund recorded', message: `Stripe refund recorded for ${bookingRequestId || charge.id}.`, recommended_action: 'Review refund and payout impact if needed.', financial_impact_amount: (charge.amount_refunded || 0) / 100, currency: charge.currency || 'usd', source: 'stripe_webhook' });
         if (bookingRequestId) {
           await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
             payment_status: 'refunded',
@@ -439,6 +492,7 @@ Deno.serve(async (req) => {
       case 'charge.dispute.created': {
         const dispute = event.data.object;
         const stripeDisputeId = dispute.id;
+        await createPaymentAlert(base44, { alert_type: 'chargeback_opened', severity: 'critical', billing_context: 'chargeback', stripe_event_type: event.type, stripe_dispute_id: stripeDisputeId, stripe_payment_intent_id: dispute.payment_intent || '', related_entity_type: 'StripeDispute', related_entity_id: stripeDisputeId, title: 'Chargeback opened', message: `Stripe chargeback opened for $${((dispute.amount || 0) / 100).toFixed(2)}.`, recommended_action: 'Review dispute evidence, contact host, and prepare response before the deadline.', financial_impact_amount: (dispute.amount || 0) / 100, currency: dispute.currency || 'usd', source: 'stripe_webhook' });
 
         // Idempotency: skip if already processed
         const existingDisputes = await base44.asServiceRole.entities.Dispute.filter({ stripe_dispute_id: stripeDisputeId });
@@ -585,6 +639,7 @@ Deno.serve(async (req) => {
             source: 'webhook',
           });
         }
+        await createPaymentAlert(base44, { alert_type: dispute.status === 'won' ? 'chargeback_won' : 'chargeback_lost', severity: dispute.status === 'won' ? 'info' : 'critical', billing_context: 'chargeback', stripe_event_type: event.type, stripe_dispute_id: dispute.id, stripe_payment_intent_id: dispute.payment_intent || '', related_entity_type: 'StripeDispute', related_entity_id: dispute.id, title: dispute.status === 'won' ? 'Chargeback won' : 'Chargeback lost', message: `Stripe dispute ${dispute.id} closed with status ${dispute.status}.`, recommended_action: dispute.status === 'won' ? 'Confirm dispute outcome and close related operational alerts.' : 'Review financial exposure and determine manual remediation.', financial_impact_amount: (dispute.amount || 0) / 100, currency: dispute.currency || 'usd', source: 'stripe_webhook' });
         console.log(`[Webhook] Dispute closed: ${dispute.id} → ${dispute.status}`);
         break;
       }

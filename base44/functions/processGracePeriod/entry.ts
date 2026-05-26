@@ -58,6 +58,14 @@ function classifyPaymentConfidence({ paymentIntentId } = {}) {
   return paymentIntentId ? 'trusted' : 'unresolved';
 }
 
+async function createPaymentAlert(base44, payload) {
+  try {
+    await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', payload);
+  } catch (e) {
+    console.error('[PaymentOperationalAlert]', e.message);
+  }
+}
+
 async function resolveMarketplaceFee(base44, booking = {}) {
   const bookingSource = booking.booking_source || 'marketplace';
   let operatorMode = 'marketplace_partner';
@@ -163,6 +171,7 @@ Deno.serve(async (req) => {
 
       if (graceExpired || maxAttemptsReached) {
         console.log(`[GracePeriod] Suspending ${booking.id} — expired=${graceExpired}, attempts=${attempts}/${MAX_RETRY_ATTEMPTS}`);
+        await createPaymentAlert(base44, { alert_type: 'weekly_billing_failed', severity: 'critical', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Grace period escalated', message: `Grace period escalated for ${booking.vehicle_name || booking.id}.`, recommended_action: 'Review payment recovery options and contact renter.', financial_impact_amount: booking.weekly_rate || 0, currency: 'usd', retry_attempts: attempts, source: 'processGracePeriod' });
 
         await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
           booking_status: "suspended",
@@ -255,6 +264,7 @@ Deno.serve(async (req) => {
           const nextDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
           const nextBillingDate = nextDate.toISOString().split("T")[0];
 
+          await createPaymentAlert(base44, { alert_type: 'payment_recovered', severity: 'info', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', stripe_payment_intent_id: pi.id, related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Payment recovered', message: `Payment recovered during grace period for ${booking.vehicle_name || booking.id}.`, recommended_action: 'Confirm booking and payment records are healthy.', financial_impact_amount: grossedAmount, currency: pi.currency || 'usd', retry_attempts: attempts + 1, source: 'processGracePeriod' });
           await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
             booking_status: "active",
             payment_status: "paid",
@@ -396,6 +406,7 @@ Deno.serve(async (req) => {
         const newAttempts = attempts + 1;
         const enterGracePeriod = newAttempts >= 2; // move to grace_period status after 2nd failure
 
+        await createPaymentAlert(base44, { alert_type: 'payment_retry_scheduled', severity: newAttempts >= MAX_RETRY_ATTEMPTS ? 'critical' : 'warning', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Payment retry failed', message: `Grace period retry ${newAttempts}/${MAX_RETRY_ATTEMPTS} failed for ${booking.vehicle_name || booking.id}: ${retryErr.message}`, recommended_action: 'Monitor retry outcome and contact renter if another attempt fails.', financial_impact_amount: booking.weekly_rate || 0, currency: 'usd', retry_attempts: newAttempts, last_retry_result: retryErr.message, source: 'processGracePeriod' });
         await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
           payment_failure_attempts: newAttempts,
           payment_failure_reason: retryErr.message,

@@ -46,6 +46,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { DollarSign, AlertTriangle, CheckCircle2, Clock, XCircle, Search, UserCheck, X } from "lucide-react";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import HostPaymentHistory from "@/pages/host/HostPaymentHistory";
+import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import { format } from "date-fns";
 
 const PAYMENT_STATUS_CONFIG = {
@@ -149,6 +150,7 @@ export default function HostPayments() {
         title="Payments"
         subtitle="Payment status across all your active rentals"
       />
+      <PaymentOperationalAlertPanel scope="host" hostId={host?.id} limit={3} />
 
       <div className="flex gap-2 rounded-2xl bg-white border border-gray-100 p-1 shadow-sm">
         {[

@@ -8,6 +8,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import StatCardDrawer, { DrawerRow, DrawerBookingRow } from "@/components/dashboard/StatCardDrawer";
+import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid
@@ -201,6 +202,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+      <PaymentOperationalAlertPanel scope="admin" limit={3} />
 
       {/* Run Weekly Billing */}
       <div className="rounded-2xl border border-green-500/30 p-4 flex items-center justify-between gap-4 flex-wrap"

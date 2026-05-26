@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { LayoutDashboard, Car, DollarSign, Shield, FileKey, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2, CreditCard, ClipboardCheck } from "lucide-react";
+import { LayoutDashboard, Car, DollarSign, Shield, FileKey, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2, CreditCard, ClipboardCheck, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -14,6 +14,7 @@ const baseNavItems = [
   { label: "Brand Builder", icon: Sparkles, path: "/host/brand" },
   { label: "Customers", icon: Users, path: "/host/customers" },
   { label: "Payments", icon: CreditCard, path: "/host/payments" },
+  { label: "Payment Alerts", icon: ShieldAlert, path: "/host/payment-alerts" },
   { label: "Communications", icon: MessageSquare, path: "/host/communications" },
   { label: "Return Reviews", icon: ClipboardCheck, path: "/host/return-reviews" },
   { label: "Payouts", icon: DollarSign, path: "/host/payouts" },

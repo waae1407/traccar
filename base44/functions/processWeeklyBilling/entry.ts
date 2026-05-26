@@ -45,6 +45,14 @@ function classifyPaymentConfidence({ paymentIntentId } = {}) {
   return paymentIntentId ? 'trusted' : 'unresolved';
 }
 
+async function createPaymentAlert(base44, payload) {
+  try {
+    await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', payload);
+  } catch (e) {
+    console.error('[PaymentOperationalAlert]', e.message);
+  }
+}
+
 async function resolveMarketplaceFee(base44, booking = {}) {
   const bookingSource = booking.booking_source || 'marketplace';
   let operatorMode = 'marketplace_partner';
@@ -449,6 +457,12 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
   // below protect against future code changes that might bypass the status filter.
   const now = new Date();
   const gracePeriodHours = parseInt(Deno.env.get("GRACE_PERIOD_HOURS") || "72");
+  let hostEmail = '';
+  if (booking.host_id) {
+    const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
+    hostEmail = hosts[0]?.email || '';
+  }
+  await createPaymentAlert(base44, { alert_type: 'weekly_billing_failed', severity: 'critical', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', host_email: hostEmail, related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Weekly billing failed', message: `Weekly billing failed for ${booking.vehicle_name || booking.id}: ${reason}`, recommended_action: 'Review payment, retry billing, contact renter, or move booking to review.', financial_impact_amount: booking.weekly_rate || 0, currency: 'usd', retry_attempts: attemptNum, source: 'processWeeklyBilling' });
 
   // ── GRACE PERIOD PRESERVATION GUARDS ──────────────────────────────────────
   // Never overwrite grace_period_started_at if already set — doing so would lose

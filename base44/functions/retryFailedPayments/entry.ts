@@ -16,6 +16,14 @@ async function moovetraxKillSwitch(deviceId, enable) {
   return { ok: res.ok, response: text };
 }
 
+async function createPaymentAlert(base44, payload) {
+  try {
+    await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', payload);
+  } catch (e) {
+    console.error('[PaymentOperationalAlert]', e.message);
+  }
+}
+
 // Send SMS via Twilio
 async function sendSMS(to, message) {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -123,10 +131,12 @@ Deno.serve(async (req) => {
             body: `Hi ${booking.customer_full_name || ""},\n\nGreat news! Your payment of $${amount} for your ${booking.vehicle_name} rental has been successfully processed.\n\nYour vehicle is now fully restored and ready to drive.\n\nNext billing: ${nextBillingDate}\n\nThank you,\nuRide Team`,
           });
 
+          await createPaymentAlert(base44, { alert_type: 'retry_successful', severity: 'info', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', stripe_payment_intent_id: paymentIntent.id, related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Retry successful', message: `Payment retry succeeded for ${booking.vehicle_name || booking.id}.`, recommended_action: 'Confirm retry recovery and close related open alerts if appropriate.', financial_impact_amount: amount, currency: paymentIntent.currency || 'usd', retry_attempts: attemptNum, source: 'retryFailedPayments' });
           console.log(`[RetryPayments] ✓ Payment recovered for ${booking.id}`);
         }
       } catch (err) {
         console.error(`[RetryPayments] Attempt ${attemptNum} failed for ${booking.id}:`, err.message);
+        await createPaymentAlert(base44, { alert_type: 'payment_retry_scheduled', severity: attemptNum >= 3 ? 'critical' : 'warning', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Payment retry failed', message: `Retry attempt ${attemptNum} failed for ${booking.vehicle_name || booking.id}: ${err.message}`, recommended_action: 'Monitor retry outcome and contact renter if another attempt fails.', financial_impact_amount: amount, currency: 'usd', retry_attempts: attemptNum, last_retry_result: err.message, source: 'retryFailedPayments' });
 
         // ANY failure = kill immediately + SMS + email alert
         if (booking.vehicle_id) {

@@ -1,0 +1,300 @@
+{
+  "name": "PaymentOperationalAlert",
+  "type": "object",
+  "properties": {
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "rental_payment_failed",
+        "weekly_billing_failed",
+        "payment_authentication_required",
+        "chargeback_opened",
+        "chargeback_lost",
+        "payout_reversal",
+        "transfer_failed",
+        "subscription_payment_failed",
+        "dealer_membership_payment_failed",
+        "contactless_gps_payment_failed",
+        "bank_debit_reversal",
+        "refund_failed",
+        "payment_method_missing",
+        "payment_retry_scheduled",
+        "payout_delayed",
+        "subscription_past_due",
+        "dealer_membership_past_due",
+        "contactless_gps_past_due",
+        "stripe_connect_incomplete",
+        "payment_method_expiring",
+        "ach_verification_pending",
+        "refund_pending",
+        "payment_recovered",
+        "retry_successful",
+        "payout_completed",
+        "chargeback_won",
+        "subscription_renewed",
+        "dealer_membership_renewed",
+        "alert_resolved",
+        "refund_recorded",
+        "unknown_payment_failed",
+        "unknown_billing_context"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "warning",
+        "info"
+      ],
+      "default": "warning"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "notified",
+        "acknowledged",
+        "under_review",
+        "retry_scheduled",
+        "resolved",
+        "escalated",
+        "closed"
+      ],
+      "default": "new"
+    },
+    "billing_context": {
+      "type": "string",
+      "enum": [
+        "rental_payment",
+        "weekly_billing",
+        "payout",
+        "subscription",
+        "dealer_network",
+        "contactless_gps",
+        "chargeback",
+        "reversal",
+        "refund",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "renter_email": {
+      "type": "string"
+    },
+    "host_email": {
+      "type": "string"
+    },
+    "admin_assigned_to": {
+      "type": "string"
+    },
+    "stripe_event_type": {
+      "type": "string"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "stripe_invoice_id": {
+      "type": "string"
+    },
+    "stripe_charge_id": {
+      "type": "string"
+    },
+    "stripe_dispute_id": {
+      "type": "string"
+    },
+    "stripe_transfer_id": {
+      "type": "string"
+    },
+    "stripe_payout_id": {
+      "type": "string"
+    },
+    "related_entity_type": {
+      "type": "string"
+    },
+    "related_entity_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "recommended_action": {
+      "type": "string"
+    },
+    "financial_impact_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "currency": {
+      "type": "string",
+      "default": "usd"
+    },
+    "requires_admin_action": {
+      "type": "boolean",
+      "default": true
+    },
+    "requires_host_action": {
+      "type": "boolean",
+      "default": false
+    },
+    "requires_customer_action": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_acknowledged": {
+      "type": "boolean",
+      "default": false
+    },
+    "host_acknowledged": {
+      "type": "boolean",
+      "default": false
+    },
+    "customer_acknowledged": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host_acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "customer_acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sms_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "email_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "push_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "host_sms_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "host_email_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_sms_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_email_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "customer_sms_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "customer_email_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "retry_attempts": {
+      "type": "number",
+      "default": 0
+    },
+    "next_retry_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_retry_result": {
+      "type": "string"
+    },
+    "retry_strategy": {
+      "type": "string"
+    },
+    "escalation_deadline_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string"
+    },
+    "resolution_notes": {
+      "type": "string"
+    },
+    "auto_resolution_allowed": {
+      "type": "boolean",
+      "default": false
+    },
+    "manually_actioned": {
+      "type": "boolean",
+      "default": false
+    },
+    "manually_actioned_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "manually_actioned_by": {
+      "type": "string"
+    },
+    "action_taken": {
+      "type": "string"
+    },
+    "audit_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string"
+          },
+          "actor_role": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string"
+          },
+          "previous_status": {
+            "type": "string"
+          },
+          "new_status": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "alert_type",
+    "title",
+    "message"
+  ]
+}

@@ -7,6 +7,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import PaymentHistoryDrawer from "@/components/payments/PaymentHistoryDrawer";
+import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import { generatePaymentDedupeKey, classifyPaymentSource, classifyPaymentConfidence, normalizePaymentMethod } from "@/lib/financial/paymentLedger";
 import {
   OperationalPageShell,
@@ -158,6 +159,7 @@ export default function Payments() {
       {actionBooking && <ActionModal booking={actionBooking} onClose={() => setActionBooking(null)} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["stripe-payments"] })} />}
       {historyBooking && <PaymentHistoryDrawer booking={historyBooking} onClose={() => setHistoryBooking(null)} />}
       <OperationalHero mode="admin" title="Payments" subtitle={`${allPayments.length} payment records · billing visibility and customer payment actions`} eyebrow="Operations" actions={<OperationalExportToolbar mode="admin" exports={[{ label: "Export", onClick: exportPayments }]} syncAction={{ label: "Sync Payment History", loadingLabel: "Updating…", loading: backfilling, onClick: handleBackfill }} />} />
+      <PaymentOperationalAlertPanel scope="admin" limit={4} />
       <OperationalKpiGrid mode="admin" metrics={scorecards.map(s => ({ ...s, active: scoreFilter === s.filterKey, onClick: () => setScoreFilter(scoreFilter === s.filterKey ? null : s.filterKey) }))} />
       {scoreFilter && <div className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/[0.06] px-4 py-2.5 text-sm font-semibold text-yellow-400"><CalendarClock className="h-4 w-4" /> Active payment focus: {scoreFilter.replaceAll("_", " ")}<button onClick={() => setScoreFilter(null)} className="ml-auto text-xs text-white/40 underline hover:text-white">Clear</button></div>}
       <OperationalFilterBar mode="admin" filters={filters} onChange={setFilters} vehicles={vehicleOptions} statuses={["paid", "failed", "overdue", "due_soon", "pending", "unpaid", "refunded"]} resultCount={payments.length} totalCount={allPayments.length} placeholder="Search customer, vehicle…" />

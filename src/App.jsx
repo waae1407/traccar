@@ -57,6 +57,7 @@ import AdminReputationValidation from '@/pages/admin/AdminReputationValidation.j
 import AdminReviewModeration from '@/pages/admin/AdminReviewModeration.jsx';
 import AdminInspectionOversight from '@/pages/admin/AdminInspectionOversight.jsx';
 import AdminDealerNetwork from '@/pages/admin/AdminDealerNetwork.jsx';
+import PaymentOperationsAlertCenter from '@/pages/admin/PaymentOperationsAlertCenter.jsx';
 import HostCommunications from '@/pages/host/HostCommunications';
 import CustomerCommunications from '@/pages/customer/CustomerCommunications';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
@@ -83,6 +84,7 @@ import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
 import HostReturnReviews from '@/pages/host/HostReturnReviews.jsx';
 import HostDealerNetwork from '@/pages/host/HostDealerNetwork.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
+import HostPaymentAlerts from '@/pages/host/HostPaymentAlerts.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
 import CustomDomainGate from '@/components/host/storefront/CustomDomainGate';
@@ -161,6 +163,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/return-reviews" element={<HostReturnReviews />} />
         <Route path="/host/communications" element={<HostCommunications />} />
         <Route path="/host/business-operations" element={<HostBusinessOperations />} />
+        <Route path="/host/payment-alerts" element={<HostPaymentAlerts />} />
         <Route path="/host/dealer-network" element={<HostDealerNetwork />} />
       </Route>
 
@@ -226,6 +229,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/review-moderation" element={<AdminReviewModeration />} />
         <Route path="/admin/inspection-oversight" element={<AdminInspectionOversight />} />
         <Route path="/admin/dealer-network" element={<AdminDealerNetwork />} />
+        <Route path="/admin/payment-alerts" element={<PaymentOperationsAlertCenter />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

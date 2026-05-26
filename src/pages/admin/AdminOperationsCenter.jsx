@@ -4,6 +4,7 @@ import OpsShortcutTab from "@/components/admin/ops/OpsShortcutTab";
 
 // Operational Alerts remains canonical here; other workflows stay standalone and are summarized with shortcuts.
 import AdminOperationalAlerts from "@/pages/admin/AdminOperationalAlerts";
+import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 
 // New focused tab components
 import PayoutHoldsTab from "@/components/admin/ops/PayoutHoldsTab";
@@ -65,6 +66,7 @@ export default function AdminOperationsCenter() {
 
       {/* Tab Content — each component manages its own scroll and padding */}
       <div className="flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-6 pb-0"><PaymentOperationalAlertPanel scope="admin" compact limit={2} /></div>
         {ActiveComponent && <ActiveComponent />}
       </div>
     </div>

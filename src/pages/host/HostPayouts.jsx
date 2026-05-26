@@ -10,6 +10,7 @@ import UpcomingTransfers from "@/components/host/payouts/UpcomingTransfers";
 import HeldPayouts from "@/components/host/payouts/HeldPayouts";
 import PayoutRow from "@/components/host/payouts/PayoutRow";
 import PayoutDetailDrawer from "@/components/host/payouts/PayoutDetailDrawer";
+import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 
 const PAGE_SIZE = 20;
 
@@ -356,6 +357,7 @@ export default function HostPayouts() {
     <div className="space-y-5">
       {/* 1. HERO */}
       <HostPageHeader title="Payouts" subtitle="Automated via Stripe Connect — deposits go directly to your bank" />
+      <PaymentOperationalAlertPanel scope="host" hostId={host?.id} limit={3} />
 
       {/* 2. STRIPE CONNECT STATUS */}
       {checkingReturn && (
