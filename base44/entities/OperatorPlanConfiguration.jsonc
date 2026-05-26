@@ -5,14 +5,51 @@
     "host_id": {
       "type": "string"
     },
-    "active_mode": {
+    "user_id": {
+      "type": "string"
+    },
+    "recommended_mode": {
       "type": "string",
       "enum": [
         "marketplace_partner",
         "fleetos_professional",
         "hybrid_growth"
+      ]
+    },
+    "selected_mode": {
+      "type": "string",
+      "enum": [
+        "marketplace_partner",
+        "fleetos_professional",
+        "hybrid_growth"
+      ]
+    },
+    "active_mode": {
+      "type": "string",
+      "enum": [
+        "none",
+        "marketplace_partner",
+        "fleetos_professional",
+        "hybrid_growth"
       ],
-      "default": "marketplace_partner"
+      "default": "none"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_payment",
+        "active",
+        "past_due",
+        "expired",
+        "cancelled",
+        "suspended",
+        "under_review"
+      ],
+      "default": "pending_payment"
+    },
+    "marketplace_enabled": {
+      "type": "boolean",
+      "default": true
     },
     "marketplace_fee_rate": {
       "type": "number",
@@ -27,10 +64,6 @@
       "default": true
     },
     "uses_own_payments": {
-      "type": "boolean",
-      "default": false
-    },
-    "contactless_enabled": {
       "type": "boolean",
       "default": false
     },
@@ -50,6 +83,18 @@
         "under_review"
       ],
       "default": "pending_payment"
+    },
+    "dealer_network_annual_fee": {
+      "type": "number",
+      "default": 100
+    },
+    "dealer_network_transaction_fee": {
+      "type": "number",
+      "default": 50
+    },
+    "contactless_enabled": {
+      "type": "boolean",
+      "default": false
     },
     "gps_subscription_enabled": {
       "type": "boolean",
@@ -71,18 +116,9 @@
       "type": "string",
       "format": "date"
     },
-    "status": {
+    "last_updated_at": {
       "type": "string",
-      "enum": [
-        "pending_payment",
-        "active",
-        "past_due",
-        "expired",
-        "cancelled",
-        "suspended",
-        "under_review"
-      ],
-      "default": "pending_payment"
+      "format": "date-time"
     },
     "activation_source": {
       "type": "string",
@@ -183,7 +219,5 @@
       }
     }
   },
-  "required": [
-    "host_id"
-  ]
+  "required": []
 }

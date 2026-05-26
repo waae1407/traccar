@@ -6,6 +6,7 @@ import HostRestrictionsPanel from "@/components/admin/HostRestrictionsPanel";
 import HostVerificationPanel from "@/components/admin/HostVerificationPanel";
 import AdminHostReputationPanel from "@/components/admin/reputation/AdminHostReputationPanel";
 import HostDomainReviewPanel from "@/components/admin/HostDomainReviewPanel";
+import OperatorPlanSummary from "@/components/admin/OperatorPlanSummary";
 
 const statusConfig = {
   pending: { label: "Pending", color: "bg-yellow-500/20 text-yellow-400" },
@@ -39,7 +40,17 @@ export default function AdminHosts() {
     queryKey: ["admin-host-reputation-summaries"],
     queryFn: () => base44.entities.HostReputationSummary.list("-updated_date", 500),
   });
+  const { data: operatorPlans = [] } = useQuery({
+    queryKey: ["admin-operator-plans"],
+    queryFn: () => base44.entities.OperatorPlanConfiguration.list("-updated_date", 500),
+  });
+  const { data: dealerMemberships = [] } = useQuery({
+    queryKey: ["admin-dealer-memberships"],
+    queryFn: () => base44.entities.DealerNetworkMembership.list("-updated_date", 500),
+  });
   const reputationMap = Object.fromEntries(reputationSummaries.map((s) => [s.host_id, s]));
+  const operatorPlanMap = Object.fromEntries(operatorPlans.map((p) => [p.host_id, p]));
+  const dealerMembershipMap = Object.fromEntries(dealerMemberships.map((m) => [m.host_id, m]));
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Host.update(id, data),
@@ -209,6 +220,7 @@ export default function AdminHosts() {
                     )}
 
                     <AdminHostReputationPanel summary={reputationMap[h.id]} />
+                    <OperatorPlanSummary plan={operatorPlanMap[h.id]} dealerMembership={dealerMembershipMap[h.id]} />
                     <HostDomainReviewPanel host={h} />
 
                     <div className="flex items-center gap-3 flex-wrap">

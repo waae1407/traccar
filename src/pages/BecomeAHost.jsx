@@ -75,13 +75,26 @@ export default function BecomeAHost() {
     }
 
     const operatorProfileId = localStorage.getItem("operator_profile_id");
-    if (operatorProfileId && savedHost?.id) {
-      const profiles = await base44.entities.OperatorProfile.filter({ id: operatorProfileId });
-      const profile = profiles[0];
-      if (profile) {
-        await base44.entities.OperatorProfile.update(profile.id, { host_id: savedHost.id, onboarding_status: "host_pending", last_updated_at: new Date().toISOString() });
-        await base44.entities.OperatorPlanConfiguration.create({ host_id: savedHost.id, ...planDefaults(profile.recommended_mode, profile) });
-        await base44.entities.OperatorRecommendationHistory.create({ host_id: savedHost.id, new_mode: profile.recommended_mode, reason: "Created from Smart Operator Questionnaire during host application.", changed_by: user?.email || form.email, changed_at: new Date().toISOString(), source: "questionnaire" });
+    const operatorPlanId = localStorage.getItem("operator_plan_id");
+    const storedAnswers = JSON.parse(localStorage.getItem("operator_answers") || "{}");
+    const storedRecommendation = JSON.parse(localStorage.getItem("operator_recommendation") || "null");
+    const storedSelectedMode = localStorage.getItem("operator_selected_mode");
+    if (savedHost?.id) {
+      const now = new Date().toISOString();
+      if (operatorProfileId) {
+        const profiles = await base44.entities.OperatorProfile.filter({ id: operatorProfileId });
+        const profile = profiles[0];
+        if (profile) {
+          await base44.entities.OperatorProfile.update(profile.id, { host_id: savedHost.id, onboarding_status: "host_pending", last_updated_at: now });
+        }
+      }
+      if (operatorPlanId) {
+        await base44.entities.OperatorPlanConfiguration.update(operatorPlanId, { host_id: savedHost.id, last_updated_at: now });
+      } else if (storedRecommendation && storedSelectedMode) {
+        await base44.entities.OperatorPlanConfiguration.create({ host_id: savedHost.id, user_id: user?.id || "", ...planDefaults(storedSelectedMode, storedAnswers, storedRecommendation.recommended_mode) });
+      }
+      if (storedRecommendation?.recommended_mode) {
+        await base44.entities.OperatorRecommendationHistory.create({ host_id: savedHost.id, user_id: user?.id || "", previous_mode: storedRecommendation.recommended_mode, new_mode: storedSelectedMode || storedRecommendation.recommended_mode, reason: "Linked confirmed operator setup to host application.", changed_by: user?.email || form.email, changed_at: now, source: "user_selection" });
       }
     }
 
@@ -254,7 +267,6 @@ export default function BecomeAHost() {
             List your fleet on uRide. We handle renters, payments & compliance. You keep 80% — automatically.
           </p>
           <button onClick={() => {
-            if (!user) { base44.auth.redirectToLogin(window.location.href + "?next=apply"); return; }
             if (existingHost?.status === "pending") { setStep("pending"); return; }
             navigate("/operator-questionnaire");
           }}

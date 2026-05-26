@@ -5,6 +5,9 @@
     "host_id": {
       "type": "string"
     },
+    "user_id": {
+      "type": "string"
+    },
     "previous_mode": {
       "type": "string"
     },
@@ -25,6 +28,7 @@
       "type": "string",
       "enum": [
         "questionnaire",
+        "user_selection",
         "host_edit",
         "admin_edit"
       ],

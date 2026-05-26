@@ -1,19 +1,19 @@
 export const OPERATIONAL_MODES = {
   marketplace_partner: {
     label: "Marketplace Partner",
-    price: "8% per completed booking",
-    summary: "Best when uRideHub helps bring renters and demand.",
+    price: "8% per completed marketplace booking",
+    summary: "Best when uRideHub helps bring renters and marketplace demand.",
     tools: ["Marketplace exposure", "uRideHub payments", "Contracts", "Compliance", "Customer flow"],
   },
   fleetos_professional: {
     label: "FleetOS Professional",
     price: "$29.99/month",
     summary: "Best for operators with their own customers who need infrastructure.",
-    tools: ["Booking system", "Contracts", "Operations dashboard", "Customer management", "Compliance tools"],
+    tools: ["Booking system", "Contracts", "Operations dashboard", "Customer management", "No marketplace transaction fee on direct business"],
   },
   hybrid_growth: {
     label: "Hybrid Growth",
-    price: "$29.99/month + 4% on marketplace bookings",
+    price: "$29.99/month + 4% marketplace booking fee",
     summary: "Best when you have direct customers but also want uRideHub demand.",
     tools: ["Direct operations", "Marketplace demand", "Custom storefront", "Payments options", "Growth tools"],
   },
@@ -69,33 +69,42 @@ export function recommendOperatorMode(answers) {
   };
 }
 
-export function planDefaults(mode, answers = {}) {
+export function planDefaults(mode, answers = {}, recommendedMode = mode) {
+  const isMarketplace = mode === "marketplace_partner";
+  const now = new Date().toISOString();
+
   return {
-    active_mode: mode,
+    recommended_mode: recommendedMode,
+    selected_mode: mode,
+    active_mode: isMarketplace ? "marketplace_partner" : "none",
+    status: isMarketplace ? "active" : "pending_payment",
+    marketplace_enabled: mode !== "fleetos_professional",
     marketplace_fee_rate: mode === "fleetos_professional" ? 0 : mode === "hybrid_growth" ? 0.04 : 0.08,
-    monthly_subscription_amount: mode === "marketplace_partner" ? 0 : 29.99,
+    monthly_subscription_amount: isMarketplace ? 0 : 29.99,
     uses_uride_payments: answers.payment_preference !== "Use my own payment processor",
     uses_own_payments: answers.payment_preference === "Use my own payment processor",
     contactless_enabled: answers.wants_contactless === "Yes",
     dealer_network_enabled: ["Yes", "Maybe later"].includes(answers.vehicle_acquisition_interest) || ["Yes", "Maybe later"].includes(answers.inventory_liquidation_interest),
     dealer_network_membership_status: "pending_payment",
+    dealer_network_annual_fee: 100,
+    dealer_network_transaction_fee: 50,
     gps_subscription_enabled: answers.wants_contactless === "Yes",
     custom_domain_enabled: ["Yes, basic presence", "Yes, established brand"].includes(answers.website_branding_status),
     concierge_sourcing_enabled: ["Yes", "Maybe later"].includes(answers.vehicle_acquisition_interest),
     concierge_liquidation_enabled: ["Yes", "Maybe later"].includes(answers.inventory_liquidation_interest),
-    effective_date: new Date().toISOString().slice(0, 10),
-    status: mode === "marketplace_partner" ? "active" : "pending_payment",
-    activation_source: mode === "marketplace_partner" ? "host_approval" : "subscription_payment",
-    payment_required: mode !== "marketplace_partner",
-    billing_activation_pending: mode !== "marketplace_partner",
-    last_payment_status: mode === "marketplace_partner" ? "not_required" : "pending",
+    effective_date: now.slice(0, 10),
+    last_updated_at: now,
+    activation_source: isMarketplace ? "host_approval" : "subscription_payment",
+    payment_required: !isMarketplace,
+    billing_activation_pending: !isMarketplace,
+    last_payment_status: isMarketplace ? "not_required" : "pending",
     status_audit_log: [{
       from_status: "created",
-      to_status: mode === "marketplace_partner" ? "active" : "pending_payment",
+      to_status: isMarketplace ? "active" : "pending_payment",
       changed_by: "system",
-      changed_at: new Date().toISOString(),
-      reason: mode === "marketplace_partner" ? "Marketplace Partner activates after normal host approval/onboarding." : "Paid plan requires successful subscription payment before activation.",
-      source: "questionnaire"
+      changed_at: now,
+      reason: isMarketplace ? "Marketplace Partner is active with no monthly subscription." : "Paid plan selected and pending future billing activation.",
+      source: "user_selection"
     }],
   };
 }
