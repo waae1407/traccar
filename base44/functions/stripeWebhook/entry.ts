@@ -47,6 +47,55 @@ function classifyPaymentConfidence({ paymentIntentId } = {}) {
   return paymentIntentId ? 'trusted' : 'unresolved';
 }
 
+function getBillingContext(metadata = {}) {
+  return metadata.billing_context || (metadata.booking_request_id ? 'rental_marketplace_payment' : 'unknown');
+}
+
+async function resolveMarketplaceFee(base44, booking = {}) {
+  const bookingSource = booking.booking_source || 'marketplace';
+  let operatorMode = 'marketplace_partner';
+  let fallbackUsed = true;
+  let reason = 'Default marketplace fallback rate.';
+
+  if (!['marketplace', 'direct', 'admin_created', 'imported', 'dealer_network'].includes(bookingSource)) {
+    reason = 'Unknown booking source treated as marketplace for legacy safety.';
+  }
+
+  if (booking.host_id) {
+    const plans = await base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id: booking.host_id });
+    const plan = plans[0];
+    if (plan) {
+      operatorMode = plan.active_mode && plan.active_mode !== 'none' ? plan.active_mode : (plan.selected_mode || plan.recommended_mode || operatorMode);
+      fallbackUsed = false;
+      reason = 'Resolved from OperatorPlanConfiguration.';
+    }
+  }
+
+  let feeRate = 0;
+  if (bookingSource === 'marketplace') {
+    feeRate = operatorMode === 'hybrid_growth' ? 0.04 : operatorMode === 'fleetos_professional' ? 0 : 0.08;
+  } else {
+    feeRate = 0;
+    reason = fallbackUsed ? 'Non-marketplace booking source uses no marketplace fee fallback.' : 'Non-marketplace booking source uses no marketplace fee.';
+  }
+
+  await logEvent(base44, {
+    event_type: 'billing.fee_rate_calculated',
+    actor_id: 'billing_context_router',
+    actor_email: 'system',
+    actor_role: 'automation',
+    target_entity: 'BookingRequest',
+    target_id: booking.id || '',
+    host_id: booking.host_id || '',
+    booking_id: booking.id || '',
+    summary: `Marketplace fee resolved: ${(feeRate * 100).toFixed(0)}% for ${operatorMode}`,
+    metadata: { host_id: booking.host_id || '', booking_id: booking.id || '', operator_mode: operatorMode, booking_source: bookingSource, fee_rate_used: feeRate, fallback_used: fallbackUsed, reason },
+    source: 'billing_readiness',
+  });
+
+  return { feeRate, operatorMode, bookingSource, fallbackUsed, reason };
+}
+
 Deno.serve(async (req) => {
   const body = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -64,6 +113,12 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const pi = event.data.object;
+        const billingContext = getBillingContext(pi.metadata || {});
+        if (billingContext !== 'rental_marketplace_payment') {
+          console.log(`[Webhook] Recognized non-rental billing context ${billingContext}; no live subscription/dealer/GPS billing action taken.`);
+          await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.succeeded context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
+          break;
+        }
         const bookingRequestId = pi.metadata?.booking_request_id;
         const chargeData = pi.charges?.data?.[0];
         const receiptUrl = chargeData?.receipt_url;
@@ -114,7 +169,7 @@ Deno.serve(async (req) => {
                 const host = hosts[0];
 
                 if (host?.stripe_account_id && host?.stripe_onboarding_complete) {
-                  const commissionRate = host.commission_rate ?? 0.08;
+                  const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: host.id });
 
                   let stripeFeeAmount = 0;
                   let stripeEffectiveRate = 0;
@@ -272,6 +327,12 @@ Deno.serve(async (req) => {
 
       case 'payment_intent.payment_failed': {
         const pi = event.data.object;
+        const billingContext = getBillingContext(pi.metadata || {});
+        if (billingContext !== 'rental_marketplace_payment') {
+          console.log(`[Webhook] Recognized non-rental failed payment context ${billingContext}; no rental failure action taken.`);
+          await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.payment_failed context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
+          break;
+        }
         const bookingRequestId = pi.metadata?.booking_request_id;
         if (bookingRequestId) {
           await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
@@ -315,6 +376,12 @@ Deno.serve(async (req) => {
 
       case 'charge.refunded': {
         const charge = event.data.object;
+        const billingContext = getBillingContext(charge.metadata || {});
+        if (billingContext !== 'rental_marketplace_payment') {
+          console.log(`[Webhook] Recognized non-rental refund context ${billingContext}; no rental refund action taken.`);
+          await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental charge.refunded context: ${billingContext}`, metadata: { billing_context: billingContext, charge_id: charge.id }, source: 'webhook' });
+          break;
+        }
         const bookingRequestId = charge.metadata?.booking_request_id;
         if (bookingRequestId) {
           await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {

@@ -65,7 +65,7 @@ export default function BecomeAHost() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    const payload = { ...form, user_id: user?.id || "", status: "pending", commission_rate: 0.20 };
+    const payload = { ...form, user_id: user?.id || "", status: "pending", commission_rate: 0.08 };
     let savedHost;
     // If rejected previously, update the existing record instead of creating a new one
     if (existingHost && existingHost.status === "rejected") {

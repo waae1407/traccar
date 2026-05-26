@@ -45,6 +45,46 @@ function classifyPaymentConfidence({ paymentIntentId } = {}) {
   return paymentIntentId ? 'trusted' : 'unresolved';
 }
 
+async function resolveMarketplaceFee(base44, booking = {}) {
+  const bookingSource = booking.booking_source || 'marketplace';
+  let operatorMode = 'marketplace_partner';
+  let fallbackUsed = true;
+  let reason = 'Default marketplace fallback rate.';
+
+  if (booking.host_id) {
+    const plans = await base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id: booking.host_id });
+    const plan = plans[0];
+    if (plan) {
+      operatorMode = plan.active_mode && plan.active_mode !== 'none' ? plan.active_mode : (plan.selected_mode || plan.recommended_mode || operatorMode);
+      fallbackUsed = false;
+      reason = 'Resolved from OperatorPlanConfiguration.';
+    }
+  }
+
+  let feeRate = 0;
+  if (bookingSource === 'marketplace') {
+    feeRate = operatorMode === 'hybrid_growth' ? 0.04 : operatorMode === 'fleetos_professional' ? 0 : 0.08;
+  } else {
+    feeRate = 0;
+    reason = fallbackUsed ? 'Non-marketplace booking source uses no marketplace fee fallback.' : 'Non-marketplace booking source uses no marketplace fee.';
+  }
+
+  await logEvent(base44, {
+    event_type: 'billing.fee_rate_calculated',
+    target_entity: 'BookingRequest',
+    target_id: booking.id || '',
+    host_id: booking.host_id || '',
+    booking_id: booking.id || '',
+    vehicle_id: booking.vehicle_id || '',
+    customer_id: booking.user_email || '',
+    summary: `Marketplace fee resolved: ${(feeRate * 100).toFixed(0)}% for ${operatorMode}`,
+    metadata: { host_id: booking.host_id || '', booking_id: booking.id || '', operator_mode: operatorMode, booking_source: bookingSource, fee_rate_used: feeRate, fallback_used: fallbackUsed, reason },
+    source: 'billing_readiness',
+  });
+
+  return { feeRate, operatorMode, bookingSource, fallbackUsed, reason };
+}
+
 // MooveTrax kill switch — real API call
 async function moovetraxKillSwitch(deviceId, enable) {
   const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
@@ -193,7 +233,7 @@ Deno.serve(async (req) => {
           off_session: true,
           confirm: true,
           description: `uRide Week ${weekNum} — ${booking.vehicle_name || ""}`,
-          metadata: { booking_request_id: booking.id, week_number: String(weekNum) },
+          metadata: { booking_request_id: booking.id, week_number: String(weekNum), billing_context: 'rental_marketplace_payment' },
         });
 
         if (paymentIntent.status === "succeeded") {
@@ -218,7 +258,7 @@ Deno.serve(async (req) => {
             const host = hosts[0];
             resolvedHost = host;
             if (host?.stripe_onboarding_complete && host?.stripe_account_id) {
-              const commissionRate = host.commission_rate || 0.20;
+              const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: host.id });
               // Platform fee is on baseAmount (what the platform receives after Stripe takes its cut).
               // hostAmount = baseAmount - platformFee so Stripe fee is NOT sent to the host.
               // grossedAmount = baseAmount + stripeFee, and Stripe deducts stripeFee from the charge,

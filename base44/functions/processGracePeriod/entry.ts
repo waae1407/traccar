@@ -58,6 +58,44 @@ function classifyPaymentConfidence({ paymentIntentId } = {}) {
   return paymentIntentId ? 'trusted' : 'unresolved';
 }
 
+async function resolveMarketplaceFee(base44, booking = {}) {
+  const bookingSource = booking.booking_source || 'marketplace';
+  let operatorMode = 'marketplace_partner';
+  let fallbackUsed = true;
+  let reason = 'Default marketplace fallback rate.';
+
+  if (booking.host_id) {
+    const plans = await base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id: booking.host_id });
+    const plan = plans[0];
+    if (plan) {
+      operatorMode = plan.active_mode && plan.active_mode !== 'none' ? plan.active_mode : (plan.selected_mode || plan.recommended_mode || operatorMode);
+      fallbackUsed = false;
+      reason = 'Resolved from OperatorPlanConfiguration.';
+    }
+  }
+
+  let feeRate = 0;
+  if (bookingSource === 'marketplace') {
+    feeRate = operatorMode === 'hybrid_growth' ? 0.04 : operatorMode === 'fleetos_professional' ? 0 : 0.08;
+  } else {
+    feeRate = 0;
+    reason = fallbackUsed ? 'Non-marketplace booking source uses no marketplace fee fallback.' : 'Non-marketplace booking source uses no marketplace fee.';
+  }
+
+  await logEvent(base44, {
+    event_type: 'billing.fee_rate_calculated',
+    target_id: booking.id || '',
+    host_id: booking.host_id || '',
+    booking_id: booking.id || '',
+    vehicle_id: booking.vehicle_id || '',
+    customer_id: booking.user_email || '',
+    summary: `Marketplace fee resolved: ${(feeRate * 100).toFixed(0)}% for ${operatorMode}`,
+    metadata: { host_id: booking.host_id || '', booking_id: booking.id || '', operator_mode: operatorMode, booking_source: bookingSource, fee_rate_used: feeRate, fallback_used: fallbackUsed, reason },
+  });
+
+  return { feeRate, operatorMode, bookingSource, fallbackUsed, reason };
+}
+
 async function sendSMS(to, message) {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
@@ -209,7 +247,7 @@ Deno.serve(async (req) => {
           off_session: true,
           confirm: true,
           description: `uRide grace period retry ${attempts + 1}/${MAX_RETRY_ATTEMPTS} — ${booking.vehicle_name}`,
-          metadata: { booking_request_id: booking.id, grace_period_retry: `${attempts + 1}` },
+          metadata: { booking_request_id: booking.id, grace_period_retry: `${attempts + 1}`, billing_context: 'rental_marketplace_payment' },
         });
 
         if (pi.status === "succeeded") {
@@ -320,7 +358,7 @@ Deno.serve(async (req) => {
             const recHosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
             const recHost = recHosts[0];
             if (recHost?.stripe_onboarding_complete && recHost?.stripe_account_id) {
-              const commissionRate = recHost.commission_rate || 0.20;
+              const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: recHost.id });
               const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
               const hostAmount = Math.round((baseAmount - platformFee) * 100) / 100;
               const recTransfer = await stripe.transfers.create({

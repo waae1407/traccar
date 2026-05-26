@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       confirm: true,
       off_session: true,
       description: description || 'uRide rental payment',
-      metadata: { booking_request_id: booking_request_id || '' },
+      metadata: { billing_context: 'rental_marketplace_payment', booking_request_id: booking_request_id || '' },
     });
 
     return Response.json({

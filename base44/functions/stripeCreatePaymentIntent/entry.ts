@@ -116,6 +116,7 @@ Deno.serve(async (req) => {
         customer: stripeCustomerId,
         setup_future_usage: setup_future_usage || 'off_session',
         metadata: {
+          billing_context: 'rental_marketplace_payment',
           booking_request_id: booking_request_id || 'none',
           user_email: user.email,
           booking_type: booking_type || 'unknown',

@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
           off_session: true,
           confirm: true,
           description: `uRide retry attempt ${attemptNum} — ${booking.vehicle_name || ""}`,
-          metadata: { booking_request_id: booking.id, retry_attempt: String(attemptNum) },
+          metadata: { billing_context: 'rental_marketplace_payment', booking_request_id: booking.id, retry_attempt: String(attemptNum) },
         });
 
         if (paymentIntent.status === "succeeded") {

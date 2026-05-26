@@ -28,6 +28,17 @@
     "city": {
       "type": "string"
     },
+    "booking_source": {
+      "type": "string",
+      "enum": [
+        "marketplace",
+        "direct",
+        "admin_created",
+        "imported",
+        "dealer_network"
+      ],
+      "default": "marketplace"
+    },
     "booking_type": {
       "type": "string",
       "enum": [
@@ -87,24 +98,6 @@
       ],
       "default": "draft"
     },
-    "cancellation_reason": {
-      "type": "string"
-    },
-    "cancellation_requested_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "verification_status": {
-      "type": "string",
-      "enum": [
-        "not_started",
-        "submitted",
-        "verified",
-        "failed",
-        "manual_review"
-      ],
-      "default": "not_started"
-    },
     "payment_status": {
       "type": "string",
       "enum": [
@@ -132,11 +125,16 @@
       ],
       "default": "select_vehicle"
     },
-    "assigned_admin_user_id": {
-      "type": "string"
-    },
-    "assigned_team": {
-      "type": "string"
+    "verification_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "submitted",
+        "verified",
+        "failed",
+        "manual_review"
+      ],
+      "default": "not_started"
     },
     "review_status": {
       "type": "string",
@@ -149,6 +147,12 @@
         "more_info_requested"
       ],
       "default": "unassigned"
+    },
+    "assigned_admin_user_id": {
+      "type": "string"
+    },
+    "assigned_team": {
+      "type": "string"
     },
     "reviewed_by_user_id": {
       "type": "string"
@@ -187,13 +191,6 @@
     "consent_autopay": {
       "type": "boolean",
       "default": false
-    },
-    "consent_autopay_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "consent_autopay_ip": {
-      "type": "string"
     },
     "customer_full_name": {
       "type": "string"
@@ -274,8 +271,7 @@
       "type": "string"
     },
     "referral_code": {
-      "type": "string",
-      "description": "Referral code used when booking was created"
+      "type": "string"
     },
     "pending_referral_credit": {
       "type": "number",
@@ -285,14 +281,6 @@
       "type": "boolean",
       "default": false
     },
-    "abandoned_reminder_count": {
-      "type": "number",
-      "default": 0
-    },
-    "last_abandoned_reminder_at": {
-      "type": "string",
-      "format": "date-time"
-    },
     "submitted_at": {
       "type": "string",
       "format": "date-time"
@@ -300,10 +288,6 @@
     "viewed_by_admin": {
       "type": "boolean",
       "default": false
-    },
-    "first_viewed_by_admin_at": {
-      "type": "string",
-      "format": "date-time"
     },
     "pending_review_alert_active": {
       "type": "boolean",
@@ -434,45 +418,11 @@
       ],
       "default": "not_returned"
     },
-    "clean_return_credit_issued": {
-      "type": "boolean",
-      "default": false
-    },
-    "clean_return_admin_notes": {
-      "type": "string"
-    },
-    "inspection_sample_images": {
-      "type": "object",
-      "properties": {
-        "interior_front": {
-          "type": "string"
-        },
-        "interior_rear": {
-          "type": "string"
-        },
-        "exterior_front_left": {
-          "type": "string"
-        },
-        "exterior_rear_left": {
-          "type": "string"
-        },
-        "exterior_front_right": {
-          "type": "string"
-        },
-        "exterior_rear_right": {
-          "type": "string"
-        }
-      }
-    },
     "moovetrax_kill_active": {
       "type": "boolean",
       "default": false
     },
     "suspended_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "reinstate_url_sent_at": {
       "type": "string",
       "format": "date-time"
     },
@@ -485,23 +435,19 @@
     },
     "grace_period_started_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When the payment grace period began after first failure"
+      "format": "date-time"
     },
     "grace_period_ends_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When the grace period expires \u2014 suspension triggers if unpaid"
+      "format": "date-time"
     },
     "last_retry_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Timestamp of last automated payment retry attempt"
+      "format": "date-time"
     },
     "suspension_triggered_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "When automated suspension was triggered by grace period expiry"
+      "format": "date-time"
     }
   },
   "required": [
