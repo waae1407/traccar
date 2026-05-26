@@ -116,7 +116,7 @@ const AuthenticatedApp = () => {
     // auth_required means the PLATFORM requires login — respect that
     // But allow public pages through even without auth
     if (authError.type === 'auth_required') {
-      const publicPaths = ['/', '/privacy', '/terms'];
+      const publicPaths = ['/', '/privacy', '/terms', '/become-a-host', '/operator-questionnaire', '/marketplace', '/swap'];
       if (!publicPaths.includes(window.location.pathname)) {
         navigateToLogin(); return null;
       }

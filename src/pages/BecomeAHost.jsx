@@ -330,7 +330,6 @@ export default function BecomeAHost() {
 
         {/* CTA */}
         <button onClick={() => {
-          if (!user) { base44.auth.redirectToLogin(window.location.href + "?next=apply"); return; }
           if (existingHost?.status === "pending") { setStep("pending"); return; }
           navigate("/operator-questionnaire");
           }}
