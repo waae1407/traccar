@@ -56,7 +56,7 @@ export default function HomePathCards() {
       </Link>
 
       {/* Host Card */}
-      <Link to="/become-a-host"
+      <Link to="/operator-questionnaire"
         className="block w-full rounded-2xl shadow-lg overflow-hidden relative"
         style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #1a1040 100%)" }}>
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 20%, hsl(265 80% 62% / 0.4) 0%, transparent 60%)" }} />
