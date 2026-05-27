@@ -31,7 +31,9 @@ export async function upsertOperatorAddonSelections(base44, {
   const saved = [];
 
   for (const key of allKeys) {
-    const existing = records.find((record) => (record.addon_type || record.addon_key) === key);
+    // Prioritize host-scoped record if it exists; fall back to user-scoped for linking
+    const existing = records.find((record) => (record.addon_type || record.addon_key) === key && record.host_id && record.host_id === hostId) ||
+                     records.find((record) => (record.addon_type || record.addon_key) === key);
     const isSelected = selectedKeys.includes(key);
     const payload = buildAddonPayload(key, {
       hostId,
