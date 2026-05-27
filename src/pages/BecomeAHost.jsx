@@ -34,10 +34,23 @@ export default function BecomeAHost() {
   useEffect(() => {
     if (!user?.email) return;
     setCheckingExisting(true);
-    base44.entities.Host.filter({ email: user.email }).then(hosts => {
+    base44.entities.Host.filter({ email: user.email }).then(async hosts => {
       if (hosts?.length > 0) {
         const host = hosts[0];
         setExistingHost(host);
+
+        const operatorProfileId = localStorage.getItem("operator_profile_id");
+        const operatorPlanId = localStorage.getItem("operator_plan_id");
+        const storedRecommendation = JSON.parse(localStorage.getItem("operator_recommendation") || "null");
+        const storedSelectedMode = localStorage.getItem("operator_selected_mode");
+        const storedSelectedAddons = JSON.parse(localStorage.getItem("operator_selected_addons") || "[]");
+        if (host.id && storedRecommendation?.recommended_mode) {
+          const now = new Date().toISOString();
+          if (operatorProfileId) await base44.entities.OperatorProfile.update(operatorProfileId, { host_id: host.id, onboarding_status: "host_pending", last_updated_at: now });
+          if (operatorPlanId) await base44.entities.OperatorPlanConfiguration.update(operatorPlanId, { host_id: host.id, last_updated_at: now });
+          await upsertOperatorAddonSelections(base44, { hostId: host.id, userId: user.id, selectedAddons: storedSelectedAddons, recommendedAddons: storedRecommendation.recommended_addons || [], selectedMode: storedSelectedMode || storedRecommendation.recommended_mode, actor: user.email, source: "host_application" });
+        }
+
         if (host.status === "approved") {
           navigate("/host/dashboard", { replace: true });
         } else if (host.status === "pending") {

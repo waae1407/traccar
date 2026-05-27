@@ -12,8 +12,22 @@ export default function HostBusinessOperations() {
   const qc = useQueryClient();
   const { data: hosts = [] } = useQuery({ queryKey: ["business-ops-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user.email }), enabled: !!user?.email });
   const host = hosts[0];
-  const { data: profiles = [] } = useQuery({ queryKey: ["operator-profile", user?.id, host?.id], queryFn: () => base44.entities.OperatorProfile.filter(host?.id ? { host_id: host.id } : { user_id: user.id }), enabled: !!user?.id });
-  const { data: plans = [] } = useQuery({ queryKey: ["operator-plan", host?.id, user?.id], queryFn: async () => host?.id ? base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }) : base44.entities.OperatorPlanConfiguration.filter({ user_id: user.id }), enabled: !!user?.id });
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["operator-profile", user?.id, host?.id],
+    queryFn: async () => {
+      const hostProfiles = host?.id ? await base44.entities.OperatorProfile.filter({ host_id: host.id }) : [];
+      return hostProfiles.length ? hostProfiles : base44.entities.OperatorProfile.filter({ user_id: user.id });
+    },
+    enabled: !!user?.id
+  });
+  const { data: plans = [] } = useQuery({
+    queryKey: ["operator-plan", host?.id, user?.id],
+    queryFn: async () => {
+      const hostPlans = host?.id ? await base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }) : [];
+      return hostPlans.length ? hostPlans : base44.entities.OperatorPlanConfiguration.filter({ user_id: user.id });
+    },
+    enabled: !!user?.id
+  });
   const { data: addonConfigs = [] } = useQuery({
     queryKey: ["operator-addons", host?.id, user?.id],
     queryFn: async () => {
