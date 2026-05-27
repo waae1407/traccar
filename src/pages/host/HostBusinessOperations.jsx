@@ -13,8 +13,21 @@ export default function HostBusinessOperations() {
   const { data: hosts = [] } = useQuery({ queryKey: ["business-ops-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user.email }), enabled: !!user?.email });
   const host = hosts[0];
   const { data: profiles = [] } = useQuery({ queryKey: ["operator-profile", user?.id, host?.id], queryFn: () => base44.entities.OperatorProfile.filter(host?.id ? { host_id: host.id } : { user_id: user.id }), enabled: !!user?.id });
-  const { data: plans = [] } = useQuery({ queryKey: ["operator-plan", host?.id], queryFn: () => base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }), enabled: !!host?.id });
-  const { data: addonConfigs = [] } = useQuery({ queryKey: ["operator-addons", host?.id, user?.id], queryFn: () => host?.id ? base44.entities.OperatorAddonConfiguration.filter({ host_id: host.id }) : base44.entities.OperatorAddonConfiguration.filter({ user_id: user.id }), enabled: !!user?.id });
+  const { data: plans = [] } = useQuery({ queryKey: ["operator-plan", host?.id, user?.id], queryFn: async () => host?.id ? base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }) : base44.entities.OperatorPlanConfiguration.filter({ user_id: user.id }), enabled: !!user?.id });
+  const { data: addonConfigs = [] } = useQuery({
+    queryKey: ["operator-addons", host?.id, user?.id],
+    queryFn: async () => {
+      const records = host?.id
+        ? [...(await base44.entities.OperatorAddonConfiguration.filter({ host_id: host.id })), ...(await base44.entities.OperatorAddonConfiguration.filter({ user_id: user.id }))]
+        : await base44.entities.OperatorAddonConfiguration.filter({ user_id: user.id });
+      return Object.values(records.reduce((map, record) => {
+        const key = record.addon_type || record.addon_key;
+        if (!map[key] || record.host_id === host?.id) map[key] = record;
+        return map;
+      }, {}));
+    },
+    enabled: !!user?.id
+  });
   const profile = profiles[0];
   const plan = plans[0];
   const updatePlan = useMutation({

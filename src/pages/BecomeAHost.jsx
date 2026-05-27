@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Home, DollarSign, Shield, Zap, CheckCircle2, ArrowRight, Clock, AlertCircle, Star, TrendingUp } from "lucide-react";
 import { planDefaults } from "@/lib/operatorRecommendation";
+import { upsertOperatorAddonSelections } from "@/lib/operatorAddonPersistence";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -79,6 +80,7 @@ export default function BecomeAHost() {
     const storedAnswers = JSON.parse(localStorage.getItem("operator_answers") || "{}");
     const storedRecommendation = JSON.parse(localStorage.getItem("operator_recommendation") || "null");
     const storedSelectedMode = localStorage.getItem("operator_selected_mode");
+    const storedSelectedAddons = JSON.parse(localStorage.getItem("operator_selected_addons") || "[]");
     if (savedHost?.id) {
       const now = new Date().toISOString();
       if (operatorProfileId) {
@@ -94,6 +96,7 @@ export default function BecomeAHost() {
         await base44.entities.OperatorPlanConfiguration.create({ host_id: savedHost.id, user_id: user?.id || "", ...planDefaults(storedSelectedMode, storedAnswers, storedRecommendation.recommended_mode) });
       }
       if (storedRecommendation?.recommended_mode) {
+        await upsertOperatorAddonSelections(base44, { hostId: savedHost.id, userId: user?.id || "", selectedAddons: storedSelectedAddons, recommendedAddons: storedRecommendation.recommended_addons || [], selectedMode: storedSelectedMode || storedRecommendation.recommended_mode, actor: user?.email || form.email, source: "host_application" });
         await base44.entities.OperatorRecommendationHistory.create({ host_id: savedHost.id, user_id: user?.id || "", previous_mode: storedRecommendation.recommended_mode, new_mode: storedSelectedMode || storedRecommendation.recommended_mode, reason: "Linked confirmed operator setup to host application.", changed_by: user?.email || form.email, changed_at: now, source: "user_selection" });
       }
     }

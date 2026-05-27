@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { recommendOperatorMode, planDefaults, buildAddonPayload } from "@/lib/operatorRecommendation";
+import { recommendOperatorMode, planDefaults } from "@/lib/operatorRecommendation";
+import { getValidAddonKeys, upsertOperatorAddonSelections } from "@/lib/operatorAddonPersistence";
 import RecommendedSetup from "@/components/operator/RecommendedSetup";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -46,8 +47,7 @@ export default function SmartOperatorQuestionnaire() {
       const now = new Date().toISOString();
       const profile = await base44.entities.OperatorProfile.create({ user_id: user.id, ...savedAnswers, ...savedRecommendation, onboarding_status: "recommended", editable_by_host: true, last_updated_at: now });
       const plan = await base44.entities.OperatorPlanConfiguration.create({ user_id: user.id, ...planDefaults(savedSelectedMode, savedAnswers, savedRecommendation.recommended_mode) });
-      const addonKeys = [...new Set([...(savedRecommendation.recommended_addons || []), ...savedSelectedAddons])];
-      if (addonKeys.length > 0) await base44.entities.OperatorAddonConfiguration.bulkCreate(addonKeys.map((key) => buildAddonPayload(key, { userId: user.id, recommended: (savedRecommendation.recommended_addons || []).includes(key), selected: savedSelectedAddons.includes(key), actor: user.email })));
+      await upsertOperatorAddonSelections(base44, { userId: user.id, selectedAddons: savedSelectedAddons, recommendedAddons: savedRecommendation.recommended_addons || [], selectedMode: savedSelectedMode, actor: user.email, source: "questionnaire" });
       await base44.entities.OperatorRecommendationHistory.create({ user_id: user.id, new_mode: savedRecommendation.recommended_mode, reason: savedRecommendation.recommendation_reasoning.join(" "), changed_by: user.email, changed_at: now, source: "questionnaire" });
       await base44.entities.OperatorRecommendationHistory.create({ user_id: user.id, previous_mode: savedRecommendation.recommended_mode, new_mode: savedSelectedMode, reason: "User confirmed setup from recommendation screen.", changed_by: user.email, changed_at: now, source: "user_selection" });
       localStorage.setItem("operator_profile_id", profile.id);
@@ -80,7 +80,7 @@ export default function SmartOperatorQuestionnaire() {
     localStorage.setItem("operator_answers", JSON.stringify(answers));
     localStorage.setItem("operator_recommendation", JSON.stringify(result));
     localStorage.setItem("operator_selected_mode", chosenMode);
-    localStorage.setItem("operator_selected_addons", JSON.stringify(selectedAddons));
+    localStorage.setItem("operator_selected_addons", JSON.stringify(getValidAddonKeys(selectedAddons)));
 
     if (!user) {
       base44.auth.redirectToLogin("/operator-questionnaire?confirm=1");
@@ -92,8 +92,7 @@ export default function SmartOperatorQuestionnaire() {
     const profilePayload = { user_id: user.id, ...answers, ...result, onboarding_status: "recommended", editable_by_host: true, last_updated_at: now };
     const profile = await base44.entities.OperatorProfile.create(profilePayload);
     const plan = await base44.entities.OperatorPlanConfiguration.create({ user_id: user.id, ...planDefaults(chosenMode, answers, result.recommended_mode) });
-    const addonKeys = [...new Set([...(result.recommended_addons || []), ...selectedAddons])];
-    if (addonKeys.length > 0) await base44.entities.OperatorAddonConfiguration.bulkCreate(addonKeys.map((key) => buildAddonPayload(key, { userId: user.id, recommended: (result.recommended_addons || []).includes(key), selected: selectedAddons.includes(key), actor: user.email })));
+    await upsertOperatorAddonSelections(base44, { userId: user.id, selectedAddons, recommendedAddons: result.recommended_addons || [], selectedMode: chosenMode, actor: user.email, source: "questionnaire" });
     await base44.entities.OperatorRecommendationHistory.create({ user_id: user.id, new_mode: result.recommended_mode, reason: result.recommendation_reasoning.join(" "), changed_by: user.email, changed_at: now, source: "questionnaire" });
     await base44.entities.OperatorRecommendationHistory.create({ user_id: user.id, previous_mode: result.recommended_mode, new_mode: chosenMode, reason: "User confirmed setup from recommendation screen.", changed_by: user.email, changed_at: now, source: "user_selection" });
     localStorage.setItem("operator_profile_id", profile.id);
