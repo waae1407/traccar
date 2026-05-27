@@ -15,16 +15,16 @@ export default function HostBusinessOperations() {
   const { data: profiles = [] } = useQuery({
     queryKey: ["operator-profile", user?.id, host?.id],
     queryFn: async () => {
-      const hostProfiles = host?.id ? await base44.entities.OperatorProfile.filter({ host_id: host.id }) : [];
-      return hostProfiles.length ? hostProfiles : base44.entities.OperatorProfile.filter({ user_id: user.id });
+      const hostProfiles = host?.id ? await base44.entities.OperatorProfile.filter({ host_id: host.id }, "-updated_date", 10) : [];
+      return hostProfiles.length ? hostProfiles : base44.entities.OperatorProfile.filter({ user_id: user.id }, "-updated_date", 10);
     },
     enabled: !!user?.id
   });
   const { data: plans = [] } = useQuery({
     queryKey: ["operator-plan", host?.id, user?.id],
     queryFn: async () => {
-      const hostPlans = host?.id ? await base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }) : [];
-      return hostPlans.length ? hostPlans : base44.entities.OperatorPlanConfiguration.filter({ user_id: user.id });
+      const hostPlans = host?.id ? await base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }, "-updated_date", 10) : [];
+      return hostPlans.length ? hostPlans : base44.entities.OperatorPlanConfiguration.filter({ user_id: user.id }, "-updated_date", 10);
     },
     enabled: !!user?.id
   });
