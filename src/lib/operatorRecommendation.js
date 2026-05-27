@@ -85,7 +85,7 @@ export function buildAddonPayload(addonKey, { hostId = "", userId = "", recommen
   const monthlyAmount = addon?.monthlyPrice || 0;
   const annualAmount = addon?.annualPrice || 0;
   const transactionFeeAmount = addon?.transactionFee || 0;
-  const pendingBilling = key === "contactless_operations" || key === "dealer_network";
+  const pendingBilling = selected || key === "contactless_operations" || key === "dealer_network";
 
   return {
     host_id: hostId,

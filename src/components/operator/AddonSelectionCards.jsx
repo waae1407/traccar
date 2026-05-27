@@ -55,7 +55,7 @@ export default function AddonSelectionCards({ recommendedAddons = [], selectedAd
                   <p className="text-xs text-amber-700 mt-1">{isSelected ? "Selected for setup planning only." : "Not selected."} Billing/setup happens later after approval — no charges are activated here.</p>
                 </div>
                 <button type="button" onClick={() => toggleSelected(key)} className={`w-full py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 ${isSelected ? "bg-gray-100 text-gray-700" : "text-white"}`} style={!isSelected ? { background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" } : undefined}>
-                  {isSelected ? <><X className="h-4 w-4" /> Remove add-on</> : <><Plus className="h-4 w-4" /> Mark interest / Add to setup</>}
+                  {isSelected ? <><X className="h-4 w-4" /> Remove add-on</> : <><Plus className="h-4 w-4" /> Add / Setup Later</>}
                 </button>
               </div>
             )}

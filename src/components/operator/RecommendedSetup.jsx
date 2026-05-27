@@ -48,7 +48,7 @@ export default function RecommendedSetup({ result, onContinue, compact = false, 
       <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
         <p className="font-black text-gray-900 text-sm mb-1">Recommended add-ons</p>
         <p className="text-xs text-gray-500 mb-3">Select add-ons for setup planning. Billing/setup happens later and is not activated here.</p>
-        <AddonSelectionCards recommendedAddons={addons} selectedAddons={selectedAddons.length ? selectedAddons : addons} onChange={onAddonsChange} compact={compact} />
+        <AddonSelectionCards recommendedAddons={addons} selectedAddons={selectedAddons} onChange={onAddonsChange} compact={compact} />
       </div>
 
       {!compact && <button onClick={onContinue} className="w-full py-4 rounded-2xl font-bold text-white text-sm flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Confirm Selected Setup <ArrowRight className="h-4 w-4" /></button>}
