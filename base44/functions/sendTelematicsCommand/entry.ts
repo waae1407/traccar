@@ -187,6 +187,9 @@ Deno.serve(async (req) => {
     if (!device && body.unique_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: 'traccar_noran_mt20', unique_id: body.unique_id }))[0];
     if (!device && vehicle) device = await resolveDevice(base44, vehicle);
     if (!device) return Response.json({ error: 'No telematics device is assigned to this vehicle.' }, { status: 404 });
+    if (!adminTraccarLiveTest && ['suspended', 'retired'].includes(device.lifecycle_status)) {
+      return Response.json({ error: 'Device is not enabled for live commands.' }, { status: 403 });
+    }
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
     const capability = CAPABILITY_MAP[commandType];
     if (adminTraccarLiveTest) {
@@ -220,25 +223,25 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Command expired before send.' }, { status: 400 });
     }
 
-    await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'pending', queue_status: 'sending', confirmation_status: 'pending' });
+    await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'sending', queue_status: 'sending', confirmation_status: 'pending' });
     try {
       const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
       const routed = adminTraccarLiveTest ? await sendTraccarSingleDeviceLiveTest(commandType, device) : template ? await renderTemplateExecution(template, provider, device, commandType) : await fallbackAdapter(provider, device, commandType);
-      const finalStatus = routed.dry_run ? 'sent' : 'confirmed';
+      const sentAt = new Date().toISOString();
+      const providerCommandId = routed.response?.id || routed.response?.commandId || routed.response?.command_id || '';
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
-        status: finalStatus === 'confirmed' ? 'executed' : 'sent', queue_status: finalStatus === 'confirmed' ? 'executed' : 'sent', confirmation_status: finalStatus === 'confirmed' ? 'executed' : 'sent', sent_at: new Date().toISOString(),
-        executed_at: finalStatus === 'confirmed' ? new Date().toISOString() : undefined,
-        confirmed_at: finalStatus === 'confirmed' ? new Date().toISOString() : undefined,
-        provider_command_name: routed.provider_command_name, ascii_payload: routed.ascii_payload, hex_payload: routed.hex_payload,
+        status: 'sent', queue_status: 'sent', confirmation_status: 'sent', sent_at: sentAt,
+        provider_command_id: String(providerCommandId || ''), provider_command_name: routed.provider_command_name,
+        ascii_payload: routed.ascii_payload, hex_payload: routed.hex_payload, acknowledgement_source: 'provider_api_response',
         provider_response: routed.response || {}
       });
       await base44.asServiceRole.entities.TelematicsEvent.create({
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
-        vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_${finalStatus}`, source: 'command', raw_payload: routed.response || {}, created_at: new Date().toISOString()
+        vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_sent`, source: 'command', raw_payload: { provider_api_success: true, provider_execution_confirmed: false, response: routed.response || {} }, created_at: sentAt
       });
-      return Response.json({ ok: true, command_type: commandType, queue_status: finalStatus, dry_run: !!routed.dry_run, result: routed.response || {} });
+      return Response.json({ ok: true, command_type: commandType, queue_status: 'sent', dry_run: !!routed.dry_run, pending_acknowledgement: true, result: routed.response || {} });
     } catch (error) {
-      await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: error.message, sent_at: new Date().toISOString() });
+      await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: error.message, failed_at: new Date().toISOString(), sent_at: new Date().toISOString() });
       await base44.asServiceRole.entities.TelematicsEvent.create({ company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key, vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_failed`, source: 'command', raw_payload: { error: error.message }, created_at: new Date().toISOString() });
       return Response.json({ error: error.message, command_failed: true }, { status: 500 });
     }

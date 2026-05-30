@@ -92,11 +92,13 @@ function CommandCard({ cmd, onPress, loading }) {
 export default function TelematicsPanel({ booking }) {
   const [loading, setLoading] = useState(null);
   const [locationData, setLocationData] = useState(null);
+  const [lastResult, setLastResult] = useState(null);
 
   const isActive = ["active", "approved", "confirmed"].includes(booking.booking_status);
-  const isKilled = booking.moovetrax_kill_active;
+  const isKilled = booking.moovetrax_kill_active || booking.starter_disabled;
+  const hasDevice = !!booking.vehicle_id;
 
-  if (!isActive) return null;
+  if (!isActive || !hasDevice) return null;
 
   const handleCommand = async (command) => {
     setLoading(command);
@@ -107,17 +109,19 @@ export default function TelematicsPanel({ booking }) {
         booking_id: booking.id,
       });
 
+      setLastResult({ status: res.data?.pending_acknowledgement ? "pending" : "success", command });
       if (command === "location" && res.data?.result) {
         setLocationData(res.data.result);
-        toast.success("Location retrieved");
+        toast.success(res.data?.pending_acknowledgement ? "Locate command sent" : "Location retrieved");
       } else if (command === "unlock") {
-        toast.success("Doors unlocked ✓");
+        toast.success(res.data?.pending_acknowledgement ? "Unlock command sent" : "Doors unlocked ✓");
       } else if (command === "lock") {
-        toast.success("Doors locked ✓");
+        toast.success(res.data?.pending_acknowledgement ? "Lock command sent" : "Doors locked ✓");
       } else if (command === "panic") {
-        toast.success("Horn activated ✓");
+        toast.success(res.data?.pending_acknowledgement ? "Horn command sent" : "Horn activated ✓");
       }
     } catch (err) {
+      setLastResult({ status: "failed", command, message: err.message || "Command failed" });
       toast.error(err.message || "Command failed");
     } finally {
       setLoading(null);
@@ -163,9 +167,16 @@ export default function TelematicsPanel({ booking }) {
         <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
         <div>
           <p className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Remote Vehicle Controls</p>
-          <p className="text-[10px] text-white/30 mt-0.5">Control your rental from your phone</p>
+          <p className="text-[10px] text-white/30 mt-0.5">Control your rental from your phone · last contact shown after locate</p>
         </div>
       </div>
+
+      {/* Command status */}
+      {lastResult && (
+        <div className="mx-3 mb-3 rounded-xl p-3 border border-white/[0.08] text-xs text-white/60">
+          Last command: <span className="font-bold text-white/80">{lastResult.command}</span> · {lastResult.status === "pending" ? "sent, waiting for device acknowledgement" : lastResult.status === "failed" ? `failed${lastResult.message ? ` — ${lastResult.message}` : ""}` : "successful"}
+        </div>
+      )}
 
       {/* Command cards */}
       <div className="px-3 pb-3 space-y-2">

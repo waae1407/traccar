@@ -4,11 +4,19 @@ function clean(value) { return String(value || '').trim(); }
 function normalize(row = {}) {
   const provider_key = clean(row.provider_key) || 'moovetrax';
   const unique_id = clean(row.unique_id || row.provider_device_id || row.imei);
+  const host_id = clean(row.host_id);
+  const vehicle_id = clean(row.vehicle_id);
+  const installer = clean(row.assigned_installer_email || row.installer_email);
+  const scheduled = clean(row.installation_scheduled_at);
+  const lifecycle_status = vehicle_id || host_id
+    ? (installer || scheduled ? 'installation_scheduled' : 'assigned')
+    : 'inventory';
   return {
     company_id: clean(row.company_id), provider_key, provider_type: clean(row.provider_type) || (provider_key.includes('traccar') ? 'traccar' : 'api'), unique_id,
     device_imei: clean(row.device_imei || row.imei), sim_iccid: clean(row.sim_iccid), provider_device_id: clean(row.provider_device_id),
-    traccar_device_id: clean(row.traccar_device_id), model: clean(row.model), batch_number: clean(row.batch_number), host_id: clean(row.host_id),
-    vehicle_id: clean(row.vehicle_id), assigned_status: clean(row.vehicle_id) ? 'assigned' : 'unassigned', install_status: clean(row.install_status) || 'not_started',
+    traccar_device_id: clean(row.traccar_device_id), model: clean(row.model), batch_number: clean(row.batch_number), host_id,
+    vehicle_id, assigned_status: vehicle_id || host_id ? 'assigned' : 'unassigned', install_status: clean(row.install_status) || 'not_started',
+    lifecycle_status, assigned_installer_email: installer, installation_scheduled_at: scheduled,
     created_at: new Date().toISOString()
   };
 }

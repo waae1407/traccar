@@ -1,0 +1,87 @@
+{
+  "name": "OperationalAlert",
+  "type": "object",
+  "properties": {
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "stale_gps",
+        "device_offline",
+        "command_failed",
+        "command_expired",
+        "command_acknowledged_not_executed",
+        "qa_failure",
+        "provisioning_failure",
+        "installation_failure",
+        "provider_health_warning"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "warning",
+        "info"
+      ],
+      "default": "warning"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "acknowledged",
+        "resolved",
+        "closed"
+      ],
+      "default": "new"
+    },
+    "title": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "recommended_action": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "command_id": {
+      "type": "string"
+    },
+    "install_record_id": {
+      "type": "string"
+    },
+    "dedupe_key": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "alert_type",
+    "title",
+    "message"
+  ],
+  "unique_fields": [
+    "dedupe_key"
+  ]
+}

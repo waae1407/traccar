@@ -48,6 +48,47 @@
     "host_id": {
       "type": "string"
     },
+    "lifecycle_status": {
+      "type": "string",
+      "enum": [
+        "inventory",
+        "provisioned",
+        "assigned",
+        "installation_scheduled",
+        "installed",
+        "qa_review",
+        "approved",
+        "live_enabled",
+        "suspended",
+        "retired"
+      ],
+      "default": "inventory"
+    },
+    "assigned_installer_id": {
+      "type": "string"
+    },
+    "assigned_installer_email": {
+      "type": "string"
+    },
+    "installation_scheduled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "live_enabled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "live_enabled_by": {
+      "type": "string"
+    },
+    "suspended_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "retired_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "assigned_status": {
       "type": "string",
       "enum": [

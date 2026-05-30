@@ -38,6 +38,9 @@
     "provider_command_name": {
       "type": "string"
     },
+    "provider_command_id": {
+      "type": "string"
+    },
     "ascii_payload": {
       "type": "string"
     },
@@ -51,12 +54,13 @@
       "type": "string",
       "enum": [
         "queued",
-        "pending",
+        "sending",
         "sent",
+        "delivered",
         "acknowledged",
         "executed",
-        "confirmed",
         "failed",
+        "expired",
         "blocked"
       ],
       "default": "queued"
@@ -68,6 +72,7 @@
         "pending",
         "sending",
         "sent",
+        "delivered",
         "acknowledged",
         "executed",
         "confirmed",
@@ -83,9 +88,11 @@
       "enum": [
         "pending",
         "sent",
+        "delivered",
         "acknowledged",
         "executed",
-        "failed"
+        "failed",
+        "expired"
       ],
       "default": "pending"
     },
@@ -112,6 +119,9 @@
     "confirmation_source": {
       "type": "string"
     },
+    "acknowledgement_source": {
+      "type": "string"
+    },
     "idempotency_key": {
       "type": "string"
     },
@@ -130,6 +140,12 @@
     "failure_reason": {
       "type": "string"
     },
+    "delivery_latency_ms": {
+      "type": "number"
+    },
+    "execution_latency_ms": {
+      "type": "number"
+    },
     "provider_response": {
       "type": "object"
     },
@@ -141,7 +157,15 @@
       "type": "string",
       "format": "date-time"
     },
+    "delivered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "device_acknowledged_at": {
       "type": "string",
       "format": "date-time"
     },
@@ -150,6 +174,10 @@
       "format": "date-time"
     },
     "confirmed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "failed_at": {
       "type": "string",
       "format": "date-time"
     }

@@ -53,6 +53,8 @@ import AdminOperationsCenter from '@/pages/admin/AdminOperationsCenter';
 import AdminGPSMonitor from '@/pages/admin/AdminGPSMonitor';
 import AdminTelematicsCenter from '@/pages/admin/AdminTelematicsCenter.jsx';
 import AdminTraccarReadiness from '@/pages/admin/AdminTraccarReadiness.jsx';
+import AdminTelematicsOperationsCenter from '@/pages/admin/AdminTelematicsOperationsCenter.jsx';
+import TelematicsRolloutDashboard from '@/pages/admin/TelematicsRolloutDashboard.jsx';
 import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import AdminCommunications from '@/pages/admin/AdminCommunications';
 import AdminReputationValidation from '@/pages/admin/AdminReputationValidation.jsx';
@@ -231,6 +233,8 @@ const AuthenticatedApp = () => {
         <Route path="/admin/operational-alerts" element={<AdminOperationalAlerts />} />
         <Route path="/admin/gps-monitor" element={<AdminGPSMonitor />} />
         <Route path="/admin/telematics" element={<AdminTelematicsCenter />} />
+        <Route path="/admin/telematics-operations" element={<AdminTelematicsOperationsCenter />} />
+        <Route path="/admin/telematics-rollout" element={<TelematicsRolloutDashboard />} />
         <Route path="/admin/traccar-readiness" element={<AdminTraccarReadiness />} />
         <Route path="/admin/operations" element={<AdminOperationsCenter />} />
         <Route path="/admin/compliance-queue" element={<AdminComplianceQueue />} />

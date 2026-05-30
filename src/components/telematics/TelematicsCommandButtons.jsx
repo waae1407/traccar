@@ -16,17 +16,19 @@ const COMMANDS = [
 export default function TelematicsCommandButtons({ vehicleId, bookingId, device, provider, role = "admin", booking, allowStarter = false, onResult }) {
   const [loading, setLoading] = useState(null);
   const dryRun = provider?.execution_mode === "dry_run" || provider?.allow_live_commands === false;
+  const deviceReady = !device || ["approved", "live_enabled"].includes(device.lifecycle_status) || device.provider_key === "moovetrax" || device.traccar_test_activation_enabled;
   const bookingAllowsControls = !booking || (["active", "approved", "confirmed"].includes(booking.booking_status) && booking.payment_status !== "failed" && !booking.starter_disabled && !booking.moovetrax_kill_active);
 
   const visibleCommands = useMemo(() => COMMANDS.filter(cmd => {
     if (!cmd.roles.includes(role)) return false;
     if (cmd.starter && (role === "customer" || !allowStarter)) return false;
+    if (!deviceReady) return false;
     if (cmd.starter && provider?.allow_starter_commands === false) return false;
     if (provider && provider[cmd.capability] === false) return false;
     if (device && cmd.deviceFlag && device[cmd.deviceFlag] === false) return false;
     if (role === "customer" && !bookingAllowsControls) return false;
     return true;
-  }), [role, allowStarter, provider, device, bookingAllowsControls]);
+  }), [role, allowStarter, provider, device, bookingAllowsControls, deviceReady]);
 
   const send = async (command_type) => {
     setLoading(command_type);

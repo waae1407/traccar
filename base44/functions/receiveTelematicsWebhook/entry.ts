@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const SUPPORTED_EVENTS = ['location_update', 'ignition_on', 'ignition_off', 'geofence_enter', 'geofence_exit', 'device_offline', 'device_online', 'power_disconnect', 'command_ack', 'command_failed'];
+const SUPPORTED_EVENTS = ['location_update', 'ignition_on', 'ignition_off', 'geofence_enter', 'geofence_exit', 'device_offline', 'device_online', 'power_disconnect', 'command_delivered', 'command_ack', 'command_executed', 'command_failed'];
 const WEBHOOK_TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000;
 const WEBHOOK_RATE_LIMIT_PER_MINUTE = 120;
 
@@ -186,19 +186,29 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, updates);
     }
 
-    if (['command_ack', 'command_failed'].includes(eventType)) {
+    if (['command_delivered', 'command_ack', 'command_executed', 'command_failed'].includes(eventType)) {
       const commandId = body.command_id || body.commandId || '';
       const idempotencyKey = body.idempotency_key || body.idempotencyKey || '';
+      const providerCommandId = body.provider_command_id || body.providerCommandId || '';
       const matches = commandId
         ? await base44.asServiceRole.entities.TelematicsCommand.filter({ id: commandId })
         : idempotencyKey
           ? await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey })
-          : [];
+          : providerCommandId
+            ? await base44.asServiceRole.entities.TelematicsCommand.filter({ provider_command_id: String(providerCommandId) })
+            : [];
       const command = matches[0];
       if (command) {
-        await base44.asServiceRole.entities.TelematicsCommand.update(command.id, eventType === 'command_ack'
-          ? { status: 'acknowledged', queue_status: 'acknowledged', confirmation_status: 'acknowledged', acknowledged_at: now, provider_response: body }
-          : { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: body.reason || 'Provider command failed', provider_response: body });
+        const createdAt = new Date(command.created_at || command.created_date || now).getTime();
+        const sentAt = new Date(command.sent_at || command.created_at || command.created_date || now).getTime();
+        const update = eventType === 'command_delivered'
+          ? { status: 'delivered', queue_status: 'delivered', confirmation_status: 'delivered', delivered_at: now, delivery_latency_ms: Date.now() - sentAt, acknowledgement_source: 'webhook', provider_response: body }
+          : eventType === 'command_ack'
+            ? { status: 'acknowledged', queue_status: 'acknowledged', confirmation_status: 'acknowledged', acknowledged_at: now, device_acknowledged_at: now, delivery_latency_ms: Date.now() - sentAt, acknowledgement_source: 'webhook', provider_response: body }
+            : eventType === 'command_executed'
+              ? { status: 'executed', queue_status: 'executed', confirmation_status: 'executed', executed_at: now, confirmed_at: now, execution_latency_ms: Date.now() - createdAt, acknowledgement_source: 'webhook', provider_response: body }
+              : { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failed_at: now, failure_reason: body.reason || 'Provider command failed', acknowledgement_source: 'webhook', provider_response: body };
+        await base44.asServiceRole.entities.TelematicsCommand.update(command.id, update);
       }
     }
 

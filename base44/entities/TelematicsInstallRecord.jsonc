@@ -14,6 +14,9 @@
     "assigned_installer_email": {
       "type": "string"
     },
+    "installer_id": {
+      "type": "string"
+    },
     "telematics_device_id": {
       "type": "string"
     },
@@ -36,6 +39,54 @@
         "needs_review"
       ],
       "default": "not_started"
+    },
+    "qa_status": {
+      "type": "string",
+      "enum": [
+        "not_submitted",
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "not_submitted"
+    },
+    "installation_started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "installation_completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "qa_approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "qa_approved_by": {
+      "type": "string"
+    },
+    "installation_notes": {
+      "type": "string"
+    },
+    "voltage_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "gps_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "ignition_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "lock_unlock_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "tamper_check_verified": {
+      "type": "boolean",
+      "default": false
     },
     "gps_test_passed": {
       "type": "boolean",
