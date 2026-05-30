@@ -4,6 +4,9 @@ const COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights', 'disable_starter', 
 const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
 const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
+const TRACCAR_TEST_UNIQUE_ID = 'NR09G00002';
+const TRACCAR_TEST_DEVICE_ID = '5';
+const TRACCAR_TEST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
 const CAPABILITY_MAP = {
   locate: 'supports_location', status: 'supports_location', lock: 'supports_lock', unlock: 'supports_unlock',
   horn_lights: 'supports_horn', disable_starter: 'supports_starter_disable', restore_starter: 'supports_starter_restore',
@@ -28,6 +31,34 @@ function buildNoranMT20Command(commandType, deviceId, template) {
       ? `*KW,${cleanDeviceId},000,${hhmmss}#`
       : `*KW,${cleanDeviceId},007,${hhmmss},${NORAN_ACTION_MAP[commandType]}#`;
   return { ascii, hex: asciiToHex(ascii) };
+}
+function envValue(name) { return String(Deno.env.toObject()[name] || '').trim(); }
+function joinUrl(baseUrl, path) { return `${baseUrl.replace(/\/+$/, '')}${path}`; }
+function isTraccarSingleDeviceLiveTest(provider, device, commandType) {
+  return provider.provider_key === 'traccar_noran_mt20'
+    && device.unique_id === TRACCAR_TEST_UNIQUE_ID
+    && String(device.traccar_device_id || '') === TRACCAR_TEST_DEVICE_ID
+    && device.traccar_test_activation_enabled === true
+    && !isExpired(device.traccar_test_activation_expires_at)
+    && TRACCAR_TEST_COMMANDS.includes(commandType)
+    && !STARTER_COMMANDS.includes(commandType);
+}
+async function sendTraccarSingleDeviceLiveTest(commandType, device) {
+  const baseUrl = envValue('TRACCAR_BASE_URL');
+  const username = envValue('TRACCAR_USERNAME');
+  const password = envValue('TRACCAR_PASSWORD');
+  if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
+  const built = buildNoranMT20Command(commandType, device.unique_id);
+  const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
+    method: 'POST',
+    headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ deviceId: Number(TRACCAR_TEST_DEVICE_ID), type: 'custom', attributes: { data: built.hex } })
+  });
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = { raw: text }; }
+  if (!res.ok) throw new Error(`Traccar live test command failed (${res.status})`);
+  return { provider_command_name: 'custom', ascii_payload: built.ascii, hex_payload: built.hex, response: data, live_test: true };
 }
 function makeIdempotencyKey(userEmail, deviceId, commandType) {
   const minuteBucket = Math.floor(Date.now() / 60000);
@@ -149,15 +180,23 @@ Deno.serve(async (req) => {
     const commandType = body.command_type || body.command;
     if (!COMMANDS.includes(commandType)) return Response.json({ error: 'Invalid telematics command.' }, { status: 400 });
 
-    const { vehicle, booking } = await resolveVehicle(base44, body);
-    if (!vehicle) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
-    const device = body.telematics_device_id ? (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] : await resolveDevice(base44, vehicle);
+    const adminTraccarLiveTest = body.admin_traccar_live_test === true;
+    const { vehicle, booking } = adminTraccarLiveTest ? { vehicle: null, booking: null } : await resolveVehicle(base44, body);
+    if (!vehicle && !adminTraccarLiveTest) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
+    let device = body.telematics_device_id ? (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] : null;
+    if (!device && body.unique_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: 'traccar_noran_mt20', unique_id: body.unique_id }))[0];
+    if (!device && vehicle) device = await resolveDevice(base44, vehicle);
     if (!device) return Response.json({ error: 'No telematics device is assigned to this vehicle.' }, { status: 404 });
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
     const capability = CAPABILITY_MAP[commandType];
-    const accessError = await validateAccess(base44, user, vehicle, booking, commandType, provider);
-    if (accessError) return Response.json({ error: accessError }, { status: 403 });
-    if (!provider.is_active && provider.provider_key !== 'moovetrax') return Response.json({ error: 'Telematics provider is not active.' }, { status: 400 });
+    if (adminTraccarLiveTest) {
+      if (user.role !== 'admin') return Response.json({ error: 'Admin access required for Traccar single-device live test.' }, { status: 403 });
+      if (!isTraccarSingleDeviceLiveTest(provider, device, commandType)) return Response.json({ error: 'Live test is restricted to active NR09G00002 / Traccar device 5 and allowed non-starter commands only.' }, { status: 403 });
+    } else {
+      const accessError = await validateAccess(base44, user, vehicle, booking, commandType, provider);
+      if (accessError) return Response.json({ error: accessError }, { status: 403 });
+    }
+    if (!adminTraccarLiveTest && !provider.is_active && provider.provider_key !== 'moovetrax') return Response.json({ error: 'Telematics provider is not active.' }, { status: 400 });
     if (capability && provider[capability] === false) return Response.json({ error: 'Provider does not support this command.' }, { status: 400 });
     if (provider.execution_mode === 'production' && !provider.allow_live_commands) return Response.json({ error: 'Live commands are disabled for this provider.' }, { status: 400 });
     if (await enforceRateLimit(base44, device.id, commandType, user.email, provider.max_commands_per_minute)) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.' }, { status: 429 });
@@ -169,12 +208,12 @@ Deno.serve(async (req) => {
     if (duplicate && !['failed', 'expired', 'blocked'].includes(duplicate.queue_status || duplicate.status)) return Response.json({ error: 'Duplicate command prevented.', idempotency_key: idempotencyKey }, { status: 409 });
 
     const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
-      company_id: vehicle.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
-      vehicle_id: vehicle.id, host_id: vehicle.host_id || '', booking_id: booking?.id || body.booking_id || '', renter_id: booking?.user_id || '',
+      company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
+      vehicle_id: vehicle?.id || device.vehicle_id || '', host_id: vehicle?.host_id || device.host_id || '', booking_id: booking?.id || body.booking_id || '', renter_id: booking?.user_id || '',
       command_type: commandType, status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
-      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle.id, booking_id: booking?.id || body.booking_id || '' }
+      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest }
     });
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });
@@ -183,8 +222,8 @@ Deno.serve(async (req) => {
 
     await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'pending', queue_status: 'sending', confirmation_status: 'pending' });
     try {
-      const template = await getTemplate(base44, device.provider_key, commandType);
-      const routed = template ? await renderTemplateExecution(template, provider, device, commandType) : await fallbackAdapter(provider, device, commandType);
+      const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
+      const routed = adminTraccarLiveTest ? await sendTraccarSingleDeviceLiveTest(commandType, device) : template ? await renderTemplateExecution(template, provider, device, commandType) : await fallbackAdapter(provider, device, commandType);
       const finalStatus = routed.dry_run ? 'sent' : 'confirmed';
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
         status: finalStatus === 'confirmed' ? 'executed' : 'sent', queue_status: finalStatus === 'confirmed' ? 'executed' : 'sent', confirmation_status: finalStatus === 'confirmed' ? 'executed' : 'sent', sent_at: new Date().toISOString(),
@@ -194,13 +233,13 @@ Deno.serve(async (req) => {
         provider_response: routed.response || {}
       });
       await base44.asServiceRole.entities.TelematicsEvent.create({
-        company_id: vehicle.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
-        vehicle_id: vehicle.id, event_type: `command_${commandType}_${finalStatus}`, source: 'command', raw_payload: routed.response || {}, created_at: new Date().toISOString()
+        company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
+        vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_${finalStatus}`, source: 'command', raw_payload: routed.response || {}, created_at: new Date().toISOString()
       });
       return Response.json({ ok: true, command_type: commandType, queue_status: finalStatus, dry_run: !!routed.dry_run, result: routed.response || {} });
     } catch (error) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: error.message, sent_at: new Date().toISOString() });
-      await base44.asServiceRole.entities.TelematicsEvent.create({ company_id: vehicle.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key, vehicle_id: vehicle.id, event_type: `command_${commandType}_failed`, source: 'command', raw_payload: { error: error.message }, created_at: new Date().toISOString() });
+      await base44.asServiceRole.entities.TelematicsEvent.create({ company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key, vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_failed`, source: 'command', raw_payload: { error: error.message }, created_at: new Date().toISOString() });
       return Response.json({ error: error.message, command_failed: true }, { status: 500 });
     }
   } catch (error) {

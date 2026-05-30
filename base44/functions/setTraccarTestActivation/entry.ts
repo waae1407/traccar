@@ -1,5 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const TEST_UNIQUE_ID = 'NR09G00002';
+const TEST_TRACCAR_DEVICE_ID = '5';
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -16,6 +19,9 @@ Deno.serve(async (req) => {
     const device = devices[0];
     if (!device) return Response.json({ error: 'Device not found' }, { status: 404 });
     if (device.provider_key !== 'traccar_noran_mt20') return Response.json({ error: 'Only Traccar/Noran devices can use this test activation.' }, { status: 400 });
+    if (device.unique_id !== TEST_UNIQUE_ID || String(device.traccar_device_id || '') !== TEST_TRACCAR_DEVICE_ID) {
+      return Response.json({ error: 'Test activation is restricted to NR09G00002 / Traccar device 5 only.' }, { status: 403 });
+    }
     const providers = await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: 'traccar_noran_mt20' });
     const provider = providers[0];
     if (provider && (provider.execution_mode !== 'dry_run' || provider.allow_live_commands)) return Response.json({ error: 'Refusing test activation because provider is not locked to dry_run.' }, { status: 400 });
