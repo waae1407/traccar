@@ -202,6 +202,39 @@ function minutesSince(date, now) {
   return (now.getTime() - date.getTime()) / (1000 * 60);
 }
 
+function textContainsStaleClosure(text = '') {
+  return /auto-?cancelled|auto-?canceled|superseded|stale booking|duplicate booking|replaced booking|manually closed|manual(?:ly)? closed/i.test(String(text));
+}
+
+function isLongExpiredRental(booking, now) {
+  if (!booking.end_date) return false;
+  const endDate = new Date(`${booking.end_date}T23:59:59.999Z`);
+  const daysExpired = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24);
+  return daysExpired > 14;
+}
+
+function isEligibleForPaymentRecovery(booking, now) {
+  if (!["payment_due", "suspended"].includes(booking.booking_status)) return false;
+  if (booking.payment_status !== "failed") return false;
+  if (textContainsStaleClosure(`${booking.admin_notes || ''} ${booking.notes || ''} ${booking.approval_notes || ''}`)) return false;
+  if (isLongExpiredRental(booking, now)) return false;
+  if (!booking.vehicle_id || !booking.user_id) return false;
+  if (!booking.stripe_customer_id || !booking.stripe_payment_method_id) return false;
+  const disableScheduledAt = booking.starter_disable_scheduled_at ? new Date(booking.starter_disable_scheduled_at) : null;
+  if (booking.booking_status === "suspended" && disableScheduledAt) {
+    const daysPastWindow = (now.getTime() - disableScheduledAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysPastWindow > 14) return false;
+  }
+  return true;
+}
+
+function friendlyPaymentRetryMessage(booking, retryAttempt, errorMessage) {
+  if (/No such PaymentMethod/i.test(String(errorMessage || ''))) {
+    return `Payment recovery retry ${retryAttempt} failed for ${booking.vehicle_name || booking.id}: Payment method unavailable. This may be an old or disconnected payment method. Review booking before retrying.`;
+  }
+  return `Payment recovery retry ${retryAttempt} failed for ${booking.vehicle_name || booking.id}: ${errorMessage}`;
+}
+
 async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now) {
   const nextDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const nextBillingDate = nextDate.toISOString().split("T")[0];
@@ -451,11 +484,7 @@ Deno.serve(async (req) => {
     const now = new Date();
 
     const failedBookings = await base44.asServiceRole.entities.BookingRequest.filter({ payment_status: "failed" });
-    const enforcementBookings = failedBookings.filter(b =>
-      ["payment_due", "suspended"].includes(b.booking_status) &&
-      b.stripe_customer_id &&
-      b.stripe_payment_method_id
-    );
+    const enforcementBookings = failedBookings.filter(b => isEligibleForPaymentRecovery(b, now));
 
     console.log(`[PaymentEnforcement] Processing ${enforcementBookings.length} failed-payment bookings`);
 
@@ -527,6 +556,7 @@ Deno.serve(async (req) => {
           moovetrax_kill_active: !!booking.moovetrax_kill_active,
         });
 
+        const alertMessage = friendlyPaymentRetryMessage(booking, newAttempts, retryErr.message);
         await createPaymentAlert(base44, {
           alert_type: 'payment_retry_scheduled',
           severity: now >= disableScheduledAt ? 'critical' : 'warning',
@@ -539,12 +569,12 @@ Deno.serve(async (req) => {
           related_entity_type: 'BookingRequest',
           related_entity_id: booking.id,
           title: 'Payment recovery retry failed',
-          message: `Payment recovery retry ${newAttempts} failed for ${booking.vehicle_name || booking.id}: ${retryErr.message}`,
-          recommended_action: 'Customer still has until the scheduled starter-disable time to resolve payment unless the window has already expired.',
+          message: alertMessage,
+          recommended_action: /No such PaymentMethod/i.test(String(retryErr.message || '')) ? 'Review booking status and payment method before retrying. Do not assume active renter fault until the booking is confirmed active.' : 'Customer still has until the scheduled starter-disable time to resolve payment unless the window has already expired.',
           financial_impact_amount: booking.weekly_rate || 0,
           currency: 'usd',
           retry_attempts: newAttempts,
-          last_retry_result: retryErr.message,
+          last_retry_result: alertMessage,
           next_retry_at: new Date(now.getTime() + RETRY_INTERVAL_MINUTES * 60 * 1000).toISOString(),
           source: 'processGracePeriod'
         });
