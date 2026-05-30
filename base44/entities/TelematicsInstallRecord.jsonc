@@ -14,6 +14,12 @@
     "assigned_installer_email": {
       "type": "string"
     },
+    "installer_email": {
+      "type": "string"
+    },
+    "installer_phone": {
+      "type": "string"
+    },
     "installer_id": {
       "type": "string"
     },
@@ -22,6 +28,30 @@
     },
     "installer_name": {
       "type": "string"
+    },
+    "installer_signature_name": {
+      "type": "string"
+    },
+    "install_token": {
+      "type": "string"
+    },
+    "install_token_expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "install_token_used_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "installer_access_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "expired",
+        "revoked",
+        "submitted"
+      ],
+      "default": "active"
     },
     "install_photos": {
       "type": "array",
@@ -118,5 +148,8 @@
   },
   "required": [
     "telematics_device_id"
+  ],
+  "unique_fields": [
+    "install_token"
   ]
 }

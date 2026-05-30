@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
       qa_status: approved ? 'approved' : 'rejected',
       qa_approved_at: approved ? now : '',
       qa_approved_by: approved ? user.email : '',
+      installer_access_status: approved ? 'submitted' : 'active',
       notes: notes || record.notes || ''
     });
 

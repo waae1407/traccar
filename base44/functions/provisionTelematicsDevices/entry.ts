@@ -1,12 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 function clean(value) { return String(value || '').trim(); }
+function makeToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+}
+function tokenExpiry() { return new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(); }
 function normalize(row = {}) {
   const provider_key = clean(row.provider_key) || 'moovetrax';
   const unique_id = clean(row.unique_id || row.provider_device_id || row.imei);
   const host_id = clean(row.host_id);
   const vehicle_id = clean(row.vehicle_id);
-  const installer = clean(row.assigned_installer_email || row.installer_email);
+  const installer = clean(row.installer_email || row.assigned_installer_email);
+  const installer_phone = clean(row.installer_phone);
   const scheduled = clean(row.installation_scheduled_at);
   const lifecycle_status = vehicle_id || host_id
     ? (installer || scheduled ? 'installation_scheduled' : 'assigned')
@@ -16,7 +23,7 @@ function normalize(row = {}) {
     device_imei: clean(row.device_imei || row.imei), sim_iccid: clean(row.sim_iccid), provider_device_id: clean(row.provider_device_id),
     traccar_device_id: clean(row.traccar_device_id), model: clean(row.model), batch_number: clean(row.batch_number), host_id,
     vehicle_id, assigned_status: vehicle_id || host_id ? 'assigned' : 'unassigned', install_status: clean(row.install_status) || 'not_started',
-    lifecycle_status, assigned_installer_email: installer, installation_scheduled_at: scheduled,
+    lifecycle_status, assigned_installer_email: installer, installer_phone, installation_scheduled_at: scheduled,
     created_at: new Date().toISOString()
   };
 }
@@ -50,6 +57,22 @@ Deno.serve(async (req) => {
       const duplicate = await findDuplicate(base44, device);
       if (duplicate) { skipped.push({ row: device, ...duplicate }); continue; }
       const saved = await base44.asServiceRole.entities.TelematicsDevice.create(device);
+      if (device.assigned_installer_email) {
+        await base44.asServiceRole.entities.TelematicsInstallRecord.create({
+          company_id: device.company_id,
+          host_id: device.host_id,
+          vehicle_id: device.vehicle_id,
+          telematics_device_id: saved.id,
+          assigned_installer_email: device.assigned_installer_email,
+          installer_email: device.assigned_installer_email,
+          installer_phone: device.installer_phone,
+          install_token: makeToken(),
+          install_token_expires_at: tokenExpiry(),
+          installer_access_status: 'active',
+          install_status: 'not_started',
+          qa_status: 'not_submitted'
+        });
+      }
       created.push(saved);
     }
     return Response.json({ ok: true, created_count: created.length, skipped_count: skipped.length, created, skipped });
