@@ -12,7 +12,24 @@ import Stripe from 'npm:stripe@14.21.0';
  */
 
 const RECOVERY_WINDOW_HOURS = 2;
-const RETRY_INTERVAL_MINUTES = parseInt(Deno.env.get("PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES") || "30");
+
+function getRetryIntervalMinutes() {
+  const rawValue = Deno.env.toObject().PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES;
+  if (!rawValue) {
+    console.warn('[PaymentEnforcement] PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES missing; defaulting to 30 minutes');
+    return 30;
+  }
+
+  const parsed = parseInt(rawValue, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.warn('[PaymentEnforcement] PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES invalid; defaulting to 30 minutes');
+    return 30;
+  }
+
+  return parsed;
+}
+
+const RETRY_INTERVAL_MINUTES = getRetryIntervalMinutes();
 const STARTER_WARNING_MESSAGE = "Your rental payment could not be processed. Please update your payment method. Vehicle restart access will be disabled in 2 hours if payment is not successfully collected.";
 
 async function logEvent(base44, data) {
