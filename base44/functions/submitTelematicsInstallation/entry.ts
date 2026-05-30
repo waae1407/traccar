@@ -187,6 +187,7 @@ Deno.serve(async (req) => {
       gps_verified: testSummary.gps_signal_test === 'pass',
       ignition_verified: testSummary.ignition_acc_test === 'pass',
       lock_unlock_verified: ['pass', 'not_supported'].includes(testSummary.lock_test) && ['pass', 'not_supported'].includes(testSummary.unlock_test),
+      tamper_check_verified: false,
       gps_test_passed: testSummary.gps_signal_test === 'pass',
       ignition_test_passed: testSummary.ignition_acc_test === 'pass',
       lock_test_passed: testSummary.lock_test === 'pass',
