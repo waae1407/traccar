@@ -3,13 +3,17 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const ADMIN_EMAIL = 'admin@uridehub.com';
 const PUBLIC_REQUIRED = ['power_voltage_test', 'gps_signal_test', 'ignition_acc_test', 'tamper_security_test'];
 const CAPABILITY_TESTS = {
-  lock_test: 'lock_unlock_enabled',
-  unlock_test: 'lock_unlock_enabled',
-  horn_test: 'horn_light_enabled',
-  lights_test: 'horn_light_enabled',
-  starter_disable_test: 'starter_disabled',
-  starter_restore_test: 'starter_disabled'
+  lock_test: { device: 'lock_unlock_enabled', provider: 'supports_lock' },
+  unlock_test: { device: 'lock_unlock_enabled', provider: 'supports_unlock' },
+  horn_test: { device: 'horn_light_enabled', provider: 'supports_horn' },
+  lights_test: { device: 'horn_light_enabled', provider: 'supports_lights' },
+  starter_disable_test: { provider: 'supports_starter_disable' },
+  starter_restore_test: { provider: 'supports_starter_restore' }
 };
+
+function isSupportedCapability(device, providerConfig, capability) {
+  return !!(capability.device && device[capability.device]) || !!(capability.provider && providerConfig?.[capability.provider]);
+}
 
 function normalizeVin(vin) {
   return String(vin || '').trim().toUpperCase();
@@ -57,6 +61,9 @@ Deno.serve(async (req) => {
     const device = devices[0];
     if (!device) return Response.json({ error: 'Device not found' }, { status: 404 });
 
+    const providerConfigs = await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: providerKey });
+    const providerConfig = providerConfigs[0] || null;
+
     const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ vin });
     const vehicle = vehicles[0];
     const existing = await base44.asServiceRole.entities.TelematicsInstallRecord.filter({ telematics_device_id: device.id });
@@ -94,7 +101,7 @@ Deno.serve(async (req) => {
     for (const key of allTestKeys) {
       const value = body[key];
       const capability = CAPABILITY_TESTS[key];
-      const supported = capability ? !!device[capability] : true;
+      const supported = capability ? isSupportedCapability(device, providerConfig, capability) : true;
       if (!value) return Response.json({ error: `${key} is required` }, { status: 400 });
       if (value === 'not_supported' && supported) return Response.json({ error: `${key} is supported and cannot be marked not_supported` }, { status: 400 });
       if (value !== 'not_supported' && !supported) return Response.json({ error: `${key} is not supported and must be marked not_supported` }, { status: 400 });
