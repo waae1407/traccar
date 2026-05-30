@@ -11,6 +11,9 @@
     "vehicle_id": {
       "type": "string"
     },
+    "vin": {
+      "type": "string"
+    },
     "assigned_installer_email": {
       "type": "string"
     },
@@ -20,7 +23,16 @@
     "telematics_device_id": {
       "type": "string"
     },
+    "provider_key": {
+      "type": "string"
+    },
+    "device_unique_id": {
+      "type": "string"
+    },
     "installer_name": {
+      "type": "string"
+    },
+    "installer_signature_name": {
       "type": "string"
     },
     "install_photos": {
@@ -36,19 +48,20 @@
         "in_progress",
         "completed",
         "failed",
-        "needs_review"
+        "unmatched_vin"
       ],
       "default": "not_started"
     },
     "qa_status": {
       "type": "string",
       "enum": [
+        "not_required",
         "not_submitted",
         "pending",
         "approved",
         "rejected"
       ],
-      "default": "not_submitted"
+      "default": "not_required"
     },
     "installation_started_at": {
       "type": "string",
@@ -67,6 +80,91 @@
     },
     "installation_notes": {
       "type": "string"
+    },
+    "power_voltage_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "gps_signal_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "ignition_acc_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "lock_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "not_supported"
+      ]
+    },
+    "unlock_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "not_supported"
+      ]
+    },
+    "horn_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "not_supported"
+      ]
+    },
+    "lights_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "not_supported"
+      ]
+    },
+    "starter_disable_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "not_supported"
+      ]
+    },
+    "starter_restore_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "not_supported"
+      ]
+    },
+    "tamper_security_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "test_summary": {
+      "type": "object"
+    },
+    "failed_tests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "voltage_verified": {
       "type": "boolean",

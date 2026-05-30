@@ -124,7 +124,7 @@ const AuthenticatedApp = () => {
     // auth_required means the PLATFORM requires login — respect that
     // But allow public pages through even without auth
     if (authError.type === 'auth_required') {
-      const publicPaths = ['/', '/privacy', '/terms', '/become-a-host', '/operator-questionnaire', '/marketplace', '/swap'];
+      const publicPaths = ['/', '/privacy', '/terms', '/become-a-host', '/operator-questionnaire', '/marketplace', '/swap', '/installer/telematics'];
       if (!publicPaths.includes(window.location.pathname)) {
         navigateToLogin(); return null;
       }
@@ -185,8 +185,8 @@ const AuthenticatedApp = () => {
       </Route>
 
 
-      {/* ── INSTALLER ROUTES ── */}
-      <Route path="/installer/telematics" element={<AdminOrInstallerGuard><InstallerTelematicsPortal /></AdminOrInstallerGuard>} />
+      {/* ── PUBLIC INSTALLER ROUTES ── */}
+      <Route path="/installer/telematics" element={<InstallerTelematicsPortal />} />
 
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>

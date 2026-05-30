@@ -8,9 +8,7 @@ function normalize(row = {}) {
   const vehicle_id = clean(row.vehicle_id);
   const installer = clean(row.assigned_installer_email || row.installer_email);
   const scheduled = clean(row.installation_scheduled_at);
-  const lifecycle_status = vehicle_id || host_id
-    ? (installer || scheduled ? 'installation_scheduled' : 'assigned')
-    : 'inventory';
+  const lifecycle_status = vehicle_id || host_id ? 'assigned' : 'inventory';
   return {
     company_id: clean(row.company_id), provider_key, provider_type: clean(row.provider_type) || (provider_key.includes('traccar') ? 'traccar' : 'api'), unique_id,
     device_imei: clean(row.device_imei || row.imei), sim_iccid: clean(row.sim_iccid), provider_device_id: clean(row.provider_device_id),

@@ -54,10 +54,9 @@
         "inventory",
         "provisioned",
         "assigned",
-        "installation_scheduled",
-        "installed",
-        "qa_review",
-        "approved",
+        "installation_started",
+        "installation_completed",
+        "live_ready",
         "live_enabled",
         "suspended",
         "retired"
@@ -71,6 +70,10 @@
       "type": "string"
     },
     "installation_scheduled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "installation_completed_at": {
       "type": "string",
       "format": "date-time"
     },
@@ -105,7 +108,6 @@
         "in_progress",
         "installed",
         "failed",
-        "needs_review",
         "retired"
       ],
       "default": "not_started"
