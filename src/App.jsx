@@ -101,7 +101,6 @@ import SmartOperatorQuestionnaire from '@/pages/SmartOperatorQuestionnaire.jsx';
 import Marketplace from '@/pages/Marketplace';
 import SwapMarketplace from '@/pages/SwapMarketplace';
 import InstallerTelematicsPortal from '@/pages/InstallerTelematicsPortal.jsx';
-import PublicInstallerJob from '@/pages/PublicInstallerJob.jsx';
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -147,7 +146,6 @@ const AuthenticatedApp = () => {
       <Route path="/operator-questionnaire" element={<SmartOperatorQuestionnaire />} />
       <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/swap" element={<SwapMarketplace />} />
-      <Route path="/install/:installToken" element={<PublicInstallerJob />} />
 
       {/* ── HOST ROUTES ── */}
       <Route element={<HostGuard><HostLayout /></HostGuard>}>
