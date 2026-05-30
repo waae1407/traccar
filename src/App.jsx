@@ -9,7 +9,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 // Layouts
 import AppLayout from '@/components/layout/AppLayout';
 import CustomerLayout from '@/components/customer/CustomerLayout';
-import { AdminGuard } from '@/components/layout/RoleGuard';
+import { AdminGuard, HostGuard, AdminOrInstallerGuard } from '@/components/layout/RoleGuard';
 
 // Public pages
 import PublicHome from '@/pages/PublicHome.jsx';
@@ -146,7 +146,7 @@ const AuthenticatedApp = () => {
       <Route path="/swap" element={<SwapMarketplace />} />
 
       {/* ── HOST ROUTES ── */}
-      <Route element={<HostLayout />}>
+      <Route element={<HostGuard><HostLayout /></HostGuard>}>
         <Route path="/host/dashboard" element={<HostDashboard />} />
         <Route path="/host/vehicles" element={<HostVehicles />} />
         <Route path="/host/payments" element={<HostPayments />} />
@@ -184,7 +184,7 @@ const AuthenticatedApp = () => {
 
 
       {/* ── INSTALLER ROUTES ── */}
-      <Route path="/installer/telematics" element={<InstallerTelematicsPortal />} />
+      <Route path="/installer/telematics" element={<AdminOrInstallerGuard><InstallerTelematicsPortal /></AdminOrInstallerGuard>} />
 
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>

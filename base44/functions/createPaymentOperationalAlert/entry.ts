@@ -72,6 +72,8 @@ async function findDuplicate(base44, payload) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me().catch(() => null);
+    if (user && user.role !== 'admin') return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     const input = await req.json();
     const now = new Date().toISOString();
     const alertType = input.alert_type || 'unknown_billing_context';

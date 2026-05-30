@@ -14,6 +14,8 @@ Deno.serve(async (req) => {
     const host = hosts[0];
 
     if (!host) return Response.json({ error: "Host not found" }, { status: 404 });
+    const isOwner = host.email === user.email || host.user_id === user.id;
+    if (!isOwner && user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
     if (!host.stripe_account_id) return Response.json({ connected: false, onboarding_complete: false });
 
     const account = await stripe.accounts.retrieve(host.stripe_account_id);

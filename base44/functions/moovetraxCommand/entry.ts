@@ -122,6 +122,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: "Vehicle not found" }, { status: 404 });
     }
 
+    if (vehicle_id && user.role !== "admin") {
+      const hosts = vehicleDoc.host_id ? await base44.asServiceRole.entities.Host.filter({ id: vehicleDoc.host_id }) : [];
+      const host = hosts[0];
+      const isHostOwner = host?.email === user.email || host?.user_id === user.id;
+      if (!isHostOwner) return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     if (!vehicleDoc.moovetrax_device_id) {
       return Response.json({ error: "This vehicle does not have a MooveTrax device configured" }, { status: 400 });
     }

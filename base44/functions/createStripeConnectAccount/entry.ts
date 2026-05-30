@@ -7,6 +7,8 @@ const APP_URL = "https://uridehub.com";
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const { host_id, host_email, host_name } = await req.json();
 
     if (!host_id || !host_email) {
@@ -17,6 +19,8 @@ Deno.serve(async (req) => {
     const host = await base44.asServiceRole.entities.Host.get(host_id);
 
     if (!host) return Response.json({ error: "Host not found" }, { status: 404 });
+    const isOwner = host.email === user.email || host.user_id === user.id;
+    if (!isOwner && user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
     let accountId = host.stripe_account_id;
 

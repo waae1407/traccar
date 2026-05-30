@@ -38,6 +38,8 @@ async function logEvent(base44, data) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (user?.role !== 'admin') return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     const { host_id, host_email, host_name } = await req.json();
 
     if (!host_id || !host_email) return Response.json({ error: "Missing required fields" }, { status: 400 });
