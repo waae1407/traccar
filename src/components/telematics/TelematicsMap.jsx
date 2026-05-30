@@ -43,6 +43,17 @@ function markerColor(freshness) {
   return "#dc2626";
 }
 
+function getMapPosition(device) {
+  const lat = Number(device.last_latitude);
+  const lng = Number(device.last_longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const validLatLng = Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+  const likelySwapped = Math.abs(lat) > 85 && Math.abs(lng) <= 90;
+  if (likelySwapped) return [lng, lat];
+  return validLatLng ? [lat, lng] : null;
+}
+
 export default function TelematicsMap({
   role = "admin",
   devices = [],
@@ -66,7 +77,7 @@ export default function TelematicsMap({
     ...bookings.filter(b => ACTIVE_BOOKING_STATUSES.includes(b.booking_status)).map(b => b.vehicle_id).filter(Boolean)
   ]), [vehicles, bookings]);
 
-  const located = devices.filter(d => typeof d.last_latitude === "number" && typeof d.last_longitude === "number");
+  const located = devices.filter(d => getMapPosition(d));
   const providers = [...new Set(devices.map(d => d.provider_key).filter(Boolean))];
   const hostOptions = hosts.filter(h => devices.some(d => d.host_id === h.id));
   const filtered = located.filter(device => {
@@ -80,7 +91,7 @@ export default function TelematicsMap({
     if (filters.lifecycle !== "all" && device.lifecycle_status !== filters.lifecycle) return false;
     return true;
   });
-  const center = filtered[0] ? [filtered[0].last_latitude, filtered[0].last_longitude] : [39.5, -98.35];
+  const center = filtered[0] ? getMapPosition(filtered[0]) : [39.5, -98.35];
 
   const handleRefresh = async () => {
     if (!onRefresh) return;
@@ -95,6 +106,7 @@ export default function TelematicsMap({
         <div>
           <p className="flex items-center gap-2 text-sm font-black"><Satellite className="h-4 w-4 text-primary" /> Fleet GPS Map</p>
           <p className="text-xs text-muted-foreground">Near-real-time cached location. Not true live streaming.</p>
+          <p className="text-xs font-semibold text-primary">Map devices with coordinates: {located.length}</p>
         </div>
         {showRefresh && <Button size="sm" variant="outline" onClick={handleRefresh} disabled={refreshing || !onRefresh}><RefreshCw className={`mr-2 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />{refreshLabel || "Refresh Locations"}</Button>}
       </div>
@@ -119,7 +131,7 @@ export default function TelematicsMap({
               const host = hostById[device.host_id];
               const fresh = locationFreshness(device);
               return (
-                <CircleMarker key={device.id} center={[device.last_latitude, device.last_longitude]} radius={9} pathOptions={{ color: markerColor(fresh), fillColor: markerColor(fresh), fillOpacity: 0.75 }}>
+                <CircleMarker key={device.id} center={getMapPosition(device)} radius={9} pathOptions={{ color: markerColor(fresh), fillColor: markerColor(fresh), fillOpacity: 0.75 }}>
                   <Popup>
                     <div className="min-w-56 space-y-2 text-sm">
                       <div><b>{vehicleName(vehicle, device)}</b><p>{ago(device)}</p></div>
