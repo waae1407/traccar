@@ -1,0 +1,62 @@
+{
+  "name": "TelematicsPositionHistory",
+  "type": "object",
+  "properties": {
+    "device_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "speed": {
+      "type": "number"
+    },
+    "heading": {
+      "type": "number"
+    },
+    "ignition_status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "on",
+        "off"
+      ],
+      "default": "unknown"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "webhook",
+        "polling"
+      ],
+      "default": "webhook"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "device_id",
+    "provider_key",
+    "latitude",
+    "longitude",
+    "timestamp"
+  ]
+}

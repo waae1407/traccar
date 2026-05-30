@@ -12,6 +12,26 @@ function pickNumber(...values) {
   return undefined;
 }
 
+function retentionExpiresAt() {
+  const days = 30;
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function normalizeTimestamp(...values) {
+  for (const value of values) {
+    if (!value) continue;
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date.toISOString();
+  }
+  return new Date().toISOString();
+}
+
+function ignitionLabel(value, fallback = 'unknown') {
+  if (value === true || value === 'true' || value === 1 || value === '1') return 'on';
+  if (value === false || value === 'false' || value === 0 || value === '0') return 'off';
+  return fallback;
+}
+
 function getClientIp(req) {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
 }
@@ -146,18 +166,25 @@ Deno.serve(async (req) => {
 
     const eventType = SUPPORTED_EVENTS.includes(body.event_type) ? body.event_type : 'location_update';
     const uniqueId = String(body.unique_id || body.device_id || body.provider_device_id || body.imei || '').trim();
+    const traccarId = String(body.traccar_device_id || body.deviceId || body.position?.deviceId || '').trim();
     let device = null;
     if (uniqueId) {
       const byUnique = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: providerKey, unique_id: uniqueId });
       const byProvider = byUnique[0] ? [] : await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: providerKey, provider_device_id: uniqueId });
       device = byUnique[0] || byProvider[0] || null;
     }
+    if (!device && traccarId) {
+      const byTraccar = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: providerKey, traccar_device_id: traccarId });
+      device = byTraccar[0] || null;
+    }
 
     const latitude = pickNumber(body.latitude, body.lat, body.position?.latitude);
     const longitude = pickNumber(body.longitude, body.lng, body.lon, body.position?.longitude);
     const speed = pickNumber(body.speed, body.position?.speed);
-    const ignition = eventType === 'ignition_on' ? true : eventType === 'ignition_off' ? false : body.ignition;
+    const heading = pickNumber(body.heading, body.course, body.position?.course, body.position?.heading);
+    const ignition = eventType === 'ignition_on' ? true : eventType === 'ignition_off' ? false : body.ignition ?? body.position?.attributes?.ignition;
     const now = new Date().toISOString();
+    const positionTimestamp = normalizeTimestamp(body.fixTime, body.deviceTime, body.serverTime, body.position?.fixTime, body.position?.deviceTime, body.position?.serverTime, now);
 
     const event = await base44.asServiceRole.entities.TelematicsEvent.create({
       company_id: device?.company_id || provider.company_id || '',
@@ -175,15 +202,33 @@ Deno.serve(async (req) => {
     });
 
     if (device) {
-      const updates = { last_seen_at: now };
+      const updates = { last_seen_at: positionTimestamp, location_updated_at: now, location_source: 'traccar' };
       if (latitude !== undefined) updates.last_latitude = latitude;
       if (longitude !== undefined) updates.last_longitude = longitude;
       if (speed !== undefined) updates.speed = speed;
+      if (heading !== undefined) { updates.heading = heading; updates.course = heading; }
+      if (latitude !== undefined && longitude !== undefined && eventType === 'location_update') updates.online_status = 'online';
       if (eventType === 'device_online') updates.online_status = 'online';
       if (eventType === 'device_offline') updates.online_status = 'offline';
-      if (eventType === 'ignition_on') updates.ignition_status = 'on';
-      if (eventType === 'ignition_off') updates.ignition_status = 'off';
+      updates.ignition_status = ignitionLabel(ignition, device.ignition_status || 'unknown');
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, updates);
+
+      if (latitude !== undefined && longitude !== undefined) {
+        await base44.asServiceRole.entities.TelematicsPositionHistory.create({
+          device_id: device.id,
+          vehicle_id: device.vehicle_id || body.vehicle_id || '',
+          host_id: device.host_id || '',
+          provider_key: providerKey,
+          latitude,
+          longitude,
+          speed: speed || 0,
+          heading: heading || 0,
+          ignition_status: updates.ignition_status,
+          timestamp: positionTimestamp,
+          source: 'webhook',
+          expires_at: retentionExpiresAt()
+        });
+      }
     }
 
     if (['command_delivered', 'command_ack', 'command_executed', 'command_failed'].includes(eventType)) {

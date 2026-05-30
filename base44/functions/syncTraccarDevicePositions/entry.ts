@@ -26,6 +26,24 @@ function ignitionStatus(position) {
   return 'unknown';
 }
 
+function retentionDays() {
+  return 30;
+}
+
+function retentionExpiresAt() {
+  return new Date(Date.now() + retentionDays() * 24 * 60 * 60 * 1000).toISOString();
+}
+
+async function cleanupExpiredHistory(base44) {
+  const cutoff = new Date().toISOString();
+  const recent = await base44.asServiceRole.entities.TelematicsPositionHistory.list('expires_at', 500);
+  const expired = recent.filter(item => item.expires_at && item.expires_at < cutoff);
+  for (const item of expired) {
+    await base44.asServiceRole.entities.TelematicsPositionHistory.delete(item.id);
+  }
+  return expired.length;
+}
+
 function onlineStatus(device, position) {
   if (device?.status === 'online') return 'online';
   if (device?.status === 'offline') return 'offline';
@@ -108,10 +126,25 @@ Deno.serve(async (req) => {
         ignition_status: ignitionStatus(position)
       };
       await base44.asServiceRole.entities.TelematicsDevice.update(local.id, payload);
+      await base44.asServiceRole.entities.TelematicsPositionHistory.create({
+        device_id: local.id,
+        vehicle_id: local.vehicle_id || '',
+        host_id: local.host_id || '',
+        provider_key: PROVIDER_KEY,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        speed: Number(position.speed || 0),
+        heading: Number(position.course || 0),
+        ignition_status: payload.ignition_status,
+        timestamp: seenAt,
+        source: 'polling',
+        expires_at: retentionExpiresAt()
+      });
       updated += 1;
     }
 
-    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, skipped_count: skipped.length, skipped });
+    const retention_deleted = await cleanupExpiredHistory(base44);
+    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
   } catch (error) {
     await recordFailure(base44, error.message);
     return Response.json({ ok: false, error: error.message, warning: 'Location update delayed. Last known locations remain available.' }, { status: 500 });
