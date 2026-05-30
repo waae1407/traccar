@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Activity, AlertTriangle, CheckCircle2, Router, Satellite, Wrench, Wifi, WifiOff } from "lucide-react";
 import TelematicsMetricCard from "@/components/telematics/TelematicsMetricCard";
+import TelematicsMap from "@/components/telematics/TelematicsMap";
+import TelematicsService from "@/lib/telematics/TelematicsService";
 
 const COMMAND_STATES = ["queued", "sending", "sent", "delivered", "acknowledged", "executed", "failed", "expired"];
 
@@ -19,6 +21,9 @@ export default function AdminTelematicsOperationsCenter() {
   const { data: installs = [] } = useQuery({ queryKey: ["ops-telematics-installs"], queryFn: () => base44.entities.TelematicsInstallRecord.list("-updated_date", 300), refetchInterval: 30000 });
   const { data: providers = [] } = useQuery({ queryKey: ["ops-telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100), refetchInterval: 60000 });
   const { data: alerts = [] } = useQuery({ queryKey: ["ops-telematics-alerts"], queryFn: () => base44.entities.OperationalAlert.list("-created_date", 100), refetchInterval: 30000 });
+  const { data: vehicles = [] } = useQuery({ queryKey: ["ops-telematics-vehicles"], queryFn: () => base44.entities.Vehicle.list("-updated_date", 500), refetchInterval: 60000 });
+  const { data: hosts = [] } = useQuery({ queryKey: ["ops-telematics-hosts"], queryFn: () => base44.entities.Host.list("business_name", 500), refetchInterval: 60000 });
+  const { data: bookings = [] } = useQuery({ queryKey: ["ops-telematics-bookings"], queryFn: () => base44.entities.BookingRequest.list("-updated_date", 500), refetchInterval: 60000 });
 
   const qa = useMutation({ mutationFn: (payload) => base44.functions.invoke("approveTelematicsInstallQA", payload), onSuccess: () => { qc.invalidateQueries({ queryKey: ["ops-telematics-installs"] }); qc.invalidateQueries({ queryKey: ["ops-telematics-devices"] }); } });
 
@@ -35,6 +40,8 @@ export default function AdminTelematicsOperationsCenter() {
 
   return <div className="p-4 sm:p-6 space-y-5">
     <div><p className="text-xs font-bold text-primary uppercase tracking-widest">Phase A Production</p><h1 className="text-2xl font-black">Telematics Operations Center</h1><p className="text-sm text-muted-foreground">Fleet health, command lifecycle, installation QA, provider health, and telematics alerts.</p></div>
+
+    <section className="space-y-3"><h2 className="font-black">Fleet GPS Map</h2><TelematicsMap role="admin" devices={devices} vehicles={vehicles} hosts={hosts} bookings={bookings} height={520} showFilters showRefresh refreshLabel="Refresh Locations" onRefresh={async () => { await TelematicsService.syncTraccarPositions(); qc.invalidateQueries({ queryKey: ["ops-telematics-devices"] }); }} /></section>
 
     <section className="space-y-3"><h2 className="font-black">Fleet Health</h2><div className="grid md:grid-cols-6 gap-3">
       <TelematicsMetricCard label="Total devices" value={devices.length} icon={Router} />

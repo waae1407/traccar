@@ -8,6 +8,7 @@ import confetti from "canvas-confetti";
 import OperationalEvidenceNudges from "@/components/host/reputation/OperationalEvidenceNudges";
 import HostCoachingDashboard from "@/components/host/reputation/HostCoachingDashboard";
 import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
+import TelematicsMap from "@/components/telematics/TelematicsMap";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -42,6 +43,7 @@ export default function HostDashboard() {
   const host = hosts[0];
 
   const { data: vehicles = [] } = useQuery({ queryKey: ["host-vehicles", host?.id], queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }), enabled: !!host?.id });
+  const { data: gpsDevices = [], refetch: refetchGpsDevices } = useQuery({ queryKey: ["host-dashboard-gps", host?.id], queryFn: () => base44.entities.TelematicsDevice.filter({ host_id: host.id }), enabled: !!host?.id, refetchInterval: 60_000 });
   const { data: payouts = [] } = useQuery({ queryKey: ["host-payouts", host?.id], queryFn: () => base44.entities.HostPayout.filter({ host_id: host.id }), enabled: !!host?.id });
   const { data: compliance = [] } = useQuery({ queryKey: ["host-compliance", host?.id], queryFn: () => base44.entities.HostVehicleCompliance.filter({ host_id: host.id }), enabled: !!host?.id });
   const { data: bookings = [] } = useQuery({ queryKey: ["host-bookings", host?.id], queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }), enabled: !!host?.id });
@@ -146,6 +148,8 @@ export default function HostDashboard() {
 
       <HostCoachingDashboard snapshots={hostSignalSnapshots} />
       <OperationalEvidenceNudges maintenanceLogs={maintenanceLogs} compliance={compliance} activeBookings={activeBookings} vehicles={vehicles} />
+
+      <TelematicsMap role="host" devices={gpsDevices} vehicles={vehicles} bookings={activeBookings} height={220} compact showFilters={false} refreshLabel="Refresh My Fleet" onRefresh={refetchGpsDevices} />
 
       <div className="grid grid-cols-2 gap-4">
         <StatCard label="Pending Payout" value={`$${pendingPayout.toLocaleString()}`} sub={pendingPayout === 0 ? "No payout pending" : "Next transfer scheduled"} icon={DollarSign} color="text-emerald-600" bg="bg-emerald-50" href="/host/payouts" />

@@ -9,6 +9,8 @@ import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import StatCardDrawer, { DrawerRow, DrawerBookingRow } from "@/components/dashboard/StatCardDrawer";
 import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
+import TelematicsMap from "@/components/telematics/TelematicsMap";
+import TelematicsService from "@/lib/telematics/TelematicsService";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid
@@ -81,6 +83,7 @@ export default function Dashboard() {
   const { data: payments = [] } = useQuery({ queryKey: ["payments", scopeKey], queryFn: () => base44.entities.Payment.filter(tenantFilter()) });
   const { data: contracts = [] } = useQuery({ queryKey: ["contracts", scopeKey], queryFn: () => base44.entities.RentToOwnContract.filter(tenantFilter()) });
   const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin", scopeKey], queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-created_date", 200), refetchInterval: 30_000 });
+  const { data: gpsDevices = [], refetch: refetchGpsDevices } = useQuery({ queryKey: ["dashboard-gps-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-location_updated_at", 100), refetchInterval: 60_000 });
   const { data: pendingHosts = [] } = useQuery({ queryKey: ["pending-hosts-dash"], queryFn: () => base44.entities.Host.filter({ status: "pending" }), refetchInterval: 60_000 });
   const unviewedHosts = pendingHosts.filter(h => !h.admin_viewed);
 
@@ -203,6 +206,30 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 animate-fade-in-up">
       <PaymentOperationalAlertPanel scope="admin" limit={3} />
+
+      <div className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <TelematicsMap
+            role="admin"
+            devices={gpsDevices.filter(d => d.vehicle_id && vehicles.some(v => v.id === d.vehicle_id && ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"].includes(v.status))).slice(0, 25)}
+            vehicles={vehicles}
+            bookings={bookingRequests}
+            height={220}
+            compact
+            showFilters={false}
+            refreshLabel="Refresh Locations"
+            onRefresh={async () => { await TelematicsService.syncTraccarPositions(); await refetchGpsDevices(); }}
+          />
+        </div>
+        <Link to="/admin/telematics-operations" className="rounded-3xl border border-white/[0.07] p-5 glass-hover flex flex-col justify-between min-h-[220px]" style={{ background: "hsl(222 24% 10% / 0.9)" }}>
+          <div>
+            <p className="text-xs font-bold text-white/40 uppercase tracking-wider">Fleet GPS</p>
+            <h3 className="mt-2 text-xl font-black text-white">Open full fleet map</h3>
+            <p className="mt-2 text-sm text-white/45">View all cached Traccar locations, stale vehicles, provider filters, and fleet health.</p>
+          </div>
+          <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-primary">Full map <ArrowUpRight className="h-4 w-4" /></span>
+        </Link>
+      </div>
 
       {/* Run Weekly Billing */}
       <div className="rounded-2xl border border-green-500/30 p-4 flex items-center justify-between gap-4 flex-wrap"

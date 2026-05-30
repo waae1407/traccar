@@ -27,6 +27,10 @@ export default class TelematicsService {
     return this.getStatus(payload);
   }
 
+  static syncTraccarPositions(payload = {}) {
+    return base44.functions.invoke("syncTraccarDevicePositions", payload);
+  }
+
   static disableStarter(payload) {
     return this.sendCommand({ ...payload, command_type: TELEMATICS_COMMANDS.disable_starter });
   }

@@ -6,18 +6,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Wifi, Car, Gauge } from "lucide-react";
 import TelematicsCommandButtons from "@/components/telematics/TelematicsCommandButtons";
+import TelematicsMap from "@/components/telematics/TelematicsMap";
 
 export default function HostTelematicsDashboard() {
   const { user } = useAuth();
   const { data: hosts = [] } = useQuery({ queryKey: ["host-telematics-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user.email }), enabled: !!user?.email });
   const host = hosts[0];
-  const { data: devices = [] } = useQuery({ queryKey: ["host-telematics-devices", host?.id], queryFn: () => base44.entities.TelematicsDevice.filter({ host_id: host.id }), enabled: !!host?.id });
+  const { data: devices = [], refetch: refetchDevices } = useQuery({ queryKey: ["host-telematics-devices", host?.id], queryFn: () => base44.entities.TelematicsDevice.filter({ host_id: host.id }), enabled: !!host?.id, refetchInterval: 60_000 });
   const { data: vehicles = [] } = useQuery({ queryKey: ["host-telematics-vehicles", host?.id], queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }), enabled: !!host?.id });
   const { data: commands = [] } = useQuery({ queryKey: ["host-telematics-commands", host?.id], queryFn: () => base44.entities.TelematicsCommand.filter({ host_id: host.id }), enabled: !!host?.id, refetchInterval: 30000 });
   const { data: providers = [] } = useQuery({ queryKey: ["host-telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100) });
+  const { data: bookings = [] } = useQuery({ queryKey: ["host-telematics-bookings", host?.id], queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }), enabled: !!host?.id, refetchInterval: 60_000 });
 
   return <div className="space-y-5">
-    <div><p className="text-xs font-black text-pink-600 uppercase tracking-widest">Telematics</p><h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Fleet Controls</h1><p className="text-sm text-gray-500">Live status, device health, and safe commands for your vehicles.</p></div>
+    <div><p className="text-xs font-black text-pink-600 uppercase tracking-widest">Telematics</p><h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Fleet Controls</h1><p className="text-sm text-gray-500">Near-real-time cached GPS, device health, and safe commands for your vehicles.</p></div>
+    <TelematicsMap role="host" devices={devices} vehicles={vehicles} bookings={bookings} height={520} showFilters showRefresh refreshLabel="Refresh My Fleet" onRefresh={refetchDevices} />
     <div className="grid gap-4">
       {devices.map(device => {
         const vehicle = vehicles.find(v => v.id === device.vehicle_id);
