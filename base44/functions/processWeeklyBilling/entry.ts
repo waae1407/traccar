@@ -53,6 +53,40 @@ async function createPaymentAlert(base44, payload) {
   }
 }
 
+async function authorizeScheduledBillingRun(base44, body) {
+  const user = await base44.auth.me().catch(() => null);
+  if (user) {
+    if (user.role !== 'admin') {
+      return { allowed: false, response: Response.json({ error: 'Forbidden: scheduled billing is admin-only' }, { status: 403 }) };
+    }
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: 'admin.override',
+      actor_id: user.id || user.email,
+      actor_email: user.email,
+      actor_role: 'admin',
+      target_entity: 'BackendFunction',
+      target_id: 'processWeeklyBilling',
+      summary: 'Admin manually ran weekly billing automation',
+      metadata: { function_name: 'processWeeklyBilling', manual_admin_execution: true },
+      source: 'admin_panel',
+      event_status: 'warning',
+    });
+    return { allowed: true };
+  }
+
+  const args = body?.args || {};
+  const automation = body?.automation || {};
+  const isScheduler =
+    automation.id === '6a0a6ae8df6d698b0450e63d' ||
+    (args.automation_id === '6a0a6ae8df6d698b0450e63d' && args.scheduled_function === 'processWeeklyBilling');
+
+  if (!isScheduler) {
+    return { allowed: false, response: Response.json({ error: 'Unauthorized scheduled function caller' }, { status: 401 }) };
+  }
+
+  return { allowed: true };
+}
+
 async function resolveMarketplaceFee(base44, booking = {}) {
   const bookingSource = booking.booking_source || 'marketplace';
   let operatorMode = 'marketplace_partner';
@@ -126,6 +160,9 @@ async function sendSMS(to, message) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const body = await req.json().catch(() => ({}));
+    const authorization = await authorizeScheduledBillingRun(base44, body);
+    if (!authorization.allowed) return authorization.response;
 
     // This function is called by a scheduled automation — verify admin or automation context
     const today = new Date();

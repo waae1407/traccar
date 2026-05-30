@@ -64,6 +64,40 @@ async function createPaymentAlert(base44, payload) {
   }
 }
 
+async function authorizeScheduledGracePeriodRun(base44, body) {
+  const user = await base44.auth.me().catch(() => null);
+  if (user) {
+    if (user.role !== 'admin') {
+      return { allowed: false, response: Response.json({ error: 'Forbidden: payment enforcement is admin-only' }, { status: 403 }) };
+    }
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: 'admin.override',
+      actor_id: user.id || user.email,
+      actor_email: user.email,
+      actor_role: 'admin',
+      target_entity: 'BackendFunction',
+      target_id: 'processGracePeriod',
+      summary: 'Admin manually ran payment enforcement automation',
+      metadata: { function_name: 'processGracePeriod', manual_admin_execution: true },
+      source: 'admin_panel',
+      event_status: 'warning',
+    });
+    return { allowed: true };
+  }
+
+  const args = body?.args || {};
+  const automation = body?.automation || {};
+  const isScheduler =
+    automation.id === '6a0e4b345b472f10284fbced' ||
+    (args.automation_id === '6a0e4b345b472f10284fbced' && args.scheduled_function === 'processGracePeriod');
+
+  if (!isScheduler) {
+    return { allowed: false, response: Response.json({ error: 'Unauthorized scheduled function caller' }, { status: 401 }) };
+  }
+
+  return { allowed: true };
+}
+
 async function resolveMarketplaceFee(base44, booking = {}) {
   const bookingSource = booking.booking_source || 'marketplace';
   let operatorMode = 'marketplace_partner';
@@ -393,6 +427,9 @@ async function disableStarterAfterWindow(base44, booking, now) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const body = await req.json().catch(() => ({}));
+    const authorization = await authorizeScheduledGracePeriodRun(base44, body);
+    if (!authorization.allowed) return authorization.response;
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
     const now = new Date();
 
