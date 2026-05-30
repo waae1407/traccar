@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import React, { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,8 +29,8 @@ function getParams() {
   };
 }
 
-function TestSelector({ label, supportsNotSupported, value, onChange }) {
-  const options = supportsNotSupported ? ["pass", "fail", "not_supported"] : ["pass", "fail"];
+function TestSelector({ label, supported, value, onChange }) {
+  const options = supported ? ["pass", "fail"] : ["not_supported"];
   return (
     <div className="rounded-2xl border border-border p-3 space-y-2">
       <p className="text-sm font-bold">{label}</p>
@@ -42,7 +42,7 @@ function TestSelector({ label, supportsNotSupported, value, onChange }) {
             onClick={() => onChange(option)}
             className={`rounded-xl border px-3 py-2 text-xs font-bold uppercase transition ${value === option ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
           >
-            {option.replace("_", " ")}
+            {option === "not_supported" ? "Not Supported" : option}
           </button>
         ))}
       </div>
@@ -62,6 +62,26 @@ export default function InstallerTelematicsPortal() {
     install_photos: []
   });
   const [result, setResult] = useState(null);
+  const capabilities = useQuery({
+    queryKey: ["installer-capabilities", form.provider_key, form.device_id],
+    queryFn: () => base44.functions.invoke("getInstallerDeviceCapabilities", { provider_key: form.provider_key, device_id: form.device_id }).then(res => res.data),
+    enabled: !!form.provider_key && !!form.device_id,
+    retry: false
+  });
+
+  useEffect(() => {
+    const tests = capabilities.data?.tests;
+    if (!tests) return;
+    setForm(prev => {
+      const next = { ...prev };
+      for (const [key, supported] of Object.entries(tests)) {
+        if (!supported) next[key] = "not_supported";
+        if (supported && next[key] === "not_supported") next[key] = "";
+      }
+      return next;
+    });
+  }, [capabilities.data]);
+
   const submit = useMutation({
     mutationFn: (payload) => base44.functions.invoke("submitTelematicsInstallation", payload),
     onSuccess: (res) => setResult(res.data),
@@ -132,9 +152,10 @@ export default function InstallerTelematicsPortal() {
         <Card className="glass">
           <CardHeader><CardTitle>Required Tests</CardTitle></CardHeader>
           <CardContent className="grid gap-3">
-            {REQUIRED_TESTS.map(([id, label, supportsNotSupported]) => (
-              <TestSelector key={id} label={label} supportsNotSupported={supportsNotSupported} value={form[id]} onChange={(value) => update(id, value)} />
-            ))}
+            {REQUIRED_TESTS.map(([id, label, capabilityBased]) => {
+              const supported = capabilityBased ? capabilities.data?.tests?.[id] !== false : true;
+              return <TestSelector key={id} label={label} supported={supported} value={form[id]} onChange={(value) => update(id, value)} />;
+            })}
           </CardContent>
         </Card>
 

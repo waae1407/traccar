@@ -11,8 +11,8 @@ const CAPABILITY_TESTS = {
   starter_restore_test: { provider: 'supports_starter_restore' }
 };
 
-function isSupportedCapability(device, providerConfig, capability) {
-  return !!(capability.device && device[capability.device]) || !!(capability.provider && providerConfig?.[capability.provider]);
+function isSupportedCapability(providerConfig, capability) {
+  return !!(capability.provider && providerConfig?.[capability.provider]);
 }
 
 function normalizeVin(vin) {
@@ -27,6 +27,16 @@ function getDeviceIdentifier(body) {
   return String(body.telematics_device_id || body.device_id || body.unique_id || '').trim();
 }
 
+async function safeSendEmail(base44, payload) {
+  try {
+    await base44.asServiceRole.functions.invoke('sendEmail', payload);
+    return true;
+  } catch (error) {
+    console.error('[installer-notification] email failed:', error.message);
+    return false;
+  }
+}
+
 async function notify(base44, { type, host, device, vehicle, record, failedTests }) {
   const subject = type === 'completed' ? 'Telematics installation completed' : type === 'failed' ? 'Telematics installation failed' : 'Telematics VIN not found';
   const rows = [
@@ -39,8 +49,38 @@ async function notify(base44, { type, host, device, vehicle, record, failedTests
     `<pre>${JSON.stringify(record.test_summary || {}, null, 2)}</pre>`
   ].join('');
 
-  await base44.asServiceRole.functions.invoke('sendEmail', { to: ADMIN_EMAIL, subject, body: rows });
-  if (host?.email) await base44.asServiceRole.functions.invoke('sendEmail', { to: host.email, subject, body: rows });
+  await base44.asServiceRole.entities.OperationalAlert.create({
+    alert_type: type === 'completed' ? 'provider_health_warning' : 'installation_failure',
+    severity: type === 'completed' ? 'info' : 'warning',
+    title: subject,
+    message: `${subject} for device ${device.unique_id || device.id}${record.vin ? ` and VIN ${record.vin}` : ''}.`,
+    recommended_action: type === 'completed' ? 'Review completed installation record.' : 'Review installation record and failed checks.',
+    provider_key: device.provider_key,
+    telematics_device_id: device.id,
+    vehicle_id: vehicle?.id || '',
+    host_id: host?.id || record.host_id || '',
+    install_record_id: record.id,
+    metadata: { notification_type: 'admin', failed_tests: failedTests || [] }
+  });
+
+  if (host?.id) {
+    await base44.asServiceRole.entities.OperationalAlert.create({
+      alert_type: type === 'completed' ? 'provider_health_warning' : 'installation_failure',
+      severity: type === 'completed' ? 'info' : 'warning',
+      title: subject,
+      message: `${subject} for ${vehicle ? displayVehicle(vehicle) : 'your vehicle'}.`,
+      recommended_action: type === 'completed' ? 'No action required.' : 'Contact support or review the installation issue.',
+      provider_key: device.provider_key,
+      telematics_device_id: device.id,
+      vehicle_id: vehicle?.id || '',
+      host_id: host.id,
+      install_record_id: record.id,
+      metadata: { notification_type: 'host', failed_tests: failedTests || [] }
+    });
+  }
+
+  await safeSendEmail(base44, { to: ADMIN_EMAIL, subject, body: rows });
+  if (host?.email) await safeSendEmail(base44, { to: host.email, subject, body: rows });
 }
 
 Deno.serve(async (req) => {
@@ -101,7 +141,7 @@ Deno.serve(async (req) => {
     for (const key of allTestKeys) {
       const value = body[key];
       const capability = CAPABILITY_TESTS[key];
-      const supported = capability ? isSupportedCapability(device, providerConfig, capability) : true;
+      const supported = capability ? isSupportedCapability(providerConfig, capability) : true;
       if (!value) return Response.json({ error: `${key} is required` }, { status: 400 });
       if (value === 'not_supported' && supported) return Response.json({ error: `${key} is supported and cannot be marked not_supported` }, { status: 400 });
       if (value !== 'not_supported' && !supported) return Response.json({ error: `${key} is not supported and must be marked not_supported` }, { status: 400 });
