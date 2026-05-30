@@ -9,16 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Camera, CheckCircle2, ScanLine, Upload, XCircle } from "lucide-react";
 
 const REQUIRED_TESTS = [
-  ["power_voltage_test", "Power / voltage", false],
-  ["gps_signal_test", "GPS signal", false],
-  ["ignition_acc_test", "Ignition / ACC", false],
-  ["lock_test", "Lock", true],
-  ["unlock_test", "Unlock", true],
-  ["horn_test", "Horn", true],
-  ["lights_test", "Lights", true],
-  ["starter_disable_test", "Starter disable", true],
-  ["starter_restore_test", "Starter restore", true],
-  ["tamper_security_test", "Tamper / security", false],
+  ["power_voltage_test", "Power / voltage"],
+  ["gps_signal_test", "GPS signal"],
+  ["ignition_acc_test", "Ignition / ACC"],
+  ["lock_test", "Lock"],
+  ["unlock_test", "Unlock"],
+  ["horn_test", "Horn"],
+  ["lights_test", "Lights"],
+  ["starter_disable_test", "Starter Disable"],
+  ["starter_restore_test", "Starter Restore"],
 ];
 
 function getParams() {
@@ -29,23 +28,23 @@ function getParams() {
   };
 }
 
-function TestSelector({ label, supported, value, onChange }) {
-  const options = supported ? ["pass", "fail"] : ["not_supported"];
+function TestSelector({ label, value, warning, onChange }) {
   return (
     <div className="rounded-2xl border border-border p-3 space-y-2">
       <p className="text-sm font-bold">{label}</p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {options.map(option => (
+      <div className="grid grid-cols-2 gap-2">
+        {["pass", "fail"].map(option => (
           <button
             key={option}
             type="button"
             onClick={() => onChange(option)}
             className={`rounded-xl border px-3 py-2 text-xs font-bold uppercase transition ${value === option ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
           >
-            {option === "not_supported" ? "Not Supported" : option}
+            {option}
           </button>
         ))}
       </div>
+      {warning && <p className="text-xs font-semibold text-yellow-400">This Noran device supports this function. Run the test and mark Pass or Fail.</p>}
     </div>
   );
 }
@@ -100,6 +99,9 @@ export default function InstallerTelematicsPortal() {
     setForm(prev => ({ ...prev, install_photos: [...prev.install_photos, ...urls] }));
   };
 
+  const visibleTestIds = REQUIRED_TESTS.filter(([id]) => capabilities.data?.tests?.[id] !== false).map(([id]) => id);
+  const supportedTestsComplete = visibleTestIds.every(id => ["pass", "fail"].includes(form[id]));
+
   const submitInstallation = () => {
     setResult(null);
     submit.mutate({ ...form, vin: form.vin.toUpperCase() });
@@ -152,9 +154,10 @@ export default function InstallerTelematicsPortal() {
         <Card className="glass">
           <CardHeader><CardTitle>Required Tests</CardTitle></CardHeader>
           <CardContent className="grid gap-3">
-            {REQUIRED_TESTS.map(([id, label, capabilityBased]) => {
-              const supported = capabilityBased ? capabilities.data?.tests?.[id] !== false : true;
-              return <TestSelector key={id} label={label} supported={supported} value={form[id]} onChange={(value) => update(id, value)} />;
+            {REQUIRED_TESTS.map(([id, label]) => {
+              const supported = capabilities.data?.tests?.[id] !== false;
+              if (!supported) return null;
+              return <TestSelector key={id} label={label} value={form[id]} warning={form[id] === "not_supported"} onChange={(value) => update(id, value)} />;
             })}
           </CardContent>
         </Card>
@@ -181,7 +184,7 @@ export default function InstallerTelematicsPortal() {
           </Card>
         )}
 
-        <Button className="w-full h-12" disabled={submit.isPending || !form.provider_key || !form.device_id || !vinValid || !form.installer_name || !form.installer_signature_name || !form.install_photos.length} onClick={submitInstallation}>
+        <Button className="w-full h-12" disabled={submit.isPending || capabilities.isLoading || !form.provider_key || !form.device_id || !vinValid || !form.installer_name || !form.installer_signature_name || !form.install_photos.length || !supportedTestsComplete} onClick={submitInstallation}>
           {submit.isPending ? "Submitting..." : "Complete Installation"}
         </Button>
       </div>

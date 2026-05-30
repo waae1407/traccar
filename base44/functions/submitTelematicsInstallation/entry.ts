@@ -1,18 +1,29 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const ADMIN_EMAIL = 'admin@uridehub.com';
-const PUBLIC_REQUIRED = ['power_voltage_test', 'gps_signal_test', 'ignition_acc_test', 'tamper_security_test'];
-const CAPABILITY_TESTS = {
-  lock_test: { device: 'lock_unlock_enabled', provider: 'supports_lock' },
-  unlock_test: { device: 'lock_unlock_enabled', provider: 'supports_unlock' },
-  horn_test: { device: 'horn_light_enabled', provider: 'supports_horn' },
-  lights_test: { device: 'horn_light_enabled', provider: 'supports_lights' },
-  starter_disable_test: { provider: 'supports_starter_disable' },
-  starter_restore_test: { provider: 'supports_starter_restore' }
+const TEST_DEFINITIONS = {
+  power_voltage_test: { label: 'Power / voltage', alwaysSupported: true },
+  gps_signal_test: { label: 'GPS signal', provider: 'supports_location', device: 'gps_enabled', noran: true },
+  ignition_acc_test: { label: 'Ignition / ACC', alwaysSupported: true },
+  lock_test: { label: 'Lock', provider: 'supports_lock', device: 'lock_unlock_enabled', noran: true },
+  unlock_test: { label: 'Unlock', provider: 'supports_unlock', device: 'lock_unlock_enabled', noran: true },
+  horn_test: { label: 'Horn', provider: 'supports_horn', device: 'horn_light_enabled', noran: true },
+  lights_test: { label: 'Lights', provider: 'supports_lights', device: 'horn_light_enabled', noran: true },
+  starter_disable_test: { label: 'Starter Disable', provider: 'supports_starter_disable', noran: true },
+  starter_restore_test: { label: 'Starter Restore', provider: 'supports_starter_restore', noran: true }
 };
 
-function isSupportedCapability(providerConfig, capability) {
-  return !!(capability.provider && providerConfig?.[capability.provider]);
+function isNoranMt20(providerKey, device) {
+  const model = String(device?.model || '').toLowerCase();
+  return providerKey === 'traccar_noran_mt20' || (model.includes('noran') && model.includes('mt20'));
+}
+
+function isSupportedCapability(providerConfig, device, providerKey, definition) {
+  if (definition.alwaysSupported) return true;
+  if (definition.noran && isNoranMt20(providerKey, device)) return true;
+  if (definition.provider && providerConfig?.[definition.provider] === true) return true;
+  if (definition.device && device?.[definition.device] === true) return true;
+  return false;
 }
 
 function normalizeVin(vin) {
@@ -135,16 +146,14 @@ Deno.serve(async (req) => {
       return Response.json({ ok: false, status: 'unmatched_vin', message: 'VIN not found in uRideHub. Admin review required before this device can be completed.', record });
     }
 
-    const allTestKeys = [...PUBLIC_REQUIRED, ...Object.keys(CAPABILITY_TESTS)];
     const testSummary = {};
     const failedTests = [];
-    for (const key of allTestKeys) {
-      const value = body[key];
-      const capability = CAPABILITY_TESTS[key];
-      const supported = capability ? isSupportedCapability(providerConfig, capability) : true;
-      if (!value) return Response.json({ error: `${key} is required` }, { status: 400 });
-      if (value === 'not_supported' && supported) return Response.json({ error: `${key} is supported and cannot be marked not_supported` }, { status: 400 });
-      if (value !== 'not_supported' && !supported) return Response.json({ error: `${key} is not supported and must be marked not_supported` }, { status: 400 });
+    for (const [key, definition] of Object.entries(TEST_DEFINITIONS)) {
+      const supported = isSupportedCapability(providerConfig, device, providerKey, definition);
+      const value = body[key] || (supported ? '' : 'not_supported');
+      if (supported && !value) return Response.json({ error: `${definition.label} test is required` }, { status: 400 });
+      if (supported && value === 'not_supported') return Response.json({ error: `This device supports ${definition.label}. Test must be Pass or Fail.` }, { status: 400 });
+      if (!supported && value !== 'not_supported') return Response.json({ error: `${definition.label} is not supported and must be marked Not Supported.` }, { status: 400 });
       if (value === 'fail') failedTests.push(key);
       testSummary[key] = value;
     }
@@ -177,14 +186,13 @@ Deno.serve(async (req) => {
       voltage_verified: testSummary.power_voltage_test === 'pass',
       gps_verified: testSummary.gps_signal_test === 'pass',
       ignition_verified: testSummary.ignition_acc_test === 'pass',
-      lock_unlock_verified: testSummary.lock_test === 'pass' && testSummary.unlock_test === 'pass',
-      tamper_check_verified: testSummary.tamper_security_test === 'pass',
+      lock_unlock_verified: ['pass', 'not_supported'].includes(testSummary.lock_test) && ['pass', 'not_supported'].includes(testSummary.unlock_test),
       gps_test_passed: testSummary.gps_signal_test === 'pass',
       ignition_test_passed: testSummary.ignition_acc_test === 'pass',
       lock_test_passed: testSummary.lock_test === 'pass',
       unlock_test_passed: testSummary.unlock_test === 'pass',
-      horn_light_test_passed: testSummary.horn_test === 'pass' && testSummary.lights_test === 'pass',
-      kill_restore_test_passed: testSummary.starter_disable_test === 'pass' && testSummary.starter_restore_test === 'pass'
+      horn_light_test_passed: ['pass', 'not_supported'].includes(testSummary.horn_test) && ['pass', 'not_supported'].includes(testSummary.lights_test),
+      kill_restore_test_passed: ['pass', 'not_supported'].includes(testSummary.starter_disable_test) && ['pass', 'not_supported'].includes(testSummary.starter_restore_test)
     };
 
     const record = existing[0]
