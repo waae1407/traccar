@@ -202,8 +202,10 @@ function minutesSince(date, now) {
   return (now.getTime() - date.getTime()) / (1000 * 60);
 }
 
-function textContainsStaleClosure(text = '') {
-  return /auto-?cancelled|auto-?canceled|superseded|stale booking|duplicate booking|replaced booking|manually closed|manual(?:ly)? closed/i.test(String(text));
+function hasStructuredClosureControl(booking) {
+  return booking.is_superseded === true ||
+    !!booking.superseded_by_booking_id ||
+    ['superseded', 'stale_booking', 'duplicate_booking', 'replaced_booking', 'manually_closed', 'auto_cancelled'].includes(String(booking.closure_reason || '').trim());
 }
 
 function isLongExpiredRental(booking, now) {
@@ -216,7 +218,7 @@ function isLongExpiredRental(booking, now) {
 function isEligibleForPaymentRecovery(booking, now) {
   if (!["payment_due", "suspended"].includes(booking.booking_status)) return false;
   if (booking.payment_status !== "failed") return false;
-  if (textContainsStaleClosure(`${booking.admin_notes || ''} ${booking.notes || ''} ${booking.approval_notes || ''}`)) return false;
+  if (hasStructuredClosureControl(booking)) return false;
   if (isLongExpiredRental(booking, now)) return false;
   if (!booking.vehicle_id || !booking.user_id) return false;
   if (!booking.stripe_customer_id || !booking.stripe_payment_method_id) return false;
