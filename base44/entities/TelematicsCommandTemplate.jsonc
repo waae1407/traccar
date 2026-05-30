@@ -1,0 +1,70 @@
+{
+  "name": "TelematicsCommandTemplate",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "command_type": {
+      "type": "string",
+      "enum": [
+        "locate",
+        "lock",
+        "unlock",
+        "horn_lights",
+        "disable_starter",
+        "restore_starter",
+        "status"
+      ]
+    },
+    "provider_command_name": {
+      "type": "string"
+    },
+    "transport_type": {
+      "type": "string",
+      "enum": [
+        "api",
+        "traccar_custom_hex",
+        "sms",
+        "webhook"
+      ],
+      "default": "api"
+    },
+    "endpoint_template": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string",
+      "default": "POST"
+    },
+    "payload_template": {
+      "type": "object"
+    },
+    "ascii_template": {
+      "type": "string"
+    },
+    "requires_hex_conversion": {
+      "type": "boolean",
+      "default": false
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "dry_run_only": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider_key",
+    "command_type",
+    "transport_type"
+  ]
+}

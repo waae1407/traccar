@@ -2,6 +2,9 @@
   "name": "TelematicsProviderConfig",
   "type": "object",
   "properties": {
+    "company_id": {
+      "type": "string"
+    },
     "provider_key": {
       "type": "string"
     },
@@ -21,6 +24,49 @@
     "is_active": {
       "type": "boolean",
       "default": true
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "dry_run",
+        "sandbox",
+        "production"
+      ],
+      "default": "dry_run"
+    },
+    "allow_live_commands": {
+      "type": "boolean",
+      "default": false
+    },
+    "allow_starter_commands": {
+      "type": "boolean",
+      "default": false
+    },
+    "require_admin_approval_for_starter": {
+      "type": "boolean",
+      "default": true
+    },
+    "max_commands_per_minute": {
+      "type": "number",
+      "default": 4
+    },
+    "webhook_secret_reference": {
+      "type": "string"
+    },
+    "health_status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "healthy",
+        "warning",
+        "critical",
+        "inactive"
+      ],
+      "default": "unknown"
+    },
+    "last_health_check_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "supports_location": {
       "type": "boolean",

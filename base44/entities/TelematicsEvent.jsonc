@@ -2,6 +2,9 @@
   "name": "TelematicsEvent",
   "type": "object",
   "properties": {
+    "company_id": {
+      "type": "string"
+    },
     "telematics_device_id": {
       "type": "string"
     },
@@ -21,7 +24,8 @@
         "command",
         "sync",
         "installer",
-        "system"
+        "system",
+        "webhook"
       ],
       "default": "system"
     },

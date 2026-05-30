@@ -2,6 +2,18 @@
   "name": "TelematicsInstallRecord",
   "type": "object",
   "properties": {
+    "company_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "assigned_installer_email": {
+      "type": "string"
+    },
     "telematics_device_id": {
       "type": "string"
     },

@@ -2,6 +2,9 @@
   "name": "TelematicsCommand",
   "type": "object",
   "properties": {
+    "company_id": {
+      "type": "string"
+    },
     "telematics_device_id": {
       "type": "string"
     },
@@ -55,6 +58,46 @@
       ],
       "default": "queued"
     },
+    "queue_status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "sending",
+        "sent",
+        "confirmed",
+        "failed",
+        "retrying",
+        "expired",
+        "blocked"
+      ],
+      "default": "queued"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0
+    },
+    "max_retries": {
+      "type": "number",
+      "default": 0
+    },
+    "next_retry_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "confirmation_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "confirmation_source": {
+      "type": "string"
+    },
+    "idempotency_key": {
+      "type": "string"
+    },
     "requested_by": {
       "type": "string"
     },
@@ -90,5 +133,8 @@
     "provider_key",
     "command_type",
     "requested_by"
+  ],
+  "unique_fields": [
+    "idempotency_key"
   ]
 }

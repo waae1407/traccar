@@ -2,6 +2,9 @@
   "name": "TelematicsDevice",
   "type": "object",
   "properties": {
+    "company_id": {
+      "type": "string"
+    },
     "provider_key": {
       "type": "string"
     },
@@ -33,6 +36,12 @@
     "moovetrax_device_id": {
       "type": "string"
     },
+    "model": {
+      "type": "string"
+    },
+    "batch_number": {
+      "type": "string"
+    },
     "vehicle_id": {
       "type": "string"
     },
@@ -55,7 +64,8 @@
         "in_progress",
         "installed",
         "failed",
-        "needs_review"
+        "needs_review",
+        "retired"
       ],
       "default": "not_started"
     },
@@ -122,6 +132,8 @@
     "unique_id"
   ],
   "unique_fields": [
-    "unique_id"
+    "unique_id",
+    "device_imei",
+    "sim_iccid"
   ]
 }
