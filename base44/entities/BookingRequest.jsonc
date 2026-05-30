@@ -338,6 +338,21 @@
       "type": "string",
       "format": "date-time"
     },
+    "payment_failure_started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Official start of the 2-hour payment recovery window"
+    },
+    "starter_disable_scheduled_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When starter access should be disabled if payment remains failed"
+    },
+    "starter_disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Clear starter-interrupt state; keep moovetrax_kill_active for backward compatibility"
+    },
     "next_billing_date": {
       "type": "string",
       "format": "date"

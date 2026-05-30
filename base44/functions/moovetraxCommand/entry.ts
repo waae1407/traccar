@@ -209,11 +209,13 @@ Deno.serve(async (req) => {
     if (command === "kill" && booking_id) {
       await base44.asServiceRole.entities.BookingRequest.update(booking_id, {
         moovetrax_kill_active: true,
+        starter_disabled: true,
       });
     }
     if (command === "unkill" && booking_id) {
       await base44.asServiceRole.entities.BookingRequest.update(booking_id, {
         moovetrax_kill_active: false,
+        starter_disabled: false,
       });
     }
     if (command === "mileage" && booking_id && result.mileage) {

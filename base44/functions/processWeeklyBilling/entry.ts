@@ -157,10 +157,10 @@ Deno.serve(async (req) => {
     });
 
     // ── DEFERRED BILLING LOG ──────────────────────────────────────────────────
-    // Find bookings in grace-period states whose next_billing_date is today.
+    // Find bookings in payment-enforcement states whose next_billing_date is today.
     // They were skipped by the status guard above. Log once per day for ops visibility.
     const deferredTargets = activeBookings.filter((b) => {
-      if (!['payment_due', 'grace_period'].includes(b.booking_status)) return false;
+      if (!['payment_due', 'suspended'].includes(b.booking_status)) return false;
       if (!b.next_billing_date) return false;
       const nextBilling = new Date(b.next_billing_date);
       nextBilling.setHours(0, 0, 0, 0);
@@ -189,7 +189,8 @@ Deno.serve(async (req) => {
             metadata: {
               booking_status: deferred.booking_status,
               payment_failure_attempts: deferred.payment_failure_attempts,
-              grace_period_ends_at: deferred.grace_period_ends_at,
+              payment_failure_started_at: deferred.payment_failure_started_at,
+              starter_disable_scheduled_at: deferred.starter_disable_scheduled_at,
               next_billing_date: deferred.next_billing_date,
               managed_by: 'processGracePeriod',
             },
@@ -201,7 +202,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[WeeklyBilling] Found ${billingTargets.length} to charge today, ${deferredTargets.length} deferred (grace period)`);
+    console.log(`[WeeklyBilling] Found ${billingTargets.length} to charge today, ${deferredTargets.length} deferred (payment enforcement)`);
 
     const results = [];
 
@@ -449,31 +450,37 @@ async function schedulePreChargeWarning(base44, booking, nextBillingDate, amount
 }
 
 async function handleFailedPayment(base44, booking, reason, attemptNum) {
-  // Phase 2A: No immediate GPS kill on first failure.
-  // Grace period system (processGracePeriod) handles retries and suspension.
-  //
-  // This function is only reached for bookings that were active/confirmed/approved
-  // (guaranteed by billingTargets status guard above). Defensive preservation guards
-  // below protect against future code changes that might bypass the status filter.
   const now = new Date();
-  const gracePeriodHours = parseInt(Deno.env.get("GRACE_PERIOD_HOURS") || "72");
+  const disableAt = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const warningMessage = "Your rental payment could not be processed. Please update your payment method. Vehicle restart access will be disabled in 2 hours if payment is not successfully collected.";
+
   let hostEmail = '';
   if (booking.host_id) {
     const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
     hostEmail = hosts[0]?.email || '';
   }
-  await createPaymentAlert(base44, { alert_type: 'weekly_billing_failed', severity: 'critical', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', host_email: hostEmail, related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Weekly billing failed', message: `Weekly billing failed for ${booking.vehicle_name || booking.id}: ${reason}`, recommended_action: 'Review payment, retry billing, contact renter, or move booking to review.', financial_impact_amount: booking.weekly_rate || 0, currency: 'usd', retry_attempts: attemptNum, source: 'processWeeklyBilling' });
 
-  // ── GRACE PERIOD PRESERVATION GUARDS ──────────────────────────────────────
-  // Never overwrite grace_period_started_at if already set — doing so would lose
-  // the original failure timestamp and corrupt the 72h countdown in processGracePeriod.
-  const graceStartedAt = booking.grace_period_started_at || now.toISOString();
-
-  // Never reset grace_period_ends_at if still in the future — preserve the existing window.
-  const existingGraceEnd = booking.grace_period_ends_at ? new Date(booking.grace_period_ends_at) : null;
-  const graceEndsAt = (existingGraceEnd && existingGraceEnd > now)
-    ? existingGraceEnd
-    : new Date(now.getTime() + gracePeriodHours * 60 * 60 * 1000);
+  await createPaymentAlert(base44, {
+    alert_type: 'weekly_billing_failed',
+    severity: 'critical',
+    billing_context: 'weekly_billing',
+    booking_id: booking.id,
+    host_id: booking.host_id || '',
+    customer_id: booking.user_id || '',
+    vehicle_id: booking.vehicle_id || '',
+    renter_email: booking.user_email || '',
+    host_email: hostEmail,
+    related_entity_type: 'BookingRequest',
+    related_entity_id: booking.id,
+    title: 'Weekly rental payment failed',
+    message: `${warningMessage} Failure reason: ${reason}`,
+    recommended_action: 'Customer has 2 hours to resolve payment before starter access is disabled by processGracePeriod.',
+    financial_impact_amount: booking.weekly_rate || 0,
+    currency: 'usd',
+    retry_attempts: attemptNum,
+    escalation_deadline_at: disableAt.toISOString(),
+    source: 'processWeeklyBilling'
+  });
 
   await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
     payment_status: "failed",
@@ -482,32 +489,30 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     last_payment_failure_at: now.toISOString(),
     last_retry_at: now.toISOString(),
     booking_status: "payment_due",
-    grace_period_started_at: graceStartedAt,
-    grace_period_ends_at: graceEndsAt.toISOString(),
-    // moovetrax_kill_active remains false — GPS kill only on suspension after grace period
+    payment_failure_started_at: now.toISOString(),
+    starter_disable_scheduled_at: disableAt.toISOString(),
+    starter_disabled: false,
+    moovetrax_kill_active: false,
+    grace_period_started_at: null,
+    grace_period_ends_at: null,
   });
 
-  // In-app notification — grace period language
   await base44.asServiceRole.entities.Notification.create({
     user_email: booking.user_email,
-    title: "⚠️ Payment Failed — Action Required",
-    body: `Your weekly payment for ${booking.vehicle_name} failed. You have ${gracePeriodHours} hours to resolve this before your rental is suspended. Please update your payment method. We will retry automatically.`,
+    title: "Payment failed — action required",
+    body: warningMessage,
     type: "payment",
     booking_request_id: booking.id,
   });
 
-  // SMS
   if (booking.customer_phone) {
-    await sendSMS(booking.customer_phone,
-      `⚠️ uRide: Payment failed for ${booking.vehicle_name}. You have ${gracePeriodHours}h to resolve before suspension. Open the app to update your payment method.`
-    );
+    await sendSMS(booking.customer_phone, `uRide: ${warningMessage}`);
   }
 
-  // Email
   await base44.asServiceRole.integrations.Core.SendEmail({
     to: booking.user_email,
-    subject: `⚠️ Payment Failed — ${gracePeriodHours} Hours to Resolve`,
-    body: `Hi ${booking.customer_full_name || ""},\n\nYour weekly payment of $${booking.weekly_rate || ""} for ${booking.vehicle_name} failed.\n\n📌 What happens next:\n• We will retry your payment automatically every 24 hours\n• You have ${gracePeriodHours} hours to resolve this\n• Your vehicle remains active during the grace period\n• If unresolved after ${gracePeriodHours} hours, your rental will be suspended\n\n✅ To resolve now: open the app and update your payment method.\n\nThe uRide Team`,
+    subject: "Payment Failed — 2 Hours to Resolve",
+    body: `Hi ${booking.customer_full_name || ""},\n\n${warningMessage}\n\nYour vehicle remains operational during this 2-hour recovery window. This policy uses starter disable only and does not shut down a running engine.\n\nPlease open the app and update your payment method.\n\nThe uRide Team`,
   });
 
   await logEvent(base44, {
@@ -521,8 +526,16 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     booking_id: booking.id,
     vehicle_id: booking.vehicle_id || '',
     customer_id: booking.user_email || '',
-    summary: `Payment FAILED — grace period started (${gracePeriodHours}h window) for ${booking.vehicle_name || booking.id}`,
-    metadata: { reason, attempt_num: attemptNum, grace_ends_at: graceEndsAt.toISOString(), vehicle_name: booking.vehicle_name },
+    summary: `Payment FAILED — 2-hour starter-disable recovery window started for ${booking.vehicle_name || booking.id}`,
+    metadata: {
+      reason,
+      attempt_num: attemptNum,
+      payment_failure_started_at: now.toISOString(),
+      starter_disable_scheduled_at: disableAt.toISOString(),
+      starter_disable_only: true,
+      no_engine_shutdown: true,
+      authoritative_workflow: 'processGracePeriod'
+    },
     source: 'automation',
     event_status: 'error',
   });

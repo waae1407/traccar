@@ -2,29 +2,27 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import Stripe from 'npm:stripe@14.21.0';
 
 /**
- * Grace Period State Machine — runs daily via scheduled automation.
+ * Payment Enforcement State Machine — authoritative payment-based starter control workflow.
  *
- * Flow:
- *   payment_due (0-24h) → retry attempt 1 at 24h
- *   grace_period (24-72h) → retry attempt 2 at 48h, attempt 3 at 72h
- *   grace period expires OR max attempts → suspended + GPS kill
- *   payment recovered at any point → active + GPS restore
- *
- * Does NOT conflict with retryFailedPayments (which is guarded to skip payment_due/grace_period bookings).
+ * Official policy:
+ *   payment failure → immediate warning + 2-hour recovery window
+ *   during 2 hours → retries allowed, vehicle remains operational
+ *   after 2 hours unpaid → starter interrupt only, no engine shutdown
+ *   successful payment → starter restored immediately
  */
 
-const GRACE_PERIOD_HOURS = parseInt(Deno.env.get("GRACE_PERIOD_HOURS") || "72");
-const MAX_RETRY_ATTEMPTS = parseInt(Deno.env.get("MAX_RETRY_ATTEMPTS") || "3");
-const RETRY_INTERVAL_HOURS = parseInt(Deno.env.get("RETRY_INTERVAL_HOURS") || "24");
+const RECOVERY_WINDOW_HOURS = 2;
+const RETRY_INTERVAL_MINUTES = parseInt(Deno.env.get("PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES") || "30");
+const STARTER_WARNING_MESSAGE = "Your rental payment could not be processed. Please update your payment method. Vehicle restart access will be disabled in 2 hours if payment is not successfully collected.";
 
 async function logEvent(base44, data) {
   try {
     await base44.asServiceRole.entities.ActivityEvent.create({
       event_type: data.event_type,
-      actor_id: 'grace_period_automation',
-      actor_email: 'automation@uridehub.com',
-      actor_role: 'automation',
-      target_entity: 'BookingRequest',
+      actor_id: data.actor_id || 'payment_enforcement_automation',
+      actor_email: data.actor_email || 'automation@uridehub.com',
+      actor_role: data.actor_role || 'automation',
+      target_entity: data.target_entity || 'BookingRequest',
       target_id: data.target_id || '',
       host_id: data.host_id || '',
       booking_id: data.booking_id || '',
@@ -32,7 +30,7 @@ async function logEvent(base44, data) {
       customer_id: data.customer_id || '',
       summary: data.summary || '',
       metadata: data.metadata || {},
-      source: 'automation',
+      source: data.source || 'payment_enforcement',
       user_email: data.customer_id || 'automation',
       event_title: data.summary || data.event_type,
       event_status: data.event_status || 'success',
@@ -50,7 +48,7 @@ function generatePaymentDedupeKey({ sourceType = 'unknown', bookingId = '', week
 
 function classifyPaymentSource({ sourceType, paymentIntentId } = {}) {
   if (sourceType) return sourceType;
-  if (paymentIntentId) return 'grace_retry';
+  if (paymentIntentId) return 'payment_enforcement_retry';
   return 'unknown';
 }
 
@@ -108,9 +106,9 @@ async function sendSMS(to, message) {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
   const from = Deno.env.get("TWILIO_PHONE_NUMBER");
-  if (!accountSid || !authToken || !from || !to) return;
+  if (!accountSid || !authToken || !from || !to) return false;
   const body = new URLSearchParams({ To: to, From: from, Body: message });
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
     method: "POST",
     headers: {
       "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`),
@@ -118,16 +116,24 @@ async function sendSMS(to, message) {
     },
     body: body.toString(),
   });
+  return res.ok;
 }
 
-async function moovetraxKillSwitch(deviceId, enable) {
+async function sendEmail(base44, to, subject, body) {
+  if (!to) return false;
+  await base44.asServiceRole.integrations.Core.SendEmail({ to, subject, body, from_name: "uRide Operations" });
+  return true;
+}
+
+async function starterInterrupt(deviceId, disable) {
   const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
-  const command = enable ? "kill" : "unkill";
+  const command = disable ? "kill" : "unkill";
   const params = new URLSearchParams({ key: deviceId, ...(partnerApiKey && { partner_api_key: partnerApiKey }) });
   const url = `https://www.moovetrax.com/api/${command}?${params.toString()}`;
+  console.log(`[MooveTrax] ${command.toUpperCase()} starter access only for device: ${deviceId}`);
   const res = await fetch(url, { method: "GET" });
   const text = await res.text();
-  console.log(`[MooveTrax] ${command} device ${deviceId}: ${text}`);
+  console.log(`[MooveTrax] ${command} response: ${text}`);
   return { ok: res.ok, response: text };
 }
 
@@ -137,348 +143,383 @@ async function getVehicleDevice(base44, vehicleId) {
   return vehicles[0]?.moovetrax_device_id || null;
 }
 
+function addHours(date, hours) {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
+function minutesSince(date, now) {
+  return (now.getTime() - date.getTime()) / (1000 * 60);
+}
+
+async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now) {
+  const nextDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const nextBillingDate = nextDate.toISOString().split("T")[0];
+  const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
+
+  if ((booking.starter_disabled || booking.moovetrax_kill_active) && deviceId) {
+    await starterInterrupt(deviceId, false);
+  }
+
+  await createPaymentAlert(base44, {
+    alert_type: 'payment_recovered',
+    severity: 'info',
+    billing_context: 'weekly_billing',
+    booking_id: booking.id,
+    host_id: booking.host_id || '',
+    customer_id: booking.user_id || '',
+    vehicle_id: booking.vehicle_id || '',
+    renter_email: booking.user_email || '',
+    stripe_payment_intent_id: paymentIntent.id,
+    related_entity_type: 'BookingRequest',
+    related_entity_id: booking.id,
+    title: 'Payment recovered',
+    message: `Payment recovered for ${booking.vehicle_name || booking.id}. Starter access restored if it had been disabled.`,
+    recommended_action: 'Confirm booking and payment records are healthy.',
+    financial_impact_amount: grossedAmount,
+    currency: paymentIntent.currency || 'usd',
+    retry_attempts: retryAttempt,
+    source: 'processGracePeriod'
+  });
+
+  await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+    booking_status: "active",
+    payment_status: "paid",
+    payment_failure_attempts: 0,
+    payment_failure_reason: null,
+    last_payment_failure_at: null,
+    last_retry_at: null,
+    payment_failure_started_at: null,
+    starter_disable_scheduled_at: null,
+    starter_disabled: false,
+    moovetrax_kill_active: false,
+    grace_period_started_at: null,
+    grace_period_ends_at: null,
+    suspension_triggered_at: null,
+    suspended_at: null,
+    next_billing_date: nextBillingDate,
+  });
+
+  await base44.asServiceRole.entities.Notification.create({
+    user_email: booking.user_email,
+    title: "Payment received — starter access restored",
+    body: `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active and starter access has been restored. Next billing: ${nextBillingDate}.`,
+    type: "payment",
+    booking_request_id: booking.id,
+  });
+
+  if (booking.customer_phone) {
+    await sendSMS(booking.customer_phone, `uRide: Payment received for ${booking.vehicle_name}. Your rental is active and starter access has been restored.`);
+  }
+
+  await sendEmail(
+    base44,
+    booking.user_email,
+    `Payment Received — ${booking.vehicle_name || 'Your Rental'} Restored`,
+    `Hi ${booking.customer_full_name || ""},\n\nYour rental payment has been processed successfully. Your booking is active and starter access has been restored.\n\nNext billing: ${nextBillingDate}\n\nThe uRide Team`
+  );
+
+  await logEvent(base44, {
+    event_type: 'payment.succeeded',
+    target_id: booking.id,
+    host_id: booking.host_id || '',
+    booking_id: booking.id,
+    vehicle_id: booking.vehicle_id || '',
+    customer_id: booking.user_email || '',
+    summary: `Payment recovered for ${booking.vehicle_name || booking.id}; starter restored if disabled`,
+    metadata: { payment_intent_id: paymentIntent.id, amount: baseAmount, retry_attempt: retryAttempt, next_billing_date: nextBillingDate, starter_restored: !!deviceId },
+  });
+
+  const paymentPaidAt = now.toISOString();
+  const paymentWeekNumber = (booking.billing_week_number || 1) + 1;
+  const sourceType = classifyPaymentSource({ paymentIntentId: paymentIntent.id });
+  const paymentDedupeKey = generatePaymentDedupeKey({
+    sourceType,
+    bookingId: booking.id,
+    weekNumber: paymentWeekNumber,
+    amount: grossedAmount,
+    paidAt: paymentPaidAt,
+    paymentIntentId: paymentIntent.id,
+    paymentMethod: 'stripe'
+  });
+
+  const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
+    booking_request_id: booking.id,
+    host_id: booking.host_id || '',
+    customer_email: booking.user_email,
+    customer_name: booking.customer_full_name || '',
+    vehicle_id: booking.vehicle_id,
+    vehicle_name: booking.vehicle_name || '',
+    week_number: paymentWeekNumber,
+    billing_period_start: now.toISOString().slice(0, 10),
+    billing_period_end: nextBillingDate,
+    amount: grossedAmount,
+    currency: paymentIntent.currency || 'usd',
+    payment_method: 'stripe',
+    source_type: sourceType,
+    source_confidence: classifyPaymentConfidence({ paymentIntentId: paymentIntent.id }),
+    legacy_flag: false,
+    external_reconcilable: true,
+    dedupe_key: paymentDedupeKey,
+    stripe_payment_intent_id: paymentIntent.id,
+    stripe_charge_id: paymentIntent.charges?.data?.[0]?.id || '',
+    stripe_customer_id: paymentIntent.customer || booking.stripe_customer_id || '',
+    stripe_payment_method_id: paymentIntent.payment_method || booking.stripe_payment_method_id || '',
+    stripe_balance_transaction_id: typeof paymentIntent.charges?.data?.[0]?.balance_transaction === 'string' ? paymentIntent.charges.data[0].balance_transaction : paymentIntent.charges?.data?.[0]?.balance_transaction?.id || '',
+    stripe_receipt_url: paymentIntent.charges?.data?.[0]?.receipt_url || '',
+    receipt_url: paymentIntent.charges?.data?.[0]?.receipt_url || '',
+    status: 'paid',
+    recorded_by: 'payment_enforcement_automation',
+    paid_at: paymentPaidAt,
+  });
+
+  await logEvent(base44, {
+    event_type: 'payment.logged',
+    target_id: paymentLog.id,
+    host_id: booking.host_id || '',
+    booking_id: booking.id,
+    vehicle_id: booking.vehicle_id || '',
+    customer_id: booking.user_email || '',
+    summary: `PaymentLog created for payment enforcement recovery week ${paymentWeekNumber}`,
+    metadata: { payment_log_id: paymentLog.id, dedupe_key: paymentDedupeKey, source_type: sourceType },
+  });
+
+  if (booking.host_id) {
+    const recHosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
+    const recHost = recHosts[0];
+    if (recHost?.stripe_onboarding_complete && recHost?.stripe_account_id) {
+      const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: recHost.id });
+      const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
+      const hostAmount = Math.round((baseAmount - platformFee) * 100) / 100;
+      const recTransfer = await new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" }).transfers.create({
+        amount: Math.round(hostAmount * 100),
+        currency: "usd",
+        destination: recHost.stripe_account_id,
+        description: `uRide payment recovery — ${booking.vehicle_name}`,
+        metadata: { booking_id: booking.id, host_id: recHost.id },
+      });
+      await base44.asServiceRole.entities.HostPayout.create({
+        host_id: recHost.id,
+        host_email: recHost.email,
+        host_name: recHost.full_name,
+        booking_request_id: booking.id,
+        vehicle_name: booking.vehicle_name || "",
+        gross_booking_amount: grossedAmount,
+        stripe_fee_amount: stripeFee,
+        uride_platform_fee_amount: platformFee,
+        uride_platform_fee_rate: commissionRate,
+        net_host_payout: hostAmount,
+        net_payout: hostAmount,
+        stripe_transfer_id: recTransfer.id,
+        status: "paid",
+        payout_date: now.toISOString().split('T')[0],
+      });
+      console.log(`[PaymentEnforcement] ✓ Host transfer ${recTransfer.id} — $${hostAmount} to ${recHost.stripe_account_id}`);
+    }
+  }
+}
+
+async function disableStarterAfterWindow(base44, booking, now) {
+  const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
+  if (deviceId && !(booking.starter_disabled || booking.moovetrax_kill_active)) {
+    await starterInterrupt(deviceId, true);
+  }
+
+  await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+    booking_status: "suspended",
+    suspension_triggered_at: now.toISOString(),
+    suspended_at: now.toISOString(),
+    starter_disabled: true,
+    moovetrax_kill_active: true,
+  });
+
+  await createPaymentAlert(base44, {
+    alert_type: 'weekly_billing_failed',
+    severity: 'critical',
+    billing_context: 'weekly_billing',
+    booking_id: booking.id,
+    host_id: booking.host_id || '',
+    customer_id: booking.user_id || '',
+    vehicle_id: booking.vehicle_id || '',
+    renter_email: booking.user_email || '',
+    related_entity_type: 'BookingRequest',
+    related_entity_id: booking.id,
+    title: 'Starter access disabled after unpaid recovery window',
+    message: `Payment remains failed after the 2-hour recovery window for ${booking.vehicle_name || booking.id}. Starter interrupt was sent only; no engine shutdown command was issued.`,
+    recommended_action: 'Monitor payment recovery. Restore starter immediately after successful payment or approved admin override.',
+    financial_impact_amount: booking.weekly_rate || 0,
+    currency: 'usd',
+    retry_attempts: booking.payment_failure_attempts || 0,
+    source: 'processGracePeriod'
+  });
+
+  await base44.asServiceRole.entities.Notification.create({
+    user_email: booking.user_email,
+    title: "Starter access disabled — payment required",
+    body: `Your payment for ${booking.vehicle_name} remains unresolved after 2 hours. Vehicle restart access has been disabled. This does not shut down a running engine. Please update your payment method to restore access.`,
+    type: "payment",
+    booking_request_id: booking.id,
+  });
+
+  if (booking.customer_phone) {
+    await sendSMS(booking.customer_phone, `uRide: Payment is still unresolved after 2 hours. Starter access for ${booking.vehicle_name} has been disabled. This does not shut down a running engine. Pay now to restore.`);
+  }
+
+  await sendEmail(
+    base44,
+    booking.user_email,
+    `Starter Access Disabled — Payment Required`,
+    `Hi ${booking.customer_full_name || ""},\n\nYour rental payment is still unresolved after the 2-hour recovery window. Vehicle restart access for ${booking.vehicle_name || 'your rental'} has been disabled.\n\nThis is a starter interrupt only and does not shut down a running engine.\n\nPlease update your payment method to restore starter access.\n\nThe uRide Team`
+  );
+
+  await logEvent(base44, {
+    event_type: 'payment.starter_disabled',
+    target_id: booking.id,
+    host_id: booking.host_id || '',
+    booking_id: booking.id,
+    vehicle_id: booking.vehicle_id || '',
+    customer_id: booking.user_email || '',
+    summary: `Starter access disabled after 2-hour failed-payment recovery window for ${booking.vehicle_name || booking.id}`,
+    metadata: {
+      starter_disable_only: true,
+      no_engine_shutdown: true,
+      scheduled_at: booking.starter_disable_scheduled_at,
+      device_command_sent: !!deviceId,
+      authoritative_workflow: 'processGracePeriod'
+    },
+    event_status: 'warning',
+  });
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
     const now = new Date();
 
-    // Find all bookings in grace period states
-    const allFailed = await base44.asServiceRole.entities.BookingRequest.filter({
-      payment_status: "failed",
-    });
-
-    const gracePeriodBookings = allFailed.filter(b =>
-      ["payment_due", "grace_period"].includes(b.booking_status) &&
+    const failedBookings = await base44.asServiceRole.entities.BookingRequest.filter({ payment_status: "failed" });
+    const enforcementBookings = failedBookings.filter(b =>
+      ["payment_due", "suspended"].includes(b.booking_status) &&
       b.stripe_customer_id &&
       b.stripe_payment_method_id
     );
 
-    console.log(`[GracePeriod] Processing ${gracePeriodBookings.length} bookings in grace period states`);
+    console.log(`[PaymentEnforcement] Processing ${enforcementBookings.length} failed-payment bookings`);
 
-    const results = { suspended: 0, recovered: 0, retried: 0, skipped: 0, errors: 0 };
-    const suspendedList = [];
-    const recoveredList = [];
+    const results = { disabled: 0, recovered: 0, retried: 0, skipped: 0, initialized: 0, errors: 0 };
 
-    for (const booking of gracePeriodBookings) {
-      const graceEndsAt = booking.grace_period_ends_at ? new Date(booking.grace_period_ends_at) : null;
-      const lastRetryAt = booking.last_retry_at ? new Date(booking.last_retry_at) : null;
-      const attempts = booking.payment_failure_attempts || 0;
+    for (const booking of enforcementBookings) {
+      let failureStartedAt = booking.payment_failure_started_at ? new Date(booking.payment_failure_started_at) : null;
+      let disableScheduledAt = booking.starter_disable_scheduled_at ? new Date(booking.starter_disable_scheduled_at) : null;
 
-      // ── SUSPENSION CHECK ──────────────────────────────────────────
-      const graceExpired = graceEndsAt && now > graceEndsAt;
-      const maxAttemptsReached = attempts >= MAX_RETRY_ATTEMPTS;
-
-      if (graceExpired || maxAttemptsReached) {
-        console.log(`[GracePeriod] Suspending ${booking.id} — expired=${graceExpired}, attempts=${attempts}/${MAX_RETRY_ATTEMPTS}`);
-        await createPaymentAlert(base44, { alert_type: 'weekly_billing_failed', severity: 'critical', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Grace period escalated', message: `Grace period escalated for ${booking.vehicle_name || booking.id}.`, recommended_action: 'Review payment recovery options and contact renter.', financial_impact_amount: booking.weekly_rate || 0, currency: 'usd', retry_attempts: attempts, source: 'processGracePeriod' });
-
+      if (!failureStartedAt || !disableScheduledAt) {
+        failureStartedAt = booking.last_payment_failure_at ? new Date(booking.last_payment_failure_at) : now;
+        disableScheduledAt = addHours(failureStartedAt, RECOVERY_WINDOW_HOURS);
         await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-          booking_status: "suspended",
-          suspension_triggered_at: now.toISOString(),
-          moovetrax_kill_active: true,
+          payment_failure_started_at: failureStartedAt.toISOString(),
+          starter_disable_scheduled_at: disableScheduledAt.toISOString(),
+          starter_disabled: !!booking.starter_disabled,
+          grace_period_started_at: null,
+          grace_period_ends_at: null,
         });
+        results.initialized++;
+      }
 
-        // GPS kill on suspension (first and only kill in the new flow)
-        const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
-        if (deviceId) {
-          await moovetraxKillSwitch(deviceId, true);
-        }
+      const isPastDisableTime = now >= disableScheduledAt;
 
-        // Customer notifications
-        await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
-          title: "🚨 Rental Suspended — Immediate Action Required",
-          body: `Your rental for ${booking.vehicle_name} has been suspended after ${attempts} failed payment attempts. Your vehicle has been remotely disabled. Please contact support or update your payment method immediately.`,
-          type: "payment",
-          booking_request_id: booking.id,
-        });
-
-        if (booking.customer_phone) {
-          await sendSMS(booking.customer_phone,
-            `🚨 uRide URGENT: Your ${booking.vehicle_name} has been SUSPENDED after ${attempts} failed payments. Your vehicle is disabled. Open the app now to resolve.`
-          );
-        }
-
-        await base44.asServiceRole.integrations.Core.SendEmail({
-          to: booking.user_email,
-          subject: `🚨 URGENT: Your ${booking.vehicle_name} Rental Has Been Suspended`,
-          body: `Hi ${booking.customer_full_name || ""},\n\nYour rental for ${booking.vehicle_name} has been suspended after ${attempts} failed payment attempts.\n\n⛔ Your vehicle has been remotely disabled.\n\nTo restore access immediately:\n1. Open the uRide app\n2. Update your payment method\n3. Contact support if needed\n\nThe uRide Team`,
-        });
-
-        await logEvent(base44, {
-          event_type: 'booking.suspended',
-          target_id: booking.id,
-          host_id: booking.host_id || '',
-          booking_id: booking.id,
-          vehicle_id: booking.vehicle_id || '',
-          customer_id: booking.user_email || '',
-          summary: `SUSPENDED: ${booking.vehicle_name} — ${attempts} payment failures — ${graceExpired ? 'grace period expired' : 'max attempts reached'}`,
-          metadata: {
-            attempts,
-            max_attempts: MAX_RETRY_ATTEMPTS,
-            grace_expired: graceExpired,
-            grace_ends_at: booking.grace_period_ends_at,
-            device_killed: !!deviceId,
-          },
-          event_status: 'warning',
-        });
-
-        suspendedList.push({ email: booking.user_email, vehicle: booking.vehicle_name });
-        results.suspended++;
+      if (booking.booking_status === "payment_due" && isPastDisableTime && !(booking.starter_disabled || booking.moovetrax_kill_active)) {
+        await disableStarterAfterWindow(base44, booking, now);
+        results.disabled++;
         continue;
       }
 
-      // ── RETRY TIMING CHECK ────────────────────────────────────────
-      const hoursSinceRetry = lastRetryAt
-        ? (now.getTime() - lastRetryAt.getTime()) / (1000 * 60 * 60)
-        : 999;
-
-      if (hoursSinceRetry < RETRY_INTERVAL_HOURS) {
-        console.log(`[GracePeriod] Booking ${booking.id} — next retry in ${(RETRY_INTERVAL_HOURS - hoursSinceRetry).toFixed(1)}h`);
+      const lastRetryAt = booking.last_retry_at ? new Date(booking.last_retry_at) : null;
+      if (lastRetryAt && minutesSince(lastRetryAt, now) < RETRY_INTERVAL_MINUTES) {
+        console.log(`[PaymentEnforcement] Booking ${booking.id} — retry not due yet`);
         results.skipped++;
         continue;
       }
 
-      // ── PAYMENT RETRY ─────────────────────────────────────────────
       try {
+        const retryAttempt = (booking.payment_failure_attempts || 0) + 1;
         const baseAmount = booking.weekly_rate || 0;
-        // Gross up to cover Stripe fee so platform receives full weekly_rate
         const grossedAmount = Math.round(((baseAmount + 0.30) / (1 - 0.029)) * 100) / 100;
         const stripeFee = Math.round((grossedAmount - baseAmount) * 100) / 100;
-        console.log(`[GracePeriod] Retry ${attempts + 1}/${MAX_RETRY_ATTEMPTS} for ${booking.id} — base=$${baseAmount} gross=$${grossedAmount}`);
 
-        const pi = await stripe.paymentIntents.create({
+        console.log(`[PaymentEnforcement] Retry ${retryAttempt} for ${booking.id} — base=$${baseAmount} gross=$${grossedAmount}`);
+
+        const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(grossedAmount * 100),
           currency: "usd",
           customer: booking.stripe_customer_id,
           payment_method: booking.stripe_payment_method_id,
           off_session: true,
           confirm: true,
-          description: `uRide grace period retry ${attempts + 1}/${MAX_RETRY_ATTEMPTS} — ${booking.vehicle_name}`,
-          metadata: { booking_request_id: booking.id, grace_period_retry: `${attempts + 1}`, billing_context: 'rental_marketplace_payment' },
+          description: `uRide payment recovery retry ${retryAttempt} — ${booking.vehicle_name}`,
+          metadata: { booking_request_id: booking.id, payment_recovery_retry: `${retryAttempt}`, billing_context: 'rental_marketplace_payment' },
         });
 
-        if (pi.status === "succeeded") {
-          // ── PAYMENT RECOVERED ─────────────────────────────────────
-          const nextDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-          const nextBillingDate = nextDate.toISOString().split("T")[0];
-
-          await createPaymentAlert(base44, { alert_type: 'payment_recovered', severity: 'info', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', stripe_payment_intent_id: pi.id, related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Payment recovered', message: `Payment recovered during grace period for ${booking.vehicle_name || booking.id}.`, recommended_action: 'Confirm booking and payment records are healthy.', financial_impact_amount: grossedAmount, currency: pi.currency || 'usd', retry_attempts: attempts + 1, source: 'processGracePeriod' });
-          await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-            booking_status: "active",
-            payment_status: "paid",
-            payment_failure_attempts: 0,
-            payment_failure_reason: null,
-            moovetrax_kill_active: false,
-            grace_period_started_at: null,
-            grace_period_ends_at: null,
-            last_retry_at: null,
-            suspension_triggered_at: null,
-            next_billing_date: nextBillingDate,
-          });
-
-          // Unkill if vehicle was killed during a previous retry
-          if (booking.moovetrax_kill_active) {
-            const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
-            if (deviceId) {
-              await moovetraxKillSwitch(deviceId, false);
-            }
-          }
-
-          await base44.asServiceRole.entities.Notification.create({
-            user_email: booking.user_email,
-            title: "✅ Payment Recovered — Rental Fully Restored",
-            body: `Great news! Your payment of $${amount} for ${booking.vehicle_name} was processed. Your rental is fully active again. Next billing: ${nextBillingDate}.`,
-            type: "payment",
-            booking_request_id: booking.id,
-          });
-
-          if (booking.customer_phone) {
-            await sendSMS(booking.customer_phone,
-              `✅ uRide: Payment received for ${booking.vehicle_name}! Your rental is restored. Next billing: ${nextBillingDate}.`
-            );
-          }
-
-          await logEvent(base44, {
-            event_type: 'payment.succeeded',
-            target_id: booking.id,
-            host_id: booking.host_id || '',
-            booking_id: booking.id,
-            vehicle_id: booking.vehicle_id || '',
-            customer_id: booking.user_email || '',
-            summary: `RECOVERED: Payment on grace period retry ${attempts + 1} for ${booking.vehicle_name} — $${baseAmount}`,
-            metadata: { payment_intent_id: pi.id, amount: baseAmount, retry_attempt: attempts + 1, next_billing_date: nextBillingDate },
-          });
-
-          const paymentPaidAt = now.toISOString();
-          const paymentWeekNumber = (booking.billing_week_number || 1) + 1;
-          const sourceType = classifyPaymentSource({ paymentIntentId: pi.id });
-          const paymentDedupeKey = generatePaymentDedupeKey({
-            sourceType,
-            bookingId: booking.id,
-            weekNumber: paymentWeekNumber,
-            amount: grossedAmount,
-            paidAt: paymentPaidAt,
-            paymentIntentId: pi.id,
-            paymentMethod: 'stripe'
-          });
-          const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
-            booking_request_id: booking.id,
-            host_id: booking.host_id || '',
-            customer_email: booking.user_email,
-            customer_name: booking.customer_full_name || '',
-            vehicle_id: booking.vehicle_id,
-            vehicle_name: booking.vehicle_name || '',
-            week_number: paymentWeekNumber,
-            billing_period_start: now.toISOString().slice(0, 10),
-            billing_period_end: nextBillingDate,
-            amount: grossedAmount,
-            currency: pi.currency || 'usd',
-            payment_method: 'stripe',
-            source_type: sourceType,
-            source_confidence: classifyPaymentConfidence({ paymentIntentId: pi.id }),
-            legacy_flag: false,
-            external_reconcilable: true,
-            dedupe_key: paymentDedupeKey,
-            stripe_payment_intent_id: pi.id,
-            stripe_charge_id: pi.charges?.data?.[0]?.id || '',
-            stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
-            stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
-            stripe_balance_transaction_id: typeof pi.charges?.data?.[0]?.balance_transaction === 'string' ? pi.charges.data[0].balance_transaction : pi.charges?.data?.[0]?.balance_transaction?.id || '',
-            stripe_receipt_url: pi.charges?.data?.[0]?.receipt_url || '',
-            receipt_url: pi.charges?.data?.[0]?.receipt_url || '',
-            status: 'paid',
-            recorded_by: 'grace_period_automation',
-            paid_at: paymentPaidAt,
-          });
-          await logEvent(base44, {
-            event_type: 'payment.logged',
-            target_id: paymentLog.id,
-            host_id: booking.host_id || '',
-            booking_id: booking.id,
-            vehicle_id: booking.vehicle_id || '',
-            customer_id: booking.user_email || '',
-            summary: `Hardened PaymentLog created for grace recovery week ${paymentWeekNumber}`,
-            metadata: { payment_log_id: paymentLog.id, dedupe_key: paymentDedupeKey, source_type: sourceType },
-          });
-
-          // ── HOST PAYOUT SPLIT on recovery ──────────────────────────
-          if (booking.host_id) {
-            const recHosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
-            const recHost = recHosts[0];
-            if (recHost?.stripe_onboarding_complete && recHost?.stripe_account_id) {
-              const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: recHost.id });
-              const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
-              const hostAmount = Math.round((baseAmount - platformFee) * 100) / 100;
-              const recTransfer = await stripe.transfers.create({
-                amount: Math.round(hostAmount * 100),
-                currency: "usd",
-                destination: recHost.stripe_account_id,
-                description: `uRide grace recovery — ${booking.vehicle_name}`,
-                metadata: { booking_id: booking.id, host_id: recHost.id },
-              });
-              await base44.asServiceRole.entities.HostPayout.create({
-                host_id: recHost.id,
-                host_email: recHost.email,
-                host_name: recHost.full_name,
-                booking_request_id: booking.id,
-                vehicle_name: booking.vehicle_name || "",
-                gross_booking_amount: grossedAmount,
-                stripe_fee_amount: stripeFee,
-                uride_platform_fee_amount: platformFee,
-                uride_platform_fee_rate: commissionRate,
-                net_host_payout: hostAmount,
-                net_payout: hostAmount,
-                stripe_transfer_id: recTransfer.id,
-                status: "paid",
-                payout_date: now.toISOString().split('T')[0],
-              });
-              console.log(`[GracePeriod] ✓ Host transfer ${recTransfer.id} — $${hostAmount} to ${recHost.stripe_account_id}`);
-            }
-          }
-
-          recoveredList.push({ email: booking.user_email, vehicle: booking.vehicle_name });
+        if (paymentIntent.status === "succeeded") {
+          await restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now);
           results.recovered++;
         }
       } catch (retryErr) {
-        // ── RETRY FAILED ──────────────────────────────────────────────
-        const newAttempts = attempts + 1;
-        const enterGracePeriod = newAttempts >= 2; // move to grace_period status after 2nd failure
-
-        await createPaymentAlert(base44, { alert_type: 'payment_retry_scheduled', severity: newAttempts >= MAX_RETRY_ATTEMPTS ? 'critical' : 'warning', billing_context: 'weekly_billing', booking_id: booking.id, host_id: booking.host_id || '', customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', related_entity_type: 'BookingRequest', related_entity_id: booking.id, title: 'Payment retry failed', message: `Grace period retry ${newAttempts}/${MAX_RETRY_ATTEMPTS} failed for ${booking.vehicle_name || booking.id}: ${retryErr.message}`, recommended_action: 'Monitor retry outcome and contact renter if another attempt fails.', financial_impact_amount: booking.weekly_rate || 0, currency: 'usd', retry_attempts: newAttempts, last_retry_result: retryErr.message, source: 'processGracePeriod' });
+        const newAttempts = (booking.payment_failure_attempts || 0) + 1;
         await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
           payment_failure_attempts: newAttempts,
           payment_failure_reason: retryErr.message,
           last_retry_at: now.toISOString(),
-          booking_status: enterGracePeriod ? "grace_period" : "payment_due",
+          booking_status: booking.booking_status === "suspended" ? "suspended" : "payment_due",
+          starter_disabled: !!booking.starter_disabled,
+          moovetrax_kill_active: !!booking.moovetrax_kill_active,
         });
 
-        // Customer notification
-        const retriesLeft = MAX_RETRY_ATTEMPTS - newAttempts;
-        await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
-          title: `⚠️ Payment Retry ${newAttempts}/${MAX_RETRY_ATTEMPTS} Failed`,
-          body: `Payment retry ${newAttempts}/${MAX_RETRY_ATTEMPTS} for ${booking.vehicle_name} failed. ${retriesLeft > 0 ? `${retriesLeft} retry attempt(s) remaining.` : "Final attempt failed — suspension imminent."} Update your payment method now to avoid suspension.`,
-          type: "payment",
-          booking_request_id: booking.id,
+        await createPaymentAlert(base44, {
+          alert_type: 'payment_retry_scheduled',
+          severity: now >= disableScheduledAt ? 'critical' : 'warning',
+          billing_context: 'weekly_billing',
+          booking_id: booking.id,
+          host_id: booking.host_id || '',
+          customer_id: booking.user_id || '',
+          vehicle_id: booking.vehicle_id || '',
+          renter_email: booking.user_email || '',
+          related_entity_type: 'BookingRequest',
+          related_entity_id: booking.id,
+          title: 'Payment recovery retry failed',
+          message: `Payment recovery retry ${newAttempts} failed for ${booking.vehicle_name || booking.id}: ${retryErr.message}`,
+          recommended_action: 'Customer still has until the scheduled starter-disable time to resolve payment unless the window has already expired.',
+          financial_impact_amount: booking.weekly_rate || 0,
+          currency: 'usd',
+          retry_attempts: newAttempts,
+          last_retry_result: retryErr.message,
+          next_retry_at: new Date(now.getTime() + RETRY_INTERVAL_MINUTES * 60 * 1000).toISOString(),
+          source: 'processGracePeriod'
         });
 
         await logEvent(base44, {
-          event_type: 'payment.failed',
+          event_type: 'payment.retry_failed',
           target_id: booking.id,
           host_id: booking.host_id || '',
           booking_id: booking.id,
           vehicle_id: booking.vehicle_id || '',
           customer_id: booking.user_email || '',
-          summary: `Grace period retry ${newAttempts}/${MAX_RETRY_ATTEMPTS} FAILED for ${booking.vehicle_name} — ${retriesLeft} attempts left`,
+          summary: `Payment recovery retry ${newAttempts} failed for ${booking.vehicle_name || booking.id}`,
           metadata: {
             attempt: newAttempts,
-            max_attempts: MAX_RETRY_ATTEMPTS,
-            retries_left: retriesLeft,
             error: retryErr.message,
-            grace_ends_at: booking.grace_period_ends_at,
+            starter_disable_scheduled_at: disableScheduledAt.toISOString(),
+            starter_disabled: !!booking.starter_disabled,
           },
           event_status: 'error',
         });
 
-        console.error(`[GracePeriod] Retry ${newAttempts} failed for ${booking.id}:`, retryErr.message);
         results.retried++;
       }
     }
 
-    // ── ADMIN SUMMARY ALERT ───────────────────────────────────────────
-    if (results.suspended > 0 || results.recovered > 0) {
-      const adminEmail = Deno.env.get("ADMIN_ALERT_EMAIL") || "admin@uridehub.com";
-      let summaryBody = `Grace Period Automation — Daily Summary\n\n`;
-      summaryBody += `📊 Total in grace period: ${gracePeriodBookings.length}\n`;
-      summaryBody += `🚨 Suspended today: ${results.suspended}\n`;
-      summaryBody += `✅ Recovered today: ${results.recovered}\n`;
-      summaryBody += `🔄 Retried today: ${results.retried}\n\n`;
-
-      if (suspendedList.length > 0) {
-        summaryBody += `SUSPENDED ACCOUNTS:\n`;
-        suspendedList.forEach(s => { summaryBody += `• ${s.email} — ${s.vehicle}\n`; });
-        summaryBody += `\n`;
-      }
-      if (recoveredList.length > 0) {
-        summaryBody += `RECOVERED ACCOUNTS:\n`;
-        recoveredList.forEach(r => { summaryBody += `• ${r.email} — ${r.vehicle}\n`; });
-      }
-      summaryBody += `\nView full details: /admin/operational-alerts`;
-
-      await base44.asServiceRole.integrations.Core.SendEmail({
-        to: adminEmail,
-        subject: `[uRide] Grace Period Report — ${results.suspended} suspended, ${results.recovered} recovered`,
-        body: summaryBody,
-        from_name: "uRide Operations",
-      });
-    }
-
-    console.log(`[GracePeriod] Complete — suspended:${results.suspended} recovered:${results.recovered} retried:${results.retried} skipped:${results.skipped}`);
-    return Response.json({ ok: true, ...results, total_in_grace: gracePeriodBookings.length });
+    console.log(`[PaymentEnforcement] Complete — disabled:${results.disabled} recovered:${results.recovered} retried:${results.retried} skipped:${results.skipped}`);
+    return Response.json({ ok: true, ...results, total_failed_payment_bookings: enforcementBookings.length, policy: '2-hour starter-disable recovery window' });
   } catch (error) {
-    console.error("[GracePeriod] Fatal error:", error.message);
+    console.error("[PaymentEnforcement] Fatal error:", error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

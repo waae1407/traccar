@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { action, booking_request_id, amount, description, reason } = body;
+    const { action, booking_request_id, amount, description, reason, extend_hours } = body;
 
     if (!booking_request_id || !action) {
       return Response.json({ error: "booking_request_id and action are required" }, { status: 400 });
@@ -166,11 +166,50 @@ Deno.serve(async (req) => {
         return Response.json({ ok: true, payment_intent_id: paymentIntent.id, status: paymentIntent.status });
       }
 
+      case "extend_recovery_window": {
+        const hours = Number(extend_hours || amount || 2);
+        if (!hours || hours <= 0) {
+          return Response.json({ error: "extend_hours must be a positive number" }, { status: 400 });
+        }
+        const currentBase = booking.starter_disable_scheduled_at ? new Date(booking.starter_disable_scheduled_at) : new Date();
+        const extendedAt = new Date(Math.max(currentBase.getTime(), Date.now()) + hours * 60 * 60 * 1000);
+
+        await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
+          booking_status: "payment_due",
+          starter_disable_scheduled_at: extendedAt.toISOString(),
+          starter_disabled: false,
+          moovetrax_kill_active: false,
+        });
+
+        await base44.asServiceRole.entities.Notification.create({
+          user_email: booking.user_email,
+          title: "Payment recovery window extended",
+          body: `Your payment recovery window for ${booking.vehicle_name} has been extended. Please resolve payment before ${extendedAt.toLocaleString()}.`,
+          type: "payment",
+          booking_request_id,
+        });
+
+        await logEvent(base44, user.email, {
+          event_type: 'payment.recovery_window_extended',
+          target_id: booking_request_id,
+          booking_id: booking_request_id,
+          vehicle_id: booking.vehicle_id || '',
+          host_id: booking.host_id || '',
+          summary: `Admin extended payment recovery window by ${hours} hour(s) for booking ${booking_request_id}`,
+          metadata: { reason, extend_hours: hours, starter_disable_scheduled_at: extendedAt.toISOString() },
+        });
+
+        return Response.json({ ok: true, action: "recovery_window_extended", starter_disable_scheduled_at: extendedAt.toISOString() });
+      }
+
       case "reinstate": {
         await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
           booking_status: "active",
           payment_status: "paid",
           payment_failure_attempts: 0,
+          payment_failure_started_at: null,
+          starter_disable_scheduled_at: null,
+          starter_disabled: false,
           moovetrax_kill_active: false,
           suspended_at: null,
         });
@@ -213,6 +252,7 @@ Deno.serve(async (req) => {
         }
         await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
           moovetrax_kill_active: true,
+          starter_disabled: true,
         });
         await base44.asServiceRole.entities.Notification.create({
           user_email: booking.user_email,
@@ -244,6 +284,7 @@ Deno.serve(async (req) => {
         }
         await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
           moovetrax_kill_active: false,
+          starter_disabled: false,
         });
         await base44.asServiceRole.entities.Notification.create({
           user_email: booking.user_email,
