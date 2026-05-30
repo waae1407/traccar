@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Clock, Eye, FileText, ShieldAlert } from "lucide-react";
 import { base44 } from "@/api/base44Client";
+import PaymentAlertInsight from "./PaymentAlertInsight";
 
 const OPEN_STATUSES = ["new", "notified", "acknowledged", "under_review", "retry_scheduled", "escalated"];
 const STYLE = {
@@ -81,11 +82,7 @@ export default function PaymentOperationalAlertPanel({ scope = "admin", hostId =
                   <p className="font-black text-sm mt-1">{alert.title}</p>
                   <p className="text-xs mt-1 opacity-80">{alert.message}</p>
                   {!compact && <p className="text-xs mt-2 font-semibold">Action: {alert.recommended_action}</p>}
-                  <div className="flex flex-wrap gap-2 mt-2 text-[10px] opacity-70">
-                    {alert.booking_id && <span>Booking: {alert.booking_id.slice(0, 8)}</span>}
-                    {alert.vehicle_id && <span>Vehicle: {alert.vehicle_id.slice(0, 8)}</span>}
-                    {alert.financial_impact_amount > 0 && <span>${Number(alert.financial_impact_amount).toFixed(2)}</span>}
-                  </div>
+                  <PaymentAlertInsight alert={alert} scope={scope} compact={compact} />
                 </div>
                 {alert.severity === "critical" ? <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0" /> : <Clock className="h-5 w-5 flex-shrink-0" />}
               </div>
@@ -96,8 +93,7 @@ export default function PaymentOperationalAlertPanel({ scope = "admin", hostId =
                     <button onClick={() => updateAlert.mutate({ alert, status: "acknowledged", actionType: "acknowledged", note })} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10 flex items-center gap-1"><Eye className="h-3 w-3" /> Acknowledge</button>
                     <button onClick={() => updateAlert.mutate({ alert, status: "under_review", actionType: "marked_under_review", note })} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10 flex items-center gap-1"><FileText className="h-3 w-3" /> Under review</button>
                     <button onClick={() => updateAlert.mutate({ alert, status: "resolved", actionType: "resolved", note })} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Resolve</button>
-                    {alert.booking_id && <Link to={scope === "admin" ? "/bookings-admin" : "/host/payments"} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10">View booking</Link>}
-                    {alert.stripe_dispute_id && <Link to={scope === "admin" ? "/admin/disputes" : "/host/payments"} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10">View dispute</Link>}
+
                   </div>
                 </div>
               )}

@@ -111,9 +111,14 @@ export default function Payments() {
   const [historyBooking, setHistoryBooking] = useState(null);
   const [filters, setFilters] = useState({ search: "", dateFrom: "", dateTo: "", status: "", vehicleId: "" });
   const [scoreFilter, setScoreFilter] = useState(null);
+  const [highlightBookingId, setHighlightBookingId] = useState("");
   const [backfilling, setBackfilling] = useState(false);
 
   const handleBackfill = async () => { setBackfilling(true); try { const res = await base44.functions.invoke("backfillPaymentLogs", {}); toast.success(`Backfill complete — ${res.data.created} records created, ${res.data.skipped} already existed`); } catch (err) { toast.error("Backfill failed: " + err.message); } finally { setBackfilling(false); } };
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setHighlightBookingId(params.get("booking_id") || "");
+  }, []);
   const { data: bookings = [], isLoading } = useQuery({ queryKey: ["stripe-payments"], queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-updated_date", 300) });
   const allPayments = bookings.filter((b) => b.stripe_payment_intent_id || b.payment_status !== "unpaid");
   const vehicleOptions = useMemo(() => { const seen = new Set(); return allPayments.filter(b => { if (!b.vehicle_name || seen.has(b.vehicle_name)) return false; seen.add(b.vehicle_name); return true; }).map(b => ({ id: b.vehicle_name, label: b.vehicle_name })); }, [allPayments]);
@@ -144,6 +149,7 @@ export default function Payments() {
     if (scoreFilter === "failed" && !["failed", "overdue"].includes(b.payment_status)) return false;
     if (scoreFilter === "due_today" && (!b.next_billing_date || b.next_billing_date.slice(0, 10) !== todayStr || !["active", "confirmed", "approved"].includes(b.booking_status))) return false;
     if (scoreFilter === "due_week") { if (!b.next_billing_date) return false; const d = new Date(b.next_billing_date); if (d < weekStart || d > weekEnd || !["active", "confirmed", "approved"].includes(b.booking_status)) return false; }
+    if (highlightBookingId && b.id !== highlightBookingId) return false;
     return true;
   });
 
@@ -161,7 +167,7 @@ export default function Payments() {
       <OperationalHero mode="admin" title="Payments" subtitle={`${allPayments.length} payment records · billing visibility and customer payment actions`} eyebrow="Operations" actions={<OperationalExportToolbar mode="admin" exports={[{ label: "Export", onClick: exportPayments }]} syncAction={{ label: "Sync Payment History", loadingLabel: "Updating…", loading: backfilling, onClick: handleBackfill }} />} />
       <PaymentOperationalAlertPanel scope="admin" limit={4} />
       <OperationalKpiGrid mode="admin" metrics={scorecards.map(s => ({ ...s, active: scoreFilter === s.filterKey, onClick: () => setScoreFilter(scoreFilter === s.filterKey ? null : s.filterKey) }))} />
-      {scoreFilter && <div className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/[0.06] px-4 py-2.5 text-sm font-semibold text-yellow-400"><CalendarClock className="h-4 w-4" /> Active payment focus: {scoreFilter.replaceAll("_", " ")}<button onClick={() => setScoreFilter(null)} className="ml-auto text-xs text-white/40 underline hover:text-white">Clear</button></div>}
+      {(scoreFilter || highlightBookingId) && <div className="flex items-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/[0.06] px-4 py-2.5 text-sm font-semibold text-yellow-400"><CalendarClock className="h-4 w-4" /> Active payment focus: {highlightBookingId ? "alert booking" : scoreFilter.replaceAll("_", " ")}<button onClick={() => { setScoreFilter(null); setHighlightBookingId(""); window.history.replaceState({}, "", "/payments"); }} className="ml-auto text-xs text-white/40 underline hover:text-white">Clear</button></div>}
       <OperationalFilterBar mode="admin" filters={filters} onChange={setFilters} vehicles={vehicleOptions} statuses={["paid", "failed", "overdue", "due_soon", "pending", "unpaid", "refunded"]} resultCount={payments.length} totalCount={allPayments.length} placeholder="Search customer, vehicle…" />
       <OperationalAdvancedFilters mode="admin" filters={filters} onChange={setFilters} fields={[{ key: "dateFrom", label: "From date", type: "date" }, { key: "dateTo", label: "To date", type: "date" }]} />
       <OperationalDataSection mode="admin" title="Payment Records" count={payments.length} loading={isLoading} empty={payments.length === 0} emptyIcon={DollarSign} emptyTitle="No payments found">
