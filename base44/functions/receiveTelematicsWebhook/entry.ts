@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     if (!provider) return Response.json({ error: 'Unknown telematics provider' }, { status: 404 });
 
     if (provider.webhook_secret_reference) {
-      const expected = Deno.env.get(provider.webhook_secret_reference) || '';
+      const expected = String(Deno.env.toObject()[provider.webhook_secret_reference] || '').trim();
       const provided = req.headers.get('x-telematics-secret') || body.webhook_secret || '';
       if (!expected) {
         await base44.asServiceRole.entities.ActivityEvent.create({
