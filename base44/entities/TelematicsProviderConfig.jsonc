@@ -1,0 +1,95 @@
+{
+  "name": "TelematicsProviderConfig",
+  "type": "object",
+  "properties": {
+    "provider_key": {
+      "type": "string"
+    },
+    "provider_name": {
+      "type": "string"
+    },
+    "provider_type": {
+      "type": "string",
+      "enum": [
+        "api",
+        "traccar",
+        "sms",
+        "hybrid"
+      ],
+      "default": "api"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "supports_location": {
+      "type": "boolean",
+      "default": true
+    },
+    "supports_lock": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_unlock": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_horn": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_lights": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_starter_disable": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_starter_restore": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_geofence": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_bluetooth": {
+      "type": "boolean",
+      "default": false
+    },
+    "auth_type": {
+      "type": "string",
+      "enum": [
+        "api_key",
+        "basic_auth",
+        "bearer_token",
+        "custom"
+      ],
+      "default": "api_key"
+    },
+    "credential_secret_reference": {
+      "type": "string"
+    },
+    "base_url": {
+      "type": "string"
+    },
+    "command_endpoint_template": {
+      "type": "string"
+    },
+    "status_endpoint_template": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider_key",
+    "provider_name",
+    "provider_type"
+  ],
+  "unique_fields": [
+    "provider_key"
+  ]
+}

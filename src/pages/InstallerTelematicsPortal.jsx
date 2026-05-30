@@ -1,0 +1,14 @@
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Camera, ClipboardCheck, Wrench } from "lucide-react";
+
+const CHECKS = ["GPS test", "Ignition test", "Lock test", "Unlock test", "Horn/lights test", "Starter disable/restore test"];
+
+export default function InstallerTelematicsPortal() {
+  const { data: devices = [] } = useQuery({ queryKey: ["installer-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-created_date", 100) });
+  const pending = devices.filter(d => ["not_started", "in_progress", "needs_review"].includes(d.install_status));
+  return <div className="min-h-screen bg-background p-4 sm:p-6"><div className="max-w-4xl mx-auto space-y-5"><div><p className="text-xs font-bold text-primary uppercase tracking-widest">Installer Portal</p><h1 className="text-2xl font-black">Telematics Installation</h1><p className="text-sm text-muted-foreground">Assign devices, follow wiring checks, upload photos, and verify commands.</p></div><Card className="glass"><CardHeader><CardTitle className="flex items-center gap-2"><Wrench className="h-5 w-5 text-primary" />Installation Guide</CardTitle></CardHeader><CardContent className="grid md:grid-cols-2 gap-3 text-sm text-muted-foreground"><p>1. Confirm provider/device ID matches the vehicle assignment.</p><p>2. Wire power, ground, ignition, lock/unlock, horn/lights, and starter relay as applicable.</p><p>3. Run every test before marking complete.</p><p>4. Upload clear install photos for admin approval.</p></CardContent></Card><div className="grid gap-3">{pending.map(device => <Card key={device.id} className="glass"><CardContent className="p-4 space-y-4"><div className="flex items-center justify-between gap-3"><div><p className="font-bold">{device.unique_id}</p><p className="text-xs text-muted-foreground">{device.provider_key} · {device.vehicle_id || "unassigned"}</p></div><Camera className="h-5 w-5 text-muted-foreground" /></div><div className="grid sm:grid-cols-2 gap-2">{CHECKS.map(check => <label key={check} className="flex items-center gap-2 text-sm rounded-xl border border-border p-3"><Checkbox /> {check}</label>)}</div><div className="rounded-xl bg-muted/40 p-3 text-xs text-muted-foreground">Install photos and completion approval are backed by TelematicsInstallRecord.</div></CardContent></Card>)}{pending.length === 0 && <Card className="glass"><CardContent className="p-8 text-center text-muted-foreground"><ClipboardCheck className="h-8 w-8 mx-auto mb-2" />No pending installations.</CardContent></Card>}</div></div></div>;
+}

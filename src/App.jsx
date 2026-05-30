@@ -51,6 +51,7 @@ import AdminOperationalAlerts from '@/pages/admin/AdminOperationalAlerts';
 import AdminDisputes from '@/pages/admin/AdminDisputes';
 import AdminOperationsCenter from '@/pages/admin/AdminOperationsCenter';
 import AdminGPSMonitor from '@/pages/admin/AdminGPSMonitor';
+import AdminTelematicsCenter from '@/pages/admin/AdminTelematicsCenter.jsx';
 import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import AdminCommunications from '@/pages/admin/AdminCommunications';
 import AdminReputationValidation from '@/pages/admin/AdminReputationValidation.jsx';
@@ -84,6 +85,7 @@ import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
 import HostReturnReviews from '@/pages/host/HostReturnReviews.jsx';
 import HostDealerNetwork from '@/pages/host/HostDealerNetwork.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
+import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
 import HostPaymentAlerts from '@/pages/host/HostPaymentAlerts.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
@@ -95,6 +97,7 @@ import BecomeAHost from '@/pages/BecomeAHost';
 import SmartOperatorQuestionnaire from '@/pages/SmartOperatorQuestionnaire.jsx';
 import Marketplace from '@/pages/Marketplace';
 import SwapMarketplace from '@/pages/SwapMarketplace';
+import InstallerTelematicsPortal from '@/pages/InstallerTelematicsPortal.jsx';
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -165,6 +168,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/business-operations" element={<HostBusinessOperations />} />
         <Route path="/host/payment-alerts" element={<HostPaymentAlerts />} />
         <Route path="/host/dealer-network" element={<HostDealerNetwork />} />
+        <Route path="/host/telematics" element={<HostTelematicsDashboard />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
@@ -177,6 +181,9 @@ const AuthenticatedApp = () => {
         <Route path="account" element={<AccountPage />} />
       </Route>
 
+
+      {/* ── INSTALLER ROUTES ── */}
+      <Route path="/installer/telematics" element={<InstallerTelematicsPortal />} />
 
       {/* ── CUSTOMER / PUBLIC ROUTES ── */}
       <Route element={<CustomerLayout />}>
@@ -222,6 +229,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/disputes" element={<AdminDisputes />} />
         <Route path="/admin/operational-alerts" element={<AdminOperationalAlerts />} />
         <Route path="/admin/gps-monitor" element={<AdminGPSMonitor />} />
+        <Route path="/admin/telematics" element={<AdminTelematicsCenter />} />
         <Route path="/admin/operations" element={<AdminOperationsCenter />} />
         <Route path="/admin/compliance-queue" element={<AdminComplianceQueue />} />
         <Route path="/admin/communications" element={<AdminCommunications />} />

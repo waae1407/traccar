@@ -1,0 +1,94 @@
+{
+  "name": "TelematicsCommand",
+  "type": "object",
+  "properties": {
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "renter_id": {
+      "type": "string"
+    },
+    "command_type": {
+      "type": "string",
+      "enum": [
+        "locate",
+        "lock",
+        "unlock",
+        "horn_lights",
+        "disable_starter",
+        "restore_starter",
+        "status"
+      ]
+    },
+    "provider_command_name": {
+      "type": "string"
+    },
+    "ascii_payload": {
+      "type": "string"
+    },
+    "hex_payload": {
+      "type": "string"
+    },
+    "request_payload": {
+      "type": "object"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "sent",
+        "confirmed",
+        "failed",
+        "blocked"
+      ],
+      "default": "queued"
+    },
+    "requested_by": {
+      "type": "string"
+    },
+    "requested_role": {
+      "type": "string"
+    },
+    "ip_address": {
+      "type": "string"
+    },
+    "user_agent": {
+      "type": "string"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "provider_response": {
+      "type": "object"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "confirmed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "provider_key",
+    "command_type",
+    "requested_by"
+  ]
+}

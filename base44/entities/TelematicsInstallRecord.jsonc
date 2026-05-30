@@ -1,0 +1,59 @@
+{
+  "name": "TelematicsInstallRecord",
+  "type": "object",
+  "properties": {
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "installer_name": {
+      "type": "string"
+    },
+    "install_photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "install_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "completed",
+        "failed",
+        "needs_review"
+      ],
+      "default": "not_started"
+    },
+    "gps_test_passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "ignition_test_passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "lock_test_passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "unlock_test_passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "horn_light_test_passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "kill_restore_test_passed": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "telematics_device_id"
+  ]
+}

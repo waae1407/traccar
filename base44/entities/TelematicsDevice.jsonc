@@ -1,0 +1,127 @@
+{
+  "name": "TelematicsDevice",
+  "type": "object",
+  "properties": {
+    "provider_key": {
+      "type": "string"
+    },
+    "provider_type": {
+      "type": "string",
+      "enum": [
+        "api",
+        "traccar",
+        "sms",
+        "hybrid"
+      ],
+      "default": "api"
+    },
+    "unique_id": {
+      "type": "string"
+    },
+    "device_imei": {
+      "type": "string"
+    },
+    "sim_iccid": {
+      "type": "string"
+    },
+    "provider_device_id": {
+      "type": "string"
+    },
+    "traccar_device_id": {
+      "type": "string"
+    },
+    "moovetrax_device_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "assigned_status": {
+      "type": "string",
+      "enum": [
+        "unassigned",
+        "assigned",
+        "retired"
+      ],
+      "default": "unassigned"
+    },
+    "install_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "installed",
+        "failed",
+        "needs_review"
+      ],
+      "default": "not_started"
+    },
+    "online_status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "online",
+        "offline"
+      ],
+      "default": "unknown"
+    },
+    "ignition_status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "on",
+        "off"
+      ],
+      "default": "unknown"
+    },
+    "starter_disabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "gps_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "lock_unlock_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "horn_light_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_latitude": {
+      "type": "number"
+    },
+    "last_longitude": {
+      "type": "number"
+    },
+    "speed": {
+      "type": "number"
+    },
+    "battery_level": {
+      "type": "number"
+    },
+    "signal_strength": {
+      "type": "number"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "provider_key",
+    "unique_id"
+  ],
+  "unique_fields": [
+    "unique_id"
+  ]
+}

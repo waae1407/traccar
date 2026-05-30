@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { MapPin, Lock, Unlock, Volume2, Loader2, Navigation, Zap, ExternalLink } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import TelematicsService from "@/lib/telematics/TelematicsService";
 import { toast } from "sonner";
 
 const COMMANDS = [
@@ -101,8 +101,9 @@ export default function TelematicsPanel({ booking }) {
   const handleCommand = async (command) => {
     setLoading(command);
     try {
-      const res = await base44.functions.invoke("moovetraxCommand", {
-        command,
+      const commandMap = { location: "locate", panic: "horn_lights" };
+      const res = await TelematicsService.sendCommand({
+        command_type: commandMap[command] || command,
         booking_id: booking.id,
       });
 

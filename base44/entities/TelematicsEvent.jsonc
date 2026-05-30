@@ -1,0 +1,52 @@
+{
+  "name": "TelematicsEvent",
+  "type": "object",
+  "properties": {
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "provider",
+        "command",
+        "sync",
+        "installer",
+        "system"
+      ],
+      "default": "system"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "speed": {
+      "type": "number"
+    },
+    "ignition": {
+      "type": "boolean"
+    },
+    "raw_payload": {
+      "type": "object"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "provider_key",
+    "event_type"
+  ]
+}
