@@ -305,6 +305,27 @@
     "admin_notes": {
       "type": "string"
     },
+    "is_superseded": {
+      "type": "boolean",
+      "default": false,
+      "description": "Structured control: true when this booking has been replaced by another booking and should be excluded from recovery automation. Notes are informational only."
+    },
+    "superseded_by_booking_id": {
+      "type": "string",
+      "description": "Booking ID that replaced this booking, when known."
+    },
+    "closure_reason": {
+      "type": "string",
+      "enum": [
+        "superseded",
+        "stale_booking",
+        "duplicate_booking",
+        "replaced_booking",
+        "manually_closed",
+        "auto_cancelled"
+      ],
+      "description": "Structured closure reason used by automation instead of parsing notes."
+    },
     "stripe_customer_id": {
       "type": "string"
     },
