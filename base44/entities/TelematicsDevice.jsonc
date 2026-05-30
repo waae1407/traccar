@@ -103,6 +103,21 @@
       "type": "boolean",
       "default": false
     },
+    "traccar_test_activation_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "traccar_test_activation_expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "traccar_test_activation_by": {
+      "type": "string"
+    },
+    "traccar_test_activation_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "last_seen_at": {
       "type": "string",
       "format": "date-time"

@@ -24,7 +24,42 @@ Deno.serve(async (req) => {
     if (provider.webhook_secret_reference) {
       const expected = Deno.env.get(provider.webhook_secret_reference) || '';
       const provided = req.headers.get('x-telematics-secret') || body.webhook_secret || '';
-      if (expected && provided !== expected) return Response.json({ error: 'Invalid webhook secret' }, { status: 401 });
+      if (!expected) {
+        await base44.asServiceRole.entities.ActivityEvent.create({
+          event_type: 'telematics.webhook_secret_missing',
+          actor_id: 'webhook',
+          actor_email: 'provider-webhook',
+          actor_role: 'external',
+          target_entity: 'TelematicsProviderConfig',
+          target_id: provider.id,
+          summary: `Webhook rejected because ${provider.webhook_secret_reference} is not configured`,
+          metadata: { provider_key: providerKey, webhook_secret_reference: provider.webhook_secret_reference },
+          source: 'telematics_webhook',
+          event_status: 'error',
+        });
+        await base44.asServiceRole.entities.Notification.create({
+          user_email: 'admin',
+          title: 'Telematics webhook rejected',
+          body: `Provider ${providerKey} has webhook_secret_reference set, but the referenced secret is missing.`,
+          type: 'security',
+        });
+        return Response.json({ error: 'Webhook secret is not configured for this provider' }, { status: 401 });
+      }
+      if (provided !== expected) {
+        await base44.asServiceRole.entities.ActivityEvent.create({
+          event_type: 'telematics.webhook_secret_invalid',
+          actor_id: 'webhook',
+          actor_email: 'provider-webhook',
+          actor_role: 'external',
+          target_entity: 'TelematicsProviderConfig',
+          target_id: provider.id,
+          summary: `Webhook rejected because secret validation failed for ${providerKey}`,
+          metadata: { provider_key: providerKey },
+          source: 'telematics_webhook',
+          event_status: 'error',
+        });
+        return Response.json({ error: 'Invalid webhook secret' }, { status: 401 });
+      }
     }
 
     const eventType = SUPPORTED_EVENTS.includes(body.event_type) ? body.event_type : 'location_update';
@@ -67,6 +102,22 @@ Deno.serve(async (req) => {
       if (eventType === 'ignition_on') updates.ignition_status = 'on';
       if (eventType === 'ignition_off') updates.ignition_status = 'off';
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, updates);
+    }
+
+    if (['command_ack', 'command_failed'].includes(eventType)) {
+      const commandId = body.command_id || body.commandId || '';
+      const idempotencyKey = body.idempotency_key || body.idempotencyKey || '';
+      const matches = commandId
+        ? await base44.asServiceRole.entities.TelematicsCommand.filter({ id: commandId })
+        : idempotencyKey
+          ? await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey })
+          : [];
+      const command = matches[0];
+      if (command) {
+        await base44.asServiceRole.entities.TelematicsCommand.update(command.id, eventType === 'command_ack'
+          ? { status: 'acknowledged', queue_status: 'acknowledged', confirmation_status: 'acknowledged', acknowledged_at: now, provider_response: body }
+          : { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: body.reason || 'Provider command failed', provider_response: body });
+      }
     }
 
     return Response.json({ ok: true, event_id: event.id, booking_modified: false, payment_modified: false });

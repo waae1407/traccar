@@ -51,7 +51,10 @@
       "type": "string",
       "enum": [
         "queued",
+        "pending",
         "sent",
+        "acknowledged",
+        "executed",
         "confirmed",
         "failed",
         "blocked"
@@ -62,8 +65,11 @@
       "type": "string",
       "enum": [
         "queued",
+        "pending",
         "sending",
         "sent",
+        "acknowledged",
+        "executed",
         "confirmed",
         "failed",
         "retrying",
@@ -71,6 +77,17 @@
         "blocked"
       ],
       "default": "queued"
+    },
+    "confirmation_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "sent",
+        "acknowledged",
+        "executed",
+        "failed"
+      ],
+      "default": "pending"
     },
     "retry_count": {
       "type": "number",
@@ -121,6 +138,14 @@
       "format": "date-time"
     },
     "sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executed_at": {
       "type": "string",
       "format": "date-time"
     },

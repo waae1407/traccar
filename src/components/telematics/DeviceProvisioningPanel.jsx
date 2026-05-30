@@ -31,7 +31,7 @@ export default function DeviceProvisioningPanel({ devices = [], providers = [] }
   const [manual, setManual] = useState({ provider_key: "moovetrax", unique_id: "" });
 
   const createDevice = useMutation({
-    mutationFn: async (payload) => base44.entities.TelematicsDevice.create({ ...payload, assigned_status: payload.vehicle_id ? "assigned" : "unassigned", install_status: payload.install_status || "not_started", created_at: new Date().toISOString() }),
+    mutationFn: async (payload) => base44.functions.invoke("provisionTelematicsDevices", { device: payload }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["telematics-devices"] })
   });
 
@@ -45,12 +45,16 @@ export default function DeviceProvisioningPanel({ devices = [], providers = [] }
       const unique_id = row.unique_id || row.provider_device_id || row.imei;
       const duplicate = existingKeys.has(`${provider_key}:${unique_id}`) || existingKeys.has(row.imei) || existingKeys.has(row.sim_iccid);
       if (!unique_id || duplicate) { skipped++; continue; }
-      await base44.entities.TelematicsDevice.create({
-        provider_key, unique_id, device_imei: row.imei, sim_iccid: row.sim_iccid, provider_device_id: row.provider_device_id,
+      const response = await base44.functions.invoke("provisionTelematicsDevices", { devices: [{
+        provider_key, unique_id, imei: row.imei, sim_iccid: row.sim_iccid, provider_device_id: row.provider_device_id,
         traccar_device_id: row.traccar_device_id, model: row.model, batch_number: row.batch_number, host_id: row.host_id,
-        vehicle_id: row.vehicle_id, assigned_status: row.vehicle_id ? "assigned" : "unassigned", install_status: "not_started", created_at: new Date().toISOString()
-      });
-      existingKeys.add(`${provider_key}:${unique_id}`); if (row.imei) existingKeys.add(row.imei); if (row.sim_iccid) existingKeys.add(row.sim_iccid); created++;
+        vehicle_id: row.vehicle_id
+      }] });
+      if (response.data?.created_count) {
+        existingKeys.add(`${provider_key}:${unique_id}`); if (row.imei) existingKeys.add(row.imei); if (row.sim_iccid) existingKeys.add(row.sim_iccid); created++;
+      } else {
+        skipped++;
+      }
     }
     setResult({ created, skipped });
     qc.invalidateQueries({ queryKey: ["telematics-devices"] });
