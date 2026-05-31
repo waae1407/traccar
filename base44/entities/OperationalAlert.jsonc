@@ -13,25 +13,45 @@
         "qa_failure",
         "provisioning_failure",
         "installation_failure",
-        "provider_health_warning"
+        "provider_health_warning",
+        "vin_mismatch_install",
+        "compliance_expired",
+        "host_documents_missing",
+        "unresolved_dispute",
+        "review_moderation_pending",
+        "overdue_return",
+        "dealer_network_issue",
+        "maintenance_overdue",
+        "missing_document"
       ]
     },
     "severity": {
       "type": "string",
       "enum": [
         "critical",
-        "warning",
-        "info"
+        "high",
+        "medium",
+        "low",
+        "info",
+        "warning"
       ],
-      "default": "warning"
+      "default": "medium"
     },
     "status": {
       "type": "string",
       "enum": [
         "new",
+        "notified",
         "acknowledged",
+        "in_progress",
+        "under_review",
+        "waiting_on_host",
+        "waiting_on_customer",
+        "waiting_on_installer",
         "resolved",
-        "closed"
+        "dismissed",
+        "closed",
+        "escalated"
       ],
       "default": "new"
     },
@@ -43,6 +63,81 @@
     },
     "recommended_action": {
       "type": "string"
+    },
+    "assigned_to": {
+      "type": "string"
+    },
+    "assigned_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "host",
+        "customer",
+        "installer",
+        "system"
+      ]
+    },
+    "due_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "escalated": {
+      "type": "boolean",
+      "default": false
+    },
+    "escalation_reason": {
+      "type": "string"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string"
+    },
+    "resolution_notes": {
+      "type": "string"
+    },
+    "source_entity_type": {
+      "type": "string"
+    },
+    "source_entity_id": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string",
+      "enum": [
+        "payments",
+        "telematics",
+        "fleet",
+        "hosts",
+        "customers",
+        "installers",
+        "dealer_network",
+        "reputation",
+        "compliance",
+        "communications",
+        "system"
+      ],
+      "default": "telematics"
+    },
+    "action_url": {
+      "type": "string"
+    },
+    "communication_thread_id": {
+      "type": "string"
+    },
+    "repeat_count": {
+      "type": "number",
+      "default": 1
+    },
+    "first_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_duplicate_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "provider_key": {
       "type": "string"
@@ -67,13 +162,6 @@
     },
     "metadata": {
       "type": "object"
-    },
-    "resolved_at": {
-      "type": "string",
-      "format": "date-time"
-    },
-    "resolved_by": {
-      "type": "string"
     }
   },
   "required": [

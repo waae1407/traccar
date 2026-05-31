@@ -11,10 +11,58 @@
     "user_email": {
       "type": "string"
     },
+    "recipient_user_id": {
+      "type": "string"
+    },
+    "recipient_email": {
+      "type": "string"
+    },
+    "recipient_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "host",
+        "customer",
+        "installer",
+        "system"
+      ]
+    },
+    "domain": {
+      "type": "string",
+      "enum": [
+        "payments",
+        "telematics",
+        "fleet",
+        "hosts",
+        "customers",
+        "installers",
+        "dealer_network",
+        "reputation",
+        "compliance",
+        "communications",
+        "system"
+      ],
+      "default": "system"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info",
+        "warning"
+      ],
+      "default": "info"
+    },
     "title": {
       "type": "string"
     },
     "body": {
+      "type": "string"
+    },
+    "message": {
       "type": "string"
     },
     "type": {
@@ -25,7 +73,13 @@
         "verification",
         "contract",
         "system",
-        "alert"
+        "alert",
+        "security",
+        "telematics",
+        "compliance",
+        "communication",
+        "dealer_network",
+        "reputation"
       ],
       "default": "system"
     },
@@ -33,16 +87,57 @@
       "type": "boolean",
       "default": false
     },
+    "read_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dismissed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "action_link": {
       "type": "string"
+    },
+    "action_url": {
+      "type": "string"
+    },
+    "source_entity_type": {
+      "type": "string"
+    },
+    "source_entity_id": {
+      "type": "string"
+    },
+    "delivery_channels": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "in_app",
+          "email",
+          "sms",
+          "push"
+        ]
+      },
+      "default": [
+        "in_app"
+      ]
+    },
+    "delivery_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "sent",
+        "delivered",
+        "failed",
+        "dismissed"
+      ],
+      "default": "pending"
     },
     "booking_request_id": {
       "type": "string"
     }
   },
   "required": [
-    "user_email",
-    "title",
-    "body"
+    "title"
   ]
 }
