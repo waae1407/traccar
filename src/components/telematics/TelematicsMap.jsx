@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Link } from "react-router-dom";
 import { RefreshCw, Satellite, TimerReset } from "lucide-react";
@@ -130,8 +131,14 @@ export default function TelematicsMap({
               const vehicle = vehicleById[device.vehicle_id];
               const host = hostById[device.host_id];
               const fresh = locationFreshness(device);
+              const icon = L.divIcon({
+                html: `<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;background:${markerColor(fresh)};border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5s-5 2.24-5 5v2H6c-1.1 0-2 .9-2 2v10h16V10c0-1.1-.9-2-2-2zm-7-2h4v2h-4V6zm0 12H9v-2h2v2zm4 0h-2v-2h2v2z"></path></svg></div>`,
+                className: "",
+                iconSize: [32, 32],
+                popupAnchor: [0, -16]
+              });
               return (
-                <CircleMarker key={device.id} center={getMapPosition(device)} radius={9} pathOptions={{ color: markerColor(fresh), fillColor: markerColor(fresh), fillOpacity: 0.75 }}>
+                <Marker key={device.id} position={getMapPosition(device)} icon={icon}>
                   <Popup>
                     <div className="min-w-56 space-y-2 text-sm">
                       <div><b>{vehicleName(vehicle, device)}</b><p>{ago(device)}</p></div>
@@ -146,7 +153,7 @@ export default function TelematicsMap({
                       {role !== "customer" && !compact && vehicle?.id && <Link to={role === "admin" ? "/admin/telematics" : "/host/telematics"} className="text-primary underline">Open telematics controls</Link>}
                     </div>
                   </Popup>
-                </CircleMarker>
+                </Marker>
               );
             })}
           </MapContainer>
