@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import CameraBarcodeScanner from "@/components/telematics/CameraBarcodeScanner";
 import {
   ArrowLeft,
   Camera,
@@ -53,8 +54,30 @@ function getParams() {
   const params = new URLSearchParams(window.location.search);
   return {
     provider_key: params.get("provider_key") || "",
-    device_id: params.get("device_id") || ""
+    device_id: params.get("device_id") || params.get("unique_id") || ""
   };
+}
+
+function parseDeviceQr(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) return null;
+  try {
+    const parsed = value.includes("://") ? new URL(value) : new URL(value, window.location.origin);
+    const params = parsed.searchParams;
+    const provider_key = params.get("provider_key") || params.get("provider") || "";
+    const device_id = params.get("device_id") || params.get("unique_id") || params.get("id") || "";
+    if (provider_key && device_id) return { provider_key, device_id };
+  } catch {
+    // Non-URL QR values are handled below.
+  }
+  const pairs = Object.fromEntries(value.split(/[;&|,\n]/).map(part => part.split(/[:=]/).map(piece => piece.trim())).filter(pair => pair.length === 2));
+  const provider_key = pairs.provider_key || pairs.provider || "";
+  const device_id = pairs.device_id || pairs.unique_id || pairs.id || "";
+  return provider_key && device_id ? { provider_key, device_id } : null;
+}
+
+function normalizeVin(value) {
+  return String(value || "").toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, "").slice(0, 17);
 }
 
 function providerName(providerKey) {
@@ -104,7 +127,7 @@ function FieldLabel({ children }) {
   return <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">{children}</p>;
 }
 
-function DeviceStep({ form, update, capabilities, scannedFromQr }) {
+function DeviceStep({ form, update, capabilities, scannedFromQr, onScanDevice, scanMessage }) {
   const recognized = capabilities.data?.ok;
   return (
     <div className="space-y-4">
@@ -125,6 +148,10 @@ function DeviceStep({ form, update, capabilities, scannedFromQr }) {
                 <h2 className="text-xl font-black">Scan Package QR</h2>
                 <p className="mt-1 text-sm text-slate-500">QR links prefill device details automatically.</p>
               </div>
+              <Button type="button" onClick={onScanDevice} className="h-14 rounded-3xl bg-slate-950 text-base font-black text-white shadow-xl shadow-slate-300 hover:bg-slate-800">
+                <ScanLine className="mr-2 h-5 w-5" /> Open QR Scanner
+              </Button>
+              {scanMessage && <p className={`text-sm font-bold ${scanMessage.type === "success" ? "text-emerald-600" : "text-red-600"}`}>{scanMessage.text}</p>}
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Provider" value={form.provider_key} onChange={e => update("provider_key", e.target.value.trim())} />
                 <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Device ID" value={form.device_id} onChange={e => update("device_id", e.target.value.trim())} />
@@ -160,7 +187,7 @@ function DeviceStep({ form, update, capabilities, scannedFromQr }) {
   );
 }
 
-function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound }) {
+function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound, onScanVin, vinScanMessage }) {
   const vehicle = vehicleLookup.data?.vehicle;
   const host = vehicleLookup.data?.host;
   return (
@@ -173,14 +200,15 @@ function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound 
 
       <LuxuryCard>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Button type="button" className="h-16 rounded-3xl bg-slate-950 text-base font-black text-white shadow-xl shadow-slate-300 hover:bg-slate-800">
+          <Button type="button" onClick={onScanVin} className="h-16 rounded-3xl bg-slate-950 text-base font-black text-white shadow-xl shadow-slate-300 hover:bg-slate-800">
             <Camera className="mr-2 h-5 w-5" /> Scan VIN Barcode
           </Button>
-          <Button type="button" variant="outline" className="h-16 rounded-3xl border-slate-200 bg-white text-base font-black text-slate-900 hover:bg-slate-50">
+          <Button type="button" variant="outline" onClick={() => document.getElementById("installer-vin-input")?.focus()} className="h-16 rounded-3xl border-slate-200 bg-white text-base font-black text-slate-900 hover:bg-slate-50">
             <Keyboard className="mr-2 h-5 w-5" /> Enter VIN Manually
           </Button>
         </div>
-        <Input className="mt-4 h-14 rounded-3xl border-slate-200 bg-white px-5 text-lg font-black tracking-widest text-slate-950 placeholder:text-slate-300" placeholder="17-character VIN" value={form.vin} maxLength={17} onChange={e => update("vin", e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} />
+        <Input id="installer-vin-input" className="mt-4 h-14 rounded-3xl border-slate-200 bg-white px-5 text-lg font-black tracking-widest text-slate-950 placeholder:text-slate-300" placeholder="17-character VIN" value={form.vin} maxLength={17} onChange={e => update("vin", normalizeVin(e.target.value))} />
+        {vinScanMessage && <p className={`mt-2 text-sm font-bold ${vinScanMessage.type === "success" ? "text-emerald-600" : "text-red-600"}`}>{vinScanMessage.text}</p>}
         <div className="mt-3 flex items-center gap-2">
           {vehicleLookup.isLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
           <p className="text-xs font-bold text-slate-500">VIN is verified automatically once 17 characters are entered.</p>
@@ -443,6 +471,9 @@ export default function InstallerTelematicsPortal() {
   const [additionalPhotos, setAdditionalPhotos] = useState([]);
   const [uploadingSlot, setUploadingSlot] = useState("");
   const [result, setResult] = useState(null);
+  const [scanner, setScanner] = useState(null);
+  const [scanMessage, setScanMessage] = useState(null);
+  const [vinScanMessage, setVinScanMessage] = useState(null);
 
   const capabilities = useQuery({
     queryKey: ["installer-capabilities", form.provider_key, form.device_id],
@@ -479,6 +510,31 @@ export default function InstallerTelematicsPortal() {
   });
 
   const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+
+  const handleDeviceScan = (rawValue) => {
+    const parsed = parseDeviceQr(rawValue);
+    if (!parsed) {
+      setScanMessage({ type: "error", text: "Invalid QR. Please scan a valid install QR or enter manually." });
+      setScanner(null);
+      return;
+    }
+    setForm(prev => ({ ...prev, provider_key: parsed.provider_key.trim(), device_id: parsed.device_id.trim() }));
+    setScanMessage({ type: "success", text: "Device recognized." });
+    setScanner(null);
+  };
+
+  const handleVinScan = (rawValue) => {
+    const vin = normalizeVin(rawValue);
+    if (vin.length !== 17) {
+      setVinScanMessage({ type: "error", text: "Invalid VIN barcode. VIN must be 17 characters." });
+      setScanner(null);
+      return;
+    }
+    setForm(prev => ({ ...prev, vin }));
+    setVinScanMessage({ type: "success", text: "VIN scanned. Vehicle lookup started." });
+    setScanner(null);
+  };
+
   const deviceReady = !!capabilities.data?.ok;
   const vehicleMatched = !!vehicleLookup.data?.matched;
   const vinNotFound = vinValid && !vehicleLookup.isLoading && vehicleLookup.data?.matched === false;
@@ -547,13 +603,30 @@ export default function InstallerTelematicsPortal() {
       <div className="mx-auto max-w-3xl px-4 sm:px-0">
         <StepProgress currentStep={currentStep} completed={completed} />
         <div className="py-6">
-          {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} scannedFromQr={scannedFromQr} />}
-          {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} />}
+          {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} scannedFromQr={scannedFromQr} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
+          {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
           {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} />}
           {currentStep === 3 && <TestingStep form={form} update={update} capabilities={capabilities} visibleTests={visibleTests} supportedTestsComplete={supportedTestsComplete} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} />}
           {currentStep === 4 && <CompleteStep form={form} deviceId={form.device_id} vehicleLookup={vehicleLookup} readyItems={readyItems} submit={submit} submitInstallation={submitInstallation} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} result={result} />}
         </div>
       </div>
+
+      <CameraBarcodeScanner
+        open={scanner === "device"}
+        onOpenChange={(open) => setScanner(open ? "device" : null)}
+        title="Scan Package QR"
+        helper="Point your camera at the package QR or barcode."
+        formats={["qr_code", "code_128", "code_39", "ean_13", "data_matrix"]}
+        onDetected={handleDeviceScan}
+      />
+      <CameraBarcodeScanner
+        open={scanner === "vin"}
+        onOpenChange={(open) => setScanner(open ? "vin" : null)}
+        title="Scan VIN Barcode"
+        helper="Point your camera at the windshield or door VIN barcode."
+        formats={["code_39", "code_128", "qr_code", "data_matrix"]}
+        onDetected={handleVinScan}
+      />
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/90 p-4 shadow-2xl shadow-slate-400/20 backdrop-blur-xl">
         <div className="mx-auto flex max-w-3xl gap-3">
