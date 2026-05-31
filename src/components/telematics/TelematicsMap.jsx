@@ -1,11 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Link } from "react-router-dom";
 import { RefreshCw, Satellite, TimerReset } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { base44 } from "@/api/base44Client";
 
 const ACTIVE_VEHICLE_STATUSES = ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"];
 const ACTIVE_BOOKING_STATUSES = ["active", "confirmed", "approved", "pending_review"];
@@ -60,6 +60,10 @@ function directionsUrl(position) {
   return `https://www.google.com/maps/dir/?api=1&destination=${position[0]},${position[1]}`;
 }
 
+function coordinateLabel(position) {
+  return `${position[0].toFixed(5)}, ${position[1].toFixed(5)}`;
+}
+
 export default function TelematicsMap({
   role = "admin",
   devices = [],
@@ -76,6 +80,7 @@ export default function TelematicsMap({
 }) {
   const [filters, setFilters] = useState({ provider: "all", host: "all", online: "all", stale: "all", active: "all", lifecycle: "all" });
   const [refreshing, setRefreshing] = useState(false);
+  const [resolvedAddresses, setResolvedAddresses] = useState({});
   const vehicleById = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles]);
   const hostById = useMemo(() => Object.fromEntries(hosts.map(h => [h.id, h])), [hosts]);
   const activeVehicleIds = useMemo(() => new Set([
@@ -98,6 +103,17 @@ export default function TelematicsMap({
     return true;
   });
   const center = filtered[0] ? getMapPosition(filtered[0]) : [39.5, -98.35];
+
+  useEffect(() => {
+    filtered.slice(0, 20).forEach(async (device) => {
+      if (device.address || resolvedAddresses[device.id]) return;
+      const position = getMapPosition(device);
+      if (!position) return;
+      const response = await base44.functions.invoke("reverseGeocode", { lat: position[0], lon: position[1] });
+      const address = response.data?.address || response.data?.display_name;
+      if (address) setResolvedAddresses((current) => ({ ...current, [device.id]: address }));
+    });
+  }, [filtered, resolvedAddresses]);
 
   const handleRefresh = async () => {
     if (!onRefresh) return;
@@ -153,7 +169,7 @@ export default function TelematicsMap({
                       {role !== "customer" && vehicle?.vin && <p><b>VIN:</b> {vehicle.vin}</p>}
                       {role !== "customer" && <p><b>Device:</b> {device.unique_id} · {device.provider_key}</p>}
                       {role === "admin" && host && <p><b>Host:</b> {host.business_name || host.full_name || host.email}</p>}
-                      <p><b>Location:</b> <a href={directionsUrl(position)} target="_blank" rel="noopener noreferrer" className="text-primary underline">{device.address || `${position[0].toFixed(5)}, ${position[1].toFixed(5)}`}</a></p>
+                      <p><b>Location:</b> <a href={directionsUrl(position)} target="_blank" rel="noopener noreferrer" className="text-primary underline">{device.address || resolvedAddresses[device.id] || coordinateLabel(position)}</a></p>
                       <p><b>Speed:</b> {Number(device.speed || 0).toFixed(0)} mph</p>
                       <p><b>Ignition:</b> {device.ignition_status || "unknown"}</p>
                       <p><b>Device status:</b> {device.online_status || "unknown"}</p>
