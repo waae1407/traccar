@@ -106,12 +106,16 @@ export default function TelematicsMap({
 
   useEffect(() => {
     filtered.slice(0, 20).forEach(async (device) => {
-      if (device.address || resolvedAddresses[device.id]) return;
+      if (device.address || resolvedAddresses[device.id] !== undefined) return;
       const position = getMapPosition(device);
       if (!position) return;
-      const response = await base44.functions.invoke("reverseGeocode", { lat: position[0], lon: position[1] });
-      const address = response.data?.address || response.data?.display_name;
-      if (address) setResolvedAddresses((current) => ({ ...current, [device.id]: address }));
+      try {
+        const response = await base44.functions.invoke("reverseGeocode", { lat: position[0], lon: position[1] });
+        const address = response.data?.address || response.data?.display_name || null;
+        setResolvedAddresses((current) => ({ ...current, [device.id]: address }));
+      } catch {
+        setResolvedAddresses((current) => ({ ...current, [device.id]: null }));
+      }
     });
   }, [filtered, resolvedAddresses]);
 

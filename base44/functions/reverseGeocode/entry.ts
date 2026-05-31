@@ -2,12 +2,14 @@
 Deno.serve(async (req) => {
   try {
     const { lat, lon } = await req.json();
-    if (!lat || !lon) {
-      return Response.json({ error: "lat and lon required" }, { status: 400 });
+    const parsedLat = Number(lat);
+    const parsedLon = Number(lon);
+    if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon)) {
+      return Response.json({ error: "valid lat and lon required" }, { status: 400 });
     }
 
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1&zoom=18`,
+      `https://nominatim.openstreetmap.org/reverse?lat=${parsedLat}&lon=${parsedLon}&format=json&addressdetails=1&zoom=18`,
       { headers: { "User-Agent": "uRide-App" } }
     );
 
@@ -23,8 +25,8 @@ Deno.serve(async (req) => {
     const zip = addr.postcode || "";
     const displayAddress = data.display_name || [addr.road, city, state, zip].filter(Boolean).join(", ");
 
-    console.log(`Reverse geocoded (${lat}, ${lon}) -> ${displayAddress}`);
-    return Response.json({ address: displayAddress, display_name: displayAddress, city, state, zip, lat: parseFloat(lat), lon: parseFloat(lon) });
+    console.log(`Reverse geocoded (${parsedLat}, ${parsedLon}) -> ${displayAddress}`);
+    return Response.json({ address: displayAddress, display_name: displayAddress, city, state, zip, lat: parsedLat, lon: parsedLon });
   } catch (error) {
     console.error("Reverse geocode error:", error.message);
     return Response.json({ error: error.message }, { status: 500 });
