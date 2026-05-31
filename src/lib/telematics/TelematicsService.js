@@ -31,6 +31,10 @@ export default class TelematicsService {
     return base44.functions.invoke("syncTraccarDevicePositions", payload);
   }
 
+  static manageAssignment(payload) {
+    return base44.functions.invoke("manageTelematicsDeviceAssignment", payload);
+  }
+
   static disableStarter(payload) {
     return this.sendCommand({ ...payload, command_type: TELEMATICS_COMMANDS.disable_starter });
   }

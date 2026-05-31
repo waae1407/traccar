@@ -127,6 +127,10 @@
       ],
       "default": "none"
     },
+    "telematics_device_id": {
+      "type": "string",
+      "description": "Convenience reference to the active TelematicsDevice. TelematicsDevice.vehicle_id remains the assignment source of truth."
+    },
     "contactless_pickup": {
       "type": "boolean",
       "default": false

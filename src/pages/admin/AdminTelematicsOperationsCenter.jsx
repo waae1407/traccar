@@ -10,13 +10,15 @@ import { Activity, AlertTriangle, CheckCircle2, Router, Satellite, Wrench, Wifi,
 import TelematicsMetricCard from "@/components/telematics/TelematicsMetricCard";
 import TelematicsMap from "@/components/telematics/TelematicsMap";
 import TelematicsService from "@/lib/telematics/TelematicsService";
+import UnassignedDevicesQueue from "@/components/telematics/UnassignedDevicesQueue";
+import TelematicsDeviceAssignmentPanel from "@/components/telematics/TelematicsDeviceAssignmentPanel";
 
 const COMMAND_STATES = ["queued", "sending", "sent", "delivered", "acknowledged", "executed", "failed", "expired"];
 
 export default function AdminTelematicsOperationsCenter() {
   const qc = useQueryClient();
   const [filters, setFilters] = useState({ provider: "all", command: "all", search: "" });
-  const { data: devices = [] } = useQuery({ queryKey: ["ops-telematics-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-updated_date", 500), refetchInterval: 30000 });
+  const { data: devices = [], refetch: refetchDevices } = useQuery({ queryKey: ["ops-telematics-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-updated_date", 500), refetchInterval: 30000 });
   const { data: commands = [] } = useQuery({ queryKey: ["ops-telematics-commands"], queryFn: () => base44.entities.TelematicsCommand.list("-created_date", 300), refetchInterval: 15000 });
   const { data: installs = [] } = useQuery({ queryKey: ["ops-telematics-installs"], queryFn: () => base44.entities.TelematicsInstallRecord.list("-updated_date", 300), refetchInterval: 30000 });
   const { data: providers = [] } = useQuery({ queryKey: ["ops-telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100), refetchInterval: 60000 });
@@ -42,6 +44,10 @@ export default function AdminTelematicsOperationsCenter() {
     <div><p className="text-xs font-bold text-primary uppercase tracking-widest">Phase A Production</p><h1 className="text-2xl font-black">Telematics Operations Center</h1><p className="text-sm text-muted-foreground">Fleet health, command lifecycle, installation QA, provider health, and telematics alerts.</p></div>
 
     <section className="space-y-3"><h2 className="font-black">Fleet GPS Map</h2><TelematicsMap role="admin" devices={devices} vehicles={vehicles} hosts={hosts} bookings={bookings} height={520} showFilters showRefresh refreshLabel="Refresh Locations" onRefresh={async () => { await TelematicsService.syncTraccarPositions(); qc.invalidateQueries({ queryKey: ["ops-telematics-devices"] }); }} /></section>
+
+    <UnassignedDevicesQueue devices={devices} vehicles={vehicles} providers={providers} role="admin" onChanged={async () => { await refetchDevices(); qc.invalidateQueries({ queryKey: ["ops-telematics-vehicles"] }); }} />
+
+    <section className="space-y-3"><h2 className="font-black">Vehicle Configuration · Telematics</h2><div className="grid gap-3 xl:grid-cols-2">{vehicles.map(vehicle => <TelematicsDeviceAssignmentPanel key={vehicle.id} vehicle={vehicle} devices={devices} providers={providers} role="admin" onChanged={async () => { await refetchDevices(); qc.invalidateQueries({ queryKey: ["ops-telematics-vehicles"] }); }} />)}</div></section>
 
     <section className="space-y-3"><h2 className="font-black">Fleet Health</h2><div className="grid md:grid-cols-6 gap-3">
       <TelematicsMetricCard label="Total devices" value={devices.length} icon={Router} />
