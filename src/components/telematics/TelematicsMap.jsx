@@ -21,7 +21,7 @@ export function locationFreshness(device) {
   if (ms < 2 * 60 * 1000) return { label: "Live / Recent", tone: "bg-emerald-500 text-white", ms };
   if (ms < 5 * 60 * 1000) return { label: "Delayed", tone: "bg-yellow-500 text-black", ms };
   if (ms < 30 * 60 * 1000) return { label: "Stale", tone: "bg-orange-500 text-white", ms };
-  return { label: "Offline / Needs attention", tone: "bg-red-600 text-white", ms };
+  return { label: "Location stale / Needs attention", tone: "bg-red-600 text-white", ms };
 }
 
 function ago(device) {
@@ -53,6 +53,11 @@ function getMapPosition(device) {
   const likelySwapped = Math.abs(lat) > 85 && Math.abs(lng) <= 90;
   if (likelySwapped) return [lng, lat];
   return validLatLng ? [lat, lng] : null;
+}
+
+function directionsUrl(position) {
+  if (!position) return "#";
+  return `https://www.google.com/maps/dir/?api=1&destination=${position[0]},${position[1]}`;
 }
 
 export default function TelematicsMap({
@@ -131,6 +136,7 @@ export default function TelematicsMap({
               const vehicle = vehicleById[device.vehicle_id];
               const host = hostById[device.host_id];
               const fresh = locationFreshness(device);
+              const position = getMapPosition(device);
               const icon = L.divIcon({
                 html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:${markerColor(fresh)};border-radius:50%;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>`,
                 className: "vehicle-map-marker",
@@ -139,7 +145,7 @@ export default function TelematicsMap({
                 popupAnchor: [0, -16]
               });
               return (
-                <Marker key={device.id} position={getMapPosition(device)} icon={icon}>
+                <Marker key={device.id} position={position} icon={icon}>
                   <Popup>
                     <div className="min-w-56 space-y-2 text-sm">
                       <div><b>{vehicleName(vehicle, device)}</b><p>{ago(device)}</p></div>
@@ -147,9 +153,10 @@ export default function TelematicsMap({
                       {role !== "customer" && vehicle?.vin && <p><b>VIN:</b> {vehicle.vin}</p>}
                       {role !== "customer" && <p><b>Device:</b> {device.unique_id} · {device.provider_key}</p>}
                       {role === "admin" && host && <p><b>Host:</b> {host.business_name || host.full_name || host.email}</p>}
+                      <p><b>Location:</b> <a href={directionsUrl(position)} target="_blank" rel="noopener noreferrer" className="text-primary underline">{device.address || `${position[0].toFixed(5)}, ${position[1].toFixed(5)}`}</a></p>
                       <p><b>Speed:</b> {Number(device.speed || 0).toFixed(0)} mph</p>
                       <p><b>Ignition:</b> {device.ignition_status || "unknown"}</p>
-                      <p><b>Status:</b> {device.online_status || "unknown"}</p>
+                      <p><b>Device status:</b> {device.online_status || "unknown"}</p>
                       {role !== "customer" && vehicle?.status && <p><b>Vehicle:</b> {vehicle.status}</p>}
                       {role !== "customer" && !compact && vehicle?.id && <Link to={role === "admin" ? "/admin/telematics" : "/host/telematics"} className="text-primary underline">Open telematics controls</Link>}
                     </div>
