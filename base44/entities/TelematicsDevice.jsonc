@@ -147,6 +147,25 @@
       "type": "boolean",
       "default": false
     },
+    "production_commands_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "production_enabled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "production_enabled_by": {
+      "type": "string"
+    },
+    "production_command_scope": {
+      "type": "string",
+      "enum": [
+        "non_starter_only",
+        "all_supported_commands"
+      ],
+      "default": "non_starter_only"
+    },
     "traccar_test_activation_enabled": {
       "type": "boolean",
       "default": false

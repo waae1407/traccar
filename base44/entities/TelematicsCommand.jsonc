@@ -43,6 +43,16 @@
     "provider_command_id": {
       "type": "string"
     },
+    "device_unique_id": {
+      "type": "string"
+    },
+    "traccar_device_id": {
+      "type": "string"
+    },
+    "production_command": {
+      "type": "boolean",
+      "default": false
+    },
     "ascii_payload": {
       "type": "string"
     },
