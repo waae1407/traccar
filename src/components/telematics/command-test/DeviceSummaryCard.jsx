@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import ProductionCommandActivationCard from '@/components/telematics/ProductionCommandActivationCard';
 
 function vehicleName(vehicle) {
   if (!vehicle) return 'Not linked';
@@ -64,6 +65,8 @@ export default function DeviceSummaryCard({ data }) {
             )) : <Badge className="bg-white/10 text-white/60">No supported commands found</Badge>}
           </div>
         </div>
+
+        <ProductionCommandActivationCard device={device} compact />
       </CardContent>
     </Card>
   );
