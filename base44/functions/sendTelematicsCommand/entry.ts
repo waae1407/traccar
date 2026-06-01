@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights', 'disable_starter', 'restore_starter', 'status'];
+const COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'disable_starter', 'restore_starter', 'status'];
 const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
 const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
@@ -9,10 +9,11 @@ const TRACCAR_TEST_DEVICE_ID = '5';
 const TRACCAR_TEST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
 const CAPABILITY_MAP = {
   locate: 'supports_location', status: 'supports_location', lock: 'supports_lock', unlock: 'supports_unlock',
-  horn_lights: 'supports_horn', disable_starter: 'supports_starter_disable', restore_starter: 'supports_starter_restore',
+  horn: 'supports_horn', lights: 'supports_lights', horn_lights: 'supports_horn',
+  disable_starter: 'supports_starter_disable', restore_starter: 'supports_starter_restore',
 };
-const MOOVETRAX_COMMAND_MAP = { locate: 'location', status: 'location', lock: 'lock', unlock: 'unlock', horn_lights: 'panic', disable_starter: 'kill', restore_starter: 'unkill' };
-const NORAN_ACTION_MAP = { lock: '3,1', unlock: '4,1', disable_starter: '1,1', restore_starter: '1,0', horn_lights: '2,3' };
+const MOOVETRAX_COMMAND_MAP = { locate: 'location', status: 'location', lock: 'lock', unlock: 'unlock', horn: 'panic', lights: 'panic', horn_lights: 'panic', disable_starter: 'kill', restore_starter: 'unkill' };
+const NORAN_ACTION_MAP = { lock: '3,1', unlock: '4,1', disable_starter: '1,1', restore_starter: '1,0', horn: '2,1', lights: '2,2', horn_lights: '2,3' };
 
 function sanitizeIdentifier(value = '') { return String(value).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
 function asciiToHex(input = '') { return Array.from(input).map((char) => char.charCodeAt(0).toString(16).padStart(2, '0')).join('').toUpperCase(); }
@@ -153,6 +154,12 @@ async function renderTemplateExecution(template, provider, device, commandType) 
   if (!res.ok) throw new Error(`Provider command failed (${res.status})`);
   return { provider_command_name: template.provider_command_name || commandType, response: data };
 }
+async function hasActiveRental(base44, vehicleId) {
+  if (!vehicleId) return false;
+  const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id: vehicleId });
+  return bookings.some((booking) => ['confirmed', 'active', 'payment_due', 'grace_period'].includes(booking.booking_status));
+}
+
 async function fallbackAdapter(provider, device, commandType) {
   if (provider.provider_key === 'moovetrax') {
     if (provider.execution_mode !== 'production' || !provider.allow_live_commands) return { provider_command_name: MOOVETRAX_COMMAND_MAP[commandType], dry_run: true, response: { dry_run: true, provider: 'moovetrax' } };
@@ -181,13 +188,18 @@ Deno.serve(async (req) => {
     if (!COMMANDS.includes(commandType)) return Response.json({ error: 'Invalid telematics command.' }, { status: 400 });
 
     const adminTraccarLiveTest = body.admin_traccar_live_test === true;
-    const { vehicle, booking } = adminTraccarLiveTest ? { vehicle: null, booking: null } : await resolveVehicle(base44, body);
-    if (!vehicle && !adminTraccarLiveTest) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
+    const adminDeviceCommandTest = body.admin_device_command_test === true;
+    let { vehicle, booking } = (adminTraccarLiveTest || adminDeviceCommandTest) ? { vehicle: null, booking: null } : await resolveVehicle(base44, body);
+    if (!vehicle && !adminTraccarLiveTest && !adminDeviceCommandTest) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
     let device = body.telematics_device_id ? (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] : null;
-    if (!device && body.unique_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: 'traccar_noran_mt20', unique_id: body.unique_id }))[0];
+    if (!device && body.unique_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: body.unique_id }))[0];
     if (!device && vehicle) device = await resolveDevice(base44, vehicle);
     if (!device) return Response.json({ error: 'No telematics device is assigned to this vehicle.' }, { status: 404 });
-    if (!adminTraccarLiveTest && ['suspended', 'retired'].includes(device.lifecycle_status)) {
+    if (adminDeviceCommandTest && user.role !== 'admin') return Response.json({ error: 'Admin access required for device command testing.' }, { status: 403 });
+    if (adminDeviceCommandTest && device.vehicle_id) {
+      vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || null;
+    }
+    if (!adminTraccarLiveTest && !adminDeviceCommandTest && ['suspended', 'retired'].includes(device.lifecycle_status)) {
       return Response.json({ error: 'Device is not enabled for live commands.' }, { status: 403 });
     }
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
@@ -195,11 +207,14 @@ Deno.serve(async (req) => {
     if (adminTraccarLiveTest) {
       if (user.role !== 'admin') return Response.json({ error: 'Admin access required for Traccar single-device live test.' }, { status: 403 });
       if (!isTraccarSingleDeviceLiveTest(provider, device, commandType)) return Response.json({ error: 'Live test is restricted to active NR09G00002 / Traccar device 5 and allowed non-starter commands only.' }, { status: 403 });
-    } else {
+    } else if (!adminDeviceCommandTest) {
       const accessError = await validateAccess(base44, user, vehicle, booking, commandType, provider);
       if (accessError) return Response.json({ error: accessError }, { status: 403 });
     }
-    if (!adminTraccarLiveTest && !provider.is_active && provider.provider_key !== 'moovetrax') return Response.json({ error: 'Telematics provider is not active.' }, { status: 400 });
+    if (adminDeviceCommandTest && STARTER_COMMANDS.includes(commandType) && await hasActiveRental(base44, vehicle?.id || device.vehicle_id) && body.admin_starter_override !== true) {
+      return Response.json({ error: 'Starter commands are blocked on active rentals unless explicit admin override is provided.' }, { status: 403 });
+    }
+    if (!adminTraccarLiveTest && !adminDeviceCommandTest && !provider.is_active && provider.provider_key !== 'moovetrax') return Response.json({ error: 'Telematics provider is not active.' }, { status: 400 });
     if (capability && provider[capability] === false) return Response.json({ error: 'Provider does not support this command.' }, { status: 400 });
     if (provider.execution_mode === 'production' && !provider.allow_live_commands) return Response.json({ error: 'Live commands are disabled for this provider.' }, { status: 400 });
     if (await enforceRateLimit(base44, device.id, commandType, user.email, provider.max_commands_per_minute)) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.' }, { status: 429 });
@@ -216,7 +231,7 @@ Deno.serve(async (req) => {
       command_type: commandType, status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
-      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest }
+      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, admin_starter_override: body.admin_starter_override === true }
     });
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });
@@ -239,11 +254,21 @@ Deno.serve(async (req) => {
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
         vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_sent`, source: 'command', raw_payload: { provider_api_success: true, provider_execution_confirmed: false, response: routed.response || {} }, created_at: sentAt
       });
-      return Response.json({ ok: true, command_type: commandType, queue_status: 'sent', dry_run: !!routed.dry_run, pending_acknowledgement: true, result: routed.response || {} });
+      if (adminDeviceCommandTest) {
+        await base44.asServiceRole.entities.ActivityEvent.create({
+          event_type: 'gps.command_sent', actor_id: user.id || '', actor_email: user.email, actor_role: 'admin', target_entity: 'TelematicsDevice', target_id: device.id, vehicle_id: vehicle?.id || device.vehicle_id || '', summary: `Admin test command ${commandType} sent to ${device.unique_id || device.id}`, metadata: { command_id: commandAudit.id, dry_run: !!routed.dry_run }, source: 'admin_panel', event_status: 'success'
+        });
+      }
+      return Response.json({ ok: true, command_id: commandAudit.id, command_type: commandType, queue_status: 'sent', dry_run: !!routed.dry_run, pending_acknowledgement: true, result: routed.response || {} });
     } catch (error) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: error.message, failed_at: new Date().toISOString(), sent_at: new Date().toISOString() });
       await base44.asServiceRole.entities.TelematicsEvent.create({ company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key, vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_failed`, source: 'command', raw_payload: { error: error.message }, created_at: new Date().toISOString() });
-      return Response.json({ error: error.message, command_failed: true }, { status: 500 });
+      if (adminDeviceCommandTest) {
+        await base44.asServiceRole.entities.ActivityEvent.create({
+          event_type: 'gps.command_failed', actor_id: user.id || '', actor_email: user.email, actor_role: 'admin', target_entity: 'TelematicsDevice', target_id: device.id, vehicle_id: vehicle?.id || device.vehicle_id || '', summary: `Admin test command ${commandType} failed for ${device.unique_id || device.id}`, metadata: { command_id: commandAudit.id, error: error.message }, source: 'admin_panel', event_status: 'error'
+        });
+      }
+      return Response.json({ error: error.message, command_id: commandAudit.id, command_failed: true }, { status: 500 });
     }
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

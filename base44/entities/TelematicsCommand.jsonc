@@ -29,6 +29,8 @@
         "locate",
         "lock",
         "unlock",
+        "horn",
+        "lights",
         "horn_lights",
         "disable_starter",
         "restore_starter",

@@ -1,0 +1,125 @@
+{
+  "name": "TelematicsDeviceTestSession",
+  "type": "object",
+  "properties": {
+    "device_id": {
+      "type": "string"
+    },
+    "unique_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "tested_by": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "passed",
+        "failed"
+      ],
+      "default": "in_progress"
+    },
+    "locate_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "status_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "lock_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "unlock_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "horn_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "lights_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "starter_disable_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "starter_restore_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "device_id",
+    "unique_id",
+    "provider_key",
+    "tested_by",
+    "started_at"
+  ]
+}

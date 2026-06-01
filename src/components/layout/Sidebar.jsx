@@ -38,6 +38,7 @@ const operationsNavItems = [
   { label: "Disputes", icon: Shield, path: "/admin/disputes" },
   { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
   { label: "Telematics", icon: Satellite, path: "/admin/telematics" },
+  { label: "Command Test", icon: Zap, path: "/admin/telematics-command-test" },
   { label: "Installer Portal", icon: Wrench, path: "/installer/telematics" },
   { label: "Telematics Ops", icon: Activity, path: "/admin/telematics-operations" },
   { label: "Telematics Rollout", icon: BarChart3, path: "/admin/telematics-rollout" },
