@@ -1,0 +1,117 @@
+{
+  "name": "TelematicsSafetyEvent",
+  "type": "object",
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "vehicle_movement_detected",
+        "possible_accident"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "low"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ],
+      "default": "warning"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "speed": {
+      "type": "number"
+    },
+    "acc_status": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "on",
+        "off"
+      ],
+      "default": "unknown"
+    },
+    "shock_detected": {
+      "type": "boolean",
+      "default": false
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "acknowledged",
+        "customer_confirmed_safe",
+        "escalated",
+        "false_alarm",
+        "resolved"
+      ],
+      "default": "open"
+    },
+    "customer_response": {
+      "type": "string"
+    },
+    "host_response": {
+      "type": "string"
+    },
+    "admin_response": {
+      "type": "string"
+    },
+    "last_known_location": {
+      "type": "string"
+    },
+    "raw_telemetry_snapshot": {
+      "type": "object"
+    },
+    "created_by": {
+      "type": "string",
+      "default": "system"
+    }
+  },
+  "required": [
+    "event_type",
+    "vehicle_id",
+    "telematics_device_id",
+    "provider_key",
+    "started_at"
+  ]
+}

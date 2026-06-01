@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Volume2, Loader2, Zap } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
+import CustomerSafetyCheck from "@/components/telematics/safety/CustomerSafetyCheck";
 import { toast } from "sonner";
 
 const COMMANDS = [
@@ -63,7 +64,7 @@ export default function TelematicsPanel({ booking }) {
   const [loading, setLoading] = useState(null);
   const [lastResult, setLastResult] = useState(null);
 
-  const isActive = ["active", "approved", "confirmed"].includes(booking.booking_status);
+  const isActive = ["active", "approved", "confirmed"].includes(booking.booking_status) && booking.payment_status !== "failed";
   const isKilled = booking.moovetrax_kill_active || booking.starter_disabled;
   const hasDevice = !!booking.vehicle_id;
 
@@ -118,6 +119,8 @@ export default function TelematicsPanel({ booking }) {
   }
 
   return (
+    <>
+    <CustomerSafetyCheck booking={booking} />
     <div className="mx-4 mb-3 rounded-2xl overflow-hidden border border-white/[0.08]"
       style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))" }}>
 
@@ -145,5 +148,6 @@ export default function TelematicsPanel({ booking }) {
       </div>
 
     </div>
+    </>
   );
 }

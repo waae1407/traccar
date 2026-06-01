@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const SUPPORTED_EVENTS = ['location_update', 'ignition_on', 'ignition_off', 'geofence_enter', 'geofence_exit', 'device_offline', 'device_online', 'power_disconnect', 'command_delivered', 'command_ack', 'command_executed', 'command_failed'];
+const SUPPORTED_EVENTS = ['location_update', 'ignition_on', 'ignition_off', 'geofence_enter', 'geofence_exit', 'device_offline', 'device_online', 'power_disconnect', 'shock_alarm', 'command_delivered', 'command_ack', 'command_executed', 'command_failed'];
 const WEBHOOK_TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000;
 const WEBHOOK_RATE_LIMIT_PER_MINUTE = 120;
 
@@ -34,6 +34,120 @@ function ignitionLabel(value, fallback = 'unknown') {
 
 function getClientIp(req) {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+}
+
+function distanceMeters(a, b) {
+  if (!a || !b || a.latitude === undefined || a.longitude === undefined || b.latitude === undefined || b.longitude === undefined) return 0;
+  const r = 6371000;
+  const toRad = (n) => Number(n) * Math.PI / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * r * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function shockDetected(body, eventType) {
+  const alarm = String(body.alarm || body.position?.attributes?.alarm || body.position?.attributes?.event || '').toLowerCase();
+  return eventType === 'shock_alarm' || body.shock_alarm === true || body.shock === true || alarm.includes('shock') || alarm.includes('crash') || alarm.includes('collision');
+}
+
+function isActivePaidRental(booking) {
+  return booking && ['active', 'approved', 'confirmed'].includes(booking.booking_status) && booking.payment_status !== 'failed';
+}
+
+async function getActiveBookingForVehicle(base44, vehicleId) {
+  if (!vehicleId) return null;
+  const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id: vehicleId });
+  return bookings.find(isActivePaidRental) || null;
+}
+
+async function sendEmailIfConfigured(to, subject, body) {
+  const apiKey = String(Deno.env.get('RESEND_API_KEY') || '');
+  if (!apiKey || !to) return;
+  await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'uRideHub <alerts@uridehub.com>', to, subject, text: body }) }).catch(() => null);
+}
+
+async function sendSmsIfConfigured(to, body) {
+  const sid = String(Deno.env.get('TWILIO_ACCOUNT_SID') || '');
+  const token = String(Deno.env.get('TWILIO_AUTH_TOKEN') || '');
+  const from = String(Deno.env.get('TWILIO_PHONE_NUMBER') || '');
+  if (!sid || !token || !from || !to) return;
+  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, { method: 'POST', headers: { Authorization: 'Basic ' + btoa(`${sid}:${token}`), 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ To: to, From: from, Body: body }) }).catch(() => null);
+}
+
+async function notifySafetyEventCreated(base44, event, booking) {
+  const title = event.event_type === 'possible_accident' ? 'Possible Accident Detected' : 'Vehicle Movement Detected';
+  const message = `${title} for vehicle ${event.vehicle_id}. Confidence: ${event.confidence}. Location: ${event.last_known_location || 'unknown'}.`;
+  await base44.asServiceRole.entities.Notification.create({ recipient_role: 'admin', domain: 'telematics', severity: event.severity, title, body: message, message, type: 'telematics', source_entity_type: 'TelematicsSafetyEvent', source_entity_id: event.id, action_url: '/admin/telematics-operations', delivery_channels: ['in_app', 'email', 'sms'], delivery_status: 'pending' });
+  if (event.host_id) {
+    const host = (await base44.asServiceRole.entities.Host.filter({ id: event.host_id }))[0];
+    if (host?.email) {
+      await base44.asServiceRole.entities.Notification.create({ recipient_role: 'host', recipient_email: host.email, domain: 'telematics', severity: event.severity, title, body: message, message, type: 'telematics', source_entity_type: 'TelematicsSafetyEvent', source_entity_id: event.id, action_url: '/host/telematics', delivery_channels: ['in_app', 'email', 'sms'], delivery_status: 'pending' });
+      await sendEmailIfConfigured(host.email, title, message);
+      await sendSmsIfConfigured(host.phone, message);
+    }
+  }
+  if (booking?.user_email) {
+    await base44.asServiceRole.entities.Notification.create({ recipient_role: 'customer', recipient_email: booking.user_email, user_email: booking.user_email, user_id: booking.user_id || '', domain: 'telematics', severity: event.severity, title, body: message, message, type: 'telematics', source_entity_type: 'TelematicsSafetyEvent', source_entity_id: event.id, action_url: '/my-bookings', delivery_channels: ['in_app', 'email', 'sms'], delivery_status: 'pending' });
+    await sendEmailIfConfigured(booking.user_email, title, message);
+    await sendSmsIfConfigured(booking.customer_phone, message);
+  }
+}
+
+async function createSafetyEventIfNeeded(base44, { body, eventType, device, providerKey, latitude, longitude, speed, ignitionStatus, positionTimestamp }) {
+  if (!device?.vehicle_id || latitude === undefined || longitude === undefined) return null;
+  const history = (await base44.asServiceRole.entities.TelematicsPositionHistory.filter({ device_id: device.id }))
+    .sort((a, b) => new Date(b.timestamp || b.created_date || 0) - new Date(a.timestamp || a.created_date || 0));
+  const current = { latitude, longitude, speed: Number(speed || 0), timestamp: positionTimestamp };
+  const previous = history.find(point => new Date(point.timestamp || 0).getTime() < new Date(positionTimestamp).getTime() - 1000) || history[1];
+  const movementMeters = distanceMeters(previous, current);
+  const repeatedMovement = history.slice(0, 4).filter((point, index, arr) => index < arr.length - 1 && distanceMeters(point, arr[index + 1]) > 35).length >= 2;
+  const shock = shockDetected(body, eventType);
+  const accOff = ignitionStatus === 'off';
+  const movingSpeed = Number(speed || 0) >= 5;
+  const suddenStop = previous && Number(previous.speed || 0) >= 15 && Number(speed || 0) <= 3;
+  const stationaryAfterStop = previous && distanceMeters(previous, current) < 30 && Number(speed || 0) <= 3;
+  let candidate = null;
+
+  if ((movementMeters > 75 || repeatedMovement || movingSpeed) && (accOff || shock || movementMeters > 150)) {
+    const confidence = accOff && shock ? 'high' : accOff ? 'medium' : 'low';
+    candidate = { event_type: 'vehicle_movement_detected', confidence, severity: confidence === 'high' ? 'critical' : confidence === 'medium' ? 'warning' : 'info' };
+  }
+  if (shock || suddenStop) {
+    const confidence = suddenStop && shock && stationaryAfterStop ? 'high' : suddenStop ? 'medium' : 'low';
+    const severity = confidence === 'high' ? 'critical' : 'warning';
+    candidate = { event_type: 'possible_accident', confidence, severity };
+  }
+  if (!candidate) return null;
+
+  const existing = (await base44.asServiceRole.entities.TelematicsSafetyEvent.filter({ vehicle_id: device.vehicle_id, event_type: candidate.event_type }))
+    .find(event => ['open', 'escalated'].includes(event.status) && new Date(event.started_at || event.created_date || 0).getTime() > Date.now() - 30 * 60 * 1000);
+  if (existing) return existing;
+
+  const booking = await getActiveBookingForVehicle(base44, device.vehicle_id);
+  const event = await base44.asServiceRole.entities.TelematicsSafetyEvent.create({
+    ...candidate,
+    vehicle_id: device.vehicle_id,
+    host_id: device.host_id || '',
+    booking_id: booking?.id || '',
+    customer_id: booking?.user_id || '',
+    telematics_device_id: device.id,
+    provider_key: providerKey,
+    latitude,
+    longitude,
+    speed: Number(speed || 0),
+    acc_status: ignitionStatus || 'unknown',
+    shock_detected: shock,
+    started_at: new Date().toISOString(),
+    status: 'open',
+    last_known_location: `${latitude}, ${longitude}`,
+    raw_telemetry_snapshot: { event_type: eventType, movement_meters: Math.round(movementMeters), repeated_movement: repeatedMovement, sudden_stop: suddenStop, stationary_after_stop: stationaryAfterStop, power_status: body.power_status || body.position?.attributes?.power || '', online_status: device.online_status || '', raw: body },
+    created_by: 'system'
+  });
+  await notifySafetyEventCreated(base44, event, booking);
+  return event;
 }
 
 async function logSecurityEvent(base44, { eventType, providerKey = '', providerId = '', summary, metadata = {} }) {
@@ -229,6 +343,20 @@ Deno.serve(async (req) => {
           expires_at: retentionExpiresAt()
         });
       }
+    }
+
+    if (device && !['command_delivered', 'command_ack', 'command_executed', 'command_failed'].includes(eventType)) {
+      await createSafetyEventIfNeeded(base44, {
+        body,
+        eventType,
+        device,
+        providerKey,
+        latitude,
+        longitude,
+        speed,
+        ignitionStatus: ignitionLabel(ignition, device.ignition_status || 'unknown'),
+        positionTimestamp
+      });
     }
 
     if (['command_delivered', 'command_ack', 'command_executed', 'command_failed'].includes(eventType)) {

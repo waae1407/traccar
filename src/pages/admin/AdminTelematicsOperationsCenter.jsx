@@ -12,6 +12,7 @@ import TelematicsMap from "@/components/telematics/TelematicsMap";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import UnassignedDevicesQueue from "@/components/telematics/UnassignedDevicesQueue";
 import TelematicsDeviceAssignmentPanel from "@/components/telematics/TelematicsDeviceAssignmentPanel";
+import SafetyEventsPanel from "@/components/telematics/safety/SafetyEventsPanel";
 
 const COMMAND_STATES = ["queued", "sending", "sent", "delivered", "acknowledged", "executed", "failed", "expired"];
 
@@ -44,6 +45,8 @@ export default function AdminTelematicsOperationsCenter() {
     <div><p className="text-xs font-bold text-primary uppercase tracking-widest">Phase A Production</p><h1 className="text-2xl font-black">Telematics Operations Center</h1><p className="text-sm text-muted-foreground">Fleet health, command lifecycle, installation QA, provider health, and telematics alerts.</p></div>
 
     <section className="space-y-3"><h2 className="font-black">Fleet GPS Map</h2><TelematicsMap role="admin" devices={devices} vehicles={vehicles} hosts={hosts} bookings={bookings} height={520} showFilters showRefresh refreshLabel="Refresh Locations" onRefresh={async () => { await TelematicsService.syncTraccarPositions(); qc.invalidateQueries({ queryKey: ["ops-telematics-devices"] }); }} /></section>
+
+    <SafetyEventsPanel role="admin" title="Safety Events" />
 
     <UnassignedDevicesQueue devices={devices} vehicles={vehicles} providers={providers} role="admin" onChanged={async () => { await refetchDevices(); qc.invalidateQueries({ queryKey: ["ops-telematics-vehicles"] }); }} />
 
