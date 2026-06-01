@@ -10,6 +10,7 @@ const TEST_DEFINITIONS = {
   unlock_test: { label: 'Unlock', provider: 'supports_unlock', device: 'lock_unlock_enabled', noran: true },
   horn_test: { label: 'Horn', provider: 'supports_horn', device: 'horn_light_enabled', noran: true },
   lights_test: { label: 'Lights', provider: 'supports_lights', device: 'horn_light_enabled', noran: true },
+  alarm_test: { label: 'Alarm', provider: 'supports_horn', device: 'horn_light_enabled', noran: true },
   starter_disable_test: { label: 'Starter Disable', provider: 'supports_starter_disable', noran: true },
   starter_restore_test: { label: 'Starter Restore', provider: 'supports_starter_restore', noran: true }
 };
@@ -235,7 +236,7 @@ Deno.serve(async (req) => {
       ignition_test_passed: testSummary.ignition_acc_test === 'pass',
       lock_test_passed: testSummary.lock_test === 'pass',
       unlock_test_passed: testSummary.unlock_test === 'pass',
-      horn_light_test_passed: ['pass', 'not_supported'].includes(testSummary.horn_test) && ['pass', 'not_supported'].includes(testSummary.lights_test),
+      horn_light_test_passed: ['pass', 'not_supported'].includes(testSummary.horn_test) && ['pass', 'not_supported'].includes(testSummary.lights_test) && ['pass', 'not_supported'].includes(testSummary.alarm_test),
       kill_restore_test_passed: ['pass', 'not_supported'].includes(testSummary.starter_disable_test) && ['pass', 'not_supported'].includes(testSummary.starter_restore_test)
     };
 

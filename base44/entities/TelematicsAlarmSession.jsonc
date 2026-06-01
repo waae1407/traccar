@@ -1,0 +1,71 @@
+{
+  "name": "TelematicsAlarmSession",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "started_by": {
+      "type": "string"
+    },
+    "started_role": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "cancelled",
+        "completed",
+        "failed"
+      ],
+      "default": "active"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "max_duration_seconds": {
+      "type": "number",
+      "default": 90
+    },
+    "pulse_interval_seconds": {
+      "type": "number",
+      "default": 10
+    },
+    "max_pulses": {
+      "type": "number",
+      "default": 9
+    },
+    "pulses_sent": {
+      "type": "number",
+      "default": 0
+    },
+    "cancel_reason": {
+      "type": "string"
+    },
+    "last_command_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "telematics_device_id",
+    "provider_key",
+    "started_by",
+    "started_role"
+  ]
+}

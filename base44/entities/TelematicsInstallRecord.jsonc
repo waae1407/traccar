@@ -153,6 +153,14 @@
         "not_supported"
       ]
     },
+    "alarm_test": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "not_supported"
+      ]
+    },
     "starter_disable_test": {
       "type": "string",
       "enum": [

@@ -1,43 +1,13 @@
 import React, { useState } from "react";
-import { MapPin, Lock, Unlock, Volume2, Loader2, Navigation, Zap, ExternalLink } from "lucide-react";
+import { Volume2, Loader2, Zap } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { toast } from "sonner";
 
 const COMMANDS = [
   {
-    id: "location",
+    id: "find_my_car",
     label: "Find My Car",
-    description: "See where your car is parked right now",
-    icon: MapPin,
-    color: "#3B82F6",
-    bg: "rgba(59,130,246,0.12)",
-    border: "rgba(59,130,246,0.25)",
-    iconBg: "linear-gradient(135deg, #3B82F6, #06B6D4)",
-  },
-  {
-    id: "unlock",
-    label: "Unlock Doors",
-    description: "Tap to unlock before you get in",
-    icon: Unlock,
-    color: "#10B981",
-    bg: "rgba(16,185,129,0.12)",
-    border: "rgba(16,185,129,0.25)",
-    iconBg: "linear-gradient(135deg, #10B981, #34D399)",
-  },
-  {
-    id: "lock",
-    label: "Lock Doors",
-    description: "Secure the car when you step away",
-    icon: Lock,
-    color: "#8B5CF6",
-    bg: "rgba(139,92,246,0.12)",
-    border: "rgba(139,92,246,0.25)",
-    iconBg: "linear-gradient(135deg, #8B5CF6, #A78BFA)",
-  },
-  {
-    id: "panic",
-    label: "Honk Horn",
-    description: "Can't find it in a lot? Honk it!",
+    description: "Sends one short horn + lights pulse",
     icon: Volume2,
     color: "#F59E0B",
     bg: "rgba(245,158,11,0.12)",
@@ -91,7 +61,6 @@ function CommandCard({ cmd, onPress, loading }) {
 
 export default function TelematicsPanel({ booking }) {
   const [loading, setLoading] = useState(null);
-  const [locationData, setLocationData] = useState(null);
   const [lastResult, setLastResult] = useState(null);
 
   const isActive = ["active", "approved", "confirmed"].includes(booking.booking_status);
@@ -103,23 +72,13 @@ export default function TelematicsPanel({ booking }) {
   const handleCommand = async (command) => {
     setLoading(command);
     try {
-      const commandMap = { location: "locate", panic: "horn_lights" };
       const res = await TelematicsService.sendCommand({
-        command_type: commandMap[command] || command,
+        command_type: "alarm_pulse",
         booking_id: booking.id,
       });
 
       setLastResult({ status: res.data?.pending_acknowledgement ? "pending" : "success", command });
-      if (command === "location" && res.data?.result) {
-        setLocationData(res.data.result);
-        toast.success(res.data?.pending_acknowledgement ? "Locate command sent" : "Location retrieved");
-      } else if (command === "unlock") {
-        toast.success(res.data?.pending_acknowledgement ? "Unlock command sent" : "Doors unlocked ✓");
-      } else if (command === "lock") {
-        toast.success(res.data?.pending_acknowledgement ? "Lock command sent" : "Doors locked ✓");
-      } else if (command === "panic") {
-        toast.success(res.data?.pending_acknowledgement ? "Horn command sent" : "Horn activated ✓");
-      }
+      toast.success(res.data?.pending_acknowledgement ? "Find My Car pulse sent" : "Find My Car activated ✓");
     } catch (err) {
       setLastResult({ status: "failed", command, message: err.message || "Command failed" });
       toast.error(err.message || "Command failed");
@@ -167,7 +126,7 @@ export default function TelematicsPanel({ booking }) {
         <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
         <div>
           <p className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Remote Vehicle Controls</p>
-          <p className="text-[10px] text-white/30 mt-0.5">Control your rental from your phone · last contact shown after locate</p>
+          <p className="text-[10px] text-white/30 mt-0.5">Find your rental with one short horn + lights pulse</p>
         </div>
       </div>
 
@@ -185,29 +144,6 @@ export default function TelematicsPanel({ booking }) {
         ))}
       </div>
 
-      {/* Location result */}
-      {locationData && (
-        <div className="mx-3 mb-3 rounded-xl p-3 border border-blue-500/20"
-          style={{ background: "rgba(59,130,246,0.08)" }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Navigation className="h-3.5 w-3.5 text-blue-400" />
-            <span className="text-[11px] font-bold text-blue-400 uppercase tracking-wider">Car Located</span>
-          </div>
-          {locationData.lat && locationData.lng ? (
-            <a
-              href={`https://maps.google.com/?q=${locationData.lat},${locationData.lng}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 text-xs text-blue-300 font-semibold"
-            >
-              <ExternalLink className="h-3 w-3" />
-              {locationData.lat?.toFixed(5)}, {locationData.lng?.toFixed(5)} — Open in Maps
-            </a>
-          ) : (
-            <p className="text-xs text-white/50">{JSON.stringify(locationData)}</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }

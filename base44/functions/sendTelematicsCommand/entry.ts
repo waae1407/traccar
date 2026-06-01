@@ -1,19 +1,19 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'disable_starter', 'restore_starter', 'status'];
-const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
-const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
+const COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter', 'status'];
+const CUSTOMER_COMMANDS = ['alarm_pulse'];
+const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights', 'alarm_pulse'];
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 const TRACCAR_TEST_UNIQUE_ID = 'NR09G00002';
 const TRACCAR_TEST_DEVICE_ID = '5';
-const TRACCAR_TEST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights'];
+const TRACCAR_TEST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights', 'alarm_pulse'];
 const CAPABILITY_MAP = {
   locate: 'supports_location', status: 'supports_location', lock: 'supports_lock', unlock: 'supports_unlock',
-  horn: 'supports_horn', lights: 'supports_lights', horn_lights: 'supports_horn',
+  horn: 'supports_horn', lights: 'supports_lights', horn_lights: 'supports_horn', alarm_pulse: 'supports_horn',
   disable_starter: 'supports_starter_disable', restore_starter: 'supports_starter_restore',
 };
-const MOOVETRAX_COMMAND_MAP = { locate: 'location', status: 'location', lock: 'lock', unlock: 'unlock', horn: 'panic', lights: 'panic', horn_lights: 'panic', disable_starter: 'kill', restore_starter: 'unkill' };
-const NORAN_ACTION_MAP = { lock: '3,1', unlock: '4,1', disable_starter: '1,1', restore_starter: '1,0', horn: '2,1', lights: '2,2', horn_lights: '2,3' };
+const MOOVETRAX_COMMAND_MAP = { locate: 'location', status: 'location', lock: 'lock', unlock: 'unlock', horn: 'panic', lights: 'panic', horn_lights: 'panic', alarm_pulse: 'panic', disable_starter: 'kill', restore_starter: 'unkill' };
+const NORAN_ACTION_MAP = { lock: '3,1', unlock: '4,1', disable_starter: '1,1', restore_starter: '1,0', horn: '2,1', lights: '2,2', horn_lights: '2,3', alarm_pulse: '2,3' };
 
 function getNoranUnlockOptions(commandType, device = {}, provider = {}) {
   const isNoran = provider.provider_key === 'traccar_noran_mt20' || device.provider_key === 'traccar_noran_mt20';
@@ -316,7 +316,7 @@ Deno.serve(async (req) => {
     } else if (installerInstallTest) {
       if (!body.vin || !vehicle) return Response.json({ error: 'Installer command tests require a matched VIN.' }, { status: 403 });
       if (device.vehicle_id && device.vehicle_id !== vehicle.id) return Response.json({ error: 'Scanned device is assigned to a different vehicle.' }, { status: 403 });
-      const allowedInstallerCommands = ['lock', 'unlock', 'horn', 'lights', 'disable_starter', 'restore_starter'];
+      const allowedInstallerCommands = ['lock', 'unlock', 'horn', 'lights', 'alarm_pulse', 'disable_starter', 'restore_starter'];
       if (!allowedInstallerCommands.includes(commandType)) return Response.json({ error: 'Installer can only run install workflow test commands.' }, { status: 403 });
       if (STARTER_COMMANDS.includes(commandType) && device.installer_starter_test_enabled !== true) return Response.json({ error: 'Installer starter tests are disabled for this device.' }, { status: 403 });
     } else if (!adminDeviceCommandTest) {
@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
     const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
       company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
       vehicle_id: vehicle?.id || device.vehicle_id || '', host_id: vehicle?.host_id || device.host_id || '', booking_id: booking?.id || body.booking_id || '', renter_id: booking?.user_id || '',
-      command_type: commandType, device_unique_id: device.unique_id || '', traccar_device_id: device.traccar_device_id || '', production_command: liveNoranProduction,
+      command_type: commandType, alarm_session_id: body.alarm_session_id || '', pulse_number: Number(body.pulse_number || 0) || undefined, device_unique_id: device.unique_id || '', traccar_device_id: device.traccar_device_id || '', production_command: liveNoranProduction,
       status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
@@ -377,6 +377,12 @@ Deno.serve(async (req) => {
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
         vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_sent`, source: 'command', raw_payload: { provider_api_success: true, provider_execution_confirmed: false, response: routed.response || {} }, created_at: sentAt
       });
+      if (commandType === 'unlock') {
+        const activeAlarms = await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ vehicle_id: vehicle?.id || device.vehicle_id || '', status: 'active' });
+        for (const session of activeAlarms) {
+          await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'cancelled', ended_at: sentAt, cancel_reason: 'unlock_command_succeeded' });
+        }
+      }
       if (adminDeviceCommandTest) {
         await base44.asServiceRole.entities.ActivityEvent.create({
           event_type: 'gps.command_sent', actor_id: user.id || '', actor_email: user.email, actor_role: 'admin', target_entity: 'TelematicsDevice', target_id: device.id, vehicle_id: vehicle?.id || device.vehicle_id || '', summary: `Admin test command ${commandType} sent to ${device.unique_id || device.id}`, metadata: { command_id: commandAudit.id, dry_run: !!routed.dry_run }, source: 'admin_panel', event_status: 'success'

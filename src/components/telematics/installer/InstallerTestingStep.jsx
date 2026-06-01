@@ -16,6 +16,7 @@ const COMMAND_TESTS = [
   ['unlock_test', 'unlock', 'Unlock'],
   ['horn_test', 'horn', 'Horn'],
   ['lights_test', 'lights', 'Lights'],
+  ['alarm_test', 'alarm_pulse', 'Alarm'],
   ['starter_disable_test', 'disable_starter', 'Disable'],
   ['starter_restore_test', 'restore_starter', 'Restore'],
 ];

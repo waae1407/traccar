@@ -32,10 +32,17 @@
         "horn",
         "lights",
         "horn_lights",
+        "alarm_pulse",
         "disable_starter",
         "restore_starter",
         "status"
       ]
+    },
+    "alarm_session_id": {
+      "type": "string"
+    },
+    "pulse_number": {
+      "type": "number"
     },
     "provider_command_name": {
       "type": "string"
