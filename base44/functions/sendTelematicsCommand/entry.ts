@@ -136,8 +136,9 @@ async function enforceRateLimit(base44, deviceId, commandType, userEmail, maxPer
 async function renderTemplateExecution(template, provider, device, commandType) {
   const deviceId = sanitizeIdentifier(device.provider_device_id || device.unique_id || device.traccar_device_id || device.moovetrax_device_id);
   if (template?.transport_type === 'traccar_custom_hex') {
-    const built = buildNoranMT20Command(commandType, deviceId, template.ascii_template);
-    return { provider_command_name: template.provider_command_name || 'custom', ascii_payload: built.ascii, hex_payload: built.hex, dry_run: true, response: { dry_run: true, ascii_payload: built.ascii, hex_payload: built.hex } };
+    const noranDeviceId = sanitizeIdentifier(device.unique_id || device.device_imei);
+    const built = buildNoranMT20Command(commandType, noranDeviceId, template.ascii_template);
+    return { provider_command_name: template.provider_command_name || 'custom', ascii_payload: built.ascii, hex_payload: built.hex, dry_run: true, response: { dry_run: true, ascii_payload: built.ascii, hex_payload: built.hex, device_identifier_source: 'TelematicsDevice.unique_id' } };
   }
   if (!template || template.dry_run_only || provider.execution_mode === 'dry_run' || !provider.allow_live_commands) {
     return { provider_command_name: template?.provider_command_name || commandType, dry_run: true, response: { dry_run: true, endpoint: template?.endpoint_template || '', payload_template: template?.payload_template || {} } };
