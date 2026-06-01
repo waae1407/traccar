@@ -16,13 +16,40 @@ const MOOVETRAX_COMMAND_MAP = { locate: 'location', status: 'location', lock: 'l
 const NORAN_ACTION_MAP = { lock: '3,1', unlock: '4,1', disable_starter: '1,1', restore_starter: '1,0', horn: '2,1', lights: '2,2', horn_lights: '2,3' };
 
 function sanitizeIdentifier(value = '') { return String(value).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
-function asciiToHex(input = '') { return Array.from(input).map((char) => char.charCodeAt(0).toString(16).padStart(2, '0')).join('').toUpperCase(); }
+function bytesToHex(bytes) { return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase(); }
+function asciiToHex(input = '') { return bytesToHex(new TextEncoder().encode(input)); }
+function normalizeFixedHex(value, fallback, expectedBytes, name) {
+  const hex = String(value || fallback || '').replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+  if (hex.length !== expectedBytes * 2) throw new Error(`${name} must be exactly ${expectedBytes} bytes of hex.`);
+  return hex;
+}
+function buildMt20WrappedCommand(asciiCommand, options = {}) {
+  const sMarkHex = '0D0A2A4B5700';
+  const packetLenHex = '4400';
+  const cmdHex = '0200';
+  const optionalEnv = Deno.env.toObject();
+  const nGisIpHex = normalizeFixedHex(options.gisIpHex || optionalEnv.MT20_GIS_IP_HEX, '741E649C', 4, 'MT20_GIS_IP_HEX');
+  const nPortHex = normalizeFixedHex(options.appPortHex || optionalEnv.MT20_APP_PORT_HEX, '5B9A', 2, 'MT20_APP_PORT_HEX');
+  const sEndHex = '0D0A';
+  const sDataBytes = new TextEncoder().encode(asciiCommand);
+  if (sDataBytes.length > 50) throw new Error('MT20 sData ASCII command exceeds 50 bytes.');
+  const paddedSData = new Uint8Array(50);
+  paddedSData.set(sDataBytes);
+  const sDataHex = bytesToHex(paddedSData);
+  const fullPacketHex = `${sMarkHex}${packetLenHex}${cmdHex}${nGisIpHex}${nPortHex}${sDataHex}${sEndHex}`;
+  const totalBytes = fullPacketHex.length / 2;
+  if (sDataHex.length / 2 !== 50) throw new Error('MT20 sData must be exactly 50 bytes.');
+  if (totalBytes !== 68) throw new Error('MT20 packet must be exactly 68 bytes.');
+  if (!fullPacketHex.startsWith(sMarkHex)) throw new Error('MT20 packet has invalid sMark.');
+  if (!fullPacketHex.endsWith(sEndHex)) throw new Error('MT20 packet has invalid sEnd.');
+  return { asciiCommand, sDataHex, fullPacketHex, totalBytes };
+}
 function getClientIp(req) { return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || ''; }
 function isExpired(dateString) { return !!dateString && new Date(dateString).getTime() <= Date.now(); }
 function renderTemplate(template = '', values = {}) {
   return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (_, key) => encodeURIComponent(values[key] ?? ''));
 }
-function buildNoranMT20Command(commandType, deviceId, template) {
+function buildNoranMT20Command(commandType, deviceId, template, options = {}) {
   const now = new Date();
   const hhmmss = [now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()].map(n => String(n).padStart(2, '0')).join('');
   const cleanDeviceId = sanitizeIdentifier(deviceId);
@@ -31,6 +58,10 @@ function buildNoranMT20Command(commandType, deviceId, template) {
     : commandType === 'locate'
       ? `*KW,${cleanDeviceId},000,${hhmmss}#`
       : `*KW,${cleanDeviceId},007,${hhmmss},${NORAN_ACTION_MAP[commandType]}#`;
+  if (options.wrapMt20 === true) {
+    const wrapped = buildMt20WrappedCommand(ascii, options);
+    return { ascii, hex: wrapped.fullPacketHex, sDataHex: wrapped.sDataHex, totalBytes: wrapped.totalBytes, rawAsciiHex: asciiToHex(ascii) };
+  }
   return { ascii, hex: asciiToHex(ascii) };
 }
 function envValue(name) { return String(Deno.env.toObject()[name] || '').trim(); }
@@ -49,17 +80,18 @@ async function sendTraccarSingleDeviceLiveTest(commandType, device) {
   const username = envValue('TRACCAR_USERNAME');
   const password = envValue('TRACCAR_PASSWORD');
   if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
-  const built = buildNoranMT20Command(commandType, device.unique_id);
+  const built = buildNoranMT20Command(commandType, device.unique_id, null, { wrapMt20: true });
+  const traccarPayload = { deviceId: Number(TRACCAR_TEST_DEVICE_ID), type: 'custom', attributes: { data: built.hex } };
   const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
     method: 'POST',
     headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ deviceId: Number(TRACCAR_TEST_DEVICE_ID), type: 'custom', attributes: { data: built.hex } })
+    body: JSON.stringify(traccarPayload)
   });
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
   if (!res.ok) throw new Error(`Traccar live test command failed (${res.status})`);
-  return { provider_command_name: 'custom', ascii_payload: built.ascii, hex_payload: built.hex, response: data, live_test: true };
+  return { provider_command_name: 'custom', ascii_payload: built.ascii, hex_payload: built.hex, response: { ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes, device_identifier_source: 'TelematicsDevice.unique_id' }, live_test: true };
 }
 function makeIdempotencyKey(userEmail, deviceId, commandType) {
   const minuteBucket = Math.floor(Date.now() / 60000);
@@ -151,7 +183,7 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
   if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
   const traccarDeviceId = Number(device.traccar_device_id);
   if (!Number.isFinite(traccarDeviceId)) throw new Error('Invalid Traccar numeric device ID.');
-  const built = buildNoranMT20Command(commandType, device.unique_id, template?.ascii_template);
+  const built = buildNoranMT20Command(commandType, device.unique_id, template?.ascii_template, { wrapMt20: true });
   const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: built.hex } };
   const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
     method: 'POST',
@@ -162,7 +194,7 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
   let data;
   try { data = JSON.parse(text); } catch { data = { raw: text }; }
   if (!res.ok) throw new Error(`Traccar production command failed (${res.status})`);
-  return { provider_command_name: template?.provider_command_name || 'custom', ascii_payload: built.ascii, hex_payload: built.hex, production_command: true, response: { ...data, traccar_payload: traccarPayload, device_identifier_source: 'TelematicsDevice.unique_id' } };
+  return { provider_command_name: template?.provider_command_name || 'custom', ascii_payload: built.ascii, hex_payload: built.hex, production_command: true, response: { ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes, device_identifier_source: 'TelematicsDevice.unique_id' } };
 }
 
 async function renderTemplateExecution(template, provider, device, commandType, options = {}) {
@@ -170,8 +202,8 @@ async function renderTemplateExecution(template, provider, device, commandType, 
   if (template?.transport_type === 'traccar_custom_hex') {
     if (options.liveNoranProduction) return await sendTraccarNoranProductionCommand(commandType, device, template);
     const noranDeviceId = sanitizeIdentifier(device.unique_id || device.device_imei);
-    const built = buildNoranMT20Command(commandType, noranDeviceId, template.ascii_template);
-    return { provider_command_name: template.provider_command_name || 'custom', ascii_payload: built.ascii, hex_payload: built.hex, dry_run: true, response: { dry_run: true, ascii_payload: built.ascii, hex_payload: built.hex, device_identifier_source: 'TelematicsDevice.unique_id', simulated_traccar_payload: device.traccar_device_id ? { deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: built.hex } } : null } };
+    const built = buildNoranMT20Command(commandType, noranDeviceId, template.ascii_template, { wrapMt20: provider.provider_key === 'traccar_noran_mt20' });
+    return { provider_command_name: template.provider_command_name || 'custom', ascii_payload: built.ascii, hex_payload: built.hex, dry_run: true, response: { dry_run: true, ascii_payload: built.ascii, hex_payload: built.hex, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes, device_identifier_source: 'TelematicsDevice.unique_id', simulated_traccar_payload: device.traccar_device_id ? { deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: built.hex } } : null } };
   }
   if (!template || template.dry_run_only || provider.execution_mode === 'dry_run' || !provider.allow_live_commands) {
     return { provider_command_name: template?.provider_command_name || commandType, dry_run: true, response: { dry_run: true, endpoint: template?.endpoint_template || '', payload_template: template?.payload_template || {} } };
@@ -208,8 +240,8 @@ async function fallbackAdapter(provider, device, commandType) {
     if (!res.ok) throw new Error(`MooveTrax ${command} failed (${res.status})`);
     return { provider_command_name: command, response: data };
   }
-  const built = buildNoranMT20Command(commandType, device.unique_id || device.device_imei || device.traccar_device_id);
-  return { provider_command_name: commandType, ascii_payload: built.ascii, hex_payload: built.hex, dry_run: true, response: { dry_run: true, ascii_payload: built.ascii, hex_payload: built.hex } };
+  const built = buildNoranMT20Command(commandType, device.unique_id || device.device_imei || device.traccar_device_id, null, { wrapMt20: provider.provider_key === 'traccar_noran_mt20' });
+  return { provider_command_name: commandType, ascii_payload: built.ascii, hex_payload: built.hex, dry_run: true, response: { dry_run: true, ascii_payload: built.ascii, hex_payload: built.hex, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes } };
 }
 
 Deno.serve(async (req) => {
