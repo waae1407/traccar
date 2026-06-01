@@ -112,6 +112,7 @@ function FieldLabel({ children }) {
 
 function DeviceStep({ form, update, capabilities, deviceVerified, onScanDevice, scanMessage }) {
   const recognized = capabilities.data?.ok;
+  const device = capabilities.data?.device;
   return (
     <div className="space-y-4">
       <div>
@@ -128,40 +129,44 @@ function DeviceStep({ form, update, capabilities, deviceVerified, onScanDevice, 
           <div className="flex-1 space-y-4">
             <div>
               <h2 className="text-xl font-black">Scan Physical Device Barcode</h2>
-              <p className="mt-1 text-sm text-slate-500">Scan the QR or linear barcode on the device. Any supported provider device ID can be used.</p>
+              <p className="mt-1 text-sm text-slate-500">Scan the QR or linear barcode on the device.</p>
             </div>
             <Button type="button" onClick={onScanDevice} className="h-14 rounded-3xl bg-primary text-base font-black text-white shadow-xl shadow-pink-200 hover:bg-primary/90">
               <ScanLine className="mr-2 h-5 w-5" /> Scan Physical Device Barcode
             </Button>
+            <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Actual Device ID" value={form.actual_device_id} onChange={e => update("actual_device_id", normalizeDeviceId(e.target.value))} />
+            <Badge className={`${deviceVerified ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black`}>{deviceVerified ? "✓ Device Verified" : "Device Verification Required"}</Badge>
             {scanMessage && <p className={`text-sm font-bold ${scanMessage.type === "success" ? "text-emerald-600" : "text-red-600"}`}>{scanMessage.text}</p>}
-            <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Device barcode value" value={form.actual_device_id} onChange={e => update("actual_device_id", normalizeDeviceId(e.target.value))} />
-            <Badge className={`${deviceVerified ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black`}>{deviceVerified ? "✓ Device Found" : "Physical Device Barcode Required"}</Badge>
           </div>
         </div>
       </LuxuryCard>
 
-      <LuxuryCard className="bg-gradient-to-br from-white via-white to-pink-50/70">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <Badge className={`${recognized ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black shadow-sm`}>
-              {recognized ? "✓ Device Recognized" : capabilities.isLoading ? "Checking Device" : "Ready to Scan"}
-            </Badge>
-            <h2 className="mt-5 text-2xl font-black tracking-tight text-slate-950">{form.actual_device_id || "Actual Device ID"}</h2>
-            <p className="mt-1 text-sm text-slate-500">Status: {recognized ? "Ready For Installation" : capabilities.isError ? "Device Not Recognized" : "Awaiting Device"}</p>
+      {recognized && (
+        <LuxuryCard className="bg-gradient-to-br from-white via-white to-pink-50/70">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Badge className="rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-black text-white shadow-sm">✓ Device Recognized</Badge>
+              <h2 className="mt-5 text-2xl font-black tracking-tight text-slate-950">{device?.unique_id || form.actual_device_id}</h2>
+              <p className="mt-1 text-sm text-slate-500">Status: {device?.install_status || device?.lifecycle_status || "Ready For Installation"}</p>
+            </div>
+            <CheckCircle2 className="h-8 w-8 text-emerald-500" />
           </div>
-          {capabilities.isLoading ? <Loader2 className="h-6 w-6 animate-spin text-primary" /> : <CheckCircle2 className={`h-8 w-8 ${recognized ? "text-emerald-500" : "text-slate-300"}`} />}
-        </div>
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-            <FieldLabel>Provider</FieldLabel>
-            <p className="text-lg font-black capitalize">{providerName(form.provider_key)}</p>
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+              <FieldLabel>Device ID</FieldLabel>
+              <p className="break-all text-lg font-black">{device?.unique_id || form.actual_device_id}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+              <FieldLabel>Provider</FieldLabel>
+              <p className="text-lg font-black capitalize">{providerName(device?.provider_key || capabilities.data?.provider_key)}</p>
+            </div>
+            <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+              <FieldLabel>Model</FieldLabel>
+              <p className="text-lg font-black">{device?.model || capabilities.data?.model || "Unknown"}</p>
+            </div>
           </div>
-          <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-            <FieldLabel>Model</FieldLabel>
-            <p className="text-lg font-black">{capabilities.data?.model || "MT20"}</p>
-          </div>
-        </div>
-      </LuxuryCard>
+        </LuxuryCard>
+      )}
     </div>
   );
 }
@@ -488,7 +493,15 @@ export default function InstallerTelematicsPortal() {
     onError: (error) => setResult({ ok: false, status: "error", message: error?.response?.data?.error || error.message })
   });
 
-  const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+  const update = (key, value) => {
+    if (key === "actual_device_id") {
+      setDeviceVerified(false);
+      setScanMessage(null);
+      setForm(prev => ({ ...prev, actual_device_id: value, device_id: value, provider_key: "" }));
+      return;
+    }
+    setForm(prev => ({ ...prev, [key]: value }));
+  };
 
   const handleDeviceScan = async (rawValue) => {
     const parsed = parseDeviceBarcode(rawValue);
