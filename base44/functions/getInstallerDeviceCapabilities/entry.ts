@@ -25,20 +25,30 @@ function isSupported(definition, providerConfig, device, providerKey) {
   return false;
 }
 
+async function findDeviceByIdentifier(base44, identifier, providerKey) {
+  const fields = ['unique_id', 'device_imei', 'provider_device_id', 'traccar_device_id', 'moovetrax_device_id'];
+  for (const field of fields) {
+    const query = providerKey ? { provider_key: providerKey, [field]: identifier } : { [field]: identifier };
+    const matches = await base44.asServiceRole.entities.TelematicsDevice.filter(query);
+    if (matches[0]) return matches[0];
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const providerKey = String(body.provider_key || '').trim();
+    let providerKey = String(body.provider_key || '').trim();
     const deviceId = String(body.device_id || '').trim();
-    if (!providerKey || !deviceId) return Response.json({ error: 'provider_key and device_id are required' }, { status: 400 });
+    if (!deviceId) return Response.json({ error: 'device_id is required' }, { status: 400 });
 
-    const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: providerKey, unique_id: deviceId });
-    if (!devices[0]) return Response.json({ error: 'Device not found' }, { status: 404 });
+    const device = await findDeviceByIdentifier(base44, deviceId, providerKey);
+    if (!device) return Response.json({ error: 'Device not found' }, { status: 404 });
 
+    providerKey = device.provider_key || providerKey || 'unknown';
     const configs = await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: providerKey });
     const config = configs[0] || {};
-    const device = devices[0];
     const tests = {};
     const labels = {};
     for (const [test, definition] of Object.entries(TEST_DEFINITIONS)) {
@@ -46,7 +56,7 @@ Deno.serve(async (req) => {
       labels[test] = definition.label;
     }
 
-    return Response.json({ ok: true, provider_key: providerKey, device_id: deviceId, model: device.model || '', tests, labels });
+    return Response.json({ ok: true, provider_key: providerKey, device_id: deviceId, model: device.model || '', device, tests, labels });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
