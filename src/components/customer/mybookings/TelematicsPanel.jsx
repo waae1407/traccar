@@ -98,22 +98,23 @@ export default function TelematicsPanel({ booking }) {
   const [loading, setLoading] = useState(null);
   const [lastResult, setLastResult] = useState(null);
 
-  const isActive = ["active", "approved", "confirmed"].includes(booking.booking_status) && booking.payment_status !== "failed";
+  const isActive = ["active", "approved", "confirmed"].includes(booking.booking_status) && booking.payment_status === "paid";
   const isKilled = booking.moovetrax_kill_active || booking.starter_disabled;
   const hasDevice = !!booking.vehicle_id;
 
   if (!isActive || !hasDevice) return null;
 
   const handleCommand = async (command) => {
+    const commandConfig = COMMANDS.find((item) => item.id === command);
     setLoading(command);
     try {
       const res = await TelematicsService.sendCommand({
-        command_type: COMMANDS.find((item) => item.id === command)?.command_type || "alarm_pulse",
+        command_type: commandConfig?.command_type || "alarm_pulse",
         booking_id: booking.id,
       });
 
-      setLastResult({ status: res.data?.pending_acknowledgement ? "pending" : "success", command });
-      toast.success(res.data?.pending_acknowledgement ? "Find My Car pulse sent" : "Find My Car activated ✓");
+      setLastResult({ status: res.data?.pending_acknowledgement ? "pending" : "success", command: commandConfig?.label || command });
+      toast.success(res.data?.pending_acknowledgement ? `${commandConfig?.label || 'Command'} sent` : `${commandConfig?.label || 'Command'} activated ✓`);
     } catch (err) {
       setLastResult({ status: "failed", command, message: err.message || "Command failed" });
       toast.error(err.message || "Command failed");

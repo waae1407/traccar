@@ -1,53 +1,28 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const ALARM_ASCII_ACTION = '2,3';
 const DEFAULT_MAX_DURATION_SECONDS = 90;
 const DEFAULT_PULSE_INTERVAL_SECONDS = 10;
 const DEFAULT_MAX_PULSES = 9;
 
-function sanitizeIdentifier(value = '') { return String(value).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
-function bytesToHex(bytes) { return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase(); }
-function asciiToHex(input = '') { return bytesToHex(new TextEncoder().encode(input)); }
-function normalizeFixedHex(value, fallback, expectedBytes, name) {
-  const hex = String(value || fallback || '').replace(/[^a-fA-F0-9]/g, '').toUpperCase();
-  if (hex.length !== expectedBytes * 2) throw new Error(`${name} must be exactly ${expectedBytes} bytes of hex.`);
-  return hex;
-}
-function buildMt20WrappedCommand(asciiCommand) {
-  const optionalEnv = Deno.env.toObject();
-  const sMarkHex = '0D0A2A4B5700';
-  const packetLenHex = '4400';
-  const cmdHex = '0200';
-  const nGisIpHex = normalizeFixedHex(optionalEnv.MT20_GIS_IP_HEX, '741E649C', 4, 'MT20_GIS_IP_HEX');
-  const nPortHex = normalizeFixedHex(optionalEnv.MT20_APP_PORT_HEX, '5B9A', 2, 'MT20_APP_PORT_HEX');
-  const sEndHex = '0D0A';
-  const sDataBytes = new TextEncoder().encode(asciiCommand);
-  const paddedSData = new Uint8Array(50);
-  paddedSData.set(sDataBytes);
-  const sDataHex = bytesToHex(paddedSData);
-  return { ascii: asciiCommand, hex: `${sMarkHex}${packetLenHex}${cmdHex}${nGisIpHex}${nPortHex}${sDataHex}${sEndHex}`, sDataHex };
-}
-function buildAlarmPulse(deviceId) {
-  const now = new Date();
-  const hhmmss = [now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()].map(n => String(n).padStart(2, '0')).join('');
-  const ascii = `*KW,${sanitizeIdentifier(deviceId)},007,${hhmmss},${ALARM_ASCII_ACTION}#`;
-  return buildMt20WrappedCommand(ascii);
-}
-function joinUrl(baseUrl, path) { return `${baseUrl.replace(/\/+$/, '')}${path}`; }
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function isReturnState(vehicle) { return ['Dropoff Submitted', 'Return Pending Host Review', 'Retired'].includes(vehicle?.status); }
 
 async function resolveContext(base44, body) {
   let vehicle = null;
   let device = null;
-  if (body.vehicle_id) vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: body.vehicle_id }))[0] || null;
-  if (body.telematics_device_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] || null;
+  if (body.vehicle_id) {
+    try { vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: body.vehicle_id }))[0] || null; } catch { vehicle = null; }
+  }
+  if (body.telematics_device_id) {
+    try { device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] || null; } catch { device = null; }
+  }
   if (!device && vehicle) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ vehicle_id: vehicle.id }))[0] || null;
-  if (!vehicle && device?.vehicle_id) vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || null;
+  if (!vehicle && device?.vehicle_id) {
+    try { vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || null; } catch { vehicle = null; }
+  }
   if (!vehicle) throw new Error('Vehicle not found.');
   if (!device) throw new Error('No telematics device is assigned to this vehicle.');
-  const provider = (await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: device.provider_key }))[0] || {};
-  return { vehicle, device, provider };
+  return { vehicle, device };
 }
 async function assertPermission(base44, user, vehicle) {
   if (user.role === 'admin') return;
@@ -75,7 +50,6 @@ async function runAlarmCycle(base44, sessionId) {
     if (!session || session.status !== 'active') return;
     const device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: session.telematics_device_id }))[0];
     const vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: session.vehicle_id }))[0];
-    const provider = (await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: session.provider_key }))[0] || {};
     if (!device || device.online_status === 'offline') {
       await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'failed', ended_at: new Date().toISOString(), cancel_reason: 'device_offline' });
       return;
@@ -85,7 +59,7 @@ async function runAlarmCycle(base44, sessionId) {
       return;
     }
     try {
-      await sendPulse(base44, { session, vehicle, device, provider, pulseNumber: pulse });
+      await sendPulse(base44, { session, vehicle, pulseNumber: pulse });
     } catch (error) {
       await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'failed', ended_at: new Date().toISOString(), cancel_reason: error.message });
       return;
@@ -104,7 +78,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
-    const { vehicle, device, provider } = await resolveContext(base44, body);
+    const { vehicle, device } = await resolveContext(base44, body);
     await assertPermission(base44, user, vehicle);
     if (device.online_status === 'offline') return Response.json({ error: 'Device is offline.' }, { status: 400 });
     const active = await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ vehicle_id: vehicle.id, status: 'active' });
@@ -126,7 +100,7 @@ Deno.serve(async (req) => {
       pulses_sent: 0
     });
     try {
-      await sendPulse(base44, { session, vehicle, device, provider, pulseNumber: 1 });
+      await sendPulse(base44, { session, vehicle, pulseNumber: 1 });
     } catch (error) {
       await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'failed', ended_at: new Date().toISOString(), cancel_reason: error.message });
       return Response.json({ error: error.message }, { status: 500 });
@@ -137,6 +111,7 @@ Deno.serve(async (req) => {
     else cycle.catch((error) => console.error('[alarm-cycle]', error.message));
     return Response.json({ ok: true, session: refreshedSession });
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    const status = error.message === 'Vehicle not found.' || error.message === 'No telematics device is assigned to this vehicle.' ? 404 : 500;
+    return Response.json({ error: error.message }, { status });
   }
 });

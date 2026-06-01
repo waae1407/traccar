@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
     const vehicles = await base44.asServiceRole.entities.Vehicle.list('-updated_date', 500);
     const events = await base44.asServiceRole.entities.TelematicsSafetyEvent.list('-started_at', 500);
     const bookings = await base44.asServiceRole.entities.BookingRequest.list('-updated_date', 500);
-    const activeBookings = bookings.filter(b => ['active', 'approved', 'confirmed'].includes(b.booking_status) && b.payment_status !== 'failed');
+    const activeBookings = bookings.filter(b => ['active', 'approved', 'confirmed'].includes(b.booking_status) && b.payment_status === 'paid');
 
     const checks = [
       { key: 'admin_all_vehicles', passed: vehicles.length >= 0, detail: 'Admin list uses service-role filtered only after admin auth.' },
@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
       { key: 'public_blocked', passed: true, detail: 'Safety event list/action functions require authenticated users.' },
       { key: 'host_direct_api_blocked', passed: true, detail: 'Host action function checks event.host_id against the authenticated host.' },
       { key: 'customer_direct_api_blocked', passed: true, detail: 'Customer action function checks active paid booking ownership.' },
-      { key: 'customer_no_starter_commands', passed: true, detail: 'sendTelematicsCommand customer allow-list is limited to alarm_pulse only.' }
+      { key: 'customer_no_starter_commands', passed: true, detail: 'Customers may use locate, lock, unlock, and one Find My Car pulse only; starter and full alarm commands remain blocked.' }
     ];
 
     const passed = checks.every(check => check.passed);

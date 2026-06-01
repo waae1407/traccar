@@ -89,28 +89,8 @@ function isTraccarSingleDeviceLiveTest(provider, device, commandType) {
     && !STARTER_COMMANDS.includes(commandType);
 }
 async function sendTraccarSingleDeviceLiveTest(commandType, device) {
-  const baseUrl = envValue('TRACCAR_BASE_URL');
-  const username = envValue('TRACCAR_USERNAME');
-  const password = envValue('TRACCAR_PASSWORD');
-  if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
-  const unlockOptions = getNoranUnlockOptions(commandType, device, { provider_key: device.provider_key });
-  const builtCommands = buildNoranCommandBatch(commandType, device.unique_id, null, { wrapMt20: true, ...unlockOptions });
-  const responses = [];
-  for (const built of builtCommands) {
-    const traccarPayload = { deviceId: Number(TRACCAR_TEST_DEVICE_ID), type: 'custom', attributes: { data: built.hex } };
-    const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
-      method: 'POST',
-      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(traccarPayload)
-    });
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); } catch { data = { raw: text }; }
-    if (!res.ok) throw new Error(`Traccar live test command failed (${res.status})`);
-    responses.push({ ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes });
-  }
-  const first = builtCommands[0];
-  return { provider_command_name: 'custom', ascii_payload: first.ascii, hex_payload: first.hex, response: { responses, noran_command_count: builtCommands.length, unlock_disarms_alarm: unlockOptions.unlockDisarmsAlarm, unlock_double_pulse_enabled: unlockOptions.unlockDoublePulse, device_identifier_source: 'TelematicsDevice.unique_id' }, live_test: true };
+  const routed = await sendTraccarNoranProductionCommand(commandType, { ...device, traccar_device_id: TRACCAR_TEST_DEVICE_ID }, null);
+  return { ...routed, live_test: true };
 }
 function makeIdempotencyKey(userEmail, deviceId, commandType, options = {}) {
   if (options.alarmSessionId) return `${userEmail}:${deviceId}:${commandType}:alarm:${options.alarmSessionId}:${options.pulseNumber || 0}`;
@@ -166,11 +146,11 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
   }
   if (user.role === 'admin') return null;
   if (booking && booking.user_email === user.email) {
-    if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
-    const activeStatuses = ['active', 'approved', 'confirmed'];
-    if (!activeStatuses.includes(booking.booking_status)) return 'Vehicle controls are only available for active rentals.';
-    if (booking.payment_status === 'failed' || ['payment_due', 'suspended', 'completed', 'cancelled'].includes(booking.booking_status) || booking.starter_disabled || booking.moovetrax_kill_active) return 'Vehicle controls are unavailable for this booking.';
-    return null;
+  if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
+  const activeStatuses = ['active', 'approved', 'confirmed'];
+  if (!activeStatuses.includes(booking.booking_status)) return 'Vehicle controls are only available for active rentals.';
+  if (booking.payment_status !== 'paid' || ['payment_due', 'suspended', 'completed', 'cancelled'].includes(booking.booking_status) || booking.starter_disabled || booking.moovetrax_kill_active) return 'Vehicle controls are unavailable for this booking.';
+  return null;
   }
   if (vehicle.host_id) {
     const host = (await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }))[0];
@@ -189,7 +169,8 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
   if (user.role === 'installer') return commandType === 'status' || commandType === 'locate' ? null : 'Installers can only run installation checks.';
   return 'Forbidden.';
 }
-async function enforceRateLimit(base44, deviceId, commandType, userEmail, maxPerMinute) {
+async function enforceRateLimit(base44, deviceId, commandType, userEmail, maxPerMinute, options = {}) {
+  if (options.alarmSessionId) return false;
   const recent = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: deviceId, requested_by: userEmail });
   const cutoff = Date.now() - 60 * 1000;
   const recentInWindow = recent.filter(cmd => new Date(cmd.created_date || cmd.created_at || 0).getTime() > cutoff && !['failed', 'expired', 'blocked'].includes(cmd.queue_status || cmd.status));
@@ -338,13 +319,13 @@ Deno.serve(async (req) => {
     if (capability && provider[capability] === false) return Response.json({ error: 'Provider does not support this command.' }, { status: 400 });
     if (provider.execution_mode === 'production' && !provider.allow_live_commands) return Response.json({ error: 'Live commands are disabled for this provider.' }, { status: 400 });
     const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
-    if (installerInstallTest && provider.provider_key === 'traccar_noran_mt20' && provider.execution_mode === 'production' && provider.allow_live_commands === true && !liveNoranProduction) {
+    if (installerInstallTest && provider.provider_key === 'traccar_noran_mt20' && !liveNoranProduction) {
       return Response.json({ error: 'Live installer command testing is disabled for this device. Enable production commands for this device before sending installer test commands.' }, { status: 403 });
     }
     if (provider.provider_key === 'traccar_noran_mt20' && provider.execution_mode === 'production' && provider.allow_live_commands === true && device.production_commands_enabled === true && !liveNoranProduction) {
       return Response.json({ error: STARTER_COMMANDS.includes(commandType) ? 'Starter production commands are blocked for this device/provider scope.' : 'Noran production command is not allowed for this device.' }, { status: 403 });
     }
-    if (await enforceRateLimit(base44, device.id, commandType, user.email, provider.max_commands_per_minute)) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.' }, { status: 429 });
+    if (await enforceRateLimit(base44, device.id, commandType, user.email, provider.max_commands_per_minute, { alarmSessionId: body.alarm_session_id || '' })) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.' }, { status: 429 });
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
@@ -386,7 +367,7 @@ Deno.serve(async (req) => {
         wrapped_payload: routed.hex_payload || '',
         sData_hex: routed.response?.sData_hex || routed.response?.responses?.[0]?.sData_hex || '',
         transmission_format: routed.hex_payload ? 'mt20_wrapped_hex' : routed.dry_run ? 'dry_run' : 'provider_api',
-        actual_transmitted_payload: routed.response?.traccar_payload || routed.response?.responses?.map((item) => item.traccar_payload).filter(Boolean) || {},
+        actual_transmitted_payload: routed.response?.traccar_payload || { traccar_payloads: routed.response?.responses?.map((item) => item.traccar_payload).filter(Boolean) || [] },
         production_command: !!routed.production_command,
         acknowledgement_source: 'provider_api_response', provider_response: routed.response || {}
       });
