@@ -225,12 +225,12 @@ function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound,
       )}
 
       {vinNotFound && (
-        <LuxuryCard className="border-red-100 bg-gradient-to-br from-white to-red-50">
+        <LuxuryCard className="border-yellow-100 bg-gradient-to-br from-white to-yellow-50">
           <div className="flex gap-4">
-            <XCircle className="h-8 w-8 flex-shrink-0 text-red-500" />
+            <Clock className="h-8 w-8 flex-shrink-0 text-yellow-500" />
             <div>
-              <h2 className="text-2xl font-black text-red-700">Vehicle Not Found</h2>
-              <p className="mt-2 text-sm font-bold text-red-600">Vehicle VIN not found in uRideHub.</p>
+              <h2 className="text-2xl font-black text-yellow-700">Vehicle Not Found Yet</h2>
+              <p className="mt-2 text-sm font-bold text-yellow-700">Installation can continue. uRideHub admin will link this device when the vehicle is added.</p>
             </div>
           </div>
         </LuxuryCard>
@@ -539,6 +539,7 @@ export default function InstallerTelematicsPortal() {
 
   const deviceReady = deviceVerified && !!capabilities.data?.ok;
   const vehicleMatched = !!vehicleLookup.data?.matched;
+  const vinEntered = vinValid && !vehicleLookup.isLoading;
   const vinNotFound = vinValid && !vehicleLookup.isLoading && vehicleLookup.data?.matched === false;
   const requiredPhotoCount = Object.values(photoSlots).filter(Boolean).length;
   const photosReady = requiredPhotoCount === 3;
@@ -552,7 +553,7 @@ export default function InstallerTelematicsPortal() {
 
   const completed = {
     device: deviceReady,
-    vehicle: vehicleMatched,
+    vehicle: vinEntered,
     photos: photosReady && namesReady,
     testing: testsReady,
     complete: result?.status === "completed"
@@ -560,7 +561,7 @@ export default function InstallerTelematicsPortal() {
 
   const readyItems = [
     { label: "Physical device barcode scanned", done: deviceVerified },
-    { label: "VIN matched", done: vehicleMatched },
+    { label: vehicleMatched ? "VIN matched" : "VIN entered", done: vinEntered },
     { label: "Required photos uploaded", done: photosReady },
     { label: "Installer name captured", done: namesReady },
     { label: "All supported tests passed", done: testsReady },
@@ -596,7 +597,7 @@ export default function InstallerTelematicsPortal() {
     submit.mutate({ ...form, device_id: form.actual_device_id, vin: form.vin.toUpperCase() });
   };
 
-  const canAdvance = [deviceReady, vehicleMatched, photosReady && namesReady, testsReady, true][currentStep];
+  const canAdvance = [deviceReady, vinEntered, photosReady && namesReady, testsReady, true][currentStep];
 
   if (result?.status === "completed") {
     return <SuccessScreen result={result} form={form} vehicleLookup={vehicleLookup} />;

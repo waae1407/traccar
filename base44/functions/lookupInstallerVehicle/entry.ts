@@ -62,19 +62,19 @@ Deno.serve(async (req) => {
 
     if (!vehicle) {
       await upsertVinAlert(base44, {
-        alert_type: 'vin_mismatch_install',
-        severity: 'high',
+        alert_type: 'vin_not_found_installation',
+        severity: 'warning',
         status: 'new',
-        title: 'Vehicle VIN not found during install',
-        message: `Installer scanned VIN ${vin}, but it was not found in uRideHub.`,
-        recommended_action: 'Verify the vehicle inventory record before installation continues.',
+        title: 'Vehicle VIN not found during installation',
+        message: `VIN ${vin} was entered for device ${body.actual_device_id || body.device_id || ''}, but no matching vehicle exists yet.`,
+        recommended_action: 'Add vehicle with matching VIN or link device manually',
         domain: 'installers',
         source_entity_type: 'Vehicle',
         source_entity_id: vin,
         provider_key: String(body.provider_key || ''),
         dedupe_key: `installer_vin_not_found:${vin}`,
         first_seen_at: new Date().toISOString(),
-        metadata: { vin, actual_device_id: body.actual_device_id || body.device_id || '', expected_device_id: body.expected_device_id || '' }
+        metadata: { vin, actual_device_id: body.actual_device_id || body.device_id || '' }
       });
     }
 

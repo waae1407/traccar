@@ -14,6 +14,17 @@
     "vin": {
       "type": "string"
     },
+    "vin_entered": {
+      "type": "string"
+    },
+    "vehicle_match_status": {
+      "type": "string",
+      "enum": [
+        "matched",
+        "pending_vehicle_link"
+      ],
+      "default": "matched"
+    },
     "assigned_installer_email": {
       "type": "string"
     },

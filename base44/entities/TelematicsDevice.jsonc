@@ -56,6 +56,7 @@
         "assigned",
         "installation_started",
         "installation_completed",
+        "installation_completed_unlinked",
         "live_ready",
         "live_enabled",
         "suspended",

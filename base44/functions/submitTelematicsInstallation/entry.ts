@@ -62,6 +62,30 @@ async function safeSendEmail(base44, payload) {
   }
 }
 
+async function upsertVinLinkAlert(base44, { vin, device, record }) {
+  const dedupeKey = `installer_vin_not_found:${vin}`;
+  const payload = {
+    alert_type: 'vin_not_found_installation',
+    severity: 'warning',
+    status: 'new',
+    title: 'Vehicle VIN not found during installation',
+    message: `VIN ${vin} was entered for device ${device.unique_id || device.id}, but no matching vehicle exists yet.`,
+    recommended_action: 'Add vehicle with matching VIN or link device manually',
+    domain: 'installers',
+    source_entity_type: 'TelematicsInstallRecord',
+    source_entity_id: record.id,
+    provider_key: device.provider_key,
+    telematics_device_id: device.id,
+    install_record_id: record.id,
+    dedupe_key: dedupeKey,
+    first_seen_at: new Date().toISOString(),
+    metadata: { vin, device_id: device.unique_id || device.id, vehicle_match_status: 'pending_vehicle_link' }
+  };
+  const existing = await base44.asServiceRole.entities.OperationalAlert.filter({ dedupe_key: dedupeKey });
+  if (existing[0]) return await base44.asServiceRole.entities.OperationalAlert.update(existing[0].id, { ...payload, repeat_count: Number(existing[0].repeat_count || 1) + 1, last_duplicate_at: new Date().toISOString(), status: existing[0].status === 'resolved' ? 'new' : existing[0].status });
+  return await base44.asServiceRole.entities.OperationalAlert.create(payload);
+}
+
 async function notify(base44, { type, host, device, vehicle, record, failedTests }) {
   const subject = type === 'completed' ? 'Telematics installation completed' : type === 'failed' ? 'Telematics installation failed' : 'Telematics VIN not found';
   const rows = [
@@ -143,11 +167,14 @@ Deno.serve(async (req) => {
     const vehicle = vehicles[0];
     const existing = await base44.asServiceRole.entities.TelematicsInstallRecord.filter({ telematics_device_id: device.id });
 
+    const vehicleMatchStatus = vehicle ? 'matched' : 'pending_vehicle_link';
     const basePayload = {
       company_id: device.company_id || vehicle?.company_id || '',
-      host_id: vehicle?.host_id || device.host_id || '',
-      vehicle_id: vehicle?.id || device.vehicle_id || '',
+      host_id: vehicle?.host_id || '',
+      vehicle_id: vehicle?.id || '',
       vin,
+      vin_entered: vin,
+      vehicle_match_status: vehicleMatchStatus,
       telematics_device_id: device.id,
       provider_key: providerKey,
       device_unique_id: device.unique_id,
@@ -159,16 +186,6 @@ Deno.serve(async (req) => {
       qa_status: 'not_required',
       notes: String(body.installation_notes || '')
     };
-
-    if (!vehicle) {
-      const unmatchedPayload = { ...basePayload, install_status: 'unmatched_vin' };
-      const record = existing[0]
-        ? await base44.asServiceRole.entities.TelematicsInstallRecord.update(existing[0].id, unmatchedPayload)
-        : await base44.asServiceRole.entities.TelematicsInstallRecord.create(unmatchedPayload);
-      await base44.asServiceRole.entities.TelematicsDevice.update(device.id, { install_status: 'in_progress', lifecycle_status: 'installation_started' });
-      await notify(base44, { type: 'unmatched', device, record });
-      return Response.json({ ok: false, status: 'unmatched_vin', message: 'VIN not found in uRideHub. Admin review required before this device can be completed.', record });
-    }
 
     const testSummary = {};
     const failedTests = [];
@@ -185,16 +202,16 @@ Deno.serve(async (req) => {
     if (failedTests.length) return Response.json({ error: 'All supported capability tests must pass before completing installation' }, { status: 400 });
 
     await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-      vehicle_id: vehicle.id,
-      host_id: vehicle.host_id || '',
-      assigned_status: 'assigned',
+      vehicle_id: vehicle?.id || '',
+      host_id: vehicle?.host_id || '',
+      assigned_status: vehicle ? 'assigned' : 'unassigned',
       install_status: failedTests.length ? 'failed' : 'installed',
-      lifecycle_status: failedTests.length ? 'installation_started' : 'installation_completed',
+      lifecycle_status: failedTests.length ? 'installation_started' : (vehicle ? 'installation_completed' : 'installation_completed_unlinked'),
       installation_completed_at: failedTests.length ? device.installation_completed_at || '' : now
     });
 
     let host = null;
-    if (vehicle.host_id) {
+    if (vehicle?.host_id) {
       const hosts = await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id });
       host = hosts[0] || null;
     }
@@ -202,8 +219,8 @@ Deno.serve(async (req) => {
     const status = failedTests.length ? 'failed' : 'completed';
     const payload = {
       ...basePayload,
-      host_id: vehicle.host_id || '',
-      vehicle_id: vehicle.id,
+      host_id: vehicle?.host_id || '',
+      vehicle_id: vehicle?.id || '',
       install_status: status,
       installation_completed_at: failedTests.length ? existing[0]?.installation_completed_at || '' : now,
       test_summary: testSummary,
@@ -227,15 +244,25 @@ Deno.serve(async (req) => {
       : await base44.asServiceRole.entities.TelematicsInstallRecord.create(payload);
 
     await base44.asServiceRole.entities.TelematicsEvent.create({
-      company_id: device.company_id || vehicle.company_id || '',
+      company_id: device.company_id || vehicle?.company_id || '',
       telematics_device_id: device.id,
       provider_key: providerKey,
-      vehicle_id: vehicle.id,
+      vehicle_id: vehicle?.id || '',
       event_type: failedTests.length ? 'installation_failed' : 'installation_completed',
       source: 'installer',
       raw_payload: { install_record_id: record.id, vin, failed_tests: failedTests, installer: payload.installer_name },
       created_at: now
     });
+
+    if (!vehicle) {
+      await upsertVinLinkAlert(base44, { vin, device, record });
+      await safeSendEmail(base44, {
+        to: ADMIN_EMAIL,
+        subject: 'Vehicle VIN not found during installation',
+        body: `<p>Installation completed for device ${device.unique_id || device.id}, but VIN ${vin} is not in uRideHub yet.</p><p>Add vehicle with matching VIN or link device manually.</p>`
+      });
+      return Response.json({ ok: true, status, pending_vehicle_link: true, message: 'VIN not found yet. Installation may continue. uRideHub admin will link this device once the vehicle is added.', record, vehicle: null });
+    }
 
     await notify(base44, { type: status, host, device, vehicle, record, failedTests });
     return Response.json({ ok: true, status, message: failedTests.length ? 'Installation test failed. Admin/host has been notified.' : 'Installation complete. Admin/host has been notified.', record, vehicle });
