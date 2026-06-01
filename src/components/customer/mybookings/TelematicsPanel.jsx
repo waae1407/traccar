@@ -1,12 +1,46 @@
 import React, { useState } from "react";
-import { Volume2, Loader2, Zap } from "lucide-react";
+import { Volume2, Loader2, Zap, MapPin, Lock, Unlock } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import CustomerSafetyCheck from "@/components/telematics/safety/CustomerSafetyCheck";
 import { toast } from "sonner";
 
 const COMMANDS = [
   {
+    id: "locate",
+    command_type: "locate",
+    label: "Locate",
+    description: "Refresh vehicle location",
+    icon: MapPin,
+    color: "#38BDF8",
+    bg: "rgba(56,189,248,0.12)",
+    border: "rgba(56,189,248,0.25)",
+    iconBg: "linear-gradient(135deg, #0284C7, #38BDF8)",
+  },
+  {
+    id: "lock",
+    command_type: "lock",
+    label: "Lock",
+    description: "Lock your rental vehicle",
+    icon: Lock,
+    color: "#A78BFA",
+    bg: "rgba(167,139,250,0.12)",
+    border: "rgba(167,139,250,0.25)",
+    iconBg: "linear-gradient(135deg, #7C3AED, #A78BFA)",
+  },
+  {
+    id: "unlock",
+    command_type: "unlock",
+    label: "Unlock",
+    description: "Unlock your rental vehicle",
+    icon: Unlock,
+    color: "#34D399",
+    bg: "rgba(52,211,153,0.12)",
+    border: "rgba(52,211,153,0.25)",
+    iconBg: "linear-gradient(135deg, #059669, #34D399)",
+  },
+  {
     id: "find_my_car",
+    command_type: "alarm_pulse",
     label: "Find My Car",
     description: "Sends one short horn + lights pulse",
     icon: Volume2,
@@ -74,7 +108,7 @@ export default function TelematicsPanel({ booking }) {
     setLoading(command);
     try {
       const res = await TelematicsService.sendCommand({
-        command_type: "alarm_pulse",
+        command_type: COMMANDS.find((item) => item.id === command)?.command_type || "alarm_pulse",
         booking_id: booking.id,
       });
 
@@ -129,7 +163,7 @@ export default function TelematicsPanel({ booking }) {
         <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
         <div>
           <p className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Remote Vehicle Controls</p>
-          <p className="text-[10px] text-white/30 mt-0.5">Find your rental with one short horn + lights pulse</p>
+          <p className="text-[10px] text-white/30 mt-0.5">Locate, lock, unlock, or find your rental during an active paid booking</p>
         </div>
       </div>
 

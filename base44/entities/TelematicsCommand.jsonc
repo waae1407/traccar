@@ -66,6 +66,26 @@
     "hex_payload": {
       "type": "string"
     },
+    "wrapped_payload": {
+      "type": "string"
+    },
+    "sData_hex": {
+      "type": "string"
+    },
+    "transmission_format": {
+      "type": "string",
+      "enum": [
+        "mt20_wrapped_hex",
+        "plain_ascii",
+        "provider_api",
+        "dry_run",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "actual_transmitted_payload": {
+      "type": "object"
+    },
     "request_payload": {
       "type": "object"
     },

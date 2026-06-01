@@ -55,73 +55,17 @@ async function assertPermission(base44, user, vehicle) {
   const host = vehicle.host_id ? (await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }))[0] : null;
   if (!host || (host.email !== user.email && host.user_id !== user.id)) throw new Error('Host can only trigger alarm for owned vehicles.');
 }
-async function sendPulse(base44, { session, vehicle, device, provider, pulseNumber }) {
-  const now = new Date().toISOString();
-  const built = buildAlarmPulse(device.unique_id || device.device_imei || device.traccar_device_id);
-  let response = { dry_run: true };
-  let status = 'sent';
-  let failureReason = '';
-  try {
-    if (provider.provider_key === 'traccar_noran_mt20' && provider.execution_mode === 'production' && provider.allow_live_commands === true && device.traccar_device_id) {
-      const baseUrl = String(Deno.env.get('TRACCAR_BASE_URL') || '');
-      const username = String(Deno.env.get('TRACCAR_USERNAME') || '');
-      const password = String(Deno.env.get('TRACCAR_PASSWORD') || '');
-      if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
-      const traccarPayload = { deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: built.hex } };
-      const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
-        method: 'POST',
-        headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify(traccarPayload)
-      });
-      const text = await res.text();
-      try { response = JSON.parse(text); } catch { response = { raw: text }; }
-      response.traccar_payload = traccarPayload;
-      if (!res.ok) throw new Error(`Traccar alarm pulse failed (${res.status})`);
-    }
-  } catch (error) {
-    status = 'failed';
-    failureReason = error.message;
-    response = { error: error.message };
-  }
-  const command = await base44.asServiceRole.entities.TelematicsCommand.create({
-    company_id: vehicle.company_id || device.company_id || '',
-    telematics_device_id: device.id,
-    provider_key: device.provider_key,
+async function sendPulse(base44, { session, vehicle, pulseNumber }) {
+  const response = await base44.functions.invoke('sendTelematicsCommand', {
     vehicle_id: vehicle.id,
-    host_id: vehicle.host_id || device.host_id || '',
     command_type: 'alarm_pulse',
     alarm_session_id: session.id,
     pulse_number: pulseNumber,
-    device_unique_id: device.unique_id || '',
-    traccar_device_id: device.traccar_device_id || '',
-    ascii_payload: built.ascii,
-    hex_payload: built.hex,
-    status,
-    queue_status: status,
-    confirmation_status: status === 'sent' ? 'sent' : 'failed',
-    idempotency_key: `alarm:${session.id}:${pulseNumber}`,
-    requested_by: session.started_by,
-    requested_role: session.started_role,
-    created_at: now,
-    sent_at: now,
-    failed_at: status === 'failed' ? now : '',
-    failure_reason: failureReason,
-    provider_response: response,
-    request_payload: { alarm_session_id: session.id, pulse_number: pulseNumber, software_alarm_mode: true }
+    source: 'software_alarm_mode'
   });
-  await base44.asServiceRole.entities.TelematicsEvent.create({
-    company_id: vehicle.company_id || device.company_id || '',
-    telematics_device_id: device.id,
-    provider_key: device.provider_key,
-    vehicle_id: vehicle.id,
-    event_type: status === 'sent' ? 'alarm_pulse_sent' : 'alarm_pulse_failed',
-    source: 'command',
-    raw_payload: { alarm_session_id: session.id, pulse_number: pulseNumber, command_id: command.id, response },
-    created_at: now
-  });
-  await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { pulses_sent: pulseNumber, last_command_id: command.id });
-  if (status === 'failed') throw new Error(failureReason || 'Alarm pulse failed.');
-  return command;
+  const commandId = response?.data?.command_id || '';
+  await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { pulses_sent: pulseNumber, last_command_id: commandId });
+  return response.data;
 }
 async function runAlarmCycle(base44, sessionId) {
   const initialSession = (await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ id: sessionId }))[0];
