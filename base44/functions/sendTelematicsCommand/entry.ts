@@ -15,6 +15,19 @@ const CAPABILITY_MAP = {
 const MOOVETRAX_COMMAND_MAP = { locate: 'location', status: 'location', lock: 'lock', unlock: 'unlock', horn: 'panic', lights: 'panic', horn_lights: 'panic', disable_starter: 'kill', restore_starter: 'unkill' };
 const NORAN_ACTION_MAP = { lock: '3,1', unlock: '4,1', disable_starter: '1,1', restore_starter: '1,0', horn: '2,1', lights: '2,2', horn_lights: '2,3' };
 
+function getNoranUnlockOptions(commandType, device = {}, provider = {}) {
+  const isNoran = provider.provider_key === 'traccar_noran_mt20' || device.provider_key === 'traccar_noran_mt20';
+  return {
+    unlockDisarmsAlarm: commandType === 'unlock' && isNoran && device.unlock_disarms_alarm !== false,
+    unlockDoublePulse: commandType === 'unlock' && isNoran && device.unlock_double_pulse_enabled === true,
+  };
+}
+
+function buildNoranCommandBatch(commandType, deviceId, template, options = {}) {
+  const first = buildNoranMT20Command(commandType, deviceId, template, options);
+  return options.unlockDoublePulse ? [first, buildNoranMT20Command(commandType, deviceId, template, options)] : [first];
+}
+
 function sanitizeIdentifier(value = '') { return String(value).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
 function bytesToHex(bytes) { return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase(); }
 function asciiToHex(input = '') { return bytesToHex(new TextEncoder().encode(input)); }
@@ -80,18 +93,24 @@ async function sendTraccarSingleDeviceLiveTest(commandType, device) {
   const username = envValue('TRACCAR_USERNAME');
   const password = envValue('TRACCAR_PASSWORD');
   if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
-  const built = buildNoranMT20Command(commandType, device.unique_id, null, { wrapMt20: true });
-  const traccarPayload = { deviceId: Number(TRACCAR_TEST_DEVICE_ID), type: 'custom', attributes: { data: built.hex } };
-  const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
-    method: 'POST',
-    headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(traccarPayload)
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-  if (!res.ok) throw new Error(`Traccar live test command failed (${res.status})`);
-  return { provider_command_name: 'custom', ascii_payload: built.ascii, hex_payload: built.hex, response: { ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes, device_identifier_source: 'TelematicsDevice.unique_id' }, live_test: true };
+  const unlockOptions = getNoranUnlockOptions(commandType, device, { provider_key: device.provider_key });
+  const builtCommands = buildNoranCommandBatch(commandType, device.unique_id, null, { wrapMt20: true, ...unlockOptions });
+  const responses = [];
+  for (const built of builtCommands) {
+    const traccarPayload = { deviceId: Number(TRACCAR_TEST_DEVICE_ID), type: 'custom', attributes: { data: built.hex } };
+    const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
+      method: 'POST',
+      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(traccarPayload)
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    if (!res.ok) throw new Error(`Traccar live test command failed (${res.status})`);
+    responses.push({ ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes });
+  }
+  const first = builtCommands[0];
+  return { provider_command_name: 'custom', ascii_payload: first.ascii, hex_payload: first.hex, response: { responses, noran_command_count: builtCommands.length, unlock_disarms_alarm: unlockOptions.unlockDisarmsAlarm, unlock_double_pulse_enabled: unlockOptions.unlockDoublePulse, device_identifier_source: 'TelematicsDevice.unique_id' }, live_test: true };
 }
 function makeIdempotencyKey(userEmail, deviceId, commandType) {
   const minuteBucket = Math.floor(Date.now() / 60000);
@@ -189,18 +208,24 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
   if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
   const traccarDeviceId = Number(device.traccar_device_id);
   if (!Number.isFinite(traccarDeviceId)) throw new Error('Invalid Traccar numeric device ID.');
-  const built = buildNoranMT20Command(commandType, device.unique_id, template?.ascii_template, { wrapMt20: true });
-  const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: built.hex } };
-  const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
-    method: 'POST',
-    headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(traccarPayload)
-  });
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-  if (!res.ok) throw new Error(`Traccar production command failed (${res.status})`);
-  return { provider_command_name: template?.provider_command_name || 'custom', ascii_payload: built.ascii, hex_payload: built.hex, production_command: true, response: { ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes, device_identifier_source: 'TelematicsDevice.unique_id' } };
+  const unlockOptions = getNoranUnlockOptions(commandType, device, { provider_key: device.provider_key });
+  const builtCommands = buildNoranCommandBatch(commandType, device.unique_id, template?.ascii_template, { wrapMt20: true, ...unlockOptions });
+  const responses = [];
+  for (const built of builtCommands) {
+    const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: built.hex } };
+    const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
+      method: 'POST',
+      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(traccarPayload)
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    if (!res.ok) throw new Error(`Traccar production command failed (${res.status})`);
+    responses.push({ ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes });
+  }
+  const first = builtCommands[0];
+  return { provider_command_name: template?.provider_command_name || 'custom', ascii_payload: first.ascii, hex_payload: first.hex, production_command: true, response: { responses, noran_command_count: builtCommands.length, unlock_disarms_alarm: unlockOptions.unlockDisarmsAlarm, unlock_double_pulse_enabled: unlockOptions.unlockDoublePulse, device_identifier_source: 'TelematicsDevice.unique_id' } };
 }
 
 async function renderTemplateExecution(template, provider, device, commandType, options = {}) {
@@ -208,8 +233,10 @@ async function renderTemplateExecution(template, provider, device, commandType, 
   if (template?.transport_type === 'traccar_custom_hex') {
     if (options.liveNoranProduction) return await sendTraccarNoranProductionCommand(commandType, device, template);
     const noranDeviceId = sanitizeIdentifier(device.unique_id || device.device_imei);
-    const built = buildNoranMT20Command(commandType, noranDeviceId, template.ascii_template, { wrapMt20: provider.provider_key === 'traccar_noran_mt20' });
-    return { provider_command_name: template.provider_command_name || 'custom', ascii_payload: built.ascii, hex_payload: built.hex, dry_run: true, response: { dry_run: true, ascii_payload: built.ascii, hex_payload: built.hex, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes, device_identifier_source: 'TelematicsDevice.unique_id', simulated_traccar_payload: device.traccar_device_id ? { deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: built.hex } } : null } };
+    const unlockOptions = getNoranUnlockOptions(commandType, device, provider);
+    const builtCommands = buildNoranCommandBatch(commandType, noranDeviceId, template.ascii_template, { wrapMt20: provider.provider_key === 'traccar_noran_mt20', ...unlockOptions });
+    const first = builtCommands[0];
+    return { provider_command_name: template.provider_command_name || 'custom', ascii_payload: first.ascii, hex_payload: first.hex, dry_run: true, response: { dry_run: true, ascii_payload: first.ascii, hex_payload: first.hex, sData_hex: first.sDataHex, mt20_total_bytes: first.totalBytes, noran_command_count: builtCommands.length, unlock_disarms_alarm: unlockOptions.unlockDisarmsAlarm, unlock_double_pulse_enabled: unlockOptions.unlockDoublePulse, device_identifier_source: 'TelematicsDevice.unique_id', simulated_traccar_payloads: device.traccar_device_id ? builtCommands.map((built) => ({ deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: built.hex } })) : [] } };
   }
   if (!template || template.dry_run_only || provider.execution_mode === 'dry_run' || !provider.allow_live_commands) {
     return { provider_command_name: template?.provider_command_name || commandType, dry_run: true, response: { dry_run: true, endpoint: template?.endpoint_template || '', payload_template: template?.payload_template || {} } };
@@ -246,8 +273,10 @@ async function fallbackAdapter(provider, device, commandType) {
     if (!res.ok) throw new Error(`MooveTrax ${command} failed (${res.status})`);
     return { provider_command_name: command, response: data };
   }
-  const built = buildNoranMT20Command(commandType, device.unique_id || device.device_imei || device.traccar_device_id, null, { wrapMt20: provider.provider_key === 'traccar_noran_mt20' });
-  return { provider_command_name: commandType, ascii_payload: built.ascii, hex_payload: built.hex, dry_run: true, response: { dry_run: true, ascii_payload: built.ascii, hex_payload: built.hex, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes } };
+  const unlockOptions = getNoranUnlockOptions(commandType, device, provider);
+  const builtCommands = buildNoranCommandBatch(commandType, device.unique_id || device.device_imei || device.traccar_device_id, null, { wrapMt20: provider.provider_key === 'traccar_noran_mt20', ...unlockOptions });
+  const first = builtCommands[0];
+  return { provider_command_name: commandType, ascii_payload: first.ascii, hex_payload: first.hex, dry_run: true, response: { dry_run: true, ascii_payload: first.ascii, hex_payload: first.hex, sData_hex: first.sDataHex, mt20_total_bytes: first.totalBytes, noran_command_count: builtCommands.length, unlock_disarms_alarm: unlockOptions.unlockDisarmsAlarm, unlock_double_pulse_enabled: unlockOptions.unlockDoublePulse } };
 }
 
 Deno.serve(async (req) => {
@@ -319,7 +348,7 @@ Deno.serve(async (req) => {
       status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
-      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, admin_starter_override: body.admin_starter_override === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control') }
+      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, admin_starter_override: body.admin_starter_override === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control') }
     });
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });

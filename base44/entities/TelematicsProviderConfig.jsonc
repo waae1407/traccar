@@ -80,6 +80,14 @@
       "type": "boolean",
       "default": false
     },
+    "supports_unlock_disarm": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_unlock_double_pulse": {
+      "type": "boolean",
+      "default": false
+    },
     "supports_horn": {
       "type": "boolean",
       "default": false

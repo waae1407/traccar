@@ -12,12 +12,12 @@ const AUTO_TESTS = [
 ];
 
 const COMMAND_TESTS = [
-  ['lock_test', 'lock', 'Lock', 'Send Lock'],
-  ['unlock_test', 'unlock', 'Unlock', 'Send Unlock'],
-  ['horn_test', 'horn', 'Horn', 'Sound Horn'],
-  ['lights_test', 'lights', 'Lights', 'Flash Lights'],
-  ['starter_disable_test', 'disable_starter', 'Disable', 'Disable Starter'],
-  ['starter_restore_test', 'restore_starter', 'Restore', 'Restore Starter'],
+  ['lock_test', 'lock', 'Lock'],
+  ['unlock_test', 'unlock', 'Unlock'],
+  ['horn_test', 'horn', 'Horn'],
+  ['lights_test', 'lights', 'Lights'],
+  ['starter_disable_test', 'disable_starter', 'Disable'],
+  ['starter_restore_test', 'restore_starter', 'Restore'],
 ];
 
 function StatusBadge({ value }) {
@@ -50,26 +50,23 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
         })}
       </div>
 
-      <div className="space-y-2">
-        {COMMAND_TESTS.filter(([id]) => tests[id] !== false).map(([id, command, label, action]) => {
+      <div className="space-y-1.5">
+        {COMMAND_TESTS.filter(([id]) => tests[id] !== false).map(([id, command, label]) => {
           const value = form[id];
           const state = commandState[command]?.status || 'Ready';
           const sent = ['Sent', 'Failed'].includes(state);
           const failed = value === 'fail' || state === 'Failed';
           return (
-            <div key={id} className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-              <div className="grid gap-2 sm:grid-cols-[90px_1fr_120px_120px] sm:items-center">
-                <h3 className="text-lg font-black text-slate-950">{label}</h3>
-                <Button type="button" onClick={() => onSendCommand(command, id)} disabled={state === 'Sending'} className="h-12 rounded-2xl bg-slate-950 font-black text-white hover:bg-slate-800">
-                  {state === 'Sending' && <Loader2 className="h-4 w-4 animate-spin" />} {action}
+            <div key={id} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+              <div className="grid grid-cols-[72px_minmax(58px,1fr)_52px_52px] items-center gap-1.5">
+                <h3 className="truncate text-sm font-black text-slate-950">{label}</h3>
+                <Button type="button" onClick={() => onSendCommand(command, id)} disabled={state === 'Sending'} title={state} className="h-9 rounded-xl bg-slate-950 px-2 text-xs font-black text-white hover:bg-slate-800">
+                  {state === 'Sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Send
                 </Button>
-                <div className="text-center text-xs font-black uppercase tracking-widest text-slate-500">{state}</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'pass')} className={`h-11 rounded-2xl font-black ${value === 'pass' ? 'border-emerald-500 bg-emerald-500 text-white' : 'bg-white text-slate-700'}`}>Pass</Button>
-                  <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'fail')} className={`h-11 rounded-2xl font-black ${value === 'fail' ? 'border-red-500 bg-red-500 text-white' : 'bg-white text-slate-700'}`}>Fail</Button>
-                </div>
+                <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'pass')} className={`h-9 rounded-xl px-2 text-xs font-black ${value === 'pass' ? 'border-emerald-500 bg-emerald-500 text-white' : 'bg-white text-slate-700'}`}>Pass</Button>
+                <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'fail')} className={`h-9 rounded-xl px-2 text-xs font-black ${value === 'fail' ? 'border-red-500 bg-red-500 text-white' : 'bg-white text-slate-700'}`}>Fail</Button>
               </div>
-              {failed && <div className="mt-2 flex items-center justify-between gap-2 rounded-2xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700"><span>{commandState[command]?.error || getInstallerTip(id)}</span><Button type="button" size="sm" variant="ghost" onClick={() => onHelp(id)} className="text-red-700"><MessageCircle className="h-4 w-4" /> Help</Button></div>}
+              {failed && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><span>{commandState[command]?.error || getInstallerTip(id)}</span><Button type="button" size="sm" variant="ghost" onClick={() => onHelp(id)} className="h-7 text-red-700"><MessageCircle className="h-4 w-4" /> Help</Button></div>}
             </div>
           );
         })}

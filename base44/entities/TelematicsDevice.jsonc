@@ -148,6 +148,14 @@
       "type": "boolean",
       "default": false
     },
+    "unlock_disarms_alarm": {
+      "type": "boolean",
+      "default": true
+    },
+    "unlock_double_pulse_enabled": {
+      "type": "boolean",
+      "default": false
+    },
     "host_starter_control_enabled": {
       "type": "boolean",
       "default": false
