@@ -34,8 +34,35 @@ function displayVehicle(vehicle) {
   return [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || vehicle.id;
 }
 
+function normalizeDeviceId(value) {
+  return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+}
+
+function isNoranDeviceId(value) {
+  return /^(TRSL|NR09G)[A-Z0-9]+$/i.test(String(value || '').trim());
+}
+
+function inferProviderKey(deviceId, requestedProvider) {
+  if (requestedProvider) return String(requestedProvider).trim();
+  if (isNoranDeviceId(deviceId)) return 'traccar_noran_mt20';
+  return '';
+}
+
 function getDeviceIdentifier(body) {
-  return String(body.telematics_device_id || body.device_id || body.unique_id || '').trim();
+  return normalizeDeviceId(body.actual_device_id || body.device_id || body.unique_id || body.telematics_device_id);
+}
+
+async function upsertInstallerAlert(base44, payload) {
+  const existing = payload.dedupe_key ? await base44.asServiceRole.entities.OperationalAlert.filter({ dedupe_key: payload.dedupe_key }) : [];
+  if (existing[0]) {
+    return await base44.asServiceRole.entities.OperationalAlert.update(existing[0].id, {
+      ...payload,
+      repeat_count: Number(existing[0].repeat_count || 1) + 1,
+      last_duplicate_at: new Date().toISOString(),
+      status: existing[0].status === 'resolved' ? 'new' : existing[0].status
+    });
+  }
+  return await base44.asServiceRole.entities.OperationalAlert.create(payload);
 }
 
 async function safeSendEmail(base44, payload) {
@@ -98,19 +125,53 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const providerKey = String(body.provider_key || '').trim();
+    let providerKey = String(body.provider_key || '').trim();
+    const expectedDeviceId = normalizeDeviceId(body.expected_device_id);
     const deviceIdentifier = getDeviceIdentifier(body);
     const vin = normalizeVin(body.vin);
     const now = new Date().toISOString();
 
-    if (!providerKey || !deviceIdentifier) return Response.json({ error: 'Device provider and ID are required' }, { status: 400 });
+    if (!providerKey) providerKey = inferProviderKey(deviceIdentifier, '');
+    if (!providerKey || !deviceIdentifier) return Response.json({ error: 'Device provider and actual device barcode are required' }, { status: 400 });
+    if (expectedDeviceId && expectedDeviceId !== deviceIdentifier) {
+      await upsertInstallerAlert(base44, {
+        alert_type: 'installation_failure',
+        severity: 'high',
+        status: 'new',
+        title: 'Device package mismatch',
+        message: `Package label ${expectedDeviceId} does not match physical device barcode ${deviceIdentifier}.`,
+        recommended_action: 'Block completion and verify the package/device pairing.',
+        domain: 'installers',
+        source_entity_type: 'TelematicsDevice',
+        source_entity_id: deviceIdentifier,
+        provider_key: providerKey,
+        dedupe_key: `installer_device_mismatch:${expectedDeviceId}:${deviceIdentifier}`,
+        first_seen_at: now,
+        metadata: { expected_device_id: expectedDeviceId, actual_device_id: deviceIdentifier, batch_number: body.batch_number || '' }
+      });
+      return Response.json({ error: 'Device mismatch. The package label does not match the physical device barcode. Do not continue installation.' }, { status: 409 });
+    }
     if (!vin || vin.length !== 17) return Response.json({ error: 'A valid 17-character VIN is required' }, { status: 400 });
     if (!body.installer_name || !body.installer_signature_name) return Response.json({ error: 'Installer name and signature are required' }, { status: 400 });
-    if (!Array.isArray(body.install_photos) || body.install_photos.length === 0) return Response.json({ error: 'At least one installation photo is required' }, { status: 400 });
+    if (!Array.isArray(body.install_photos) || body.install_photos.length < 3) return Response.json({ error: 'All required installation photos are required' }, { status: 400 });
 
-    const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: providerKey, unique_id: deviceIdentifier });
-    const device = devices[0];
-    if (!device) return Response.json({ error: 'Device not found' }, { status: 404 });
+    let devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: providerKey, unique_id: deviceIdentifier });
+    if (!devices[0]) devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: deviceIdentifier });
+    let device = devices[0];
+    if (!device) {
+      device = await base44.asServiceRole.entities.TelematicsDevice.create({
+        provider_key: providerKey,
+        unique_id: deviceIdentifier,
+        device_imei: deviceIdentifier,
+        batch_number: String(body.batch_number || ''),
+        model: isNoranDeviceId(deviceIdentifier) ? 'Noran MT20' : '',
+        lifecycle_status: 'inventory',
+        assigned_status: 'unassigned',
+        install_status: 'not_started',
+        online_status: 'unknown',
+        created_at: now
+      });
+    }
 
     const providerConfigs = await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: providerKey });
     const providerConfig = providerConfigs[0] || null;
@@ -157,6 +218,8 @@ Deno.serve(async (req) => {
       if (value === 'fail') failedTests.push(key);
       testSummary[key] = value;
     }
+
+    if (failedTests.length) return Response.json({ error: 'All supported capability tests must pass before completing installation' }, { status: 400 });
 
     await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
       vehicle_id: vehicle.id,

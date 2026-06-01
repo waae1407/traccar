@@ -4,6 +4,19 @@ function normalizeVin(vin) {
   return String(vin || '').trim().toUpperCase();
 }
 
+async function upsertVinAlert(base44, payload) {
+  const existing = await base44.asServiceRole.entities.OperationalAlert.filter({ dedupe_key: payload.dedupe_key });
+  if (existing[0]) {
+    return await base44.asServiceRole.entities.OperationalAlert.update(existing[0].id, {
+      ...payload,
+      repeat_count: Number(existing[0].repeat_count || 1) + 1,
+      last_duplicate_at: new Date().toISOString(),
+      status: existing[0].status === 'resolved' ? 'new' : existing[0].status
+    });
+  }
+  return await base44.asServiceRole.entities.OperationalAlert.create(payload);
+}
+
 function publicVehicle(vehicle) {
   if (!vehicle) return null;
   return {
@@ -45,6 +58,24 @@ Deno.serve(async (req) => {
     if (vehicle?.host_id) {
       const hosts = await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id });
       host = hosts[0] || null;
+    }
+
+    if (!vehicle) {
+      await upsertVinAlert(base44, {
+        alert_type: 'vin_mismatch_install',
+        severity: 'high',
+        status: 'new',
+        title: 'Vehicle VIN not found during install',
+        message: `Installer scanned VIN ${vin}, but it was not found in uRideHub.`,
+        recommended_action: 'Verify the vehicle inventory record before installation continues.',
+        domain: 'installers',
+        source_entity_type: 'Vehicle',
+        source_entity_id: vin,
+        provider_key: String(body.provider_key || ''),
+        dedupe_key: `installer_vin_not_found:${vin}`,
+        first_seen_at: new Date().toISOString(),
+        metadata: { vin, actual_device_id: body.actual_device_id || body.device_id || '', expected_device_id: body.expected_device_id || '' }
+      });
     }
 
     return Response.json({

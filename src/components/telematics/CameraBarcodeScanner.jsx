@@ -13,7 +13,7 @@ function errorMessage(error) {
   return "Camera scanning is not supported on this device. Please enter manually.";
 }
 
-export default function CameraBarcodeScanner({ open, onOpenChange, title = "Scan Code", helper = "Point your camera at the code.", formats = ["qr_code", "code_128", "code_39", "ean_13"], onDetected }) {
+export default function CameraBarcodeScanner({ open, onOpenChange, title = "Scan Code", helper = "Point your camera at the code.", formats = ["qr_code", "code_128", "code_39", "ean_13", "ean_8", "upc_a", "upc_e"], onDetected }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const detectorRef = useRef(null);

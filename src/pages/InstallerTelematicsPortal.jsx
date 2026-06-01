@@ -50,30 +50,51 @@ const PHOTO_REQUIREMENTS = [
   ["wiring_photo", "Wiring Photo"],
 ];
 
+function normalizeDeviceId(value) {
+  return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function isNoranDeviceId(value) {
+  return /^(TRSL|NR09G)[A-Z0-9]+$/i.test(String(value || "").trim());
+}
+
+function inferProviderKey(deviceId, providerKey = "") {
+  if (providerKey) return providerKey;
+  return isNoranDeviceId(deviceId) ? "traccar_noran_mt20" : "";
+}
+
 function getParams() {
   const params = new URLSearchParams(window.location.search);
+  const expected = normalizeDeviceId(params.get("expected_device_id") || params.get("device_id") || params.get("unique_id") || "");
   return {
-    provider_key: params.get("provider_key") || "",
-    device_id: params.get("device_id") || params.get("unique_id") || ""
+    provider_key: params.get("provider_key") || params.get("provider") || inferProviderKey(expected),
+    expected_device_id: expected,
+    batch_number: params.get("batch_number") || ""
   };
 }
 
-function parseDeviceQr(rawValue) {
+function parsePackageScan(rawValue) {
   const value = String(rawValue || "").trim();
   if (!value) return null;
   try {
     const parsed = value.includes("://") ? new URL(value) : new URL(value, window.location.origin);
     const params = parsed.searchParams;
-    const provider_key = params.get("provider_key") || params.get("provider") || "";
-    const device_id = params.get("device_id") || params.get("unique_id") || params.get("id") || "";
-    if (provider_key && device_id) return { provider_key, device_id };
+    const expected_device_id = normalizeDeviceId(params.get("expected_device_id") || params.get("device_id") || params.get("unique_id") || params.get("id") || "");
+    const provider_key = params.get("provider_key") || params.get("provider") || inferProviderKey(expected_device_id);
+    const batch_number = params.get("batch_number") || "";
+    if (expected_device_id || provider_key || batch_number) return { provider_key, expected_device_id, batch_number };
   } catch {
-    // Non-URL QR values are handled below.
+    // Non-URL values are handled below.
   }
   const pairs = Object.fromEntries(value.split(/[;&|,\n]/).map(part => part.split(/[:=]/).map(piece => piece.trim())).filter(pair => pair.length === 2));
-  const provider_key = pairs.provider_key || pairs.provider || "";
-  const device_id = pairs.device_id || pairs.unique_id || pairs.id || "";
-  return provider_key && device_id ? { provider_key, device_id } : null;
+  const expected_device_id = normalizeDeviceId(pairs.expected_device_id || pairs.device_id || pairs.unique_id || pairs.id || value);
+  const provider_key = pairs.provider_key || pairs.provider || inferProviderKey(expected_device_id);
+  return expected_device_id ? { provider_key, expected_device_id, batch_number: pairs.batch_number || "" } : null;
+}
+
+function parseDeviceBarcode(rawValue) {
+  const actual_device_id = normalizeDeviceId(rawValue);
+  return actual_device_id ? { actual_device_id, provider_key: inferProviderKey(actual_device_id) } : null;
 }
 
 function normalizeVin(value) {
@@ -127,39 +148,63 @@ function FieldLabel({ children }) {
   return <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">{children}</p>;
 }
 
-function DeviceStep({ form, update, capabilities, scannedFromQr, onScanDevice, scanMessage }) {
+function DeviceStep({ form, update, capabilities, packageScanCompleted, deviceVerified, onScanPackage, onScanDevice, scanMessage, onSkipPackage }) {
   const recognized = capabilities.data?.ok;
   return (
     <div className="space-y-4">
       <div>
         <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Device Installation</p>
         <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Device</h1>
-        <p className="mt-2 text-sm font-medium text-slate-500">Scan device. Match vehicle. Verify functionality. Complete installation.</p>
+        <p className="mt-2 text-sm font-medium text-slate-500">Scan package label, verify physical GPS barcode, match vehicle VIN, and complete installation.</p>
       </div>
 
-      {!scannedFromQr && (
-        <LuxuryCard>
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-xl shadow-slate-300">
-              <ScanLine className="h-5 w-5" />
-            </div>
-            <div className="flex-1 space-y-4">
-              <div>
-                <h2 className="text-xl font-black">Scan Package QR</h2>
-                <p className="mt-1 text-sm text-slate-500">QR links prefill device details automatically.</p>
-              </div>
-              <Button type="button" onClick={onScanDevice} className="h-14 rounded-3xl bg-slate-950 text-base font-black text-white shadow-xl shadow-slate-300 hover:bg-slate-800">
-                <ScanLine className="mr-2 h-5 w-5" /> Open QR Scanner
-              </Button>
-              {scanMessage && <p className={`text-sm font-bold ${scanMessage.type === "success" ? "text-emerald-600" : "text-red-600"}`}>{scanMessage.text}</p>}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Provider" value={form.provider_key} onChange={e => update("provider_key", e.target.value.trim())} />
-                <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Device ID" value={form.device_id} onChange={e => update("device_id", e.target.value.trim())} />
-              </div>
-            </div>
+      <LuxuryCard>
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-xl shadow-slate-300">
+            <ScanLine className="h-5 w-5" />
           </div>
-        </LuxuryCard>
-      )}
+          <div className="flex-1 space-y-4">
+            <div>
+              <h2 className="text-xl font-black">Scan Package Label</h2>
+              <p className="mt-1 text-sm text-slate-500">Scan the label on the device box to start the installation.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Button type="button" onClick={onScanPackage} className="h-14 rounded-3xl bg-slate-950 text-base font-black text-white shadow-xl shadow-slate-300 hover:bg-slate-800">
+                <ScanLine className="mr-2 h-5 w-5" /> Scan Package Label
+              </Button>
+              <Button type="button" variant="outline" onClick={onSkipPackage} className="h-14 rounded-3xl border-slate-200 bg-white text-base font-black text-slate-900 hover:bg-slate-50">
+                No Package Label
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Provider" value={form.provider_key} onChange={e => update("provider_key", e.target.value.trim())} />
+              <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Expected Device ID" value={form.expected_device_id} onChange={e => update("expected_device_id", normalizeDeviceId(e.target.value))} />
+              <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Batch" value={form.batch_number} onChange={e => update("batch_number", e.target.value.trim())} />
+            </div>
+            <Badge className={`${packageScanCompleted ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black`}>{packageScanCompleted ? "✓ Package Step Complete" : "Package Scan Required"}</Badge>
+          </div>
+        </div>
+      </LuxuryCard>
+
+      <LuxuryCard>
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-xl shadow-pink-200">
+            <ScanLine className="h-5 w-5" />
+          </div>
+          <div className="flex-1 space-y-4">
+            <div>
+              <h2 className="text-xl font-black">Scan Device Barcode</h2>
+              <p className="mt-1 text-sm text-slate-500">Scan the barcode printed on the physical GPS device to verify the actual device.</p>
+            </div>
+            <Button type="button" onClick={onScanDevice} className="h-14 rounded-3xl bg-primary text-base font-black text-white shadow-xl shadow-pink-200 hover:bg-primary/90">
+              <ScanLine className="mr-2 h-5 w-5" /> Scan Device Barcode
+            </Button>
+            {scanMessage && <p className={`text-sm font-bold ${scanMessage.type === "success" ? "text-emerald-600" : "text-red-600"}`}>{scanMessage.text}</p>}
+            <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Actual Device ID" value={form.actual_device_id} onChange={e => update("actual_device_id", normalizeDeviceId(e.target.value))} />
+            <Badge className={`${deviceVerified ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black`}>{deviceVerified ? "✓ Device Verified" : "Physical Device Not Verified"}</Badge>
+          </div>
+        </div>
+      </LuxuryCard>
 
       <LuxuryCard className="bg-gradient-to-br from-white via-white to-pink-50/70">
         <div className="flex items-start justify-between gap-4">
@@ -167,7 +212,7 @@ function DeviceStep({ form, update, capabilities, scannedFromQr, onScanDevice, s
             <Badge className={`${recognized ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black shadow-sm`}>
               {recognized ? "✓ Device Recognized" : capabilities.isLoading ? "Checking Device" : "Ready to Scan"}
             </Badge>
-            <h2 className="mt-5 text-2xl font-black tracking-tight text-slate-950">{form.device_id || "Device ID"}</h2>
+            <h2 className="mt-5 text-2xl font-black tracking-tight text-slate-950">{form.actual_device_id || "Actual Device ID"}</h2>
             <p className="mt-1 text-sm text-slate-500">Status: {recognized ? "Ready For Installation" : capabilities.isError ? "Device Not Recognized" : "Awaiting Device"}</p>
           </div>
           {capabilities.isLoading ? <Loader2 className="h-6 w-6 animate-spin text-primary" /> : <CheckCircle2 className={`h-8 w-8 ${recognized ? "text-emerald-500" : "text-slate-300"}`} />}
@@ -195,7 +240,7 @@ function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound,
       <div>
         <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Step 2</p>
         <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Scan Vehicle VIN</h1>
-        <p className="mt-2 text-sm font-medium text-slate-500">Match the device to the correct vehicle before testing.</p>
+        <p className="mt-2 text-sm font-medium text-slate-500">Scan or enter the vehicle VIN to match this device to the correct vehicle.</p>
       </div>
 
       <LuxuryCard>
@@ -246,7 +291,7 @@ function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound,
             <XCircle className="h-8 w-8 flex-shrink-0 text-red-500" />
             <div>
               <h2 className="text-2xl font-black text-red-700">Vehicle Not Found</h2>
-              <p className="mt-2 text-sm font-bold text-red-600">Contact uRideHub Support before continuing.</p>
+              <p className="mt-2 text-sm font-bold text-red-600">Vehicle VIN not found in uRideHub.</p>
             </div>
           </div>
         </LuxuryCard>
@@ -456,11 +501,15 @@ function SuccessScreen({ result, form, vehicleLookup }) {
 
 export default function InstallerTelematicsPortal() {
   const initial = useMemo(getParams, []);
-  const scannedFromQr = !!initial.provider_key && !!initial.device_id;
   const [currentStep, setCurrentStep] = useState(0);
+  const [packageSkipped, setPackageSkipped] = useState(false);
+  const [deviceVerified, setDeviceVerified] = useState(false);
   const [form, setForm] = useState({
     provider_key: initial.provider_key,
-    device_id: initial.device_id,
+    expected_device_id: initial.expected_device_id,
+    actual_device_id: "",
+    device_id: "",
+    batch_number: initial.batch_number,
     vin: "",
     installer_name: "",
     installer_signature_name: "",
@@ -476,16 +525,16 @@ export default function InstallerTelematicsPortal() {
   const [vinScanMessage, setVinScanMessage] = useState(null);
 
   const capabilities = useQuery({
-    queryKey: ["installer-capabilities", form.provider_key, form.device_id],
-    queryFn: () => base44.functions.invoke("getInstallerDeviceCapabilities", { provider_key: form.provider_key, device_id: form.device_id }).then(res => res.data),
-    enabled: !!form.provider_key && !!form.device_id,
+    queryKey: ["installer-capabilities", form.provider_key, form.actual_device_id],
+    queryFn: () => base44.functions.invoke("getInstallerDeviceCapabilities", { provider_key: form.provider_key, device_id: form.actual_device_id }).then(res => res.data),
+    enabled: deviceVerified && !!form.provider_key && !!form.actual_device_id,
     retry: false
   });
 
   const vinValid = form.vin.length === 17;
   const vehicleLookup = useQuery({
-    queryKey: ["installer-vin-lookup", form.vin],
-    queryFn: () => base44.functions.invoke("lookupInstallerVehicle", { vin: form.vin }).then(res => res.data),
+    queryKey: ["installer-vin-lookup", form.vin, form.actual_device_id, form.expected_device_id],
+    queryFn: () => base44.functions.invoke("lookupInstallerVehicle", { vin: form.vin, provider_key: form.provider_key, actual_device_id: form.actual_device_id, expected_device_id: form.expected_device_id }).then(res => res.data),
     enabled: vinValid,
     retry: false
   });
@@ -511,15 +560,42 @@ export default function InstallerTelematicsPortal() {
 
   const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
-  const handleDeviceScan = (rawValue) => {
-    const parsed = parseDeviceQr(rawValue);
+  const handlePackageScan = (rawValue) => {
+    const parsed = parsePackageScan(rawValue);
     if (!parsed) {
-      setScanMessage({ type: "error", text: "Invalid QR. Please scan a valid install QR or enter manually." });
+      setScanMessage({ type: "error", text: "Invalid package label. Please scan a valid install URL, QR, or barcode." });
       setScanner(null);
       return;
     }
-    setForm(prev => ({ ...prev, provider_key: parsed.provider_key.trim(), device_id: parsed.device_id.trim() }));
-    setScanMessage({ type: "success", text: "Device recognized." });
+    setPackageSkipped(false);
+    setDeviceVerified(false);
+    setForm(prev => ({ ...prev, provider_key: parsed.provider_key || prev.provider_key, expected_device_id: parsed.expected_device_id, batch_number: parsed.batch_number || prev.batch_number }));
+    setScanMessage({ type: "success", text: "Package label scanned." });
+    setScanner(null);
+  };
+
+  const handleDeviceScan = async (rawValue) => {
+    const parsed = parseDeviceBarcode(rawValue);
+    if (!parsed) {
+      setScanMessage({ type: "error", text: "Invalid device barcode. Please scan the physical device barcode." });
+      setScanner(null);
+      return;
+    }
+    setForm(prev => ({ ...prev, actual_device_id: parsed.actual_device_id, device_id: parsed.actual_device_id, provider_key: prev.provider_key || parsed.provider_key }));
+    try {
+      const response = await base44.functions.invoke("verifyInstallerDeviceScan", {
+        provider_key: form.provider_key || parsed.provider_key,
+        expected_device_id: form.expected_device_id,
+        actual_device_id: parsed.actual_device_id,
+        batch_number: form.batch_number
+      });
+      setForm(prev => ({ ...prev, provider_key: response.data.provider_key || prev.provider_key, actual_device_id: response.data.actual_device_id, device_id: response.data.actual_device_id, batch_number: response.data.batch_number || prev.batch_number }));
+      setDeviceVerified(true);
+      setScanMessage({ type: "success", text: response.data.message || "Device verified." });
+    } catch (error) {
+      setDeviceVerified(false);
+      setScanMessage({ type: "error", text: error?.response?.data?.error || "Device verification failed." });
+    }
     setScanner(null);
   };
 
@@ -535,7 +611,8 @@ export default function InstallerTelematicsPortal() {
     setScanner(null);
   };
 
-  const deviceReady = !!capabilities.data?.ok;
+  const packageScanCompleted = packageSkipped || !!form.expected_device_id || !!initial.expected_device_id;
+  const deviceReady = packageScanCompleted && deviceVerified && !!capabilities.data?.ok;
   const vehicleMatched = !!vehicleLookup.data?.matched;
   const vinNotFound = vinValid && !vehicleLookup.isLoading && vehicleLookup.data?.matched === false;
   const requiredPhotoCount = Object.values(photoSlots).filter(Boolean).length;
@@ -546,20 +623,23 @@ export default function InstallerTelematicsPortal() {
   const supportedTestsComplete = visibleTestIds.length > 0 && visibleTestIds.every(id => ["pass", "fail"].includes(form[id]));
   const allSupportedTestsPass = visibleTestIds.length > 0 && visibleTestIds.every(id => form[id] === "pass");
   const anySupportedTestFailed = visibleTestIds.some(id => form[id] === "fail");
+  const testsReady = supportedTestsComplete && allSupportedTestsPass;
 
   const completed = {
-    device: deviceReady,
+    device: packageScanCompleted && deviceVerified && deviceReady,
     vehicle: vehicleMatched,
     photos: photosReady && namesReady,
-    testing: supportedTestsComplete,
+    testing: testsReady,
     complete: result?.status === "completed"
   };
 
   const readyItems = [
+    { label: "Package label scanned or skipped", done: packageScanCompleted },
+    { label: "Physical device barcode verified", done: deviceVerified },
     { label: "VIN matched", done: vehicleMatched },
     { label: "Required photos uploaded", done: photosReady },
     { label: "Installer name captured", done: namesReady },
-    { label: anySupportedTestFailed ? "Failed tests marked for correction" : "All supported tests passed", done: supportedTestsComplete },
+    { label: "All supported tests passed", done: testsReady },
   ];
 
   const uploadRequiredPhoto = async (slot, file) => {
@@ -589,10 +669,10 @@ export default function InstallerTelematicsPortal() {
 
   const submitInstallation = () => {
     setResult(null);
-    submit.mutate({ ...form, vin: form.vin.toUpperCase() });
+    submit.mutate({ ...form, device_id: form.actual_device_id, vin: form.vin.toUpperCase() });
   };
 
-  const canAdvance = [deviceReady, vehicleMatched, photosReady && namesReady, supportedTestsComplete, true][currentStep];
+  const canAdvance = [deviceReady, vehicleMatched, photosReady && namesReady, testsReady, true][currentStep];
 
   if (result?.status === "completed") {
     return <SuccessScreen result={result} form={form} vehicleLookup={vehicleLookup} />;
@@ -603,7 +683,7 @@ export default function InstallerTelematicsPortal() {
       <div className="mx-auto max-w-3xl px-4 sm:px-0">
         <StepProgress currentStep={currentStep} completed={completed} />
         <div className="py-6">
-          {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} scannedFromQr={scannedFromQr} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
+          {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} packageScanCompleted={packageScanCompleted} deviceVerified={deviceVerified} onScanPackage={() => setScanner("package")} onScanDevice={() => setScanner("device")} onSkipPackage={() => { setPackageSkipped(true); setScanMessage({ type: "success", text: "Package label skipped. Device barcode is still required." }); }} scanMessage={scanMessage} />}
           {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
           {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} />}
           {currentStep === 3 && <TestingStep form={form} update={update} capabilities={capabilities} visibleTests={visibleTests} supportedTestsComplete={supportedTestsComplete} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} />}
@@ -612,11 +692,19 @@ export default function InstallerTelematicsPortal() {
       </div>
 
       <CameraBarcodeScanner
+        open={scanner === "package"}
+        onOpenChange={(open) => setScanner(open ? "package" : null)}
+        title="Scan Package Label"
+        helper="Point your camera at the package QR or barcode label."
+        formats={["qr_code", "code_128", "code_39", "ean_13", "ean_8", "upc_a", "upc_e", "data_matrix"]}
+        onDetected={handlePackageScan}
+      />
+      <CameraBarcodeScanner
         open={scanner === "device"}
         onOpenChange={(open) => setScanner(open ? "device" : null)}
-        title="Scan Package QR"
-        helper="Point your camera at the package QR or barcode."
-        formats={["qr_code", "code_128", "code_39", "ean_13", "data_matrix"]}
+        title="Scan Device Barcode"
+        helper="Point your camera at the barcode printed on the physical GPS device."
+        formats={["code_128", "code_39", "qr_code", "ean_13", "ean_8", "upc_a", "upc_e", "data_matrix"]}
         onDetected={handleDeviceScan}
       />
       <CameraBarcodeScanner
@@ -624,7 +712,7 @@ export default function InstallerTelematicsPortal() {
         onOpenChange={(open) => setScanner(open ? "vin" : null)}
         title="Scan VIN Barcode"
         helper="Point your camera at the windshield or door VIN barcode."
-        formats={["code_39", "code_128", "qr_code", "data_matrix"]}
+        formats={["code_39", "code_128", "qr_code", "ean_13", "ean_8", "upc_a", "upc_e", "data_matrix"]}
         onDetected={handleVinScan}
       />
 
@@ -639,7 +727,7 @@ export default function InstallerTelematicsPortal() {
             </Button>
           ) : (
             <Button className={`h-14 flex-1 rounded-3xl text-base font-black text-white shadow-xl ${anySupportedTestFailed ? "bg-red-600 shadow-red-200 hover:bg-red-700" : "bg-slate-950 shadow-slate-300 hover:bg-slate-800"}`} disabled={!readyItems.every(item => item.done) || submit.isPending} onClick={submitInstallation}>
-              {submit.isPending ? "Submitting..." : anySupportedTestFailed ? "Submit Correction Needed" : "Complete Installation"}
+              {submit.isPending ? "Submitting..." : "Complete Installation"}
             </Button>
           )}
         </div>
