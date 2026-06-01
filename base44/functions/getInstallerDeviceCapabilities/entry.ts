@@ -43,8 +43,18 @@ Deno.serve(async (req) => {
     const deviceId = String(body.device_id || '').trim();
     if (!deviceId) return Response.json({ error: 'device_id is required' }, { status: 400 });
 
-    const device = await findDeviceByIdentifier(base44, deviceId, providerKey);
-    if (!device) return Response.json({ error: 'Device not found' }, { status: 404 });
+    let device = await findDeviceByIdentifier(base44, deviceId, providerKey);
+    if (!device) {
+      device = await base44.asServiceRole.entities.TelematicsDevice.create({
+        provider_key: providerKey || 'unknown',
+        unique_id: deviceId,
+        lifecycle_status: 'inventory',
+        assigned_status: 'unassigned',
+        install_status: 'not_started',
+        online_status: 'unknown',
+        created_at: new Date().toISOString()
+      });
+    }
 
     providerKey = device.provider_key || providerKey || 'unknown';
     const configs = await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: providerKey });
@@ -56,7 +66,7 @@ Deno.serve(async (req) => {
       labels[test] = definition.label;
     }
 
-    return Response.json({ ok: true, provider_key: providerKey, device_id: deviceId, model: device.model || '', device, tests, labels });
+    return Response.json({ ok: true, provider_key: providerKey, device_id: deviceId, model: device.model || '', device, tests, labels, created_pending_device: device.created_at ? false : false });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

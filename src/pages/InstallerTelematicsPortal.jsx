@@ -135,7 +135,7 @@ function DeviceStep({ form, update, capabilities, deviceVerified, onScanDevice, 
               <ScanLine className="mr-2 h-5 w-5" /> Scan Physical Device Barcode
             </Button>
             <Input className="h-13 rounded-2xl border-slate-200 bg-white text-slate-900 placeholder:text-slate-400" placeholder="Actual Device ID" value={form.actual_device_id} onChange={e => update("actual_device_id", normalizeDeviceId(e.target.value))} />
-            <Badge className={`${deviceVerified ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black`}>{deviceVerified ? "✓ Device Verified" : "Device Verification Required"}</Badge>
+            <Badge className={`${form.actual_device_id ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black`}>{form.actual_device_id ? "✓ Device ID Entered" : "Device ID Required"}</Badge>
             {scanMessage && <p className={`text-sm font-bold ${scanMessage.type === "success" ? "text-emerald-600" : "text-red-600"}`}>{scanMessage.text}</p>}
           </div>
         </div>
@@ -462,7 +462,7 @@ export default function InstallerTelematicsPortal() {
   const capabilities = useQuery({
     queryKey: ["installer-capabilities", form.actual_device_id],
     queryFn: () => base44.functions.invoke("getInstallerDeviceCapabilities", { device_id: form.actual_device_id }).then(res => res.data),
-    enabled: deviceVerified && !!form.actual_device_id,
+    enabled: !!form.actual_device_id,
     retry: false
   });
 
@@ -537,10 +537,11 @@ export default function InstallerTelematicsPortal() {
     setScanner(null);
   };
 
-  const deviceReady = deviceVerified && !!capabilities.data?.ok;
+  const deviceReady = !!form.actual_device_id && !capabilities.isFetching;
   const vehicleMatched = !!vehicleLookup.data?.matched;
-  const vinEntered = vinValid && !vehicleLookup.isLoading;
-  const vinNotFound = vinValid && !vehicleLookup.isLoading && vehicleLookup.data?.matched === false;
+  const vinLookupComplete = vinValid && !vehicleLookup.isFetching && vehicleLookup.isFetched;
+  const vinEntered = vinLookupComplete && (vehicleLookup.data?.matched === true || vehicleLookup.data?.matched === false);
+  const vinNotFound = vinLookupComplete && vehicleLookup.data?.matched === false;
   const requiredPhotoCount = Object.values(photoSlots).filter(Boolean).length;
   const photosReady = requiredPhotoCount === 3;
   const namesReady = !!form.installer_name && !!form.installer_signature_name;
@@ -560,7 +561,7 @@ export default function InstallerTelematicsPortal() {
   };
 
   const readyItems = [
-    { label: "Physical device barcode scanned", done: deviceVerified },
+    { label: "Physical device ID entered", done: deviceReady },
     { label: vehicleMatched ? "VIN matched" : "VIN entered", done: vinEntered },
     { label: "Required photos uploaded", done: photosReady },
     { label: "Installer name captured", done: namesReady },
@@ -597,7 +598,7 @@ export default function InstallerTelematicsPortal() {
     submit.mutate({ ...form, device_id: form.actual_device_id, vin: form.vin.toUpperCase() });
   };
 
-  const canAdvance = [deviceReady, vinEntered, photosReady && namesReady, testsReady, true][currentStep];
+  const canAdvance = [deviceReady, vinEntered, photosReady && namesReady, supportedTestsComplete, true][currentStep];
 
   if (result?.status === "completed") {
     return <SuccessScreen result={result} form={form} vehicleLookup={vehicleLookup} />;
