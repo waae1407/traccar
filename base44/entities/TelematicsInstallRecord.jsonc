@@ -59,6 +59,7 @@
         "in_progress",
         "completed",
         "failed",
+        "correction_needed",
         "unmatched_vin"
       ],
       "default": "not_started"
@@ -91,6 +92,13 @@
     },
     "installation_notes": {
       "type": "string"
+    },
+    "device_online": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
     },
     "power_voltage_test": {
       "type": "string",

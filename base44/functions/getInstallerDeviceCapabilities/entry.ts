@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const TEST_DEFINITIONS = {
+  device_online: { label: 'Device online', alwaysSupported: true },
   power_voltage_test: { label: 'Power / voltage', alwaysSupported: true },
   gps_signal_test: { label: 'GPS signal', provider: 'supports_location', device: 'gps_enabled', noran: true },
   ignition_acc_test: { label: 'Ignition / ACC', alwaysSupported: true },
@@ -23,6 +24,40 @@ function isSupported(definition, providerConfig, device, providerKey) {
   if (definition.provider && providerConfig?.[definition.provider] === true) return true;
   if (definition.device && device?.[definition.device] === true) return true;
   return false;
+}
+
+function isRecent(value, hours = 24) {
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) && Date.now() - time <= hours * 60 * 60 * 1000;
+}
+
+function pickVoltage(...payloads) {
+  for (const payload of payloads) {
+    const candidates = [payload?.voltage, payload?.power_voltage, payload?.batteryVoltage, payload?.battery_level, payload?.attributes?.voltage, payload?.position?.attributes?.voltage, payload?.attributes?.power];
+    for (const value of candidates) {
+      const number = Number(value);
+      if (Number.isFinite(number) && number > 0) return number;
+    }
+  }
+  return null;
+}
+
+async function buildAutoChecks(base44, device) {
+  const events = device?.id ? await base44.asServiceRole.entities.TelematicsEvent.filter({ telematics_device_id: device.id }) : [];
+  const recentEvents = events.filter(event => isRecent(event.created_at || event.created_date, 24));
+  const recentGps = isRecent(device.location_updated_at || device.last_seen_at, 24) && Number.isFinite(Number(device.last_latitude)) && Number.isFinite(Number(device.last_longitude));
+  const voltage = pickVoltage(device, ...recentEvents.map(event => event.raw_payload));
+  const ignitionKnown = device.ignition_status && device.ignition_status !== 'unknown';
+  const recentIgnition = recentEvents.some(event => typeof event.ignition === 'boolean' || ['ignition_on', 'ignition_off'].includes(event.event_type));
+  const online = isRecent(device.last_seen_at || device.location_updated_at, 24) || recentEvents.length > 0;
+
+  return {
+    device_online: { status: online ? 'pass' : 'fail', tip: 'Device must be online first. Check power, SIM, and antenna signal.' },
+    power_voltage_test: { status: voltage ? 'pass' : 'fail', value: voltage, tip: 'Check constant power, fuse, and ground.' },
+    gps_signal_test: { status: recentGps ? 'pass' : 'fail', tip: 'Move vehicle/device where antenna has sky visibility.' },
+    ignition_acc_test: { status: ignitionKnown || recentIgnition ? 'pass' : 'fail', tip: 'Turn ignition ON. Check ACC/ignition wire.' }
+  };
 }
 
 async function findDeviceByIdentifier(base44, identifier, providerKey) {
@@ -65,8 +100,9 @@ Deno.serve(async (req) => {
       tests[test] = isSupported(definition, config, device, providerKey);
       labels[test] = definition.label;
     }
+    const auto_checks = await buildAutoChecks(base44, device);
 
-    return Response.json({ ok: true, provider_key: providerKey, device_id: deviceId, model: device.model || '', device, tests, labels, created_pending_device: device.created_at ? false : false });
+    return Response.json({ ok: true, provider_key: providerKey, device_id: deviceId, model: device.model || '', device, tests, labels, auto_checks, created_pending_device: device.created_at ? false : false });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

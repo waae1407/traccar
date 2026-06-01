@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import CameraBarcodeScanner from "@/components/telematics/CameraBarcodeScanner";
+import InstallerTestingStep from "@/components/telematics/installer/InstallerTestingStep";
+import InstallerHelpChat from "@/components/telematics/installer/InstallerHelpChat";
 import {
   ArrowLeft,
   Camera,
@@ -25,6 +27,7 @@ import {
 } from "lucide-react";
 
 const REQUIRED_TESTS = [
+  ["device_online", "Device Online", "📡"],
   ["power_voltage_test", "Power / Voltage", "⚡"],
   ["gps_signal_test", "GPS Reporting", "🛰️"],
   ["ignition_acc_test", "Ignition", "🔌"],
@@ -458,6 +461,10 @@ export default function InstallerTelematicsPortal() {
   const [scanner, setScanner] = useState(null);
   const [scanMessage, setScanMessage] = useState(null);
   const [vinScanMessage, setVinScanMessage] = useState(null);
+  const [commandState, setCommandState] = useState({});
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpTest, setHelpTest] = useState('');
+  const [helpForm, setHelpForm] = useState({ name: '', phone: '', email: '', description: '' });
 
   const capabilities = useQuery({
     queryKey: ["installer-capabilities", form.actual_device_id],
@@ -476,12 +483,16 @@ export default function InstallerTelematicsPortal() {
 
   useEffect(() => {
     const tests = capabilities.data?.tests;
+    const autoChecks = capabilities.data?.auto_checks || {};
     if (!tests) return;
     setForm(prev => {
       const next = { ...prev };
       for (const [key, supported] of Object.entries(tests)) {
         if (!supported) next[key] = "not_supported";
         if (supported && next[key] === "not_supported") next[key] = "";
+      }
+      for (const [key, check] of Object.entries(autoChecks)) {
+        if (check?.status) next[key] = check.status;
       }
       return next;
     });
@@ -490,6 +501,12 @@ export default function InstallerTelematicsPortal() {
   const submit = useMutation({
     mutationFn: (payload) => base44.functions.invoke("submitTelematicsInstallation", payload),
     onSuccess: (res) => setResult(res.data),
+    onError: (error) => setResult({ ok: false, status: "error", message: error?.response?.data?.error || error.message })
+  });
+
+  const helpRequest = useMutation({
+    mutationFn: (payload) => base44.functions.invoke("requestInstallerTelematicsHelp", payload),
+    onSuccess: (res) => setResult({ ok: true, status: "help_requested", message: res.data?.message || "Help request sent." }),
     onError: (error) => setResult({ ok: false, status: "error", message: error?.response?.data?.error || error.message })
   });
 
@@ -552,11 +569,15 @@ export default function InstallerTelematicsPortal() {
   const anySupportedTestFailed = visibleTestIds.some(id => form[id] === "fail");
   const testsReady = supportedTestsComplete && allSupportedTestsPass;
 
+  useEffect(() => {
+    if (currentStep === 3 && form.actual_device_id) capabilities.refetch();
+  }, [currentStep, form.actual_device_id]);
+
   const completed = {
     device: deviceReady,
     vehicle: vinEntered,
     photos: photosReady && namesReady,
-    testing: testsReady,
+    testing: supportedTestsComplete,
     complete: result?.status === "completed"
   };
 
@@ -565,7 +586,7 @@ export default function InstallerTelematicsPortal() {
     { label: vehicleMatched ? "VIN matched" : "VIN entered", done: vinEntered },
     { label: "Required photos uploaded", done: photosReady },
     { label: "Installer name captured", done: namesReady },
-    { label: "All supported tests passed", done: testsReady },
+    { label: anySupportedTestFailed ? "Failed tests submitted for correction" : "All supported tests complete", done: supportedTestsComplete },
   ];
 
   const uploadRequiredPhoto = async (slot, file) => {
@@ -598,6 +619,52 @@ export default function InstallerTelematicsPortal() {
     submit.mutate({ ...form, device_id: form.actual_device_id, vin: form.vin.toUpperCase() });
   };
 
+  const sendInstallCommand = async (commandType, testKey) => {
+    setCommandState(prev => ({ ...prev, [commandType]: { status: 'Sending' } }));
+    try {
+      await base44.functions.invoke('sendTelematicsCommand', {
+        command_type: commandType,
+        unique_id: form.actual_device_id,
+        vin: form.vin,
+        installer_install_test: true,
+        source: 'installer_workflow'
+      });
+      setCommandState(prev => ({ ...prev, [commandType]: { status: 'Sent' } }));
+    } catch (error) {
+      const message = error?.response?.data?.error || error.message;
+      setCommandState(prev => ({ ...prev, [commandType]: { status: 'Failed', error: message } }));
+      update(testKey, 'fail');
+      setHelpTest(testKey);
+    }
+  };
+
+  const openHelp = (testKey) => {
+    setHelpTest(testKey);
+    setHelpOpen(true);
+  };
+
+  const requestHelp = () => {
+    const name = window.prompt('Installer name', helpForm.name || form.installer_name || '');
+    if (!name) return;
+    const phone = window.prompt('Phone number', helpForm.phone || '');
+    if (!phone) return;
+    const email = window.prompt('Email optional', helpForm.email || '') || '';
+    const description = window.prompt('Issue description', helpForm.description || `Need help with ${helpTest || 'telematics test'}`);
+    if (!description) return;
+    setHelpForm({ name, phone, email, description });
+    helpRequest.mutate({
+      device_id: form.actual_device_id,
+      vin: form.vin,
+      provider_key: form.provider_key,
+      failed_test: helpTest,
+      installer_name: name,
+      installer_phone: phone,
+      installer_email: email,
+      issue_description: description,
+      photos: form.install_photos
+    });
+  };
+
   const canAdvance = [deviceReady, vinEntered, photosReady && namesReady, supportedTestsComplete, true][currentStep];
 
   if (result?.status === "completed") {
@@ -612,7 +679,7 @@ export default function InstallerTelematicsPortal() {
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
           {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
           {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} />}
-          {currentStep === 3 && <TestingStep form={form} update={update} capabilities={capabilities} visibleTests={visibleTests} supportedTestsComplete={supportedTestsComplete} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} />}
+          {currentStep === 3 && <InstallerTestingStep form={form} update={update} capabilities={capabilities} commandState={commandState} onSendCommand={sendInstallCommand} onHelp={openHelp} />}
           {currentStep === 4 && <CompleteStep form={form} deviceId={form.device_id} vehicleLookup={vehicleLookup} readyItems={readyItems} submit={submit} submitInstallation={submitInstallation} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} result={result} />}
         </div>
       </div>
@@ -634,6 +701,8 @@ export default function InstallerTelematicsPortal() {
         onDetected={handleVinScan}
       />
 
+      <InstallerHelpChat open={helpOpen} onOpenChange={setHelpOpen} contextTest={helpTest} onRequestHelp={requestHelp} />
+
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/90 p-4 shadow-2xl shadow-slate-400/20 backdrop-blur-xl">
         <div className="mx-auto flex max-w-3xl gap-3">
           <Button variant="outline" className="h-14 w-16 rounded-3xl border-slate-200 bg-white" disabled={currentStep === 0} onClick={() => setCurrentStep(step => Math.max(0, step - 1))}>
@@ -645,7 +714,7 @@ export default function InstallerTelematicsPortal() {
             </Button>
           ) : (
             <Button className={`h-14 flex-1 rounded-3xl text-base font-black text-white shadow-xl ${anySupportedTestFailed ? "bg-red-600 shadow-red-200 hover:bg-red-700" : "bg-slate-950 shadow-slate-300 hover:bg-slate-800"}`} disabled={!readyItems.every(item => item.done) || submit.isPending} onClick={submitInstallation}>
-              {submit.isPending ? "Submitting..." : "Complete Installation"}
+              {submit.isPending ? "Submitting..." : anySupportedTestFailed ? "Submit Correction Needed" : "Complete Installation"}
             </Button>
           )}
         </div>

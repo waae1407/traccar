@@ -2,6 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const ADMIN_EMAIL = 'admin@uridehub.com';
 const TEST_DEFINITIONS = {
+  device_online: { label: 'Device online', alwaysSupported: true },
   power_voltage_test: { label: 'Power / voltage', alwaysSupported: true },
   gps_signal_test: { label: 'GPS signal', provider: 'supports_location', device: 'gps_enabled', noran: true },
   ignition_acc_test: { label: 'Ignition / ACC', alwaysSupported: true },
@@ -87,7 +88,7 @@ async function upsertVinLinkAlert(base44, { vin, device, record }) {
 }
 
 async function notify(base44, { type, host, device, vehicle, record, failedTests }) {
-  const subject = type === 'completed' ? 'Telematics installation completed' : type === 'failed' ? 'Telematics installation failed' : 'Telematics VIN not found';
+  const subject = type === 'completed' ? 'Telematics installation completed' : 'Telematics installation correction needed';
   const rows = [
     `<p><strong>Device:</strong> ${device.unique_id || device.id}</p>`,
     `<p><strong>VIN:</strong> ${record.vin || 'N/A'}</p>`,
@@ -199,30 +200,29 @@ Deno.serve(async (req) => {
       testSummary[key] = value;
     }
 
-    if (failedTests.length) return Response.json({ error: 'All supported capability tests must pass before completing installation' }, { status: 400 });
-
-    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-      vehicle_id: vehicle?.id || '',
-      host_id: vehicle?.host_id || '',
-      assigned_status: vehicle ? 'assigned' : 'unassigned',
-      install_status: failedTests.length ? 'failed' : 'installed',
-      lifecycle_status: failedTests.length ? 'installation_started' : (vehicle ? 'installation_completed' : 'installation_completed_unlinked'),
-      installation_completed_at: failedTests.length ? device.installation_completed_at || '' : now
-    });
-
     let host = null;
     if (vehicle?.host_id) {
       const hosts = await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id });
       host = hosts[0] || null;
     }
+    const canComplete = !!vehicle && !!host && failedTests.length === 0;
+    const status = canComplete ? 'completed' : 'correction_needed';
 
-    const status = failedTests.length ? 'failed' : 'completed';
+    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+      vehicle_id: vehicle?.id || '',
+      host_id: vehicle?.host_id || '',
+      assigned_status: vehicle ? 'assigned' : 'unassigned',
+      install_status: canComplete ? 'installed' : 'correction_needed',
+      lifecycle_status: canComplete ? 'installation_completed' : (vehicle ? 'installation_started' : 'installation_completed_unlinked'),
+      installation_completed_at: canComplete ? now : device.installation_completed_at || ''
+    });
+
     const payload = {
       ...basePayload,
       host_id: vehicle?.host_id || '',
       vehicle_id: vehicle?.id || '',
       install_status: status,
-      installation_completed_at: failedTests.length ? existing[0]?.installation_completed_at || '' : now,
+      installation_completed_at: canComplete ? now : existing[0]?.installation_completed_at || '',
       test_summary: testSummary,
       failed_tests: failedTests,
       ...testSummary,
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
       telematics_device_id: device.id,
       provider_key: providerKey,
       vehicle_id: vehicle?.id || '',
-      event_type: failedTests.length ? 'installation_failed' : 'installation_completed',
+      event_type: canComplete ? 'installation_completed' : 'installation_correction_needed',
       source: 'installer',
       raw_payload: { install_record_id: record.id, vin, failed_tests: failedTests, installer: payload.installer_name },
       created_at: now
@@ -259,13 +259,13 @@ Deno.serve(async (req) => {
       await safeSendEmail(base44, {
         to: ADMIN_EMAIL,
         subject: 'Vehicle VIN not found during installation',
-        body: `<p>Installation completed for device ${device.unique_id || device.id}, but VIN ${vin} is not in uRideHub yet.</p><p>Add vehicle with matching VIN or link device manually.</p>`
+        body: `<p>Correction needed for device ${device.unique_id || device.id}: VIN ${vin} is not in uRideHub yet.</p><p>Add vehicle with matching VIN or link device manually.</p>`
       });
-      return Response.json({ ok: true, status, pending_vehicle_link: true, message: 'VIN not found yet. Installation may continue. uRideHub admin will link this device once the vehicle is added.', record, vehicle: null });
+      return Response.json({ ok: true, status, pending_vehicle_link: true, message: 'Correction needed: VIN not matched yet. Admin has been notified.', record, vehicle: null });
     }
 
     await notify(base44, { type: status, host, device, vehicle, record, failedTests });
-    return Response.json({ ok: true, status, message: failedTests.length ? 'Installation test failed. Admin/host has been notified.' : 'Installation complete. Admin/host has been notified.', record, vehicle });
+    return Response.json({ ok: true, status, message: canComplete ? 'Installation complete. Admin/host has been notified.' : 'Correction needed. Admin/host has been notified and installer can retry.', record, vehicle });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

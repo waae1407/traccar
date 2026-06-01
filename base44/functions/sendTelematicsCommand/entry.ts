@@ -139,7 +139,7 @@ async function resolveDevice(base44, vehicle) {
 async function validateAccess(base44, user, vehicle, booking, commandType, provider) {
   if (STARTER_COMMANDS.includes(commandType)) {
     if (!provider.allow_starter_commands) return 'Starter commands are disabled for this provider.';
-    if (provider.require_admin_approval_for_starter && user.role !== 'admin') return 'Starter commands require admin approval.';
+    if (provider.require_admin_approval_for_starter && !['admin', 'host'].includes(user.role)) return 'Starter commands require admin or host policy approval.';
   }
   if (user.role === 'admin') return null;
   if (booking && booking.user_email === user.email) {
@@ -152,7 +152,13 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
   if (vehicle.host_id) {
     const host = (await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }))[0];
     if (host?.email === user.email || host?.user_id === user.id) {
-      if (!HOST_COMMANDS.includes(commandType)) return 'Host starter commands require admin policy approval.';
+      if (STARTER_COMMANDS.includes(commandType)) {
+        if (host.telematics_starter_control_enabled !== true) return 'Host starter controls are disabled for this host.';
+        if (device.host_starter_control_enabled !== true) return 'Host starter controls are disabled for this device.';
+        if (device.vehicle_id && device.vehicle_id !== vehicle.id) return 'Device is not assigned to this host vehicle.';
+        return null;
+      }
+      if (!HOST_COMMANDS.includes(commandType)) return 'Host cannot send this command.';
       return null;
     }
   }
@@ -247,25 +253,30 @@ async function fallbackAdapter(provider, device, commandType) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
+    const installerInstallTest = body.installer_install_test === true;
+    let user = await base44.auth.me().catch(() => null);
+    if (!user && installerInstallTest) user = { id: 'installer-workflow', email: body.installer_email || 'installer-workflow@uridehub.com', role: 'installer' };
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const commandType = body.command_type || body.command;
     if (!COMMANDS.includes(commandType)) return Response.json({ error: 'Invalid telematics command.' }, { status: 400 });
 
     const adminTraccarLiveTest = body.admin_traccar_live_test === true;
     const adminDeviceCommandTest = body.admin_device_command_test === true;
-    let { vehicle, booking } = (adminTraccarLiveTest || adminDeviceCommandTest) ? { vehicle: null, booking: null } : await resolveVehicle(base44, body);
-    if (!vehicle && !adminTraccarLiveTest && !adminDeviceCommandTest) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
+    let { vehicle, booking } = (adminTraccarLiveTest || adminDeviceCommandTest || installerInstallTest) ? { vehicle: null, booking: null } : await resolveVehicle(base44, body);
+    if (installerInstallTest && body.vin) {
+      vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ vin: String(body.vin || '').trim().toUpperCase() }))[0] || null;
+    }
+    if (!vehicle && !adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
     let device = body.telematics_device_id ? (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] : null;
     if (!device && body.unique_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: body.unique_id }))[0];
     if (!device && vehicle) device = await resolveDevice(base44, vehicle);
     if (!device) return Response.json({ error: 'No telematics device is assigned to this vehicle.' }, { status: 404 });
     if (adminDeviceCommandTest && user.role !== 'admin') return Response.json({ error: 'Admin access required for device command testing.' }, { status: 403 });
-    if (adminDeviceCommandTest && device.vehicle_id) {
-      vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || null;
+    if ((adminDeviceCommandTest || installerInstallTest) && device.vehicle_id) {
+      vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || vehicle;
     }
-    if (!adminTraccarLiveTest && !adminDeviceCommandTest && ['suspended', 'retired'].includes(device.lifecycle_status)) {
+    if (!adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest && ['suspended', 'retired'].includes(device.lifecycle_status)) {
       return Response.json({ error: 'Device is not enabled for live commands.' }, { status: 403 });
     }
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
@@ -273,6 +284,12 @@ Deno.serve(async (req) => {
     if (adminTraccarLiveTest) {
       if (user.role !== 'admin') return Response.json({ error: 'Admin access required for Traccar single-device live test.' }, { status: 403 });
       if (!isTraccarSingleDeviceLiveTest(provider, device, commandType)) return Response.json({ error: 'Live test is restricted to active NR09G00002 / Traccar device 5 and allowed non-starter commands only.' }, { status: 403 });
+    } else if (installerInstallTest) {
+      if (!body.vin || !vehicle) return Response.json({ error: 'Installer command tests require a matched VIN.' }, { status: 403 });
+      if (device.vehicle_id && device.vehicle_id !== vehicle.id) return Response.json({ error: 'Scanned device is assigned to a different vehicle.' }, { status: 403 });
+      const allowedInstallerCommands = ['lock', 'unlock', 'horn', 'lights', 'disable_starter', 'restore_starter'];
+      if (!allowedInstallerCommands.includes(commandType)) return Response.json({ error: 'Installer can only run install workflow test commands.' }, { status: 403 });
+      if (STARTER_COMMANDS.includes(commandType) && device.installer_starter_test_enabled !== true) return Response.json({ error: 'Installer starter tests are disabled for this device.' }, { status: 403 });
     } else if (!adminDeviceCommandTest) {
       const accessError = await validateAccess(base44, user, vehicle, booking, commandType, provider);
       if (accessError) return Response.json({ error: accessError }, { status: 403 });
@@ -302,7 +319,7 @@ Deno.serve(async (req) => {
       status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
-      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, admin_starter_override: body.admin_starter_override === true }
+      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, admin_starter_override: body.admin_starter_override === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control') }
     });
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });

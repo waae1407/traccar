@@ -21,7 +21,8 @@ export default function TelematicsCommandButtons({ vehicleId, bookingId, device,
 
   const visibleCommands = useMemo(() => COMMANDS.filter(cmd => {
     if (!cmd.roles.includes(role)) return false;
-    if (cmd.starter && (role === "customer" || !allowStarter)) return false;
+    if (cmd.starter && role === "customer") return false;
+    if (cmd.starter && role === "host" && !allowStarter && device?.host_starter_control_enabled !== true) return false;
     if (!deviceReady) return false;
     if (cmd.starter && provider?.allow_starter_commands === false) return false;
     if (provider && provider[cmd.capability] === false) return false;

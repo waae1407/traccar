@@ -109,6 +109,7 @@
         "in_progress",
         "installed",
         "failed",
+        "correction_needed",
         "retired"
       ],
       "default": "not_started"
@@ -144,6 +145,14 @@
       "default": false
     },
     "horn_light_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "host_starter_control_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "installer_starter_test_enabled": {
       "type": "boolean",
       "default": false
     },

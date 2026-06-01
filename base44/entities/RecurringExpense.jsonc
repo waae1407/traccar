@@ -1,0 +1,93 @@
+{
+  "name": "RecurringExpense",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string",
+      "description": "Leave blank for fleet-wide"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "insurance",
+        "gps_subscription",
+        "loan_payment",
+        "storage_parking",
+        "software_tools",
+        "service_contract",
+        "registration",
+        "fuel",
+        "cleaning",
+        "other"
+      ],
+      "default": "insurance"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "vendor": {
+      "type": "string"
+    },
+    "frequency": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "monthly",
+        "quarterly",
+        "yearly"
+      ],
+      "default": "monthly"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "next_due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Optional expiry date"
+    },
+    "tax_deductible": {
+      "type": "boolean",
+      "default": true
+    },
+    "notes": {
+      "type": "string"
+    },
+    "receipt_url": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "paused",
+        "cancelled"
+      ],
+      "default": "active"
+    },
+    "last_generated_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the last HostExpense was generated from this recurring entry"
+    }
+  },
+  "required": [
+    "host_id",
+    "category",
+    "amount",
+    "frequency",
+    "start_date",
+    "next_due_date"
+  ]
+}

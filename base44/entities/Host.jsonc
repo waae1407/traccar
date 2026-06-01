@@ -236,6 +236,10 @@
       "default": false,
       "description": "Admin-controlled: host is under operational review"
     },
+    "telematics_starter_control_enabled": {
+      "type": "boolean",
+      "default": false
+    },
     "restriction_reason": {
       "type": "string",
       "description": "Reason for current operational restriction (required when setting restrictions)"
