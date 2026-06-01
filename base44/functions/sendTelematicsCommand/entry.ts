@@ -55,7 +55,7 @@ function buildNoranMT20Command(commandType, deviceId, template, options = {}) {
   const cleanDeviceId = sanitizeIdentifier(deviceId);
   const ascii = template
     ? renderTemplate(template, { device_id: cleanDeviceId, HHMMSS: hhmmss })
-    : commandType === 'locate'
+    : (commandType === 'locate' || commandType === 'status')
       ? `*KW,${cleanDeviceId},000,${hhmmss}#`
       : `*KW,${cleanDeviceId},007,${hhmmss},${NORAN_ACTION_MAP[commandType]}#`;
   if (options.wrapMt20 === true) {
@@ -312,7 +312,13 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'sending', queue_status: 'sending', confirmation_status: 'pending' });
     try {
       const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
-      const routed = adminTraccarLiveTest ? await sendTraccarSingleDeviceLiveTest(commandType, device) : template ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction }) : await fallbackAdapter(provider, device, commandType);
+      const routed = adminTraccarLiveTest
+        ? await sendTraccarSingleDeviceLiveTest(commandType, device)
+        : liveNoranProduction
+          ? await sendTraccarNoranProductionCommand(commandType, device, template)
+          : template
+            ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction })
+            : await fallbackAdapter(provider, device, commandType);
       const sentAt = new Date().toISOString();
       const providerCommandId = routed.response?.id || routed.response?.commandId || routed.response?.command_id || '';
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
