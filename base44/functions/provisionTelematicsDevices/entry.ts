@@ -1,6 +1,20 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 function clean(value) { return String(value || '').trim(); }
+function noranCommandDefaults(providerKey, model = '') {
+  const isNoran = providerKey === 'traccar_noran_mt20' || String(model || '').toLowerCase().includes('noran');
+  return isNoran ? {
+    gps_enabled: true,
+    lock_unlock_enabled: true,
+    horn_light_enabled: true,
+    unlock_disarms_alarm: true,
+    unlock_double_pulse_enabled: true,
+    host_starter_control_enabled: true,
+    installer_starter_test_enabled: true,
+    production_commands_enabled: true,
+    production_command_scope: 'all_supported_commands'
+  } : {};
+}
 function normalize(row = {}) {
   const provider_key = clean(row.provider_key) || 'moovetrax';
   const unique_id = clean(row.unique_id || row.provider_device_id || row.imei);
