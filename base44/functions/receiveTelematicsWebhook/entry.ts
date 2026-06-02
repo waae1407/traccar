@@ -12,6 +12,17 @@ function pickNumber(...values) {
   return undefined;
 }
 
+function pickVoltageCandidate(...sources) {
+  for (const source of sources) {
+    const number = Number(source?.value);
+    if (Number.isFinite(number) && number > 0) {
+      const rawScaled = /fuel|nbat|vbat/i.test(source.label || '') && number > 40 && number <= 250;
+      return { value: rawScaled ? number / 10 : number, source: source.label };
+    }
+  }
+  return { value: undefined, source: '' };
+}
+
 function hexToBytes(value) {
   const clean = String(value || '').replace(/^0x/i, '').replace(/[^a-fA-F0-9]/g, '');
   if (clean.length < 4 || clean.length % 2 !== 0) return null;
@@ -97,9 +108,31 @@ function parseNoranCandidate(bytes, start) {
   };
 }
 
+function parseNoranPositionPacket(bytes) {
+  for (let i = 0; i < bytes.length - 5; i++) {
+    const command = readUInt16(bytes, i + 2, true);
+    if (command !== 0x0032 && command !== 0x0008) continue;
+    const voltageByte = bytes[i + 5];
+    if (!Number.isFinite(voltageByte) || voltageByte <= 0 || voltageByte > 250) continue;
+    return {
+      command: command === 0x0032 ? '0x0032' : '0x0008',
+      bEnable: bytes[i + 4],
+      nBAT: voltageByte,
+      VBAT: voltageByte,
+      battery_voltage: voltageByte / 10,
+      power_voltage: voltageByte / 10,
+      external_voltage: voltageByte / 10,
+      voltage_source: command === 0x0032 ? 'mt20_0032_nBAT' : 'mt20_0008_vBAT'
+    };
+  }
+  return null;
+}
+
 function parseNoranMt20ResponsePacket(value) {
   const bytes = hexToBytes(value);
   if (!bytes) return null;
+  const positionPacket = parseNoranPositionPacket(bytes);
+  if (positionPacket) return positionPacket;
   const markerOffsets = [];
   for (let i = 0; i < bytes.length - 1; i++) {
     if ((bytes[i] === 0x80 && bytes[i + 1] === 0x09) || (bytes[i] === 0x09 && bytes[i + 1] === 0x80)) markerOffsets.push(i);
@@ -107,7 +140,7 @@ function parseNoranMt20ResponsePacket(value) {
   for (const marker of markerOffsets) {
     const candidates = [marker + 2, marker + 8].map((start) => parseNoranCandidate(bytes, start)).filter(Boolean);
     const best = candidates.find((item) => item.latitude !== undefined && item.longitude !== undefined) || candidates[0];
-    if (best) return best;
+    if (best) return { ...best, power_voltage: best.battery_voltage, external_voltage: best.battery_voltage, voltage_source: 'mt20_8009_VBAT' };
   }
   return null;
 }
@@ -413,7 +446,19 @@ Deno.serve(async (req) => {
     const longitude = pickNumber(body.longitude, body.lng, body.lon, body.position?.longitude, noranPacket?.longitude);
     const speed = pickNumber(body.speed, body.position?.speed, noranPacket?.speed);
     const heading = pickNumber(body.heading, body.course, body.position?.course, body.position?.heading, noranPacket?.direction);
-    const batteryVoltage = pickNumber(body.battery_voltage, body.position?.attributes?.battery_voltage, noranPacket?.battery_voltage);
+    const voltageCandidate = pickVoltageCandidate(
+      { label: 'webhook.power_voltage', value: body.power_voltage },
+      { label: 'webhook.external_voltage', value: body.external_voltage },
+      { label: 'webhook.battery_voltage', value: body.battery_voltage },
+      { label: 'webhook.voltage', value: body.voltage },
+      { label: 'position.attributes.power_voltage', value: body.position?.attributes?.power_voltage },
+      { label: 'position.attributes.external_voltage', value: body.position?.attributes?.external_voltage },
+      { label: 'position.attributes.battery_voltage', value: body.position?.attributes?.battery_voltage },
+      { label: 'position.attributes.voltage', value: body.position?.attributes?.voltage },
+      { label: 'position.attributes.fuel', value: body.position?.attributes?.fuel },
+      { label: noranPacket?.voltage_source || 'mt20_packet', value: noranPacket?.battery_voltage }
+    );
+    const batteryVoltage = voltageCandidate.value;
     const ignition = eventType === 'ignition_on' ? true : eventType === 'ignition_off' ? false : body.ignition ?? body.position?.attributes?.ignition;
     const now = new Date().toISOString();
     const positionTimestamp = normalizeTimestamp(noranPacket?.datetime, body.fixTime, body.deviceTime, body.serverTime, body.position?.fixTime, body.position?.deviceTime, body.position?.serverTime, now);
@@ -429,7 +474,7 @@ Deno.serve(async (req) => {
       longitude,
       speed,
       ignition: typeof ignition === 'boolean' ? ignition : undefined,
-      raw_payload: noranPacket ? { ...body, noran_mt20_8009: noranPacket } : body,
+      raw_payload: noranPacket ? { ...body, noran_mt20: noranPacket } : body,
       created_at: now,
     });
 
@@ -439,7 +484,14 @@ Deno.serve(async (req) => {
       if (longitude !== undefined) updates.last_longitude = longitude;
       if (speed !== undefined) updates.speed = speed;
       if (heading !== undefined) { updates.heading = heading; updates.course = heading; }
-      if (batteryVoltage !== undefined) updates.battery_voltage = batteryVoltage;
+      if (batteryVoltage !== undefined) {
+        updates.battery_voltage = batteryVoltage;
+        updates.power_voltage = batteryVoltage;
+        updates.external_voltage = batteryVoltage;
+        updates.voltage = batteryVoltage;
+        updates.voltage_source = voltageCandidate.source;
+        updates.voltage_last_seen_at = positionTimestamp;
+      }
       if (latitude !== undefined && longitude !== undefined && eventType === 'location_update') updates.online_status = 'online';
       if (eventType === 'device_online') updates.online_status = 'online';
       if (eventType === 'device_offline') updates.online_status = 'offline';

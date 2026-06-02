@@ -89,22 +89,57 @@ function parseNoranCandidate(bytes, start) {
   };
 }
 
+function parseNoranPositionPacket(bytes) {
+  for (let i = 0; i < bytes.length - 5; i++) {
+    const command = readUInt16(bytes, i + 2);
+    if (command !== 0x0032 && command !== 0x0008) continue;
+    const voltageByte = bytes[i + 5];
+    if (!Number.isFinite(voltageByte) || voltageByte <= 0 || voltageByte > 250) continue;
+    return {
+      command: command === 0x0032 ? '0x0032' : '0x0008',
+      bEnable: bytes[i + 4],
+      nBAT: voltageByte,
+      VBAT: voltageByte,
+      battery_voltage: voltageByte / 10,
+      power_voltage: voltageByte / 10,
+      external_voltage: voltageByte / 10,
+      voltage_source: command === 0x0032 ? 'mt20_0032_nBAT' : 'mt20_0008_vBAT'
+    };
+  }
+  return null;
+}
+
 function parseNoranMt20ResponsePacket(value) {
   const bytes = hexToBytes(value);
   if (!bytes) return null;
+  const positionPacket = parseNoranPositionPacket(bytes);
+  if (positionPacket) return positionPacket;
   for (let i = 0; i < bytes.length - 1; i++) {
     if ((bytes[i] === 0x80 && bytes[i + 1] === 0x09) || (bytes[i] === 0x09 && bytes[i + 1] === 0x80)) {
       const candidates = [i + 2, i + 8].map((start) => parseNoranCandidate(bytes, start)).filter(Boolean);
       const best = candidates.find((item) => item.latitude !== undefined && item.longitude !== undefined) || candidates[0];
-      if (best) return best;
+      if (best) return { ...best, power_voltage: best.battery_voltage, external_voltage: best.battery_voltage, voltage_source: 'mt20_8009_VBAT' };
     }
   }
   return null;
 }
 
 function noranPacketFromPosition(position) {
-  const attributes = position?.attributes || {};
-  return parseNoranMt20ResponsePacket(attributes.data || attributes.raw || attributes.response || attributes.hex_payload || '');
+  const scan = (input, depth = 0) => {
+    if (!input || depth > 4) return null;
+    if (typeof input === 'string') return parseNoranMt20ResponsePacket(input);
+    if (typeof input !== 'object') return null;
+    for (const key of ['data', 'raw', 'response', 'hex_payload', 'packet_hex', 'message']) {
+      const parsed = scan(input[key], depth + 1);
+      if (parsed) return parsed;
+    }
+    for (const value of Object.values(input)) {
+      const parsed = scan(value, depth + 1);
+      if (parsed) return parsed;
+    }
+    return null;
+  };
+  return scan(position);
 }
 
 function ignitionStatus(position) {
@@ -113,6 +148,27 @@ function ignitionStatus(position) {
   if (value === true || value === 'true' || value === 1 || value === '1') return 'on';
   if (value === false || value === 'false' || value === 0 || value === '0') return 'off';
   return 'unknown';
+}
+
+function normalizeVoltageValue(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return null;
+  return number > 40 && number <= 250 ? number / 10 : number;
+}
+
+function voltageFromTraccarAttributes(attributes = {}) {
+  const candidates = [
+    ['attributes.power_voltage', attributes.power_voltage],
+    ['attributes.external_voltage', attributes.external_voltage],
+    ['attributes.battery_voltage', attributes.battery_voltage],
+    ['attributes.voltage', attributes.voltage],
+    ['attributes.fuel', attributes.fuel]
+  ];
+  for (const [source, value] of candidates) {
+    const voltage = normalizeVoltageValue(value);
+    if (voltage !== null) return { value: voltage, source };
+  }
+  return { value: null, source: '' };
 }
 
 function retentionDays() {
@@ -215,7 +271,16 @@ Deno.serve(async (req) => {
         online_status: onlineStatus(traccarDevice, position),
         ignition_status: ignitionStatus(position)
       };
-      if (noranPacket?.battery_voltage !== undefined) payload.battery_voltage = noranPacket.battery_voltage;
+      const attributeVoltage = voltageFromTraccarAttributes(position.attributes || {});
+      const normalizedVoltage = noranPacket?.battery_voltage ?? attributeVoltage.value;
+      if (normalizedVoltage !== null && normalizedVoltage !== undefined) {
+        payload.battery_voltage = normalizedVoltage;
+        payload.power_voltage = noranPacket?.power_voltage ?? normalizedVoltage;
+        payload.external_voltage = noranPacket?.external_voltage ?? normalizedVoltage;
+        payload.voltage = normalizedVoltage;
+        payload.voltage_source = noranPacket?.voltage_source || attributeVoltage.source || 'traccar_position_attributes';
+        payload.voltage_last_seen_at = seenAt;
+      }
       await base44.asServiceRole.entities.TelematicsDevice.update(local.id, payload);
       await base44.asServiceRole.entities.TelematicsPositionHistory.create({
         device_id: local.id,

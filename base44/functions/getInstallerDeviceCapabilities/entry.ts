@@ -14,6 +14,9 @@ const TEST_DEFINITIONS = {
   starter_restore_test: { label: 'Starter Restore', provider: 'supports_starter_restore', noran: true }
 };
 
+const POWER_VOLTAGE_THRESHOLD = 11.5;
+const VOLTAGE_RECENT_HOURS = 24;
+
 function isNoranMt20(providerKey, device) {
   const model = String(device?.model || '').toLowerCase();
   return providerKey === 'traccar_noran_mt20' || (model.includes('noran') && model.includes('mt20'));
@@ -33,43 +36,93 @@ function isRecent(value, hours = 24) {
   return Number.isFinite(time) && Date.now() - time <= hours * 60 * 60 * 1000;
 }
 
-function pickVoltage(...payloads) {
-  for (const payload of payloads) {
+function pickVoltageDetails(...sources) {
+  for (const source of sources) {
+    const payload = source?.payload || {};
     const candidates = [
-      payload?.battery_voltage,
-      payload?.noran_mt20_8009?.battery_voltage,
-      payload?.raw_payload?.noran_mt20_8009?.battery_voltage,
-      payload?.voltage,
-      payload?.power_voltage,
-      payload?.batteryVoltage,
-      payload?.attributes?.battery_voltage,
-      payload?.attributes?.voltage,
-      payload?.position?.attributes?.battery_voltage,
-      payload?.position?.attributes?.voltage,
-      payload?.attributes?.power
+      ['power_voltage', payload?.power_voltage],
+      ['battery_voltage', payload?.battery_voltage],
+      ['external_voltage', payload?.external_voltage],
+      ['voltage', payload?.voltage],
+      ['noran_mt20.power_voltage', payload?.noran_mt20?.power_voltage],
+      ['noran_mt20.battery_voltage', payload?.noran_mt20?.battery_voltage],
+      ['noran_mt20_8009.battery_voltage', payload?.noran_mt20_8009?.battery_voltage],
+      ['raw_payload.noran_mt20.power_voltage', payload?.raw_payload?.noran_mt20?.power_voltage],
+      ['raw_payload.noran_mt20.battery_voltage', payload?.raw_payload?.noran_mt20?.battery_voltage],
+      ['raw_payload.noran_mt20_8009.battery_voltage', payload?.raw_payload?.noran_mt20_8009?.battery_voltage],
+      ['batteryVoltage', payload?.batteryVoltage],
+      ['attributes.power_voltage', payload?.attributes?.power_voltage],
+      ['attributes.external_voltage', payload?.attributes?.external_voltage],
+      ['attributes.battery_voltage', payload?.attributes?.battery_voltage],
+      ['attributes.voltage', payload?.attributes?.voltage],
+      ['attributes.fuel', payload?.attributes?.fuel],
+      ['position.attributes.power_voltage', payload?.position?.attributes?.power_voltage],
+      ['position.attributes.external_voltage', payload?.position?.attributes?.external_voltage],
+      ['position.attributes.battery_voltage', payload?.position?.attributes?.battery_voltage],
+      ['position.attributes.voltage', payload?.position?.attributes?.voltage]
     ];
-    for (const value of candidates) {
+    for (const [field, value] of candidates) {
       const number = Number(value);
-      if (Number.isFinite(number) && number > 0) return number;
+      if (Number.isFinite(number) && number > 0) {
+        const normalized = /fuel|nbat|vbat/i.test(field) && number > 40 && number <= 250 ? number / 10 : number;
+        return {
+          value: normalized,
+          source_entity: source.entity,
+          source_field: field,
+          source_timestamp: source.timestamp || payload.voltage_last_seen_at || payload.location_updated_at || payload.last_seen_at || payload.created_at || payload.created_date || null
+        };
+      }
     }
   }
-  return null;
+  return { value: null, source_entity: '', source_field: '', source_timestamp: null };
 }
 
 async function buildAutoChecks(base44, device) {
   const events = device?.id ? await base44.asServiceRole.entities.TelematicsEvent.filter({ telematics_device_id: device.id }) : [];
   const recentEvents = events.filter(event => isRecent(event.created_at || event.created_date, 24));
   const recentGps = isRecent(device.location_updated_at || device.last_seen_at, 24) && Number.isFinite(Number(device.last_latitude)) && Number.isFinite(Number(device.last_longitude));
-  const voltage = pickVoltage(device, ...recentEvents.map(event => event.raw_payload));
   const ignitionKnown = device.ignition_status && device.ignition_status !== 'unknown';
   const recentIgnition = recentEvents.some(event => typeof event.ignition === 'boolean' || ['ignition_on', 'ignition_off'].includes(event.event_type));
   const online = isRecent(device.last_seen_at || device.location_updated_at, 24) || recentEvents.length > 0;
+  const voltage = pickVoltageDetails(
+    { entity: 'TelematicsDevice', payload: device, timestamp: device.voltage_last_seen_at || device.location_updated_at || device.last_seen_at },
+    ...recentEvents.map(event => ({ entity: 'TelematicsEvent.raw_payload', payload: event.raw_payload, timestamp: event.created_at || event.created_date }))
+  );
+  const voltageRecent = isRecent(voltage.source_timestamp, VOLTAGE_RECENT_HOURS);
+  const voltagePass = online && voltage.value !== null && voltage.value >= POWER_VOLTAGE_THRESHOLD && voltageRecent;
+  const voltageFailReason = voltage.value === null
+    ? 'No voltage detected. Check constant power, fuse, and ground.'
+    : voltage.value < POWER_VOLTAGE_THRESHOLD
+      ? `${voltage.value.toFixed(1)}V detected, below ${POWER_VOLTAGE_THRESHOLD}V threshold. Check constant power, fuse, and ground.`
+      : !voltageRecent
+        ? `${voltage.value.toFixed(1)}V detected but voltage reading is stale. Check current power reporting.`
+        : 'Device must be online before power can pass.';
 
   return {
     device_online: { status: online ? 'pass' : 'fail', tip: 'Device must be online first. Check power, SIM, and antenna signal.' },
-    power_voltage_test: { status: voltage ? 'pass' : 'fail', value: voltage, tip: 'Check constant power, fuse, and ground.' },
+    power_voltage_test: {
+      status: voltagePass ? 'pass' : 'fail',
+      value: voltage.value,
+      threshold: POWER_VOLTAGE_THRESHOLD,
+      source_entity: voltage.source_entity,
+      source_field: voltage.source_field,
+      voltage_last_seen_at: voltage.source_timestamp,
+      message: voltagePass ? `${voltage.value.toFixed(1)}V detected` : voltageFailReason,
+      tip: 'No voltage detected. Check constant power, fuse, and ground.'
+    },
     gps_signal_test: { status: recentGps ? 'pass' : 'fail', tip: 'Move vehicle/device where antenna has sky visibility.' },
-    ignition_acc_test: { status: ignitionKnown || recentIgnition ? 'pass' : 'fail', tip: 'Turn ignition ON. Check ACC/ignition wire.' }
+    ignition_acc_test: { status: ignitionKnown || recentIgnition ? 'pass' : 'fail', tip: 'Turn ignition ON. Check ACC/ignition wire.' },
+    audit: {
+      power_voltage: {
+        source_entity: voltage.source_entity,
+        source_field: voltage.source_field,
+        expected_value: `>= ${POWER_VOLTAGE_THRESHOLD}V and seen within ${VOLTAGE_RECENT_HOURS} hours while device is online`,
+        actual_value: voltage.value,
+        threshold: POWER_VOLTAGE_THRESHOLD,
+        voltage_last_seen_at: voltage.source_timestamp,
+        currently_fails_because: voltagePass ? '' : voltageFailReason
+      }
+    }
   };
 }
 

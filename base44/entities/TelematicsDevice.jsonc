@@ -241,6 +241,22 @@
     "battery_voltage": {
       "type": "number"
     },
+    "power_voltage": {
+      "type": "number"
+    },
+    "external_voltage": {
+      "type": "number"
+    },
+    "voltage": {
+      "type": "number"
+    },
+    "voltage_source": {
+      "type": "string"
+    },
+    "voltage_last_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "signal_strength": {
       "type": "number"
     },
