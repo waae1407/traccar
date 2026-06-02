@@ -16,7 +16,7 @@ function pickVoltageCandidate(...sources) {
   for (const source of sources) {
     const number = Number(source?.value);
     if (Number.isFinite(number) && number > 0) {
-      const rawScaled = /fuel|nbat|vbat/i.test(source.label || '') && number > 40 && number <= 250;
+      const rawScaled = /nbat|vbat/i.test(source.label || '') && number > 40 && number <= 250;
       return { value: rawScaled ? number / 10 : number, source: source.label };
     }
   }
@@ -447,6 +447,7 @@ Deno.serve(async (req) => {
     const speed = pickNumber(body.speed, body.position?.speed, noranPacket?.speed);
     const heading = pickNumber(body.heading, body.course, body.position?.course, body.position?.heading, noranPacket?.direction);
     const voltageCandidate = pickVoltageCandidate(
+      { label: noranPacket?.voltage_source || 'mt20_packet', value: noranPacket?.battery_voltage },
       { label: 'webhook.power_voltage', value: body.power_voltage },
       { label: 'webhook.external_voltage', value: body.external_voltage },
       { label: 'webhook.battery_voltage', value: body.battery_voltage },
@@ -454,9 +455,7 @@ Deno.serve(async (req) => {
       { label: 'position.attributes.power_voltage', value: body.position?.attributes?.power_voltage },
       { label: 'position.attributes.external_voltage', value: body.position?.attributes?.external_voltage },
       { label: 'position.attributes.battery_voltage', value: body.position?.attributes?.battery_voltage },
-      { label: 'position.attributes.voltage', value: body.position?.attributes?.voltage },
-      { label: 'position.attributes.fuel', value: body.position?.attributes?.fuel },
-      { label: noranPacket?.voltage_source || 'mt20_packet', value: noranPacket?.battery_voltage }
+      { label: 'position.attributes.voltage', value: body.position?.attributes?.voltage }
     );
     const batteryVoltage = voltageCandidate.value;
     const ignition = eventType === 'ignition_on' ? true : eventType === 'ignition_off' ? false : body.ignition ?? body.position?.attributes?.ignition;

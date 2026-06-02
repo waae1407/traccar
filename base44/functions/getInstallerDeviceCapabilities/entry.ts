@@ -55,7 +55,6 @@ function pickVoltageDetails(...sources) {
       ['attributes.external_voltage', payload?.attributes?.external_voltage],
       ['attributes.battery_voltage', payload?.attributes?.battery_voltage],
       ['attributes.voltage', payload?.attributes?.voltage],
-      ['attributes.fuel', payload?.attributes?.fuel],
       ['position.attributes.power_voltage', payload?.position?.attributes?.power_voltage],
       ['position.attributes.external_voltage', payload?.position?.attributes?.external_voltage],
       ['position.attributes.battery_voltage', payload?.position?.attributes?.battery_voltage],
@@ -64,7 +63,7 @@ function pickVoltageDetails(...sources) {
     for (const [field, value] of candidates) {
       const number = Number(value);
       if (Number.isFinite(number) && number > 0) {
-        const normalized = /fuel|nbat|vbat/i.test(field) && number > 40 && number <= 250 ? number / 10 : number;
+        const normalized = /nbat|vbat/i.test(field) && number > 40 && number <= 250 ? number / 10 : number;
         return {
           value: normalized,
           source_entity: source.entity,
@@ -89,9 +88,11 @@ async function buildAutoChecks(base44, device) {
     ...recentEvents.map(event => ({ entity: 'TelematicsEvent.raw_payload', payload: event.raw_payload, timestamp: event.created_at || event.created_date }))
   );
   const voltageRecent = isRecent(voltage.source_timestamp, VOLTAGE_RECENT_HOURS);
-  const voltagePass = online && voltage.value !== null && voltage.value >= POWER_VOLTAGE_THRESHOLD && voltageRecent;
-  const voltageFailReason = voltage.value === null
-    ? 'No voltage detected. Check constant power, fuse, and ground.'
+  const voltageConfirmed = voltage.value !== null && !String(voltage.source_field || '').includes('attributes.fuel');
+  const voltagePass = voltageConfirmed && online && voltage.value >= POWER_VOLTAGE_THRESHOLD && voltageRecent;
+  const voltagePendingReason = 'Pending MT20 telemetry mapping — Traccar fuel is not treated as voltage until proven.';
+  const voltageFailReason = !voltageConfirmed
+    ? voltagePendingReason
     : voltage.value < POWER_VOLTAGE_THRESHOLD
       ? `${voltage.value.toFixed(1)}V detected, below ${POWER_VOLTAGE_THRESHOLD}V threshold. Check constant power, fuse, and ground.`
       : !voltageRecent
@@ -101,8 +102,8 @@ async function buildAutoChecks(base44, device) {
   return {
     device_online: { status: online ? 'pass' : 'fail', tip: 'Device must be online first. Check power, SIM, and antenna signal.' },
     power_voltage_test: {
-      status: voltagePass ? 'pass' : 'fail',
-      value: voltage.value,
+      status: voltagePass ? 'pass' : !voltageConfirmed ? 'pending' : 'fail',
+      value: voltageConfirmed ? voltage.value : null,
       threshold: POWER_VOLTAGE_THRESHOLD,
       source_entity: voltage.source_entity,
       source_field: voltage.source_field,

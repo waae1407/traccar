@@ -150,27 +150,6 @@ function ignitionStatus(position) {
   return 'unknown';
 }
 
-function normalizeVoltageValue(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number <= 0) return null;
-  return number > 40 && number <= 250 ? number / 10 : number;
-}
-
-function voltageFromTraccarAttributes(attributes = {}) {
-  const candidates = [
-    ['attributes.power_voltage', attributes.power_voltage],
-    ['attributes.external_voltage', attributes.external_voltage],
-    ['attributes.battery_voltage', attributes.battery_voltage],
-    ['attributes.voltage', attributes.voltage],
-    ['attributes.fuel', attributes.fuel]
-  ];
-  for (const [source, value] of candidates) {
-    const voltage = normalizeVoltageValue(value);
-    if (voltage !== null) return { value: voltage, source };
-  }
-  return { value: null, source: '' };
-}
-
 function retentionDays() {
   return 30;
 }
@@ -271,14 +250,12 @@ Deno.serve(async (req) => {
         online_status: onlineStatus(traccarDevice, position),
         ignition_status: ignitionStatus(position)
       };
-      const attributeVoltage = voltageFromTraccarAttributes(position.attributes || {});
-      const normalizedVoltage = noranPacket?.battery_voltage ?? attributeVoltage.value;
-      if (normalizedVoltage !== null && normalizedVoltage !== undefined) {
-        payload.battery_voltage = normalizedVoltage;
-        payload.power_voltage = noranPacket?.power_voltage ?? normalizedVoltage;
-        payload.external_voltage = noranPacket?.external_voltage ?? normalizedVoltage;
-        payload.voltage = normalizedVoltage;
-        payload.voltage_source = noranPacket?.voltage_source || attributeVoltage.source || 'traccar_position_attributes';
+      if (noranPacket?.battery_voltage !== null && noranPacket?.battery_voltage !== undefined) {
+        payload.battery_voltage = noranPacket.battery_voltage;
+        payload.power_voltage = noranPacket.power_voltage ?? noranPacket.battery_voltage;
+        payload.external_voltage = noranPacket.external_voltage ?? noranPacket.battery_voltage;
+        payload.voltage = noranPacket.battery_voltage;
+        payload.voltage_source = noranPacket.voltage_source || 'mt20_raw_packet';
         payload.voltage_last_seen_at = seenAt;
       }
       await base44.asServiceRole.entities.TelematicsDevice.update(local.id, payload);
