@@ -192,6 +192,34 @@ async function findDeviceByIdentifier(base44, identifier, providerKey) {
   return null;
 }
 
+function baseUrl() { return String(Deno.env.get('TRACCAR_BASE_URL') || '').replace(/\/+$/, ''); }
+function authHeader() { return 'Basic ' + btoa(`${Deno.env.get('TRACCAR_USERNAME')}:${Deno.env.get('TRACCAR_PASSWORD')}`); }
+
+async function findTraccarDevice(identifier) {
+  if (!baseUrl()) return null;
+  const response = await fetch(`${baseUrl()}/api/devices`, { headers: { Authorization: authHeader(), Accept: 'application/json' } });
+  if (!response.ok) return null;
+  const devices = await response.json();
+  return (Array.isArray(devices) ? devices : []).find(device => String(device.uniqueId || '').toUpperCase() === String(identifier || '').toUpperCase()) || null;
+}
+
+function noranCommandDefaults() {
+  return {
+    provider_key: 'traccar_noran_mt20',
+    provider_type: 'traccar',
+    model: 'Noran MT20',
+    gps_enabled: true,
+    lock_unlock_enabled: true,
+    horn_light_enabled: true,
+    unlock_disarms_alarm: true,
+    unlock_double_pulse_enabled: true,
+    host_starter_control_enabled: true,
+    installer_starter_test_enabled: true,
+    production_commands_enabled: true,
+    production_command_scope: 'all_supported_commands'
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -202,13 +230,17 @@ Deno.serve(async (req) => {
 
     let device = await findDeviceByIdentifier(base44, deviceId, providerKey);
     if (!device) {
+      const traccarDevice = await findTraccarDevice(deviceId);
       device = await base44.asServiceRole.entities.TelematicsDevice.create({
-        provider_key: providerKey || 'unknown',
+        ...(traccarDevice ? noranCommandDefaults() : { provider_key: 'unknown', provider_type: 'api' }),
         unique_id: deviceId,
+        provider_device_id: traccarDevice ? String(traccarDevice.id) : undefined,
+        traccar_device_id: traccarDevice ? String(traccarDevice.id) : undefined,
+        model: traccarDevice ? 'Noran MT20' : undefined,
         lifecycle_status: 'inventory',
         assigned_status: 'unassigned',
         install_status: 'not_started',
-        online_status: 'unknown',
+        online_status: traccarDevice?.status || 'unknown',
         created_at: new Date().toISOString()
       });
     }
