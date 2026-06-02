@@ -36,9 +36,58 @@ function isRecent(value, hours = 24) {
   return Number.isFinite(time) && Date.now() - time <= hours * 60 * 60 * 1000;
 }
 
+function hexToBytes(value) {
+  const clean = String(value || '').replace(/^0x/i, '').replace(/[^a-fA-F0-9]/g, '');
+  if (clean.length < 4 || clean.length % 2 !== 0) return null;
+  const bytes = [];
+  for (let i = 0; i < clean.length; i += 2) bytes.push(parseInt(clean.slice(i, i + 2), 16));
+  return bytes;
+}
+
+function readUInt16LE(bytes, offset) {
+  if (offset + 1 >= bytes.length) return null;
+  return bytes[offset] | (bytes[offset + 1] << 8);
+}
+
+function parseRawMt20Voltage(value) {
+  const bytes = hexToBytes(value);
+  if (!bytes) return null;
+  for (let i = 0; i < bytes.length - 5; i++) {
+    const packetType = readUInt16LE(bytes, i + 2);
+    if (packetType !== 0x0032 && packetType !== 0x0008) continue;
+    const voltageByte = bytes[i + 5];
+    if (!Number.isFinite(voltageByte) || voltageByte <= 0 || voltageByte > 250) continue;
+    return {
+      value: voltageByte / 10,
+      source_field: packetType === 0x0032 ? 'raw_mt20_0032_nBAT' : 'raw_mt20_0008_vBAT'
+    };
+  }
+  return null;
+}
+
+function findRawMt20Voltage(input, depth = 0) {
+  if (!input || depth > 6) return null;
+  if (typeof input === 'string') return parseRawMt20Voltage(input);
+  if (typeof input !== 'object') return null;
+  for (const value of Object.values(input)) {
+    const parsed = findRawMt20Voltage(value, depth + 1);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
 function pickVoltageDetails(...sources) {
   for (const source of sources) {
     const payload = source?.payload || {};
+    const rawVoltage = findRawMt20Voltage(payload);
+    if (rawVoltage) {
+      return {
+        value: rawVoltage.value,
+        source_entity: source.entity,
+        source_field: rawVoltage.source_field,
+        source_timestamp: source.timestamp || payload.voltage_last_seen_at || payload.location_updated_at || payload.last_seen_at || payload.created_at || payload.created_date || null
+      };
+    }
     const candidates = [
       ['power_voltage', payload?.power_voltage],
       ['battery_voltage', payload?.battery_voltage],

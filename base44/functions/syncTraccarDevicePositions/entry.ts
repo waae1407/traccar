@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
       const position = positionsByDeviceId.get(traccarId);
       if (!position || typeof position.latitude !== 'number' || typeof position.longitude !== 'number') { skipped.push({ id: local.id, reason: 'no_position' }); continue; }
       const traccarDevice = traccarById.get(traccarId);
-      const noranPacket = noranPacketFromPosition(position);
+      const noranPacket = noranPacketFromPosition({ position, traccarDevice });
       const seenAt = toIso(noranPacket?.datetime || position.fixTime || position.deviceTime || position.serverTime);
       const payload = {
         last_latitude: noranPacket?.latitude ?? position.latitude,
