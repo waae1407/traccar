@@ -36,18 +36,16 @@ export default function TelematicsAlarmControls({ vehicleId, role = "admin", onR
   };
 
   return (
-    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-2 space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <Badge variant="outline" className={active ? "border-red-500/40 bg-red-500/10 text-red-300" : "border-border text-muted-foreground"}>
-          {active ? `Alarm active · ${active.pulses_sent || 0}/${active.max_pulses || 9}` : "Alarm inactive"}
-        </Badge>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant="outline" disabled={!!loading || !!active} onClick={startAlarm} className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20">
-          {loading === "start" ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlarmClock className="h-4 w-4" />} Trigger Alarm
+    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-1.5 space-y-1.5">
+      <Badge variant="outline" className={`px-1.5 py-0 text-[8px] ${active ? "border-red-500/40 bg-red-500/10 text-red-300" : "border-border text-muted-foreground"}`}>
+        {active ? `Alarm · ${active.pulses_sent || 0}/${active.max_pulses || 9}` : "Alarm off"}
+      </Badge>
+      <div className="grid grid-cols-2 gap-1">
+        <Button type="button" variant="outline" disabled={!!loading || !!active} onClick={startAlarm} className="h-7 gap-1 rounded-lg border-red-500/30 bg-red-500/10 px-1 text-[9px] text-red-300 hover:bg-red-500/20">
+          {loading === "start" ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlarmClock className="h-3 w-3" />} Start
         </Button>
-        <Button type="button" variant="outline" disabled={!!loading || !active} onClick={cancelAlarm} className="border-slate-500/30 text-slate-300 hover:bg-slate-500/10">
-          {loading === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : <OctagonX className="h-4 w-4" />} Cancel Alarm
+        <Button type="button" variant="outline" disabled={!!loading || !active} onClick={cancelAlarm} className="h-7 gap-1 rounded-lg border-slate-500/30 px-1 text-[9px] text-slate-300 hover:bg-slate-500/10">
+          {loading === "cancel" ? <Loader2 className="h-3 w-3 animate-spin" /> : <OctagonX className="h-3 w-3" />} Stop
         </Button>
       </div>
     </div>
