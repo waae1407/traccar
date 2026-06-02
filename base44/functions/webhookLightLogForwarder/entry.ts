@@ -140,6 +140,15 @@ Deno.serve(async (req) => {
     const timestamp = normalizeTimestamp(body.timestamp || body.deviceTime || body.serverTime || now);
     const device = await findDevice(base44, body, parsed);
 
+    const normalizedVoltagePayload = {
+      battery_voltage: parsed.voltage,
+      power_voltage: parsed.voltage,
+      external_voltage: parsed.voltage,
+      voltage: parsed.voltage,
+      voltage_source: parsed.source,
+      voltage_last_seen_at: timestamp
+    };
+
     const event = await base44.asServiceRole.entities.TelematicsEvent.create({
       company_id: device?.company_id || '',
       telematics_device_id: device?.id || '',
@@ -147,7 +156,7 @@ Deno.serve(async (req) => {
       vehicle_id: device?.vehicle_id || '',
       event_type: parsed.event_type,
       source: 'webhook',
-      raw_payload: { ...body, parsed_forwarded_log: parsed },
+      raw_payload: { ...body, ...normalizedVoltagePayload, parsed_forwarded_log: parsed },
       created_at: now
     });
 
