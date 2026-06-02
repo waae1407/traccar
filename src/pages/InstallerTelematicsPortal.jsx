@@ -481,6 +481,13 @@ export default function InstallerTelematicsPortal() {
     retry: false
   });
 
+  const commandCapabilities = useQuery({
+    queryKey: ["installer-command-capabilities", form.actual_device_id, form.vin],
+    queryFn: () => base44.functions.invoke("getTelematicsCommandCapabilities", { role: "installer", unique_id: form.actual_device_id, vin: form.vin, installer_install_test: true }).then(res => res.data),
+    enabled: !!form.actual_device_id && vinValid,
+    retry: false
+  });
+
   useEffect(() => {
     const tests = capabilities.data?.tests;
     const autoChecks = capabilities.data?.auto_checks || {};
@@ -570,7 +577,10 @@ export default function InstallerTelematicsPortal() {
   const testsReady = supportedTestsComplete && allSupportedTestsPass;
 
   useEffect(() => {
-    if (currentStep === 3 && form.actual_device_id) capabilities.refetch();
+    if (currentStep === 3 && form.actual_device_id) {
+      capabilities.refetch();
+      if (vinValid) commandCapabilities.refetch();
+    }
   }, [currentStep, form.actual_device_id]);
 
   const completed = {
@@ -679,7 +689,7 @@ export default function InstallerTelematicsPortal() {
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
           {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
           {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} />}
-          {currentStep === 3 && <InstallerTestingStep form={form} update={update} capabilities={capabilities} commandState={commandState} onSendCommand={sendInstallCommand} onHelp={openHelp} />}
+          {currentStep === 3 && <InstallerTestingStep form={form} update={update} capabilities={capabilities} commandCapabilities={commandCapabilities.data} commandState={commandState} onSendCommand={sendInstallCommand} onHelp={openHelp} />}
           {currentStep === 4 && <CompleteStep form={form} deviceId={form.device_id} vehicleLookup={vehicleLookup} readyItems={readyItems} submit={submit} submitInstallation={submitInstallation} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} result={result} />}
         </div>
       </div>

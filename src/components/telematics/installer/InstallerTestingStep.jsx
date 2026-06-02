@@ -27,9 +27,10 @@ function StatusBadge({ value }) {
   return <Badge className={`${pass ? 'bg-emerald-500' : fail ? 'bg-red-500' : 'bg-slate-300 text-slate-700'} rounded-full px-3 py-1 text-white`}>{pass ? 'PASS' : fail ? 'FAIL' : 'WAIT'}</Badge>;
 }
 
-export default function InstallerTestingStep({ form, update, capabilities, commandState, onSendCommand, onHelp }) {
+export default function InstallerTestingStep({ form, update, capabilities, commandCapabilities, commandState, onSendCommand, onHelp }) {
   const autoChecks = capabilities.data?.auto_checks || {};
   const tests = capabilities.data?.tests || {};
+  const commandMap = commandCapabilities?.command_map || {};
 
   return (
     <div className="space-y-4">
@@ -54,20 +55,23 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
 
       <div className="space-y-1.5">
         {COMMAND_TESTS.filter(([id]) => tests[id] !== false).map(([id, command, label]) => {
+          const capability = commandMap[command];
+          const disabledReason = capability && capability.enabled === false ? capability.reason : '';
           const value = form[id];
-          const state = commandState[command]?.status || 'Ready';
+          const state = commandState[command]?.status || (disabledReason ? 'Blocked' : 'Ready');
           const sent = ['Sent', 'Failed'].includes(state);
           const failed = value === 'fail' || state === 'Failed';
           return (
             <div key={id} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
               <div className="grid grid-cols-[72px_minmax(58px,1fr)_52px_52px] items-center gap-1.5">
                 <h3 className="truncate text-sm font-black text-slate-950">{label}</h3>
-                <Button type="button" onClick={() => onSendCommand(command, id)} disabled={state === 'Sending'} title={state} className="h-9 rounded-xl bg-slate-950 px-2 text-xs font-black text-white hover:bg-slate-800">
-                  {state === 'Sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Send
+                <Button type="button" onClick={() => onSendCommand(command, id)} disabled={state === 'Sending' || !!disabledReason} title={disabledReason || state} className="h-9 rounded-xl bg-slate-950 px-2 text-xs font-black text-white hover:bg-slate-800 disabled:bg-slate-300">
+                  {state === 'Sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" />} {disabledReason ? 'Blocked' : 'Send'}
                 </Button>
                 <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'pass')} className={`h-9 rounded-xl px-2 text-xs font-black ${value === 'pass' ? 'border-emerald-500 bg-emerald-500 text-white' : 'bg-white text-slate-700'}`}>Pass</Button>
                 <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'fail')} className={`h-9 rounded-xl px-2 text-xs font-black ${value === 'fail' ? 'border-red-500 bg-red-500 text-white' : 'bg-white text-slate-700'}`}>Fail</Button>
               </div>
+              {disabledReason && <div className="mt-2 rounded-xl bg-yellow-50 px-3 py-2 text-xs font-bold text-yellow-700">{disabledReason}</div>}
               {failed && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><span>{commandState[command]?.error || getInstallerTip(id)}</span><Button type="button" size="sm" variant="ghost" onClick={() => onHelp(id)} className="h-7 text-red-700"><MessageCircle className="h-4 w-4" /> Help</Button></div>}
             </div>
           );

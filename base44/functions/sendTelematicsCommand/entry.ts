@@ -126,9 +126,21 @@ async function resolveVehicle(base44, { vehicle_id, booking_id }) {
   try { vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: targetVehicleId }))[0] || null; } catch { vehicle = null; }
   return { vehicle, booking };
 }
+function chooseBestDevice(devices, preferredProviderKey = '') {
+  return [...devices].sort((a, b) => {
+    const score = (device) =>
+      (preferredProviderKey && device.provider_key === preferredProviderKey ? 50 : 0) +
+      (device.provider_key === 'traccar_noran_mt20' ? 40 : 0) +
+      (device.provider_key && device.provider_key !== 'unknown' && device.provider_key !== device.unique_id ? 20 : 0) +
+      (device.production_commands_enabled === true ? 15 : 0) +
+      (device.traccar_device_id ? 10 : 0) +
+      (device.vehicle_id ? 5 : 0);
+    return score(b) - score(a);
+  })[0] || null;
+}
 async function resolveDevice(base44, vehicle) {
   const existing = await base44.asServiceRole.entities.TelematicsDevice.filter({ vehicle_id: vehicle.id });
-  if (existing[0]) return existing[0];
+  if (existing[0]) return chooseBestDevice(existing);
   if (vehicle.moovetrax_device_id) {
     return await base44.asServiceRole.entities.TelematicsDevice.create({
       company_id: vehicle.company_id || '', provider_key: 'moovetrax', provider_type: 'api', unique_id: `moovetrax:${sanitizeIdentifier(vehicle.moovetrax_device_id)}`,
@@ -309,7 +321,7 @@ Deno.serve(async (req) => {
     if (body.telematics_device_id) {
       try { device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] || null; } catch { device = null; }
     }
-    if (!device && body.unique_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: body.unique_id }))[0];
+    if (!device && body.unique_id) device = chooseBestDevice(await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: body.unique_id }), body.provider_key || '');
     if (!device && vehicle) device = await resolveDevice(base44, vehicle);
     if (!device) return Response.json({ error: 'No telematics device is assigned to this vehicle.' }, { status: 404 });
     if (adminDeviceCommandTest && user.role !== 'admin') return Response.json({ error: 'Admin access required for device command testing.' }, { status: 403 });
