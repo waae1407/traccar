@@ -25,6 +25,7 @@ function normalize(row = {}) {
   const lifecycle_status = vehicle_id || host_id ? 'assigned' : 'inventory';
   return {
     company_id: clean(row.company_id), provider_key, provider_type: clean(row.provider_type) || (provider_key.includes('traccar') ? 'traccar' : 'api'), unique_id,
+    ...noranCommandDefaults(provider_key, row.model),
     device_imei: clean(row.device_imei || row.imei), sim_iccid: clean(row.sim_iccid), provider_device_id: clean(row.provider_device_id),
     traccar_device_id: clean(row.traccar_device_id), model: clean(row.model), batch_number: clean(row.batch_number), host_id,
     vehicle_id, assigned_status: vehicle_id || host_id ? 'assigned' : 'unassigned', install_status: clean(row.install_status) || 'not_started',
