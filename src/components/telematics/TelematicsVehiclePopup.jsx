@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { Edit3, Loader2, MapPin, Save, Sparkles } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +107,6 @@ export default function TelematicsVehiclePopup({
             </div>
           )}
 
-          {role !== "customer" && !compact && vehicle?.id && <Link to={role === "admin" ? "/admin/telematics" : "/host/telematics"} className="block rounded-lg border border-pink-300/25 bg-pink-500/15 px-2 py-1.5 text-center text-[10px] font-bold text-pink-100 transition hover:bg-pink-500/25">Controls</Link>}
         </div>
       </div>
     </div>
