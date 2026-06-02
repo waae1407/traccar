@@ -162,10 +162,6 @@
   .table-row-hover:hover {
     background: hsl(var(--primary) / 0.06) !important;
   }
-  .luxury-telematics-popup {
-    -webkit-text-size-adjust: 100% !important;
-    text-size-adjust: 100% !important;
-  }
   .luxury-telematics-popup .leaflet-popup-content-wrapper {
     background: transparent;
     border-radius: 20px;
@@ -192,10 +188,6 @@
     }
     .luxury-telematics-popup .leaflet-popup-content-wrapper {
       max-width: 88vw;
-      border-radius: 16px;
-    }
-    .luxury-telematics-popup .leaflet-popup-content {
-      max-width: 88vw !important;
     }
   }
 }
