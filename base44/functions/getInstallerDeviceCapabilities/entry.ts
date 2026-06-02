@@ -138,15 +138,17 @@ async function buildAutoChecks(base44, device) {
   );
   const voltageRecent = isRecent(voltage.source_timestamp, VOLTAGE_RECENT_HOURS);
   const voltageConfirmed = voltage.value !== null && !String(voltage.source_field || '').includes('attributes.fuel');
-  const voltagePass = voltageConfirmed && online && voltage.value >= POWER_VOLTAGE_THRESHOLD && voltageRecent;
+  const voltageLow = voltageConfirmed && voltage.value < POWER_VOLTAGE_THRESHOLD;
+  const voltagePass = voltageConfirmed && online && voltage.value > 0 && voltageRecent;
   const voltagePendingReason = 'Pending MT20 telemetry mapping — Traccar fuel is not treated as voltage until proven.';
   const voltageFailReason = !voltageConfirmed
     ? voltagePendingReason
-    : voltage.value < POWER_VOLTAGE_THRESHOLD
-      ? `${voltage.value.toFixed(1)}V detected, below ${POWER_VOLTAGE_THRESHOLD}V threshold. Check constant power, fuse, and ground.`
-      : !voltageRecent
-        ? `${voltage.value.toFixed(1)}V detected but voltage reading is stale. Check current power reporting.`
-        : 'Device must be online before power can pass.';
+    : !voltageRecent
+      ? `${voltage.value.toFixed(1)}V detected but voltage reading is stale. Check current power reporting.`
+      : 'Device must be online before power can pass.';
+  const voltagePassMessage = voltageLow
+    ? `${voltage.value.toFixed(1)}V reported — low voltage warning for monitoring, not an installer test failure.`
+    : `${voltage.value.toFixed(1)}V reported`;
 
   return {
     device_online: { status: online ? 'pass' : 'fail', tip: 'Device must be online first. Check power, SIM, and antenna signal.' },
@@ -154,11 +156,13 @@ async function buildAutoChecks(base44, device) {
       status: voltagePass ? 'pass' : !voltageConfirmed ? 'pending' : 'fail',
       value: voltageConfirmed ? voltage.value : null,
       threshold: POWER_VOLTAGE_THRESHOLD,
+      low_voltage_warning: voltageLow,
+      installer_exception: voltagePass && voltageLow,
       source_entity: voltage.source_entity,
       source_field: voltage.source_field,
       voltage_last_seen_at: voltage.source_timestamp,
-      message: voltagePass ? `${voltage.value.toFixed(1)}V detected` : voltageFailReason,
-      tip: 'No voltage detected. Check constant power, fuse, and ground.'
+      message: voltagePass ? voltagePassMessage : voltageFailReason,
+      tip: 'No voltage reported. Check constant power, fuse, and ground.'
     },
     gps_signal_test: { status: recentGps ? 'pass' : 'fail', tip: 'Move vehicle/device where antenna has sky visibility.' },
     ignition_acc_test: { status: ignitionKnown || recentIgnition ? 'pass' : 'fail', tip: 'Turn ignition ON. Check ACC/ignition wire.' },
@@ -166,9 +170,10 @@ async function buildAutoChecks(base44, device) {
       power_voltage: {
         source_entity: voltage.source_entity,
         source_field: voltage.source_field,
-        expected_value: `>= ${POWER_VOLTAGE_THRESHOLD}V and seen within ${VOLTAGE_RECENT_HOURS} hours while device is online`,
+        expected_value: `Any positive voltage reported within ${VOLTAGE_RECENT_HOURS} hours while device is online`,
         actual_value: voltage.value,
-        threshold: POWER_VOLTAGE_THRESHOLD,
+        monitoring_low_voltage_threshold: POWER_VOLTAGE_THRESHOLD,
+        low_voltage_warning: voltageLow,
         voltage_last_seen_at: voltage.source_timestamp,
         currently_fails_because: voltagePass ? '' : voltageFailReason
       }

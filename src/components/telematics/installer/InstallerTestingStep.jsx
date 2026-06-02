@@ -45,7 +45,7 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
           return (
             <div key={id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3"><h3 className="text-base font-black text-slate-950">{label}</h3><StatusBadge value={value} /></div>
-              {check.message && <p className={`mt-2 text-sm font-bold ${value === 'pass' ? 'text-emerald-700' : 'text-red-600'}`}>{check.message}</p>}
+              {check.message && <p className={`mt-2 text-sm font-bold ${check.installer_exception ? 'text-amber-700' : value === 'pass' ? 'text-emerald-700' : 'text-red-600'}`}>{check.message}</p>}
               {value === 'fail' && !check.message && <p className="mt-2 text-sm font-bold text-red-600">{check.tip || getInstallerTip(id)}</p>}
             </div>
           );
