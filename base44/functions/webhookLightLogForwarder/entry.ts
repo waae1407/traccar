@@ -34,7 +34,8 @@ function asciiFromBytes(bytes) {
     .trim();
 }
 
-function parseMt20VoltagePacket(rawHex) {
+function parseMt20Voltage0032(body) {
+  const rawHex = body.raw_packet_hex || body.packet_hex || body.raw_hex || body.message || body.data;
   const bytes = hexToBytes(rawHex);
   if (!bytes) return null;
 
@@ -46,16 +47,41 @@ function parseMt20VoltagePacket(rawHex) {
     const voltage = nbat / 10;
     if (!Number.isFinite(voltage) || voltage < MIN_VOLTAGE || voltage > MAX_VOLTAGE) return null;
 
-    const possibleDeviceId = asciiFromBytes(bytes.slice(i + 20, Math.min(bytes.length, i + 40)));
     return {
+      message_type: 'mt20_voltage_0032',
+      event_type: 'mt20_voltage_forwarded_log',
+      source: 'forwarded_log_mt20_0032_nBAT',
       raw_packet_hex: cleanHex(rawHex),
       packet_type: '0x0032',
       nBAT: nbat,
       voltage,
-      device_unique_id: possibleDeviceId || ''
+      device_unique_id: asciiFromBytes(bytes.slice(i + 20, Math.min(bytes.length, i + 40))) || '',
+      device_updates: {
+        battery_voltage: voltage,
+        power_voltage: voltage,
+        external_voltage: voltage,
+        voltage,
+        voltage_source: 'forwarded_log_mt20_0032_nBAT',
+        online_status: 'online'
+      }
     };
   }
 
+  return null;
+}
+
+const MESSAGE_HANDLERS = [
+  {
+    name: 'mt20_voltage_0032',
+    parse: parseMt20Voltage0032
+  }
+];
+
+function parseForwardedMessage(body) {
+  for (const handler of MESSAGE_HANDLERS) {
+    const parsed = handler.parse(body);
+    if (parsed) return parsed;
+  }
   return null;
 }
 
@@ -78,6 +104,11 @@ async function findDevice(base44, body, parsed) {
   return null;
 }
 
+function normalizeTimestamp(value) {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -96,14 +127,17 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unsupported provider_key' }, { status: 400 });
     }
 
-    const rawHex = body.raw_packet_hex || body.packet_hex || body.raw_hex || body.message || body.data;
-    const parsed = parseMt20VoltagePacket(rawHex);
+    const parsed = parseForwardedMessage(body);
     if (!parsed) {
-      return Response.json({ ignored: true, reason: 'No supported MT20 0x0032 voltage packet found' });
+      return Response.json({
+        ignored: true,
+        reason: 'No supported forwarded log message found',
+        supported_message_types: MESSAGE_HANDLERS.map((handler) => handler.name)
+      });
     }
 
     const now = new Date().toISOString();
-    const timestamp = body.timestamp && !Number.isNaN(new Date(body.timestamp).getTime()) ? new Date(body.timestamp).toISOString() : now;
+    const timestamp = normalizeTimestamp(body.timestamp || body.deviceTime || body.serverTime || now);
     const device = await findDevice(base44, body, parsed);
 
     const event = await base44.asServiceRole.entities.TelematicsEvent.create({
@@ -111,33 +145,29 @@ Deno.serve(async (req) => {
       telematics_device_id: device?.id || '',
       provider_key: PROVIDER_KEY,
       vehicle_id: device?.vehicle_id || '',
-      event_type: 'mt20_voltage_forwarded_log',
+      event_type: parsed.event_type,
       source: 'webhook',
-      raw_payload: { ...body, mt20_voltage: parsed },
+      raw_payload: { ...body, parsed_forwarded_log: parsed },
       created_at: now
     });
 
-    if (device) {
+    if (device && parsed.device_updates) {
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-        battery_voltage: parsed.voltage,
-        power_voltage: parsed.voltage,
-        external_voltage: parsed.voltage,
-        voltage: parsed.voltage,
-        voltage_source: 'forwarded_log_mt20_0032_nBAT',
+        ...parsed.device_updates,
         voltage_last_seen_at: timestamp,
-        last_seen_at: timestamp,
-        online_status: 'online'
+        last_seen_at: timestamp
       });
     }
 
     return Response.json({
       ok: true,
+      message_type: parsed.message_type,
       event_id: event.id,
       device_updated: !!device,
       device_id: device?.id || '',
       voltage: parsed.voltage,
       packet_type: parsed.packet_type,
-      voltage_source: 'forwarded_log_mt20_0032_nBAT'
+      source: parsed.source
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
