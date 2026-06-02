@@ -137,18 +137,19 @@ async function buildAutoChecks(base44, device) {
     ...recentEvents.map(event => ({ entity: 'TelematicsEvent.raw_payload', payload: event.raw_payload, timestamp: event.created_at || event.created_date }))
   );
   const voltageRecent = isRecent(voltage.source_timestamp, VOLTAGE_RECENT_HOURS);
-  const voltageConfirmed = voltage.value !== null && !String(voltage.source_field || '').includes('attributes.fuel');
-  const voltageLow = voltageConfirmed && voltage.value < POWER_VOLTAGE_THRESHOLD;
-  const voltagePass = voltageConfirmed && online && voltage.value > 0 && voltageRecent;
-  const voltagePendingReason = 'Pending MT20 telemetry mapping — Traccar fuel is not treated as voltage until proven.';
+  const numericVoltage = Number(voltage.value);
+  const voltageConfirmed = Number.isFinite(numericVoltage) && numericVoltage > 0 && !String(voltage.source_field || '').includes('attributes.fuel');
+  const voltageLow = voltageConfirmed && numericVoltage < POWER_VOLTAGE_THRESHOLD;
+  const voltagePass = voltageConfirmed && online && numericVoltage > 0 && voltageRecent;
+  const voltagePendingReason = 'No voltage detected yet. GPS and ignition checks can continue while voltage telemetry is pending.';
   const voltageFailReason = !voltageConfirmed
     ? voltagePendingReason
     : !voltageRecent
-      ? `${voltage.value.toFixed(1)}V detected but voltage reading is stale. Check current power reporting.`
+      ? `${numericVoltage.toFixed(1)}V detected but voltage reading is stale. Check current power reporting.`
       : 'Device must be online before power can pass.';
   const voltagePassMessage = voltageLow
-    ? `${voltage.value.toFixed(1)}V reported — low voltage warning for monitoring, not an installer test failure.`
-    : `${voltage.value.toFixed(1)}V reported`;
+    ? `${numericVoltage.toFixed(1)}V reported — low voltage warning for monitoring, not an installer test failure.`
+    : `${numericVoltage.toFixed(1)}V reported`;
 
   return {
     device_online: { status: online ? 'pass' : 'fail', tip: 'Device must be online first. Check power, SIM, and antenna signal.' },
