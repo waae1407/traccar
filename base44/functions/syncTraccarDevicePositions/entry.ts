@@ -18,6 +18,95 @@ function toIso(value) {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
+function hexToBytes(value) {
+  const clean = String(value || '').replace(/^0x/i, '').replace(/[^a-fA-F0-9]/g, '');
+  if (clean.length < 4 || clean.length % 2 !== 0) return null;
+  const bytes = [];
+  for (let i = 0; i < clean.length; i += 2) bytes.push(parseInt(clean.slice(i, i + 2), 16));
+  return bytes;
+}
+
+function readUInt16(bytes, offset) {
+  if (offset + 1 >= bytes.length) return null;
+  return bytes[offset] | (bytes[offset + 1] << 8);
+}
+
+function readInt32(bytes, offset) {
+  if (offset + 3 >= bytes.length) return null;
+  return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >> 0;
+}
+
+function coordinateFromRaw(value) {
+  if (!Number.isFinite(value)) return undefined;
+  for (const scale of [1000000, 10000000, 1800000, 30000]) {
+    const scaled = value / scale;
+    if (Math.abs(scaled) <= 180) return scaled;
+  }
+  return undefined;
+}
+
+function bcdByte(byte) {
+  const hi = (byte >> 4) & 0x0f;
+  const lo = byte & 0x0f;
+  if (hi > 9 || lo > 9) return null;
+  return hi * 10 + lo;
+}
+
+function parseBcdDateTime(bytes, offset) {
+  if (offset + 5 >= bytes.length) return '';
+  const parts = bytes.slice(offset, offset + 6).map(bcdByte);
+  if (parts.some((part) => part === null)) return '';
+  const [yy, month, day, hour, minute, second] = parts;
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return '';
+  const year = yy >= 70 ? 1900 + yy : 2000 + yy;
+  return new Date(Date.UTC(year, month - 1, day, hour, minute, second)).toISOString();
+}
+
+function asciiFromBytes(bytes) {
+  return bytes.filter((byte) => byte >= 32 && byte <= 126).map((byte) => String.fromCharCode(byte)).join('').replace(/[\u0000\r\n]/g, '').trim();
+}
+
+function parseNoranCandidate(bytes, start) {
+  if (start + 23 > bytes.length) return null;
+  const vbat = bytes[start + 1];
+  if (!Number.isFinite(vbat) || vbat <= 0 || vbat > 250) return null;
+  let end = bytes.length;
+  if (bytes[end - 2] === 0x0d && bytes[end - 1] === 0x0a) end -= 2;
+  return {
+    command: '0x8009',
+    bEnable: bytes[start],
+    VBAT: vbat,
+    battery_voltage: vbat / 10,
+    speed: readUInt16(bytes, start + 2) ?? 0,
+    direction: readUInt16(bytes, start + 4) ?? 0,
+    longitude: coordinateFromRaw(readInt32(bytes, start + 6)),
+    latitude: coordinateFromRaw(readInt32(bytes, start + 10)),
+    datetime: parseBcdDateTime(bytes, start + 14),
+    device_id: asciiFromBytes(bytes.slice(start + 20, Math.max(start + 20, end - 3))),
+    GSM: bytes[end - 3],
+    smoke: bytes[end - 2],
+    cErrorCode: bytes[end - 1]
+  };
+}
+
+function parseNoranMt20ResponsePacket(value) {
+  const bytes = hexToBytes(value);
+  if (!bytes) return null;
+  for (let i = 0; i < bytes.length - 1; i++) {
+    if ((bytes[i] === 0x80 && bytes[i + 1] === 0x09) || (bytes[i] === 0x09 && bytes[i + 1] === 0x80)) {
+      const candidates = [i + 2, i + 8].map((start) => parseNoranCandidate(bytes, start)).filter(Boolean);
+      const best = candidates.find((item) => item.latitude !== undefined && item.longitude !== undefined) || candidates[0];
+      if (best) return best;
+    }
+  }
+  return null;
+}
+
+function noranPacketFromPosition(position) {
+  const attributes = position?.attributes || {};
+  return parseNoranMt20ResponsePacket(attributes.data || attributes.raw || attributes.response || attributes.hex_payload || '');
+}
+
 function ignitionStatus(position) {
   const attributes = position?.attributes || {};
   const value = attributes.ignition ?? attributes.motion ?? attributes.acc;
@@ -111,30 +200,32 @@ Deno.serve(async (req) => {
       const position = positionsByDeviceId.get(traccarId);
       if (!position || typeof position.latitude !== 'number' || typeof position.longitude !== 'number') { skipped.push({ id: local.id, reason: 'no_position' }); continue; }
       const traccarDevice = traccarById.get(traccarId);
-      const seenAt = toIso(position.fixTime || position.deviceTime || position.serverTime);
+      const noranPacket = noranPacketFromPosition(position);
+      const seenAt = toIso(noranPacket?.datetime || position.fixTime || position.deviceTime || position.serverTime);
       const payload = {
-        last_latitude: position.latitude,
-        last_longitude: position.longitude,
+        last_latitude: noranPacket?.latitude ?? position.latitude,
+        last_longitude: noranPacket?.longitude ?? position.longitude,
         last_seen_at: seenAt,
-        speed: Number(position.speed || 0),
-        course: Number(position.course || 0),
-        heading: Number(position.course || 0),
+        speed: Number(noranPacket?.speed ?? position.speed ?? 0),
+        course: Number(noranPacket?.direction ?? position.course ?? 0),
+        heading: Number(noranPacket?.direction ?? position.course ?? 0),
         address: position.address || local.address || '',
         location_source: 'traccar',
         location_updated_at: new Date().toISOString(),
         online_status: onlineStatus(traccarDevice, position),
         ignition_status: ignitionStatus(position)
       };
+      if (noranPacket?.battery_voltage !== undefined) payload.battery_voltage = noranPacket.battery_voltage;
       await base44.asServiceRole.entities.TelematicsDevice.update(local.id, payload);
       await base44.asServiceRole.entities.TelematicsPositionHistory.create({
         device_id: local.id,
         vehicle_id: local.vehicle_id || '',
         host_id: local.host_id || '',
         provider_key: PROVIDER_KEY,
-        latitude: position.latitude,
-        longitude: position.longitude,
-        speed: Number(position.speed || 0),
-        heading: Number(position.course || 0),
+        latitude: payload.last_latitude,
+        longitude: payload.last_longitude,
+        speed: payload.speed,
+        heading: payload.heading,
         ignition_status: payload.ignition_status,
         timestamp: seenAt,
         source: 'polling',

@@ -35,7 +35,19 @@ function isRecent(value, hours = 24) {
 
 function pickVoltage(...payloads) {
   for (const payload of payloads) {
-    const candidates = [payload?.voltage, payload?.power_voltage, payload?.batteryVoltage, payload?.battery_level, payload?.attributes?.voltage, payload?.position?.attributes?.voltage, payload?.attributes?.power];
+    const candidates = [
+      payload?.battery_voltage,
+      payload?.noran_mt20_8009?.battery_voltage,
+      payload?.raw_payload?.noran_mt20_8009?.battery_voltage,
+      payload?.voltage,
+      payload?.power_voltage,
+      payload?.batteryVoltage,
+      payload?.attributes?.battery_voltage,
+      payload?.attributes?.voltage,
+      payload?.position?.attributes?.battery_voltage,
+      payload?.position?.attributes?.voltage,
+      payload?.attributes?.power
+    ];
     for (const value of candidates) {
       const number = Number(value);
       if (Number.isFinite(number) && number > 0) return number;

@@ -238,6 +238,9 @@
     "battery_level": {
       "type": "number"
     },
+    "battery_voltage": {
+      "type": "number"
+    },
     "signal_strength": {
       "type": "number"
     },

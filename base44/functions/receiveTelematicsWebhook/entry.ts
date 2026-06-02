@@ -12,6 +12,122 @@ function pickNumber(...values) {
   return undefined;
 }
 
+function hexToBytes(value) {
+  const clean = String(value || '').replace(/^0x/i, '').replace(/[^a-fA-F0-9]/g, '');
+  if (clean.length < 4 || clean.length % 2 !== 0) return null;
+  const bytes = [];
+  for (let i = 0; i < clean.length; i += 2) bytes.push(parseInt(clean.slice(i, i + 2), 16));
+  return bytes;
+}
+
+function readUInt16(bytes, offset, littleEndian = true) {
+  if (offset + 1 >= bytes.length) return null;
+  return littleEndian ? bytes[offset] | (bytes[offset + 1] << 8) : (bytes[offset] << 8) | bytes[offset + 1];
+}
+
+function readInt32(bytes, offset, littleEndian = true) {
+  if (offset + 3 >= bytes.length) return null;
+  const value = littleEndian
+    ? (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24))
+    : ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]);
+  return value >> 0;
+}
+
+function coordinateFromRaw(value) {
+  if (!Number.isFinite(value)) return undefined;
+  const scales = [1000000, 10000000, 1800000, 30000];
+  for (const scale of scales) {
+    const scaled = value / scale;
+    if (Math.abs(scaled) <= 180) return scaled;
+  }
+  return undefined;
+}
+
+function bcdByte(byte) {
+  const hi = (byte >> 4) & 0x0f;
+  const lo = byte & 0x0f;
+  if (hi > 9 || lo > 9) return null;
+  return hi * 10 + lo;
+}
+
+function parseBcdDateTime(bytes, offset) {
+  if (offset + 5 >= bytes.length) return '';
+  const parts = bytes.slice(offset, offset + 6).map(bcdByte);
+  if (parts.some((part) => part === null)) return '';
+  const [yy, month, day, hour, minute, second] = parts;
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return '';
+  const year = yy >= 70 ? 1900 + yy : 2000 + yy;
+  return new Date(Date.UTC(year, month - 1, day, hour, minute, second)).toISOString();
+}
+
+function asciiFromBytes(bytes) {
+  return bytes.filter((byte) => byte >= 32 && byte <= 126).map((byte) => String.fromCharCode(byte)).join('').replace(/[\u0000\r\n]/g, '').trim();
+}
+
+function parseNoranCandidate(bytes, start) {
+  if (start + 23 > bytes.length) return null;
+  const bEnable = bytes[start];
+  const vbat = bytes[start + 1];
+  if (!Number.isFinite(vbat) || vbat <= 0 || vbat > 250) return null;
+  const speed = readUInt16(bytes, start + 2, true);
+  const direction = readUInt16(bytes, start + 4, true);
+  const longitudeRaw = readInt32(bytes, start + 6, true);
+  const latitudeRaw = readInt32(bytes, start + 10, true);
+  const datetime = parseBcdDateTime(bytes, start + 14);
+  let end = bytes.length;
+  if (bytes[end - 2] === 0x0d && bytes[end - 1] === 0x0a) end -= 2;
+  const gsm = bytes[end - 3];
+  const smoke = bytes[end - 2];
+  const cErrorCode = bytes[end - 1];
+  const deviceId = asciiFromBytes(bytes.slice(start + 20, Math.max(start + 20, end - 3)));
+  return {
+    command: '0x8009',
+    bEnable,
+    VBAT: vbat,
+    battery_voltage: vbat / 10,
+    speed: speed ?? 0,
+    direction: direction ?? 0,
+    longitude: coordinateFromRaw(longitudeRaw),
+    latitude: coordinateFromRaw(latitudeRaw),
+    datetime,
+    device_id: deviceId,
+    GSM: gsm,
+    smoke,
+    cErrorCode
+  };
+}
+
+function parseNoranMt20ResponsePacket(value) {
+  const bytes = hexToBytes(value);
+  if (!bytes) return null;
+  const markerOffsets = [];
+  for (let i = 0; i < bytes.length - 1; i++) {
+    if ((bytes[i] === 0x80 && bytes[i + 1] === 0x09) || (bytes[i] === 0x09 && bytes[i + 1] === 0x80)) markerOffsets.push(i);
+  }
+  for (const marker of markerOffsets) {
+    const candidates = [marker + 2, marker + 8].map((start) => parseNoranCandidate(bytes, start)).filter(Boolean);
+    const best = candidates.find((item) => item.latitude !== undefined && item.longitude !== undefined) || candidates[0];
+    if (best) return best;
+  }
+  return null;
+}
+
+function findNoranPacketPayload(input, depth = 0) {
+  if (!input || depth > 4) return null;
+  if (typeof input === 'string') return parseNoranMt20ResponsePacket(input);
+  if (typeof input !== 'object') return null;
+  const priority = ['packet_hex', 'raw_hex', 'hex_payload', 'data', 'response', 'raw', 'message'];
+  for (const key of priority) {
+    const parsed = findNoranPacketPayload(input[key], depth + 1);
+    if (parsed) return parsed;
+  }
+  for (const value of Object.values(input)) {
+    const parsed = findNoranPacketPayload(value, depth + 1);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
 function retentionExpiresAt() {
   const days = 30;
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
@@ -292,13 +408,15 @@ Deno.serve(async (req) => {
       device = byTraccar[0] || null;
     }
 
-    const latitude = pickNumber(body.latitude, body.lat, body.position?.latitude);
-    const longitude = pickNumber(body.longitude, body.lng, body.lon, body.position?.longitude);
-    const speed = pickNumber(body.speed, body.position?.speed);
-    const heading = pickNumber(body.heading, body.course, body.position?.course, body.position?.heading);
+    const noranPacket = findNoranPacketPayload(body);
+    const latitude = pickNumber(body.latitude, body.lat, body.position?.latitude, noranPacket?.latitude);
+    const longitude = pickNumber(body.longitude, body.lng, body.lon, body.position?.longitude, noranPacket?.longitude);
+    const speed = pickNumber(body.speed, body.position?.speed, noranPacket?.speed);
+    const heading = pickNumber(body.heading, body.course, body.position?.course, body.position?.heading, noranPacket?.direction);
+    const batteryVoltage = pickNumber(body.battery_voltage, body.position?.attributes?.battery_voltage, noranPacket?.battery_voltage);
     const ignition = eventType === 'ignition_on' ? true : eventType === 'ignition_off' ? false : body.ignition ?? body.position?.attributes?.ignition;
     const now = new Date().toISOString();
-    const positionTimestamp = normalizeTimestamp(body.fixTime, body.deviceTime, body.serverTime, body.position?.fixTime, body.position?.deviceTime, body.position?.serverTime, now);
+    const positionTimestamp = normalizeTimestamp(noranPacket?.datetime, body.fixTime, body.deviceTime, body.serverTime, body.position?.fixTime, body.position?.deviceTime, body.position?.serverTime, now);
 
     const event = await base44.asServiceRole.entities.TelematicsEvent.create({
       company_id: device?.company_id || provider.company_id || '',
@@ -311,7 +429,7 @@ Deno.serve(async (req) => {
       longitude,
       speed,
       ignition: typeof ignition === 'boolean' ? ignition : undefined,
-      raw_payload: body,
+      raw_payload: noranPacket ? { ...body, noran_mt20_8009: noranPacket } : body,
       created_at: now,
     });
 
@@ -321,6 +439,7 @@ Deno.serve(async (req) => {
       if (longitude !== undefined) updates.last_longitude = longitude;
       if (speed !== undefined) updates.speed = speed;
       if (heading !== undefined) { updates.heading = heading; updates.course = heading; }
+      if (batteryVoltage !== undefined) updates.battery_voltage = batteryVoltage;
       if (latitude !== undefined && longitude !== undefined && eventType === 'location_update') updates.online_status = 'online';
       if (eventType === 'device_online') updates.online_status = 'online';
       if (eventType === 'device_offline') updates.online_status = 'offline';
