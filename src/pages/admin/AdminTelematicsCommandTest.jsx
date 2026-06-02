@@ -26,14 +26,6 @@ export default function AdminTelematicsCommandTest() {
     initialData: []
   });
 
-  const commandCapabilities = useQuery({
-    queryKey: ['admin-command-capabilities', lookupData?.device?.id],
-    queryFn: () => base44.functions.invoke('getTelematicsCommandCapabilities', { role: 'admin', telematics_device_id: lookupData.device.id }).then((res) => res.data),
-    enabled: !!lookupData?.device?.id,
-    refetchInterval: 30000,
-    initialData: null
-  });
-
   const lookup = useMutation({
     mutationFn: () => base44.functions.invoke('adminLookupTelematicsCommandTest', { identifier: identifier.trim() }).then((res) => res.data),
     onSuccess: (data) => {
@@ -99,7 +91,7 @@ export default function AdminTelematicsCommandTest() {
 
       {lookupData?.device && (
         <>
-          <CommandButtonGrid commands={(commandCapabilities.data?.commands || lookupData.supported_commands || []).filter((command) => command.visible !== false)} execution={lookupData.execution} onSend={sendCommand} sending={sending} />
+          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} />
           <CommandHistoryPanel commands={history.data} onRefresh={history.refetch} loading={history.isFetching} />
           <TestChecklist session={lookupData.session} commands={lookupData.supported_commands} notes={notes} setNotes={setNotes} onMark={(field, value) => markMutation.mutate({ field, value })} onComplete={() => completeMutation.mutate()} completing={completeMutation.isPending} />
         </>

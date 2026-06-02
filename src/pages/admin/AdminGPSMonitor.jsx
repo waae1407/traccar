@@ -23,29 +23,6 @@ function StatusBadge({ eventType }) {
   );
 }
 
-function StarterActionButton({ vehicle, isKilled, sendingCommand, onCommand }) {
-  const commandKey = isKilled ? 'restore_starter' : 'disable_starter';
-  const legacyCommand = isKilled ? 'unkill' : 'kill';
-  const { data } = useQuery({
-    queryKey: ['gps-monitor-command-capabilities', vehicle.id, commandKey],
-    queryFn: () => base44.functions.invoke('getTelematicsCommandCapabilities', { role: 'admin', vehicle_id: vehicle.id }).then(res => res.data),
-    enabled: !!vehicle?.id,
-    staleTime: 30000
-  });
-  const capability = data?.command_map?.[commandKey];
-  const enabled = capability?.enabled !== false;
-  return (
-    <button
-      onClick={e => { e.stopPropagation(); if (enabled) onCommand(vehicle, legacyCommand); }}
-      disabled={!!sendingCommand || !enabled}
-      title={enabled ? 'Available' : capability?.reason || 'Unavailable'}
-      className={`px-2 py-1 rounded-lg text-[9px] font-bold border disabled:opacity-50 ${isKilled ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30'}`}
-    >
-      {sendingCommand === `${vehicle.id}-${legacyCommand}` ? '...' : isKilled ? 'Unkill' : 'Kill'}
-    </button>
-  );
-}
-
 export default function AdminGPSMonitor() {
   const queryClient = useQueryClient();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -95,11 +72,11 @@ export default function AdminGPSMonitor() {
     const booking = activeBookings.find(b => b.vehicle_id === vehicle.id);
     setSendingCommand(`${vehicle.id}-${command}`);
     try {
-      await base44.functions.invoke('sendTelematicsCommand', {
+      await base44.functions.invoke('moovetraxCommand', {
         vehicle_id: vehicle.id,
         booking_id: booking?.id || '',
-        command_type: command === 'kill' ? 'disable_starter' : 'restore_starter',
-        source: 'admin_gps_monitor'
+        command,
+        sent_by: 'admin_gps_monitor',
       });
       queryClient.invalidateQueries(["gps-events-recent"]);
     } catch (err) {
@@ -218,7 +195,23 @@ export default function AdminGPSMonitor() {
                       {/* Kill / Unkill buttons */}
                       {booking && (
                         <div className="flex gap-1">
-                          <StarterActionButton vehicle={vehicle} isKilled={isKilled} sendingCommand={sendingCommand} onCommand={handleCommand} />
+                          {isKilled ? (
+                            <button
+                              onClick={e => { e.stopPropagation(); handleCommand(vehicle, 'unkill'); }}
+                              disabled={!!sendingCommand}
+                              className="px-2 py-1 rounded-lg text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-50"
+                            >
+                              {sendingCommand === `${vehicle.id}-unkill` ? '...' : 'Unkill'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={e => { e.stopPropagation(); handleCommand(vehicle, 'kill'); }}
+                              disabled={!!sendingCommand}
+                              className="px-2 py-1 rounded-lg text-[9px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 disabled:opacity-50"
+                            >
+                              {sendingCommand === `${vehicle.id}-kill` ? '...' : 'Kill'}
+                            </button>
+                          )}
                         </div>
                       )}
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />

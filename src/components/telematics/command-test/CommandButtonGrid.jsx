@@ -46,11 +46,10 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
                     <Input value={typed[command.key] || ''} onChange={(event) => setTyped((prev) => ({ ...prev, [command.key]: event.target.value }))} placeholder={CONFIRM_TEXT[command.key]} className="h-9 bg-white/5 text-white placeholder:text-white/30" />
                   </div>
                 )}
-                <Button className="w-full" disabled={sending === command.key || !ready || command.enabled === false} title={command.enabled === false ? command.reason : 'Available'} onClick={() => onSend(command.key, isStarter)}>
+                <Button className="w-full" disabled={sending === command.key || !ready} onClick={() => onSend(command.key, isStarter)}>
                   {sending === command.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
                   Send {command.label}
                 </Button>
-                {command.enabled === false && <p className="mt-2 text-xs font-semibold text-yellow-300">{command.reason}</p>}
               </div>
             );
           })}

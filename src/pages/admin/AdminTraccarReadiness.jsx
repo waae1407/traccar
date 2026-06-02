@@ -18,7 +18,6 @@ export default function AdminTraccarReadiness() {
   const { data: devices = [] } = useQuery({ queryKey: ["traccar-devices"], queryFn: () => base44.entities.TelematicsDevice.filter({ provider_key: "traccar_noran_mt20" }) });
   const activation = useMutation({ mutationFn: (payload) => base44.functions.invoke("setTraccarTestActivation", payload), onSuccess: () => { qc.invalidateQueries({ queryKey: ["traccar-readiness"] }); qc.invalidateQueries({ queryKey: ["traccar-devices"] }); } });
   const liveTest = useMutation({ mutationFn: (command_type) => base44.functions.invoke("sendTelematicsCommand", { admin_traccar_live_test: true, unique_id: "NR09G00002", command_type }), onSuccess: () => qc.invalidateQueries({ queryKey: ["traccar-readiness"] }) });
-  const { data: commandCapabilities } = useQuery({ queryKey: ["traccar-readiness-command-capabilities"], queryFn: () => base44.functions.invoke("getTelematicsCommandCapabilities", { role: "admin", unique_id: "NR09G00002", provider_key: "traccar_noran_mt20" }).then(res => res.data), refetchInterval: 30000 });
 
   if (isLoading) return <div className="p-6 text-muted-foreground">Loading Traccar readiness…</div>;
   const credentials = report?.credentials || {};
