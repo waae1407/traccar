@@ -245,6 +245,28 @@ async function hasActiveRental(base44, vehicleId) {
   return bookings.some((booking) => ['confirmed', 'active', 'payment_due', 'grace_period'].includes(booking.booking_status));
 }
 
+async function getInstallerInstallRecord(base44, device, vehicle, vin) {
+  const normalizedVin = String(vin || '').trim().toUpperCase();
+  const records = await base44.asServiceRole.entities.TelematicsInstallRecord.filter({ telematics_device_id: device.id });
+  return records.find((record) => record.vehicle_id === vehicle.id || String(record.vin || record.vin_entered || '').trim().toUpperCase() === normalizedVin) || null;
+}
+
+function isCompletedInstallerInstall(record, device) {
+  return record?.install_status === 'completed' || device.install_status === 'installed';
+}
+
+function canSendInstallerNoranStarterTest(provider, device, commandType) {
+  return STARTER_COMMANDS.includes(commandType)
+    && provider.provider_key === 'traccar_noran_mt20'
+    && provider.execution_mode === 'production'
+    && provider.allow_live_commands === true
+    && provider.allow_starter_commands === true
+    && provider.supports_starter_disable !== false
+    && provider.supports_starter_restore !== false
+    && !!device.unique_id
+    && !!device.traccar_device_id;
+}
+
 async function fallbackAdapter(provider, device, commandType) {
   if (provider.provider_key === 'moovetrax') {
     if (provider.execution_mode !== 'production' || !provider.allow_live_commands) return { provider_command_name: MOOVETRAX_COMMAND_MAP[commandType], dry_run: true, response: { dry_run: true, provider: 'moovetrax' } };
@@ -303,11 +325,14 @@ Deno.serve(async (req) => {
       if (user.role !== 'admin') return Response.json({ error: 'Admin access required for Traccar single-device live test.' }, { status: 403 });
       if (!isTraccarSingleDeviceLiveTest(provider, device, commandType)) return Response.json({ error: 'Live test is restricted to active NR09G00002 / Traccar device 5 and allowed non-starter commands only.' }, { status: 403 });
     } else if (installerInstallTest) {
+      if (body.source !== 'installer_workflow') return Response.json({ error: 'Installer commands must come from the install workflow.' }, { status: 403 });
       if (!body.vin || !vehicle) return Response.json({ error: 'Installer command tests require a matched VIN.' }, { status: 403 });
       if (device.vehicle_id && device.vehicle_id !== vehicle.id) return Response.json({ error: 'Scanned device is assigned to a different vehicle.' }, { status: 403 });
       const allowedInstallerCommands = ['lock', 'unlock', 'horn', 'lights', 'alarm_pulse', 'disable_starter', 'restore_starter'];
       if (!allowedInstallerCommands.includes(commandType)) return Response.json({ error: 'Installer can only run install workflow test commands.' }, { status: 403 });
-      if (STARTER_COMMANDS.includes(commandType) && device.installer_starter_test_enabled !== true) return Response.json({ error: 'Installer starter tests are disabled for this device.' }, { status: 403 });
+      const installRecord = await getInstallerInstallRecord(base44, device, vehicle, body.vin);
+      if (isCompletedInstallerInstall(installRecord, device)) return Response.json({ error: 'Installer command tests are disabled after installation is completed.' }, { status: 403 });
+      if (STARTER_COMMANDS.includes(commandType) && (provider.supports_starter_disable === false || provider.supports_starter_restore === false)) return Response.json({ error: 'Provider does not support installer starter tests for this device.' }, { status: 403 });
     } else if (!adminDeviceCommandTest) {
       const accessError = await validateAccess(base44, user, vehicle, booking, commandType, provider, device);
       if (accessError) return Response.json({ error: accessError }, { status: 403 });
@@ -319,10 +344,11 @@ Deno.serve(async (req) => {
     if (capability && provider[capability] === false) return Response.json({ error: 'Provider does not support this command.' }, { status: 400 });
     if (provider.execution_mode === 'production' && !provider.allow_live_commands) return Response.json({ error: 'Live commands are disabled for this provider.' }, { status: 400 });
     const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
-    if (installerInstallTest && provider.provider_key === 'traccar_noran_mt20' && !liveNoranProduction) {
-      return Response.json({ error: 'Live installer command testing is disabled for this device. Enable production commands for this device before sending installer test commands.' }, { status: 403 });
+    const liveNoranInstallerTest = installerInstallTest && canSendInstallerNoranStarterTest(provider, device, commandType);
+    if (installerInstallTest && provider.provider_key === 'traccar_noran_mt20' && !liveNoranProduction && !liveNoranInstallerTest) {
+      return Response.json({ error: STARTER_COMMANDS.includes(commandType) ? 'Live installer starter testing is disabled because this device/provider does not support wrapped MT20 starter commands.' : 'Live installer command testing is disabled for this device. Enable production commands for this device before sending installer test commands.' }, { status: 403 });
     }
-    if (provider.provider_key === 'traccar_noran_mt20' && provider.execution_mode === 'production' && provider.allow_live_commands === true && device.production_commands_enabled === true && !liveNoranProduction) {
+    if (provider.provider_key === 'traccar_noran_mt20' && provider.execution_mode === 'production' && provider.allow_live_commands === true && device.production_commands_enabled === true && !liveNoranProduction && !liveNoranInstallerTest) {
       return Response.json({ error: STARTER_COMMANDS.includes(commandType) ? 'Starter production commands are blocked for this device/provider scope.' : 'Noran production command is not allowed for this device.' }, { status: 403 });
     }
     if (await enforceRateLimit(base44, device.id, commandType, user.email, provider.max_commands_per_minute, { alarmSessionId: body.alarm_session_id || '' })) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.' }, { status: 429 });
@@ -336,7 +362,7 @@ Deno.serve(async (req) => {
     const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
       company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
       vehicle_id: vehicle?.id || device.vehicle_id || '', host_id: vehicle?.host_id || device.host_id || '', booking_id: booking?.id || body.booking_id || '', renter_id: booking?.user_id || '',
-      command_type: commandType, alarm_session_id: body.alarm_session_id || '', pulse_number: Number(body.pulse_number || 0) || undefined, device_unique_id: device.unique_id || '', traccar_device_id: device.traccar_device_id || '', production_command: liveNoranProduction,
+      command_type: commandType, alarm_session_id: body.alarm_session_id || '', pulse_number: Number(body.pulse_number || 0) || undefined, device_unique_id: device.unique_id || '', traccar_device_id: device.traccar_device_id || '', production_command: liveNoranProduction || liveNoranInstallerTest,
       status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
@@ -352,7 +378,7 @@ Deno.serve(async (req) => {
       const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
       const routed = adminTraccarLiveTest
         ? await sendTraccarSingleDeviceLiveTest(commandType, device)
-        : liveNoranProduction
+        : (liveNoranProduction || liveNoranInstallerTest)
           ? await sendTraccarNoranProductionCommand(commandType, device, template)
           : template
             ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction })
