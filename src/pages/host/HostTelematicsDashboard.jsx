@@ -23,7 +23,7 @@ export default function HostTelematicsDashboard() {
 
   return <div className="space-y-5">
     <div><p className="text-xs font-black text-pink-600 uppercase tracking-widest">Telematics</p><h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Fleet Controls</h1><p className="text-sm text-gray-500">Near-real-time cached GPS, device health, and safe commands for your vehicles.</p></div>
-    <TelematicsMap role="host" devices={devices} vehicles={vehicles} bookings={bookings} height={520} showFilters showRefresh refreshLabel="Refresh My Fleet" onRefresh={refetchDevices} />
+    <TelematicsMap role="host" devices={devices} vehicles={vehicles} hosts={host ? [host] : []} bookings={bookings} providers={providers} height={520} showFilters showRefresh refreshLabel="Refresh My Fleet" onRefresh={refetchDevices} />
     <SafetyEventsPanel role="host" title="Safety Events" />
     {devices.some(d => !d.vehicle_id) && <UnassignedDevicesQueue devices={devices.filter(d => !d.vehicle_id)} vehicles={vehicles} providers={providers} role="host" onChanged={async () => { await refetchDevices(); await refetchVehicles(); }} />}
     <div className="grid gap-4">

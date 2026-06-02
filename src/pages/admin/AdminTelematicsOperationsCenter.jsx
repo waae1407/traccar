@@ -44,7 +44,7 @@ export default function AdminTelematicsOperationsCenter() {
   return <div className="p-4 sm:p-6 space-y-5">
     <div><p className="text-xs font-bold text-primary uppercase tracking-widest">Phase A Production</p><h1 className="text-2xl font-black">Telematics Operations Center</h1><p className="text-sm text-muted-foreground">Fleet health, command lifecycle, installation QA, provider health, and telematics alerts.</p></div>
 
-    <section className="space-y-3"><h2 className="font-black">Fleet GPS Map</h2><TelematicsMap role="admin" devices={devices} vehicles={vehicles} hosts={hosts} bookings={bookings} height={520} showFilters showRefresh refreshLabel="Refresh Locations" onRefresh={async () => { await TelematicsService.syncTraccarPositions(); qc.invalidateQueries({ queryKey: ["ops-telematics-devices"] }); }} /></section>
+    <section className="space-y-3"><h2 className="font-black">Fleet GPS Map</h2><TelematicsMap role="admin" devices={devices} vehicles={vehicles} hosts={hosts} bookings={bookings} providers={providers} height={520} showFilters showRefresh refreshLabel="Refresh Locations" onRefresh={async () => { await TelematicsService.syncTraccarPositions(); qc.invalidateQueries({ queryKey: ["ops-telematics-devices"] }); }} /></section>
 
     <SafetyEventsPanel role="admin" title="Safety Events" />
 

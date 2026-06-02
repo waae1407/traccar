@@ -162,4 +162,22 @@
   .table-row-hover:hover {
     background: hsl(var(--primary) / 0.06) !important;
   }
+  .luxury-telematics-popup .leaflet-popup-content-wrapper {
+    background: transparent;
+    border-radius: 28px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(2, 6, 23, 0.55);
+  }
+  .luxury-telematics-popup .leaflet-popup-content {
+    margin: 0;
+  }
+  .luxury-telematics-popup .leaflet-popup-tip {
+    background: rgb(2 6 23);
+  }
+  .luxury-telematics-popup a.leaflet-popup-close-button {
+    color: rgba(255,255,255,0.72);
+    z-index: 20;
+    padding: 10px 10px 0 0;
+  }
 }

@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Link } from "react-router-dom";
 import { RefreshCw, Satellite, TimerReset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
+import TelematicsVehiclePopup from "@/components/telematics/TelematicsVehiclePopup";
 
 const ACTIVE_VEHICLE_STATUSES = ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"];
 const ACTIVE_BOOKING_STATUSES = ["active", "confirmed", "approved", "pending_review"];
@@ -70,6 +70,7 @@ export default function TelematicsMap({
   vehicles = [],
   hosts = [],
   bookings = [],
+  providers = [],
   height = 320,
   showFilters = false,
   showRefresh = true,
@@ -83,13 +84,14 @@ export default function TelematicsMap({
   const [resolvedAddresses, setResolvedAddresses] = useState({});
   const vehicleById = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles]);
   const hostById = useMemo(() => Object.fromEntries(hosts.map(h => [h.id, h])), [hosts]);
+  const providerByKey = useMemo(() => Object.fromEntries(providers.map(p => [p.provider_key, p])), [providers]);
   const activeVehicleIds = useMemo(() => new Set([
     ...vehicles.filter(v => ACTIVE_VEHICLE_STATUSES.includes(v.status)).map(v => v.id),
     ...bookings.filter(b => ACTIVE_BOOKING_STATUSES.includes(b.booking_status)).map(b => b.vehicle_id).filter(Boolean)
   ]), [vehicles, bookings]);
 
   const located = devices.filter(d => getMapPosition(d));
-  const providers = [...new Set(devices.map(d => d.provider_key).filter(Boolean))];
+  const providerOptions = [...new Set(devices.map(d => d.provider_key).filter(Boolean))];
   const hostOptions = hosts.filter(h => devices.some(d => d.host_id === h.id));
   const filtered = located.filter(device => {
     const fresh = locationFreshness(device);
@@ -138,7 +140,7 @@ export default function TelematicsMap({
       </div>
       {showFilters && !compact && (
         <div className="grid gap-2 border-b border-border p-3 sm:grid-cols-3 lg:grid-cols-6">
-          <select className="rounded-xl border border-border bg-background px-3 py-2 text-xs" value={filters.provider} onChange={e => setFilters(f => ({ ...f, provider: e.target.value }))}><option value="all">All providers</option>{providers.map(p => <option key={p} value={p}>{p}</option>)}</select>
+          <select className="rounded-xl border border-border bg-background px-3 py-2 text-xs" value={filters.provider} onChange={e => setFilters(f => ({ ...f, provider: e.target.value }))}><option value="all">All providers</option>{providerOptions.map(p => <option key={p} value={p}>{p}</option>)}</select>
           {role === "admin" && <select className="rounded-xl border border-border bg-background px-3 py-2 text-xs" value={filters.host} onChange={e => setFilters(f => ({ ...f, host: e.target.value }))}><option value="all">All hosts</option>{hostOptions.map(h => <option key={h.id} value={h.id}>{h.business_name || h.full_name || h.email}</option>)}</select>}
           <select className="rounded-xl border border-border bg-background px-3 py-2 text-xs" value={filters.online} onChange={e => setFilters(f => ({ ...f, online: e.target.value }))}><option value="all">Any status</option><option value="online">Online</option><option value="offline">Offline</option><option value="unknown">Unknown</option></select>
           <select className="rounded-xl border border-border bg-background px-3 py-2 text-xs" value={filters.stale} onChange={e => setFilters(f => ({ ...f, stale: e.target.value }))}><option value="all">Any freshness</option><option value="recent">Recent</option><option value="stale">Stale</option></select>
@@ -151,35 +153,35 @@ export default function TelematicsMap({
           <div className="flex h-full flex-col items-center justify-center p-6 text-center text-muted-foreground"><TimerReset className="mb-2 h-7 w-7" /><p className="text-sm font-semibold">No cached GPS locations available yet.</p><p className="text-xs">Locations appear after the next Traccar position sync.</p></div>
         ) : (
           <MapContainer center={center} zoom={compact ? 9 : 11} scrollWheelZoom={!compact} style={{ height: "100%", width: "100%" }}>
-            <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; OpenStreetMap contributors &copy; CARTO' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
             {filtered.map(device => {
               const vehicle = vehicleById[device.vehicle_id];
               const host = hostById[device.host_id];
+              const provider = providerByKey[device.provider_key];
               const fresh = locationFreshness(device);
               const position = getMapPosition(device);
               const icon = L.divIcon({
                 html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:${markerColor(fresh)};border-radius:50%;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>`,
                 className: "vehicle-map-marker",
-                className: "",
                 iconSize: [32, 32],
                 popupAnchor: [0, -16]
               });
               return (
                 <Marker key={device.id} position={position} icon={icon}>
-                  <Popup>
-                    <div className="min-w-56 space-y-2 text-sm">
-                      <div><b>{vehicleName(vehicle, device)}</b><p>{ago(device)}</p></div>
-                      {showStaleBadges && <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${fresh.tone}`}>{fresh.label}</span>}
-                      {role !== "customer" && vehicle?.vin && <p><b>VIN:</b> {vehicle.vin}</p>}
-                      {role !== "customer" && <p><b>Device:</b> {device.unique_id} · {device.provider_key}</p>}
-                      {role === "admin" && host && <p><b>Host:</b> {host.business_name || host.full_name || host.email}</p>}
-                      <p><b>Location:</b> <a href={directionsUrl(position)} target="_blank" rel="noopener noreferrer" className="text-primary underline">{device.address || resolvedAddresses[device.id] || coordinateLabel(position)}</a></p>
-                      <p><b>Speed:</b> {Number(device.speed || 0).toFixed(0)} mph</p>
-                      <p><b>Ignition:</b> {device.ignition_status || "unknown"}</p>
-                      <p><b>Device status:</b> {device.online_status || "unknown"}</p>
-                      {role !== "customer" && vehicle?.status && <p><b>Vehicle:</b> {vehicle.status}</p>}
-                      {role !== "customer" && !compact && vehicle?.id && <Link to={role === "admin" ? "/admin/telematics" : "/host/telematics"} className="text-primary underline">Open telematics controls</Link>}
-                    </div>
+                  <Popup className="luxury-telematics-popup">
+                    <TelematicsVehiclePopup
+                      role={role}
+                      device={device}
+                      vehicle={vehicle}
+                      host={host}
+                      provider={provider}
+                      bookings={bookings}
+                      position={position}
+                      freshness={fresh}
+                      address={device.address || resolvedAddresses[device.id]}
+                      showStaleBadges={showStaleBadges}
+                      compact={compact}
+                    />
                   </Popup>
                 </Marker>
               );
