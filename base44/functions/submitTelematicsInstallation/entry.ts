@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const ADMIN_EMAIL = 'admin@uridehub.com';
 const TEST_DEFINITIONS = {
@@ -62,6 +62,22 @@ async function safeSendEmail(base44, payload) {
     console.error('[installer-notification] email failed:', error.message);
     return false;
   }
+}
+
+function providerAllowsProduction(providerConfig) {
+  return providerConfig?.execution_mode === 'production' && providerConfig?.allow_live_commands === true;
+}
+
+function nextProductionLifecycle(providerConfig, device) {
+  return device?.production_commands_enabled === true && providerAllowsProduction(providerConfig) ? 'live_enabled' : 'live_ready';
+}
+
+function vehicleTelematicsPayload(providerKey, device, providerConfig) {
+  return {
+    telematics_provider: providerKey,
+    telematics_device_id: device.id,
+    remote_unlock_capable: providerConfig?.supports_unlock === true || device.lock_unlock_enabled === true
+  };
 }
 
 async function upsertVinLinkAlert(base44, { vin, device, record }) {
@@ -206,24 +222,33 @@ Deno.serve(async (req) => {
       const hosts = await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id });
       host = hosts[0] || null;
     }
-    const canComplete = !!vehicle && !!host && failedTests.length === 0;
-    const status = canComplete ? 'completed' : 'correction_needed';
+    const testsPassed = failedTests.length === 0;
+    const hasVehicleAndHost = !!vehicle && !!host;
+    const status = testsPassed ? 'completed' : 'correction_needed';
+    const nextLifecycleStatus = testsPassed
+      ? (hasVehicleAndHost ? nextProductionLifecycle(providerConfig, device) : 'installation_completed_unlinked')
+      : (vehicle ? 'installation_started' : 'installation_completed_unlinked');
 
     await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
       vehicle_id: vehicle?.id || '',
       host_id: vehicle?.host_id || '',
       assigned_status: vehicle ? 'assigned' : 'unassigned',
-      install_status: canComplete ? 'installed' : 'correction_needed',
-      lifecycle_status: canComplete ? 'installation_completed' : (vehicle ? 'installation_started' : 'installation_completed_unlinked'),
-      installation_completed_at: canComplete ? now : device.installation_completed_at || ''
+      install_status: testsPassed ? 'installed' : 'correction_needed',
+      lifecycle_status: nextLifecycleStatus,
+      live_enabled_at: nextLifecycleStatus === 'live_enabled' ? now : device.live_enabled_at || '',
+      installation_completed_at: testsPassed ? now : device.installation_completed_at || ''
     });
+
+    if (testsPassed && hasVehicleAndHost) {
+      await base44.asServiceRole.entities.Vehicle.update(vehicle.id, vehicleTelematicsPayload(providerKey, device, providerConfig));
+    }
 
     const payload = {
       ...basePayload,
       host_id: vehicle?.host_id || '',
       vehicle_id: vehicle?.id || '',
       install_status: status,
-      installation_completed_at: canComplete ? now : existing[0]?.installation_completed_at || '',
+      installation_completed_at: testsPassed ? now : existing[0]?.installation_completed_at || '',
       test_summary: testSummary,
       failed_tests: failedTests,
       ...testSummary,
@@ -249,7 +274,7 @@ Deno.serve(async (req) => {
       telematics_device_id: device.id,
       provider_key: providerKey,
       vehicle_id: vehicle?.id || '',
-      event_type: canComplete ? 'installation_completed' : 'installation_correction_needed',
+      event_type: testsPassed ? 'installation_completed' : 'installation_correction_needed',
       source: 'installer',
       raw_payload: { install_record_id: record.id, vin, failed_tests: failedTests, installer: payload.installer_name },
       created_at: now
@@ -262,11 +287,11 @@ Deno.serve(async (req) => {
         subject: 'Vehicle VIN not found during installation',
         body: `<p>Correction needed for device ${device.unique_id || device.id}: VIN ${vin} is not in uRideHub yet.</p><p>Add vehicle with matching VIN or link device manually.</p>`
       });
-      return Response.json({ ok: true, status, pending_vehicle_link: true, message: 'Correction needed: VIN not matched yet. Admin has been notified.', record, vehicle: null });
+      return Response.json({ ok: true, status, pending_vehicle_link: true, message: 'Installation completed, but vehicle/host linking is still needed. Admin has been notified.', record, vehicle: null });
     }
 
     await notify(base44, { type: status, host, device, vehicle, record, failedTests });
-    return Response.json({ ok: true, status, message: canComplete ? 'Installation complete. Admin/host has been notified.' : 'Correction needed. Admin/host has been notified and installer can retry.', record, vehicle });
+    return Response.json({ ok: true, status, lifecycle_status: nextLifecycleStatus, message: testsPassed ? 'Installation complete and production lifecycle updated.' : 'Correction needed. Admin/host has been notified and installer can retry.', record, vehicle });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

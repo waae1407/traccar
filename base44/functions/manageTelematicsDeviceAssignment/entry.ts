@@ -1,9 +1,12 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 function clean(value) { return String(value || '').trim(); }
 function nowIso() { return new Date().toISOString(); }
 function vehicleName(vehicle) { return [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean).join(' ') || vehicle?.vin || vehicle?.id || 'Vehicle'; }
 function providerName(provider, key) { return provider?.provider_name || key || 'Unknown provider'; }
+function providerAllowsProduction(provider) { return provider?.execution_mode === 'production' && provider?.allow_live_commands === true; }
+function isCompletedInstallDevice(device) { return device?.install_status === 'installed' || ['installation_completed', 'installation_completed_unlinked', 'live_ready', 'live_enabled'].includes(device?.lifecycle_status); }
+function nextLinkedLifecycle(device, provider) { return isCompletedInstallDevice(device) ? (device?.production_commands_enabled === true && providerAllowsProduction(provider) ? 'live_enabled' : 'live_ready') : (device.lifecycle_status === 'inventory' ? 'provisioned' : (device.lifecycle_status || 'provisioned')); }
 function isRetired(device) { return device?.lifecycle_status === 'retired' || device?.assigned_status === 'retired' || device?.install_status === 'retired'; }
 function hasText(device, term) {
   if (!term) return true;
@@ -90,14 +93,31 @@ async function linkDevice(base44, { user, host, deviceId, vehicleId, allowReplac
 
   const oldVehicleId = device.vehicle_id || '';
   if (oldVehicleId && oldVehicleId !== vehicle.id) await clearVehicleReference(base44, oldVehicleId, device.id);
+  const providers = await providerMap(base44);
+  const provider = providers[device.provider_key];
+  const lifecycleStatus = isRetired(device) ? device.lifecycle_status : nextLinkedLifecycle(device, provider);
+  const now = nowIso();
   await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
     vehicle_id: vehicle.id,
     host_id: vehicle.host_id || '',
     assigned_status: 'assigned',
-    lifecycle_status: isRetired(device) ? device.lifecycle_status : (device.lifecycle_status === 'inventory' ? 'provisioned' : (device.lifecycle_status || 'provisioned'))
+    lifecycle_status: lifecycleStatus,
+    live_enabled_at: lifecycleStatus === 'live_enabled' ? now : device.live_enabled_at || ''
   });
-  await base44.asServiceRole.entities.Vehicle.update(vehicle.id, { telematics_device_id: device.id });
-  const updated = { ...device, vehicle_id: vehicle.id, host_id: vehicle.host_id || '' };
+  await base44.asServiceRole.entities.Vehicle.update(vehicle.id, {
+    telematics_device_id: device.id,
+    telematics_provider: device.provider_key || vehicle.telematics_provider || 'none',
+    remote_unlock_capable: provider?.supports_unlock === true || device.lock_unlock_enabled === true || vehicle.remote_unlock_capable === true
+  });
+  const installRecords = await base44.asServiceRole.entities.TelematicsInstallRecord.filter({ telematics_device_id: device.id });
+  if (installRecords[0] && installRecords[0].install_status === 'completed') {
+    await base44.asServiceRole.entities.TelematicsInstallRecord.update(installRecords[0].id, {
+      vehicle_id: vehicle.id,
+      host_id: vehicle.host_id || '',
+      vehicle_match_status: 'matched'
+    });
+  }
+  const updated = { ...device, vehicle_id: vehicle.id, host_id: vehicle.host_id || '', lifecycle_status: lifecycleStatus };
   await logEvent(base44, 'device_manually_linked', { user, device: updated, vehicle, oldVehicleId, newVehicleId: vehicle.id });
   return { device: updated, vehicle };
 }
