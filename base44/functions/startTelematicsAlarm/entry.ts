@@ -99,12 +99,6 @@ Deno.serve(async (req) => {
       max_pulses: DEFAULT_MAX_PULSES,
       pulses_sent: 0
     });
-    try {
-      await sendPulse(base44, { session, vehicle, pulseNumber: 1 });
-    } catch (error) {
-      await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'failed', ended_at: new Date().toISOString(), cancel_reason: error.message });
-      return Response.json({ error: error.message }, { status: 500 });
-    }
     const refreshedSession = (await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ id: session.id }))[0] || session;
     const cycle = runAlarmCycle(base44, session.id);
     if (globalThis.EdgeRuntime?.waitUntil) globalThis.EdgeRuntime.waitUntil(cycle);

@@ -92,10 +92,17 @@ async function sendTraccarSingleDeviceLiveTest(commandType, device) {
   const routed = await sendTraccarNoranProductionCommand(commandType, { ...device, traccar_device_id: TRACCAR_TEST_DEVICE_ID }, null);
   return { ...routed, live_test: true };
 }
+function commandCooldownMs(commandType) {
+  if (STARTER_COMMANDS.includes(commandType)) return 60 * 1000;
+  if (commandType === 'alarm_pulse') return 0;
+  return 15 * 1000;
+}
+
 function makeIdempotencyKey(userEmail, deviceId, commandType, options = {}) {
   if (options.alarmSessionId) return `${userEmail}:${deviceId}:${commandType}:alarm:${options.alarmSessionId}:${options.pulseNumber || 0}`;
-  const minuteBucket = Math.floor(Date.now() / 60000);
-  return `${userEmail}:${deviceId}:${commandType}:${minuteBucket}`;
+  const bucketMs = commandCooldownMs(commandType) || 1000;
+  const bucket = Math.floor(Date.now() / bucketMs);
+  return `${userEmail}:${deviceId}:${commandType}:${bucket}`;
 }
 
 async function getProviderConfig(base44, providerKey, providerType) {
@@ -189,9 +196,13 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
 async function enforceRateLimit(base44, deviceId, commandType, userEmail, maxPerMinute, options = {}) {
   if (options.alarmSessionId) return false;
   const recent = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: deviceId, requested_by: userEmail });
-  const cutoff = Date.now() - 60 * 1000;
-  const recentInWindow = recent.filter(cmd => new Date(cmd.created_date || cmd.created_at || 0).getTime() > cutoff && !['failed', 'expired', 'blocked'].includes(cmd.queue_status || cmd.status));
-  return recentInWindow.length >= Number(maxPerMinute || 4) || recentInWindow.some(cmd => cmd.command_type === commandType);
+  const now = Date.now();
+  const oneMinuteAgo = now - 60 * 1000;
+  const cooldownAgo = now - commandCooldownMs(commandType);
+  const activeRecent = recent.filter(cmd => new Date(cmd.created_date || cmd.created_at || 0).getTime() > oneMinuteAgo && !['failed', 'expired', 'blocked'].includes(cmd.queue_status || cmd.status));
+  const maxAllowed = STARTER_COMMANDS.includes(commandType) ? Math.max(2, Number(maxPerMinute || 2)) : Math.max(8, Number(maxPerMinute || 4));
+  const duplicateActive = commandCooldownMs(commandType) > 0 && activeRecent.some(cmd => cmd.command_type === commandType && new Date(cmd.created_date || cmd.created_at || 0).getTime() > cooldownAgo);
+  return activeRecent.length >= maxAllowed || duplicateActive;
 }
 function canSendNoranProduction(provider, device, commandType) {
   if (provider.provider_key !== 'traccar_noran_mt20') return false;

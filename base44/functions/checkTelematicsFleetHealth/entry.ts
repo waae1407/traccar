@@ -11,7 +11,12 @@ async function authorize(base44, body) {
 }
 
 async function alert(base44, payload) {
+  if (payload.dedupe_key) {
+    const existing = await base44.asServiceRole.entities.OperationalAlert.filter({ dedupe_key: payload.dedupe_key });
+    if (existing[0]) return false;
+  }
   await base44.asServiceRole.entities.OperationalAlert.create(payload).catch(() => null);
+  return true;
 }
 
 Deno.serve(async (req) => {
@@ -22,9 +27,9 @@ Deno.serve(async (req) => {
     if (!auth.ok) return auth.response;
 
     const now = new Date();
-    const devices = await base44.asServiceRole.entities.TelematicsDevice.list('-updated_date', 500);
-    const commands = await base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 300);
-    const installs = await base44.asServiceRole.entities.TelematicsInstallRecord.list('-updated_date', 300);
+    const devices = await base44.asServiceRole.entities.TelematicsDevice.list('-updated_date', 200);
+    const commands = await base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 150);
+    const installs = await base44.asServiceRole.entities.TelematicsInstallRecord.list('-updated_date', 100);
     let staleGps = 0;
     let offline = 0;
     let commandFailures = 0;
@@ -36,15 +41,17 @@ Deno.serve(async (req) => {
       const hours = lastSeen ? (now.getTime() - lastSeen.getTime()) / 3600000 : Infinity;
       if (hours > STALE_HOURS) {
         staleGps++;
-        await base44.asServiceRole.entities.TelematicsEvent.create({
-          company_id: device.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
-          vehicle_id: device.vehicle_id || '', event_type: 'stale_gps', source: 'system', raw_payload: { last_seen_at: device.last_seen_at || null, threshold_hours: STALE_HOURS }, created_at: now.toISOString()
-        });
-        await alert(base44, {
+        const created = await alert(base44, {
           alert_type: 'stale_gps', severity: 'warning', title: 'Stale GPS signal', message: `${device.unique_id} has no recent GPS heartbeat.`,
           recommended_action: 'Check device power, installation, or provider connectivity.', provider_key: device.provider_key, telematics_device_id: device.id,
           vehicle_id: device.vehicle_id || '', host_id: device.host_id || '', dedupe_key: `stale_gps:${device.id}:${now.toISOString().slice(0,10)}`, metadata: { last_seen_at: device.last_seen_at || null }
         });
+        if (created) {
+          await base44.asServiceRole.entities.TelematicsEvent.create({
+            company_id: device.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
+            vehicle_id: device.vehicle_id || '', event_type: 'stale_gps', source: 'system', raw_payload: { last_seen_at: device.last_seen_at || null, threshold_hours: STALE_HOURS }, created_at: now.toISOString()
+          });
+        }
       }
       if (device.online_status === 'offline' || hours > OFFLINE_HOURS) {
         offline++;

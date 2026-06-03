@@ -533,13 +533,16 @@ Deno.serve(async (req) => {
       const commandId = body.command_id || body.commandId || '';
       const idempotencyKey = body.idempotency_key || body.idempotencyKey || '';
       const providerCommandId = body.provider_command_id || body.providerCommandId || '';
+      const commandType = body.command_type || body.commandType || body.command || '';
       const matches = commandId
         ? await base44.asServiceRole.entities.TelematicsCommand.filter({ id: commandId })
         : idempotencyKey
           ? await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey })
           : providerCommandId
             ? await base44.asServiceRole.entities.TelematicsCommand.filter({ provider_command_id: String(providerCommandId) })
-            : [];
+            : device && commandType
+              ? (await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id, command_type: commandType })).sort((a, b) => new Date(b.created_date || b.created_at || 0) - new Date(a.created_date || a.created_at || 0))
+              : [];
       const command = matches[0];
       if (command) {
         const createdAt = new Date(command.created_at || command.created_date || now).getTime();
@@ -549,7 +552,7 @@ Deno.serve(async (req) => {
           : eventType === 'command_ack'
             ? { status: 'acknowledged', queue_status: 'acknowledged', confirmation_status: 'acknowledged', acknowledged_at: now, device_acknowledged_at: now, delivery_latency_ms: Date.now() - sentAt, acknowledgement_source: 'webhook', provider_response: body }
             : eventType === 'command_executed'
-              ? { status: 'executed', queue_status: 'executed', confirmation_status: 'executed', executed_at: now, confirmed_at: now, execution_latency_ms: Date.now() - createdAt, acknowledgement_source: 'webhook', provider_response: body }
+              ? { status: 'executed', queue_status: 'executed', confirmation_status: 'executed', acknowledged_at: command.acknowledged_at || now, device_acknowledged_at: command.device_acknowledged_at || now, executed_at: now, confirmed_at: now, execution_latency_ms: Date.now() - createdAt, acknowledgement_source: 'webhook', provider_response: body }
               : { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failed_at: now, failure_reason: body.reason || 'Provider command failed', acknowledgement_source: 'webhook', provider_response: body };
         await base44.asServiceRole.entities.TelematicsCommand.update(command.id, update);
       }
