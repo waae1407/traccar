@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter', 'status'];
 const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'alarm_pulse'];
-const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights', 'alarm_pulse'];
+const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'status'];
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 const TRACCAR_TEST_UNIQUE_ID = 'NR09G00002';
 const TRACCAR_TEST_DEVICE_ID = '5';
@@ -139,33 +139,50 @@ async function resolveDevice(base44, vehicle) {
   }
   return null;
 }
+function isRentalControlActive(booking) {
+  if (!booking) return false;
+  if (booking.rental_ended_at) return false;
+  if (!['active', 'approved', 'confirmed'].includes(booking.booking_status)) return false;
+  if (booking.payment_status !== 'paid') return false;
+  if (booking.starter_disabled || booking.moovetrax_kill_active) return false;
+  if (booking.end_date) {
+    const endOfDay = new Date(`${booking.end_date}T23:59:59`);
+    if (!Number.isNaN(endOfDay.getTime()) && Date.now() > endOfDay.getTime()) return false;
+  }
+  return true;
+}
+
 async function validateAccess(base44, user, vehicle, booking, commandType, provider, device) {
   if (STARTER_COMMANDS.includes(commandType)) {
     if (!provider.allow_starter_commands) return 'Starter commands are disabled for this provider.';
     if (provider.require_admin_approval_for_starter && !['admin', 'host'].includes(user.role)) return 'Starter commands require admin or host policy approval.';
   }
   if (user.role === 'admin') return null;
-  if (booking && booking.user_email === user.email) {
-  if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
-  const activeStatuses = ['active', 'approved', 'confirmed'];
-  if (!activeStatuses.includes(booking.booking_status)) return 'Vehicle controls are only available for active rentals.';
-  if (booking.payment_status !== 'paid' || ['payment_due', 'suspended', 'completed', 'cancelled'].includes(booking.booking_status) || booking.starter_disabled || booking.moovetrax_kill_active) return 'Vehicle controls are unavailable for this booking.';
-  return null;
+
+  const bookingUserMatch = booking && (booking.user_email === user.email || booking.user_id === user.id);
+  if (bookingUserMatch) {
+    if (booking.vehicle_id !== vehicle.id) return 'Customer can only control the vehicle on this booking.';
+    if (device.vehicle_id !== vehicle.id) return 'Device is not assigned to this rental vehicle.';
+    if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
+    if (!isRentalControlActive(booking)) return 'Vehicle controls are only available for active rentals.';
+    return null;
   }
+
   if (vehicle.host_id) {
     const host = (await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }))[0];
     if (host?.email === user.email || host?.user_id === user.id) {
+      if (device.vehicle_id !== vehicle.id) return 'Device is not assigned to this host vehicle.';
+      if (device.host_id && device.host_id !== host.id) return 'Device is not assigned to this host.';
+      if (!HOST_COMMANDS.includes(commandType) && !STARTER_COMMANDS.includes(commandType)) return 'Host cannot send this command.';
       if (STARTER_COMMANDS.includes(commandType)) {
         if (host.telematics_starter_control_enabled !== true) return 'Host starter controls are disabled for this host.';
         if (device.host_starter_control_enabled !== true) return 'Host starter controls are disabled for this device.';
-        if (device.vehicle_id && device.vehicle_id !== vehicle.id) return 'Device is not assigned to this host vehicle.';
         if (device.production_command_scope !== 'all_supported_commands') return 'Device production scope does not allow starter commands.';
-        return null;
       }
-      if (!HOST_COMMANDS.includes(commandType)) return 'Host cannot send this command.';
       return null;
     }
   }
+
   if (user.role === 'installer') return commandType === 'status' || commandType === 'locate' ? null : 'Installers can only run installation checks.';
   return 'Forbidden.';
 }
