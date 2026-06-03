@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
-const ICONS = { locate: MapPin, status: Activity, lock: Lock, unlock: Unlock, horn: Volume2, lights: Lightbulb, disable_starter: Power, restore_starter: RefreshCw };
+const ICONS = { locate: MapPin, status: Activity, lock: Lock, unlock: Unlock, horn: Volume2, lights: Lightbulb, horn_lights: Volume2, alarm_pulse: Volume2, disable_starter: Power, restore_starter: RefreshCw };
 const CONFIRM_TEXT = { disable_starter: 'DISABLE STARTER', restore_starter: 'RESTORE STARTER' };
 
 export default function CommandButtonGrid({ commands, execution, onSend, sending }) {

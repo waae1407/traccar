@@ -91,6 +91,26 @@
       ],
       "default": "untested"
     },
+    "horn_lights_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
+    "alarm_pulse_result": {
+      "type": "string",
+      "enum": [
+        "untested",
+        "pass",
+        "fail",
+        "not_supported"
+      ],
+      "default": "untested"
+    },
     "starter_disable_result": {
       "type": "string",
       "enum": [

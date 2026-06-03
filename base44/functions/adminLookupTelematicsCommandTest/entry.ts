@@ -7,6 +7,8 @@ const COMMAND_DEFINITIONS = [
   { key: 'unlock', label: 'Unlock', capability: 'supports_unlock', deviceFlag: 'lock_unlock_enabled', result_field: 'unlock_result' },
   { key: 'horn', label: 'Horn', capability: 'supports_horn', deviceFlag: 'horn_light_enabled', result_field: 'horn_result' },
   { key: 'lights', label: 'Lights', capability: 'supports_lights', deviceFlag: 'horn_light_enabled', result_field: 'lights_result' },
+  { key: 'horn_lights', label: 'Horn + Lights', capability: 'supports_horn', deviceFlag: 'horn_light_enabled', result_field: 'horn_lights_result' },
+  { key: 'alarm_pulse', label: 'Alarm / Find Pulse', capability: 'supports_horn', deviceFlag: 'horn_light_enabled', result_field: 'alarm_pulse_result' },
   { key: 'disable_starter', label: 'Disable Starter', capability: 'supports_starter_disable', starter: true, result_field: 'starter_disable_result' },
   { key: 'restore_starter', label: 'Restore Starter', capability: 'supports_starter_restore', starter: true, result_field: 'starter_restore_result' }
 ];
@@ -96,15 +98,27 @@ Deno.serve(async (req) => {
     const supported_commands = COMMAND_DEFINITIONS.filter((command) => isSupported(command, provider, device));
     const { vehicle, host } = await getLinked(base44, device);
     const sessions = await base44.asServiceRole.entities.TelematicsDeviceTestSession.filter({ device_id: device.id, status: 'in_progress' });
-    const session = sessions[0] || await base44.asServiceRole.entities.TelematicsDeviceTestSession.create({
-      device_id: device.id,
-      unique_id: device.unique_id || identifier,
-      provider_key: device.provider_key || provider.provider_key || 'unknown',
-      tested_by: user.email,
-      started_at: new Date().toISOString(),
-      status: 'in_progress',
-      ...sessionDefaults(supported_commands)
-    });
+    const defaults = sessionDefaults(supported_commands);
+    let session = sessions[0];
+    if (session) {
+      const missingDefaults = {};
+      for (const [field, value] of Object.entries(defaults)) {
+        if (!session[field]) missingDefaults[field] = value;
+      }
+      if (Object.keys(missingDefaults).length) {
+        session = await base44.asServiceRole.entities.TelematicsDeviceTestSession.update(session.id, missingDefaults);
+      }
+    } else {
+      session = await base44.asServiceRole.entities.TelematicsDeviceTestSession.create({
+        device_id: device.id,
+        unique_id: device.unique_id || identifier,
+        provider_key: device.provider_key || provider.provider_key || 'unknown',
+        tested_by: user.email,
+        started_at: new Date().toISOString(),
+        status: 'in_progress',
+        ...defaults
+      });
+    }
 
     return Response.json({
       ok: true,

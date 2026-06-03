@@ -7,6 +7,8 @@ const RESULT_FIELDS = [
   'unlock_result',
   'horn_result',
   'lights_result',
+  'horn_lights_result',
+  'alarm_pulse_result',
   'starter_disable_result',
   'starter_restore_result'
 ];
