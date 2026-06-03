@@ -14,6 +14,17 @@ function hexToAscii(value = '') {
 
 function findNoranMessage(command) {
   const response = command?.provider_response || {};
+  const mt20Reply = response.mt20_forwarded_reply || response.parsed_forwarded_reply;
+  if (mt20Reply?.raw_packet_hex) {
+    return {
+      message: mt20Reply.raw_packet_hex,
+      description: mt20Reply.packet_type === '0x8009'
+        ? `MT20 command response received${mt20Reply.lock_state ? ` — ${mt20Reply.lock_state}` : ''}.`
+        : `MT20 ${mt20Reply.packet_type || 'reply'} received.`,
+      received: true
+    };
+  }
+
   const direct = [
     response.noran_reply_message,
     response.reply_message,
@@ -30,23 +41,14 @@ function findNoranMessage(command) {
   for (const value of direct) {
     if (!value) continue;
     const text = String(value).trim();
-    if (text.includes('*KW') || text.includes('#')) return text;
+    if (text.includes('*KW') || text.includes('#')) return { message: text, description: describeAsciiReply(text), received: true };
     const ascii = hexToAscii(text);
-    if (ascii.includes('*KW') || ascii.includes('#')) return ascii;
+    if (ascii.includes('*KW') || ascii.includes('#')) return { message: ascii, description: describeAsciiReply(ascii), received: true };
   }
-  return '';
+  return null;
 }
 
-function describeNoranMessage(message, command) {
-  if (!message) {
-    const status = command.queue_status || command.status;
-    if (status === 'expired' || command.failure_reason?.toLowerCase().includes('timeout')) {
-      return 'No Noran reply received before timeout.';
-    }
-    if (['sent', 'delivered'].includes(status)) return 'Waiting for Noran reply.';
-    return 'No Noran reply recorded.';
-  }
-
+function describeAsciiReply(message) {
   const clean = message.replace(/^.*?(\*KW)/, '$1').replace(/[\r\n]/g, '').trim();
   const parts = clean.replace(/^\*KW,?/, '').replace(/#.*$/, '').split(',');
   const code = parts[1];
@@ -69,10 +71,18 @@ function describeNoranMessage(message, command) {
   return 'Noran reply received.';
 }
 
+function describeMissingReply(command) {
+  const status = command.queue_status || command.status;
+  if (status === 'expired' || command.failure_reason?.toLowerCase().includes('timeout')) return 'No Noran reply received before timeout.';
+  if (['sent', 'delivered', 'sending'].includes(status)) return 'Waiting for Noran reply.';
+  return 'No Noran reply recorded.';
+}
+
 export default function NoranReplyCell({ command }) {
-  const message = findNoranMessage(command);
-  const description = describeNoranMessage(message, command);
-  const received = !!message;
+  const reply = findNoranMessage(command);
+  const message = reply?.message || '';
+  const description = reply?.description || describeMissingReply(command);
+  const received = !!reply?.received;
 
   return (
     <div className="min-w-[180px] max-w-xs space-y-1">

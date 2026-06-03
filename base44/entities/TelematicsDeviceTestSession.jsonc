@@ -131,6 +131,10 @@
       ],
       "default": "untested"
     },
+    "result_details": {
+      "type": "object",
+      "description": "Automated command-test result details keyed by result field, including reason and matching command reply metadata."
+    },
     "notes": {
       "type": "string"
     }

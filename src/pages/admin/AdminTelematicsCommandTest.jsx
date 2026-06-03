@@ -38,10 +38,16 @@ export default function AdminTelematicsCommandTest() {
     onError: (error) => setLookupError(error?.response?.data?.error || error.message)
   });
 
-  const markMutation = useMutation({
-    mutationFn: ({ field, value }) => base44.entities.TelematicsDeviceTestSession.update(lookupData.session.id, { [field]: value }),
-    onSuccess: (session) => setLookupData((prev) => ({ ...prev, session }))
-  });
+  React.useEffect(() => {
+    if (!lookupData?.session?.id) return undefined;
+    const unsubscribe = base44.entities.TelematicsDeviceTestSession.subscribe((event) => {
+      const updatedSession = event?.data;
+      if (updatedSession?.id === lookupData.session.id) {
+        setLookupData((prev) => prev ? ({ ...prev, session: updatedSession }) : prev);
+      }
+    });
+    return unsubscribe;
+  }, [lookupData?.session?.id]);
 
   const completeMutation = useMutation({
     mutationFn: () => base44.functions.invoke('completeTelematicsDeviceTestSession', { session_id: lookupData.session.id, notes }).then((res) => res.data),
@@ -91,9 +97,9 @@ export default function AdminTelematicsCommandTest() {
 
       {lookupData?.device && (
         <>
-          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} onMark={(field, value) => markMutation.mutate({ field, value })} />
+          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} />
           <CommandHistoryPanel commands={history.data} onRefresh={history.refetch} loading={history.isFetching} />
-          <TestChecklist session={lookupData.session} commands={lookupData.supported_commands} notes={notes} setNotes={setNotes} onMark={(field, value) => markMutation.mutate({ field, value })} onComplete={() => completeMutation.mutate()} completing={completeMutation.isPending} />
+          <TestChecklist session={lookupData.session} commands={lookupData.supported_commands} notes={notes} setNotes={setNotes} onComplete={() => completeMutation.mutate()} completing={completeMutation.isPending} />
         </>
       )}
     </div>

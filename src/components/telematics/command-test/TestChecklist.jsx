@@ -1,13 +1,20 @@
 import React from 'react';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 
-export default function TestChecklist({ session, commands, notes, setNotes, onMark, onComplete, completing }) {
+const RESULT_STYLES = {
+  pass: { badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25', icon: CheckCircle2, label: 'Pass' },
+  fail: { badge: 'bg-red-500/15 text-red-300 border border-red-500/25', icon: XCircle, label: 'Fail' },
+  untested: { badge: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25', icon: Clock, label: 'Waiting' },
+  not_supported: { badge: 'bg-white/10 text-white/55 border border-white/10', icon: AlertTriangle, label: 'Not supported' }
+};
+
+export default function TestChecklist({ session, commands, notes, setNotes, onComplete, completing }) {
   if (!session) return null;
-  const supportedFields = commands.map((command) => command.result_field);
+  const supportedFields = commands.map((command) => command.result_field).filter(Boolean);
   const completeReady = supportedFields.every((field) => ['pass', 'fail'].includes(session[field]));
   return (
     <Card className="glass border-white/10">
@@ -22,23 +29,23 @@ export default function TestChecklist({ session, commands, notes, setNotes, onMa
         <div className="grid gap-3 md:grid-cols-2">
           {commands.map((command) => {
             const value = session[command.result_field] || 'untested';
+            const detail = session.result_details?.[command.result_field];
+            const style = RESULT_STYLES[value] || RESULT_STYLES.untested;
+            const ResultIcon = style.icon;
             return (
-              <div key={command.key} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+              <div key={command.key} className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                 <div>
                   <p className="font-bold text-white">{command.label}</p>
-                  <p className="text-xs text-white/40">{value}</p>
+                  <p className="mt-1 text-xs text-white/45">{detail?.reason || 'Awaiting automated device reply.'}</p>
                 </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant={value === 'pass' ? 'default' : 'outline'} onClick={() => onMark(command.result_field, 'pass')} className={value === 'pass' ? '' : 'border-white/10 bg-white/5 text-white hover:bg-white/10'}><CheckCircle2 className="h-4 w-4" /> Pass</Button>
-                  <Button size="sm" variant={value === 'fail' ? 'destructive' : 'outline'} onClick={() => onMark(command.result_field, 'fail')} className={value === 'fail' ? '' : 'border-white/10 bg-white/5 text-white hover:bg-white/10'}><XCircle className="h-4 w-4" /> Fail</Button>
-                </div>
+                <Badge className={style.badge}><ResultIcon className="mr-1 h-3.5 w-3.5" />{style.label}</Badge>
               </div>
             );
           })}
         </div>
         <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Session notes" className="bg-white/5 text-white placeholder:text-white/35" />
         <Button onClick={onComplete} disabled={!completeReady || completing} className="w-full">Complete Test Session</Button>
-        {!completeReady && <p className="text-center text-xs text-white/45">Mark all supported commands pass or fail before completing.</p>}
+        {!completeReady && <p className="text-center text-xs text-white/45">Wait for all supported commands to receive an automated pass or fail before completing.</p>}
       </CardContent>
     </Card>
   );

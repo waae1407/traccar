@@ -1,11 +1,36 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const PROVIDER_KEY = 'traccar_noran_mt20';
 const MIN_VOLTAGE = 5;
 const MAX_VOLTAGE = 30;
+const COMMAND_REPLY_WINDOW_MINUTES = 10;
+const COMMAND_RESULT_FIELDS = {
+  locate: 'locate_result',
+  status: 'status_result',
+  lock: 'lock_result',
+  unlock: 'unlock_result',
+  horn: 'horn_result',
+  lights: 'lights_result',
+  horn_lights: 'horn_lights_result',
+  alarm_pulse: 'alarm_pulse_result',
+  disable_starter: 'starter_disable_result',
+  restore_starter: 'starter_restore_result'
+};
+const IGNORED_PACKET_TYPES = new Set([0x0000]);
+const MEANINGFUL_PACKET_TYPES = new Map([
+  [0x0003, 'mt20_alarm_upload'],
+  [0x0008, 'mt20_position_upload'],
+  [0x0032, 'mt20_new_position_upload'],
+  [0x0038, 'mt20_query_response'],
+  [0x8009, 'mt20_command_response']
+]);
 
 function getSecret(req, body) {
   return String(req.headers.get('x-webhook-secret') || req.headers.get('x-telematics-secret') || body.webhook_secret || '').trim();
+}
+
+function rawHexFromBody(body) {
+  return body.raw_packet_hex || body.packet_hex || body.raw_hex || body.message || body.data;
 }
 
 function cleanHex(value) {
@@ -25,6 +50,18 @@ function readUInt16LE(bytes, offset) {
   return bytes[offset] | (bytes[offset + 1] << 8);
 }
 
+function readUInt32LE(bytes, offset) {
+  if (!bytes || offset + 3 >= bytes.length) return null;
+  return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+}
+
+function readTrailingSignedByte(bytes) {
+  let offset = bytes.length - 1;
+  while (offset >= 0 && [0x00, 0x0d, 0x0a].includes(bytes[offset])) offset--;
+  if (offset < 0) return null;
+  return bytes[offset] > 127 ? bytes[offset] - 256 : bytes[offset];
+}
+
 function asciiFromBytes(bytes) {
   return bytes
     .filter((byte) => byte >= 32 && byte <= 126)
@@ -34,8 +71,20 @@ function asciiFromBytes(bytes) {
     .trim();
 }
 
+function extractDeviceId(bytes, body) {
+  const explicit = String(body.device_unique_id || body.unique_id || body.device_id || body.imei || '').trim();
+  if (explicit) return explicit;
+  const ascii = asciiFromBytes(bytes);
+  const match = ascii.match(/[A-Z]{2}\d{2}[A-Z0-9]{4,}/i);
+  return match ? match[0] : '';
+}
+
+function formatPacketType(packetType) {
+  return `0x${packetType.toString(16).padStart(4, '0')}`;
+}
+
 function parseMt20Voltage0032(body) {
-  const rawHex = body.raw_packet_hex || body.packet_hex || body.raw_hex || body.message || body.data;
+  const rawHex = rawHexFromBody(body);
   const bytes = hexToBytes(rawHex);
   if (!bytes) return null;
 
@@ -55,7 +104,7 @@ function parseMt20Voltage0032(body) {
       packet_type: '0x0032',
       nBAT: nbat,
       voltage,
-      device_unique_id: asciiFromBytes(bytes.slice(i + 20, Math.min(bytes.length, i + 40))) || '',
+      device_unique_id: extractDeviceId(bytes, body) || asciiFromBytes(bytes.slice(i + 20, Math.min(bytes.length, i + 40))) || '',
       device_updates: {
         battery_voltage: voltage,
         power_voltage: voltage,
@@ -70,11 +119,65 @@ function parseMt20Voltage0032(body) {
   return null;
 }
 
-const MESSAGE_HANDLERS = [
-  {
-    name: 'mt20_voltage_0032',
-    parse: parseMt20Voltage0032
+function parseMt20CommandResponse8009(body) {
+  const rawHex = rawHexFromBody(body);
+  const bytes = hexToBytes(rawHex);
+  if (!bytes) return null;
+
+  for (let i = 0; i < bytes.length - 12; i++) {
+    const packetType = readUInt16LE(bytes, i + 2);
+    if (packetType !== 0x8009) continue;
+
+    const bEnable = readUInt32LE(bytes, i + 10);
+    const cErrorCode = readTrailingSignedByte(bytes.slice(i));
+    const lockState = Number.isFinite(bEnable) ? ((bEnable & 0b100) === 0 ? 'locked' : 'unlocked') : '';
+
+    return {
+      message_type: 'mt20_command_response_8009',
+      event_type: 'mt20_command_response_forwarded_log',
+      source: 'forwarded_log_mt20_8009',
+      raw_packet_hex: cleanHex(rawHex),
+      packet_type: '0x8009',
+      packet_offset: i,
+      bEnable,
+      lock_state: lockState,
+      cErrorCode,
+      device_unique_id: extractDeviceId(bytes.slice(i), body),
+      device_updates: { online_status: 'online' }
+    };
   }
+
+  return null;
+}
+
+function parseMeaningfulMt20Packet(body) {
+  const rawHex = rawHexFromBody(body);
+  const bytes = hexToBytes(rawHex);
+  if (!bytes) return null;
+
+  for (let i = 0; i < bytes.length - 4; i++) {
+    const packetType = readUInt16LE(bytes, i + 2);
+    if (packetType === null || IGNORED_PACKET_TYPES.has(packetType)) continue;
+    if (!MEANINGFUL_PACKET_TYPES.has(packetType)) continue;
+    const packetTypeHex = formatPacketType(packetType);
+    return {
+      message_type: MEANINGFUL_PACKET_TYPES.get(packetType),
+      event_type: `${MEANINGFUL_PACKET_TYPES.get(packetType)}_forwarded_log`,
+      source: `forwarded_log_${packetTypeHex}`,
+      raw_packet_hex: cleanHex(rawHex),
+      packet_type: packetTypeHex,
+      packet_offset: i,
+      device_unique_id: extractDeviceId(bytes.slice(i), body),
+      device_updates: { online_status: 'online' }
+    };
+  }
+  return null;
+}
+
+const MESSAGE_HANDLERS = [
+  { name: 'mt20_voltage_0032', parse: parseMt20Voltage0032 },
+  { name: 'mt20_command_response_8009', parse: parseMt20CommandResponse8009 },
+  { name: 'meaningful_mt20_packet', parse: parseMeaningfulMt20Packet }
 ];
 
 function parseForwardedMessage(body) {
@@ -90,6 +193,8 @@ async function findDevice(base44, body, parsed) {
     body.device_unique_id,
     body.unique_id,
     body.device_id,
+    body.traccar_device_id,
+    body.provider_device_id,
     body.imei,
     parsed.device_unique_id
   ].map((value) => String(value || '').trim()).filter(Boolean);
@@ -107,6 +212,112 @@ async function findDevice(base44, body, parsed) {
 function normalizeTimestamp(value) {
   const date = value ? new Date(value) : new Date();
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function evaluateCommandReply(command, parsed) {
+  if (!Number.isFinite(parsed.cErrorCode)) {
+    return { result: 'fail', reason: 'Malformed MT20 command response: missing cErrorCode.' };
+  }
+  if (parsed.cErrorCode <= 0) {
+    return { result: 'fail', reason: `Device replied with failure code ${parsed.cErrorCode}.` };
+  }
+  if (command.command_type === 'lock' && parsed.lock_state !== 'locked') {
+    return { result: 'fail', reason: 'Device replied successfully but lock state did not report locked.' };
+  }
+  if (command.command_type === 'unlock' && parsed.lock_state !== 'unlocked') {
+    return { result: 'fail', reason: 'Device replied successfully but lock state did not report unlocked.' };
+  }
+  return { result: 'pass', reason: 'Device reply confirmed by forwarded MT20 command response.' };
+}
+
+async function findMatchingCommand(base44, device, timestamp) {
+  if (!device?.id) return null;
+  const replyTime = new Date(timestamp).getTime();
+  const commands = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id });
+  return commands
+    .filter((command) => {
+      const status = command.queue_status || command.status;
+      if (!['queued', 'sending', 'sent', 'delivered', 'pending'].includes(status)) return false;
+      if (command.provider_key !== PROVIDER_KEY) return false;
+      const sentTime = new Date(command.sent_at || command.created_at || command.created_date || 0).getTime();
+      if (!Number.isFinite(sentTime)) return false;
+      const ageMinutes = Math.abs(replyTime - sentTime) / 60000;
+      return ageMinutes <= COMMAND_REPLY_WINDOW_MINUTES;
+    })
+    .sort((a, b) => new Date(b.sent_at || b.created_at || b.created_date || 0).getTime() - new Date(a.sent_at || a.created_at || a.created_date || 0).getTime())[0] || null;
+}
+
+async function updateCommandTestSession(base44, command, evaluation, parsed, timestamp) {
+  const resultField = COMMAND_RESULT_FIELDS[command.command_type];
+  if (!resultField) return null;
+  const isAdminTest = command.request_payload?.admin_device_command_test === true || command.request_payload?.source === 'admin_test';
+  if (!isAdminTest) return null;
+
+  const sessions = await base44.asServiceRole.entities.TelematicsDeviceTestSession.filter({ device_id: command.telematics_device_id, status: 'in_progress' });
+  const session = sessions
+    .sort((a, b) => new Date(b.started_at || b.created_date || 0).getTime() - new Date(a.started_at || a.created_date || 0).getTime())[0];
+  if (!session) return null;
+
+  const resultDetails = {
+    ...(session.result_details || {}),
+    [resultField]: {
+      result: evaluation.result,
+      reason: evaluation.reason,
+      command_id: command.id,
+      command_type: command.command_type,
+      packet_type: parsed.packet_type,
+      raw_packet_hex: parsed.raw_packet_hex,
+      processed_at: timestamp
+    }
+  };
+
+  return await base44.asServiceRole.entities.TelematicsDeviceTestSession.update(session.id, {
+    [resultField]: evaluation.result,
+    result_details: resultDetails
+  });
+}
+
+async function processCommandResponse(base44, device, parsed, timestamp) {
+  const command = await findMatchingCommand(base44, device, timestamp);
+  if (!command) return { command_matched: false, reason: 'No pending command matched this MT20 reply.' };
+
+  const evaluation = evaluateCommandReply(command, parsed);
+  const pass = evaluation.result === 'pass';
+  const updateData = {
+    status: pass ? 'executed' : 'failed',
+    queue_status: pass ? 'executed' : 'failed',
+    confirmation_status: pass ? 'executed' : 'failed',
+    acknowledged_at: timestamp,
+    device_acknowledged_at: timestamp,
+    provider_response: {
+      ...(command.provider_response || {}),
+      mt20_forwarded_reply: parsed,
+      mt20_reply_evaluation: evaluation
+    },
+    failure_reason: pass ? '' : evaluation.reason
+  };
+  if (pass) {
+    updateData.executed_at = timestamp;
+    updateData.confirmed_at = timestamp;
+  } else {
+    updateData.failed_at = timestamp;
+  }
+
+  await base44.asServiceRole.entities.TelematicsCommand.update(command.id, updateData);
+  const session = await updateCommandTestSession(base44, command, evaluation, parsed, timestamp);
+
+  await base44.asServiceRole.entities.TelematicsEvent.create({
+    company_id: command.company_id || device?.company_id || '',
+    telematics_device_id: command.telematics_device_id || device?.id || '',
+    provider_key: PROVIDER_KEY,
+    vehicle_id: command.vehicle_id || device?.vehicle_id || '',
+    event_type: pass ? `command_${command.command_type}_confirmed` : `command_${command.command_type}_reply_failed`,
+    source: 'webhook',
+    raw_payload: { command_id: command.id, parsed_forwarded_log: parsed, evaluation },
+    created_at: timestamp
+  });
+
+  return { command_matched: true, command_id: command.id, command_type: command.command_type, result: evaluation.result, reason: evaluation.reason, session_updated: !!session };
 }
 
 Deno.serve(async (req) => {
@@ -140,14 +351,15 @@ Deno.serve(async (req) => {
     const timestamp = normalizeTimestamp(body.timestamp || body.deviceTime || body.serverTime || now);
     const device = await findDevice(base44, body, parsed);
 
-    const normalizedVoltagePayload = {
-      battery_voltage: parsed.voltage,
-      power_voltage: parsed.voltage,
-      external_voltage: parsed.voltage,
-      voltage: parsed.voltage,
-      voltage_source: parsed.source,
-      voltage_last_seen_at: timestamp
-    };
+    const rawPayload = { ...body, parsed_forwarded_log: parsed };
+    if (Number.isFinite(parsed.voltage)) {
+      rawPayload.battery_voltage = parsed.voltage;
+      rawPayload.power_voltage = parsed.voltage;
+      rawPayload.external_voltage = parsed.voltage;
+      rawPayload.voltage = parsed.voltage;
+      rawPayload.voltage_source = parsed.source;
+      rawPayload.voltage_last_seen_at = timestamp;
+    }
 
     const event = await base44.asServiceRole.entities.TelematicsEvent.create({
       company_id: device?.company_id || '',
@@ -156,17 +368,21 @@ Deno.serve(async (req) => {
       vehicle_id: device?.vehicle_id || '',
       event_type: parsed.event_type,
       source: 'webhook',
-      raw_payload: { ...body, ...normalizedVoltagePayload, parsed_forwarded_log: parsed },
+      raw_payload: rawPayload,
       created_at: now
     });
 
     if (device && parsed.device_updates) {
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
         ...parsed.device_updates,
-        voltage_last_seen_at: timestamp,
+        ...(Number.isFinite(parsed.voltage) ? { voltage_last_seen_at: timestamp } : {}),
         last_seen_at: timestamp
       });
     }
+
+    const command_processing = parsed.message_type === 'mt20_command_response_8009'
+      ? await processCommandResponse(base44, device, parsed, timestamp)
+      : null;
 
     return Response.json({
       ok: true,
@@ -176,7 +392,8 @@ Deno.serve(async (req) => {
       device_id: device?.id || '',
       voltage: parsed.voltage,
       packet_type: parsed.packet_type,
-      source: parsed.source
+      source: parsed.source,
+      command_processing
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

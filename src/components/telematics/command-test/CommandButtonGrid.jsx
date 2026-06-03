@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, AlertTriangle, CheckCircle2, Lightbulb, Loader2, Lock, MapPin, Power, RefreshCw, Unlock, Volume2, XCircle } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Clock, Lightbulb, Loader2, Lock, MapPin, Power, RefreshCw, Unlock, Volume2, XCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,14 @@ import { Badge } from '@/components/ui/badge';
 const ICONS = { locate: MapPin, status: Activity, lock: Lock, unlock: Unlock, horn: Volume2, lights: Lightbulb, horn_lights: Volume2, alarm_pulse: Volume2, disable_starter: Power, restore_starter: RefreshCw };
 const CONFIRM_TEXT = { disable_starter: 'DISABLE STARTER', restore_starter: 'RESTORE STARTER' };
 
-export default function CommandButtonGrid({ commands, execution, onSend, sending, session, onMark }) {
+const RESULT_STYLES = {
+  pass: { badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25', icon: CheckCircle2, label: 'Pass confirmed' },
+  fail: { badge: 'bg-red-500/15 text-red-300 border border-red-500/25', icon: XCircle, label: 'Fail confirmed' },
+  untested: { badge: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25', icon: Clock, label: 'Waiting for reply' },
+  not_supported: { badge: 'bg-white/10 text-white/55 border border-white/10', icon: AlertTriangle, label: 'Not supported' }
+};
+
+export default function CommandButtonGrid({ commands, execution, onSend, sending, session }) {
   const [checked, setChecked] = useState({});
   const [typed, setTyped] = useState({});
 
@@ -51,19 +58,19 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
                   Send {command.label}
                 </Button>
 
-                {session && command.result_field && (
-                  <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
-                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-white/45">Observed result: {session[command.result_field] || 'untested'}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button size="sm" variant={session[command.result_field] === 'pass' ? 'default' : 'outline'} onClick={() => onMark(command.result_field, 'pass')} className={session[command.result_field] === 'pass' ? '' : 'border-white/10 bg-white/5 text-white hover:bg-white/10'}>
-                        <CheckCircle2 className="h-4 w-4" /> Pass
-                      </Button>
-                      <Button size="sm" variant={session[command.result_field] === 'fail' ? 'destructive' : 'outline'} onClick={() => onMark(command.result_field, 'fail')} className={session[command.result_field] === 'fail' ? '' : 'border-white/10 bg-white/5 text-white hover:bg-white/10'}>
-                        <XCircle className="h-4 w-4" /> Fail
-                      </Button>
+                {session && command.result_field && (() => {
+                  const value = session[command.result_field] || 'untested';
+                  const detail = session.result_details?.[command.result_field];
+                  const style = RESULT_STYLES[value] || RESULT_STYLES.untested;
+                  const ResultIcon = style.icon;
+                  return (
+                    <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-white/45">Automated result</p>
+                      <Badge className={style.badge}><ResultIcon className="mr-1 h-3.5 w-3.5" />{style.label}</Badge>
+                      <p className="mt-2 text-xs text-white/55">{detail?.reason || 'Result updates automatically when the forwarded MT20 reply is processed.'}</p>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}
