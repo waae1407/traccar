@@ -11,7 +11,12 @@ async function authorize(base44, body) {
 }
 
 async function alert(base44, payload) {
+  if (payload.dedupe_key) {
+    const existing = await base44.asServiceRole.entities.OperationalAlert.filter({ dedupe_key: payload.dedupe_key }).catch(() => []);
+    if (existing[0]) return false;
+  }
   await base44.asServiceRole.entities.OperationalAlert.create(payload).catch(() => null);
+  return true;
 }
 
 Deno.serve(async (req) => {
@@ -36,15 +41,17 @@ Deno.serve(async (req) => {
       const hours = lastSeen ? (now.getTime() - lastSeen.getTime()) / 3600000 : Infinity;
       if (hours > STALE_HOURS) {
         staleGps++;
-        await base44.asServiceRole.entities.TelematicsEvent.create({
-          company_id: device.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
-          vehicle_id: device.vehicle_id || '', event_type: 'stale_gps', source: 'system', raw_payload: { last_seen_at: device.last_seen_at || null, threshold_hours: STALE_HOURS }, created_at: now.toISOString()
-        });
-        await alert(base44, {
+        const createdAlert = await alert(base44, {
           alert_type: 'stale_gps', severity: 'warning', title: 'Stale GPS signal', message: `${device.unique_id} has no recent GPS heartbeat.`,
           recommended_action: 'Check device power, installation, or provider connectivity.', provider_key: device.provider_key, telematics_device_id: device.id,
           vehicle_id: device.vehicle_id || '', host_id: device.host_id || '', dedupe_key: `stale_gps:${device.id}:${now.toISOString().slice(0,10)}`, metadata: { last_seen_at: device.last_seen_at || null }
         });
+        if (createdAlert) {
+          await base44.asServiceRole.entities.TelematicsEvent.create({
+            company_id: device.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
+            vehicle_id: device.vehicle_id || '', event_type: 'stale_gps', source: 'system', raw_payload: { last_seen_at: device.last_seen_at || null, threshold_hours: STALE_HOURS }, created_at: now.toISOString()
+          });
+        }
       }
       if (device.online_status === 'offline' || hours > OFFLINE_HOURS) {
         offline++;

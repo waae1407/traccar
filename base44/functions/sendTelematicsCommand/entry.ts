@@ -94,8 +94,9 @@ async function sendTraccarSingleDeviceLiveTest(commandType, device) {
 }
 function makeIdempotencyKey(userEmail, deviceId, commandType, options = {}) {
   if (options.alarmSessionId) return `${userEmail}:${deviceId}:${commandType}:alarm:${options.alarmSessionId}:${options.pulseNumber || 0}`;
-  const minuteBucket = Math.floor(Date.now() / 60000);
-  return `${userEmail}:${deviceId}:${commandType}:${minuteBucket}`;
+  const bucketMs = STARTER_COMMANDS.includes(commandType) ? 60000 : 10000;
+  const bucket = Math.floor(Date.now() / bucketMs);
+  return `${userEmail}:${deviceId}:${commandType}:${bucket}`;
 }
 
 async function getProviderConfig(base44, providerKey, providerType) {
@@ -189,9 +190,13 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
 async function enforceRateLimit(base44, deviceId, commandType, userEmail, maxPerMinute, options = {}) {
   if (options.alarmSessionId) return false;
   const recent = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: deviceId, requested_by: userEmail });
-  const cutoff = Date.now() - 60 * 1000;
-  const recentInWindow = recent.filter(cmd => new Date(cmd.created_date || cmd.created_at || 0).getTime() > cutoff && !['failed', 'expired', 'blocked'].includes(cmd.queue_status || cmd.status));
-  return recentInWindow.length >= Number(maxPerMinute || 4) || recentInWindow.some(cmd => cmd.command_type === commandType);
+  const now = Date.now();
+  const activeStatuses = ['queued', 'pending', 'sending', 'sent', 'delivered', 'acknowledged', 'confirmed'];
+  const recentInWindow = recent.filter(cmd => now - new Date(cmd.created_date || cmd.created_at || 0).getTime() <= 60000 && activeStatuses.includes(cmd.queue_status || cmd.status));
+  const burstLimit = STARTER_COMMANDS.includes(commandType) ? Math.max(2, Number(maxPerMinute || 4)) : Math.max(8, Number(maxPerMinute || 4));
+  const duplicateCooldownMs = STARTER_COMMANDS.includes(commandType) ? 60000 : 10000;
+  const duplicateActive = recentInWindow.some(cmd => cmd.command_type === commandType && now - new Date(cmd.created_date || cmd.created_at || 0).getTime() <= duplicateCooldownMs);
+  return recentInWindow.length >= burstLimit || duplicateActive;
 }
 function canSendNoranProduction(provider, device, commandType) {
   if (provider.provider_key !== 'traccar_noran_mt20') return false;

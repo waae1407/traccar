@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       const sentAge = sentAt ? (now.getTime() - sentAt.getTime()) / 60000 : 0;
       const ackAge = ackAt ? (now.getTime() - ackAt.getTime()) / 60000 : 0;
 
-      if (['sent', 'delivered'].includes(status) && sentAge > SENT_TIMEOUT_MINUTES) {
+      if (command.confirmation_required === true && ['sent', 'delivered'].includes(status) && sentAge > SENT_TIMEOUT_MINUTES) {
         await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
           status: 'expired', queue_status: 'expired', confirmation_status: 'expired', failed_at: now.toISOString(), failure_reason: 'Device acknowledgement timeout'
         });

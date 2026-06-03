@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlarmClock, Loader2, OctagonX } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -8,6 +8,7 @@ import TelematicsService from "@/lib/telematics/TelematicsService";
 
 export default function TelematicsAlarmControls({ vehicleId, role = "admin", onResult }) {
   const [loading, setLoading] = useState(null);
+  const [localActive, setLocalActive] = useState(null);
   const queryClient = useQueryClient();
   const enabled = !!vehicleId && ["admin", "host"].includes(role);
   const { data: sessions = [] } = useQuery({
@@ -16,23 +17,38 @@ export default function TelematicsAlarmControls({ vehicleId, role = "admin", onR
     enabled,
     refetchInterval: enabled ? 5000 : false,
   });
-  const active = sessions[0];
+  const remoteActive = sessions[0] || null;
+  const active = localActive || remoteActive;
+
+  useEffect(() => {
+    if (remoteActive) setLocalActive(remoteActive);
+    if (!remoteActive && localActive) setLocalActive(null);
+  }, [remoteActive?.id, remoteActive?.pulses_sent]);
+
   if (!enabled) return null;
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["active-alarm", vehicleId] });
   const startAlarm = async () => {
     setLoading("start");
-    const res = await TelematicsService.startAlarm({ vehicle_id: vehicleId });
-    onResult?.(res.data);
-    refresh();
-    setLoading(null);
+    try {
+      const res = await TelematicsService.startAlarm({ vehicle_id: vehicleId });
+      if (res.data?.session) setLocalActive(res.data.session);
+      onResult?.(res.data);
+      refresh();
+    } finally {
+      setLoading(null);
+    }
   };
   const cancelAlarm = async () => {
     setLoading("cancel");
-    const res = await TelematicsService.cancelAlarm({ vehicle_id: vehicleId, alarm_session_id: active?.id, reason: "manual_cancel" });
-    onResult?.(res.data);
-    refresh();
-    setLoading(null);
+    try {
+      const res = await TelematicsService.cancelAlarm({ vehicle_id: vehicleId, alarm_session_id: active?.id, reason: "manual_cancel" });
+      setLocalActive(null);
+      onResult?.(res.data);
+      refresh();
+    } finally {
+      setLoading(null);
+    }
   };
 
   return (
