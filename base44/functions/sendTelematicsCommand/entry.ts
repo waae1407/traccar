@@ -144,7 +144,7 @@ function isRentalControlActive(booking) {
   if (!booking) return false;
   if (booking.rental_ended_at) return false;
   if (!['active', 'approved', 'confirmed'].includes(booking.booking_status)) return false;
-  if (booking.payment_status !== 'paid') return false;
+  if (['failed', 'overdue', 'refunded'].includes(booking.payment_status)) return false;
   if (booking.starter_disabled || booking.moovetrax_kill_active) return false;
   if (booking.end_date) {
     const endOfDay = new Date(`${booking.end_date}T23:59:59`);
@@ -176,8 +176,7 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
       if (device.host_id && device.host_id !== host.id) return 'Device is not assigned to this host.';
       if (!HOST_COMMANDS.includes(commandType) && !STARTER_COMMANDS.includes(commandType)) return 'Host cannot send this command.';
       if (STARTER_COMMANDS.includes(commandType)) {
-        if (host.telematics_starter_control_enabled !== true) return 'Host starter controls are disabled for this host.';
-        if (device.host_starter_control_enabled !== true) return 'Host starter controls are disabled for this device.';
+        if (host.telematics_starter_control_enabled !== true && device.host_starter_control_enabled !== true) return 'Host starter controls are disabled for this host vehicle.';
         if (device.production_command_scope !== 'all_supported_commands') return 'Device production scope does not allow starter commands.';
       }
       return null;

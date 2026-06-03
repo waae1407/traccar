@@ -101,7 +101,7 @@ export default function TelematicsVehiclePopup({
                 device={device}
                 provider={provider}
                 role={role}
-                allowStarter={role === "admin" || (host?.telematics_starter_control_enabled === true && device.host_starter_control_enabled === true)}
+                allowStarter={role === "admin" || host?.telematics_starter_control_enabled === true || device.host_starter_control_enabled === true}
                 onResult={(result) => setLastCommand(result)}
               />
               {lastCommand && <p className="mt-1 text-[8px] font-bold text-white/45 truncate">{lastCommand.command_type || "sent"} · {lastCommand.queue_status || "sent"}</p>}
