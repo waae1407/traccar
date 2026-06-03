@@ -31,6 +31,9 @@ Deno.serve(async (req) => {
     if (device.provider_key !== 'traccar_noran_mt20') {
       return Response.json({ error: 'Production activation is currently limited to Noran MT20 Traccar devices.' }, { status: 400 });
     }
+    if (device.host_starter_control_approval_locked === true && (!enabled || scope !== 'all_supported_commands') && body.owner_approval_text !== 'APPROVED STARTER CHANGE') {
+      return Response.json({ error: 'Starter control is approval-locked and cannot be downgraded without owner approval.' }, { status: 403 });
+    }
     if (enabled && !device.traccar_device_id) {
       return Response.json({ error: 'Traccar numeric device ID is required before production activation.' }, { status: 400 });
     }
@@ -42,6 +45,7 @@ Deno.serve(async (req) => {
           production_command_scope: scope,
           production_enabled_at: now,
           production_enabled_by: user.email,
+          host_starter_control_enabled: scope === 'all_supported_commands' ? true : device.host_starter_control_enabled,
           lifecycle_status: device.lifecycle_status === 'live_ready' ? 'live_enabled' : device.lifecycle_status
         }
       : {

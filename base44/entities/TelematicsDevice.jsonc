@@ -160,6 +160,21 @@
       "type": "boolean",
       "default": false
     },
+    "host_starter_control_approval_locked": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, host starter access for this device cannot be downgraded without explicit owner approval."
+    },
+    "host_starter_control_approved_by": {
+      "type": "string"
+    },
+    "host_starter_control_approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host_starter_control_lock_reason": {
+      "type": "string"
+    },
     "installer_starter_test_enabled": {
       "type": "boolean",
       "default": false

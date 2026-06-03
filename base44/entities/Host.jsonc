@@ -240,6 +240,21 @@
       "type": "boolean",
       "default": false
     },
+    "telematics_starter_control_approval_locked": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, host starter access is owner-approved and should not be removed without approval."
+    },
+    "telematics_starter_control_approved_by": {
+      "type": "string"
+    },
+    "telematics_starter_control_approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "telematics_starter_control_lock_reason": {
+      "type": "string"
+    },
     "restriction_reason": {
       "type": "string",
       "description": "Reason for current operational restriction (required when setting restrictions)"
