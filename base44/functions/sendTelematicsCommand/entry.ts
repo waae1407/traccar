@@ -176,6 +176,8 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
       if (device.host_id && device.host_id !== host.id) return 'Device is not assigned to this host.';
       if (!HOST_COMMANDS.includes(commandType) && !STARTER_COMMANDS.includes(commandType)) return 'Host cannot send this command.';
       if (STARTER_COMMANDS.includes(commandType)) {
+        // LOCKED COMMAND ALLOCATION: host starter access is allowed when either the host OR the assigned device is enabled.
+        // Do not change this allocation rule without explicit builder approval.
         if (host.telematics_starter_control_enabled !== true && device.host_starter_control_enabled !== true) return 'Host starter controls are disabled for this host vehicle.';
         if (device.production_command_scope !== 'all_supported_commands') return 'Device production scope does not allow starter commands.';
       }
