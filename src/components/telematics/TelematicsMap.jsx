@@ -6,6 +6,7 @@ import { RefreshCw, Satellite, TimerReset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import TelematicsVehiclePopup from "@/components/telematics/TelematicsVehiclePopup";
+import { getVehicleDisplayName, getVehicleMapLabel } from "@/lib/vehicleDisplayName";
 
 const ACTIVE_VEHICLE_STATUSES = ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"];
 const ACTIVE_BOOKING_STATUSES = ["active", "confirmed", "approved", "pending_review"];
@@ -32,9 +33,13 @@ function ago(device) {
   return `Last updated ${Math.round(sec / 60)} minutes ago`;
 }
 
-function vehicleName(vehicle, device) {
-  if (!vehicle) return device.unique_id || "Vehicle";
-  return [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || vehicle.vin || device.unique_id;
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function markerColor(freshness) {
@@ -82,7 +87,8 @@ export default function TelematicsMap({
   const [filters, setFilters] = useState({ provider: "all", host: "all", online: "all", stale: "all", active: "all", lifecycle: "all" });
   const [refreshing, setRefreshing] = useState(false);
   const [resolvedAddresses, setResolvedAddresses] = useState({});
-  const vehicleById = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, v])), [vehicles]);
+  const [vehicleOverrides, setVehicleOverrides] = useState({});
+  const vehicleById = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, { ...v, ...(vehicleOverrides[v.id] || {}) }])), [vehicles, vehicleOverrides]);
   const hostById = useMemo(() => Object.fromEntries(hosts.map(h => [h.id, h])), [hosts]);
   const providerByKey = useMemo(() => Object.fromEntries(providers.map(p => [p.provider_key, p])), [providers]);
   const activeVehicleIds = useMemo(() => new Set([
@@ -160,11 +166,14 @@ export default function TelematicsMap({
               const provider = providerByKey[device.provider_key];
               const fresh = locationFreshness(device);
               const position = getMapPosition(device);
+              const displayName = getVehicleDisplayName(vehicle, device);
+              const mapLabel = escapeHtml(getVehicleMapLabel(vehicle, device));
               const icon = L.divIcon({
-                html: `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:${markerColor(fresh)};border-radius:50%;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div>`,
+                html: `<div title="${escapeHtml(displayName)}" style="display:flex;align-items:center;gap:6px;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.35));"><div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:${markerColor(fresh)};border-radius:50%;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3);flex:0 0 auto;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div><div style="max-width:118px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(15,23,42,0.16);background:rgba(255,255,255,0.94);color:#0f172a;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800;line-height:1;">${mapLabel}</div></div>`,
                 className: "vehicle-map-marker",
-                iconSize: [32, 32],
-                popupAnchor: [0, -16]
+                iconSize: [166, 42],
+                iconAnchor: [18, 18],
+                popupAnchor: [0, -18]
               });
               return (
                 <Marker key={device.id} position={position} icon={icon}>
@@ -181,6 +190,7 @@ export default function TelematicsMap({
                       address={device.address || resolvedAddresses[device.id]}
                       showStaleBadges={showStaleBadges}
                       compact={compact}
+                      onVehicleUpdated={(updated) => setVehicleOverrides((current) => ({ ...current, [updated.id]: updated }))}
                     />
                   </Popup>
                 </Marker>

@@ -6,11 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import TelematicsCommandButtons from "@/components/telematics/TelematicsCommandButtons";
-
-function vehicleName(vehicle, device) {
-  if (!vehicle) return device.unique_id || "Vehicle";
-  return [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || vehicle.vin || device.unique_id;
-}
+import { getVehicleDisplayName } from "@/lib/vehicleDisplayName";
 
 function directionsUrl(position) {
   if (!position) return "#";
@@ -41,8 +37,9 @@ export default function TelematicsVehiclePopup({
   compact = false,
   onVehicleUpdated,
 }) {
-  const displayName = vehicleName(vehicle, device);
-  const [tag, setTag] = useState(vehicle?.plate || displayName);
+  const displayName = getVehicleDisplayName(vehicle, device);
+  const [tag, setTag] = useState(vehicle?.display_name || displayName);
+  const activeDisplayName = tag.trim() || displayName;
   const [saving, setSaving] = useState(false);
   const [lastCommand, setLastCommand] = useState(null);
   const booking = useMemo(() => activeBookingForVehicle(bookings, vehicle?.id), [bookings, vehicle?.id]);
@@ -54,7 +51,7 @@ export default function TelematicsVehiclePopup({
   const saveTag = async () => {
     if (!vehicle?.id) return;
     setSaving(true);
-    const updated = await base44.entities.Vehicle.update(vehicle.id, { plate: tag.trim() });
+    const updated = await base44.entities.Vehicle.update(vehicle.id, { display_name: tag.trim() });
     onVehicleUpdated?.(updated);
     setSaving(false);
   };
@@ -69,20 +66,22 @@ export default function TelematicsVehiclePopup({
               <div className="mb-0.5 inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wider text-white/60">
                 <Sparkles className="h-2 w-2 text-pink-300" /> Tag
               </div>
-              <h3 className="text-[13px] sm:text-sm font-black leading-tight tracking-tight text-white truncate">{displayName}</h3>
+              <h3 className="text-[13px] sm:text-sm font-black leading-tight tracking-tight text-white truncate">{activeDisplayName}</h3>
             </div>
             {showStaleBadges && <Badge className={`shrink-0 max-w-[84px] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-bold ${badgeClass}`}>{online ? "Live" : "Offline"}</Badge>}
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/[0.07] p-1.5 backdrop-blur">
-            <label className="mb-1 flex items-center gap-1 text-[7px] font-black uppercase tracking-wider text-white/40"><Edit3 className="h-2 w-2" /> Edit</label>
-            <div className="flex gap-1">
-              <Input value={tag} onChange={(event) => setTag(event.target.value)} className="h-7 rounded-lg border-white/10 bg-black/25 text-[11px] font-bold text-white placeholder:text-white/30" />
-              <Button size="sm" onClick={saveTag} disabled={saving || !vehicle?.id} className="h-7 w-7 rounded-lg bg-white text-slate-950 hover:bg-white/90 p-0 flex-shrink-0">
-                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-              </Button>
+          {role !== "customer" && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.07] p-1.5 backdrop-blur">
+              <label className="mb-1 flex items-center gap-1 text-[7px] font-black uppercase tracking-wider text-white/40"><Edit3 className="h-2 w-2" /> Map label</label>
+              <div className="flex gap-1">
+                <Input value={tag} onChange={(event) => setTag(event.target.value)} className="h-7 rounded-lg border-white/10 bg-black/25 text-[11px] font-bold text-white placeholder:text-white/30" />
+                <Button size="sm" onClick={saveTag} disabled={saving || !vehicle?.id} className="h-7 w-7 rounded-lg bg-white text-slate-950 hover:bg-white/90 p-0 flex-shrink-0">
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-2 gap-1.5 text-[11px]">
             {role !== "customer" && vehicle?.vin && <Info label="VIN" value={vehicle.vin} />}

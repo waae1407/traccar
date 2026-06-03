@@ -32,7 +32,7 @@ export default function FindMyVehicleMap({ booking }) {
     <TelematicsMap
       role="customer"
       devices={devices.slice(0, 1)}
-      vehicles={[{ id: booking.vehicle_id, make: booking.vehicle_name, status: booking.booking_status }]}
+      vehicles={[{ id: booking.vehicle_id, display_name: booking.vehicle_name, make: booking.vehicle_name, status: booking.booking_status }]}
       height={220}
       compact
       showFilters={false}

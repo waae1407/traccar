@@ -17,6 +17,10 @@
     "plate": {
       "type": "string"
     },
+    "display_name": {
+      "type": "string",
+      "description": "Optional short vehicle label used on maps and fleet views."
+    },
     "make": {
       "type": "string"
     },
