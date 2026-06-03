@@ -225,12 +225,25 @@ Deno.serve(async (req) => {
     ]);
 
     const traccarById = new Map((traccarDevices || []).map(device => [String(device.id), device]));
+    const traccarByUniqueId = new Map((traccarDevices || []).map(device => [String(device.uniqueId || '').trim().toUpperCase(), device]));
     const positionsByDeviceId = new Map((positions || []).map(position => [String(position.deviceId), position]));
     let updated = 0;
+    let autoLinked = 0;
     const skipped = [];
 
     for (const local of localDevices) {
-      const traccarId = String(local.traccar_device_id || local.provider_device_id || '').trim();
+      let traccarId = String(local.traccar_device_id || local.provider_device_id || '').trim();
+      if (!traccarId && local.unique_id) {
+        const matchedTraccarDevice = traccarByUniqueId.get(String(local.unique_id).trim().toUpperCase());
+        if (matchedTraccarDevice?.id) {
+          traccarId = String(matchedTraccarDevice.id);
+          await base44.asServiceRole.entities.TelematicsDevice.update(local.id, {
+            traccar_device_id: traccarId,
+            provider_device_id: traccarId
+          });
+          autoLinked += 1;
+        }
+      }
       if (!traccarId) { skipped.push({ id: local.id, reason: 'missing_traccar_device_id' }); continue; }
       const position = positionsByDeviceId.get(traccarId);
       if (!position || typeof position.latitude !== 'number' || typeof position.longitude !== 'number') { skipped.push({ id: local.id, reason: 'no_position' }); continue; }
@@ -277,7 +290,7 @@ Deno.serve(async (req) => {
     }
 
     const retention_deleted = await cleanupExpiredHistory(base44);
-    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
+    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, auto_linked: autoLinked, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
   } catch (error) {
     await recordFailure(base44, error.message);
     return Response.json({ ok: false, error: error.message, warning: 'Location update delayed. Last known locations remain available.' }, { status: 500 });
