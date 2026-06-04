@@ -1,6 +1,53 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+
+const TRACCAR_PROVIDER_KEY = 'traccar_noran_mt20';
 
 function clean(value) { return String(value || '').trim(); }
+function traccarBaseUrl() { return clean(Deno.env.get('TRACCAR_BASE_URL')).replace(/\/+$/, ''); }
+function traccarAuthHeader() {
+  return 'Basic ' + btoa(`${Deno.env.get('TRACCAR_USERNAME')}:${Deno.env.get('TRACCAR_PASSWORD')}`);
+}
+function isTraccarProvider(providerKey) { return providerKey === TRACCAR_PROVIDER_KEY; }
+async function traccarFetch(path, options = {}) {
+  const baseUrl = traccarBaseUrl();
+  if (!baseUrl) throw new Error('TRACCAR_BASE_URL is not configured');
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: {
+      Authorization: traccarAuthHeader(),
+      Accept: 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.headers || {})
+    }
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) throw new Error(`Traccar ${path} failed with status ${response.status}: ${text}`);
+  return data;
+}
+async function findTraccarDevice(uniqueId) {
+  const devices = await traccarFetch('/api/devices');
+  return (Array.isArray(devices) ? devices : []).find(device => clean(device.uniqueId).toUpperCase() === clean(uniqueId).toUpperCase()) || null;
+}
+async function ensureTraccarDevice(device) {
+  if (!isTraccarProvider(device.provider_key)) return device;
+  const existing = await findTraccarDevice(device.unique_id);
+  const traccarDevice = existing || await traccarFetch('/api/devices', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: device.model || device.unique_id,
+      uniqueId: device.unique_id,
+      model: device.model || 'Noran MT20',
+      category: 'car'
+    })
+  });
+  return {
+    ...device,
+    provider_device_id: String(traccarDevice.id || device.provider_device_id || ''),
+    traccar_device_id: String(traccarDevice.id || device.traccar_device_id || ''),
+    model: device.model || traccarDevice.model || 'Noran MT20'
+  };
+}
 function noranCommandDefaults(providerKey, model = '') {
   const isNoran = providerKey === 'traccar_noran_mt20' || String(model || '').toLowerCase().includes('noran');
   return isNoran ? {
@@ -58,10 +105,20 @@ Deno.serve(async (req) => {
     const created = [];
     const skipped = [];
     for (const row of rows) {
-      const device = normalize(row);
+      let device = normalize(row);
       if (!device.unique_id) { skipped.push({ row, reason: 'missing unique_id' }); continue; }
+      device = await ensureTraccarDevice(device);
       const duplicate = await findDuplicate(base44, device);
-      if (duplicate) { skipped.push({ row: device, ...duplicate }); continue; }
+      if (duplicate) {
+        await base44.asServiceRole.entities.TelematicsDevice.update(duplicate.existing_id, {
+          provider_device_id: device.provider_device_id,
+          traccar_device_id: device.traccar_device_id,
+          provider_type: device.provider_type,
+          model: device.model
+        });
+        skipped.push({ row: device, reason: 'already exists locally; Traccar link refreshed', existing_id: duplicate.existing_id });
+        continue;
+      }
       const saved = await base44.asServiceRole.entities.TelematicsDevice.create(device);
       created.push(saved);
     }
