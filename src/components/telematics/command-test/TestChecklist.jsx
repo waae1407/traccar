@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 const RESULT_STYLES = {
   pass: { badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25', icon: CheckCircle2, label: 'Pass' },
   fail: { badge: 'bg-red-500/15 text-red-300 border border-red-500/25', icon: XCircle, label: 'Fail' },
+  ready: { badge: 'bg-white/10 text-white/60 border border-white/10', icon: Clock, label: 'Not sent' },
   untested: { badge: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25', icon: Clock, label: 'Waiting' },
   not_supported: { badge: 'bg-white/10 text-white/55 border border-white/10', icon: AlertTriangle, label: 'Not supported' }
 };
 
-export default function TestChecklist({ session, commands, notes, setNotes, onComplete, completing }) {
+export default function TestChecklist({ session, commands, sentCommands = {}, notes, setNotes, onComplete, completing }) {
   if (!session) return null;
   const supportedFields = commands.map((command) => command.result_field).filter(Boolean);
   const completeReady = supportedFields.every((field) => ['pass', 'fail'].includes(session[field]));
@@ -29,14 +30,16 @@ export default function TestChecklist({ session, commands, notes, setNotes, onCo
         <div className="grid gap-3 md:grid-cols-2">
           {commands.map((command) => {
             const value = session[command.result_field] || 'untested';
+            const wasSent = !!sentCommands[command.key] || value !== 'untested';
+            const displayValue = !wasSent && value === 'untested' ? 'ready' : value;
             const detail = session.result_details?.[command.result_field];
-            const style = RESULT_STYLES[value] || RESULT_STYLES.untested;
+            const style = RESULT_STYLES[displayValue] || RESULT_STYLES.untested;
             const ResultIcon = style.icon;
             return (
               <div key={command.key} className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                 <div>
                   <p className="font-bold text-white">{command.label}</p>
-                  <p className="mt-1 text-xs text-white/45">{detail?.reason || 'Awaiting automated device reply.'}</p>
+                  <p className="mt-1 text-xs text-white/45">{detail?.reason || (displayValue === 'ready' ? 'Not sent in this session.' : 'Awaiting automated device reply.')}</p>
                 </div>
                 <Badge className={style.badge}><ResultIcon className="mr-1 h-3.5 w-3.5" />{style.label}</Badge>
               </div>

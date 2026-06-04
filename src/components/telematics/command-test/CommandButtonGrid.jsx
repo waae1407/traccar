@@ -11,15 +11,18 @@ const CONFIRM_TEXT = { disable_starter: 'DISABLE STARTER', restore_starter: 'RES
 const RESULT_STYLES = {
   pass: { badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25', icon: CheckCircle2, label: 'Pass confirmed' },
   fail: { badge: 'bg-red-500/15 text-red-300 border border-red-500/25', icon: XCircle, label: 'Fail confirmed' },
+  ready: { badge: 'bg-white/10 text-white/60 border border-white/10', icon: Clock, label: 'Not sent yet' },
   untested: { badge: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25', icon: Clock, label: 'Waiting for reply' },
   not_supported: { badge: 'bg-white/10 text-white/55 border border-white/10', icon: AlertTriangle, label: 'Not supported' }
 };
 
-export default function CommandButtonGrid({ commands, execution, onSend, sending, session }) {
+export default function CommandButtonGrid({ commands, execution, onSend, sending, session, sentCommands = {} }) {
   const [checked, setChecked] = useState({});
   const [typed, setTyped] = useState({});
 
   if (!commands?.length) return null;
+
+  const hasPendingCommand = commands.some((item) => sentCommands[item.key] && (session?.[item.result_field] || 'untested') === 'untested');
 
   return (
     <Card className="glass border-white/10">
@@ -37,6 +40,13 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
             const Icon = ICONS[command.key] || Activity;
             const isStarter = !!command.starter;
             const ready = !isStarter || (checked[command.key] && typed[command.key] === CONFIRM_TEXT[command.key]);
+            const value = session?.[command.result_field] || 'untested';
+            const wasSent = !!sentCommands[command.key] || value !== 'untested';
+            const displayValue = !wasSent && value === 'untested' ? 'ready' : value;
+            const detail = session?.result_details?.[command.result_field];
+            const style = RESULT_STYLES[displayValue] || RESULT_STYLES.untested;
+            const ResultIcon = style.icon;
+            const isThisPending = sentCommands[command.key] && value === 'untested';
             return (
               <div key={command.key} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="mb-3 flex items-center gap-3">
@@ -53,24 +63,18 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
                     <Input value={typed[command.key] || ''} onChange={(event) => setTyped((prev) => ({ ...prev, [command.key]: event.target.value }))} placeholder={CONFIRM_TEXT[command.key]} className="h-9 bg-white/5 text-white placeholder:text-white/30" />
                   </div>
                 )}
-                <Button className="w-full" disabled={sending === command.key || !ready} onClick={() => onSend(command.key, isStarter)}>
+                <Button className="w-full" disabled={!!sending || !ready || (hasPendingCommand && !isThisPending)} onClick={() => onSend(command.key, isStarter)}>
                   {sending === command.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
                   Send {command.label}
                 </Button>
 
-                {session && command.result_field && (() => {
-                  const value = session[command.result_field] || 'untested';
-                  const detail = session.result_details?.[command.result_field];
-                  const style = RESULT_STYLES[value] || RESULT_STYLES.untested;
-                  const ResultIcon = style.icon;
-                  return (
-                    <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
-                      <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-white/45">Automated result</p>
-                      <Badge className={style.badge}><ResultIcon className="mr-1 h-3.5 w-3.5" />{style.label}</Badge>
-                      <p className="mt-2 text-xs text-white/55">{detail?.reason || 'Result updates automatically when the forwarded MT20 reply is processed.'}</p>
-                    </div>
-                  );
-                })()}
+                {session && command.result_field && (
+                  <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-white/45">Automated result</p>
+                    <Badge className={style.badge}><ResultIcon className="mr-1 h-3.5 w-3.5" />{style.label}</Badge>
+                    <p className="mt-2 text-xs text-white/55">{detail?.reason || (displayValue === 'ready' ? 'Click Send to test only this command.' : 'Result updates automatically when the forwarded MT20 reply is processed.')}</p>
+                  </div>
+                )}
               </div>
             );
           })}

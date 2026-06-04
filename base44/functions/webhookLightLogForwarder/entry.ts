@@ -234,7 +234,7 @@ async function findMatchingCommand(base44, device, timestamp) {
   if (!device?.id) return null;
   const replyTime = new Date(timestamp).getTime();
   const commands = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id });
-  return commands
+  const candidates = commands
     .filter((command) => {
       const status = command.queue_status || command.status;
       if (!['queued', 'sending', 'sent', 'delivered', 'pending'].includes(status)) return false;
@@ -244,7 +244,8 @@ async function findMatchingCommand(base44, device, timestamp) {
       const ageMinutes = Math.abs(replyTime - sentTime) / 60000;
       return ageMinutes <= COMMAND_REPLY_WINDOW_MINUTES;
     })
-    .sort((a, b) => new Date(b.sent_at || b.created_at || b.created_date || 0).getTime() - new Date(a.sent_at || a.created_at || a.created_date || 0).getTime())[0] || null;
+    .sort((a, b) => new Date(b.sent_at || b.created_at || b.created_date || 0).getTime() - new Date(a.sent_at || a.created_at || a.created_date || 0).getTime());
+  return candidates.length === 1 ? candidates[0] : null;
 }
 
 async function updateCommandTestSession(base44, command, evaluation, parsed, timestamp) {

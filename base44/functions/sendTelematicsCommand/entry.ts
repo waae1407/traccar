@@ -394,7 +394,7 @@ Deno.serve(async (req) => {
       status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
-      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, admin_starter_override: body.admin_starter_override === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control') }
+      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, admin_starter_override: body.admin_starter_override === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control') }
     });
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });
@@ -407,7 +407,7 @@ Deno.serve(async (req) => {
       const routed = adminTraccarLiveTest
         ? await sendTraccarSingleDeviceLiveTest(commandType, device)
         : (liveNoranProduction || liveNoranInstallerTest)
-          ? await sendTraccarNoranProductionCommand(commandType, device, template)
+          ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template)
           : template
             ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction })
             : await fallbackAdapter(provider, device, commandType);

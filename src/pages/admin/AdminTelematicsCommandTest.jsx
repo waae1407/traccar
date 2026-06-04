@@ -17,6 +17,7 @@ export default function AdminTelematicsCommandTest() {
   const [sending, setSending] = useState('');
   const [latestResult, setLatestResult] = useState(null);
   const [notes, setNotes] = useState('');
+  const [sentCommands, setSentCommands] = useState({});
 
   const history = useQuery({
     queryKey: ['admin-command-test-history', lookupData?.device?.id],
@@ -33,6 +34,7 @@ export default function AdminTelematicsCommandTest() {
       setNotes(data.session?.notes || '');
       setLookupError('');
       setLatestResult(null);
+      setSentCommands({});
       queryClient.invalidateQueries({ queryKey: ['admin-command-test-history', data.device?.id] });
     },
     onError: (error) => setLookupError(error?.response?.data?.error || error.message)
@@ -58,6 +60,7 @@ export default function AdminTelematicsCommandTest() {
   const sendCommand = async (commandType, isStarter) => {
     setSending(commandType);
     setLatestResult(null);
+    setSentCommands((prev) => ({ ...prev, [commandType]: true }));
     try {
       const response = await base44.functions.invoke('sendTelematicsCommand', {
         command_type: commandType,
@@ -97,9 +100,9 @@ export default function AdminTelematicsCommandTest() {
 
       {lookupData?.device && (
         <>
-          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} />
+          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} />
           <CommandHistoryPanel commands={history.data} onRefresh={history.refetch} loading={history.isFetching} />
-          <TestChecklist session={lookupData.session} commands={lookupData.supported_commands} notes={notes} setNotes={setNotes} onComplete={() => completeMutation.mutate()} completing={completeMutation.isPending} />
+          <TestChecklist session={lookupData.session} commands={lookupData.supported_commands} sentCommands={sentCommands} notes={notes} setNotes={setNotes} onComplete={() => completeMutation.mutate()} completing={completeMutation.isPending} />
         </>
       )}
     </div>

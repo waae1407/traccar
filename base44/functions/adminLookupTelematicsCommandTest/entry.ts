@@ -97,28 +97,41 @@ Deno.serve(async (req) => {
     const provider = await getProvider(base44, device);
     const supported_commands = COMMAND_DEFINITIONS.filter((command) => isSupported(command, provider, device));
     const { vehicle, host } = await getLinked(base44, device);
+    const now = new Date().toISOString();
     const sessions = await base44.asServiceRole.entities.TelematicsDeviceTestSession.filter({ device_id: device.id, status: 'in_progress' });
-    const defaults = sessionDefaults(supported_commands);
-    let session = sessions[0];
-    if (session) {
-      const missingDefaults = {};
-      for (const [field, value] of Object.entries(defaults)) {
-        if (!session[field]) missingDefaults[field] = value;
-      }
-      if (Object.keys(missingDefaults).length) {
-        session = await base44.asServiceRole.entities.TelematicsDeviceTestSession.update(session.id, missingDefaults);
-      }
-    } else {
-      session = await base44.asServiceRole.entities.TelematicsDeviceTestSession.create({
-        device_id: device.id,
-        unique_id: device.unique_id || identifier,
-        provider_key: device.provider_key || provider.provider_key || 'unknown',
-        tested_by: user.email,
-        started_at: new Date().toISOString(),
-        status: 'in_progress',
-        ...defaults
+    for (const oldSession of sessions) {
+      await base44.asServiceRole.entities.TelematicsDeviceTestSession.update(oldSession.id, {
+        status: 'failed',
+        completed_at: now,
+        notes: [oldSession.notes, 'Closed automatically when a new admin command test session started.'].filter(Boolean).join('\n')
       });
     }
+
+    const priorCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id });
+    for (const command of priorCommands) {
+      const state = command.queue_status || command.status;
+      const isAdminTestCommand = command.request_payload?.admin_device_command_test === true || command.request_payload?.source === 'admin_test';
+      if (isAdminTestCommand && ['queued', 'pending', 'sending', 'sent', 'delivered', 'acknowledged'].includes(state)) {
+        await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+          status: 'expired',
+          queue_status: 'expired',
+          confirmation_status: 'expired',
+          failed_at: now,
+          failure_reason: 'Closed by new admin command test session.'
+        });
+      }
+    }
+
+    const defaults = sessionDefaults(supported_commands);
+    const session = await base44.asServiceRole.entities.TelematicsDeviceTestSession.create({
+      device_id: device.id,
+      unique_id: device.unique_id || identifier,
+      provider_key: device.provider_key || provider.provider_key || 'unknown',
+      tested_by: user.email,
+      started_at: now,
+      status: 'in_progress',
+      ...defaults
+    });
 
     return Response.json({
       ok: true,
