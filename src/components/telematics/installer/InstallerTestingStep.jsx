@@ -17,8 +17,8 @@ const COMMAND_TESTS = [
   ['horn_test', 'horn', 'Horn'],
   ['lights_test', 'lights', 'Lights'],
   ['alarm_test', 'alarm_pulse', 'Alarm'],
-  ['starter_disable_test', 'disable_starter', 'Disable'],
-  ['starter_restore_test', 'restore_starter', 'Restore'],
+  ['starter_disable_test', 'disable_starter', 'Disable Starter'],
+  ['starter_restore_test', 'restore_starter', 'Restore Starter'],
 ];
 
 function StatusBadge({ value }) {
@@ -35,7 +35,7 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
     <div className="space-y-4">
       <div>
         <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Step 4</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Test Device</h1>
+        <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Verify Device</h1>
       </div>
 
       <div className="grid gap-2">
@@ -60,7 +60,7 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
           const failed = value === 'fail' || state === 'Failed';
           return (
             <div key={id} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-              <div className="grid grid-cols-[72px_minmax(58px,1fr)_52px_52px] items-center gap-1.5">
+              <div className="grid grid-cols-[112px_minmax(58px,1fr)_52px_52px] items-center gap-1.5">
                 <h3 className="truncate text-sm font-black text-slate-950">{label}</h3>
                 <Button type="button" onClick={() => onSendCommand(command, id)} disabled={state === 'Sending'} title={state} className="h-9 rounded-xl bg-slate-950 px-2 text-xs font-black text-white hover:bg-slate-800">
                   {state === 'Sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Send

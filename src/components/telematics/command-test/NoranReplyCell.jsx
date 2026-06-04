@@ -73,9 +73,9 @@ function describeAsciiReply(message) {
 
 function describeMissingReply(command) {
   const status = command.queue_status || command.status;
-  if (status === 'expired' || command.failure_reason?.toLowerCase().includes('timeout')) return 'No Noran reply received before timeout.';
-  if (['sent', 'delivered', 'sending'].includes(status)) return 'Waiting for Noran reply.';
-  return 'No Noran reply recorded.';
+  if (status === 'expired' || command.failure_reason?.toLowerCase().includes('timeout')) return 'No device response received before timeout.';
+  if (['sent', 'delivered', 'sending'].includes(status)) return 'Awaiting device response.';
+  return 'No device response recorded.';
 }
 
 export default function NoranReplyCell({ command }) {
@@ -87,7 +87,7 @@ export default function NoranReplyCell({ command }) {
   return (
     <div className="min-w-[180px] max-w-xs space-y-1">
       <Badge className={received ? 'bg-emerald-500/15 text-emerald-300' : 'bg-yellow-500/15 text-yellow-300'}>
-        {received ? 'Reply received' : 'No reply yet'}
+        {received ? 'Response received' : 'Awaiting response'}
       </Badge>
       <p className="text-xs text-white/75">{description}</p>
       <p className="truncate text-[10px] text-white/35">{message || '—'}</p>

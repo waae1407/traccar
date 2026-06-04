@@ -2,7 +2,6 @@ import React from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import ProductionCommandActivationCard from '@/components/telematics/ProductionCommandActivationCard';
 
 function vehicleName(vehicle) {
   if (!vehicle) return 'Not linked';
@@ -31,7 +30,7 @@ export default function DeviceSummaryCard({ data }) {
             <h2 className="mt-2 text-2xl font-black text-white">{device.unique_id || device.id}</h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge className={execution?.dry_run ? 'bg-yellow-500 text-black' : 'bg-emerald-500 text-white'}>{execution?.dry_run ? 'Dry Run' : 'Live Enabled'}</Badge>
+            <Badge className={execution?.dry_run ? 'bg-yellow-500 text-black' : 'bg-emerald-500 text-white'}>{execution?.dry_run ? 'Simulation Mode' : 'Live Commands'}</Badge>
             <Badge className="bg-white/10 text-white">{provider?.provider_name || provider?.provider_key || 'Provider'}</Badge>
           </div>
         </div>
@@ -43,16 +42,13 @@ export default function DeviceSummaryCard({ data }) {
           </div>
         )}
 
-        <div className="grid gap-3 md:grid-cols-3">
-          <Info label="Provider" value={provider?.provider_key || device.provider_key} />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <Info label="Provider" value={provider?.provider_name || provider?.provider_key || device.provider_key} />
           <Info label="Model" value={device.model} />
           <Info label="Vehicle" value={vehicleName(vehicle)} />
           <Info label="Host" value={host?.business_name || host?.full_name || host?.email || 'Not linked'} />
           <Info label="Online Status" value={device.online_status || 'unknown'} />
           <Info label="Last Seen" value={device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : '—'} />
-          <Info label="Lifecycle" value={device.lifecycle_status} />
-          <Info label="Traccar ID" value={device.traccar_device_id} />
-          <Info label="Provider Device ID" value={device.provider_device_id} />
         </div>
 
         <div>
@@ -65,8 +61,6 @@ export default function DeviceSummaryCard({ data }) {
             )) : <Badge className="bg-white/10 text-white/60">No supported commands found</Badge>}
           </div>
         </div>
-
-        <ProductionCommandActivationCard device={device} compact />
       </CardContent>
     </Card>
   );
