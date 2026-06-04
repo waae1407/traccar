@@ -1,27 +1,21 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Satellite, Router, Activity, Upload } from "lucide-react";
 import DeviceProvisioningPanel from "@/components/telematics/DeviceProvisioningPanel";
 
 import UnassignedDevicesQueue from "@/components/telematics/UnassignedDevicesQueue";
 import TelematicsDeviceAssignmentPanel from "@/components/telematics/TelematicsDeviceAssignmentPanel";
+import CommandTestWorkspace from "@/components/telematics/command-test/CommandTestWorkspace";
 import ExpandableSection from "@/components/shared/ExpandableSection";
 
 export default function AdminTelematicsCenter() {
   const qc = useQueryClient();
-  const [query, setQuery] = useState("");
   const { data: devices = [], refetch: refetchDevices } = useQuery({ queryKey: ["telematics-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-updated_date", 300) });
   const { data: providers = [] } = useQuery({ queryKey: ["telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100) });
   const { data: vehicles = [] } = useQuery({ queryKey: ["telematics-setup-vehicles"], queryFn: () => base44.entities.Vehicle.list("-updated_date", 500) });
-  const filtered = useMemo(() => {
-    const search = query.trim().toLowerCase();
-    if (!search) return devices;
-    return devices.filter(d => `${d.model || ""} ${d.unique_id || ""} ${d.vehicle_id || ""} ${d.provider_device_id || ""}`.toLowerCase().includes(search));
-  }, [devices, query]);
 
   return <div className="p-4 sm:p-6 space-y-5">
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
@@ -45,7 +39,7 @@ export default function AdminTelematicsCenter() {
       <div className="grid md:grid-cols-3 gap-3">{providers.length ? providers.map(p => <div key={p.id} className="rounded-xl border border-border p-3"><p className="font-bold">{p.provider_name}</p><p className="text-xs text-muted-foreground">{p.provider_key} · {p.provider_type}</p><Badge variant="outline" className="mt-2">{p.is_active ? "Active" : "Inactive"}</Badge></div>) : <div className="text-sm text-muted-foreground">Default MooveTrax compatibility is active. Add provider records for Traccar or generic APIs.</div>}</div>
     </ExpandableSection>
     <ExpandableSection title="Device Registry" defaultOpen>
-      <div className="space-y-3"><Input placeholder="Search by name, unique ID, or vehicle..." value={query} onChange={e => setQuery(e.target.value)} />{filtered.map(device => <div key={device.id} className="rounded-2xl border border-border bg-card/70 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-bold">{device.model || "Unnamed device"}</p><p className="text-xs text-muted-foreground">Unique ID: {device.unique_id} · vehicle {device.vehicle_id || "unassigned"} · lifecycle {device.lifecycle_status || "inventory"}</p></div><div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{device.online_status || "unknown"}</Badge><Badge variant="outline">{device.install_status}</Badge><a href={`/admin/telematics-command-test?identifier=${encodeURIComponent(device.unique_id || "")}`} className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90">Open Command Test</a></div></div></div>)}{filtered.length === 0 && <p className="text-sm text-muted-foreground py-6 text-center">No telematics devices found.</p>}</div>
+      <CommandTestWorkspace showHeader={false} />
     </ExpandableSection>
   </div>;
 }
