@@ -27,7 +27,7 @@ export default function ProductionCommandActivationCard({ device, compact = fals
       starter_confirmation: starterConfirmation
     }),
     onSuccess: (res) => {
-      setMessage(res.data?.device?.production_commands_enabled ? 'Production commands enabled for this device.' : 'Production commands disabled for this device.');
+      setMessage(res.data?.device?.production_commands_enabled ? 'Live vehicle actions enabled for this device.' : 'Live vehicle actions disabled for this device.');
       queryClient.invalidateQueries({ queryKey: ['traccar-devices'] });
       queryClient.invalidateQueries({ queryKey: ['telematics-devices'] });
       queryClient.invalidateQueries({ queryKey: ['admin-command-test-history', device.id] });
@@ -43,7 +43,7 @@ export default function ProductionCommandActivationCard({ device, compact = fals
     <Card className={`${compact ? 'bg-white/[0.03]' : 'glass'} border-red-500/30`}>
       <CardHeader className={compact ? 'p-4 pb-2' : undefined}>
         <CardTitle className="flex items-center gap-2 text-base">
-          <ShieldCheck className="h-4 w-4 text-red-400" /> Enable Production Commands
+          <ShieldCheck className="h-4 w-4 text-red-400" /> Enable Live Vehicle Actions
           <Badge className={enabled ? 'bg-emerald-500 text-white' : 'bg-yellow-500 text-black'}>{enabled ? 'Enabled' : 'Off'}</Badge>
         </CardTitle>
       </CardHeader>
@@ -51,22 +51,22 @@ export default function ProductionCommandActivationCard({ device, compact = fals
         <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
           <div className="flex gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-            <p>Live vehicle commands will be sent to Traccar and the physical vehicle. Confirm this device is installed and tested.</p>
+            <p>Live vehicle actions will be sent to the physical vehicle. Confirm this device is installed and tested.</p>
           </div>
         </div>
         <div className="grid gap-2 text-sm sm:grid-cols-2">
           <label className="rounded-xl border border-border p-3">
             <input type="radio" name={`scope-${device.id}`} checked={scope === 'non_starter_only'} onChange={() => setScope('non_starter_only')} className="mr-2" />
-            Non-starter commands only
+            Non-starter actions only
           </label>
           <label className="rounded-xl border border-border p-3">
             <input type="radio" name={`scope-${device.id}`} checked={scope === 'all_supported_commands'} onChange={() => setScope('all_supported_commands')} className="mr-2" />
-            All supported commands including starter control
+            All supported actions including starter control
           </label>
         </div>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" checked={understood} onChange={(e) => setUnderstood(e.target.checked)} className="mt-1" />
-          I understand this will send live vehicle commands.
+          I understand this will send live vehicle actions.
         </label>
         {scope === 'all_supported_commands' && (
           <label className="flex items-start gap-2 text-sm text-yellow-200">
@@ -76,7 +76,7 @@ export default function ProductionCommandActivationCard({ device, compact = fals
         )}
         <Input value={confirmationText} onChange={(e) => setConfirmationText(e.target.value)} placeholder="Type ENABLE LIVE COMMANDS" />
         <div className="flex flex-wrap gap-2">
-          <Button disabled={enabled || !canEnable || activation.isPending} onClick={() => activation.mutate(true)} className="bg-red-600 hover:bg-red-700">Enable Production Commands</Button>
+          <Button disabled={enabled || !canEnable || activation.isPending} onClick={() => activation.mutate(true)} className="bg-red-600 hover:bg-red-700">Enable Live Actions</Button>
           <Button variant="outline" disabled={!enabled || activation.isPending} onClick={() => activation.mutate(false)}>Disable</Button>
         </div>
         {message && <p className="text-xs text-muted-foreground">{message}</p>}

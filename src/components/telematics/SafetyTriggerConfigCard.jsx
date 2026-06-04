@@ -134,7 +134,7 @@ export default function SafetyTriggerConfigCard({ device, compact = false }) {
           <div className="rounded-2xl border border-border p-3 space-y-3">
             <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={form.overspeed_enabled} onChange={(e) => updateField('overspeed_enabled', e.target.checked)} /> <Gauge className="h-4 w-4 text-primary" /> Overspeed</label>
             <Input placeholder="Speed limit mph" type="number" value={form.overspeed_limit_mph} onChange={(e) => updateField('overspeed_limit_mph', e.target.value)} />
-            <p className="text-xs text-muted-foreground">Creates an alert when incoming telemetry exceeds this speed.</p>
+            <p className="text-xs text-muted-foreground">Creates an alert when vehicle speed exceeds this limit.</p>
           </div>
         </div>
         <Input placeholder="Internal notes" value={form.notes} onChange={(e) => updateField('notes', e.target.value)} />

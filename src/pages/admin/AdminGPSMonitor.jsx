@@ -7,10 +7,10 @@ import { format, formatDistanceToNow } from "date-fns";
 const EVENT_CONFIG = {
   device_online:      { label: "Online",       color: "text-emerald-400", bg: "bg-emerald-500/20 border-emerald-500/30", icon: Wifi },
   device_offline:     { label: "Offline",      color: "text-red-400",     bg: "bg-red-500/20 border-red-500/30",         icon: WifiOff },
-  kill_sent:          { label: "Kill Sent",    color: "text-orange-400",  bg: "bg-orange-500/20 border-orange-500/30",   icon: Zap },
-  kill_confirmed:     { label: "Kill Active",  color: "text-red-400",     bg: "bg-red-500/20 border-red-500/30",         icon: Zap },
-  reinstate_sent:     { label: "Reinstate Sent", color: "text-blue-400",  bg: "bg-blue-500/20 border-blue-500/30",       icon: ZapOff },
-  reinstate_confirmed:{ label: "Reinstated",   color: "text-emerald-400", bg: "bg-emerald-500/20 border-emerald-500/30", icon: ZapOff },
+  kill_sent:          { label: "Starter Disable Sent",    color: "text-orange-400",  bg: "bg-orange-500/20 border-orange-500/30",   icon: Zap },
+  kill_confirmed:     { label: "Starter Disabled",  color: "text-red-400",     bg: "bg-red-500/20 border-red-500/30",         icon: Zap },
+  reinstate_sent:     { label: "Restore Sent", color: "text-blue-400",  bg: "bg-blue-500/20 border-blue-500/30",       icon: ZapOff },
+  reinstate_confirmed:{ label: "Starter Restored",   color: "text-emerald-400", bg: "bg-emerald-500/20 border-emerald-500/30", icon: ZapOff },
 };
 
 function StatusBadge({ eventType }) {
@@ -95,13 +95,11 @@ export default function AdminGPSMonitor() {
     <div className="flex items-start gap-3 p-4 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 mb-5">
       <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
       <div>
-        <p className="text-sm font-bold text-yellow-300">GPS Provider Validation Pending</p>
+        <p className="text-sm font-bold text-yellow-300">GPS Network Validation Pending</p>
         <p className="text-xs text-yellow-400/80 mt-0.5 leading-relaxed">
-          Device data will appear after MooveTrax API credentials and live device testing are completed.
-          Set <code className="bg-yellow-500/20 px-1 rounded font-mono">MOOVETRAX_PARTNER_API_KEY</code> and
-          run a manual test from Dashboard → Code → Functions → <code className="bg-yellow-500/20 px-1 rounded font-mono">checkGPSDeviceStatus</code>.
+        Vehicle location data will appear after network credentials and live device validation are completed.
         </p>
-        <p className="text-[10px] text-yellow-400/60 mt-1 font-semibold uppercase tracking-wide">Status: Code-complete · Pending vendor API validation</p>
+        <p className="text-[10px] text-yellow-400/60 mt-1 font-semibold uppercase tracking-wide">Status: Setup complete · Pending network validation</p>
       </div>
     </div>
   );
@@ -120,9 +118,9 @@ export default function AdminGPSMonitor() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Phase 2B</p>
-          <h1 className="text-xl font-black text-foreground" style={{ fontFamily: "var(--font-syne)" }}>GPS Device Monitor</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">MooveTrax device health — active rental vehicles only.</p>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Fleet Operations</p>
+          <h1 className="text-xl font-black text-foreground" style={{ fontFamily: "var(--font-syne)" }}>Vehicle Location Monitor</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Vehicle device health — active rental vehicles only.</p>
         </div>
         <button onClick={() => { refetch(); queryClient.invalidateQueries(["gps-vehicles"]); }}
           className="h-9 w-9 rounded-xl bg-muted/40 border border-border flex items-center justify-center hover:bg-muted/60">
@@ -133,10 +131,10 @@ export default function AdminGPSMonitor() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "GPS Devices", value: gpsVehicles.length, color: "text-foreground" },
+          { label: "Vehicle Devices", value: gpsVehicles.length, color: "text-foreground" },
           { label: "Online", value: onlineCount, color: "text-emerald-400" },
           { label: "Offline", value: offlineCount, color: "text-red-400" },
-          { label: "Kill Active", value: killActiveCount, color: "text-orange-400" },
+          { label: "Starter Disabled", value: killActiveCount, color: "text-orange-400" },
         ].map(s => (
           <div key={s.label} className="glass rounded-xl p-3 text-center">
             <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
@@ -148,8 +146,8 @@ export default function AdminGPSMonitor() {
       {gpsVehicles.length === 0 ? (
         <div className="text-center py-16 glass rounded-2xl">
           <Wifi className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">No vehicles with GPS devices</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">Set moovetrax_device_id on vehicles to enable GPS monitoring</p>
+          <p className="text-sm text-muted-foreground">No vehicles with location devices</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Assign a vehicle device to enable location monitoring</p>
         </div>
       ) : (
         <div className="flex flex-col lg:flex-row gap-4">
@@ -174,7 +172,7 @@ export default function AdminGPSMonitor() {
                           {vehicle.plate && <span className="text-muted-foreground font-normal ml-1">· {vehicle.plate}</span>}
                         </p>
                         <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                          Device: {vehicle.moovetrax_device_id}
+                          Device ID: {vehicle.moovetrax_device_id}
                         </p>
                         {booking && (
                           <p className="text-[10px] text-primary/70 mt-0.5">
@@ -201,7 +199,7 @@ export default function AdminGPSMonitor() {
                               disabled={!!sendingCommand}
                               className="px-2 py-1 rounded-lg text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-50"
                             >
-                              {sendingCommand === `${vehicle.id}-unkill` ? '...' : 'Unkill'}
+                              {sendingCommand === `${vehicle.id}-unkill` ? '...' : 'Restore'}
                             </button>
                           ) : (
                             <button
@@ -209,7 +207,7 @@ export default function AdminGPSMonitor() {
                               disabled={!!sendingCommand}
                               className="px-2 py-1 rounded-lg text-[9px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 disabled:opacity-50"
                             >
-                              {sendingCommand === `${vehicle.id}-kill` ? '...' : 'Kill'}
+                              {sendingCommand === `${vehicle.id}-kill` ? '...' : 'Disable'}
                             </button>
                           )}
                         </div>
@@ -228,13 +226,13 @@ export default function AdminGPSMonitor() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-foreground text-sm">{selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model}</h3>
-                  <p className="text-[10px] text-muted-foreground font-mono">{selectedVehicle.moovetrax_device_id}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono">Device ID: {selectedVehicle.moovetrax_device_id}</p>
                 </div>
                 <button onClick={() => setSelectedVehicle(null)} className="h-7 w-7 rounded-lg bg-muted/40 flex items-center justify-center text-muted-foreground hover:text-foreground text-xs">✕</button>
               </div>
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Recent GPS Events</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Recent Location Events</p>
               {selectedEvents.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">No GPS events recorded for this device.</p>
+                <p className="text-xs text-muted-foreground italic">No location events recorded for this device.</p>
               ) : (
                 <div className="space-y-2">
                   {selectedEvents.map(event => (

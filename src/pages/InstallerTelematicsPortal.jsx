@@ -67,9 +67,7 @@ function normalizeVin(value) {
 }
 
 function providerName(providerKey) {
-  if (providerKey === "traccar_noran_mt20") return "Noran GPS";
-  if (providerKey?.includes("noran")) return "Noran GPS";
-  return providerKey ? providerKey.replace(/_/g, " ") : "Determined after device scan";
+  return providerKey ? "Telematics Network" : "Determined after device scan";
 }
 
 function vehicleName(vehicle) {
@@ -160,7 +158,7 @@ function DeviceStep({ form, update, capabilities, deviceVerified, onScanDevice, 
               <p className="break-all text-lg font-black">{device?.unique_id || form.actual_device_id}</p>
             </div>
             <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-              <FieldLabel>Provider</FieldLabel>
+              <FieldLabel>Service Network</FieldLabel>
               <p className="text-lg font-black capitalize">{providerName(device?.provider_key || capabilities.data?.provider_key)}</p>
             </div>
             <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
@@ -318,7 +316,7 @@ function TestCard({ id, label, icon, value, onChange }) {
           <div className={`flex h-12 w-12 items-center justify-center rounded-2xl text-xl shadow-sm ${isPass ? "bg-emerald-500" : isFail ? "bg-red-500" : "bg-slate-100"}`}>{icon}</div>
           <div>
             <h3 className="text-lg font-black text-slate-950">{label}</h3>
-            <p className={`mt-1 text-xs font-bold ${isPass ? "text-emerald-700" : isFail ? "text-red-700" : "text-slate-400"}`}>{isPass ? "✓ Command Delivered" : isFail ? "✕ Command Failed" : "Ready for test"}</p>
+            <p className={`mt-1 text-xs font-bold ${isPass ? "text-emerald-700" : isFail ? "text-red-700" : "text-slate-400"}`}>{isPass ? "✓ Action Verified" : isFail ? "✕ Needs Review" : "Ready for test"}</p>
           </div>
         </div>
         {(isPass || isFail) && <CheckCircle2 className={`h-6 w-6 ${isPass ? "text-emerald-500" : "text-red-500"}`} />}

@@ -24,7 +24,7 @@ function DeviceRow({ device, onSelect }) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-black">{device.unique_id || device.id}</p>
-          <p className="text-xs text-muted-foreground">{device.provider_display_name || device.provider_key}</p>
+          <p className="text-xs text-muted-foreground">Telematics Network</p>
         </div>
         <Badge variant="outline" className={fresh.tone}>{fresh.label}</Badge>
       </div>
@@ -107,7 +107,7 @@ export default function TelematicsDeviceAssignmentPanel({ vehicle, devices = [],
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-black">Telematics Device</p>
-          <p className="text-xs text-muted-foreground">Provider-agnostic vehicle device assignment</p>
+          <p className="text-xs text-muted-foreground">Secure vehicle device assignment</p>
         </div>
         {linked ? <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">Linked</Badge> : <Badge variant="outline">Unlinked</Badge>}
       </div>
@@ -121,14 +121,11 @@ export default function TelematicsDeviceAssignmentPanel({ vehicle, devices = [],
 
       {linked ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Detail label="Provider" value={linked.provider_key} />
-          <Detail label="Provider name" value={providerDisplayName(providerByKey[linked.provider_key], linked.provider_key)} />
+          <Detail label="Service Network" value="Telematics Network" />
           <Detail label="Device ID" value={linked.unique_id} />
-          <Detail label="IMEI" value={linked.device_imei} />
-          <Detail label="SIM ICCID" value={linked.sim_iccid} />
-          <Detail label="Provider device ID" value={linked.provider_device_id} />
-          <Detail label="Traccar ID" value={linked.traccar_device_id} />
-          <Detail label="MooveTrax ID" value={linked.moovetrax_device_id} />
+          <Detail label="Device Serial" value={linked.device_imei} />
+          <Detail label="Connectivity ID" value={linked.sim_iccid} />
+          <Detail label="Network Device ID" value={linked.provider_device_id || linked.traccar_device_id || linked.moovetrax_device_id} />
           <Detail label="Install" value={linked.install_status} />
           <Detail label="Lifecycle" value={linked.lifecycle_status} />
           <Detail label="Last seen" value={formatDeviceTime(linked.last_seen_at)} />
@@ -151,20 +148,20 @@ export default function TelematicsDeviceAssignmentPanel({ vehicle, devices = [],
           <DialogHeader><DialogTitle>Assign Existing Device</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="flex gap-2">
-              <Input placeholder="Search ID, IMEI, SIM, provider..." value={query} onChange={(e) => setQuery(e.target.value)} />
+              <Input placeholder="Search device identifier, serial, or connectivity ID..." value={query} onChange={(e) => setQuery(e.target.value)} />
               <Button onClick={search} disabled={loading}>Search</Button>
             </div>
             <div className="space-y-2 rounded-2xl border border-border p-3">
               <p className="text-xs font-bold uppercase text-muted-foreground">Find or Create Device</p>
               <div className="grid gap-2 sm:grid-cols-3">
                 <Input placeholder="Typed device ID" value={typedDeviceId} onChange={(e) => setTypedDeviceId(e.target.value)} />
-                <Input placeholder="Provider key" value={manualProvider} onChange={(e) => setManualProvider(e.target.value)} />
+                <Input placeholder="Service network key" value={manualProvider} onChange={(e) => setManualProvider(e.target.value)} />
                 <Button disabled={!typedDeviceId || loading} onClick={createAndLink}>Create and Link</Button>
               </div>
             </div>
             <div className="space-y-2">
               {searchResults.map((device) => <DeviceRow key={device.id} device={device} onSelect={linkDevice} />)}
-              {searchResults.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Search for unassigned devices across providers.</p>}
+              {searchResults.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Search for unassigned vehicle devices.</p>}
             </div>
           </div>
         </DialogContent>

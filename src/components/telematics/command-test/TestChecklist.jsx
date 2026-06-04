@@ -14,13 +14,13 @@ export default function TestChecklist({ session, commands, notes, setNotes, onCo
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Verification Summary</p>
-            <h2 className="mt-1 text-xl font-black text-white">Complete device verification</h2>
+            <h2 className="mt-1 text-xl font-black text-white">Complete vehicle device verification</h2>
           </div>
           <Badge className="bg-white/10 text-white">Session {session.status}</Badge>
         </div>
         <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Verification notes" className="bg-white/5 text-white placeholder:text-white/35" />
         <Button onClick={onComplete} disabled={!completeReady || completing} className="w-full">Complete Verification</Button>
-        {!completeReady && <p className="text-center text-xs text-white/45">Wait for all supported commands to receive a verified or needs-review result before completing.</p>}
+        {!completeReady && <p className="text-center text-xs text-white/45">Wait for all supported actions to receive a verified or needs-review result before completing.</p>}
       </CardContent>
     </Card>
   );

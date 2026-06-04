@@ -12,7 +12,7 @@ const baseNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/host/dashboard" },
   { label: "My Vehicles", icon: Car, path: "/host/vehicles" },
   { label: "Telematics", icon: Satellite, path: "/host/telematics" },
-  { label: "Command Test", icon: Zap, path: "/host/telematics-command-test" },
+  { label: "Command Verification", icon: Zap, path: "/host/telematics-command-test" },
   { label: "Brand Builder", icon: Sparkles, path: "/host/brand" },
   { label: "Customers", icon: Users, path: "/host/customers" },
   { label: "Payments", icon: CreditCard, path: "/host/payments" },

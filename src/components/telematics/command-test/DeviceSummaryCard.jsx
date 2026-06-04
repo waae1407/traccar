@@ -33,20 +33,20 @@ export default function DeviceSummaryCard({ data }) {
         <button type="button" onClick={() => setIsOpen((value) => !value)} className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
           <div className="flex w-full items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Selected Device</p>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Selected Vehicle Device</p>
               <div className="mt-2 flex items-center gap-2">
                 <h2 className="text-2xl font-black text-white">{device.unique_id || device.id}</h2>
                 <ToggleIcon className="h-5 w-5 text-white/60" />
               </div>
-              <p className="mt-1 text-xs font-semibold text-white/45">Tap to {isOpen ? 'hide' : 'see'} device details</p>
+              <p className="mt-1 text-xs font-semibold text-white/45">Tap to {isOpen ? 'hide' : 'see'} verification details</p>
             </div>
             <div className={isOnline ? 'flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-full border border-emerald-300/50 bg-emerald-500/20 text-xs font-black text-emerald-200 shadow-[0_0_22px_rgba(16,185,129,0.35)]' : 'flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-full border border-red-300/50 bg-red-500/20 text-xs font-black text-red-200 shadow-[0_0_22px_rgba(239,68,68,0.35)]'}>
               {statusLabel}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge className={execution?.dry_run ? 'bg-yellow-500 text-black' : 'bg-emerald-500 text-white'}>{execution?.dry_run ? 'Simulation Mode' : 'Live Commands'}</Badge>
-            <Badge className="bg-white/10 text-white">{provider?.provider_name || provider?.provider_key || 'Provider'}</Badge>
+            <Badge className={execution?.dry_run ? 'bg-yellow-500 text-black' : 'bg-emerald-500 text-white'}>{execution?.dry_run ? 'Simulation Mode' : 'Live Actions'}</Badge>
+            <Badge className="bg-white/10 text-white">Telematics Network</Badge>
           </div>
         </button>
 
@@ -55,12 +55,12 @@ export default function DeviceSummaryCard({ data }) {
             {offline && (
               <div className="flex gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-yellow-200">
                 <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                <p className="text-sm font-semibold">Device is currently offline. Commands may queue, fail, or require device reconnection.</p>
+                <p className="text-sm font-semibold">Vehicle device is currently offline. Actions may wait, need review, or require reconnection.</p>
               </div>
             )}
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <Info label="Provider" value={provider?.provider_name || provider?.provider_key || device.provider_key} />
+              <Info label="Service Network" value="Telematics Network" />
               <Info label="Model" value={device.model} />
               <Info label="Vehicle" value={vehicleName(vehicle)} />
               <Info label="Host" value={host?.business_name || host?.full_name || host?.email || 'Not linked'} />
@@ -75,7 +75,7 @@ export default function DeviceSummaryCard({ data }) {
                   <Badge key={command.key} className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
                     <CheckCircle2 className="mr-1 h-3 w-3" /> {command.label}
                   </Badge>
-                )) : <Badge className="bg-white/10 text-white/60">No supported commands found</Badge>}
+                )) : <Badge className="bg-white/10 text-white/60">No supported actions found</Badge>}
               </div>
             </div>
           </div>

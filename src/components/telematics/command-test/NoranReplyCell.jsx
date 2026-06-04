@@ -1,5 +1,6 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
+import { businessText } from './businessLanguage';
 
 function hexToAscii(value = '') {
   const hex = String(value || '').replace(/[^a-fA-F0-9]/g, '');
@@ -19,8 +20,8 @@ function findNoranMessage(command) {
     return {
       message: mt20Reply.raw_packet_hex,
       description: mt20Reply.packet_type === '0x8009'
-        ? `MT20 command response received${mt20Reply.lock_state ? ` — ${mt20Reply.lock_state}` : ''}.`
-        : `MT20 ${mt20Reply.packet_type || 'reply'} received.`,
+        ? `Vehicle response received${mt20Reply.lock_state ? ` — ${mt20Reply.lock_state}` : ''}.`
+        : 'Vehicle response received.',
       received: true
     };
   }
@@ -55,33 +56,32 @@ function describeAsciiReply(message) {
   const action = parts[3];
   const value = parts[4];
 
-  if (code === '000') return 'Location/status reply from device.';
+  if (code === '000') return 'Vehicle location/status response received.';
   if (code === '007') {
     const actionMap = {
-      '1:1': 'Starter disable acknowledged.',
-      '1:0': 'Starter restore acknowledged.',
-      '2:1': 'Horn command acknowledged.',
-      '2:2': 'Lights command acknowledged.',
-      '2:3': 'Horn and lights command acknowledged.',
-      '3:1': 'Lock command acknowledged.',
-      '4:1': 'Unlock command acknowledged.',
+      '1:1': 'Starter disable confirmed.',
+      '1:0': 'Starter restore confirmed.',
+      '2:1': 'Horn action confirmed.',
+      '2:2': 'Light action confirmed.',
+      '2:3': 'Horn and light action confirmed.',
+      '3:1': 'Lock action confirmed.',
+      '4:1': 'Unlock action confirmed.',
     };
-    return actionMap[`${action}:${value}`] || 'Device control reply received.';
+    return actionMap[`${action}:${value}`] || 'Vehicle action response received.';
   }
-  return 'Noran reply received.';
+  return 'Vehicle response received.';
 }
 
 function describeMissingReply(command) {
   const status = command.queue_status || command.status;
-  if (status === 'expired' || command.failure_reason?.toLowerCase().includes('timeout')) return 'No device response received before timeout.';
-  if (['sent', 'delivered', 'sending'].includes(status)) return 'Awaiting device response.';
-  return 'No device response recorded.';
+  if (status === 'expired' || command.failure_reason?.toLowerCase().includes('timeout')) return 'No vehicle response received before timeout.';
+  if (['sent', 'delivered', 'sending'].includes(status)) return 'Awaiting vehicle response.';
+  return 'No vehicle response recorded.';
 }
 
 export default function NoranReplyCell({ command }) {
   const reply = findNoranMessage(command);
-  const message = reply?.message || '';
-  const description = reply?.description || describeMissingReply(command);
+  const description = businessText(reply?.description || describeMissingReply(command));
   const received = !!reply?.received;
 
   return (
@@ -90,7 +90,7 @@ export default function NoranReplyCell({ command }) {
         {received ? 'Response received' : 'Awaiting response'}
       </Badge>
       <p className="text-xs text-white/75">{description}</p>
-      <p className="truncate text-[10px] text-white/35">{message || '—'}</p>
+      <p className="text-[10px] text-white/35">Secure response details are recorded for internal review.</p>
     </div>
   );
 }

@@ -42,7 +42,7 @@ const COMMANDS = [
     id: "find_my_car",
     command_type: "alarm_pulse",
     label: "Find My Car",
-    description: "Sends one short horn + lights pulse",
+    description: "Briefly activates horn and lights",
     icon: Volume2,
     color: "#F59E0B",
     bg: "rgba(245,158,11,0.12)",
@@ -114,10 +114,10 @@ export default function TelematicsPanel({ booking }) {
       });
 
       setLastResult({ status: res.data?.pending_acknowledgement ? "pending" : "success", command: commandConfig?.label || command });
-      toast.success(res.data?.pending_acknowledgement ? `${commandConfig?.label || 'Command'} sent` : `${commandConfig?.label || 'Command'} activated ✓`);
+      toast.success(res.data?.pending_acknowledgement ? `${commandConfig?.label || 'Vehicle action'} sent` : `${commandConfig?.label || 'Vehicle action'} activated ✓`);
     } catch (err) {
-      setLastResult({ status: "failed", command, message: err.message || "Command failed" });
-      toast.error(err.message || "Command failed");
+      setLastResult({ status: "failed", command, message: err.message || "Vehicle action failed" });
+      toast.error(err.message || "Vehicle action failed");
     } finally {
       setLoading(null);
     }
@@ -171,7 +171,7 @@ export default function TelematicsPanel({ booking }) {
       {/* Command status */}
       {lastResult && (
         <div className="mx-3 mb-3 rounded-xl p-3 border border-white/[0.08] text-xs text-white/60">
-          Last command: <span className="font-bold text-white/80">{lastResult.command}</span> · {lastResult.status === "pending" ? "sent, waiting for device acknowledgement" : lastResult.status === "failed" ? `failed${lastResult.message ? ` — ${lastResult.message}` : ""}` : "successful"}
+          Last action: <span className="font-bold text-white/80">{lastResult.command}</span> · {lastResult.status === "pending" ? "sent, waiting for vehicle confirmation" : lastResult.status === "failed" ? `needs review${lastResult.message ? ` — ${lastResult.message}` : ""}` : "successful"}
         </div>
       )}
 

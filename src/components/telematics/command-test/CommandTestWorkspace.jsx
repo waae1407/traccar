@@ -81,9 +81,9 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
       {showHeader && (
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-primary">Admin → Telematics → Command Verification</p>
-            <h1 className="mt-2 text-3xl font-black text-white md:text-4xl">Telematics Command Verification</h1>
-            <p className="mt-2 max-w-3xl text-sm text-white/55">Admin-only verification for device connectivity, supported commands, and confirmed vehicle responses.</p>
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-primary">Telematics → Vehicle Action Verification</p>
+            <h1 className="mt-2 text-3xl font-black text-white md:text-4xl">Vehicle Action Verification</h1>
+            <p className="mt-2 max-w-3xl text-sm text-white/55">Verification for vehicle device connectivity, supported actions, and confirmed vehicle responses.</p>
           </div>
         </div>
       )}

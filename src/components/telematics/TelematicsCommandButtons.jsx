@@ -6,16 +6,16 @@ import TelematicsService from "@/lib/telematics/TelematicsService";
 import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
 
 const COMMANDS = [
-  { key: "locate", label: "GPS", icon: MapPin, capability: "supports_location", deviceFlag: "gps_enabled", roles: ["admin", "host", "customer", "installer"], tone: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
-  { key: "status", label: "Stat", icon: MapPin, capability: "supports_location", deviceFlag: "gps_enabled", roles: ["admin", "host", "installer"], tone: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30" },
+  { key: "locate", label: "Locate", icon: MapPin, capability: "supports_location", deviceFlag: "gps_enabled", roles: ["admin", "host", "customer", "installer"], tone: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
+  { key: "status", label: "Status", icon: MapPin, capability: "supports_location", deviceFlag: "gps_enabled", roles: ["admin", "host", "installer"], tone: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30" },
   { key: "lock", label: "Lock", icon: Lock, capability: "supports_lock", deviceFlag: "lock_unlock_enabled", roles: ["admin", "host", "customer"], tone: "bg-purple-500/15 text-purple-300 border-purple-500/30" },
   { key: "unlock", label: "Open", icon: Unlock, capability: "supports_unlock", deviceFlag: "lock_unlock_enabled", roles: ["admin", "host", "customer"], tone: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
   { key: "horn", label: "Horn", icon: Volume2, capability: "supports_horn", deviceFlag: "horn_light_enabled", roles: ["admin", "host"], tone: "bg-orange-500/15 text-orange-300 border-orange-500/30" },
   { key: "lights", label: "Light", icon: Volume2, capability: "supports_lights", deviceFlag: "horn_light_enabled", roles: ["admin", "host"], tone: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30" },
   { key: "alarm_pulse", label: "Find", icon: Volume2, capability: "supports_horn", deviceFlag: "horn_light_enabled", roles: ["admin", "host", "customer"], tone: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
-  { key: "horn_lights", label: "H/L", icon: Volume2, capability: "supports_horn", deviceFlag: "horn_light_enabled", roles: ["admin", "host"], tone: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
-  { key: "disable_starter", label: "Off", icon: Zap, capability: "supports_starter_disable", roles: ["admin", "host"], starter: true, tone: "bg-red-500/15 text-red-300 border-red-500/30" },
-  { key: "restore_starter", label: "On", icon: RotateCcw, capability: "supports_starter_restore", roles: ["admin", "host"], starter: true, tone: "bg-green-500/15 text-green-300 border-green-500/30" },
+  { key: "horn_lights", label: "Alert", icon: Volume2, capability: "supports_horn", deviceFlag: "horn_light_enabled", roles: ["admin", "host"], tone: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  { key: "disable_starter", label: "Disable", icon: Zap, capability: "supports_starter_disable", roles: ["admin", "host"], starter: true, tone: "bg-red-500/15 text-red-300 border-red-500/30" },
+  { key: "restore_starter", label: "Restore", icon: RotateCcw, capability: "supports_starter_restore", roles: ["admin", "host"], starter: true, tone: "bg-green-500/15 text-green-300 border-green-500/30" },
 ];
 
 export default function TelematicsCommandButtons({ vehicleId, bookingId, device, provider, role = "admin", booking, allowStarter = false, onResult }) {
@@ -46,7 +46,7 @@ export default function TelematicsCommandButtons({ vehicleId, bookingId, device,
     }
   };
 
-  if (visibleCommands.length === 0 && !["admin", "host"].includes(role)) return <p className="text-xs text-muted-foreground">No available telematics commands for this device.</p>;
+  if (visibleCommands.length === 0 && !["admin", "host"].includes(role)) return <p className="text-xs text-muted-foreground">No available vehicle actions for this device.</p>;
 
   return (
     <div className="space-y-1.5">
