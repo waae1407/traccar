@@ -4,6 +4,7 @@ const PROVIDER_KEY = 'traccar_noran_mt20';
 const MIN_VOLTAGE = 5;
 const MAX_VOLTAGE = 30;
 const COMMAND_REPLY_WINDOW_MINUTES = 10;
+const RAW_ACK_MATCH_WINDOW_MINUTES = 2;
 const COMMAND_RESULT_FIELDS = {
   locate: 'locate_result',
   status: 'status_result',
@@ -152,6 +153,7 @@ function parseMt20CommandResponse8009(body) {
   const rawHex = rawHexFromBody(body);
   const bytes = hexToBytes(rawHex);
   if (!bytes) return null;
+  const isRawCommandAck = body.event_type === 'command_ack' || body.source === 'traccar_log_forwarder';
 
   for (let i = 0; i < bytes.length - 12; i++) {
     const packetType = readUInt16LE(bytes, i + 2);
@@ -170,12 +172,13 @@ function parseMt20CommandResponse8009(body) {
       raw_packet_hex: cleanHex(rawHex),
       packet_type: '0x8009',
       packet_offset: i,
+      ack_only: isRawCommandAck,
       bEnable,
       status_bits,
       lock_state: lockState,
       starter_state: starterState,
       cErrorCode,
-      device_unique_id: extractDeviceId(bytes.slice(i), body),
+      device_unique_id: extractDeviceId(bytes.slice(i), body) || String(body.unique_id || body.device_unique_id || '').trim(),
       device_updates: { online_status: 'online' }
     };
   }
@@ -292,7 +295,8 @@ async function findMatchingCommand(base44, device, timestamp, parsed) {
       const sentTime = new Date(command.sent_at || command.created_at || command.created_date || 0).getTime();
       if (!Number.isFinite(sentTime)) return false;
       const ageMinutes = Math.abs(replyTime - sentTime) / 60000;
-      return ageMinutes <= COMMAND_REPLY_WINDOW_MINUTES;
+      const matchWindowMinutes = parsed.ack_only ? RAW_ACK_MATCH_WINDOW_MINUTES : COMMAND_REPLY_WINDOW_MINUTES;
+      return ageMinutes <= matchWindowMinutes;
     })
     .sort((a, b) => new Date(b.sent_at || b.created_at || b.created_date || 0).getTime() - new Date(a.sent_at || a.created_at || a.created_date || 0).getTime());
   return candidates.length === 1 ? candidates[0] : null;
@@ -336,12 +340,15 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   const command = await findMatchingCommand(base44, device, timestamp, parsed);
   if (!command) return { command_matched: false, reason: 'No pending command matched this MT20 reply.' };
 
-  const evaluation = evaluateCommandReply(command, parsed);
+  const evaluation = parsed.ack_only
+    ? { result: 'acknowledged', reason: 'Raw MT20 command ACK detected from Traccar log forwarder.' }
+    : evaluateCommandReply(command, parsed);
   const pass = evaluation.result === 'pass';
+  const ackOnly = parsed.ack_only === true;
   const updateData = {
-    status: pass ? 'executed' : 'failed',
-    queue_status: pass ? 'executed' : 'failed',
-    confirmation_status: pass ? 'executed' : 'failed',
+    status: ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed'),
+    queue_status: ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed'),
+    confirmation_status: ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed'),
     acknowledged_at: timestamp,
     device_acknowledged_at: timestamp,
     provider_response: {
@@ -349,24 +356,24 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
       mt20_forwarded_reply: parsed,
       mt20_reply_evaluation: evaluation
     },
-    failure_reason: pass ? '' : evaluation.reason
+    failure_reason: pass || ackOnly ? '' : evaluation.reason
   };
   if (pass) {
     updateData.executed_at = timestamp;
     updateData.confirmed_at = timestamp;
-  } else {
+  } else if (!ackOnly) {
     updateData.failed_at = timestamp;
   }
 
   await base44.asServiceRole.entities.TelematicsCommand.update(command.id, updateData);
-  const session = await updateCommandTestSession(base44, command, evaluation, parsed, timestamp);
+  const session = ackOnly ? null : await updateCommandTestSession(base44, command, evaluation, parsed, timestamp);
 
   await base44.asServiceRole.entities.TelematicsEvent.create({
     company_id: command.company_id || device?.company_id || '',
     telematics_device_id: command.telematics_device_id || device?.id || '',
     provider_key: PROVIDER_KEY,
     vehicle_id: command.vehicle_id || device?.vehicle_id || '',
-    event_type: pass ? `command_${command.command_type}_confirmed` : `command_${command.command_type}_reply_failed`,
+    event_type: ackOnly ? `command_${command.command_type}_acknowledged` : (pass ? `command_${command.command_type}_confirmed` : `command_${command.command_type}_reply_failed`),
     source: 'webhook',
     raw_payload: { command_id: command.id, parsed_forwarded_log: parsed, evaluation },
     created_at: timestamp
