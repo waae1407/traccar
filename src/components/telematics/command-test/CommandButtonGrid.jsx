@@ -80,7 +80,7 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
                   </div>
                 )}
                 <Button className="w-full" disabled={!!sending || !ready || (hasPendingCommand && !isThisPending)} onClick={() => onSend(command.key, isStarter)}>
-                  {sending === command.key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+                  {sending === command.key || isThisPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
                   Send {command.label}
                 </Button>
 
