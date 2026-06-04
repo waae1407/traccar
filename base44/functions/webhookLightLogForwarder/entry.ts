@@ -452,7 +452,7 @@ Deno.serve(async (req) => {
         ...parsed.device_updates,
         ...(Number.isFinite(parsed.voltage) ? { voltage_last_seen_at: timestamp } : {}),
         last_seen_at: timestamp
-      });
+      }).catch((error) => console.warn('Device update skipped:', error.message));
     }
 
     const command_processing = isCommandReply(parsed)
