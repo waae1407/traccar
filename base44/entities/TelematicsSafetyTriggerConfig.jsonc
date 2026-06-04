@@ -1,0 +1,85 @@
+{
+  "name": "TelematicsSafetyTriggerConfig",
+  "type": "object",
+  "properties": {
+    "device_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "disabled"
+      ],
+      "default": "active"
+    },
+    "geofence_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "geofence_latitude": {
+      "type": "number"
+    },
+    "geofence_longitude": {
+      "type": "number"
+    },
+    "geofence_radius_meters": {
+      "type": "number",
+      "default": 300
+    },
+    "geofence_mode": {
+      "type": "string",
+      "enum": [
+        "exit",
+        "enter",
+        "both"
+      ],
+      "default": "exit"
+    },
+    "last_geofence_inside": {
+      "type": "boolean"
+    },
+    "last_geofence_alert_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "overspeed_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "overspeed_limit_mph": {
+      "type": "number",
+      "default": 75
+    },
+    "last_overspeed_alert_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "configured_by": {
+      "type": "string"
+    },
+    "configured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "device_id",
+    "provider_key"
+  ],
+  "unique_fields": [
+    "device_id"
+  ]
+}

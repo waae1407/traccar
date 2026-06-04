@@ -197,6 +197,80 @@ function distanceMeters(a, b) {
   return 2 * r * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
 
+function mphFromTelemetrySpeed(value) {
+  const speed = Number(value || 0);
+  if (!Number.isFinite(speed)) return 0;
+  return speed;
+}
+
+function alertCooldownPassed(value, minutes = 15) {
+  if (!value) return true;
+  return Date.now() - new Date(value).getTime() > minutes * 60 * 1000;
+}
+
+async function createTriggerAlert(base44, config, device, alertType, title, message, metadata) {
+  const now = new Date().toISOString();
+  await base44.asServiceRole.entities.TelematicsEvent.create({
+    company_id: device.company_id || '',
+    telematics_device_id: device.id,
+    provider_key: device.provider_key || config.provider_key || '',
+    vehicle_id: device.vehicle_id || config.vehicle_id || '',
+    event_type: alertType,
+    source: 'system',
+    raw_payload: metadata,
+    created_at: now
+  });
+  await base44.asServiceRole.entities.OperationalAlert.create({
+    alert_type: alertType === 'telematics_overspeed_trigger' ? 'provider_health_warning' : 'qa_failure',
+    severity: alertType === 'telematics_overspeed_trigger' ? 'warning' : 'high',
+    status: 'new',
+    title,
+    message,
+    recommended_action: 'Review vehicle location and contact the responsible host or renter if needed.',
+    domain: 'telematics',
+    provider_key: device.provider_key || config.provider_key || '',
+    telematics_device_id: device.id,
+    vehicle_id: device.vehicle_id || config.vehicle_id || '',
+    host_id: device.host_id || config.host_id || '',
+    metadata
+  });
+}
+
+async function evaluateConfiguredSafetyTriggers(base44, { device, latitude, longitude, speed, timestamp, raw }) {
+  if (!device?.id) return;
+  const config = (await base44.asServiceRole.entities.TelematicsSafetyTriggerConfig.filter({ device_id: device.id }))[0];
+  if (!config || config.status === 'disabled') return;
+  const updates = {};
+
+  if (config.geofence_enabled && latitude !== undefined && longitude !== undefined) {
+    const distance = distanceMeters(
+      { latitude: config.geofence_latitude, longitude: config.geofence_longitude },
+      { latitude, longitude }
+    );
+    const inside = distance <= Number(config.geofence_radius_meters || 300);
+    const hadState = typeof config.last_geofence_inside === 'boolean';
+    const exited = hadState && config.last_geofence_inside === true && inside === false;
+    const entered = hadState && config.last_geofence_inside === false && inside === true;
+    const shouldAlert = alertCooldownPassed(config.last_geofence_alert_at) && ((exited && ['exit', 'both'].includes(config.geofence_mode || 'exit')) || (entered && ['enter', 'both'].includes(config.geofence_mode || 'exit')));
+    updates.last_geofence_inside = inside;
+    if (shouldAlert) {
+      updates.last_geofence_alert_at = timestamp;
+      await createTriggerAlert(base44, config, device, exited ? 'telematics_geofence_exit_trigger' : 'telematics_geofence_enter_trigger', exited ? 'Vehicle exited geofence' : 'Vehicle entered geofence', `${device.unique_id || device.id} ${exited ? 'exited' : 'entered'} its configured geofence.`, { config_id: config.id, latitude, longitude, distance_meters: Math.round(distance), radius_meters: config.geofence_radius_meters, raw });
+    }
+  }
+
+  if (config.overspeed_enabled && speed !== undefined) {
+    const mph = mphFromTelemetrySpeed(speed);
+    const limit = Number(config.overspeed_limit_mph || 75);
+    if (mph > limit && alertCooldownPassed(config.last_overspeed_alert_at)) {
+      updates.last_overspeed_alert_at = timestamp;
+      await createTriggerAlert(base44, config, device, 'telematics_overspeed_trigger', 'Vehicle overspeed detected', `${device.unique_id || device.id} reported ${Math.round(mph)} mph, above the configured ${limit} mph limit.`, { config_id: config.id, speed_mph: mph, limit_mph: limit, latitude, longitude, raw });
+    }
+  }
+
+  if (Object.keys(updates).length) await base44.asServiceRole.entities.TelematicsSafetyTriggerConfig.update(config.id, updates);
+}
+
 function shockDetected(body, eventType) {
   const alarm = String(body.alarm || body.position?.attributes?.alarm || body.position?.attributes?.event || '').toLowerCase();
   return eventType === 'shock_alarm' || body.shock_alarm === true || body.shock === true || alarm.includes('shock') || alarm.includes('crash') || alarm.includes('collision');
@@ -513,6 +587,7 @@ Deno.serve(async (req) => {
           expires_at: retentionExpiresAt()
         });
       }
+      await evaluateConfiguredSafetyTriggers(base44, { device, latitude, longitude, speed, timestamp: positionTimestamp, raw: body });
     }
 
     if (device && !['command_delivered', 'command_ack', 'command_executed', 'command_failed'].includes(eventType)) {

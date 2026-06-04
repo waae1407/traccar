@@ -45,6 +45,79 @@ function coordinateFromRaw(value) {
   return undefined;
 }
 
+function distanceMeters(a, b) {
+  if (!a || !b || a.latitude === undefined || a.longitude === undefined || b.latitude === undefined || b.longitude === undefined) return 0;
+  const r = 6371000;
+  const toRad = (n) => Number(n) * Math.PI / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * r * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function alertCooldownPassed(value, minutes = 15) {
+  if (!value) return true;
+  return Date.now() - new Date(value).getTime() > minutes * 60 * 1000;
+}
+
+async function createTriggerAlert(base44, config, device, alertType, title, message, metadata) {
+  await base44.asServiceRole.entities.TelematicsEvent.create({
+    company_id: device.company_id || '',
+    telematics_device_id: device.id,
+    provider_key: device.provider_key || config.provider_key || '',
+    vehicle_id: device.vehicle_id || config.vehicle_id || '',
+    event_type: alertType,
+    source: 'system',
+    raw_payload: metadata,
+    created_at: new Date().toISOString()
+  });
+  await base44.asServiceRole.entities.OperationalAlert.create({
+    alert_type: alertType === 'telematics_overspeed_trigger' ? 'provider_health_warning' : 'qa_failure',
+    severity: alertType === 'telematics_overspeed_trigger' ? 'warning' : 'high',
+    status: 'new',
+    title,
+    message,
+    recommended_action: 'Review vehicle location and contact the responsible host or renter if needed.',
+    domain: 'telematics',
+    provider_key: device.provider_key || config.provider_key || '',
+    telematics_device_id: device.id,
+    vehicle_id: device.vehicle_id || config.vehicle_id || '',
+    host_id: device.host_id || config.host_id || '',
+    metadata
+  });
+}
+
+async function evaluateConfiguredSafetyTriggers(base44, { device, latitude, longitude, speed, timestamp, raw }) {
+  if (!device?.id) return;
+  const config = (await base44.asServiceRole.entities.TelematicsSafetyTriggerConfig.filter({ device_id: device.id }))[0];
+  if (!config || config.status === 'disabled') return;
+  const updates = {};
+  if (config.geofence_enabled && latitude !== undefined && longitude !== undefined) {
+    const distance = distanceMeters({ latitude: config.geofence_latitude, longitude: config.geofence_longitude }, { latitude, longitude });
+    const inside = distance <= Number(config.geofence_radius_meters || 300);
+    const hadState = typeof config.last_geofence_inside === 'boolean';
+    const exited = hadState && config.last_geofence_inside === true && inside === false;
+    const entered = hadState && config.last_geofence_inside === false && inside === true;
+    const shouldAlert = alertCooldownPassed(config.last_geofence_alert_at) && ((exited && ['exit', 'both'].includes(config.geofence_mode || 'exit')) || (entered && ['enter', 'both'].includes(config.geofence_mode || 'exit')));
+    updates.last_geofence_inside = inside;
+    if (shouldAlert) {
+      updates.last_geofence_alert_at = timestamp;
+      await createTriggerAlert(base44, config, device, exited ? 'telematics_geofence_exit_trigger' : 'telematics_geofence_enter_trigger', exited ? 'Vehicle exited geofence' : 'Vehicle entered geofence', `${device.unique_id || device.id} ${exited ? 'exited' : 'entered'} its configured geofence.`, { config_id: config.id, latitude, longitude, distance_meters: Math.round(distance), radius_meters: config.geofence_radius_meters, raw });
+    }
+  }
+  if (config.overspeed_enabled && speed !== undefined) {
+    const mph = Number(speed || 0);
+    const limit = Number(config.overspeed_limit_mph || 75);
+    if (mph > limit && alertCooldownPassed(config.last_overspeed_alert_at)) {
+      updates.last_overspeed_alert_at = timestamp;
+      await createTriggerAlert(base44, config, device, 'telematics_overspeed_trigger', 'Vehicle overspeed detected', `${device.unique_id || device.id} reported ${Math.round(mph)} mph, above the configured ${limit} mph limit.`, { config_id: config.id, speed_mph: mph, limit_mph: limit, latitude, longitude, raw });
+    }
+  }
+  if (Object.keys(updates).length) await base44.asServiceRole.entities.TelematicsSafetyTriggerConfig.update(config.id, updates);
+}
+
 function bcdByte(byte) {
   const hi = (byte >> 4) & 0x0f;
   const lo = byte & 0x0f;
@@ -286,6 +359,7 @@ Deno.serve(async (req) => {
         source: 'polling',
         expires_at: retentionExpiresAt()
       });
+      await evaluateConfiguredSafetyTriggers(base44, { device: local, latitude: payload.last_latitude, longitude: payload.last_longitude, speed: payload.speed, timestamp: seenAt, raw: { position, traccarDevice } });
       updated += 1;
     }
 
