@@ -6,8 +6,9 @@ import DeviceSummaryCard from '@/components/telematics/command-test/DeviceSummar
 import CommandButtonGrid from '@/components/telematics/command-test/CommandButtonGrid';
 import CommandHistoryPanel from '@/components/telematics/command-test/CommandHistoryPanel';
 
-export default function CommandTestWorkspace({ showHeader = true }) {
+export default function CommandTestWorkspace({ showHeader = true, mode = 'admin' }) {
   const queryClient = useQueryClient();
+  const isHostMode = mode === 'host';
   const initialIdentifier = new URLSearchParams(window.location.search).get('identifier') || '';
   const [identifier, setIdentifier] = useState(initialIdentifier);
   const [lookupData, setLookupData] = useState(null);
@@ -25,7 +26,7 @@ export default function CommandTestWorkspace({ showHeader = true }) {
   });
 
   const lookup = useMutation({
-    mutationFn: () => base44.functions.invoke('adminLookupTelematicsCommandTest', { identifier: identifier.trim() }).then((res) => res.data),
+    mutationFn: () => base44.functions.invoke(isHostMode ? 'hostLookupTelematicsCommandTest' : 'adminLookupTelematicsCommandTest', { identifier: identifier.trim() }).then((res) => res.data),
     onSuccess: (data) => {
       setLookupData(data);
       setLookupError('');
@@ -57,7 +58,12 @@ export default function CommandTestWorkspace({ showHeader = true }) {
     setLookupError('');
     setSentCommands((prev) => ({ ...prev, [commandType]: true }));
     try {
-      await base44.functions.invoke('sendTelematicsCommand', {
+      await base44.functions.invoke('sendTelematicsCommand', isHostMode ? {
+        command_type: commandType,
+        telematics_device_id: lookupData.device.id,
+        vehicle_id: lookupData.vehicle?.id,
+        source: 'host_command_test'
+      } : {
         command_type: commandType,
         telematics_device_id: lookupData.device.id,
         admin_device_command_test: true,

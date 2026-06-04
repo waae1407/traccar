@@ -90,6 +90,7 @@ import HostReturnReviews from '@/pages/host/HostReturnReviews.jsx';
 import HostDealerNetwork from '@/pages/host/HostDealerNetwork.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
+import HostTelematicsCommandTest from '@/pages/host/HostTelematicsCommandTest.jsx';
 import HostPaymentAlerts from '@/pages/host/HostPaymentAlerts.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
@@ -173,6 +174,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/payment-alerts" element={<HostPaymentAlerts />} />
         <Route path="/host/dealer-network" element={<HostDealerNetwork />} />
         <Route path="/host/telematics" element={<HostTelematicsDashboard />} />
+        <Route path="/host/telematics-command-test" element={<HostTelematicsCommandTest />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
