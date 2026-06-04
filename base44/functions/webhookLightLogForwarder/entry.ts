@@ -30,7 +30,15 @@ function getSecret(req, body) {
 }
 
 function rawHexFromBody(body) {
-  return body.raw_packet_hex || body.packet_hex || body.raw_hex || body.message || body.data;
+  const value = body.raw_packet_hex || body.packet_hex || body.raw_hex || body.message || body.data || '';
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  const exactHex = text.replace(/^0x/i, '').replace(/[^a-fA-F0-9]/g, '');
+  if (/^(?:0x)?[a-fA-F0-9]+$/.test(text) && exactHex.length >= 12) return text;
+
+  const hexTokens = text.match(/[a-fA-F0-9]{12,}/g) || [];
+  return hexTokens.length ? hexTokens[hexTokens.length - 1] : text;
 }
 
 function cleanHex(value) {
@@ -323,7 +331,6 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return Response.json({ error: 'Malformed payload' }, { status: 400 });
@@ -339,6 +346,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unsupported provider_key' }, { status: 400 });
     }
 
+    const base44 = createClientFromRequest(req);
     const now = new Date().toISOString();
     const parsed = parseForwardedMessage(body);
     if (!parsed) {
