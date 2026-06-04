@@ -8,11 +8,13 @@ import CommandHistoryPanel from '@/components/telematics/command-test/CommandHis
 
 export default function AdminTelematicsCommandTest() {
   const queryClient = useQueryClient();
-  const [identifier, setIdentifier] = useState('');
+  const initialIdentifier = new URLSearchParams(window.location.search).get('identifier') || '';
+  const [identifier, setIdentifier] = useState(initialIdentifier);
   const [lookupData, setLookupData] = useState(null);
   const [lookupError, setLookupError] = useState('');
   const [sending, setSending] = useState('');
   const [sentCommands, setSentCommands] = useState({});
+  const [autoLookupDone, setAutoLookupDone] = useState(!initialIdentifier);
 
   const history = useQuery({
     queryKey: ['admin-command-test-history', lookupData?.device?.id],
@@ -32,6 +34,12 @@ export default function AdminTelematicsCommandTest() {
     },
     onError: (error) => setLookupError(error?.response?.data?.error || error.message)
   });
+
+  useEffect(() => {
+    if (!identifier.trim() || autoLookupDone) return;
+    setAutoLookupDone(true);
+    lookup.mutate();
+  }, [identifier, autoLookupDone]);
 
   useEffect(() => {
     if (!lookupData?.session?.id) return undefined;
