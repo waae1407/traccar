@@ -329,7 +329,7 @@ async function updateCommandTestSession(base44, command, evaluation, parsed, tim
 }
 
 function isCommandReply(parsed) {
-  return ['0x8009', '0x0038', '0x0008', '0x0032'].includes(parsed?.packet_type);
+  return ['0x8009', '0x0038'].includes(parsed?.packet_type);
 }
 
 async function processCommandResponse(base44, device, parsed, timestamp) {
