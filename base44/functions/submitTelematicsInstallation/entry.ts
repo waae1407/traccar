@@ -166,15 +166,19 @@ Deno.serve(async (req) => {
 
     let device = await findDeviceByIdentifier(base44, deviceIdentifier, providerKey);
     if (!device) {
-      device = await base44.asServiceRole.entities.TelematicsDevice.create({
-        provider_key: 'unknown',
-        unique_id: deviceIdentifier,
-        lifecycle_status: 'inventory',
-        assigned_status: 'unassigned',
-        install_status: 'not_started',
-        online_status: 'unknown',
-        created_at: now
-      });
+      return Response.json({
+        error: 'Device must be provisioned in Traccar before installation can be submitted. No local orphan device was created.',
+        requires_provisioning: true,
+        actual_device_id: deviceIdentifier
+      }, { status: 409 });
+    }
+    if (!device.traccar_device_id || device.provider_key === 'unknown') {
+      return Response.json({
+        error: 'Device is not linked to Traccar yet. Provision or repair the device record before installation.',
+        requires_traccar_link: true,
+        actual_device_id: deviceIdentifier,
+        telematics_device_id: device.id
+      }, { status: 409 });
     }
     providerKey = device.provider_key || providerKey || 'unknown';
 
@@ -239,7 +243,7 @@ Deno.serve(async (req) => {
       installation_completed_at: testsPassed ? now : device.installation_completed_at || ''
     });
 
-    if (testsPassed && hasVehicleAndHost) {
+    if (testsPassed && vehicle) {
       await base44.asServiceRole.entities.Vehicle.update(vehicle.id, vehicleTelematicsPayload(providerKey, device, providerConfig));
     }
 

@@ -50,21 +50,28 @@ Deno.serve(async (req) => {
 
     let device = await findDeviceByIdentifier(base44, actualDeviceId);
     const traccarDevice = await findTraccarDevice(actualDeviceId);
-    const createdPendingDevice = !device && !traccarDevice;
+
+    if (!device && !traccarDevice) {
+      return Response.json({
+        error: 'Device was not found in Traccar. Provision it before installation can continue.',
+        requires_provisioning: true,
+        actual_device_id: actualDeviceId
+      }, { status: 409 });
+    }
 
     if (!device) {
       device = await base44.asServiceRole.entities.TelematicsDevice.create({
-        provider_key: traccarDevice ? 'traccar_noran_mt20' : 'unknown',
-        provider_type: traccarDevice ? 'traccar' : 'api',
+        provider_key: 'traccar_noran_mt20',
+        provider_type: 'traccar',
         unique_id: actualDeviceId,
-        provider_device_id: traccarDevice ? String(traccarDevice.id) : '',
-        traccar_device_id: traccarDevice ? String(traccarDevice.id) : '',
-        model: traccarDevice ? 'Noran MT20' : '',
+        provider_device_id: String(traccarDevice.id),
+        traccar_device_id: String(traccarDevice.id),
+        model: 'Noran MT20',
         lifecycle_status: 'inventory',
         assigned_status: 'unassigned',
         install_status: 'not_started',
-        online_status: traccarDevice?.status || 'unknown',
-        ...(traccarDevice ? noranCommandDefaults() : {}),
+        online_status: traccarDevice.status || 'unknown',
+        ...noranCommandDefaults(),
         created_at: now
       });
     } else if (traccarDevice && device.provider_key !== 'traccar_noran_mt20') {
@@ -79,11 +86,11 @@ Deno.serve(async (req) => {
     return Response.json({
       ok: true,
       status: 'verified',
-      message: createdPendingDevice ? 'Device not found. Pending device record created for admin review.' : traccarDevice ? 'Device found in Traccar and command-ready.' : 'Device found.',
+      message: traccarDevice ? 'Device found in Traccar and command-ready.' : 'Device found locally. Traccar link should be verified before final installation submission.',
       actual_device_id: actualDeviceId,
       provider_key: device.provider_key || 'unknown',
       device,
-      created_pending_device: createdPendingDevice
+      created_pending_device: false
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
