@@ -10,7 +10,7 @@ const CONFIRM_TEXT = { disable_starter: 'DISABLE STARTER', restore_starter: 'RES
 
 const RESULT_STYLES = {
   pass: { badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25', icon: CheckCircle2, label: 'Verified' },
-  acknowledged: { badge: 'bg-blue-500/15 text-blue-300 border border-blue-500/25', icon: CheckCircle2, label: 'Acknowledged' },
+  acknowledged: { badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 glow-sm', icon: CheckCircle2, label: 'Acknowledged' },
   fail: { badge: 'bg-red-500/15 text-red-300 border border-red-500/25', icon: XCircle, label: 'Needs review' },
   ready: { badge: 'bg-white/10 text-white/60 border border-white/10', icon: Clock, label: 'Ready' },
   untested: { badge: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25', icon: Clock, label: 'Awaiting response' },
