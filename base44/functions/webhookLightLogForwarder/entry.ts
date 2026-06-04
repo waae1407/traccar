@@ -31,7 +31,10 @@ function getSecret(req, body) {
 }
 
 function createWebhookClient(req) {
-  return createClientFromRequest(req);
+  const headers = new Headers(req.headers);
+  headers.delete('authorization');
+  headers.delete('cookie');
+  return createClientFromRequest(new Request(req.url, { method: req.method, headers }));
 }
 
 function rawHexFromBody(body) {
