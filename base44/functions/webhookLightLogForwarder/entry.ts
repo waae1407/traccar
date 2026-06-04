@@ -329,6 +329,11 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   return { command_matched: true, command_id: command.id, command_type: command.command_type, result: evaluation.result, reason: evaluation.reason, session_updated: !!session };
 }
 
+async function createServiceRoleClient() {
+  const { Base44Sdk } = await import('npm:@base44/sdk@0.8.31');
+  return new Base44Sdk({ appId: Deno.env.get('BASE44_APP_ID'), serviceRoleKey: 'webhook' });
+}
+
 Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => null);
@@ -346,7 +351,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unsupported provider_key' }, { status: 400 });
     }
 
-    const base44 = createClientFromRequest(req);
+    const base44 = await createServiceRoleClient();
     const now = new Date().toISOString();
     const parsed = parseForwardedMessage(body);
     if (!parsed) {
