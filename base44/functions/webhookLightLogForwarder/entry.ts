@@ -70,6 +70,20 @@ function readTrailingSignedByte(bytes) {
   return bytes[offset] > 127 ? bytes[offset] - 256 : bytes[offset];
 }
 
+function decodeStatusBits(byteValue = 0) {
+  const hasBit = (bit) => ((byteValue >> bit) & 1) === 1;
+  return {
+    gpsLocated: hasBit(0),
+    smokeDetected: hasBit(1),
+    unlocked: hasBit(2),
+    bluetoothOn: hasBit(3),
+    doorOpen: hasBit(4),
+    trunkOpen: hasBit(5),
+    accOn: hasBit(6),
+    starterKilled: hasBit(7)
+  };
+}
+
 function asciiFromBytes(bytes) {
   return bytes
     .filter((byte) => byte >= 32 && byte <= 126)
@@ -136,9 +150,11 @@ function parseMt20CommandResponse8009(body) {
     const packetType = readUInt16LE(bytes, i + 2);
     if (packetType !== 0x8009) continue;
 
-    const bEnable = readUInt32LE(bytes, i + 10);
+    const bEnable = bytes[i + 10];
+    const status_bits = decodeStatusBits(bEnable);
     const cErrorCode = readTrailingSignedByte(bytes.slice(i));
-    const lockState = Number.isFinite(bEnable) ? ((bEnable & 0b100) === 0 ? 'locked' : 'unlocked') : '';
+    const lockState = status_bits.unlocked ? 'unlocked' : 'locked';
+    const starterState = status_bits.starterKilled ? 'disabled' : 'restored';
 
     return {
       message_type: 'mt20_command_response_8009',
@@ -148,7 +164,9 @@ function parseMt20CommandResponse8009(body) {
       packet_type: '0x8009',
       packet_offset: i,
       bEnable,
+      status_bits,
       lock_state: lockState,
+      starter_state: starterState,
       cErrorCode,
       device_unique_id: extractDeviceId(bytes.slice(i), body),
       device_updates: { online_status: 'online' }
@@ -238,10 +256,23 @@ function evaluateCommandReply(command, parsed) {
   if (command.command_type === 'unlock' && parsed.lock_state !== 'unlocked') {
     return { result: 'fail', reason: 'Device replied successfully but lock state did not report unlocked.' };
   }
+  if (command.command_type === 'disable_starter' && parsed.starter_state !== 'disabled') {
+    return { result: 'fail', reason: 'Device replied successfully but starter state did not report disabled.' };
+  }
+  if (command.command_type === 'restore_starter' && parsed.starter_state !== 'restored') {
+    return { result: 'fail', reason: 'Device replied successfully but starter state did not report restored.' };
+  }
   return { result: 'pass', reason: 'Device reply confirmed by forwarded MT20 command response.' };
 }
 
-async function findMatchingCommand(base44, device, timestamp) {
+function isReplyCompatibleWithCommand(command, parsed) {
+  const commandType = command?.command_type;
+  if (parsed?.packet_type === '0x8009') return ['lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter'].includes(commandType);
+  if (['0x0008', '0x0032', '0x0038'].includes(parsed?.packet_type)) return ['locate', 'status'].includes(commandType);
+  return false;
+}
+
+async function findMatchingCommand(base44, device, timestamp, parsed) {
   if (!device?.id) return null;
   const replyTime = new Date(timestamp).getTime();
   const commands = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id });
@@ -250,6 +281,7 @@ async function findMatchingCommand(base44, device, timestamp) {
       const status = command.queue_status || command.status;
       if (!['queued', 'sending', 'sent', 'delivered', 'pending'].includes(status)) return false;
       if (command.provider_key !== PROVIDER_KEY) return false;
+      if (!isReplyCompatibleWithCommand(command, parsed)) return false;
       const sentTime = new Date(command.sent_at || command.created_at || command.created_date || 0).getTime();
       if (!Number.isFinite(sentTime)) return false;
       const ageMinutes = Math.abs(replyTime - sentTime) / 60000;
@@ -290,11 +322,11 @@ async function updateCommandTestSession(base44, command, evaluation, parsed, tim
 }
 
 function isCommandReply(parsed) {
-  return parsed?.message_type === 'mt20_command_response_8009' || parsed?.packet_type === '0x8009' || parsed?.packet_type === '0x0038';
+  return ['0x8009', '0x0038', '0x0008', '0x0032'].includes(parsed?.packet_type);
 }
 
 async function processCommandResponse(base44, device, parsed, timestamp) {
-  const command = await findMatchingCommand(base44, device, timestamp);
+  const command = await findMatchingCommand(base44, device, timestamp, parsed);
   if (!command) return { command_matched: false, reason: 'No pending command matched this MT20 reply.' };
 
   const evaluation = evaluateCommandReply(command, parsed);
