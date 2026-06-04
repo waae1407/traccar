@@ -37,7 +37,7 @@ function createWebhookClient(req) {
 }
 
 function rawHexFromBody(body) {
-  const value = body.raw_packet_hex || body.packet_hex || body.raw_hex || body.message || body.data || '';
+  const value = body.raw_packet_hex || body.packet_hex || body.raw_hex || body.raw_log_line || body.traccar_raw_log || body.message || body.data || '';
   const text = String(value || '').trim();
   if (!text) return '';
 
