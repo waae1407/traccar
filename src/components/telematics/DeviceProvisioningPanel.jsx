@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Printer, QrCode, Upload, ShieldCheck } from "lucide-react";
+import { Upload, ShieldCheck } from "lucide-react";
 
 const STATUS_GROUPS = [
   { key: "unassigned", label: "Unassigned Devices", match: d => d.assigned_status === "unassigned" },
@@ -20,29 +20,18 @@ function parseCsv(text) {
   const headers = headerLine.split(",").map(h => h.trim());
   return lines.filter(Boolean).map(line => {
     const values = line.split(",").map(v => v.trim());
-    return headers.reduce((obj, header, index) => ({ ...obj, [header]: values[index] || "" }), {});
+    return headers.reduce((obj, header, index) => {
+      const normalized = header.toLowerCase().replace(/\s+/g, "_");
+      return { ...obj, [normalized]: values[index] || "" };
+    }, {});
   });
-}
-
-function installLink(device) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://uridehub.com";
-  return `${origin}/installer/telematics?provider_key=${encodeURIComponent(device.provider_key || "")}&device_id=${encodeURIComponent(device.unique_id || "")}`;
-}
-
-function printLabel(device) {
-  const link = installLink(device);
-  const html = `<div style="font-family:Arial;padding:24px;width:360px"><h2>uRideHub Telematics Install</h2><p><strong>Provider:</strong> ${device.provider_key || ""}</p><p><strong>Device:</strong> ${device.unique_id || ""}</p><p style="word-break:break-all">${link}</p><p>Scan QR/barcode package link, then enter vehicle VIN during installation.</p></div>`;
-  const win = window.open("", "_blank");
-  win.document.write(html);
-  win.document.close();
-  win.print();
 }
 
 export default function DeviceProvisioningPanel({ devices = [], providers = [] }) {
   const fileRef = useRef(null);
   const qc = useQueryClient();
   const [result, setResult] = useState(null);
-  const [manual, setManual] = useState({ provider_key: "moovetrax", unique_id: "" });
+  const [manual, setManual] = useState({ provider_key: "moovetrax", model: "", unique_id: "" });
 
   const createDevice = useMutation({
     mutationFn: async (payload) => base44.functions.invoke("provisionTelematicsDevices", { device: payload }),
@@ -55,17 +44,15 @@ export default function DeviceProvisioningPanel({ devices = [], providers = [] }
     let created = 0;
     let skipped = 0;
     for (const row of rows) {
-      const provider_key = row.provider_key || "moovetrax";
-      const unique_id = row.unique_id || row.provider_device_id || row.imei;
-      const duplicate = existingKeys.has(`${provider_key}:${unique_id}`) || existingKeys.has(row.imei) || existingKeys.has(row.sim_iccid);
+      const provider_key = "moovetrax";
+      const unique_id = row.unique_id;
+      const duplicate = existingKeys.has(`${provider_key}:${unique_id}`);
       if (!unique_id || duplicate) { skipped++; continue; }
       const response = await base44.functions.invoke("provisionTelematicsDevices", { devices: [{
-        provider_key, unique_id, imei: row.imei, sim_iccid: row.sim_iccid, provider_device_id: row.provider_device_id,
-        traccar_device_id: row.traccar_device_id, model: row.model, batch_number: row.batch_number, host_id: row.host_id,
-        vehicle_id: row.vehicle_id, assigned_installer_email: row.assigned_installer_email, installation_scheduled_at: row.installation_scheduled_at
+        provider_key, unique_id, model: row.name
       }] });
       if (response.data?.created_count) {
-        existingKeys.add(`${provider_key}:${unique_id}`); if (row.imei) existingKeys.add(row.imei); if (row.sim_iccid) existingKeys.add(row.sim_iccid); created++;
+        existingKeys.add(`${provider_key}:${unique_id}`); created++;
       } else {
         skipped++;
       }
@@ -74,5 +61,5 @@ export default function DeviceProvisioningPanel({ devices = [], providers = [] }
     qc.invalidateQueries({ queryKey: ["telematics-devices"] });
   };
 
-  return <Card className="glass"><CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Device Provisioning</CardTitle></CardHeader><CardContent className="space-y-5"><div className="grid md:grid-cols-4 gap-2"><Input placeholder="Provider key" value={manual.provider_key} onChange={e => setManual(p => ({ ...p, provider_key: e.target.value }))} /><Input placeholder="Unique ID" value={manual.unique_id} onChange={e => setManual(p => ({ ...p, unique_id: e.target.value }))} /><Input placeholder="SIM ICCID" onChange={e => setManual(p => ({ ...p, sim_iccid: e.target.value }))} /><Button onClick={() => createDevice.mutate(manual)} disabled={!manual.unique_id}>Add Device</Button></div><div className="rounded-2xl border border-border p-4"><input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && importCsv(e.target.files[0])} /><Button variant="outline" onClick={() => fileRef.current?.click()}><Upload className="h-4 w-4 mr-2" />Bulk Upload CSV</Button><p className="text-xs text-muted-foreground mt-2">Columns: provider_key, unique_id, imei, sim_iccid, provider_device_id, traccar_device_id, model, batch_number, host_id, vehicle_id, assigned_installer_email, installation_scheduled_at.</p>{result && <p className="text-xs text-muted-foreground mt-2">Imported {result.created}; skipped {result.skipped} duplicates.</p>}</div><div className="grid md:grid-cols-5 gap-3">{STATUS_GROUPS.map(group => <div key={group.key} className="rounded-2xl border border-border p-3"><p className="text-xs font-bold text-muted-foreground mb-2">{group.label}</p><Badge variant="outline">{devices.filter(group.match).length}</Badge></div>)}</div><div className="rounded-2xl border border-border p-4 space-y-3"><div className="flex items-center gap-2"><QrCode className="h-4 w-4 text-primary" /><p className="text-sm font-bold">Package QR Install Links</p></div><div className="grid gap-2 max-h-72 overflow-auto">{devices.slice(0, 25).map(device => <div key={device.id} className="rounded-xl border border-border p-3 space-y-2"><p className="text-xs font-bold">{device.provider_key} · {device.unique_id}</p><p className="text-[11px] text-muted-foreground break-all">{installLink(device)}</p><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(installLink(device))}><Copy className="h-3 w-3 mr-1" />Copy install link</Button><Button size="sm" variant="outline" onClick={() => printLabel(device)}><Printer className="h-3 w-3 mr-1" />Print label</Button></div></div>)}</div></div></CardContent></Card>;
+  return <Card className="glass"><CardHeader><CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" />Device Provisioning</CardTitle></CardHeader><CardContent className="space-y-5"><div className="grid md:grid-cols-3 gap-2"><Input placeholder="Name" value={manual.model} onChange={e => setManual(p => ({ ...p, model: e.target.value }))} /><Input placeholder="Unique ID *" value={manual.unique_id} onChange={e => setManual(p => ({ ...p, unique_id: e.target.value }))} /><Button onClick={() => createDevice.mutate(manual)} disabled={!manual.unique_id}>Add Device</Button></div><div className="rounded-2xl border border-border p-4"><input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && importCsv(e.target.files[0])} /><Button variant="outline" onClick={() => fileRef.current?.click()}><Upload className="h-4 w-4 mr-2" />Bulk Upload CSV</Button><p className="text-xs text-muted-foreground mt-2">CSV columns: Name, Unique ID. Only Unique ID is required.</p>{result && <p className="text-xs text-muted-foreground mt-2">Imported {result.created}; skipped {result.skipped} duplicates.</p>}</div><div className="grid md:grid-cols-5 gap-3">{STATUS_GROUPS.map(group => <div key={group.key} className="rounded-2xl border border-border p-3"><p className="text-xs font-bold text-muted-foreground mb-2">{group.label}</p><Badge variant="outline">{devices.filter(group.match).length}</Badge></div>)}</div></CardContent></Card>;
 }
