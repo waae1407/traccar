@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 
 const ICONS = { locate: MapPin, status: Activity, lock: Lock, unlock: Unlock, horn: Volume2, lights: Lightbulb, horn_lights: Volume2, alarm_pulse: Volume2, disable_starter: Power, restore_starter: RefreshCw };
-const CONFIRM_TEXT = { disable_starter: 'DISABLE STARTER', restore_starter: 'RESTORE STARTER' };
 
 const RESULT_STYLES = {
   pass: { badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25', icon: CheckCircle2, label: 'Verified' },
@@ -22,7 +21,6 @@ const CLOSED_STATUSES = new Set(['acknowledged', 'executed', 'confirmed', 'faile
 
 export default function CommandButtonGrid({ commands, execution, onSend, sending, session, sentCommands = {}, commandHistory = [] }) {
   const [checked, setChecked] = useState({});
-  const [typed, setTyped] = useState({});
 
   if (!commands?.length) return null;
 
@@ -49,7 +47,7 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
           {commands.map((command) => {
             const Icon = ICONS[command.key] || Activity;
             const isStarter = !!command.starter;
-            const ready = !isStarter || (checked[command.key] && typed[command.key] === CONFIRM_TEXT[command.key]);
+            const ready = !isStarter || checked[command.key];
             const latestCommand = latestCommandFor(command.key);
             const commandStatus = latestCommand?.queue_status || latestCommand?.status;
             const detail = session?.result_details?.[command.result_field];
@@ -73,13 +71,12 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
                   <p className="font-black text-white">{command.label}</p>
                 </div>
                 {isStarter && (
-                  <div className="mb-3 space-y-3 rounded-xl border border-red-500/25 bg-red-500/10 p-3">
-                    <div className="flex gap-2 text-red-200"><AlertTriangle className="h-4 w-4 flex-shrink-0" /><p className="text-xs font-semibold">Use starter commands only on approved vehicles. Do not run on active customer rentals.</p></div>
+                  <div className="mb-3 rounded-xl border border-red-500/25 bg-red-500/10 p-3">
+                    <div className="flex gap-2 text-red-200 mb-3"><AlertTriangle className="h-4 w-4 flex-shrink-0" /><p className="text-xs font-semibold">Use starter commands only on approved vehicles. Do not run on active customer rentals.</p></div>
                     <label className="flex items-start gap-2 text-xs font-semibold text-white/80">
                       <input type="checkbox" checked={!!checked[command.key]} onChange={(event) => setChecked((prev) => ({ ...prev, [command.key]: event.target.checked }))} className="mt-0.5" />
                       I understand this affects vehicle starter control.
                     </label>
-                    <Input value={typed[command.key] || ''} onChange={(event) => setTyped((prev) => ({ ...prev, [command.key]: event.target.value }))} placeholder={CONFIRM_TEXT[command.key]} className="h-9 bg-white/5 text-white placeholder:text-white/30" />
                   </div>
                 )}
                 <Button className="w-full" disabled={!!sending || !ready || (hasPendingCommand && !isThisPending)} onClick={() => onSend(command.key, isStarter)}>
