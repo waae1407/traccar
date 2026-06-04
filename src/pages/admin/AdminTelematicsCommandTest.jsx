@@ -5,7 +5,6 @@ import DeviceLookupCard from '@/components/telematics/command-test/DeviceLookupC
 import DeviceSummaryCard from '@/components/telematics/command-test/DeviceSummaryCard';
 import CommandButtonGrid from '@/components/telematics/command-test/CommandButtonGrid';
 import CommandHistoryPanel from '@/components/telematics/command-test/CommandHistoryPanel';
-import TestChecklist from '@/components/telematics/command-test/TestChecklist';
 
 export default function AdminTelematicsCommandTest() {
   const queryClient = useQueryClient();
@@ -13,7 +12,6 @@ export default function AdminTelematicsCommandTest() {
   const [lookupData, setLookupData] = useState(null);
   const [lookupError, setLookupError] = useState('');
   const [sending, setSending] = useState('');
-  const [notes, setNotes] = useState('');
   const [sentCommands, setSentCommands] = useState({});
 
   const history = useQuery({
@@ -28,7 +26,6 @@ export default function AdminTelematicsCommandTest() {
     mutationFn: () => base44.functions.invoke('adminLookupTelematicsCommandTest', { identifier: identifier.trim() }).then((res) => res.data),
     onSuccess: (data) => {
       setLookupData(data);
-      setNotes(data.session?.notes || '');
       setLookupError('');
       setSentCommands({});
       queryClient.invalidateQueries({ queryKey: ['admin-command-test-history', data.device?.id] });
@@ -47,11 +44,6 @@ export default function AdminTelematicsCommandTest() {
     return unsubscribe;
   }, [lookupData?.session?.id]);
 
-  const completeMutation = useMutation({
-    mutationFn: () => base44.functions.invoke('completeTelematicsDeviceTestSession', { session_id: lookupData.session.id, notes }).then((res) => res.data),
-    onSuccess: (data) => setLookupData((prev) => ({ ...prev, session: data.session })),
-    onError: (error) => setLookupError(error?.response?.data?.error || error.message)
-  });
 
   const sendCommand = async (commandType, isStarter) => {
     setSending(commandType);
@@ -88,7 +80,6 @@ export default function AdminTelematicsCommandTest() {
         <>
           <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} />
           <CommandHistoryPanel commands={history.data} onRefresh={history.refetch} loading={history.isFetching} />
-          <TestChecklist session={lookupData.session} commands={lookupData.supported_commands} notes={notes} setNotes={setNotes} onComplete={() => completeMutation.mutate()} completing={completeMutation.isPending} />
         </>
       )}
     </div>
