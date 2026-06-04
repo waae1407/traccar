@@ -1,6 +1,6 @@
 # Noran MT20 Protocol Lock
 
-Status: LOCKED — production ready, tested and working
+Status: LOCKED — tested and working
 
 ## Rule
 The currently implemented Noran MT20 protocol logic is considered working and must not be changed silently.
@@ -34,13 +34,6 @@ The following existing logic is protected:
 - `functions/syncTraccarDevicePositions`
   - MT20/Noran packet decoding
   - position, ignition, voltage, GPS, and status parsing
-
-- `pages/admin/AdminTelematicsCommandTest.jsx`
-  - production-ready command verification workflow
-  - lookup, supported command display, send buttons, command result display, and command history behavior
-
-- `components/telematics/command-test/*`
-  - command test UI controls, confirmation states, result labels, and history rendering
 
 - Any installer/admin command test behavior that relies on the current MT20 implementation
 

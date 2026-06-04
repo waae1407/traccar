@@ -5,7 +5,6 @@ import DeviceLookupCard from '@/components/telematics/command-test/DeviceLookupC
 import DeviceSummaryCard from '@/components/telematics/command-test/DeviceSummaryCard';
 import CommandButtonGrid from '@/components/telematics/command-test/CommandButtonGrid';
 import CommandHistoryPanel from '@/components/telematics/command-test/CommandHistoryPanel';
-import { ShieldCheck } from 'lucide-react';
 
 export default function AdminTelematicsCommandTest() {
   const queryClient = useQueryClient();
@@ -71,16 +70,6 @@ export default function AdminTelematicsCommandTest() {
           <p className="text-xs font-black uppercase tracking-[0.3em] text-primary">Admin → Telematics → Command Verification</p>
           <h1 className="mt-2 text-3xl font-black text-white md:text-4xl">Telematics Command Verification</h1>
           <p className="mt-2 max-w-3xl text-sm text-white/55">Admin-only verification for device connectivity, supported commands, and confirmed vehicle responses.</p>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-5 w-5 text-emerald-300" />
-          <div>
-            <p className="font-bold text-white">Production ready — change locked</p>
-            <p className="mt-1 text-emerald-100/75">This command verification page and related telematics command behavior are approved as working. Any future changes require owner approval before implementation.</p>
-          </div>
         </div>
       </div>
 
