@@ -88,6 +88,37 @@ function isTraccarSingleDeviceLiveTest(provider, device, commandType) {
     && TRACCAR_TEST_COMMANDS.includes(commandType)
     && !STARTER_COMMANDS.includes(commandType);
 }
+
+async function findTraccarDeviceByUniqueId(uniqueId) {
+  const baseUrl = envValue('TRACCAR_BASE_URL');
+  const username = envValue('TRACCAR_USERNAME');
+  const password = envValue('TRACCAR_PASSWORD');
+  if (!baseUrl || !username || !password || !uniqueId) return null;
+  const res = await fetch(joinUrl(baseUrl, '/api/devices'), {
+    headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), Accept: 'application/json' }
+  });
+  if (!res.ok) return null;
+  const devices = await res.json();
+  return (Array.isArray(devices) ? devices : []).find(item => String(item.uniqueId || '').trim().toUpperCase() === String(uniqueId || '').trim().toUpperCase()) || null;
+}
+
+async function ensureFreshTraccarDeviceId(base44, device) {
+  if (device.provider_key !== 'traccar_noran_mt20' || !device.unique_id) return device;
+  const traccarDevice = await findTraccarDeviceByUniqueId(device.unique_id);
+  if (!traccarDevice?.id) return device;
+  const freshId = String(traccarDevice.id);
+  if (String(device.traccar_device_id || '') !== freshId || String(device.provider_device_id || '') !== freshId) {
+    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+      traccar_device_id: freshId,
+      provider_device_id: freshId,
+      online_status: traccarDevice.status || device.online_status || 'unknown',
+      last_seen_at: traccarDevice.lastUpdate || device.last_seen_at
+    });
+    return { ...device, traccar_device_id: freshId, provider_device_id: freshId, online_status: traccarDevice.status || device.online_status || 'unknown', last_seen_at: traccarDevice.lastUpdate || device.last_seen_at };
+  }
+  return device;
+}
+
 async function sendTraccarSingleDeviceLiveTest(commandType, device) {
   const routed = await sendTraccarNoranProductionCommand(commandType, { ...device, traccar_device_id: TRACCAR_TEST_DEVICE_ID }, null);
   return { ...routed, live_test: true };
@@ -235,7 +266,7 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { data = { raw: text }; }
-    if (!res.ok) throw new Error(`Traccar production command failed (${res.status})`);
+    if (!res.ok) throw new Error(`Traccar production command failed (${res.status}): ${typeof data?.raw === 'string' ? data.raw : JSON.stringify(data)}`);
     responses.push({ ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes });
   }
   const first = builtCommands[0];
@@ -348,6 +379,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Device is not enabled for live commands.' }, { status: 403 });
     }
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
+    device = await ensureFreshTraccarDeviceId(base44, device);
     const capability = CAPABILITY_MAP[commandType];
     if (adminTraccarLiveTest) {
       if (user.role !== 'admin') return Response.json({ error: 'Admin access required for Traccar single-device live test.' }, { status: 403 });
