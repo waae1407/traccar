@@ -251,6 +251,9 @@ function normalizeTimestamp(value) {
 }
 
 function evaluateCommandReply(command, parsed) {
+  if (['0x0008', '0x0032'].includes(parsed.packet_type)) {
+    return { result: 'pass', reason: 'Device position reply received after locate/status command.' };
+  }
   if (parsed.packet_type === '0x0038') {
     return { result: 'pass', reason: 'Device query/status reply received after command.' };
   }
@@ -277,7 +280,7 @@ function evaluateCommandReply(command, parsed) {
 
 function isReplyCompatibleWithCommand(command, parsed) {
   const commandType = command?.command_type;
-  if (parsed?.packet_type === '0x8009') return ['status', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter'].includes(commandType);
+  if (parsed?.packet_type === '0x8009') return ['locate', 'status', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter'].includes(commandType);
   if (['0x0008', '0x0032', '0x0038'].includes(parsed?.packet_type)) return ['locate', 'status'].includes(commandType);
   return false;
 }
@@ -333,7 +336,7 @@ async function updateCommandTestSession(base44, command, evaluation, parsed, tim
 }
 
 function isCommandReply(parsed) {
-  return ['0x8009', '0x0038'].includes(parsed?.packet_type);
+  return ['0x0008', '0x0032', '0x0038', '0x8009'].includes(parsed?.packet_type);
 }
 
 async function processCommandResponse(base44, device, parsed, timestamp) {
