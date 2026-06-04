@@ -23,19 +23,26 @@ export default function DeviceSummaryCard({ data }) {
   if (!data?.device) return null;
   const { device, provider, vehicle, host, supported_commands = [], execution } = data;
   const offline = device.online_status === 'offline';
+  const isOnline = device.online_status === 'online';
+  const statusLabel = isOnline ? 'Online' : 'Offline';
   const ToggleIcon = isOpen ? ChevronDown : ChevronRight;
 
   return (
     <Card className="glass border-white/10">
       <CardContent className="space-y-5 p-5">
         <button type="button" onClick={() => setIsOpen((value) => !value)} className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Selected Device</p>
-            <div className="mt-2 flex items-center gap-2">
-              <h2 className="text-2xl font-black text-white">{device.unique_id || device.id}</h2>
-              <ToggleIcon className="h-5 w-5 text-white/60" />
+          <div className="flex w-full items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Selected Device</p>
+              <div className="mt-2 flex items-center gap-2">
+                <h2 className="text-2xl font-black text-white">{device.unique_id || device.id}</h2>
+                <ToggleIcon className="h-5 w-5 text-white/60" />
+              </div>
+              <p className="mt-1 text-xs font-semibold text-white/45">Tap to {isOpen ? 'hide' : 'see'} device details</p>
             </div>
-            <p className="mt-1 text-xs font-semibold text-white/45">Tap to {isOpen ? 'hide' : 'see'} device details</p>
+            <div className={isOnline ? 'flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-full border border-emerald-300/50 bg-emerald-500/20 text-xs font-black text-emerald-200 shadow-[0_0_22px_rgba(16,185,129,0.35)]' : 'flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-full border border-red-300/50 bg-red-500/20 text-xs font-black text-red-200 shadow-[0_0_22px_rgba(239,68,68,0.35)]'}>
+              {statusLabel}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge className={execution?.dry_run ? 'bg-yellow-500 text-black' : 'bg-emerald-500 text-white'}>{execution?.dry_run ? 'Simulation Mode' : 'Live Commands'}</Badge>
