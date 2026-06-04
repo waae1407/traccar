@@ -223,6 +223,9 @@ function normalizeTimestamp(value) {
 }
 
 function evaluateCommandReply(command, parsed) {
+  if (parsed.packet_type === '0x0038') {
+    return { result: 'pass', reason: 'Device query/status reply received after command.' };
+  }
   if (!Number.isFinite(parsed.cErrorCode)) {
     return { result: 'fail', reason: 'Malformed MT20 command response: missing cErrorCode.' };
   }
@@ -286,6 +289,10 @@ async function updateCommandTestSession(base44, command, evaluation, parsed, tim
   });
 }
 
+function isCommandReply(parsed) {
+  return parsed?.message_type === 'mt20_command_response_8009' || parsed?.packet_type === '0x8009' || parsed?.packet_type === '0x0038';
+}
+
 async function processCommandResponse(base44, device, parsed, timestamp) {
   const command = await findMatchingCommand(base44, device, timestamp);
   if (!command) return { command_matched: false, reason: 'No pending command matched this MT20 reply.' };
@@ -331,7 +338,6 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
       return Response.json({ error: 'Malformed payload' }, { status: 400 });
@@ -346,6 +352,8 @@ Deno.serve(async (req) => {
     if (providerKey !== PROVIDER_KEY) {
       return Response.json({ error: 'Unsupported provider_key' }, { status: 400 });
     }
+
+    const base44 = createClientFromRequest(req);
     const now = new Date().toISOString();
     const parsed = parseForwardedMessage(body);
     if (!parsed) {
@@ -408,7 +416,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const command_processing = parsed.message_type === 'mt20_command_response_8009'
+    const command_processing = isCommandReply(parsed)
       ? await processCommandResponse(base44, device, parsed, timestamp)
       : null;
 
