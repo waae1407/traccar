@@ -10,19 +10,29 @@ const CONFIRM_TEXT = { disable_starter: 'DISABLE STARTER', restore_starter: 'RES
 
 const RESULT_STYLES = {
   pass: { badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25', icon: CheckCircle2, label: 'Verified' },
+  acknowledged: { badge: 'bg-blue-500/15 text-blue-300 border border-blue-500/25', icon: CheckCircle2, label: 'Acknowledged' },
   fail: { badge: 'bg-red-500/15 text-red-300 border border-red-500/25', icon: XCircle, label: 'Needs review' },
   ready: { badge: 'bg-white/10 text-white/60 border border-white/10', icon: Clock, label: 'Ready' },
   untested: { badge: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/25', icon: Clock, label: 'Awaiting response' },
   not_supported: { badge: 'bg-white/10 text-white/55 border border-white/10', icon: AlertTriangle, label: 'Not supported' }
 };
 
-export default function CommandButtonGrid({ commands, execution, onSend, sending, session, sentCommands = {} }) {
+const RESPONSE_STATUSES = new Set(['acknowledged', 'executed', 'confirmed']);
+const CLOSED_STATUSES = new Set(['acknowledged', 'executed', 'confirmed', 'failed', 'expired']);
+
+export default function CommandButtonGrid({ commands, execution, onSend, sending, session, sentCommands = {}, commandHistory = [] }) {
   const [checked, setChecked] = useState({});
   const [typed, setTyped] = useState({});
 
   if (!commands?.length) return null;
 
-  const hasPendingCommand = commands.some((item) => sentCommands[item.key] && (session?.[item.result_field] || 'untested') === 'untested');
+  const latestCommandFor = (commandType) => (commandHistory || []).find((command) => command.command_type === commandType);
+  const hasPendingCommand = commands.some((item) => {
+    const value = session?.[item.result_field] || 'untested';
+    const latestCommand = latestCommandFor(item.key);
+    const status = latestCommand?.queue_status || latestCommand?.status;
+    return sentCommands[item.key] && value === 'untested' && !CLOSED_STATUSES.has(status);
+  });
 
   return (
     <Card className="glass border-white/10">
@@ -41,12 +51,18 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
             const isStarter = !!command.starter;
             const ready = !isStarter || (checked[command.key] && typed[command.key] === CONFIRM_TEXT[command.key]);
             const value = session?.[command.result_field] || 'untested';
-            const wasSent = !!sentCommands[command.key] || value !== 'untested';
-            const displayValue = !wasSent && value === 'untested' ? 'ready' : value;
+            const latestCommand = latestCommandFor(command.key);
+            const commandStatus = latestCommand?.queue_status || latestCommand?.status;
+            const derivedValue = value === 'untested' && RESPONSE_STATUSES.has(commandStatus)
+              ? (commandStatus === 'acknowledged' ? 'acknowledged' : 'pass')
+              : value;
+            const wasSent = !!sentCommands[command.key] || value !== 'untested' || !!latestCommand;
+            const displayValue = !wasSent && value === 'untested' ? 'ready' : derivedValue;
             const detail = session?.result_details?.[command.result_field];
+            const ackReason = latestCommand?.provider_response?.mt20_reply_evaluation?.reason;
             const style = RESULT_STYLES[displayValue] || RESULT_STYLES.untested;
             const ResultIcon = style.icon;
-            const isThisPending = sentCommands[command.key] && value === 'untested';
+            const isThisPending = sentCommands[command.key] && value === 'untested' && !CLOSED_STATUSES.has(commandStatus);
             return (
               <div key={command.key} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="mb-3 flex items-center gap-3">
@@ -72,7 +88,7 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
                   <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
                     <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-white/45">Device response</p>
                     <Badge className={style.badge}><ResultIcon className="mr-1 h-3.5 w-3.5" />{style.label}</Badge>
-                    <p className="mt-2 text-xs text-white/55">{detail?.reason || (displayValue === 'ready' ? 'Click Send to verify this command.' : 'Status updates automatically when the device response is processed.')}</p>
+                    <p className="mt-2 text-xs text-white/55">{detail?.reason || ackReason || (displayValue === 'ready' ? 'Click Send to verify this command.' : 'Status updates automatically when the device response is processed.')}</p>
                   </div>
                 )}
               </div>
