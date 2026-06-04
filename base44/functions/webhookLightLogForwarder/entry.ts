@@ -17,6 +17,13 @@ const COMMAND_RESULT_FIELDS = {
   disable_starter: 'starter_disable_result',
   restore_starter: 'starter_restore_result'
 };
+const MT20_ALARM_TYPES = {
+  1: 'sos_alarm',
+  2: 'overspeed_alarm',
+  3: 'geofence_alarm',
+  4: 'shock_alarm',
+  9: 'power_alarm'
+};
 const IGNORED_PACKET_TYPES = new Set([0x0000]);
 const MEANINGFUL_PACKET_TYPES = new Map([
   [0x0003, 'mt20_alarm_upload'],
@@ -69,6 +76,23 @@ function readUInt16LE(bytes, offset) {
 function readUInt32LE(bytes, offset) {
   if (!bytes || offset + 3 >= bytes.length) return null;
   return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+}
+
+function readFloatLE(bytes, offset) {
+  if (!bytes || offset + 3 >= bytes.length) return null;
+  return new DataView(new Uint8Array(bytes).buffer, offset, 4).getFloat32(0, true);
+}
+
+function decodePackedDateTime(value) {
+  if (!Number.isFinite(value)) return '';
+  const year = 2000 + ((value >>> 26) & 0x3f);
+  const month = (value >>> 22) & 0x0f;
+  const day = (value >>> 17) & 0x1f;
+  const hour = (value >>> 12) & 0x1f;
+  const minute = (value >>> 6) & 0x3f;
+  const second = value & 0x3f;
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59) return '';
+  return new Date(Date.UTC(year, month - 1, day, hour, minute, second)).toISOString();
 }
 
 function readTrailingSignedByte(bytes) {
@@ -186,6 +210,61 @@ function parseMt20CommandResponse8009(body) {
   return null;
 }
 
+function parseMt20AlarmUpload0003(body) {
+  const rawHex = rawHexFromBody(body);
+  const bytes = hexToBytes(rawHex);
+  if (!bytes) return null;
+
+  for (let i = 0; i < bytes.length - 24; i++) {
+    const packetType = readUInt16LE(bytes, i + 2);
+    if (packetType !== 0x0003) continue;
+
+    const bEnable = bytes[i + 4];
+    const nBAT = bytes[i + 5];
+    const speed = bytes[i + 6];
+    const direction = readUInt16LE(bytes, i + 7);
+    const longitude = readFloatLE(bytes, i + 9);
+    const latitude = readFloatLE(bytes, i + 13);
+    const timestamp = decodePackedDateTime(readUInt32LE(bytes, i + 17));
+    const alarmByte = bytes[i + 32];
+    const alarm_type = MT20_ALARM_TYPES[alarmByte] || 'unknown_alarm';
+    const batteryVoltage = Number.isFinite(nBAT) ? nBAT / 10 : undefined;
+
+    return {
+      message_type: 'mt20_alarm_upload_0003',
+      event_type: alarm_type,
+      source: 'forwarded_log_mt20_0003_alarm_upload',
+      raw_packet_hex: cleanHex(rawHex),
+      packet_type: '0x0003',
+      packet_offset: i,
+      bEnable,
+      status_bits: decodeStatusBits(bEnable),
+      nBAT,
+      alarm_byte: alarmByte,
+      alarm_type,
+      speed,
+      direction,
+      longitude,
+      latitude,
+      device_timestamp: timestamp,
+      device_unique_id: extractDeviceId(bytes.slice(i), body),
+      voltage: Number.isFinite(batteryVoltage) ? batteryVoltage : undefined,
+      device_updates: {
+        online_status: 'online',
+        ...(Number.isFinite(batteryVoltage) ? {
+          battery_voltage: batteryVoltage,
+          power_voltage: batteryVoltage,
+          external_voltage: batteryVoltage,
+          voltage: batteryVoltage,
+          voltage_source: 'forwarded_log_mt20_0003_alarm_upload'
+        } : {})
+      }
+    };
+  }
+
+  return null;
+}
+
 function parseMeaningfulMt20Packet(body) {
   const rawHex = rawHexFromBody(body);
   const bytes = hexToBytes(rawHex);
@@ -213,6 +292,7 @@ function parseMeaningfulMt20Packet(body) {
 const MESSAGE_HANDLERS = [
   { name: 'mt20_voltage_0032', parse: parseMt20Voltage0032 },
   { name: 'mt20_command_response_8009', parse: parseMt20CommandResponse8009 },
+  { name: 'mt20_alarm_upload_0003', parse: parseMt20AlarmUpload0003 },
   { name: 'meaningful_mt20_packet', parse: parseMeaningfulMt20Packet }
 ];
 
@@ -430,7 +510,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const timestamp = normalizeTimestamp(body.timestamp || body.deviceTime || body.serverTime || now);
+    const timestamp = normalizeTimestamp(parsed.device_timestamp || body.timestamp || body.deviceTime || body.serverTime || now);
     const device = await findDevice(base44, body, parsed);
 
     const rawPayload = { ...body, parsed_forwarded_log: parsed };
@@ -451,6 +531,10 @@ Deno.serve(async (req) => {
       vehicle_id: device?.vehicle_id || '',
       event_type: parsed.event_type,
       source: 'webhook',
+      latitude: parsed.latitude,
+      longitude: parsed.longitude,
+      speed: parsed.speed,
+      ignition: typeof parsed.status_bits?.accOn === 'boolean' ? parsed.status_bits.accOn : undefined,
       raw_payload: rawPayload,
       created_at: now
     }).then((createdEvent) => {
@@ -461,6 +545,10 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
         ...parsed.device_updates,
         ...(Number.isFinite(parsed.voltage) ? { voltage_last_seen_at: timestamp } : {}),
+        ...(parsed.latitude !== undefined ? { last_latitude: parsed.latitude } : {}),
+        ...(parsed.longitude !== undefined ? { last_longitude: parsed.longitude } : {}),
+        ...(parsed.speed !== undefined ? { speed: parsed.speed } : {}),
+        ...(typeof parsed.status_bits?.accOn === 'boolean' ? { ignition_status: parsed.status_bits.accOn ? 'on' : 'off' } : {}),
         last_seen_at: timestamp
       }).catch((error) => console.warn('Device update skipped:', error.message));
     }
