@@ -277,7 +277,7 @@ function evaluateCommandReply(command, parsed) {
 
 function isReplyCompatibleWithCommand(command, parsed) {
   const commandType = command?.command_type;
-  if (parsed?.packet_type === '0x8009') return ['lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter'].includes(commandType);
+  if (parsed?.packet_type === '0x8009') return ['status', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter'].includes(commandType);
   if (['0x0008', '0x0032', '0x0038'].includes(parsed?.packet_type)) return ['locate', 'status'].includes(commandType);
   return false;
 }
