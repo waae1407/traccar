@@ -315,7 +315,7 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
     source: 'webhook',
     raw_payload: { command_id: command.id, parsed_forwarded_log: parsed, evaluation },
     created_at: timestamp
-  });
+  }).catch((error) => console.warn('Command response event log skipped:', error.message));
 
   return { command_matched: true, command_id: command.id, command_type: command.command_type, result: evaluation.result, reason: evaluation.reason, session_updated: !!session };
 }
@@ -361,7 +361,8 @@ Deno.serve(async (req) => {
       rawPayload.voltage_last_seen_at = timestamp;
     }
 
-    const event = await base44.asServiceRole.entities.TelematicsEvent.create({
+    let event = null;
+    await base44.asServiceRole.entities.TelematicsEvent.create({
       company_id: device?.company_id || '',
       telematics_device_id: device?.id || '',
       provider_key: PROVIDER_KEY,
@@ -370,7 +371,9 @@ Deno.serve(async (req) => {
       source: 'webhook',
       raw_payload: rawPayload,
       created_at: now
-    });
+    }).then((createdEvent) => {
+      event = createdEvent;
+    }).catch((error) => console.warn('Forwarded log event skipped:', error.message));
 
     if (device && parsed.device_updates) {
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
@@ -387,7 +390,7 @@ Deno.serve(async (req) => {
     return Response.json({
       ok: true,
       message_type: parsed.message_type,
-      event_id: event.id,
+      event_id: event?.id || '',
       device_updated: !!device,
       device_id: device?.id || '',
       voltage: parsed.voltage,
