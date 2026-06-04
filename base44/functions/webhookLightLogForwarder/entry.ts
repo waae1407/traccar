@@ -29,6 +29,13 @@ function getSecret(req, body) {
   return String(req.headers.get('x-webhook-secret') || req.headers.get('x-telematics-secret') || body.webhook_secret || '').trim();
 }
 
+function createWebhookClient(req) {
+  const headers = new Headers(req.headers);
+  headers.delete('authorization');
+  headers.delete('cookie');
+  return createClientFromRequest(new Request(req.url, { method: req.method, headers }));
+}
+
 function rawHexFromBody(body) {
   const value = body.raw_packet_hex || body.packet_hex || body.raw_hex || body.message || body.data || '';
   const text = String(value || '').trim();
@@ -385,7 +392,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unsupported provider_key' }, { status: 400 });
     }
 
-    const base44 = createClientFromRequest(req);
+    const base44 = createWebhookClient(req);
     const now = new Date().toISOString();
     const parsed = parseForwardedMessage(body);
     if (!parsed) {
