@@ -50,15 +50,18 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
             const Icon = ICONS[command.key] || Activity;
             const isStarter = !!command.starter;
             const ready = !isStarter || (checked[command.key] && typed[command.key] === CONFIRM_TEXT[command.key]);
-            const value = session?.[command.result_field] || 'untested';
             const latestCommand = latestCommandFor(command.key);
             const commandStatus = latestCommand?.queue_status || latestCommand?.status;
+            const detail = session?.result_details?.[command.result_field];
+            const rawValue = session?.[command.result_field] || 'untested';
+            const value = rawValue === 'fail' && detail?.command_id && latestCommand?.id && detail.command_id !== latestCommand.id
+              ? 'untested'
+              : rawValue;
             const derivedValue = value === 'untested' && RESPONSE_STATUSES.has(commandStatus)
               ? (commandStatus === 'acknowledged' ? 'acknowledged' : 'pass')
               : value;
             const wasSent = !!sentCommands[command.key] || value !== 'untested' || !!latestCommand;
             const displayValue = !wasSent && value === 'untested' ? 'ready' : derivedValue;
-            const detail = session?.result_details?.[command.result_field];
             const ackReason = latestCommand?.provider_response?.mt20_reply_evaluation?.reason;
             const style = RESULT_STYLES[displayValue] || RESULT_STYLES.untested;
             const ResultIcon = style.icon;
