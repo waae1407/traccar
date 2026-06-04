@@ -17,7 +17,7 @@ const COMMAND_STATES = ["queued", "sending", "sent", "delivered", "acknowledged"
 
 export default function AdminTelematicsOperationsCenter() {
   const qc = useQueryClient();
-  const [filters, setFilters] = useState({ provider: "all", command: "all", search: "" });
+  const [filters, setFilters] = useState({ provider: "all", command: "all", status: "all", search: "" });
   const { data: devices = [] } = useQuery({ queryKey: ["ops-telematics-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-updated_date", 500), refetchInterval: 30000 });
   const { data: commands = [] } = useQuery({ queryKey: ["ops-telematics-commands"], queryFn: () => base44.entities.TelematicsCommand.list("-created_date", 300), refetchInterval: 15000 });
   const { data: providers = [] } = useQuery({ queryKey: ["ops-telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100), refetchInterval: 60000 });
@@ -32,6 +32,7 @@ export default function AdminTelematicsOperationsCenter() {
     const text = `${c.provider_key} ${c.vehicle_id} ${c.telematics_device_id} ${c.command_type}`.toLowerCase();
     return (filters.provider === "all" || c.provider_key === filters.provider) &&
       (filters.command === "all" || c.command_type === filters.command) &&
+      (filters.status === "all" || (c.queue_status || c.status) === filters.status) &&
       text.includes(filters.search.toLowerCase());
   }), [commands, filters]);
 
@@ -59,7 +60,7 @@ export default function AdminTelematicsOperationsCenter() {
     </ExpandableSection>
 
     <ExpandableSection title="Vehicle Action Center" defaultOpen>
-      <div className="grid md:grid-cols-8 gap-2 mb-3">{COMMAND_STATES.map(key => <Card key={key} className="glass"><CardContent className="p-3"><p className="text-xs text-muted-foreground capitalize">{statusLabel(key)}</p><p className="text-xl font-black">{commandCounts[key] || 0}</p></CardContent></Card>)}</div>
+      <div className="grid md:grid-cols-8 gap-2 mb-3">{COMMAND_STATES.map(key => <button key={key} type="button" onClick={() => setFilters(f => ({ ...f, status: f.status === key ? "all" : key }))} className="text-left"><Card className={`glass transition-all hover:border-primary/40 ${filters.status === key ? "border-primary/50 ring-1 ring-primary/30" : ""}`}><CardContent className="p-3"><p className="text-xs text-muted-foreground capitalize">{statusLabel(key)}</p><p className="text-xl font-black">{commandCounts[key] || 0}</p></CardContent></Card></button>)}</div>
       <div className="space-y-3"><div className="grid md:grid-cols-3 gap-2"><Select value={filters.provider} onValueChange={provider => setFilters(f => ({ ...f, provider }))}><SelectTrigger><SelectValue placeholder="Service Network" /></SelectTrigger><SelectContent><SelectItem value="all">All service networks</SelectItem>{providers.map(p => <SelectItem key={p.id} value={p.provider_key}>Telematics Network</SelectItem>)}</SelectContent></Select><Select value={filters.command} onValueChange={command => setFilters(f => ({ ...f, command }))}><SelectTrigger><SelectValue placeholder="Vehicle Action" /></SelectTrigger><SelectContent><SelectItem value="all">All actions</SelectItem>{["locate", "lock", "unlock", "horn_lights", "disable_starter", "restore_starter", "status"].map(c => <SelectItem key={c} value={c}>{commandLabel(c)}</SelectItem>)}</SelectContent></Select><Input placeholder="Search host, vehicle, device..." value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} /></div>{filteredCommands.slice(0, 40).map(c => <div key={c.id} className="rounded-xl border border-border p-3 flex flex-wrap items-center justify-between gap-2 text-sm"><span>{commandLabel(c.command_type)} · Telematics Network</span><span className="text-muted-foreground">{c.vehicle_id || c.telematics_device_id}</span><Badge variant="outline">{statusLabel(c.queue_status || c.status)}</Badge></div>)}</div>
     </ExpandableSection>
 

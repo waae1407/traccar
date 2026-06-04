@@ -107,15 +107,15 @@ export default function AdminHosts() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "Pending", value: pending.length, color: "text-yellow-400" },
-          { label: "Approved", value: approved.length, color: "text-green-400" },
-          { label: "Suspended", value: hosts.filter(h => h.status === "suspended").length, color: "text-red-400" },
-          { label: "Total Fleet", value: hosts.reduce((s, h) => s + (h.total_vehicles || 0), 0), color: "text-primary" },
+          { label: "Pending", value: pending.length, color: "text-yellow-400", filterKey: "pending" },
+          { label: "Approved", value: approved.length, color: "text-green-400", filterKey: "approved" },
+          { label: "Suspended", value: hosts.filter(h => h.status === "suspended").length, color: "text-red-400", filterKey: "suspended" },
+          { label: "Total Fleet", value: hosts.reduce((s, h) => s + (h.total_vehicles || 0), 0), color: "text-primary", filterKey: "all" },
         ].map((s, i) => (
-          <div key={i} className="rounded-2xl border border-white/[0.08] p-4 glass text-center">
+          <button key={i} type="button" onClick={() => setFilter(s.filterKey)} className={`rounded-2xl border p-4 glass text-center transition-all hover:-translate-y-0.5 ${filter === s.filterKey ? "border-primary/50 ring-1 ring-primary/30" : "border-white/[0.08]"}`}>
             <p className={`text-2xl font-black font-syne ${s.color}`}>{s.value}</p>
             <p className="text-xs text-white/40 mt-1">{s.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 

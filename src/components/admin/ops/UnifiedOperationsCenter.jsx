@@ -17,6 +17,7 @@ export default function UnifiedOperationsCenter() {
   const queryClient = useQueryClient();
   const [filters, setFilters] = useState(initialFilters);
   const [activeStream, setActiveStream] = useState("payments");
+  const [activeSummary, setActiveSummary] = useState("all");
   const [selectedItem, setSelectedItem] = useState(null);
 
   const { data: user } = useQuery({ queryKey: ["unified-ops-user"], queryFn: () => base44.auth.me(), staleTime: 60_000 });
@@ -70,31 +71,36 @@ export default function UnifiedOperationsCenter() {
       </div>
 
       <div className="space-y-5 p-4 sm:p-6">
-        <UnifiedOpsSummaryCards needsAction={needsAction} notifications={visibleNotifications} events={visibleEvents} audit={visibleAudit} />
+        <UnifiedOpsSummaryCards needsAction={needsAction} notifications={visibleNotifications} events={visibleEvents} audit={visibleAudit} activeSummary={activeSummary} onSelectSummary={setActiveSummary} />
+        {activeSummary !== "all" && <div className="rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-2 text-sm font-semibold text-primary">Showing {activeSummary.replace(/_/g, " ")} results only <button onClick={() => setActiveSummary("all")} className="ml-3 text-xs underline text-white/50 hover:text-white">Clear</button></div>}
         <UnifiedOpsFilters filters={filters} setFilters={setFilters} hosts={hosts.data || []} vehicles={vehicles.data || []} />
 
         {loading && <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-sm text-white/45">Loading unified operations data…</div>}
 
-        <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-          <UnifiedOpsItemList title="Needs Action" subtitle="Highest-priority queue across payments, telematics, compliance, disputes, installs, fleet, hosts, and dealer operations." items={needsAction} variant="needs" onSelect={setSelectedItem} />
-          <UnifiedOpsItemList title="Notifications" subtitle="User-facing informational delivery stream." items={visibleNotifications} variant="notifications" onSelect={setSelectedItem} limit={12} />
-        </div>
-
-        <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-          <UnifiedOpsItemList title="Activity Timeline" subtitle="Business activity from ActivityEvent." items={visibleEvents} variant="events" onSelect={setSelectedItem} limit={18} />
-          <div className="rounded-3xl border border-white/10 bg-white/[0.035] overflow-hidden">
-            <div className="border-b border-white/10 px-4 py-3">
-              <p className="font-black text-white">Domain Event Streams</p>
-              <p className="text-xs text-white/40">Filtered operational streams by business area.</p>
-            </div>
-            <div className="flex gap-1 overflow-x-auto border-b border-white/10 p-2 no-scrollbar">
-              {STREAM_TABS.map(tab => <button key={tab} onClick={() => setActiveStream(tab)} className={`rounded-xl px-3 py-2 text-xs font-bold capitalize whitespace-nowrap ${activeStream === tab ? "gradient-primary text-white" : "text-white/45 hover:bg-white/10"}`}>{tab.replace(/_/g, " ")}</button>)}
-            </div>
-            <UnifiedOpsItemList title={`${activeStream.replace(/_/g, " ")} stream`} items={streamItems} variant="events" onSelect={setSelectedItem} limit={14} />
+        {(activeSummary === "all" || activeSummary === "needs" || activeSummary === "notifications") && (
+          <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+            {(activeSummary === "all" || activeSummary === "needs") && <UnifiedOpsItemList title="Needs Action" subtitle="Highest-priority queue across payments, telematics, compliance, disputes, installs, fleet, hosts, and dealer operations." items={needsAction} variant="needs" onSelect={setSelectedItem} />}
+            {(activeSummary === "all" || activeSummary === "notifications") && <UnifiedOpsItemList title="Notifications" subtitle="User-facing informational delivery stream." items={visibleNotifications} variant="notifications" onSelect={setSelectedItem} limit={12} />}
           </div>
-        </div>
+        )}
 
-        <UnifiedOpsItemList title="Audit Trail" subtitle="Admin, system, automation, and webhook activity only." items={visibleAudit} variant="audit" onSelect={setSelectedItem} limit={25} />
+        {(activeSummary === "all" || activeSummary === "events") && (
+          <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+            <UnifiedOpsItemList title="Activity Timeline" subtitle="Business activity from ActivityEvent." items={visibleEvents} variant="events" onSelect={setSelectedItem} limit={18} />
+            <div className="rounded-3xl border border-white/10 bg-white/[0.035] overflow-hidden">
+              <div className="border-b border-white/10 px-4 py-3">
+                <p className="font-black text-white">Domain Event Streams</p>
+                <p className="text-xs text-white/40">Filtered operational streams by business area.</p>
+              </div>
+              <div className="flex gap-1 overflow-x-auto border-b border-white/10 p-2 no-scrollbar">
+                {STREAM_TABS.map(tab => <button key={tab} onClick={() => setActiveStream(tab)} className={`rounded-xl px-3 py-2 text-xs font-bold capitalize whitespace-nowrap ${activeStream === tab ? "gradient-primary text-white" : "text-white/45 hover:bg-white/10"}`}>{tab.replace(/_/g, " ")}</button>)}
+              </div>
+              <UnifiedOpsItemList title={`${activeStream.replace(/_/g, " ")} stream`} items={streamItems} variant="events" onSelect={setSelectedItem} limit={14} />
+            </div>
+          </div>
+        )}
+
+        {(activeSummary === "all" || activeSummary === "audit") && <UnifiedOpsItemList title="Audit Trail" subtitle="Admin, system, automation, and webhook activity only." items={visibleAudit} variant="audit" onSelect={setSelectedItem} limit={25} />}
       </div>
 
       <UnifiedOpsDrawer item={selectedItem} onClose={() => setSelectedItem(null)} onChanged={invalidate} />

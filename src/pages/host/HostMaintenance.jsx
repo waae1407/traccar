@@ -292,12 +292,12 @@ export default function HostMaintenance() {
 
       {/* KPI CARDS */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-        <KpiCard value={kpis.total} label="Total Services" color="text-gray-900" bg="bg-white border-gray-100" />
-        <KpiCard value={`$${Math.round(kpis.totalCost).toLocaleString()}`} label="Total Cost" color="text-red-500" bg="bg-white border-gray-100" />
-        <KpiCard value={kpis.dueSoon} label="Due Soon" color="text-yellow-600" bg="bg-yellow-50 border-yellow-200" />
-        <KpiCard value={kpis.overdue} label="Overdue" color={kpis.overdue > 0 ? "text-red-600" : "text-gray-400"} bg={kpis.overdue > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-100"} />
-        <KpiCard value={kpis.inMaintenance} label="In Maint." color={kpis.inMaintenance > 0 ? "text-orange-600" : "text-gray-400"} bg={kpis.inMaintenance > 0 ? "bg-orange-50 border-orange-200" : "bg-white border-gray-100"} />
-        <KpiCard value={`$${Math.round(kpis.avgCostPerVehicle).toLocaleString()}`} label="Avg/Vehicle" color="text-pink-600" bg="bg-pink-50 border-pink-200" />
+        <KpiCard value={kpis.total} label="Total Services" color="text-gray-900" bg="bg-white border-gray-100" active={!filters.status} onClick={() => setFilters(f => ({ ...f, status: "" }))} />
+        <KpiCard value={`$${Math.round(kpis.totalCost).toLocaleString()}`} label="Total Cost" color="text-red-500" bg="bg-white border-gray-100" active={!filters.status} onClick={() => setFilters(f => ({ ...f, status: "" }))} />
+        <KpiCard value={kpis.dueSoon} label="Due Soon" color="text-yellow-600" bg="bg-yellow-50 border-yellow-200" active={filters.status === "due_soon"} onClick={() => setFilters(f => ({ ...f, status: f.status === "due_soon" ? "" : "due_soon" }))} />
+        <KpiCard value={kpis.overdue} label="Overdue" color={kpis.overdue > 0 ? "text-red-600" : "text-gray-400"} bg={kpis.overdue > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-100"} active={filters.status === "overdue"} onClick={() => setFilters(f => ({ ...f, status: f.status === "overdue" ? "" : "overdue" }))} />
+        <KpiCard value={kpis.inMaintenance} label="In Maint." color={kpis.inMaintenance > 0 ? "text-orange-600" : "text-gray-400"} bg={kpis.inMaintenance > 0 ? "bg-orange-50 border-orange-200" : "bg-white border-gray-100"} active={filters.status === "in_maintenance"} onClick={() => setFilters(f => ({ ...f, status: f.status === "in_maintenance" ? "" : "in_maintenance" }))} />
+        <KpiCard value={`$${Math.round(kpis.avgCostPerVehicle).toLocaleString()}`} label="Avg/Vehicle" color="text-pink-600" bg="bg-pink-50 border-pink-200" active={!filters.status} onClick={() => setFilters(f => ({ ...f, status: "" }))} />
       </div>
 
       {/* ALERTS */}
@@ -471,11 +471,11 @@ export default function HostMaintenance() {
   );
 }
 
-function KpiCard({ value, label, color, bg }) {
+function KpiCard({ value, label, color, bg, active, onClick }) {
   return (
-    <div className={`rounded-3xl border shadow-sm p-3 text-center ${bg}`}>
+    <button type="button" onClick={onClick} className={`rounded-3xl border shadow-sm p-3 text-center transition-all hover:-translate-y-0.5 ${bg} ${active ? "ring-2 ring-pink-200 border-pink-300" : ""}`}>
       <p className={`text-xl font-black ${color}`} style={{ fontFamily: "var(--font-syne)" }}>{value}</p>
       <p className="text-[10px] text-gray-400 mt-0.5">{label}</p>
-    </div>
+    </button>
   );
 }

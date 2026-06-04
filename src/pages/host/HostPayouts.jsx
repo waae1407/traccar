@@ -397,40 +397,27 @@ export default function HostPayouts() {
 
       {/* 3. KPI CARDS — data-driven from filtered payouts */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center">
+        <button type="button" onClick={() => setFilters(f => ({ ...f, status: f.status === "pending" ? "" : "pending" }))} className={`bg-white rounded-3xl border shadow-sm p-4 text-center transition-all hover:-translate-y-0.5 ${filters.status === "pending" ? "border-pink-300 ring-2 ring-pink-100" : "border-gray-100"}`}>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Pending Transfers</p>
-          <p className="text-2xl font-black text-yellow-500" style={{ fontFamily: "var(--font-syne)" }}>
-            ${fmt(kpis.pendingTotal)}
-          </p>
+          <p className="text-2xl font-black text-yellow-500" style={{ fontFamily: "var(--font-syne)" }}>${fmt(kpis.pendingTotal)}</p>
           <p className="text-[10px] text-gray-400 mt-1">In transit to bank</p>
-        </div>
-        <div className="rounded-3xl shadow-sm p-4 text-center"
-          style={{ background: "linear-gradient(135deg, hsl(152 60% 46% / 0.12), hsl(199 90% 54% / 0.08))", border: "1px solid hsl(152 60% 46% / 0.2)" }}>
+        </button>
+        <button type="button" onClick={() => setFilters(f => ({ ...f, status: f.status === "paid" ? "" : "paid" }))} className={`rounded-3xl shadow-sm p-4 text-center transition-all hover:-translate-y-0.5 ${filters.status === "paid" ? "ring-2 ring-pink-100" : ""}`}
+          style={{ background: "linear-gradient(135deg, hsl(152 60% 46% / 0.12), hsl(199 90% 54% / 0.08))", border: filters.status === "paid" ? "1px solid #f9a8d4" : "1px solid hsl(152 60% 46% / 0.2)" }}>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Total Paid</p>
-          <p className="text-2xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>
-            ${fmt(kpis.paidTotal)}
-          </p>
+          <p className="text-2xl font-black text-emerald-600" style={{ fontFamily: "var(--font-syne)" }}>${fmt(kpis.paidTotal)}</p>
           <p className="text-[10px] text-gray-400 mt-1">Net received · filtered period</p>
-        </div>
-        <div className={`bg-white rounded-3xl border shadow-sm p-4 text-center ${kpis.heldCount > 0 ? "border-orange-200" : "border-gray-100"}`}>
+        </button>
+        <button type="button" onClick={() => setFilters(f => ({ ...f, status: f.status === "held" ? "" : "held" }))} className={`bg-white rounded-3xl border shadow-sm p-4 text-center transition-all hover:-translate-y-0.5 ${filters.status === "held" ? "border-pink-300 ring-2 ring-pink-100" : kpis.heldCount > 0 ? "border-orange-200" : "border-gray-100"}`}>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Held / Review</p>
-          <p className={`text-2xl font-black ${kpis.heldCount > 0 ? "text-orange-500" : "text-gray-300"}`}
-            style={{ fontFamily: "var(--font-syne)" }}>
-            {kpis.heldCount > 0 ? `$${fmt(kpis.heldTotal)}` : "$0.00"}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-1">
-            {kpis.heldCount > 0 ? `${kpis.heldCount} payout${kpis.heldCount > 1 ? "s" : ""} on hold` : "Nothing held"}
-          </p>
-        </div>
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 text-center">
+          <p className={`text-2xl font-black ${kpis.heldCount > 0 ? "text-orange-500" : "text-gray-300"}`} style={{ fontFamily: "var(--font-syne)" }}>{kpis.heldCount > 0 ? `$${fmt(kpis.heldTotal)}` : "$0.00"}</p>
+          <p className="text-[10px] text-gray-400 mt-1">{kpis.heldCount > 0 ? `${kpis.heldCount} payout${kpis.heldCount > 1 ? "s" : ""} on hold` : "Nothing held"}</p>
+        </button>
+        <button type="button" onClick={() => setFilters(f => ({ ...f, status: "" }))} className={`bg-white rounded-3xl border shadow-sm p-4 text-center transition-all hover:-translate-y-0.5 ${!filters.status ? "border-pink-300 ring-2 ring-pink-100" : "border-gray-100"}`}>
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Avg Keep %</p>
-          <p className="text-2xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>
-            {kpis.avgKeepPct !== null ? `${kpis.avgKeepPct}%` : defaultKeepPct}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-1">
-            {kpis.avgKeepPct !== null ? "avg after all fees" : "before Stripe processing"}
-          </p>
-        </div>
+          <p className="text-2xl font-black text-pink-600" style={{ fontFamily: "var(--font-syne)" }}>{kpis.avgKeepPct !== null ? `${kpis.avgKeepPct}%` : defaultKeepPct}</p>
+          <p className="text-[10px] text-gray-400 mt-1">{kpis.avgKeepPct !== null ? "avg after all fees" : "before Stripe processing"}</p>
+        </button>
       </div>
 
       {/* 4. FILTERS */}
@@ -508,7 +495,7 @@ export default function HostPayouts() {
 
       {/* 7. HELD / UNDER REVIEW */}
       <HeldPayouts
-        payouts={mergedPayouts}
+        payouts={filteredPayouts}
         bookingMap={bookingMap}
         disputeMap={disputeMap}
         onSelect={setSelectedPayout}
