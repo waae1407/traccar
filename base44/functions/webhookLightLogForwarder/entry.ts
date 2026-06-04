@@ -339,16 +339,33 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unsupported provider_key' }, { status: 400 });
     }
 
+    const now = new Date().toISOString();
     const parsed = parseForwardedMessage(body);
     if (!parsed) {
+      const rawHex = rawHexFromBody(body);
+      await base44.asServiceRole.entities.TelematicsEvent.create({
+        company_id: '',
+        telematics_device_id: '',
+        provider_key: PROVIDER_KEY,
+        vehicle_id: '',
+        event_type: 'forwarded_log_unparsed',
+        source: 'webhook',
+        raw_payload: {
+          ...body,
+          raw_packet_hex: rawHex || '',
+          diagnostic_reason: 'No supported forwarded log message found',
+          supported_message_types: MESSAGE_HANDLERS.map((handler) => handler.name)
+        },
+        created_at: now
+      }).catch((error) => console.warn('Unparsed forwarded log capture skipped:', error.message));
       return Response.json({
         ignored: true,
+        captured: true,
         reason: 'No supported forwarded log message found',
         supported_message_types: MESSAGE_HANDLERS.map((handler) => handler.name)
       });
     }
 
-    const now = new Date().toISOString();
     const timestamp = normalizeTimestamp(body.timestamp || body.deviceTime || body.serverTime || now);
     const device = await findDevice(base44, body, parsed);
 
