@@ -10,6 +10,7 @@ import TelematicsMetricCard from "@/components/telematics/TelematicsMetricCard";
 import TelematicsMap from "@/components/telematics/TelematicsMap";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import SafetyEventsPanel from "@/components/telematics/safety/SafetyEventsPanel";
+import ExpandableSection from "@/components/shared/ExpandableSection";
 
 const COMMAND_STATES = ["queued", "sending", "sent", "delivered", "acknowledged", "executed", "failed", "expired"];
 
@@ -41,24 +42,32 @@ export default function AdminTelematicsOperationsCenter() {
 
     <section className="space-y-3"><h2 className="font-black">Fleet GPS Map</h2><TelematicsMap role="admin" devices={devices} vehicles={vehicles} hosts={hosts} bookings={bookings} providers={providers} height={520} showFilters showRefresh refreshLabel="Refresh Locations" onRefresh={async () => { await TelematicsService.syncTraccarPositions(); qc.invalidateQueries({ queryKey: ["ops-telematics-devices"] }); }} /></section>
 
-    <SafetyEventsPanel role="admin" title="Safety Events" />
+    <ExpandableSection title="Safety Events">
+      <SafetyEventsPanel role="admin" title="Safety Events" />
+    </ExpandableSection>
 
+    <ExpandableSection title="Fleet Health">
+      <div className="grid md:grid-cols-6 gap-3">
+        <TelematicsMetricCard label="Total devices" value={devices.length} icon={Router} />
+        <TelematicsMetricCard label="Online" value={devices.filter(d => d.online_status === "online").length} icon={Wifi} tone="text-green-400" />
+        <TelematicsMetricCard label="Offline" value={devices.filter(d => d.online_status === "offline").length} icon={WifiOff} tone="text-red-400" />
+        <TelematicsMetricCard label="Stale" value={staleDevices.length} icon={AlertTriangle} tone="text-yellow-400" />
+        <TelematicsMetricCard label="Suspended" value={devices.filter(d => d.lifecycle_status === "suspended").length} icon={AlertTriangle} tone="text-orange-400" />
+        <TelematicsMetricCard label="Active alerts" value={telematicsAlerts.length} icon={ShieldAlert} tone="text-red-400" />
+      </div>
+    </ExpandableSection>
 
-    <section className="space-y-3"><h2 className="font-black">Fleet Health</h2><div className="grid md:grid-cols-6 gap-3">
-      <TelematicsMetricCard label="Total devices" value={devices.length} icon={Router} />
-      <TelematicsMetricCard label="Online" value={devices.filter(d => d.online_status === "online").length} icon={Wifi} tone="text-green-400" />
-      <TelematicsMetricCard label="Offline" value={devices.filter(d => d.online_status === "offline").length} icon={WifiOff} tone="text-red-400" />
-      <TelematicsMetricCard label="Stale" value={staleDevices.length} icon={AlertTriangle} tone="text-yellow-400" />
-      <TelematicsMetricCard label="Suspended" value={devices.filter(d => d.lifecycle_status === "suspended").length} icon={AlertTriangle} tone="text-orange-400" />
-      <TelematicsMetricCard label="Active alerts" value={telematicsAlerts.length} icon={ShieldAlert} tone="text-red-400" />
-    </div></section>
+    <ExpandableSection title="Command Center" defaultOpen>
+      <div className="grid md:grid-cols-8 gap-2 mb-3">{COMMAND_STATES.map(key => <Card key={key} className="glass"><CardContent className="p-3"><p className="text-xs text-muted-foreground capitalize">{key}</p><p className="text-xl font-black">{commandCounts[key] || 0}</p></CardContent></Card>)}</div>
+      <div className="space-y-3"><div className="grid md:grid-cols-3 gap-2"><Select value={filters.provider} onValueChange={provider => setFilters(f => ({ ...f, provider }))}><SelectTrigger><SelectValue placeholder="Provider" /></SelectTrigger><SelectContent><SelectItem value="all">All providers</SelectItem>{providers.map(p => <SelectItem key={p.id} value={p.provider_key}>{p.provider_key}</SelectItem>)}</SelectContent></Select><Select value={filters.command} onValueChange={command => setFilters(f => ({ ...f, command }))}><SelectTrigger><SelectValue placeholder="Command" /></SelectTrigger><SelectContent><SelectItem value="all">All commands</SelectItem>{["locate", "lock", "unlock", "horn_lights", "disable_starter", "restore_starter", "status"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><Input placeholder="Search host, vehicle, device..." value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} /></div>{filteredCommands.slice(0, 40).map(c => <div key={c.id} className="rounded-xl border border-border p-3 flex flex-wrap items-center justify-between gap-2 text-sm"><span>{c.command_type} · {c.provider_key}</span><span className="text-muted-foreground">{c.vehicle_id || c.telematics_device_id}</span><Badge variant="outline">{c.queue_status || c.status}</Badge></div>)}</div>
+    </ExpandableSection>
 
-    <section className="space-y-3"><h2 className="font-black">Command Center</h2><div className="grid md:grid-cols-8 gap-2">{COMMAND_STATES.map(key => <Card key={key} className="glass"><CardContent className="p-3"><p className="text-xs text-muted-foreground capitalize">{key}</p><p className="text-xl font-black">{commandCounts[key] || 0}</p></CardContent></Card>)}</div>
-      <Card className="glass"><CardContent className="p-4 space-y-3"><div className="grid md:grid-cols-3 gap-2"><Select value={filters.provider} onValueChange={provider => setFilters(f => ({ ...f, provider }))}><SelectTrigger><SelectValue placeholder="Provider" /></SelectTrigger><SelectContent><SelectItem value="all">All providers</SelectItem>{providers.map(p => <SelectItem key={p.id} value={p.provider_key}>{p.provider_key}</SelectItem>)}</SelectContent></Select><Select value={filters.command} onValueChange={command => setFilters(f => ({ ...f, command }))}><SelectTrigger><SelectValue placeholder="Command" /></SelectTrigger><SelectContent><SelectItem value="all">All commands</SelectItem>{["locate", "lock", "unlock", "horn_lights", "disable_starter", "restore_starter", "status"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><Input placeholder="Search host, vehicle, device..." value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} /></div>{filteredCommands.slice(0, 40).map(c => <div key={c.id} className="rounded-xl border border-border p-3 flex flex-wrap items-center justify-between gap-2 text-sm"><span>{c.command_type} · {c.provider_key}</span><span className="text-muted-foreground">{c.vehicle_id || c.telematics_device_id}</span><Badge variant="outline">{c.queue_status || c.status}</Badge></div>)}</CardContent></Card></section>
+    <ExpandableSection title="Provider Health">
+      <div className="grid md:grid-cols-3 gap-3">{providers.map(provider => { const providerCommands = commands.filter(c => c.provider_key === provider.provider_key); const failed = providerCommands.filter(c => ["failed", "expired"].includes(c.queue_status || c.status)).length; const successRate = providerCommands.length ? Math.round(((providerCommands.length - failed) / providerCommands.length) * 100) : 100; return <Card key={provider.id} className="glass"><CardHeader><CardTitle className="text-base flex items-center gap-2"><Satellite className="h-4 w-4" />{provider.provider_name}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="flex justify-between"><span>Status</span><Badge variant="outline">{provider.health_status || "unknown"}</Badge></div><div className="flex justify-between"><span>Last check</span><span className="text-muted-foreground">{provider.last_health_check_at ? new Date(provider.last_health_check_at).toLocaleString() : "—"}</span></div><div className="flex justify-between"><span>Devices</span><b>{devices.filter(d => d.provider_key === provider.provider_key).length}</b></div><div className="flex justify-between"><span>Command success</span><b>{successRate}%</b></div></CardContent></Card>; })}</div>
+    </ExpandableSection>
 
-
-    <section className="space-y-3"><h2 className="font-black">Provider Health</h2><div className="grid md:grid-cols-3 gap-3">{providers.map(provider => { const providerCommands = commands.filter(c => c.provider_key === provider.provider_key); const failed = providerCommands.filter(c => ["failed", "expired"].includes(c.queue_status || c.status)).length; const successRate = providerCommands.length ? Math.round(((providerCommands.length - failed) / providerCommands.length) * 100) : 100; return <Card key={provider.id} className="glass"><CardHeader><CardTitle className="text-base flex items-center gap-2"><Satellite className="h-4 w-4" />{provider.provider_name}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><div className="flex justify-between"><span>Status</span><Badge variant="outline">{provider.health_status || "unknown"}</Badge></div><div className="flex justify-between"><span>Last check</span><span className="text-muted-foreground">{provider.last_health_check_at ? new Date(provider.last_health_check_at).toLocaleString() : "—"}</span></div><div className="flex justify-between"><span>Devices</span><b>{devices.filter(d => d.provider_key === provider.provider_key).length}</b></div><div className="flex justify-between"><span>Command success</span><b>{successRate}%</b></div></CardContent></Card>; })}</div></section>
-
-    <section className="space-y-3"><h2 className="font-black">Telematics Alerts</h2><Card className="glass"><CardContent className="p-4 space-y-2">{telematicsAlerts.slice(0, 30).map(alert => <div key={alert.id} className="rounded-xl border border-border p-3 flex items-start justify-between gap-3"><div><p className="font-bold">{alert.title}</p><p className="text-xs text-muted-foreground">{alert.message}</p></div><Badge variant="outline">{alert.severity}</Badge></div>)}{telematicsAlerts.length === 0 && <p className="text-sm text-muted-foreground text-center py-6"><CheckCircle2 className="h-6 w-6 mx-auto mb-2" />No active telematics alerts.</p>}</CardContent></Card></section>
+    <ExpandableSection title="Telematics Alerts" defaultOpen>
+      <div className="space-y-2">{telematicsAlerts.slice(0, 30).map(alert => <div key={alert.id} className="rounded-xl border border-border p-3 flex items-start justify-between gap-3"><div><p className="font-bold">{alert.title}</p><p className="text-xs text-muted-foreground">{alert.message}</p></div><Badge variant="outline">{alert.severity}</Badge></div>)}{telematicsAlerts.length === 0 && <p className="text-sm text-muted-foreground text-center py-6"><CheckCircle2 className="h-6 w-6 mx-auto mb-2" />No active telematics alerts.</p>}</div>
+    </ExpandableSection>
   </div>;
 }
