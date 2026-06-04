@@ -26,6 +26,20 @@
       "type": "boolean",
       "default": false
     },
+    "geofence_location_method": {
+      "type": "string",
+      "enum": [
+        "coordinates",
+        "zipcode"
+      ],
+      "default": "coordinates"
+    },
+    "geofence_zipcode": {
+      "type": "string"
+    },
+    "geofence_zipcode_label": {
+      "type": "string"
+    },
     "geofence_latitude": {
       "type": "number"
     },
