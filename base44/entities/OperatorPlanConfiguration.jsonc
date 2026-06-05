@@ -59,13 +59,70 @@
       "type": "number",
       "default": 0
     },
+    "payment_mode": {
+      "type": "string",
+      "enum": [
+        "own_payments",
+        "uride_payments",
+        "hybrid"
+      ],
+      "default": "own_payments"
+    },
     "uses_uride_payments": {
       "type": "boolean",
-      "default": true
+      "default": false
     },
     "uses_own_payments": {
       "type": "boolean",
+      "default": true
+    },
+    "uride_payments_enabled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "own_payments_enabled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stripe_connect_required": {
+      "type": "boolean",
       "default": false
+    },
+    "stripe_connect_optional": {
+      "type": "boolean",
+      "default": true
+    },
+    "fee_structure_acknowledged": {
+      "type": "boolean",
+      "default": false
+    },
+    "fee_structure_acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "fee_structure_acknowledged_by": {
+      "type": "string"
+    },
+    "fee_structure_summary": {
+      "type": "string"
+    },
+    "platform_billing_route": {
+      "type": "string",
+      "enum": [
+        "subscription",
+        "commission",
+        "subscription_plus_marketplace",
+        "none"
+      ],
+      "default": "none"
+    },
+    "customer_payment_routing": {
+      "type": "string",
+      "enum": [
+        "host_external",
+        "uride_checkout"
+      ],
+      "default": "host_external"
     },
     "dealer_network_enabled": {
       "type": "boolean",
@@ -123,6 +180,7 @@
     "activation_source": {
       "type": "string",
       "enum": [
+        "self_service",
         "host_approval",
         "subscription_payment",
         "annual_membership_payment",

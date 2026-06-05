@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lucide-react";
+import OwnPaymentInstructions from "@/components/checkout/OwnPaymentInstructions";
 
 // ─── Inner form — lives inside <Elements> ────────────────────────────────────
 function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue, baseAmount }) {
@@ -244,6 +245,14 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   const amountDue = Math.round((baseAmount + stripeFee) * 100) / 100;
   const amountCents = Math.round(amountDue * 100);
 
+  const { data: paymentSettingsList = [], isLoading: paymentSettingsLoading } = useQuery({
+    queryKey: ["checkout-host-payment-settings", booking?.host_id],
+    queryFn: () => base44.entities.HostPaymentSettings.filter({ host_id: booking.host_id }, "-updated_date", 1),
+    enabled: !!booking?.host_id,
+  });
+  const paymentSettings = paymentSettingsList[0];
+  const ownPaymentActive = !!paymentSettings && !paymentSettings.uride_payments_enabled;
+
   // If already paid (e.g. page refresh), skip straight to confirmation
   useEffect(() => {
     if (booking?.payment_status === "paid" && !initialized.current) {
@@ -305,14 +314,18 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   };
 
   useEffect(() => {
-    if (!booking?.id || initialized.current) return;
+    if (!booking?.id || initialized.current || paymentSettingsLoading) return;
+    if (ownPaymentActive) {
+      setLoading(false);
+      return;
+    }
     if (amountCents < 50) {
       setError(`Amount too low ($${amountDue}). Please contact support.`);
       setLoading(false);
       return;
     }
     init();
-  }, [booking?.id]); // eslint-disable-line
+  }, [booking?.id, paymentSettingsLoading, ownPaymentActive]); // eslint-disable-line
 
   const stripeOptions = useMemo(() => {
     if (!clientSecret) return null;
@@ -327,6 +340,14 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   }, [clientSecret]);
 
   const handlePaymentSuccess = onPaymentSuccess || saveAndAdvance;
+
+  if (paymentSettingsLoading) {
+    return <div className="flex items-center justify-center py-12"><div className="w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" /></div>;
+  }
+
+  if (ownPaymentActive) {
+    return <OwnPaymentInstructions booking={booking} settings={paymentSettings} onSubmitBooking={handlePaymentSuccess} />;
+  }
 
   return (
     <div>

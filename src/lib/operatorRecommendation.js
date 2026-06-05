@@ -3,7 +3,7 @@ export const OPERATIONAL_MODES = {
     label: "Marketplace Partner",
     price: "8% per completed marketplace booking",
     summary: "Best when uRideHub helps bring renters and marketplace demand.",
-    tools: ["Marketplace exposure", "uRideHub payments", "Contracts", "Compliance", "Customer flow"],
+    tools: ["Marketplace exposure", "Payment routing options", "Contracts", "Compliance", "Customer flow"],
   },
   fleetos_professional: {
     label: "FleetOS Professional",
@@ -131,7 +131,7 @@ export function recommendOperatorMode(answers) {
 
   if (answers.has_existing_customers === "Yes, we already operate independently") { scores.fleetos_professional += 4; scores.hybrid_growth += 2; reasons.push("You already operate independently with customers."); }
   if (answers.website_branding_status === "Yes, established brand") scores.fleetos_professional += 3;
-  if (answers.payment_preference === "Use my own payment processor") scores.fleetos_professional += 3;
+  if (["Use my own payment system", "Use my own payment processor", "Start with my own payments, enable uRideHub Payments later"].includes(answers.payment_preference)) scores.fleetos_professional += 3;
   if (["I’m a dealership", "I manage a commercial fleet"].includes(answers.business_type)) scores.fleetos_professional += 2;
 
   if (["Some repeat customers", "Yes, we already operate independently"].includes(answers.has_existing_customers) && ["Yes", "Maybe occasionally"].includes(answers.wants_marketplace_demand)) {
@@ -159,9 +159,19 @@ export function recommendOperatorMode(answers) {
   };
 }
 
-export function planDefaults(mode, answers = {}, recommendedMode = mode) {
+function paymentModeFromPreference(preference) {
+  if (preference === "Use uRideHub Payments" || preference === "Use uRideHub payments") return "uride_payments";
+  if (preference === "Start with my own payments, enable uRideHub Payments later") return "hybrid";
+  return "own_payments";
+}
+
+export function planDefaults(mode, answers = {}, recommendedMode = mode, options = {}) {
   const isMarketplace = mode === "marketplace_partner";
   const now = new Date().toISOString();
+  const paymentMode = paymentModeFromPreference(answers.payment_preference);
+  const usesUridePayments = false;
+  const usesOwnPayments = paymentMode === "own_payments" || paymentMode === "hybrid";
+  const feeAcknowledged = !!options.feeAcknowledged;
 
   return {
     recommended_mode: recommendedMode,
@@ -171,8 +181,19 @@ export function planDefaults(mode, answers = {}, recommendedMode = mode) {
     marketplace_enabled: mode !== "fleetos_professional",
     marketplace_fee_rate: mode === "fleetos_professional" ? 0 : mode === "hybrid_growth" ? 0.04 : 0.08,
     monthly_subscription_amount: isMarketplace ? 0 : 29.99,
-    uses_uride_payments: answers.payment_preference !== "Use my own payment processor",
-    uses_own_payments: answers.payment_preference === "Use my own payment processor",
+    payment_mode: paymentMode,
+    uses_uride_payments: usesUridePayments,
+    uses_own_payments: usesOwnPayments,
+    uride_payments_enabled_at: undefined,
+    own_payments_enabled_at: usesOwnPayments ? now : undefined,
+    stripe_connect_required: false,
+    stripe_connect_optional: true,
+    fee_structure_acknowledged: feeAcknowledged,
+    fee_structure_acknowledged_at: feeAcknowledged ? now : undefined,
+    fee_structure_acknowledged_by: options.actor || undefined,
+    fee_structure_summary: "Package controls business tools. Payment mode controls how customer money moves.",
+    platform_billing_route: isMarketplace ? "commission" : mode === "hybrid_growth" ? "subscription_plus_marketplace" : "subscription",
+    customer_payment_routing: usesUridePayments ? "uride_checkout" : "host_external",
     contactless_enabled: answers.wants_contactless === "Yes",
     dealer_network_enabled: ["Yes", "Maybe later"].includes(answers.vehicle_acquisition_interest) || ["Yes", "Maybe later"].includes(answers.inventory_liquidation_interest),
     dealer_network_membership_status: "pending_payment",

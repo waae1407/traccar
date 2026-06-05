@@ -37,6 +37,13 @@ export default function HostPayouts() {
   });
   const host = hosts[0];
 
+  const { data: paymentSettings = [] } = useQuery({
+    queryKey: ["host-payment-settings", host?.id],
+    queryFn: () => base44.entities.HostPaymentSettings.filter({ host_id: host.id }, "-updated_date", 1),
+    enabled: !!host?.id,
+  });
+  const currentPaymentSettings = paymentSettings[0];
+
   const { data: allPayouts = [], isLoading: loadingPayouts } = useQuery({
     queryKey: ["host-payouts", host?.id],
     queryFn: () => base44.entities.HostPayout.filter({ host_id: host.id }, "-created_date", 500),
@@ -194,7 +201,15 @@ export default function HostPayouts() {
     base44.functions.invoke("getStripeConnectStatus", { host_id: host.id })
       .then(async res => {
         if (res.data?.charges_enabled || res.data?.onboarding_complete) {
+          const now = new Date().toISOString();
           await base44.entities.Host.update(host.id, { stripe_onboarding_complete: true });
+          const plans = await base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }, "-updated_date", 1);
+          if (plans?.[0]) {
+            await base44.entities.OperatorPlanConfiguration.update(plans[0].id, { payment_mode: "uride_payments", uses_uride_payments: true, uses_own_payments: false, uride_payments_enabled_at: now, customer_payment_routing: "uride_checkout", last_updated_at: now });
+          }
+          if (currentPaymentSettings?.id) {
+            await base44.entities.HostPaymentSettings.update(currentPaymentSettings.id, { payment_mode: "uride_payments", uride_payments_enabled: true, uride_payments_enabled_at: now, last_updated_at: now });
+          }
           qc.invalidateQueries({ queryKey: ["my-host"] });
           window.location.href = `/host/brand?stripe_connected=1&step=6`;
         } else {
@@ -350,6 +365,7 @@ export default function HostPayouts() {
   };
 
   const commissionRate = host?.commission_rate ?? 0.08;
+  const ownPaymentActive = !!currentPaymentSettings && currentPaymentSettings.payment_mode !== "uride_payments" && !currentPaymentSettings.uride_payments_enabled && !host?.stripe_onboarding_complete;
   const platformFeeLabel = `${(commissionRate * 100).toFixed(0)}%`;
   const defaultKeepPct = `${(100 - commissionRate * 100).toFixed(0)}%`;
 
@@ -366,7 +382,20 @@ export default function HostPayouts() {
           <p className="text-sm font-semibold text-blue-800">Verifying your Stripe connection…</p>
         </div>
       )}
-      {host && !host.stripe_onboarding_complete && !checkingReturn ? (
+      {host && ownPaymentActive && !checkingReturn ? (
+        <div className="p-5 rounded-2xl border border-blue-200 bg-blue-50">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-bold text-blue-800 mb-1">uRideHub Payments are Off</h3>
+              <p className="text-sm text-blue-700 mb-3">Your host account is currently using your own payment system. Automated payout history becomes active after enabling uRideHub Payments.</p>
+              <a href="/host/business-operations" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gray-900 hover:bg-gray-800">
+                Manage Payment Setup <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : host && !host.stripe_onboarding_complete && !checkingReturn ? (
         <div className="p-5 rounded-2xl border border-yellow-200 bg-yellow-50">
           <div className="flex items-start gap-4">
             <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />

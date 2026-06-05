@@ -1,0 +1,89 @@
+{
+  "name": "HostPaymentSettings",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "payment_mode": {
+      "type": "string",
+      "enum": [
+        "own_payments",
+        "uride_payments",
+        "hybrid"
+      ],
+      "default": "own_payments"
+    },
+    "accepted_payment_methods": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "payment_instructions": {
+      "type": "string"
+    },
+    "payment_link": {
+      "type": "string"
+    },
+    "zelle_note": {
+      "type": "string"
+    },
+    "cash_app_note": {
+      "type": "string"
+    },
+    "venmo_note": {
+      "type": "string"
+    },
+    "manual_invoice_note": {
+      "type": "string"
+    },
+    "deposit_instructions": {
+      "type": "string"
+    },
+    "late_fee_policy": {
+      "type": "string"
+    },
+    "cancellation_policy": {
+      "type": "string"
+    },
+    "booking_confirmation_mode": {
+      "type": "string",
+      "enum": [
+        "auto_confirm",
+        "manual_host_approval",
+        "payment_proof_required"
+      ],
+      "default": "manual_host_approval"
+    },
+    "manual_payment_proof_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "payment_proof_instructions": {
+      "type": "string"
+    },
+    "uride_payments_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "stripe_connect_started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "uride_payments_enabled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "host_id"
+  ]
+}

@@ -10,6 +10,12 @@ import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 const HOST_APPLICATION_URL = "/become-a-host?step=application&from=operator-questionnaire";
 
+const paymentModeFromPreference = (preference) => {
+  if (preference === "Use uRideHub Payments" || preference === "Use uRideHub payments") return "uride_payments";
+  if (preference === "Start with my own payments, enable uRideHub Payments later") return "hybrid";
+  return "own_payments";
+};
+
 const questions = [
   ["business_type", "What best describes your operation?", ["I’m starting a rental business", "I already rent vehicles", "I’m a dealership", "I manage a commercial fleet", "I’m exploring options"]],
   ["fleet_size_range", "How many vehicles do you currently manage?", ["0, I need help sourcing vehicles", "1–2", "3–10", "11–25", "26–100", "100+"]],
@@ -18,7 +24,7 @@ const questions = [
   ["operational_needs", "What do you need help with?", ["Booking system", "Contracts", "Contactless rentals", "GPS/vehicle control", "Maintenance tracking", "Compliance management", "Customer management", "Marketplace exposure", "Payment processing", "Mobile operations", "AI inspections"], true],
   ["wants_contactless", "Do you want contactless rental operations?", ["Yes", "No", "Maybe later"]],
   ["wants_marketplace_demand", "Do you want uRideHub to help bring you renters?", ["Yes", "Maybe occasionally", "No, I already have customers"]],
-  ["payment_preference", "How would you like to process payments?", ["Use uRideHub payments", "Use my own payment processor"]],
+  ["payment_preference", "How do you want to collect payments?", ["Use my own payment system", "Use uRideHub Payments", "Start with my own payments, enable uRideHub Payments later"]],
   ["vehicle_acquisition_interest", "Are you looking to acquire more vehicles?", ["Yes", "Maybe later", "No"]],
   ["inventory_liquidation_interest", "Do you need help selling or liquidating vehicles?", ["Yes", "Maybe later", "No"]],
 ];
@@ -55,6 +61,10 @@ export default function SmartOperatorQuestionnaire() {
         const hostId = existingHost?.id || "";
         const profile = await base44.entities.OperatorProfile.create({ host_id: hostId || undefined, user_id: user.id, ...savedAnswers, ...savedRecommendation, onboarding_status: hostId ? "host_pending" : "recommended", editable_by_host: true, last_updated_at: now });
         const plan = await base44.entities.OperatorPlanConfiguration.create({ host_id: hostId || undefined, user_id: user.id, ...planDefaults(savedSelectedMode, savedAnswers, savedRecommendation.recommended_mode) });
+        if (hostId) {
+          const paymentMode = paymentModeFromPreference(savedAnswers.payment_preference);
+          await base44.entities.HostPaymentSettings.create({ host_id: hostId, user_id: user.id, payment_mode: paymentMode, uride_payments_enabled: false, booking_confirmation_mode: "manual_host_approval", manual_payment_proof_required: false, last_updated_at: now });
+        }
         await upsertOperatorAddonSelections(base44, { hostId, userId: user.id, selectedAddons: savedSelectedAddons, recommendedAddons: savedRecommendation.recommended_addons || [], selectedMode: savedSelectedMode, actor: user.email, source: "questionnaire" });
         await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, new_mode: savedRecommendation.recommended_mode, reason: savedRecommendation.recommendation_reasoning.join(" "), changed_by: user.email, changed_at: now, source: "questionnaire" });
         await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, previous_mode: savedRecommendation.recommended_mode, new_mode: savedSelectedMode, reason: "User confirmed setup from recommendation screen.", changed_by: user.email, changed_at: now, source: "user_selection" });
@@ -107,6 +117,10 @@ export default function SmartOperatorQuestionnaire() {
       const profilePayload = { host_id: hostId || undefined, user_id: user.id, ...answers, ...result, onboarding_status: hostId ? "host_pending" : "recommended", editable_by_host: true, last_updated_at: now };
       const profile = await base44.entities.OperatorProfile.create(profilePayload);
       const plan = await base44.entities.OperatorPlanConfiguration.create({ host_id: hostId || undefined, user_id: user.id, ...planDefaults(chosenMode, answers, result.recommended_mode) });
+      if (hostId) {
+        const paymentMode = paymentModeFromPreference(answers.payment_preference);
+        await base44.entities.HostPaymentSettings.create({ host_id: hostId, user_id: user.id, payment_mode: paymentMode, uride_payments_enabled: paymentMode === "uride_payments", booking_confirmation_mode: "manual_host_approval", manual_payment_proof_required: false, last_updated_at: now });
+      }
       await upsertOperatorAddonSelections(base44, { hostId, userId: user.id, selectedAddons, recommendedAddons: result.recommended_addons || [], selectedMode: chosenMode, actor: user.email, source: "questionnaire" });
       await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, new_mode: result.recommended_mode, reason: result.recommendation_reasoning.join(" "), changed_by: user.email, changed_at: now, source: "questionnaire" });
       await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, previous_mode: result.recommended_mode, new_mode: chosenMode, reason: "User confirmed setup from recommendation screen.", changed_by: user.email, changed_at: now, source: "user_selection" });

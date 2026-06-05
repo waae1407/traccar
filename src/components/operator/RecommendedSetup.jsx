@@ -3,11 +3,12 @@ import { CheckCircle2, ArrowRight } from "lucide-react";
 import { OPERATIONAL_MODES } from "@/lib/operatorRecommendation";
 import AddonSelectionCards from "@/components/operator/AddonSelectionCards";
 
-export default function RecommendedSetup({ result, onContinue, compact = false, selectedMode, onSelectMode, selectedAddons = [], onAddonsChange }) {
+export default function RecommendedSetup({ result, onContinue, compact = false, selectedMode, onSelectMode, selectedAddons = [], onAddonsChange, feeAcknowledged = false, onFeeAcknowledgedChange }) {
   const recommendedMode = result?.recommended_mode || "marketplace_partner";
-  const mode = OPERATIONAL_MODES[recommendedMode];
   const currentSelection = selectedMode || recommendedMode;
+  const mode = OPERATIONAL_MODES[currentSelection] || OPERATIONAL_MODES[recommendedMode];
   const addons = result?.recommended_addons || [];
+  const acknowledgementRequired = !compact && !!onFeeAcknowledgedChange;
 
   return (
     <div className="space-y-5">
@@ -51,7 +52,20 @@ export default function RecommendedSetup({ result, onContinue, compact = false, 
         <AddonSelectionCards recommendedAddons={addons} selectedAddons={selectedAddons} onChange={onAddonsChange} compact={compact} />
       </div>
 
-      {!compact && <button onClick={onContinue} className="w-full py-4 rounded-2xl font-bold text-white text-sm flex items-center justify-center gap-2" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Confirm Selected Setup <ArrowRight className="h-4 w-4" /></button>}
+      {acknowledgementRequired && (
+        <button type="button" onClick={() => onFeeAcknowledgedChange(!feeAcknowledged)} className={`w-full text-left rounded-2xl border p-4 transition-all ${feeAcknowledged ? "border-emerald-300 bg-emerald-50" : "border-yellow-200 bg-yellow-50"}`}>
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 h-5 w-5 rounded-md border flex items-center justify-center ${feeAcknowledged ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-yellow-300"}`}>{feeAcknowledged && "✓"}</div>
+            <div>
+              <p className="text-sm font-black text-gray-900">I acknowledge this package fee structure</p>
+              <p className="text-xs text-gray-600 mt-1">Package controls platform fees. Payment preference controls whether customers pay externally or through uRideHub Payments.</p>
+              <p className="text-xs font-bold text-gray-900 mt-2">{mode.price}</p>
+            </div>
+          </div>
+        </button>
+      )}
+
+      {!compact && <button onClick={onContinue} disabled={acknowledgementRequired && !feeAcknowledged} className="w-full py-4 rounded-2xl font-bold text-white text-sm flex items-center justify-center gap-2 disabled:opacity-40" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Confirm Selected Setup <ArrowRight className="h-4 w-4" /></button>}
     </div>
   );
 }
