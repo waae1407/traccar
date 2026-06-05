@@ -59,6 +59,38 @@ async function createPaymentAlert(base44, payload) {
   }
 }
 
+async function alreadyProcessedInitialPayout(base44, { paymentIntentId, bookingRequestId, periodStart, periodEnd }) {
+  const paymentLogs = paymentIntentId ? await base44.asServiceRole.entities.PaymentLog.filter({ stripe_payment_intent_id: paymentIntentId }) : [];
+  const payouts = bookingRequestId ? await base44.asServiceRole.entities.HostPayout.filter({ booking_request_id: bookingRequestId }) : [];
+  const duplicatePayout = payouts.some((p) =>
+    p.stripe_payment_intent_id === paymentIntentId ||
+    (p.status === 'paid' && p.period_start === periodStart && p.period_end === periodEnd && !!p.stripe_transfer_id)
+  );
+  return paymentLogs.length > 0 || duplicatePayout;
+}
+
+async function applyReceivableOffset(base44, hostId, amount, now) {
+  const receivables = await base44.asServiceRole.entities.HostReceivable.filter({ host_id: hostId });
+  let remainingOffset = Math.max(0, amount);
+  let totalOffset = 0;
+  for (const rec of receivables.filter((r) => ['open', 'partially_recovered'].includes(r.status) && r.offset_from_future_payouts !== false && (r.remaining_amount || 0) > 0)) {
+    if (remainingOffset <= 0) break;
+    const offset = Math.min(remainingOffset, rec.remaining_amount || 0);
+    const newRemaining = Math.round(((rec.remaining_amount || 0) - offset) * 100) / 100;
+    const recovered = Math.round(((rec.recovered_amount || 0) + offset) * 100) / 100;
+    await base44.asServiceRole.entities.HostReceivable.update(rec.id, {
+      remaining_amount: newRemaining,
+      recovered_amount: recovered,
+      status: newRemaining <= 0 ? 'recovered' : 'partially_recovered',
+      last_recovery_at: now,
+      audit_log: [...(rec.audit_log || []), { action: 'future_payout_offset', amount: offset, changed_at: now, note: 'Automatically offset from host payout.' }]
+    });
+    totalOffset += offset;
+    remainingOffset -= offset;
+  }
+  return Math.round(totalOffset * 100) / 100;
+}
+
 function toIsoFromUnix(value) {
   return value ? new Date(value * 1000).toISOString() : undefined;
 }
@@ -318,17 +350,27 @@ Deno.serve(async (req) => {
                     }
                   }
 
-                  const uridePlatformFee = Math.round(grossAmount * commissionRate * 100) / 100;
-                  const hostTransferAmount = Math.round((grossAmount - uridePlatformFee) * 100);
-                  const netHostPayout = hostTransferAmount / 100;
+                  const periodStart = booking.start_date || new Date().toISOString().slice(0, 10);
+                  const periodEnd = booking.end_date || new Date().toISOString().slice(0, 10);
+                  const alreadyProcessed = await alreadyProcessedInitialPayout(base44, { paymentIntentId: pi.id, bookingRequestId, periodStart, periodEnd });
+                  if (alreadyProcessed) {
+                    await logEvent(base44, { event_type: 'payment.retry_deferred', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', target_entity: 'BookingRequest', target_id: bookingRequestId, booking_id: bookingRequestId, host_id: host.id, summary: `Duplicate Stripe webhook ignored before transfer for booking ${bookingRequestId}`, metadata: { payment_intent_id: pi.id, idempotency_guard: 'initial_checkout_transfer' }, source: 'webhook', event_status: 'warning' });
+                    break;
+                  }
 
-                  const transfer = await stripe.transfers.create({
+                  const baseAmount = Math.max(0, Number(booking.total_due_now || booking.weekly_rate || (grossAmount - stripeFeeAmount) || 0));
+                  const uridePlatformFee = Math.round(baseAmount * commissionRate * 100) / 100;
+                  const receivableOffset = await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - uridePlatformFee), new Date().toISOString());
+                  const netHostPayout = Math.round((baseAmount - uridePlatformFee - receivableOffset) * 100) / 100;
+                  const hostTransferAmount = Math.round(netHostPayout * 100);
+
+                  const transfer = hostTransferAmount > 0 ? await stripe.transfers.create({
                     amount: hostTransferAmount,
                     currency: 'usd',
                     destination: host.stripe_account_id,
                     description: `UrideHub payout — ${host.full_name} — booking ${bookingRequestId}`,
-                    metadata: { host_id: host.id, booking_request_id: bookingRequestId, platform: 'uride' },
-                  });
+                    metadata: { host_id: host.id, booking_request_id: bookingRequestId, payment_intent_id: pi.id, platform: 'uride' },
+                  }) : { id: '' };
 
                   const vehicleName = vehicle ? `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim() : null;
 
@@ -338,18 +380,21 @@ Deno.serve(async (req) => {
                     host_name: host.full_name,
                     booking_request_id: bookingRequestId,
                     vehicle_name: vehicleName,
-                    period_start: booking.start_date || new Date().toISOString().slice(0, 10),
-                    period_end: booking.end_date || new Date().toISOString().slice(0, 10),
+                    period_start: periodStart,
+                    period_end: periodEnd,
                     gross_booking_amount: grossAmount,
                     stripe_fee_amount: stripeFeeAmount,
                     stripe_effective_rate: Math.round(stripeEffectiveRate * 100) / 100,
                     uride_platform_fee_amount: uridePlatformFee,
                     uride_platform_fee_rate: commissionRate,
+                    receivable_offset_amount: receivableOffset,
                     net_host_payout: netHostPayout,
                     gross_collected: grossAmount,
                     platform_fee: uridePlatformFee,
                     net_payout: netHostPayout,
                     status: 'paid',
+                    stripe_payment_intent_id: pi.id,
+                    stripe_charge_id: chargeId || '',
                     stripe_transfer_id: transfer.id,
                     payout_date: new Date().toISOString().slice(0, 10),
                     booking_count: 1,
@@ -365,7 +410,7 @@ Deno.serve(async (req) => {
                   await base44.asServiceRole.entities.Notification.create({
                     user_email: host.email,
                     title: `💰 Payout Sent — $${netHostPayout.toLocaleString()}`,
-                    body: `Payment received: $${grossAmount}. After ${feeLabel} ($${uridePlatformFee}) and Stripe processing ($${stripeFeeAmount.toFixed(2)}), your net payout of $${netHostPayout} is on its way. Arrives within 2 business days.`,
+                    body: `Payment received: $${grossAmount}. After ${feeLabel} ($${uridePlatformFee}), Stripe processing ($${stripeFeeAmount.toFixed(2)}), and receivable offsets ($${receivableOffset.toFixed(2)}), your net payout of $${netHostPayout} is on its way. Arrives within 2 business days.`,
                     type: 'payment',
                   });
 
@@ -381,7 +426,7 @@ Deno.serve(async (req) => {
                     booking_id: bookingRequestId,
                     vehicle_id: booking.vehicle_id || '',
                     summary: `Payout $${netHostPayout} sent to ${host.full_name} for booking ${bookingRequestId}`,
-                    metadata: { transfer_id: transfer.id, gross: grossAmount, platform_fee: uridePlatformFee, net: netHostPayout },
+                    metadata: { transfer_id: transfer.id, gross: grossAmount, base_amount: baseAmount, stripe_fee: stripeFeeAmount, platform_fee: uridePlatformFee, receivable_offset: receivableOffset, net: netHostPayout },
                     source: 'webhook',
                   });
                 } else {
@@ -676,9 +721,31 @@ Deno.serve(async (req) => {
               });
               console.log(`[Webhook] Payout ${payout.id} held for chargeback ${stripeDisputeId}`);
             } else if (payout.status === 'paid') {
-              // Already paid out — flag for admin review only
+              const now = new Date().toISOString();
+              const liabilityAmount = Math.min(Number(payout.net_host_payout || payout.net_payout || 0), Number(dispute.amount || 0) / 100);
+              if (liabilityAmount > 0) {
+                await base44.asServiceRole.entities.HostReceivable.create({
+                  host_id: booking.host_id || payout.host_id || '',
+                  booking_request_id: booking.id,
+                  host_payout_id: payout.id,
+                  dispute_id: disputeRecord.id,
+                  stripe_dispute_id: stripeDisputeId,
+                  stripe_payment_intent_id: paymentIntentId || '',
+                  receivable_type: 'chargeback_recovery',
+                  status: 'open',
+                  original_amount: liabilityAmount,
+                  remaining_amount: liabilityAmount,
+                  recovered_amount: 0,
+                  currency: dispute.currency || 'usd',
+                  liability_reason: 'Customer chargeback after host payout was already paid; future payouts will be offset until recovered.',
+                  offset_from_future_payouts: true,
+                  created_at: now,
+                  notes: `Created automatically for Stripe dispute ${stripeDisputeId}.`,
+                  audit_log: [{ action: 'chargeback_liability_created', amount: liabilityAmount, changed_at: now, note: 'Host payout already paid before chargeback.' }]
+                });
+              }
               await base44.asServiceRole.entities.HostPayout.update(payout.id, {
-                hold_notes: `⚠️ CHARGEBACK ALERT: ${stripeDisputeId} — payout already sent, admin review needed`,
+                hold_notes: `⚠️ CHARGEBACK ALERT: ${stripeDisputeId} — payout already sent; host receivable created for future payout offset.`,
               });
             }
           }
@@ -692,6 +759,10 @@ Deno.serve(async (req) => {
               });
             }
           }
+        }
+
+        if (booking?.host_id) {
+          await createPaymentAlert(base44, { alert_type: 'chargeback_opened', severity: 'critical', billing_context: 'chargeback', booking_id: booking.id, host_id: booking.host_id, customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', stripe_event_type: event.type, stripe_dispute_id: stripeDisputeId, stripe_payment_intent_id: paymentIntentId || '', related_entity_type: 'Dispute', related_entity_id: disputeRecord.id, title: 'Chargeback liability recorded', message: `Chargeback opened after payment. Pending payouts were held and any paid host payout created a receivable for future payout offset.`, recommended_action: 'Review dispute evidence and host receivable recovery before releasing future payouts.', financial_impact_amount: (dispute.amount || 0) / 100, currency: dispute.currency || 'usd', requires_admin_action: true, requires_host_action: true, source: 'stripe_webhook' });
         }
 
         await logEvent(base44, {

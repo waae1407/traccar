@@ -250,8 +250,17 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
     queryFn: () => base44.entities.HostPaymentSettings.filter({ host_id: booking.host_id }, "-updated_date", 1),
     enabled: !!booking?.host_id,
   });
+
+  const { data: operatorPlans = [], isLoading: operatorPlanLoading } = useQuery({
+    queryKey: ["checkout-operator-plan", booking?.host_id],
+    queryFn: () => base44.entities.OperatorPlanConfiguration.filter({ host_id: booking.host_id }, "-updated_date", 1),
+    enabled: !!booking?.host_id,
+  });
+
   const paymentSettings = paymentSettingsList[0];
-  const ownPaymentActive = !!paymentSettings && !paymentSettings.uride_payments_enabled;
+  const operatorPlan = operatorPlans[0];
+  const marketplacePartnerBooking = (booking?.booking_source || "marketplace") === "marketplace" && (operatorPlan?.active_mode || operatorPlan?.selected_mode) === "marketplace_partner";
+  const ownPaymentActive = !!paymentSettings && !paymentSettings.uride_payments_enabled && !marketplacePartnerBooking;
 
   // If already paid (e.g. page refresh), skip straight to confirmation
   useEffect(() => {
@@ -314,7 +323,11 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   };
 
   useEffect(() => {
-    if (!booking?.id || initialized.current || paymentSettingsLoading) return;
+    if (!booking?.id || initialized.current || paymentSettingsLoading || operatorPlanLoading) return;
+    if (!paymentSettings) {
+      setLoading(false);
+      return;
+    }
     if (ownPaymentActive) {
       setLoading(false);
       return;
@@ -325,7 +338,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
       return;
     }
     init();
-  }, [booking?.id, paymentSettingsLoading, ownPaymentActive]); // eslint-disable-line
+  }, [booking?.id, paymentSettingsLoading, operatorPlanLoading, paymentSettings?.id, ownPaymentActive]); // eslint-disable-line
 
   const stripeOptions = useMemo(() => {
     if (!clientSecret) return null;
@@ -341,8 +354,17 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
 
   const handlePaymentSuccess = onPaymentSuccess || saveAndAdvance;
 
-  if (paymentSettingsLoading) {
+  if (paymentSettingsLoading || operatorPlanLoading) {
     return <div className="flex items-center justify-center py-12"><div className="w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" /></div>;
+  }
+
+  if (!paymentSettings) {
+    return (
+      <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <p className="font-bold text-amber-900 mb-1">Host payment setup required</p>
+        <p>This vehicle cannot accept checkout until the host chooses an explicit payment mode. Please contact support or select another vehicle.</p>
+      </div>
+    );
   }
 
   if (ownPaymentActive) {

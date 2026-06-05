@@ -50,6 +50,12 @@ export default function HostVehicles() {
     enabled: !!host?.id,
   });
 
+  const { data: paymentSettings = [] } = useQuery({
+    queryKey: ["host-payment-settings-required", host?.id],
+    queryFn: () => base44.entities.HostPaymentSettings.filter({ host_id: host.id }, "-updated_date", 1),
+    enabled: !!host?.id,
+  });
+
   const { data: signalSnapshots = [] } = useQuery({
     queryKey: ["host-vehicle-quality-signals", host?.id],
     queryFn: () => base44.entities.ReputationSignalSnapshot.list("-created_date", 500),
@@ -57,9 +63,15 @@ export default function HostVehicles() {
   });
 
   const saveMutation = useMutation({
-    mutationFn: (data) => editing
-      ? base44.entities.Vehicle.update(editing.id, data)
-      : base44.entities.Vehicle.create({ ...data, host_id: host.id, approval_status: "pending", status: "Out of Service", deployment_type: "human", telematics_provider: "none", av_platform: "none" }),
+    mutationFn: (data) => {
+      const explicitPaymentSetup = paymentSettings[0] && paymentSettings[0].payment_mode && typeof paymentSettings[0].uride_payments_enabled === "boolean";
+      if (data.status === "Available" && !explicitPaymentSetup) {
+        throw new Error("Payment setup is required before publishing a vehicle.");
+      }
+      return editing
+        ? base44.entities.Vehicle.update(editing.id, data)
+        : base44.entities.Vehicle.create({ ...data, host_id: host.id, approval_status: "pending", status: "Out of Service", deployment_type: "human", telematics_provider: "none", av_platform: "none" });
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["host-vehicles"] }); setOpen(false); setEditing(null); },
   });
 
@@ -91,6 +103,12 @@ export default function HostVehicles() {
           </button>
         }
       />
+
+      {saveMutation.error && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+          {saveMutation.error.message}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

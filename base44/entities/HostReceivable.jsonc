@@ -1,0 +1,104 @@
+{
+  "name": "HostReceivable",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "host_payout_id": {
+      "type": "string"
+    },
+    "dispute_id": {
+      "type": "string"
+    },
+    "stripe_dispute_id": {
+      "type": "string"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "receivable_type": {
+      "type": "string",
+      "enum": [
+        "chargeback_recovery",
+        "marketplace_commission",
+        "admin_adjustment"
+      ],
+      "default": "chargeback_recovery"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "partially_recovered",
+        "recovered",
+        "waived",
+        "disputed"
+      ],
+      "default": "open"
+    },
+    "original_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "remaining_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "recovered_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "currency": {
+      "type": "string",
+      "default": "usd"
+    },
+    "liability_reason": {
+      "type": "string"
+    },
+    "offset_from_future_payouts": {
+      "type": "boolean",
+      "default": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_recovery_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "audit_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "changed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "host_id",
+    "receivable_type",
+    "original_amount"
+  ]
+}

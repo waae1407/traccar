@@ -81,6 +81,28 @@ async function createPaymentAlert(base44, payload) {
   }
 }
 
+async function applyReceivableOffset(base44, hostId, amount, now) {
+  const receivables = await base44.asServiceRole.entities.HostReceivable.filter({ host_id: hostId });
+  let remainingOffset = Math.max(0, amount);
+  let totalOffset = 0;
+  for (const rec of receivables.filter((r) => ['open', 'partially_recovered'].includes(r.status) && r.offset_from_future_payouts !== false && (r.remaining_amount || 0) > 0)) {
+    if (remainingOffset <= 0) break;
+    const offset = Math.min(remainingOffset, rec.remaining_amount || 0);
+    const newRemaining = Math.round(((rec.remaining_amount || 0) - offset) * 100) / 100;
+    const recovered = Math.round(((rec.recovered_amount || 0) + offset) * 100) / 100;
+    await base44.asServiceRole.entities.HostReceivable.update(rec.id, {
+      remaining_amount: newRemaining,
+      recovered_amount: recovered,
+      status: newRemaining <= 0 ? 'recovered' : 'partially_recovered',
+      last_recovery_at: now.toISOString(),
+      audit_log: [...(rec.audit_log || []), { action: 'future_payout_offset', amount: offset, changed_at: now.toISOString(), note: 'Automatically offset from host payout.' }]
+    });
+    totalOffset += offset;
+    remainingOffset -= offset;
+  }
+  return Math.round(totalOffset * 100) / 100;
+}
+
 async function authorizeScheduledGracePeriodRun(base44, body) {
   const user = await base44.auth.me().catch(() => null);
   if (user) {
@@ -203,9 +225,14 @@ function minutesSince(date, now) {
 }
 
 function hasStructuredClosureControl(booking) {
+  const closedStatuses = ['cancelled', 'completed', 'closed', 'superseded', 'stale', 'duplicate', 'replaced', 'manually_closed'];
+  const closureReasons = ['superseded', 'stale_booking', 'duplicate_booking', 'replaced_booking', 'manually_closed', 'auto_cancelled'];
   return booking.is_superseded === true ||
     !!booking.superseded_by_booking_id ||
-    ['superseded', 'stale_booking', 'duplicate_booking', 'replaced_booking', 'manually_closed', 'auto_cancelled'].includes(String(booking.closure_reason || '').trim());
+    closedStatuses.includes(String(booking.booking_status || '').trim()) ||
+    closureReasons.includes(String(booking.closure_reason || '').trim()) ||
+    booking.clean_return_status === 'approved_clean' ||
+    ['complete', 'completed', 'closed'].includes(String(booking.return_status || '').trim());
 }
 
 function isLongExpiredRental(booking, now) {
@@ -375,26 +402,31 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     if (recHost?.stripe_onboarding_complete && recHost?.stripe_account_id) {
       const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: recHost.id });
       const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
-      const hostAmount = Math.round((baseAmount - platformFee) * 100) / 100;
-      const recTransfer = await new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" }).transfers.create({
+      const receivableOffset = await applyReceivableOffset(base44, recHost.id, Math.max(0, baseAmount - platformFee), now);
+      const hostAmount = Math.round((baseAmount - platformFee - receivableOffset) * 100) / 100;
+      const recTransfer = hostAmount > 0 ? await new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" }).transfers.create({
         amount: Math.round(hostAmount * 100),
         currency: "usd",
         destination: recHost.stripe_account_id,
         description: `uRide payment recovery — ${booking.vehicle_name}`,
-        metadata: { booking_id: booking.id, host_id: recHost.id },
-      });
+        metadata: { booking_id: booking.id, host_id: recHost.id, payment_intent_id: paymentIntent.id },
+      }) : { id: '' };
       await base44.asServiceRole.entities.HostPayout.create({
         host_id: recHost.id,
         host_email: recHost.email,
         host_name: recHost.full_name,
         booking_request_id: booking.id,
         vehicle_name: booking.vehicle_name || "",
+        period_start: now.toISOString().slice(0, 10),
+        period_end: nextBillingDate,
         gross_booking_amount: grossedAmount,
         stripe_fee_amount: stripeFee,
         uride_platform_fee_amount: platformFee,
         uride_platform_fee_rate: commissionRate,
+        receivable_offset_amount: receivableOffset,
         net_host_payout: hostAmount,
         net_payout: hostAmount,
+        stripe_payment_intent_id: paymentIntent.id,
         stripe_transfer_id: recTransfer.id,
         status: "paid",
         payout_date: now.toISOString().split('T')[0],

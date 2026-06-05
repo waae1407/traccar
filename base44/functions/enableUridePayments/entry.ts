@@ -17,6 +17,10 @@ Deno.serve(async (req) => {
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), { apiVersion: '2023-10-16' });
     let accountId = host.stripe_account_id;
 
+    if (accountId) {
+      await stripe.accounts.retrieve(accountId);
+    }
+
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: 'express',

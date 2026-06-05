@@ -51,10 +51,15 @@
       "default": 0.08,
       "description": "The commission_rate applied"
     },
+    "receivable_offset_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Amount withheld from this payout to recover host receivables"
+    },
     "net_host_payout": {
       "type": "number",
       "default": 0,
-      "description": "gross - stripe_fee - uride_platform_fee"
+      "description": "gross - stripe_fee - uride_platform_fee - receivable offsets"
     },
     "gross_collected": {
       "type": "number",
@@ -111,6 +116,12 @@
     "released_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "stripe_charge_id": {
+      "type": "string"
     },
     "stripe_transfer_id": {
       "type": "string"

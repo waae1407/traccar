@@ -53,6 +53,28 @@ async function createPaymentAlert(base44, payload) {
   }
 }
 
+async function applyReceivableOffset(base44, hostId, amount, now) {
+  const receivables = await base44.asServiceRole.entities.HostReceivable.filter({ host_id: hostId });
+  let remainingOffset = Math.max(0, amount);
+  let totalOffset = 0;
+  for (const rec of receivables.filter((r) => ['open', 'partially_recovered'].includes(r.status) && r.offset_from_future_payouts !== false && (r.remaining_amount || 0) > 0)) {
+    if (remainingOffset <= 0) break;
+    const offset = Math.min(remainingOffset, rec.remaining_amount || 0);
+    const newRemaining = Math.round(((rec.remaining_amount || 0) - offset) * 100) / 100;
+    const recovered = Math.round(((rec.recovered_amount || 0) + offset) * 100) / 100;
+    await base44.asServiceRole.entities.HostReceivable.update(rec.id, {
+      remaining_amount: newRemaining,
+      recovered_amount: recovered,
+      status: newRemaining <= 0 ? 'recovered' : 'partially_recovered',
+      last_recovery_at: now.toISOString(),
+      audit_log: [...(rec.audit_log || []), { action: 'future_payout_offset', amount: offset, changed_at: now.toISOString(), note: 'Automatically offset from host payout.' }]
+    });
+    totalOffset += offset;
+    remainingOffset -= offset;
+  }
+  return Math.round(totalOffset * 100) / 100;
+}
+
 async function authorizeScheduledBillingRun(base44, body) {
   const user = await base44.auth.me().catch(() => null);
   if (user) {
@@ -310,17 +332,18 @@ Deno.serve(async (req) => {
               // grossedAmount = baseAmount + stripeFee, and Stripe deducts stripeFee from the charge,
               // leaving baseAmount in the platform's balance to split correctly.
               const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
-              const hostAmount = Math.round((baseAmount - platformFee) * 100) / 100;
+              const receivableOffset = await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - platformFee), new Date());
+              const hostAmount = Math.round((baseAmount - platformFee - receivableOffset) * 100) / 100;
               const hostAmountCents = Math.round(hostAmount * 100);
 
               // Transfer to host's connected Stripe account
-              const transfer = await stripe.transfers.create({
+              const transfer = hostAmountCents > 0 ? await stripe.transfers.create({
                 amount: hostAmountCents,
                 currency: "usd",
                 destination: host.stripe_account_id,
                 description: `uRide Week ${weekNum} — ${booking.vehicle_name}`,
-                metadata: { booking_id: booking.id, host_id: host.id, week: String(weekNum) },
-              });
+                metadata: { booking_id: booking.id, host_id: host.id, week: String(weekNum), payment_intent_id: paymentIntent.id },
+              }) : { id: '' };
 
               // Update booking with payout info
               await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
@@ -343,8 +366,10 @@ Deno.serve(async (req) => {
                 stripe_effective_rate: parseFloat(((stripeFee / amount) * 100).toFixed(2)),
                 uride_platform_fee_amount: platformFee,
                 uride_platform_fee_rate: commissionRate,
+                receivable_offset_amount: receivableOffset,
                 net_host_payout: hostAmount,
                 net_payout: hostAmount,
+                stripe_payment_intent_id: paymentIntent.id,
                 gross_collected: amount,
                 platform_fee: platformFee,
                 stripe_transfer_id: transfer.id,
