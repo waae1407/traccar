@@ -23,6 +23,13 @@ export default function RecommendedSetup({ result, onContinue, compact = false, 
         </div>
       </div>
 
+      {result?.payment_system_override_applied && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 shadow-sm">
+          <p className="font-black text-amber-900 text-sm mb-1">Payment system note</p>
+          <p className="text-xs text-amber-800 leading-relaxed">{result.payment_system_override_notice} You can upgrade to Hybrid Growth or Marketplace Partner later if you enable uRideHub Payments.</p>
+        </div>
+      )}
+
       <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
         <p className="font-black text-gray-900 text-sm mb-3">Why this fits</p>
         <div className="space-y-2">

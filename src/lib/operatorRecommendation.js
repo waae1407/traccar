@@ -141,9 +141,11 @@ export function recommendOperatorMode(answers) {
   if (["11–25", "26–100", "100+"].includes(answers.fleet_size_range)) scores.hybrid_growth += 2;
   if (needs.includes("Marketplace exposure") && needs.length >= 3) scores.hybrid_growth += 2;
 
-  const recommended_mode = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
+  const qualified_mode = Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
+  const ownPaymentSelected = ["Use my own payment system", "Use my own payment processor"].includes(answers.payment_preference);
+  const recommended_mode = ownPaymentSelected ? "fleetos_professional" : qualified_mode;
   const total = Object.values(scores).reduce((a, b) => a + b, 0) || 1;
-  const recommendation_confidence = Math.round((scores[recommended_mode] / total) * 100);
+  const recommendation_confidence = Math.round((scores[qualified_mode] / total) * 100);
   const addons = [];
   if (answers.wants_contactless === "Yes" || needs.includes("Contactless rentals")) addons.push("contactless_operations", "gps_telematics");
   if (["Yes", "Maybe later"].includes(answers.vehicle_acquisition_interest)) addons.push("dealer_network", "vehicle_sourcing");
@@ -151,10 +153,17 @@ export function recommendOperatorMode(answers) {
   if (["Yes, basic presence", "Yes, established brand"].includes(answers.website_branding_status)) addons.push("custom_domain");
   if (needs.includes("AI inspections")) addons.push("ai_inspections");
 
+  const overrideNotice = ownPaymentSelected && qualified_mode !== "fleetos_professional"
+    ? `You qualified for ${OPERATIONAL_MODES[qualified_mode].label}, but because you chose to use your own payment system, we placed you in FleetOS by default.`
+    : "";
+
   return {
     recommended_mode,
+    qualified_mode,
+    payment_system_override_applied: !!overrideNotice,
+    payment_system_override_notice: overrideNotice,
     recommendation_confidence,
-    recommendation_reasoning: reasons.length ? reasons : [OPERATIONAL_MODES[recommended_mode].summary],
+    recommendation_reasoning: overrideNotice ? [...reasons, overrideNotice] : (reasons.length ? reasons : [OPERATIONAL_MODES[recommended_mode].summary]),
     recommended_addons: [...new Set(addons)],
   };
 }
