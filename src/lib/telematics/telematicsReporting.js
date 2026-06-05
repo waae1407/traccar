@@ -24,23 +24,25 @@ export function isTelematicsDeviceStale(device, staleHours = 6) {
 }
 
 export function getTelematicsDeviceStats(devices = []) {
-  const total = devices.length;
-  const active = devices.filter(isTelematicsDeviceActive).length;
-  const assigned = devices.filter((device) => Boolean(device.vehicle_id)).length;
-  const unassigned = devices.filter((device) => !device.vehicle_id && device.assigned_status !== "assigned").length;
-  const online = devices.filter((device) => device.online_status === "online").length;
-  const offline = devices.filter((device) => device.online_status === "offline").length;
-  const unknown = devices.filter((device) => !["online", "offline"].includes(device.online_status)).length;
-  const stale = devices.filter(isTelematicsDeviceStale).length;
-  const suspended = devices.filter((device) => device.lifecycle_status === "suspended").length;
-  const withLocation = devices.filter(hasValidCoordinates).length;
+  const reportableDevices = devices.filter((device) => device.lifecycle_status !== "retired");
+  const total = reportableDevices.length;
+  const active = reportableDevices.filter(isTelematicsDeviceActive).length;
+  const assigned = reportableDevices.filter((device) => Boolean(device.vehicle_id)).length;
+  const unassigned = reportableDevices.filter((device) => !device.vehicle_id && device.assigned_status !== "assigned").length;
+  const online = reportableDevices.filter((device) => device.online_status === "online").length;
+  const offline = reportableDevices.filter((device) => device.online_status === "offline").length;
+  const unknown = reportableDevices.filter((device) => !["online", "offline"].includes(device.online_status)).length;
+  const stale = reportableDevices.filter(isTelematicsDeviceStale).length;
+  const suspended = reportableDevices.filter((device) => device.lifecycle_status === "suspended").length;
+  const withLocation = reportableDevices.filter(hasValidCoordinates).length;
 
   return { total, active, assigned, unassigned, online, offline, unknown, stale, suspended, withLocation };
 }
 
 export function getVehicleTelematicsDevice(vehicle, devices = []) {
   if (!vehicle) return null;
-  return devices.find((device) => device.id === vehicle.telematics_device_id)
-    || devices.find((device) => device.vehicle_id === vehicle.id)
+  const reportableDevices = devices.filter((device) => device.lifecycle_status !== "retired");
+  return reportableDevices.find((device) => device.id === vehicle.telematics_device_id)
+    || reportableDevices.find((device) => device.vehicle_id === vehicle.id)
     || null;
 }

@@ -241,12 +241,47 @@ async function cleanupExpiredHistory(base44) {
   return expired.length;
 }
 
-function onlineStatus(device, position) {
+function traccarOnlineStatus(device) {
   if (device?.status === 'online') return 'online';
   if (device?.status === 'offline') return 'offline';
+  return 'unknown';
+}
+
+function onlineStatus(device, position) {
+  const traccarStatus = traccarOnlineStatus(device);
+  if (traccarStatus !== 'unknown') return traccarStatus;
   if (!position?.fixTime && !position?.deviceTime && !position?.serverTime) return 'unknown';
   const seen = new Date(position.fixTime || position.deviceTime || position.serverTime).getTime();
   return Date.now() - seen > 30 * 60 * 1000 ? 'offline' : 'online';
+}
+
+function normalizeKey(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function traccarDevicePayload(device) {
+  return {
+    provider_key: PROVIDER_KEY,
+    provider_type: 'traccar',
+    unique_id: String(device.uniqueId || device.id || '').trim(),
+    provider_device_id: String(device.id || '').trim(),
+    traccar_device_id: String(device.id || '').trim(),
+    model: device.model || device.name || 'Noran MT20',
+    lifecycle_status: 'inventory',
+    assigned_status: 'unassigned',
+    install_status: 'not_started',
+    online_status: traccarOnlineStatus(device),
+    gps_enabled: true,
+    lock_unlock_enabled: true,
+    horn_light_enabled: true,
+    unlock_disarms_alarm: true,
+    unlock_double_pulse_enabled: true,
+    host_starter_control_enabled: true,
+    installer_starter_test_enabled: true,
+    production_commands_enabled: true,
+    production_command_scope: 'all_supported_commands',
+    created_at: new Date().toISOString()
+  };
 }
 
 async function traccarGet(path) {
@@ -298,29 +333,81 @@ Deno.serve(async (req) => {
     ]);
 
     const traccarById = new Map((traccarDevices || []).map(device => [String(device.id), device]));
-    const traccarByUniqueId = new Map((traccarDevices || []).map(device => [String(device.uniqueId || '').trim().toUpperCase(), device]));
+    const traccarByUniqueId = new Map((traccarDevices || []).map(device => [normalizeKey(device.uniqueId), device]).filter(([key]) => key));
     const positionsByDeviceId = new Map((positions || []).map(position => [String(position.deviceId), position]));
+    const localByTraccarId = new Map();
+    const localByUniqueId = new Map();
+    for (const local of localDevices) {
+      const traccarId = String(local.traccar_device_id || local.provider_device_id || '').trim();
+      const uniqueId = normalizeKey(local.unique_id);
+      if (traccarId) localByTraccarId.set(traccarId, local);
+      if (uniqueId) localByUniqueId.set(uniqueId, local);
+    }
+
     let updated = 0;
     let autoLinked = 0;
+    let createdFromTraccar = 0;
+    let retiredMissing = 0;
+    let statusOnlyUpdated = 0;
     const skipped = [];
+
+    for (const traccarDevice of traccarDevices || []) {
+      const traccarId = String(traccarDevice.id || '').trim();
+      const uniqueId = normalizeKey(traccarDevice.uniqueId);
+      const existing = localByTraccarId.get(traccarId) || localByUniqueId.get(uniqueId);
+      if (!existing && traccarId && uniqueId) {
+        const saved = await base44.asServiceRole.entities.TelematicsDevice.create(traccarDevicePayload(traccarDevice));
+        localDevices.push(saved);
+        localByTraccarId.set(traccarId, saved);
+        localByUniqueId.set(uniqueId, saved);
+        createdFromTraccar += 1;
+      }
+    }
 
     for (const local of localDevices) {
       let traccarId = String(local.traccar_device_id || local.provider_device_id || '').trim();
-      if (!traccarId && local.unique_id) {
-        const matchedTraccarDevice = traccarByUniqueId.get(String(local.unique_id).trim().toUpperCase());
+      let traccarDevice = traccarById.get(traccarId);
+      if (!traccarDevice && local.unique_id) {
+        const matchedTraccarDevice = traccarByUniqueId.get(normalizeKey(local.unique_id));
         if (matchedTraccarDevice?.id) {
           traccarId = String(matchedTraccarDevice.id);
+          traccarDevice = matchedTraccarDevice;
           await base44.asServiceRole.entities.TelematicsDevice.update(local.id, {
             traccar_device_id: traccarId,
-            provider_device_id: traccarId
+            provider_device_id: traccarId,
+            online_status: traccarOnlineStatus(traccarDevice),
+            lifecycle_status: local.lifecycle_status === 'retired' ? 'inventory' : local.lifecycle_status
           });
           autoLinked += 1;
         }
       }
-      if (!traccarId) { skipped.push({ id: local.id, reason: 'missing_traccar_device_id' }); continue; }
+      if (!traccarDevice) {
+        if (local.lifecycle_status !== 'retired') {
+          await base44.asServiceRole.entities.TelematicsDevice.update(local.id, {
+            lifecycle_status: 'retired',
+            assigned_status: 'retired',
+            install_status: 'retired',
+            online_status: 'unknown',
+            location_source: 'unknown',
+            retired_at: new Date().toISOString()
+          });
+          retiredMissing += 1;
+        }
+        skipped.push({ id: local.id, unique_id: local.unique_id, reason: 'not_found_on_traccar' });
+        continue;
+      }
       const position = positionsByDeviceId.get(traccarId);
-      if (!position || typeof position.latitude !== 'number' || typeof position.longitude !== 'number') { skipped.push({ id: local.id, reason: 'no_position' }); continue; }
-      const traccarDevice = traccarById.get(traccarId);
+      if (!position || typeof position.latitude !== 'number' || typeof position.longitude !== 'number') {
+        await base44.asServiceRole.entities.TelematicsDevice.update(local.id, {
+          traccar_device_id: traccarId,
+          provider_device_id: traccarId,
+          online_status: traccarOnlineStatus(traccarDevice),
+          location_source: local.location_source || 'traccar'
+        });
+        statusOnlyUpdated += 1;
+        skipped.push({ id: local.id, unique_id: local.unique_id, reason: 'no_position_status_updated' });
+        continue;
+      }
       const noranPacket = noranPacketFromPosition({ position, traccarDevice });
       const seenAt = toIso(noranPacket?.datetime || position.fixTime || position.deviceTime || position.serverTime);
       const payload = {
@@ -364,7 +451,7 @@ Deno.serve(async (req) => {
     }
 
     const retention_deleted = await cleanupExpiredHistory(base44);
-    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, auto_linked: autoLinked, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
+    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, auto_linked: autoLinked, created_from_traccar: createdFromTraccar, retired_missing_from_traccar: retiredMissing, status_only_updated: statusOnlyUpdated, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
   } catch (error) {
     await recordFailure(base44, error.message);
     return Response.json({ ok: false, error: error.message, warning: 'Location update delayed. Last known locations remain available.' }, { status: 500 });
