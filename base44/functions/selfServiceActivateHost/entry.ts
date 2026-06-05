@@ -29,17 +29,22 @@ Deno.serve(async (req) => {
     });
 
     const plans = await base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id });
-    if (plans?.[0]) {
-      await base44.asServiceRole.entities.OperatorPlanConfiguration.update(plans[0].id, {
-        status: 'active',
-        active_mode: plans[0].selected_mode || plans[0].active_mode || 'fleetos_professional',
+    const plan = plans?.[0];
+    if (plan) {
+      const selectedMode = plan.selected_mode || plan.active_mode || 'fleetos_professional';
+      const paidPlan = ['fleetos_professional', 'hybrid_growth'].includes(selectedMode);
+      const alreadyPaid = plan.status === 'active' && plan.last_payment_status === 'paid';
+
+      await base44.asServiceRole.entities.OperatorPlanConfiguration.update(plan.id, {
+        status: paidPlan && !alreadyPaid ? 'pending_payment' : 'active',
+        active_mode: paidPlan && !alreadyPaid ? 'none' : selectedMode,
         fee_structure_acknowledged: true,
-        fee_structure_acknowledged_at: plans[0].fee_structure_acknowledged_at || now,
+        fee_structure_acknowledged_at: plan.fee_structure_acknowledged_at || now,
         fee_structure_acknowledged_by: user.email,
-        activated_at: plans[0].activated_at || now,
-        activation_source: 'self_service',
-        last_payment_status: 'not_required',
-        billing_activation_pending: false,
+        activated_at: paidPlan && !alreadyPaid ? plan.activated_at : (plan.activated_at || now),
+        activation_source: paidPlan && !alreadyPaid ? 'subscription_payment' : 'self_service',
+        last_payment_status: paidPlan && !alreadyPaid ? 'pending' : (plan.last_payment_status || 'not_required'),
+        billing_activation_pending: paidPlan && !alreadyPaid,
         last_updated_at: now
       });
     }

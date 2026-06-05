@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import RecommendedSetup from "@/components/operator/RecommendedSetup";
-import { OPERATIONAL_MODES, planDefaults, buildAddonPayload } from "@/lib/operatorRecommendation";
+import { OPERATIONAL_MODES, buildAddonPayload } from "@/lib/operatorRecommendation";
 import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import PaymentSetupBuilder from "@/components/host/PaymentSetupBuilder";
+import PlatformBillingCard from "@/components/host/PlatformBillingCard";
 
 export default function HostBusinessOperations() {
   const { user } = useAuth();
@@ -38,6 +39,12 @@ export default function HostBusinessOperations() {
     enabled: !!host?.id
   });
 
+  const { data: platformSubscriptions = [] } = useQuery({
+    queryKey: ["host-platform-subscription", host?.id],
+    queryFn: () => base44.entities.HostPlatformSubscription.filter({ host_id: host.id }, "-updated_date", 5),
+    enabled: !!host?.id
+  });
+
   const { data: addonConfigs = [] } = useQuery({
     queryKey: ["operator-addons", host?.id, user?.id],
     queryFn: async () => {
@@ -56,28 +63,15 @@ export default function HostBusinessOperations() {
   const profile = profiles[0];
   const plan = plans[0];
   const settings = paymentSettings[0];
+  const platformSubscription = platformSubscriptions[0];
 
   const updatePlan = useMutation({
-    mutationFn: async ({ id, mode }) => {
-      const defaults = planDefaults(mode, profile || {}, plan?.recommended_mode || profile?.recommended_mode || mode, { feeAcknowledged: true, actor: user?.email || "host" });
-      await base44.entities.OperatorPlanConfiguration.update(id, {
-        ...defaults,
-        selected_mode: mode,
-        recommended_mode: plan?.recommended_mode || profile?.recommended_mode || mode,
-        payment_mode: plan?.payment_mode || defaults.payment_mode,
-        uses_uride_payments: plan?.uses_uride_payments ?? defaults.uses_uride_payments,
-        uses_own_payments: plan?.uses_own_payments ?? defaults.uses_own_payments,
-        customer_payment_routing: plan?.customer_payment_routing || defaults.customer_payment_routing,
-        host_id: host?.id,
-        user_id: user?.id,
-        status_audit_log: [
-          ...(plan?.status_audit_log || []),
-          { from_status: plan?.status || "unknown", to_status: "active", changed_by: user?.email || "host", changed_at: new Date().toISOString(), reason: "Host acknowledged and changed selected setup from Business Operations.", source: "host_edit" }
-        ]
-      });
-      await base44.entities.OperatorRecommendationHistory.create({ host_id: host?.id, user_id: user?.id, previous_mode: plan?.selected_mode || plan?.active_mode || "", new_mode: mode, reason: "Host changed selected setup from Business Operations.", changed_by: user?.email || "host", changed_at: new Date().toISOString(), source: "host_edit" });
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["operator-plan"] })
+    mutationFn: (mode) => base44.functions.invoke("manageHostPlatformPlan", { host_id: host.id, plan_id: plan.id, mode }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["operator-plan"] });
+      qc.invalidateQueries({ queryKey: ["host-platform-subscription", host?.id] });
+      if (res.data?.url) window.location.href = res.data.url;
+    }
   });
 
   const result = useMemo(() => profile ? { recommended_mode: profile.recommended_mode, recommendation_confidence: profile.recommendation_confidence, recommendation_reasoning: profile.recommendation_reasoning, recommended_addons: profile.recommended_addons } : null, [profile]);
@@ -160,6 +154,8 @@ export default function HostBusinessOperations() {
 
       {result && <RecommendedSetup result={result} compact selectedMode={plan?.selected_mode} selectedAddons={selectedAddons} onAddonsChange={(next) => updateAddons.mutate(next)} />}
 
+      {plan && <PlatformBillingCard plan={plan} subscription={platformSubscription} loading={updatePlan.isPending} onStartBilling={() => updatePlan.mutate(plan.selected_mode || plan.active_mode)} />}
+
       {plan && (
         <div className="rounded-2xl bg-white border border-gray-100 p-5 space-y-4">
           <div>
@@ -175,7 +171,7 @@ export default function HostBusinessOperations() {
           <p className="text-xs text-emerald-700 bg-emerald-50 rounded-xl p-3">Package fees are platform billing. Customer payments are routed separately by the Payment Setup below.</p>
           <p className="font-black text-gray-900 text-sm">Change package</p>
           {Object.entries(OPERATIONAL_MODES).map(([key, item]) => (
-            <button key={key} onClick={() => updatePlan.mutate({ id: plan.id, mode: key })} className={`w-full text-left p-4 rounded-2xl border ${plan.selected_mode === key ? "border-pink-300 bg-pink-50" : "border-gray-100 bg-white"}`}>
+            <button key={key} onClick={() => updatePlan.mutate(key)} disabled={updatePlan.isPending} className={`w-full text-left p-4 rounded-2xl border disabled:opacity-60 ${plan.selected_mode === key ? "border-pink-300 bg-pink-50" : "border-gray-100 bg-white"}`}>
               <p className="font-bold text-gray-900 text-sm">{item.label}</p>
               <p className="text-xs text-gray-500 mt-1">{item.price}</p>
             </button>
