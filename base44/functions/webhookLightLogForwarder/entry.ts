@@ -168,7 +168,7 @@ function parseMt20Voltage0032(body) {
       packet_type: '0x0032',
       nBAT: nbat,
       voltage,
-      device_unique_id: extractDeviceId(bytes, body) || asciiFromBytes(bytes.slice(i + 20, Math.min(bytes.length, i + 40))) || '',
+      device_unique_id: extractDeviceId(bytes, {}) || extractDeviceId(bytes, body) || asciiFromBytes(bytes.slice(i + 20, Math.min(bytes.length, i + 40))) || '',
       device_updates: {
         battery_voltage: voltage,
         power_voltage: voltage,
@@ -212,7 +212,7 @@ function parseMt20CommandResponse8009(body) {
       lock_state: lockState,
       starter_state: starterState,
       cErrorCode,
-      device_unique_id: extractDeviceId(bytes.slice(i), body) || String(body.unique_id || body.device_unique_id || '').trim(),
+      device_unique_id: extractDeviceId(bytes.slice(i), {}) || extractDeviceId(bytes.slice(i), body) || String(body.unique_id || body.device_unique_id || '').trim(),
       device_updates: { online_status: 'online' }
     };
   }
@@ -257,7 +257,7 @@ function parseMt20AlarmUpload0003(body) {
       longitude,
       latitude,
       device_timestamp: timestamp,
-      device_unique_id: extractDeviceId(bytes.slice(i), body),
+      device_unique_id: extractDeviceId(bytes.slice(i), {}) || extractDeviceId(bytes.slice(i), body),
       voltage: Number.isFinite(batteryVoltage) ? batteryVoltage : undefined,
       device_updates: {
         online_status: 'online',
@@ -292,7 +292,7 @@ function parseMeaningfulMt20Packet(body) {
       raw_packet_hex: cleanHex(rawHex),
       packet_type: packetTypeHex,
       packet_offset: i,
-      device_unique_id: extractDeviceId(bytes.slice(i), body),
+      device_unique_id: extractDeviceId(bytes.slice(i), {}) || extractDeviceId(bytes.slice(i), body),
       device_updates: { online_status: 'online' }
     };
   }
@@ -316,13 +316,13 @@ function parseForwardedMessage(body) {
 
 async function findDevice(base44, body, parsed) {
   const candidates = [
+    parsed.device_unique_id,
     body.device_unique_id,
     body.unique_id,
     body.device_id,
     body.traccar_device_id,
     body.provider_device_id,
-    body.imei,
-    parsed.device_unique_id
+    body.imei
   ].map((value) => String(value || '').trim()).filter(Boolean);
 
   const fields = ['unique_id', 'device_imei', 'provider_device_id', 'traccar_device_id', 'moovetrax_device_id'];
