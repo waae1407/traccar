@@ -496,14 +496,74 @@ function alarmMessage(detail, device, parsed) {
   return `${detail.title} for device ${device?.unique_id || device?.id || 'unknown'}.${location}${speed}`;
 }
 
+async function resolveAlarmRecipients(base44, payload) {
+  if (payload.recipient_role === 'admin' && !payload.recipient_email) {
+    const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' }).catch(() => []);
+    return admins.map((admin) => ({ email: admin.email, phone: admin.phone })).filter((recipient) => recipient.email || recipient.phone);
+  }
+  return [{ email: payload.recipient_email || payload.user_email || '', phone: payload.recipient_phone || '' }].filter((recipient) => recipient.email || recipient.phone);
+}
+
+async function sendAlarmEmail(recipientEmail, payload) {
+  const apiKey = Deno.env.get('RESEND_API_KEY');
+  if (!apiKey || !recipientEmail) return false;
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: 'uRide Alerts <alerts@uridehub.com>',
+      to: [recipientEmail],
+      subject: payload.title,
+      text: `${payload.message || payload.body || ''}\n\nOpen: ${payload.action_url || '/'}`
+    })
+  });
+  if (!response.ok) console.warn('Alarm email failed:', recipientEmail, await response.text());
+  return response.ok;
+}
+
+async function sendAlarmSms(recipientPhone, payload) {
+  const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID');
+  const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
+  const fromPhone = Deno.env.get('TWILIO_PHONE_NUMBER');
+  if (!accountSid || !authToken || !fromPhone || !recipientPhone) return false;
+  const body = new URLSearchParams({
+    From: fromPhone,
+    To: recipientPhone,
+    Body: `${payload.title}: ${payload.message || payload.body || ''}`.slice(0, 1500)
+  });
+  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body
+  });
+  if (!response.ok) console.warn('Alarm SMS failed:', recipientPhone, await response.text());
+  return response.ok;
+}
+
 async function createScopedAlarmNotification(base44, payload) {
-  await base44.asServiceRole.entities.Notification.create({
+  const notification = await base44.asServiceRole.entities.Notification.create({
     ...payload,
     domain: 'telematics',
     type: 'telematics',
     delivery_channels: ['in_app', 'email', 'sms'],
     delivery_status: 'pending'
   });
+
+  const recipients = await resolveAlarmRecipients(base44, payload);
+  const results = [];
+  for (const recipient of recipients) {
+    results.push(await sendAlarmEmail(recipient.email, payload));
+    results.push(await sendAlarmSms(recipient.phone, payload));
+  }
+
+  const attempted = recipients.length > 0;
+  const delivered = results.some(Boolean);
+  await base44.asServiceRole.entities.Notification.update(notification.id, {
+    delivery_status: delivered ? 'sent' : attempted ? 'failed' : 'pending'
+  }).catch(() => null);
 }
 
 async function processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp }) {
@@ -592,6 +652,7 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
       await createScopedAlarmNotification(base44, {
         recipient_role: 'host',
         recipient_email: host.email,
+        recipient_phone: host.phone || '',
         severity: detail.severity,
         title: detail.title,
         body: message,
@@ -605,6 +666,7 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
       await createScopedAlarmNotification(base44, {
         recipient_role: 'customer',
         recipient_email: booking.user_email,
+        recipient_phone: booking.customer_phone || '',
         user_email: booking.user_email,
         user_id: booking.user_id || '',
         severity: detail.severity,
