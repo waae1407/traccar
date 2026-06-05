@@ -574,25 +574,19 @@ async function createScopedAlarmNotification(base44, payload) {
 }
 
 async function processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp }) {
-  if (!ALARM_EVENT_TYPES.has(parsed?.event_type) || !device?.id || !device.vehicle_id) return null;
+  if (!ALARM_EVENT_TYPES.has(parsed?.event_type) || !device?.id) return null;
 
   const detail = ALARM_DETAILS[parsed.event_type] || ALARM_DETAILS.unknown_alarm;
   const booking = await getActiveBookingForVehicle(base44, device.vehicle_id);
   const host = await getHost(base44, device.host_id);
   const message = alarmMessage(detail, device, parsed);
   const now = new Date().toISOString();
-  const recentWindow = Date.now() - 5 * 60 * 1000;
 
-  const existingSafetyEvent = (await base44.asServiceRole.entities.TelematicsSafetyEvent.filter({
-    vehicle_id: device.vehicle_id,
-    event_type: detail.safetyType
-  })).find((item) => ['open', 'escalated'].includes(item.status) && new Date(item.started_at || item.created_date || 0).getTime() >= recentWindow);
-
-  const safetyEvent = existingSafetyEvent || await base44.asServiceRole.entities.TelematicsSafetyEvent.create({
+  const safetyEvent = await base44.asServiceRole.entities.TelematicsSafetyEvent.create({
     event_type: detail.safetyType,
     confidence: detail.confidence,
     severity: detail.severity,
-    vehicle_id: device.vehicle_id,
+    vehicle_id: device.vehicle_id || '',
     host_id: device.host_id || '',
     booking_id: booking?.id || '',
     customer_id: booking?.user_id || '',
@@ -606,7 +600,20 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
     started_at: timestamp || now,
     status: 'open',
     last_known_location: parsed.latitude !== undefined && parsed.longitude !== undefined ? `${parsed.latitude.toFixed(3)}, ${parsed.longitude.toFixed(3)}` : '',
-    raw_telemetry_snapshot: { alarm_type: parsed.event_type, telematics_event_id: event?.id || '', parsed_forwarded_log: parsed, raw: rawPayload },
+    raw_telemetry_snapshot: {
+      alarm_type: parsed.event_type,
+      alarm_code: parsed.alarm_byte,
+      packet_type: parsed.packet_type,
+      raw_packet_hex: parsed.raw_packet_hex,
+      status_bits: parsed.status_bits,
+      bEnable: parsed.bEnable,
+      nBAT: parsed.nBAT,
+      battery_voltage: parsed.voltage,
+      device_timestamp: parsed.device_timestamp || '',
+      telematics_event_id: event?.id || '',
+      parsed_forwarded_log: parsed,
+      raw: rawPayload
+    },
     created_by: 'system'
   });
 
@@ -627,7 +634,7 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
     action_url: '/admin/telematics-operations',
     provider_key: PROVIDER_KEY,
     telematics_device_id: device.id,
-    vehicle_id: device.vehicle_id,
+    vehicle_id: device.vehicle_id || '',
     host_id: device.host_id || '',
     dedupe_key: dedupeKey,
     metadata: { alarm_type: parsed.event_type, safety_event_id: safetyEvent.id, telematics_event_id: event?.id || '', booking_id: booking?.id || '' }
@@ -644,7 +651,9 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
     await base44.asServiceRole.entities.OperationalAlert.create(alertPayload);
   }
 
-  if (!existingAlert) {
+  const shouldNotifyRecipients = ['sos_alarm', 'shock_alarm'].includes(parsed.event_type);
+
+  if (!existingAlert && shouldNotifyRecipients) {
     const adminMsg = alarmMessage(detail, device, parsed, 'admin');
     const hostMsg = alarmMessage(detail, device, parsed, 'host');
     const customerMsg = alarmMessage(detail, device, parsed, 'customer');
