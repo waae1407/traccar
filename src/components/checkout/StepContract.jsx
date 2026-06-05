@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { FileText, PenLine, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react";
+import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 import { generateWeeklyContract } from "./contracts/WeeklyRentalContract";
 import { generateRTOContract } from "./contracts/RentToOwnContract";
 import InitialClause from "./InitialClause";
@@ -55,11 +56,12 @@ export default function StepContract({ booking, vehicle, saveAndAdvance }) {
   const clauses = isRTO ? [...COMMON_CLAUSES, RTO_CLAUSE] : COMMON_CLAUSES;
 
   // initials state: { clause_id: string }
-  const [initials, setInitials] = useState(() =>
+  const [initials, setInitials, clearInitialsDraft] = usePersistentFormDraft(
+    `checkout_contract_initials_draft:${booking?.id}`,
     Object.fromEntries(clauses.map((c) => [c.id, ""]))
   );
-  const [signatureName, setSignatureName] = useState("");
-  const [contractReviewed, setContractReviewed] = useState(false);
+  const [signatureName, setSignatureName, clearSignatureDraft] = usePersistentFormDraft(`checkout_contract_signature_draft:${booking?.id}`, "");
+  const [contractReviewed, setContractReviewed, clearReviewedDraft] = usePersistentFormDraft(`checkout_contract_reviewed_draft:${booking?.id}`, false);
 
   const handleInitials = (id, val) => setInitials((p) => ({ ...p, [id]: val }));
 
@@ -82,6 +84,9 @@ export default function StepContract({ booking, vehicle, saveAndAdvance }) {
       ])
     );
 
+    clearInitialsDraft();
+    clearSignatureDraft();
+    clearReviewedDraft();
     saveAndAdvance({
       signature_name: signatureName,
       signature_device_info: deviceInfo,

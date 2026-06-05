@@ -4,6 +4,7 @@ import { addWeeks, format } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import PublicTrustBadges from "@/components/trust/PublicTrustBadges";
 import { latestSnapshotFor, publicVehicleLabels } from "@/lib/reputation/publicTrust";
+import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 
 const BOOKING_TYPES = ["Weekly", "Rent-to-Own"];
 const RADIUS_OPTIONS = [10, 25, 50, 100, 250];
@@ -31,17 +32,17 @@ function getSmartTip(type, filtered, startDate) {
 
 export default function StepVehicle({ vehicles = [], vehicleId, bookingType: initialType, onSelect }) {
   const validInitialType = BOOKING_TYPES.includes(initialType) ? initialType : "Weekly";
-  const [type, setType] = useState(validInitialType);
-  const [startDate, setStartDate] = useState("");
-  const [autoRenew, setAutoRenew] = useState(true);
-  const [selectedId, setSelectedId] = useState(vehicleId || null);
-  const [zipcode, setZipcode] = useState("");
-  const [radius, setRadius] = useState(50);
+  const [type, setType] = usePersistentFormDraft("checkout_vehicle_type_draft", validInitialType);
+  const [startDate, setStartDate, clearStartDateDraft] = usePersistentFormDraft("checkout_vehicle_start_date_draft", "");
+  const [autoRenew, setAutoRenew, clearAutoRenewDraft] = usePersistentFormDraft("checkout_vehicle_auto_renew_draft", true);
+  const [selectedId, setSelectedId, clearSelectedVehicleDraft] = usePersistentFormDraft("checkout_vehicle_selected_draft", vehicleId || null);
+  const [zipcode, setZipcode] = usePersistentFormDraft("checkout_vehicle_zipcode_draft", "");
+  const [radius, setRadius] = usePersistentFormDraft("checkout_vehicle_radius_draft", 50);
   const [showFilters, setShowFilters] = useState(false);
   const [locating, setLocating] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
-  const [userCoords, setUserCoords] = useState(null);
-  const [zipcodeCoords, setZipcodeCoords] = useState(null);
+  const [userCoords, setUserCoords] = usePersistentFormDraft("checkout_vehicle_user_coords_draft", null);
+  const [zipcodeCoords, setZipcodeCoords] = usePersistentFormDraft("checkout_vehicle_zipcode_coords_draft", null);
 
   const available = vehicles.filter((v) => v.status === "Available" && v.host_id);
   const typeFiltered = type === "Rent-to-Own" ? available.filter((v) => v.rent_to_own_eligible) : available;
@@ -114,6 +115,9 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
 
   const handleConfirm = () => {
     if (!startDate || !selectedVehicle) return;
+    clearStartDateDraft();
+    clearAutoRenewDraft();
+    clearSelectedVehicleDraft();
     onSelect(selectedVehicle, type, { startDate, endDate, autoRenew });
   };
 

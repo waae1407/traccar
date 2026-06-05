@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import { User, Phone, MapPin, Heart, Sparkles } from "lucide-react";
+import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 
 const inputCls = "w-full h-11 px-4 rounded-xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all";
 const labelCls = "block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5";
@@ -8,7 +9,7 @@ export default function StepProfile({ booking, saveAndAdvance, recentVerifiedBoo
   // Use data from current booking, or fall back to recent verified booking (within 30 days)
   const prefill = recentVerifiedBooking || {};
 
-  const [form, setForm] = useState({
+  const [form, setForm, clearProfileDraft] = usePersistentFormDraft(`checkout_profile_draft:${booking?.id}`, {
     customer_full_name: booking?.customer_full_name || prefill.customer_full_name || "",
     customer_phone: booking?.customer_phone || prefill.customer_phone || "",
     customer_dob: booking?.customer_dob || prefill.customer_dob || "",
@@ -37,6 +38,7 @@ export default function StepProfile({ booking, saveAndAdvance, recentVerifiedBoo
       license_back_url: recentVerifiedBooking.license_back_url || "",
       selfie_url: recentVerifiedBooking.selfie_url || "",
     } : {};
+    clearProfileDraft();
     saveAndAdvance({ ...form, ...extraData }, nextStep);
   };
 

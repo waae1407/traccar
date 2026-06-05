@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 import { Home, DollarSign, Shield, Zap, CheckCircle2, ArrowRight, Clock, AlertCircle, Star, TrendingUp } from "lucide-react";
 import { planDefaults } from "@/lib/operatorRecommendation";
 import { upsertOperatorAddonSelections } from "@/lib/operatorAddonPersistence";
@@ -21,7 +22,7 @@ export default function BecomeAHost() {
   const [submitting, setSubmitting] = useState(false);
   const [existingHost, setExistingHost] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(false);
-  const [form, setForm] = useState({
+  const defaultForm = {
     full_name: user?.full_name || "",
     email: user?.email || "",
     phone: "",
@@ -31,7 +32,8 @@ export default function BecomeAHost() {
     years_in_business: "",
     referral_source: "",
     bio: "",
-  });
+  };
+  const [form, setForm, clearHostDraft] = usePersistentFormDraft("host_application_draft", defaultForm);
 
   // Check for existing host record on mount (when user is logged in)
   useEffect(() => {
@@ -117,6 +119,20 @@ export default function BecomeAHost() {
       }
     }
 
+    clearHostDraft();
+    [
+      "operator_questionnaire_step",
+      "operator_questionnaire_answers",
+      "operator_questionnaire_result",
+      "operator_questionnaire_selected_mode",
+      "operator_questionnaire_selected_addons",
+      "operator_answers",
+      "operator_recommendation",
+      "operator_selected_mode",
+      "operator_selected_addons",
+      "operator_profile_id",
+      "operator_plan_id"
+    ].forEach((key) => localStorage.removeItem(key));
     setStep(3);
     setSubmitting(false);
   };

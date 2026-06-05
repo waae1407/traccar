@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { recommendOperatorMode, planDefaults } from "@/lib/operatorRecommendation";
 import { getValidAddonKeys, upsertOperatorAddonSelections } from "@/lib/operatorAddonPersistence";
 import RecommendedSetup from "@/components/operator/RecommendedSetup";
+import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -24,11 +25,11 @@ const questions = [
 export default function SmartOperatorQuestionnaire() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({ operational_needs: [] });
-  const [result, setResult] = useState(null);
-  const [selectedMode, setSelectedMode] = useState(null);
-  const [selectedAddons, setSelectedAddons] = useState([]);
+  const [step, setStep] = usePersistentFormDraft("operator_questionnaire_step", 0);
+  const [answers, setAnswers] = usePersistentFormDraft("operator_questionnaire_answers", { operational_needs: [] });
+  const [result, setResult] = usePersistentFormDraft("operator_questionnaire_result", null);
+  const [selectedMode, setSelectedMode] = usePersistentFormDraft("operator_questionnaire_selected_mode", null);
+  const [selectedAddons, setSelectedAddons] = usePersistentFormDraft("operator_questionnaire_selected_addons", []);
   const [saving, setSaving] = useState(false);
   const q = questions[step];
 

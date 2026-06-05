@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { format } from "date-fns";
+import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 import { Car, MapPin, Calendar, DollarSign, AlertCircle, RefreshCw } from "lucide-react";
 
 export default function StepTerms({ booking, vehicle, saveAndAdvance }) {
-  const [consents, setConsents] = useState({
+  const [consents, setConsents, clearTermsDraft] = usePersistentFormDraft(`checkout_terms_draft:${booking?.id}`, {
     consent_esign: booking?.consent_esign || false,
     consent_verification: booking?.consent_verification || false,
     consent_terms: booking?.consent_terms || false,
@@ -107,7 +108,7 @@ export default function StepTerms({ booking, vehicle, saveAndAdvance }) {
 
       <button
         disabled={!allChecked}
-        onClick={() => saveAndAdvance({ ...consents, booking_status: "pending_contract" }, "contract")}
+        onClick={() => { clearTermsDraft(); saveAndAdvance({ ...consents, booking_status: "pending_contract" }, "contract"); }}
         className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-40"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
         Agree & Continue

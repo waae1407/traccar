@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Upload, Check, AlertCircle, ShieldCheck, Loader2, XCircle } from "lucide-react";
 import { uploadFile } from "@/utils/uploadFile";
+import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 
 function UploadBox({ label, url, uploading, onChange, required }) {
   return (
@@ -58,7 +59,7 @@ const VerificationStatus = ({ status, message }) => {
 };
 
 export default function StepVerification({ booking, saveAndAdvance, updateMutation }) {
-  const [uploads, setUploads] = useState({
+  const [uploads, setUploads, clearVerificationDraft] = usePersistentFormDraft(`checkout_verification_draft:${booking?.id}`, {
     license_front_url: booking?.license_front_url || "",
     license_back_url: booking?.license_back_url || "",
     selfie_url: booking?.selfie_url || "",
@@ -164,6 +165,7 @@ Respond ONLY with valid JSON:
   };
 
   const handleContinue = () => {
+    clearVerificationDraft();
     saveAndAdvance({
       ...uploads,
       verification_status: "verified",
