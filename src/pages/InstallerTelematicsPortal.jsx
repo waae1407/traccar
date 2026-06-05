@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +25,9 @@ import {
   User,
   XCircle
 } from "lucide-react";
+
+const COMMAND_PACE_MS = 4500;
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const REQUIRED_TESTS = [
   ["device_online", "Device Online", "📡"],
@@ -491,6 +494,10 @@ export default function InstallerTelematicsPortal() {
   const [scanMessage, setScanMessage] = useState(() => savedDraft?.form?.actual_device_id ? { type: "success", text: "Saved installation progress restored." } : null);
   const [vinScanMessage, setVinScanMessage] = useState(null);
   const [commandState, setCommandState] = useState(() => savedDraft?.commandState || {});
+  const [activeCommand, setActiveCommand] = useState("");
+  const [lastCommandSentAt, setLastCommandSentAt] = useState(0);
+  const [capabilityDeviceId, setCapabilityDeviceId] = useState(() => form.actual_device_id || "");
+  const commandLockRef = useRef("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTest, setHelpTest] = useState('');
   const [helpForm, setHelpForm] = useState({ name: '', phone: '', email: '', description: '' });
@@ -505,11 +512,18 @@ export default function InstallerTelematicsPortal() {
     saveInstallerDraft({ currentStep, form, photoSlots, additionalPhotos, commandState, saved_at: new Date().toISOString() });
   }, [currentStep, form, photoSlots, additionalPhotos, commandState, result?.status]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setCapabilityDeviceId(form.actual_device_id || ""), 700);
+    return () => clearTimeout(timer);
+  }, [form.actual_device_id]);
+
   const capabilities = useQuery({
-    queryKey: ["installer-capabilities", form.actual_device_id],
-    queryFn: () => base44.functions.invoke("getInstallerDeviceCapabilities", { device_id: form.actual_device_id }).then(res => res.data),
-    enabled: !!form.actual_device_id,
-    retry: false
+    queryKey: ["installer-capabilities", capabilityDeviceId],
+    queryFn: () => base44.functions.invoke("getInstallerDeviceCapabilities", { device_id: capabilityDeviceId }).then(res => res.data),
+    enabled: capabilityDeviceId.length >= 6,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false
   });
 
   const vinValid = form.vin.length === 17;
@@ -609,7 +623,7 @@ export default function InstallerTelematicsPortal() {
   const testsReady = supportedTestsComplete && allSupportedTestsPass;
 
   useEffect(() => {
-    if (currentStep === 3 && form.actual_device_id) capabilities.refetch();
+    if (currentStep === 3 && form.actual_device_id && !capabilities.data && !capabilities.isFetching) capabilities.refetch();
   }, [currentStep, form.actual_device_id]);
 
   const completed = {
@@ -659,21 +673,48 @@ export default function InstallerTelematicsPortal() {
   };
 
   const sendInstallCommand = async (commandType, testKey) => {
+    if (commandLockRef.current) return;
+    commandLockRef.current = commandType;
+    setActiveCommand(commandType);
     setCommandState(prev => ({ ...prev, [commandType]: { status: 'Sending' } }));
+
     try {
-      await base44.functions.invoke('sendTelematicsCommand', {
-        command_type: commandType,
-        unique_id: form.actual_device_id,
-        vin: form.vin,
-        installer_install_test: true,
-        source: 'installer_workflow'
-      });
-      setCommandState(prev => ({ ...prev, [commandType]: { status: 'Sent' } }));
+      const waitMs = Math.max(0, COMMAND_PACE_MS - (Date.now() - lastCommandSentAt));
+      if (waitMs > 0) {
+        setCommandState(prev => ({ ...prev, [commandType]: { status: 'Waiting', error: 'Waiting a few seconds to protect the command system.' } }));
+        await sleep(waitMs);
+      }
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          setCommandState(prev => ({ ...prev, [commandType]: { status: 'Sending' } }));
+          await base44.functions.invoke('sendTelematicsCommand', {
+            command_type: commandType,
+            unique_id: form.actual_device_id,
+            vin: form.vin,
+            installer_install_test: true,
+            source: 'installer_workflow'
+          });
+          setLastCommandSentAt(Date.now());
+          setCommandState(prev => ({ ...prev, [commandType]: { status: 'Sent' } }));
+          return;
+        } catch (error) {
+          const isRateLimited = error?.response?.status === 429 || /rate limit/i.test(error?.response?.data?.error || error.message || '');
+          if (!isRateLimited || attempt === 2) throw error;
+          const retrySeconds = Number(error?.response?.data?.retry_after_seconds || 0);
+          const retryMs = Math.min(Math.max(retrySeconds * 1000, COMMAND_PACE_MS), 15000);
+          setCommandState(prev => ({ ...prev, [commandType]: { status: 'Waiting', error: `System is pacing commands, retrying in ${Math.ceil(retryMs / 1000)} seconds.` } }));
+          await sleep(retryMs);
+        }
+      }
     } catch (error) {
       const message = error?.response?.data?.error || error.message;
       setCommandState(prev => ({ ...prev, [commandType]: { status: 'Failed', error: message } }));
       update(testKey, 'fail');
       setHelpTest(testKey);
+    } finally {
+      commandLockRef.current = "";
+      setActiveCommand("");
     }
   };
 
@@ -718,7 +759,7 @@ export default function InstallerTelematicsPortal() {
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
           {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
           {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} />}
-          {currentStep === 3 && <InstallerTestingStep form={form} update={update} capabilities={capabilities} commandState={commandState} onSendCommand={sendInstallCommand} onHelp={openHelp} />}
+          {currentStep === 3 && <InstallerTestingStep form={form} update={update} capabilities={capabilities} commandState={commandState} activeCommand={activeCommand} onSendCommand={sendInstallCommand} onHelp={openHelp} />}
           {currentStep === 4 && <CompleteStep form={form} deviceId={form.device_id} vehicleLookup={vehicleLookup} readyItems={readyItems} submit={submit} submitInstallation={submitInstallation} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} result={result} />}
         </div>
       </div>

@@ -263,6 +263,7 @@ function ratePolicy(trafficClass, commandType, maxPerMinute) {
   if (trafficClass === 'automation_alarm') return { maxAllowed: 30, cooldownMs: 0 };
   return { maxAllowed: STARTER_COMMANDS.includes(commandType) ? Math.max(2, Number(maxPerMinute || 2)) : Math.max(8, Number(maxPerMinute || 4)), cooldownMs: commandCooldownMs(commandType) };
 }
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 async function enforceRateLimit(base44, deviceId, commandType, actorKey, trafficClass, maxPerMinute, options = {}) {
   if (trafficClass === 'automation_alarm' || options.alarmSessionId) return { limited: false };
@@ -464,7 +465,11 @@ Deno.serve(async (req) => {
     }
     const trafficClass = commandTrafficClass({ installerInstallTest, adminDeviceCommandTest, adminTraccarLiveTest, alarmSessionId: body.alarm_session_id || '', booking, user });
     const rateLimitActorKey = actorKeyForRateLimit(user, trafficClass, body, booking);
-    const rateLimit = await enforceRateLimit(base44, device.id, commandType, rateLimitActorKey, trafficClass, provider.max_commands_per_minute, { alarmSessionId: body.alarm_session_id || '' });
+    let rateLimit = await enforceRateLimit(base44, device.id, commandType, rateLimitActorKey, trafficClass, provider.max_commands_per_minute, { alarmSessionId: body.alarm_session_id || '' });
+    if (rateLimit.limited && ['installer_install_test', 'admin_device_test'].includes(trafficClass) && Number(rateLimit.retry_after_seconds || 0) <= 12) {
+      await sleep(Number(rateLimit.retry_after_seconds || 1) * 1000);
+      rateLimit = await enforceRateLimit(base44, device.id, commandType, rateLimitActorKey, trafficClass, provider.max_commands_per_minute, { alarmSessionId: body.alarm_session_id || '' });
+    }
     if (rateLimit.limited) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.', retry_after_seconds: rateLimit.retry_after_seconds, traffic_class: rateLimit.traffic_class }, { status: 429 });
 
     const now = new Date();

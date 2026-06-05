@@ -16,10 +16,10 @@ const COMMAND_TESTS = [
   ['lock_test', 'lock', 'Lock'],
   ['unlock_test', 'unlock', 'Unlock'],
   ['horn_test', 'horn', 'Horn'],
-  ['starter_disable_test', 'disable_starter', 'Disable Starter'],
-  ['starter_restore_test', 'restore_starter', 'Restore Starter'],
   ['lights_test', 'lights', 'Lights'],
   ['alarm_test', 'alarm_pulse', 'Alarm'],
+  ['starter_disable_test', 'disable_starter', 'Disable Starter'],
+  ['starter_restore_test', 'restore_starter', 'Restore Starter'],
 ];
 
 function StatusBadge({ value }) {
@@ -28,9 +28,10 @@ function StatusBadge({ value }) {
   return <Badge className={`${pass ? 'bg-emerald-500' : fail ? 'bg-red-500' : 'bg-slate-300 text-slate-700'} rounded-full px-3 py-1 text-white`}>{pass ? 'Verified' : fail ? 'Needs Review' : 'Waiting'}</Badge>;
 }
 
-export default function InstallerTestingStep({ form, update, capabilities, commandState, onSendCommand, onHelp }) {
+export default function InstallerTestingStep({ form, update, capabilities, commandState, activeCommand, onSendCommand, onHelp }) {
   const autoChecks = capabilities.data?.auto_checks || {};
   const tests = capabilities.data?.tests || {};
+  const busy = !!activeCommand;
 
   return (
     <div className="space-y-4">
@@ -53,22 +54,28 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
         })}
       </div>
 
-      <div className="space-y-1.5 max-h-96 overflow-y-auto pr-2">
+      {busy && <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700">One command is being processed. Other buttons are locked until it is safe to continue.</div>}
+
+      <div className="space-y-1.5 pr-2">
         {COMMAND_TESTS.filter(([id]) => tests[id] !== false).map(([id, command, label]) => {
            const value = form[id];
            const state = commandState[command]?.status || 'Ready';
+           const isCurrent = activeCommand === command;
+           const locked = busy && !isCurrent;
            const sent = ['Sent', 'Failed'].includes(state);
            const failed = value === 'fail' || state === 'Failed';
+           const buttonText = state === 'Waiting' ? 'Waiting' : state === 'Sending' ? 'Sending' : 'Verify';
            return (
             <div key={id} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[112px_minmax(58px,1fr)_52px_52px] gap-1.5 items-center">
                 <h3 className="truncate text-sm font-black text-slate-950">{label}</h3>
-                <Button type="button" onClick={() => onSendCommand(command, id)} disabled={state === 'Sending'} title={state} className="h-9 rounded-xl bg-slate-950 px-2 text-xs font-black text-white hover:bg-slate-800">
-                  {state === 'Sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Verify
+                <Button type="button" onClick={() => onSendCommand(command, id)} disabled={locked || state === 'Sending' || state === 'Waiting'} title={state} className="h-9 rounded-xl bg-slate-950 px-2 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-50">
+                  {(state === 'Sending' || state === 'Waiting') && <Loader2 className="h-3.5 w-3.5 animate-spin" />} {buttonText}
                 </Button>
                 <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'pass')} className={`h-9 rounded-xl px-2 text-xs font-black ${value === 'pass' ? 'border-emerald-500 bg-emerald-500 text-white' : 'bg-white text-slate-700'}`}>Pass</Button>
                 <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'fail')} className={`h-9 rounded-xl px-2 text-xs font-black ${value === 'fail' ? 'border-red-500 bg-red-500 text-white' : 'bg-white text-slate-700'}`}>Fail</Button>
               </div>
+              {state === 'Waiting' && <div className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">{businessText(commandState[command]?.error || 'Waiting before the next command.')}</div>}
               {failed && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><span>{businessText(commandState[command]?.error || getInstallerTip(id))}</span><Button type="button" size="sm" variant="ghost" onClick={() => onHelp(id)} className="h-7 text-red-700"><MessageCircle className="h-4 w-4" /> Help</Button></div>}
             </div>
            );
