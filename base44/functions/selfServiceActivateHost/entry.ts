@@ -9,9 +9,11 @@ Deno.serve(async (req) => {
     const { host_id } = await req.json();
     if (!host_id) return Response.json({ error: 'Missing host_id' }, { status: 400 });
 
-    const host = await base44.asServiceRole.entities.Host.get(host_id);
+    const hosts = await base44.asServiceRole.entities.Host.filter({ id: host_id });
+    const host = hosts?.[0];
     const isOwner = host?.email === user.email || host?.user_id === user.id;
-    if (!host || (!isOwner && user.role !== 'admin')) return Response.json({ error: 'Forbidden' }, { status: 403 });
+    if (!host) return Response.json({ error: 'Host not found' }, { status: 404 });
+    if (!isOwner && user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
     const now = new Date().toISOString();
     const users = await base44.asServiceRole.entities.User.filter({ email: host.email });

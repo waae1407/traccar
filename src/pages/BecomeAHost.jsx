@@ -51,8 +51,11 @@ export default function BecomeAHost() {
   // Check for existing host record on mount (when user is logged in)
   useEffect(() => {
     if (!user?.email) return;
-    setCheckingExisting(true);
-    base44.entities.Host.filter({ email: user.email }).then(async hosts => {
+    let cancelled = false;
+    const checkExistingHost = async () => {
+      setCheckingExisting(true);
+      const hosts = await base44.entities.Host.filter({ email: user.email });
+      if (cancelled) return;
       if (hosts?.length > 0) {
         const host = hosts[0];
         setExistingHost(host);
@@ -70,9 +73,11 @@ export default function BecomeAHost() {
         }
 
         if (host.status === "approved") {
-          navigate("/host/dashboard", { replace: true });
+          navigate("/host/business-operations", { replace: true });
         } else if (host.status === "pending") {
-          setStep("pending");
+          const activation = await base44.functions.invoke("selfServiceActivateHost", { host_id: host.id });
+          if (activation.data?.ok) navigate("/host/business-operations", { replace: true });
+          else setStep("pending");
         } else if (host.status === "rejected") {
           // Pre-fill form with existing data so they can update & resubmit
           setForm({
@@ -88,8 +93,10 @@ export default function BecomeAHost() {
           });
         }
       }
-      setCheckingExisting(false);
-    });
+      if (!cancelled) setCheckingExisting(false);
+    };
+    checkExistingHost();
+    return () => { cancelled = true; };
   }, [user?.email]);
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -144,7 +151,25 @@ export default function BecomeAHost() {
       };
       if (existingSettings?.[0]) await base44.entities.HostPaymentSettings.update(existingSettings[0].id, settingsPayload);
       else await base44.entities.HostPaymentSettings.create(settingsPayload);
-      await base44.functions.invoke("selfServiceActivateHost", { host_id: savedHost.id });
+      const activation = await base44.functions.invoke("selfServiceActivateHost", { host_id: savedHost.id });
+      if (activation.data?.ok) {
+        clearHostDraft();
+        [
+          "operator_questionnaire_step",
+          "operator_questionnaire_answers",
+          "operator_questionnaire_result",
+          "operator_questionnaire_selected_mode",
+          "operator_questionnaire_selected_addons",
+          "operator_answers",
+          "operator_recommendation",
+          "operator_selected_mode",
+          "operator_selected_addons",
+          "operator_profile_id",
+          "operator_plan_id"
+        ].forEach((key) => localStorage.removeItem(key));
+        navigate("/host/business-operations", { replace: true });
+        return;
+      }
     }
 
     clearHostDraft();
@@ -185,10 +210,10 @@ export default function BecomeAHost() {
         <p className="text-gray-400 text-sm leading-relaxed mb-2">You already have a pending application. Our team reviews every application and approves quickly — typically within minutes.</p>
         <p className="text-gray-300 text-xs mb-8">Applied as: <span className="font-semibold text-gray-500">{existingHost?.email}</span></p>
         <div className="space-y-3">
-          <Link to="/" className="flex items-center justify-center gap-2 w-full px-8 py-4 rounded-2xl text-white font-bold text-sm shadow-lg"
+          <button onClick={() => existingHost?.id && base44.functions.invoke("selfServiceActivateHost", { host_id: existingHost.id }).then((res) => res.data?.ok ? navigate("/host/business-operations", { replace: true }) : navigate("/"))} className="flex items-center justify-center gap-2 w-full px-8 py-4 rounded-2xl text-white font-bold text-sm shadow-lg"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-            Back to Home
-          </Link>
+            Continue Setup
+          </button>
           <p className="text-xs text-gray-300">Questions? Email <a href="mailto:support@uridehub.com" className="text-pink-500 underline">support@uridehub.com</a></p>
         </div>
       </div>
