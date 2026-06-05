@@ -498,8 +498,7 @@ function alarmMessage(detail, device, parsed) {
 
 async function resolveAlarmRecipients(base44, payload) {
   if (payload.recipient_role === 'admin' && !payload.recipient_email) {
-    const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' }).catch(() => []);
-    return admins.map((admin) => ({ email: admin.email, phone: admin.phone })).filter((recipient) => recipient.email || recipient.phone);
+    return [];
   }
   return [{ email: payload.recipient_email || payload.user_email || '', phone: payload.recipient_phone || '' }].filter((recipient) => recipient.email || recipient.phone);
 }
