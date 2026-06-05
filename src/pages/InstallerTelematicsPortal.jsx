@@ -755,7 +755,7 @@ export default function InstallerTelematicsPortal() {
     <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-pink-50 pb-28 text-slate-900 sm:p-6">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 xl:px-8">
         <StepProgress currentStep={currentStep} completed={completed} />
-        <div className="py-6">
+        <div className="py-6 pb-32">
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
           {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
           {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} />}
