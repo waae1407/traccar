@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Satellite, Router, Activity, Upload } from "lucide-react";
+import { Satellite, Router, Activity, Upload, WifiOff, HelpCircle } from "lucide-react";
+import { getTelematicsDeviceStats } from "@/lib/telematics/telematicsReporting";
 import DeviceProvisioningPanel from "@/components/telematics/DeviceProvisioningPanel";
 
 import UnassignedDevicesQueue from "@/components/telematics/UnassignedDevicesQueue";
@@ -14,10 +15,11 @@ import ExpandableSection from "@/components/shared/ExpandableSection";
 export default function AdminTelematicsCenter() {
   const qc = useQueryClient();
   const [scoreFilter, setScoreFilter] = useState("all");
-  const { data: devices = [], refetch: refetchDevices } = useQuery({ queryKey: ["telematics-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-updated_date", 300) });
+  const { data: devices = [], refetch: refetchDevices } = useQuery({ queryKey: ["telematics-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-updated_date", 500) });
   const { data: providers = [] } = useQuery({ queryKey: ["telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100) });
   const { data: vehicles = [] } = useQuery({ queryKey: ["telematics-setup-vehicles"], queryFn: () => base44.entities.Vehicle.list("-updated_date", 500) });
-  const filteredDevices = scoreFilter === "online" ? devices.filter(d => d.online_status === "online") : scoreFilter === "unassigned" ? devices.filter(d => d.assigned_status === "unassigned") : devices;
+  const stats = getTelematicsDeviceStats(devices);
+  const filteredDevices = scoreFilter === "online" ? devices.filter(d => d.online_status === "online") : scoreFilter === "offline" ? devices.filter(d => d.online_status === "offline") : scoreFilter === "unknown" ? devices.filter(d => !["online", "offline"].includes(d.online_status)) : scoreFilter === "unassigned" ? devices.filter(d => !d.vehicle_id && d.assigned_status !== "assigned") : devices;
   const filteredProviders = scoreFilter === "providers" ? providers : providers;
 
   return <div className="p-4 sm:p-6 space-y-5">
@@ -26,10 +28,12 @@ export default function AdminTelematicsCenter() {
       <div className="flex flex-wrap gap-2"><Badge className="w-fit bg-primary/15 text-primary border-primary/30"><Satellite className="h-3 w-3 mr-1" /> Multi-Network Ready</Badge><a href="/admin/telematics-operations" className="text-xs rounded-full border border-border px-3 py-1 text-muted-foreground hover:text-foreground">Operations</a><a href="/admin/telematics-rollout" className="text-xs rounded-full border border-border px-3 py-1 text-muted-foreground hover:text-foreground">Rollout Dashboard</a></div>
     </div>
     <div className="grid md:grid-cols-4 gap-3">
-      <Stat label="Devices" value={devices.length} icon={Router} active={scoreFilter === "all"} onClick={() => setScoreFilter("all")} />
+      <Stat label="Devices" value={stats.total} icon={Router} active={scoreFilter === "all"} onClick={() => setScoreFilter("all")} />
+      <Stat label="Online" value={stats.online} icon={Activity} active={scoreFilter === "online"} onClick={() => setScoreFilter(scoreFilter === "online" ? "all" : "online")} />
+      <Stat label="Offline" value={stats.offline} icon={WifiOff} active={scoreFilter === "offline"} onClick={() => setScoreFilter(scoreFilter === "offline" ? "all" : "offline")} />
+      <Stat label="Unknown" value={stats.unknown} icon={HelpCircle} active={scoreFilter === "unknown"} onClick={() => setScoreFilter(scoreFilter === "unknown" ? "all" : "unknown")} />
+      <Stat label="Unassigned" value={stats.unassigned} icon={Upload} active={scoreFilter === "unassigned"} onClick={() => setScoreFilter(scoreFilter === "unassigned" ? "all" : "unassigned")} />
       <Stat label="Providers" value={providers.length || 1} icon={Satellite} active={scoreFilter === "providers"} onClick={() => setScoreFilter(scoreFilter === "providers" ? "all" : "providers")} />
-      <Stat label="Online" value={devices.filter(d => d.online_status === "online").length} icon={Activity} active={scoreFilter === "online"} onClick={() => setScoreFilter(scoreFilter === "online" ? "all" : "online")} />
-      <Stat label="Unassigned" value={devices.filter(d => d.assigned_status === "unassigned").length} icon={Upload} active={scoreFilter === "unassigned"} onClick={() => setScoreFilter(scoreFilter === "unassigned" ? "all" : "unassigned")} />
     </div>
     {scoreFilter !== "all" && <div className="rounded-xl border border-primary/20 bg-primary/[0.06] px-4 py-2 text-sm font-semibold text-primary">Showing {scoreFilter} results <button onClick={() => setScoreFilter("all")} className="ml-3 text-xs underline text-muted-foreground hover:text-foreground">Clear</button></div>}
     <DeviceProvisioningPanel devices={filteredDevices} providers={filteredProviders} />

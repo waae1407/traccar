@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2, Router, Satellite, ShieldAlert, Wifi, WifiOff } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Router, Satellite, ShieldAlert, Wifi, WifiOff } from "lucide-react";
 import TelematicsMetricCard from "@/components/telematics/TelematicsMetricCard";
 import TelematicsMap from "@/components/telematics/TelematicsMap";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import SafetyEventsPanel from "@/components/telematics/safety/SafetyEventsPanel";
 import ExpandableSection from "@/components/shared/ExpandableSection";
 import { commandLabel, statusLabel } from "@/components/telematics/command-test/businessLanguage";
+import { getTelematicsDeviceStats } from "@/lib/telematics/telematicsReporting";
 
 const COMMAND_STATES = ["queued", "sending", "sent", "delivered", "acknowledged", "executed", "failed", "expired"];
 
@@ -26,8 +27,7 @@ export default function AdminTelematicsOperationsCenter() {
   const { data: hosts = [] } = useQuery({ queryKey: ["ops-telematics-hosts"], queryFn: () => base44.entities.Host.list("business_name", 500), refetchInterval: 60000 });
   const { data: bookings = [] } = useQuery({ queryKey: ["ops-telematics-bookings"], queryFn: () => base44.entities.BookingRequest.list("-updated_date", 500), refetchInterval: 60000 });
 
-  const staleCutoff = Date.now() - 6 * 60 * 60 * 1000;
-  const staleDevices = devices.filter(d => !d.last_seen_at || new Date(d.last_seen_at).getTime() < staleCutoff);
+  const deviceStats = getTelematicsDeviceStats(devices);
   const filteredCommands = useMemo(() => commands.filter(c => {
     const text = `${c.provider_key} ${c.vehicle_id} ${c.telematics_device_id} ${c.command_type}`.toLowerCase();
     return (filters.provider === "all" || c.provider_key === filters.provider) &&
@@ -50,11 +50,13 @@ export default function AdminTelematicsOperationsCenter() {
 
     <ExpandableSection title="Fleet Health">
       <div className="grid md:grid-cols-6 gap-3">
-        <TelematicsMetricCard label="Total devices" value={devices.length} icon={Router} />
-        <TelematicsMetricCard label="Online" value={devices.filter(d => d.online_status === "online").length} icon={Wifi} tone="text-green-400" />
-        <TelematicsMetricCard label="Offline" value={devices.filter(d => d.online_status === "offline").length} icon={WifiOff} tone="text-red-400" />
-        <TelematicsMetricCard label="Stale" value={staleDevices.length} icon={AlertTriangle} tone="text-yellow-400" />
-        <TelematicsMetricCard label="Suspended" value={devices.filter(d => d.lifecycle_status === "suspended").length} icon={AlertTriangle} tone="text-orange-400" />
+        <TelematicsMetricCard label="Total devices" value={deviceStats.total} icon={Router} />
+        <TelematicsMetricCard label="Active" value={deviceStats.active} icon={Activity} tone="text-primary" />
+        <TelematicsMetricCard label="Online" value={deviceStats.online} icon={Wifi} tone="text-green-400" />
+        <TelematicsMetricCard label="Offline" value={deviceStats.offline} icon={WifiOff} tone="text-red-400" />
+        <TelematicsMetricCard label="Unknown" value={deviceStats.unknown} icon={AlertTriangle} tone="text-yellow-400" />
+        <TelematicsMetricCard label="Stale" value={deviceStats.stale} icon={AlertTriangle} tone="text-yellow-400" />
+        <TelematicsMetricCard label="Suspended" value={deviceStats.suspended} icon={AlertTriangle} tone="text-orange-400" />
         <TelematicsMetricCard label="Active alerts" value={telematicsAlerts.length} icon={ShieldAlert} tone="text-red-400" />
       </div>
     </ExpandableSection>

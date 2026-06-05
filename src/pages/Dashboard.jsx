@@ -82,7 +82,7 @@ export default function Dashboard() {
   const { data: payments = [] } = useQuery({ queryKey: ["payments", scopeKey], queryFn: () => base44.entities.Payment.filter(tenantFilter()) });
   const { data: contracts = [] } = useQuery({ queryKey: ["contracts", scopeKey], queryFn: () => base44.entities.RentToOwnContract.filter(tenantFilter()) });
   const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin", scopeKey], queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-created_date", 200), refetchInterval: 30_000 });
-  const { data: gpsDevices = [] } = useQuery({ queryKey: ["dashboard-gps-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-location_updated_at", 100), refetchInterval: 60_000 });
+  const { data: gpsDevices = [] } = useQuery({ queryKey: ["dashboard-gps-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-location_updated_at", 500), refetchInterval: 60_000 });
   const { data: pendingHosts = [] } = useQuery({ queryKey: ["pending-hosts-dash"], queryFn: () => base44.entities.Host.filter({ status: "pending" }), refetchInterval: 60_000 });
   const unviewedHosts = pendingHosts.filter(h => !h.admin_viewed);
 

@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, MapPin, Wifi, WifiOff, Satellite } from "lucide-react";
+import { getTelematicsDeviceStats, getVehicleTelematicsDevice, hasValidCoordinates } from "@/lib/telematics/telematicsReporting";
 
 const ACTIVE_VEHICLE_STATUSES = ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"];
 const ACTIVE_BOOKING_STATUSES = ["approved", "confirmed", "active", "pending_review"];
@@ -18,11 +19,11 @@ function MiniStat({ label, value, icon: Icon, tone }) {
 }
 
 export default function FleetSnapshotCard({ vehicles = [], devices = [], bookings = [] }) {
-  const onlineVehicles = vehicles.filter(vehicle => devices.some(device => device.vehicle_id === vehicle.id && device.online_status === "online")).length;
-  const offlineVehicles = vehicles.filter(vehicle => devices.some(device => device.vehicle_id === vehicle.id && device.online_status === "offline")).length;
+  const deviceStats = getTelematicsDeviceStats(devices);
+  const onlineVehicles = vehicles.filter(vehicle => getVehicleTelematicsDevice(vehicle, devices)?.online_status === "online").length;
+  const offlineVehicles = vehicles.filter(vehicle => getVehicleTelematicsDevice(vehicle, devices)?.online_status === "offline").length;
   const activeRentals = bookings.filter(booking => ACTIVE_BOOKING_STATUSES.includes(booking.booking_status)).length;
-  const onlineDevices = devices.filter(device => device.online_status === "online").length;
-  const activeDeviceLocations = devices.filter(device => device.last_latitude && device.last_longitude && vehicles.some(vehicle => vehicle.id === device.vehicle_id && ACTIVE_VEHICLE_STATUSES.includes(vehicle.status))).slice(0, 6);
+  const activeDeviceLocations = devices.filter(device => hasValidCoordinates(device) && vehicles.some(vehicle => vehicle.id === device.vehicle_id && ACTIVE_VEHICLE_STATUSES.includes(vehicle.status))).slice(0, 6);
 
   return (
     <Link to="/admin/telematics-operations" className="block rounded-3xl border border-white/[0.07] p-5 glass-hover" style={{ background: "hsl(222 24% 10% / 0.9)" }}>
@@ -38,7 +39,7 @@ export default function FleetSnapshotCard({ vehicles = [], devices = [], booking
         <MiniStat label="Vehicles Online" value={onlineVehicles} icon={Wifi} tone="text-green-400" />
         <MiniStat label="Vehicles Offline" value={offlineVehicles} icon={WifiOff} tone="text-red-400" />
         <MiniStat label="Active Rentals" value={activeRentals} icon={MapPin} tone="text-pink-400" />
-        <MiniStat label="GPS Devices Online" value={onlineDevices} icon={Satellite} tone="text-blue-400" />
+        <MiniStat label="GPS Devices Online" value={deviceStats.online} icon={Satellite} tone="text-blue-400" />
       </div>
       <div className="mt-4 h-24 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] relative">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "18px 18px" }} />

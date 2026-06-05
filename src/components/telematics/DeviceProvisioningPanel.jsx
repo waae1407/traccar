@@ -9,11 +9,11 @@ import { Upload, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 const STATUS_GROUPS = [
-  { key: "unassigned", label: "Unassigned Devices", match: d => d.assigned_status === "unassigned" },
-  { key: "assigned", label: "Assigned Devices", match: d => d.assigned_status === "assigned" && d.install_status !== "installed" },
-  { key: "installed", label: "Installed Devices", match: d => d.install_status === "installed" },
-  { key: "needs_review", label: "Needs Review", match: d => d.install_status === "needs_review" },
-  { key: "retired", label: "Retired Devices", match: d => d.assigned_status === "retired" || d.install_status === "retired" },
+  { key: "unassigned", label: "Unassigned Devices", match: d => !d.vehicle_id && d.assigned_status !== "assigned" && d.lifecycle_status !== "retired" },
+  { key: "assigned", label: "Assigned Devices", match: d => Boolean(d.vehicle_id) && !["installed", "completed"].includes(d.install_status) && d.lifecycle_status !== "retired" },
+  { key: "installed", label: "Installed Devices", match: d => ["installed", "completed"].includes(d.install_status) || ["installation_completed", "live_ready", "live_enabled"].includes(d.lifecycle_status) },
+  { key: "needs_review", label: "Needs Review", match: d => ["failed", "correction_needed"].includes(d.install_status) || d.qa_status === "rejected" },
+  { key: "retired", label: "Retired Devices", match: d => d.assigned_status === "retired" || d.install_status === "retired" || d.lifecycle_status === "retired" },
 ];
 
 function parseCsv(text) {
