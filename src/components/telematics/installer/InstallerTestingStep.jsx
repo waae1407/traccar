@@ -40,7 +40,7 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
         <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Verify Device</h1>
       </div>
 
-      <div className="grid gap-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {AUTO_TESTS.map(([id, label]) => {
           const check = autoChecks[id] || { status: form[id] || '' };
           const value = check.status || form[id] || '';
@@ -56,8 +56,8 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
 
       {busy && <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700">One command is being processed. Other buttons are locked until it is safe to continue.</div>}
 
-      <div className="space-y-1.5 pr-2">
-        {COMMAND_TESTS.filter(([id]) => tests[id] !== false).map(([id, command, label]) => {
+      <div className="space-y-2">
+        {COMMAND_TESTS.map(([id, command, label]) => {
            const value = form[id];
            const state = commandState[command]?.status || 'Ready';
            const isCurrent = activeCommand === command;
@@ -66,14 +66,14 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
            const failed = value === 'fail' || state === 'Failed';
            const buttonText = state === 'Waiting' ? 'Waiting' : state === 'Sending' ? 'Sending' : 'Verify';
            return (
-            <div key={id} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[112px_minmax(58px,1fr)_52px_52px] gap-1.5 items-center">
+            <div key={id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_minmax(180px,1fr)_64px_64px] xl:grid-cols-[190px_minmax(320px,1fr)_72px_72px] items-center">
                 <h3 className="truncate text-sm font-black text-slate-950">{label}</h3>
-                <Button type="button" onClick={() => onSendCommand(command, id)} disabled={locked || state === 'Sending' || state === 'Waiting'} title={state} className="h-9 rounded-xl bg-slate-950 px-2 text-xs font-black text-white hover:bg-slate-800 disabled:opacity-50">
+                <Button type="button" onClick={() => onSendCommand(command, id)} disabled={locked || state === 'Sending' || state === 'Waiting'} title={state} className="h-11 rounded-xl bg-slate-950 px-3 text-sm font-black text-white hover:bg-slate-800 disabled:opacity-50">
                   {(state === 'Sending' || state === 'Waiting') && <Loader2 className="h-3.5 w-3.5 animate-spin" />} {buttonText}
                 </Button>
-                <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'pass')} className={`h-9 rounded-xl px-2 text-xs font-black ${value === 'pass' ? 'border-emerald-500 bg-emerald-500 text-white' : 'bg-white text-slate-700'}`}>Pass</Button>
-                <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'fail')} className={`h-9 rounded-xl px-2 text-xs font-black ${value === 'fail' ? 'border-red-500 bg-red-500 text-white' : 'bg-white text-slate-700'}`}>Fail</Button>
+                <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'pass')} className={`h-11 rounded-xl px-3 text-sm font-black ${value === 'pass' ? 'border-emerald-500 bg-emerald-500 text-white' : 'bg-white text-slate-700'}`}>Pass</Button>
+                <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'fail')} className={`h-11 rounded-xl px-3 text-sm font-black ${value === 'fail' ? 'border-red-500 bg-red-500 text-white' : 'bg-white text-slate-700'}`}>Fail</Button>
               </div>
               {state === 'Waiting' && <div className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">{businessText(commandState[command]?.error || 'Waiting before the next command.')}</div>}
               {failed && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><span>{businessText(commandState[command]?.error || getInstallerTip(id))}</span><Button type="button" size="sm" variant="ghost" onClick={() => onHelp(id)} className="h-7 text-red-700"><MessageCircle className="h-4 w-4" /> Help</Button></div>}

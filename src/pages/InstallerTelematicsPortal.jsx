@@ -753,7 +753,7 @@ export default function InstallerTelematicsPortal() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-pink-50 pb-28 text-slate-900 sm:p-6">
-      <div className="mx-auto max-w-3xl px-4 sm:px-0">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 xl:px-8">
         <StepProgress currentStep={currentStep} completed={completed} />
         <div className="py-6">
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
@@ -784,7 +784,7 @@ export default function InstallerTelematicsPortal() {
       <InstallerHelpChat open={helpOpen} onOpenChange={setHelpOpen} contextTest={helpTest} onRequestHelp={requestHelp} />
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/90 p-4 shadow-2xl shadow-slate-400/20 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-3xl gap-3">
+        <div className="mx-auto flex max-w-7xl gap-3 px-4 sm:px-6 xl:px-8">
           <Button variant="outline" className="h-14 w-16 rounded-3xl border-slate-200 bg-white" disabled={currentStep === 0} onClick={() => setCurrentStep(step => Math.max(0, step - 1))}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
