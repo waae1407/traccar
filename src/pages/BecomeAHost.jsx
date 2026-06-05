@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 import { Home, DollarSign, Shield, Zap, CheckCircle2, ArrowRight, Clock, AlertCircle, Star, TrendingUp } from "lucide-react";
-import { planDefaults, derivePaymentMode } from "@/lib/operatorRecommendation";
+import { planDefaults } from "@/lib/operatorRecommendation";
 import { upsertOperatorAddonSelections } from "@/lib/operatorAddonPersistence";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -15,6 +15,12 @@ const labelClass = "block text-xs font-bold text-gray-500 uppercase tracking-wid
 const shouldShowApplicationForm = (search) => {
   const params = new URLSearchParams(search);
   return params.get("step") === "application" || params.get("from") === "operator-questionnaire";
+};
+
+const paymentModeFromPreference = (preference) => {
+  if (preference === "Use uRideHub Payments" || preference === "Use uRideHub payments") return "uride_payments";
+  if (preference === "Start with my own payments, enable uRideHub Payments later") return "hybrid";
+  return "own_payments";
 };
 
 export default function BecomeAHost() {
@@ -91,8 +97,7 @@ export default function BecomeAHost() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    const now = new Date().toISOString();
-    const payload = { ...form, user_id: user?.id || "", status: "approved", approved_at: now, approved_by: "self_service", commission_rate: 0.08 };
+    const payload = { ...form, user_id: user?.id || "", status: "pending", commission_rate: 0.08 };
     let savedHost;
     // If rejected previously, update the existing record instead of creating a new one
     if (existingHost && existingHost.status === "rejected") {
@@ -108,6 +113,7 @@ export default function BecomeAHost() {
     const storedSelectedMode = localStorage.getItem("operator_selected_mode");
     const storedSelectedAddons = JSON.parse(localStorage.getItem("operator_selected_addons") || "[]");
     if (savedHost?.id) {
+      const now = new Date().toISOString();
       if (operatorProfileId) {
         const profiles = await base44.entities.OperatorProfile.filter({ id: operatorProfileId });
         const profile = profiles[0];
@@ -118,17 +124,27 @@ export default function BecomeAHost() {
       if (operatorPlanId) {
         await base44.entities.OperatorPlanConfiguration.update(operatorPlanId, { host_id: savedHost.id, last_updated_at: now });
       } else if (storedRecommendation && storedSelectedMode) {
-        await base44.entities.OperatorPlanConfiguration.create({ host_id: savedHost.id, user_id: user?.id || "", ...planDefaults(storedSelectedMode, storedAnswers, storedRecommendation.recommended_mode, { feeAcknowledged: true, actor: user?.email || form.email }) });
+        await base44.entities.OperatorPlanConfiguration.create({ host_id: savedHost.id, user_id: user?.id || "", ...planDefaults(storedSelectedMode, storedAnswers, storedRecommendation.recommended_mode) });
       }
       if (storedRecommendation?.recommended_mode) {
-        const paymentMode = derivePaymentMode(storedSelectedMode || storedRecommendation.recommended_mode, storedAnswers);
-        const existingSettings = await base44.entities.HostPaymentSettings.filter({ host_id: savedHost.id });
-        const paymentPayload = { host_id: savedHost.id, user_id: user?.id || "", payment_mode: paymentMode, uride_payments_enabled: paymentMode === "uride_payments", payment_terms_acknowledged: true, payment_terms_acknowledged_at: now, payment_terms_acknowledged_by: user?.email || form.email, booking_confirmation_mode: "manual_host_approval", manual_payment_proof_required: paymentMode !== "uride_payments", last_updated_at: now };
-        if (existingSettings[0]) await base44.entities.HostPaymentSettings.update(existingSettings[0].id, paymentPayload);
-        else await base44.entities.HostPaymentSettings.create(paymentPayload);
         await upsertOperatorAddonSelections(base44, { hostId: savedHost.id, userId: user?.id || "", selectedAddons: storedSelectedAddons, recommendedAddons: storedRecommendation.recommended_addons || [], selectedMode: storedSelectedMode || storedRecommendation.recommended_mode, actor: user?.email || form.email, source: "host_application" });
         await base44.entities.OperatorRecommendationHistory.create({ host_id: savedHost.id, user_id: user?.id || "", previous_mode: storedRecommendation.recommended_mode, new_mode: storedSelectedMode || storedRecommendation.recommended_mode, reason: "Linked confirmed operator setup to host application.", changed_by: user?.email || form.email, changed_at: now, source: "user_selection" });
       }
+
+      const paymentMode = paymentModeFromPreference(storedAnswers.payment_preference);
+      const existingSettings = await base44.entities.HostPaymentSettings.filter({ host_id: savedHost.id });
+      const settingsPayload = {
+        host_id: savedHost.id,
+        user_id: user?.id || "",
+        payment_mode: paymentMode,
+        uride_payments_enabled: false,
+        booking_confirmation_mode: "manual_host_approval",
+        manual_payment_proof_required: false,
+        last_updated_at: now
+      };
+      if (existingSettings?.[0]) await base44.entities.HostPaymentSettings.update(existingSettings[0].id, settingsPayload);
+      else await base44.entities.HostPaymentSettings.create(settingsPayload);
+      await base44.functions.invoke("selfServiceActivateHost", { host_id: savedHost.id });
     }
 
     clearHostDraft();
@@ -138,12 +154,10 @@ export default function BecomeAHost() {
       "operator_questionnaire_result",
       "operator_questionnaire_selected_mode",
       "operator_questionnaire_selected_addons",
-      "operator_questionnaire_fee_acknowledged",
       "operator_answers",
       "operator_recommendation",
       "operator_selected_mode",
       "operator_selected_addons",
-      "operator_fee_acknowledged",
       "operator_profile_id",
       "operator_plan_id"
     ].forEach((key) => localStorage.removeItem(key));
@@ -193,8 +207,8 @@ export default function BecomeAHost() {
           <div className="absolute inset-0 rounded-3xl blur-2xl opacity-30"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />
         </div>
-        <h2 className="text-3xl font-black text-gray-900 mb-3" style={{ fontFamily: "var(--font-syne)" }}>You're approved!</h2>
-        <p className="text-gray-400 text-sm leading-relaxed mb-8">Your package and payment mode are stored. Own-payment hosts can finish Payment Builder now; uRideHub Payments remains available to enable later.</p>
+        <h2 className="text-3xl font-black text-gray-900 mb-3" style={{ fontFamily: "var(--font-syne)" }}>Your host account is ready!</h2>
+        <p className="text-gray-400 text-sm leading-relaxed mb-8">Next, configure your Payment Builder or enable uRideHub Payments from Business Operations.</p>
         <Link to="/host/business-operations" className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl text-white font-bold text-sm shadow-lg"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
           Open Business Operations <ArrowRight className="h-4 w-4" />
@@ -268,7 +282,7 @@ export default function BecomeAHost() {
           </div>
 
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-700 leading-relaxed">
-            ✓ By submitting, you agree to the selected package fee structure. Stripe Connect is only required when uRideHub Payments are enabled.
+            ✓ By submitting, you agree to uRide host terms. Your package controls tools; your payment mode controls how customers pay.
           </div>
 
           <button type="submit" disabled={submitting}
@@ -313,7 +327,7 @@ export default function BecomeAHost() {
             </span>
           </h1>
           <p className="text-white/60 text-base leading-relaxed max-w-xs mx-auto mb-8">
-            List your fleet on uRide. We handle renters, payments & compliance. Marketplace Partner pricing is an 8% marketplace booking fee.
+            List your fleet on uRide. Use your own payments or enable uRideHub Payments when you're ready. Marketplace Partner pricing is an 8% marketplace booking fee.
           </p>
           <button onClick={() => {
             if (existingHost?.status === "pending") { setStep("pending"); return; }
@@ -336,7 +350,7 @@ export default function BecomeAHost() {
       <div className="max-w-lg mx-auto px-4 py-8">
         <div className="space-y-3 mb-8">
           {[
-            { icon: DollarSign, title: "80% of every rental", desc: "Stripe Connect deposits directly to your bank within 2 business days. No manual invoicing.", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+            { icon: DollarSign, title: "Flexible payment setup", desc: "Start with your own payment system, or enable uRideHub Payments and automated payouts later.", color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
             { icon: Shield, title: "We handle everything", desc: "Renters, verification, support, and insurance disputes — fully managed by uRide.", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
             { icon: Zap, title: "AV-ready infrastructure", desc: "Your fleet is pre-configured for Waymo, Tesla Robotaxi, and future AV deployments.", color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100" },
             { icon: TrendingUp, title: "Real-time analytics", desc: "Fleet score, ROI tracking, utilization rates — your entire business in one dashboard.", color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-100" },
