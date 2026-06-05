@@ -53,15 +53,15 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
         })}
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 max-h-96 overflow-y-auto pr-2">
         {COMMAND_TESTS.filter(([id]) => tests[id] !== false).map(([id, command, label]) => {
-          const value = form[id];
-          const state = commandState[command]?.status || 'Ready';
-          const sent = ['Sent', 'Failed'].includes(state);
-          const failed = value === 'fail' || state === 'Failed';
-          return (
+           const value = form[id];
+           const state = commandState[command]?.status || 'Ready';
+           const sent = ['Sent', 'Failed'].includes(state);
+           const failed = value === 'fail' || state === 'Failed';
+           return (
             <div key={id} className="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
-              <div className="grid grid-cols-[112px_minmax(58px,1fr)_52px_52px] items-center gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[112px_minmax(58px,1fr)_52px_52px] gap-1.5 items-center">
                 <h3 className="truncate text-sm font-black text-slate-950">{label}</h3>
                 <Button type="button" onClick={() => onSendCommand(command, id)} disabled={state === 'Sending'} title={state} className="h-9 rounded-xl bg-slate-950 px-2 text-xs font-black text-white hover:bg-slate-800">
                   {state === 'Sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" />} Verify
@@ -71,7 +71,7 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
               </div>
               {failed && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><span>{businessText(commandState[command]?.error || getInstallerTip(id))}</span><Button type="button" size="sm" variant="ghost" onClick={() => onHelp(id)} className="h-7 text-red-700"><MessageCircle className="h-4 w-4" /> Help</Button></div>}
             </div>
-          );
+           );
         })}
       </div>
     </div>
