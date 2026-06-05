@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { LayoutDashboard, Car, DollarSign, Shield, FileKey, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2, CreditCard, ClipboardCheck, ShieldAlert, Satellite } from "lucide-react";
 import { cn } from "@/lib/utils";
+import HostAlarmAttentionBanner from "@/components/host/HostAlarmAttentionBanner";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -140,7 +141,8 @@ export default function HostLayout() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 max-w-5xl w-full mx-auto">
+        <main className="flex-1 p-4 md:p-6 max-w-5xl w-full mx-auto space-y-5">
+          <HostAlarmAttentionBanner host={host} />
           <Outlet />
         </main>
       </div>
