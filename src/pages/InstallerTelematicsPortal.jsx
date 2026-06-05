@@ -34,9 +34,10 @@ const REQUIRED_TESTS = [
   ["lock_test", "Lock", "🔑"],
   ["unlock_test", "Unlock", "🔓"],
   ["horn_test", "Horn", "📢"],
-  ["lights_test", "Lights", "💡"],
   ["starter_disable_test", "Starter Disable", "⛔"],
   ["starter_restore_test", "Starter Restore", "✅"],
+  ["lights_test", "Lights", "💡"],
+  ["alarm_test", "Alarm", "🔔"],
 ];
 
 const STEPS = [

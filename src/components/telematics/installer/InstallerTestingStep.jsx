@@ -16,10 +16,10 @@ const COMMAND_TESTS = [
   ['lock_test', 'lock', 'Lock'],
   ['unlock_test', 'unlock', 'Unlock'],
   ['horn_test', 'horn', 'Horn'],
-  ['lights_test', 'lights', 'Lights'],
-  ['alarm_test', 'alarm_pulse', 'Alarm'],
   ['starter_disable_test', 'disable_starter', 'Disable Starter'],
   ['starter_restore_test', 'restore_starter', 'Restore Starter'],
+  ['lights_test', 'lights', 'Lights'],
+  ['alarm_test', 'alarm_pulse', 'Alarm'],
 ];
 
 function StatusBadge({ value }) {
