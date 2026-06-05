@@ -8,6 +8,7 @@ import RecommendedSetup from "@/components/operator/RecommendedSetup";
 import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
+const HOST_APPLICATION_URL = "/become-a-host?step=application&from=operator-questionnaire";
 
 const questions = [
   ["business_type", "What best describes your operation?", ["I’m starting a rental business", "I already rent vehicles", "I’m a dealership", "I manage a commercial fleet", "I’m exploring options"]],
@@ -57,7 +58,7 @@ export default function SmartOperatorQuestionnaire() {
       localStorage.setItem("operator_profile_id", profile.id);
       localStorage.setItem("operator_plan_id", plan.id);
       setSaving(false);
-      navigate(existingHost?.status === "approved" ? "/host/business-operations" : "/become-a-host?from=operator-questionnaire");
+      navigate(existingHost?.status === "approved" ? "/host/business-operations" : HOST_APPLICATION_URL, { replace: true });
     };
 
     saveConfirmedSetup();

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
@@ -12,13 +12,16 @@ const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b12
 const inputClass = "w-full px-4 py-3.5 rounded-2xl bg-white border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all text-sm font-medium";
 const labelClass = "block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2";
 
+const shouldShowApplicationForm = (search) => {
+  const params = new URLSearchParams(search);
+  return params.get("step") === "application" || params.get("from") === "operator-questionnaire";
+};
+
 export default function BecomeAHost() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(() => {
-    const fromQuestionnaire = new URLSearchParams(window.location.search).get("from") === "operator-questionnaire";
-    return fromQuestionnaire ? 2 : 1;
-  });
+  const location = useLocation();
+  const [step, setStep] = useState(() => shouldShowApplicationForm(window.location.search) ? 2 : 1);
   const [submitting, setSubmitting] = useState(false);
   const [existingHost, setExistingHost] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(false);
@@ -34,6 +37,10 @@ export default function BecomeAHost() {
     bio: "",
   };
   const [form, setForm, clearHostDraft] = usePersistentFormDraft("host_application_draft", defaultForm);
+
+  useEffect(() => {
+    if (shouldShowApplicationForm(location.search)) setStep(2);
+  }, [location.search]);
 
   // Check for existing host record on mount (when user is logged in)
   useEffect(() => {
