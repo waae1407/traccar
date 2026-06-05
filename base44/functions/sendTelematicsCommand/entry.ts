@@ -224,16 +224,67 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
   if (user.role === 'installer') return commandType === 'status' || commandType === 'locate' ? null : 'Installers can only run installation checks.';
   return 'Forbidden.';
 }
-async function enforceRateLimit(base44, deviceId, commandType, userEmail, maxPerMinute, options = {}) {
-  if (options.alarmSessionId) return false;
-  const recent = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: deviceId, requested_by: userEmail });
+function commandTrafficClass({ installerInstallTest, adminDeviceCommandTest, adminTraccarLiveTest, alarmSessionId, booking, user }) {
+  if (alarmSessionId) return 'automation_alarm';
+  if (installerInstallTest) return 'installer_install_test';
+  if (adminDeviceCommandTest || adminTraccarLiveTest) return 'admin_device_test';
+  if (booking && (booking.user_email === user.email || booking.user_id === user.id)) return 'customer_control';
+  if (user.role === 'host') return 'host_control';
+  if (user.role === 'admin') return 'admin_operational';
+  return 'user_control';
+}
+
+function trafficClassFromCommand(cmd) {
+  const payload = cmd.request_payload || {};
+  if (payload.command_traffic_class) return payload.command_traffic_class;
+  if (payload.suite_run) return 'bulk_test_suite';
+  if (payload.installer_install_test) return 'installer_install_test';
+  if (payload.admin_device_command_test || payload.admin_traccar_live_test) return 'admin_device_test';
+  if (cmd.alarm_session_id) return 'automation_alarm';
+  if (cmd.requested_role === 'installer') return 'installer_install_test';
+  if (cmd.requested_role === 'admin') return 'admin_operational';
+  if (cmd.booking_id || cmd.renter_id) return 'customer_control';
+  if (cmd.requested_role === 'host') return 'host_control';
+  return 'user_control';
+}
+
+function actorKeyForRateLimit(user, trafficClass, body, booking) {
+  if (trafficClass === 'installer_install_test') return `installer:${String(body.vin || body.install_record_id || body.installer_email || user.email || '').toUpperCase()}`;
+  if (trafficClass === 'customer_control') return `customer:${booking?.user_id || user.id || user.email}`;
+  if (trafficClass === 'automation_alarm') return `alarm:${body.alarm_session_id || 'session'}`;
+  return `${trafficClass}:${user.id || user.email}`;
+}
+
+function ratePolicy(trafficClass, commandType, maxPerMinute) {
+  if (trafficClass === 'customer_control') return { maxAllowed: STARTER_COMMANDS.includes(commandType) ? 2 : 10, cooldownMs: commandCooldownMs(commandType) };
+  if (trafficClass === 'host_control') return { maxAllowed: STARTER_COMMANDS.includes(commandType) ? 2 : 10, cooldownMs: commandCooldownMs(commandType) };
+  if (trafficClass === 'installer_install_test') return { maxAllowed: STARTER_COMMANDS.includes(commandType) ? 4 : 14, cooldownMs: STARTER_COMMANDS.includes(commandType) ? 30 * 1000 : 3 * 1000 };
+  if (trafficClass === 'admin_device_test') return { maxAllowed: STARTER_COMMANDS.includes(commandType) ? 3 : 12, cooldownMs: STARTER_COMMANDS.includes(commandType) ? 45 * 1000 : 5 * 1000 };
+  if (trafficClass === 'automation_alarm') return { maxAllowed: 30, cooldownMs: 0 };
+  return { maxAllowed: STARTER_COMMANDS.includes(commandType) ? Math.max(2, Number(maxPerMinute || 2)) : Math.max(8, Number(maxPerMinute || 4)), cooldownMs: commandCooldownMs(commandType) };
+}
+
+async function enforceRateLimit(base44, deviceId, commandType, actorKey, trafficClass, maxPerMinute, options = {}) {
+  if (trafficClass === 'automation_alarm' || options.alarmSessionId) return { limited: false };
+  const recent = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: deviceId }, '-created_date', 100);
   const now = Date.now();
   const oneMinuteAgo = now - 60 * 1000;
-  const cooldownAgo = now - commandCooldownMs(commandType);
-  const activeRecent = recent.filter(cmd => new Date(cmd.created_date || cmd.created_at || 0).getTime() > oneMinuteAgo && !['failed', 'expired', 'blocked'].includes(cmd.queue_status || cmd.status));
-  const maxAllowed = STARTER_COMMANDS.includes(commandType) ? Math.max(2, Number(maxPerMinute || 2)) : Math.max(8, Number(maxPerMinute || 4));
-  const duplicateActive = commandCooldownMs(commandType) > 0 && activeRecent.some(cmd => cmd.command_type === commandType && new Date(cmd.created_date || cmd.created_at || 0).getTime() > cooldownAgo);
-  return activeRecent.length >= maxAllowed || duplicateActive;
+  const policy = ratePolicy(trafficClass, commandType, maxPerMinute);
+  const cooldownAgo = now - policy.cooldownMs;
+  const activeRecent = recent.filter(cmd => {
+    const created = new Date(cmd.created_date || cmd.created_at || 0).getTime();
+    if (created <= oneMinuteAgo || ['failed', 'expired', 'blocked'].includes(cmd.queue_status || cmd.status)) return false;
+    return trafficClassFromCommand(cmd) === trafficClass && (cmd.request_payload?.rate_limit_actor_key || cmd.requested_by) === actorKey;
+  });
+  const duplicateActive = policy.cooldownMs > 0 && activeRecent.some(cmd => cmd.command_type === commandType && new Date(cmd.created_date || cmd.created_at || 0).getTime() > cooldownAgo);
+  if (!duplicateActive && activeRecent.length < policy.maxAllowed) return { limited: false };
+  const newestRelevant = activeRecent
+    .filter(cmd => !duplicateActive || cmd.command_type === commandType)
+    .map(cmd => new Date(cmd.created_date || cmd.created_at || 0).getTime())
+    .filter(Number.isFinite)
+    .sort((a, b) => b - a)[0] || now;
+  const retryAfterSeconds = Math.max(1, Math.ceil(((duplicateActive ? newestRelevant + policy.cooldownMs : oneMinuteAgo + 60 * 1000) - now) / 1000));
+  return { limited: true, retry_after_seconds: retryAfterSeconds, traffic_class: trafficClass };
 }
 function canSendNoranProduction(provider, device, commandType) {
   if (provider.provider_key !== 'traccar_noran_mt20') return false;
@@ -411,7 +462,10 @@ Deno.serve(async (req) => {
     if (provider.provider_key === 'traccar_noran_mt20' && provider.execution_mode === 'production' && provider.allow_live_commands === true && device.production_commands_enabled === true && !liveNoranProduction && !liveNoranInstallerTest) {
       return Response.json({ error: STARTER_COMMANDS.includes(commandType) ? 'Starter production commands are blocked for this device/provider scope.' : 'Noran production command is not allowed for this device.' }, { status: 403 });
     }
-    if (await enforceRateLimit(base44, device.id, commandType, user.email, provider.max_commands_per_minute, { alarmSessionId: body.alarm_session_id || '' })) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.' }, { status: 429 });
+    const trafficClass = commandTrafficClass({ installerInstallTest, adminDeviceCommandTest, adminTraccarLiveTest, alarmSessionId: body.alarm_session_id || '', booking, user });
+    const rateLimitActorKey = actorKeyForRateLimit(user, trafficClass, body, booking);
+    const rateLimit = await enforceRateLimit(base44, device.id, commandType, rateLimitActorKey, trafficClass, provider.max_commands_per_minute, { alarmSessionId: body.alarm_session_id || '' });
+    if (rateLimit.limited) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.', retry_after_seconds: rateLimit.retry_after_seconds, traffic_class: rateLimit.traffic_class }, { status: 429 });
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
@@ -426,7 +480,7 @@ Deno.serve(async (req) => {
       status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
-      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, admin_starter_override: body.admin_starter_override === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control') }
+      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, command_traffic_class: trafficClass, rate_limit_actor_key: rateLimitActorKey, admin_starter_override: body.admin_starter_override === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control') }
     });
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });
