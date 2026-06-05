@@ -14,7 +14,10 @@ const labelClass = "block text-xs font-bold text-gray-500 uppercase tracking-wid
 export default function BecomeAHost() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    const fromQuestionnaire = new URLSearchParams(window.location.search).get("from") === "operator-questionnaire";
+    return fromQuestionnaire ? 2 : 1;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [existingHost, setExistingHost] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(false);
