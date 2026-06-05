@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { RefreshCw, Satellite, TimerReset } from "lucide-react";
@@ -60,6 +60,38 @@ function getMapPosition(device) {
   return validLatLng ? [lat, lng] : null;
 }
 
+function getVehiclePosition(vehicle) {
+  const lat = Number(vehicle?.vehicle_lat);
+  const lng = Number(vehicle?.vehicle_lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? [lat, lng] : null;
+}
+
+function distanceMiles(from, to) {
+  const toRadians = (value) => value * Math.PI / 180;
+  const earthRadiusMiles = 3958.8;
+  const dLat = toRadians(to[0] - from[0]);
+  const dLng = toRadians(to[1] - from[1]);
+  const lat1 = toRadians(from[0]);
+  const lat2 = toRadians(to[0]);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * earthRadiusMiles * Math.asin(Math.sqrt(a));
+}
+
+function isNorthAmericaPosition(position) {
+  if (!position) return false;
+  return position[0] >= 15 && position[0] <= 72 && position[1] >= -170 && position[1] <= -50;
+}
+
+function getResolvedMapPosition(device, vehicle) {
+  const devicePosition = getMapPosition(device);
+  const vehiclePosition = getVehiclePosition(vehicle);
+  if (!devicePosition) return vehiclePosition;
+  if (vehiclePosition && distanceMiles(devicePosition, vehiclePosition) > 3000) return vehiclePosition;
+  if (!vehiclePosition && !isNorthAmericaPosition(devicePosition)) return null;
+  return devicePosition;
+}
+
 function directionsUrl(position) {
   if (!position) return "#";
   return `https://www.google.com/maps/dir/?api=1&destination=${position[0]},${position[1]}`;
@@ -67,6 +99,53 @@ function directionsUrl(position) {
 
 function coordinateLabel(position) {
   return `${position[0].toFixed(5)}, ${position[1].toFixed(5)}`;
+}
+
+function FleetMapAutoFit({ positions, compact, fitRequest }) {
+  const map = useMap();
+  const userMovedMap = useRef(false);
+  const fittingMap = useRef(false);
+  const positionsKey = positions.map((position) => position.join(",")).join("|");
+
+  const fitFleet = () => {
+    if (!positions.length) return;
+    fittingMap.current = true;
+    if (positions.length === 1) {
+      map.setView(positions[0], compact ? 13 : 12, { animate: true });
+      setTimeout(() => { fittingMap.current = false; }, 500);
+      return;
+    }
+    map.fitBounds(L.latLngBounds(positions), {
+      padding: compact ? [24, 24] : [56, 56],
+      maxZoom: compact ? 13 : 12,
+      animate: true
+    });
+    setTimeout(() => { fittingMap.current = false; }, 500);
+  };
+
+  useEffect(() => {
+    const markMoved = () => {
+      if (!fittingMap.current) userMovedMap.current = true;
+    };
+    map.on("dragstart", markMoved);
+    map.on("zoomstart", markMoved);
+    return () => {
+      map.off("dragstart", markMoved);
+      map.off("zoomstart", markMoved);
+    };
+  }, [map]);
+
+  useEffect(() => {
+    if (!userMovedMap.current) fitFleet();
+  }, [positionsKey, compact]);
+
+  useEffect(() => {
+    if (!fitRequest) return;
+    userMovedMap.current = false;
+    fitFleet();
+  }, [fitRequest]);
+
+  return null;
 }
 
 export default function TelematicsMap({
@@ -86,6 +165,7 @@ export default function TelematicsMap({
 }) {
   const [filters, setFilters] = useState({ provider: "all", host: "all", online: "all", stale: "all", active: "all", lifecycle: "all" });
   const [refreshing, setRefreshing] = useState(false);
+  const [fitRequest, setFitRequest] = useState(0);
   const [resolvedAddresses, setResolvedAddresses] = useState({});
   const [vehicleOverrides, setVehicleOverrides] = useState({});
   const vehicleById = useMemo(() => Object.fromEntries(vehicles.map(v => [v.id, { ...v, ...(vehicleOverrides[v.id] || {}) }])), [vehicles, vehicleOverrides]);
@@ -96,7 +176,7 @@ export default function TelematicsMap({
     ...bookings.filter(b => ACTIVE_BOOKING_STATUSES.includes(b.booking_status)).map(b => b.vehicle_id).filter(Boolean)
   ]), [vehicles, bookings]);
 
-  const located = devices.filter(d => getMapPosition(d));
+  const located = devices.filter(d => getResolvedMapPosition(d, vehicleById[d.vehicle_id]));
   const providerOptions = [...new Set(devices.map(d => d.provider_key).filter(Boolean))];
   const hostOptions = hosts.filter(h => devices.some(d => d.host_id === h.id));
   const filtered = located.filter(device => {
@@ -110,12 +190,13 @@ export default function TelematicsMap({
     if (filters.lifecycle !== "all" && device.lifecycle_status !== filters.lifecycle) return false;
     return true;
   });
-  const center = filtered[0] ? getMapPosition(filtered[0]) : [39.5, -98.35];
+  const markerPositions = filtered.map(device => getResolvedMapPosition(device, vehicleById[device.vehicle_id])).filter(Boolean);
+  const center = markerPositions[0] || [39.5, -98.35];
 
   useEffect(() => {
     filtered.slice(0, 20).forEach(async (device) => {
       if (device.address || resolvedAddresses[device.id] !== undefined) return;
-      const position = getMapPosition(device);
+      const position = getResolvedMapPosition(device, vehicleById[device.vehicle_id]);
       if (!position) return;
       try {
         const response = await base44.functions.invoke("reverseGeocode", { lat: position[0], lon: position[1] });
@@ -142,7 +223,10 @@ export default function TelematicsMap({
           <p className="text-xs text-muted-foreground">Near-real-time cached location. Not true live streaming.</p>
           <p className="text-xs font-semibold text-primary">Map devices with coordinates: {located.length}</p>
         </div>
-        {showRefresh && <Button size="sm" variant="outline" onClick={handleRefresh} disabled={refreshing || !onRefresh}><RefreshCw className={`mr-2 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />{refreshLabel || "Refresh Locations"}</Button>}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setFitRequest((value) => value + 1)} disabled={filtered.length === 0}>Fit fleet</Button>
+          {showRefresh && <Button size="sm" variant="outline" onClick={handleRefresh} disabled={refreshing || !onRefresh}><RefreshCw className={`mr-2 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />{refreshLabel || "Refresh Locations"}</Button>}
+        </div>
       </div>
       {showFilters && !compact && (
         <div className="grid gap-2 border-b border-border p-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -158,14 +242,15 @@ export default function TelematicsMap({
         {filtered.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center text-muted-foreground"><TimerReset className="mb-2 h-7 w-7" /><p className="text-sm font-semibold">No cached GPS locations available yet.</p><p className="text-xs">Locations appear after the next Traccar position sync.</p></div>
         ) : (
-          <MapContainer center={center} zoom={compact ? 9 : 11} scrollWheelZoom={!compact} style={{ height: "100%", width: "100%" }}>
+          <MapContainer center={center} zoom={compact ? 9 : 5} scrollWheelZoom={!compact} style={{ height: "100%", width: "100%" }}>
+            <FleetMapAutoFit positions={markerPositions} compact={compact} fitRequest={fitRequest} />
             <TileLayer attribution='&copy; OpenStreetMap contributors &copy; CARTO' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
             {filtered.map(device => {
               const vehicle = vehicleById[device.vehicle_id];
               const host = hostById[device.host_id];
               const provider = providerByKey[device.provider_key];
               const fresh = locationFreshness(device);
-              const position = getMapPosition(device);
+              const position = getResolvedMapPosition(device, vehicle);
               const displayName = getVehicleDisplayName(vehicle, device);
               const mapLabel = escapeHtml(getVehicleMapLabel(vehicle, device));
               const icon = L.divIcon({
