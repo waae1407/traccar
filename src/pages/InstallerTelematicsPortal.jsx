@@ -53,6 +53,44 @@ const PHOTO_REQUIREMENTS = [
   ["wiring_photo", "Wiring Photo"],
 ];
 
+const INSTALLER_DRAFT_KEY = "uride-installer-telematics-draft-v1";
+
+function createInitialForm() {
+  return {
+    provider_key: "",
+    actual_device_id: "",
+    device_id: "",
+    vin: "",
+    installer_name: "",
+    installer_signature_name: "",
+    installation_notes: "",
+    install_photos: []
+  };
+}
+
+function loadInstallerDraft() {
+  if (typeof window === "undefined") return null;
+  const raw = window.localStorage.getItem(INSTALLER_DRAFT_KEY);
+  if (!raw) return null;
+  try {
+    const draft = JSON.parse(raw);
+    return draft?.form ? draft : null;
+  } catch {
+    window.localStorage.removeItem(INSTALLER_DRAFT_KEY);
+    return null;
+  }
+}
+
+function saveInstallerDraft(draft) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(INSTALLER_DRAFT_KEY, JSON.stringify(draft));
+}
+
+function clearInstallerDraft() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(INSTALLER_DRAFT_KEY);
+}
+
 function normalizeDeviceId(value) {
   return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
 }
@@ -432,7 +470,7 @@ function SuccessScreen({ result, form, vehicleLookup }) {
             <p className="text-xs font-black uppercase tracking-widest text-emerald-600">Notifications Sent</p>
             <div className="mt-3 flex gap-3"><Badge className="bg-emerald-500 text-white">✓ Host</Badge><Badge className="bg-emerald-500 text-white">✓ Admin</Badge></div>
           </div>
-          <Button className="mt-6 h-14 w-full rounded-3xl bg-slate-950 font-black text-white hover:bg-slate-800" onClick={() => window.location.href = "/installer/telematics"}>Start Another Install</Button>
+          <Button className="mt-6 h-14 w-full rounded-3xl bg-slate-950 font-black text-white hover:bg-slate-800" onClick={() => { clearInstallerDraft(); window.location.href = "/installer/telematics"; }}>Start Another Install</Button>
         </LuxuryCard>
       </div>
     </div>
@@ -440,29 +478,31 @@ function SuccessScreen({ result, form, vehicleLookup }) {
 }
 
 export default function InstallerTelematicsPortal() {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [deviceVerified, setDeviceVerified] = useState(false);
-  const [form, setForm] = useState({
-    provider_key: "",
-    actual_device_id: "",
-    device_id: "",
-    vin: "",
-    installer_name: "",
-    installer_signature_name: "",
-    installation_notes: "",
-    install_photos: []
-  });
-  const [photoSlots, setPhotoSlots] = useState({ vehicle_overview: "", device_location: "", wiring_photo: "" });
-  const [additionalPhotos, setAdditionalPhotos] = useState([]);
+  const [savedDraft] = useState(() => loadInstallerDraft());
+  const [currentStep, setCurrentStep] = useState(() => Math.min(4, Math.max(0, Number(savedDraft?.currentStep || 0))));
+  const [deviceVerified, setDeviceVerified] = useState(() => !!savedDraft?.form?.actual_device_id);
+  const [form, setForm] = useState(() => ({ ...createInitialForm(), ...(savedDraft?.form || {}) }));
+  const [photoSlots, setPhotoSlots] = useState(() => ({ vehicle_overview: "", device_location: "", wiring_photo: "", ...(savedDraft?.photoSlots || {}) }));
+  const [additionalPhotos, setAdditionalPhotos] = useState(() => savedDraft?.additionalPhotos || []);
   const [uploadingSlot, setUploadingSlot] = useState("");
   const [result, setResult] = useState(null);
   const [scanner, setScanner] = useState(null);
-  const [scanMessage, setScanMessage] = useState(null);
+  const [scanMessage, setScanMessage] = useState(() => savedDraft?.form?.actual_device_id ? { type: "success", text: "Saved installation progress restored." } : null);
   const [vinScanMessage, setVinScanMessage] = useState(null);
-  const [commandState, setCommandState] = useState({});
+  const [commandState, setCommandState] = useState(() => savedDraft?.commandState || {});
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTest, setHelpTest] = useState('');
   const [helpForm, setHelpForm] = useState({ name: '', phone: '', email: '', description: '' });
+
+  useEffect(() => {
+    if (result?.status === "completed") {
+      clearInstallerDraft();
+      return;
+    }
+    const hasProgress = currentStep > 0 || form.actual_device_id || form.vin || form.installer_name || form.installer_signature_name || form.install_photos?.length;
+    if (!hasProgress) return;
+    saveInstallerDraft({ currentStep, form, photoSlots, additionalPhotos, commandState, saved_at: new Date().toISOString() });
+  }, [currentStep, form, photoSlots, additionalPhotos, commandState, result?.status]);
 
   const capabilities = useQuery({
     queryKey: ["installer-capabilities", form.actual_device_id],
