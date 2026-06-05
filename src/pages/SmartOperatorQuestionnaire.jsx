@@ -46,19 +46,23 @@ export default function SmartOperatorQuestionnaire() {
 
     const saveConfirmedSetup = async () => {
       setSaving(true);
-      const now = new Date().toISOString();
-      const existingHosts = await base44.entities.Host.filter({ email: user.email });
-      const existingHost = existingHosts?.[0];
-      const hostId = existingHost?.id || "";
-      const profile = await base44.entities.OperatorProfile.create({ host_id: hostId || undefined, user_id: user.id, ...savedAnswers, ...savedRecommendation, onboarding_status: hostId ? "host_pending" : "recommended", editable_by_host: true, last_updated_at: now });
-      const plan = await base44.entities.OperatorPlanConfiguration.create({ host_id: hostId || undefined, user_id: user.id, ...planDefaults(savedSelectedMode, savedAnswers, savedRecommendation.recommended_mode) });
-      await upsertOperatorAddonSelections(base44, { hostId, userId: user.id, selectedAddons: savedSelectedAddons, recommendedAddons: savedRecommendation.recommended_addons || [], selectedMode: savedSelectedMode, actor: user.email, source: "questionnaire" });
-      await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, new_mode: savedRecommendation.recommended_mode, reason: savedRecommendation.recommendation_reasoning.join(" "), changed_by: user.email, changed_at: now, source: "questionnaire" });
-      await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, previous_mode: savedRecommendation.recommended_mode, new_mode: savedSelectedMode, reason: "User confirmed setup from recommendation screen.", changed_by: user.email, changed_at: now, source: "user_selection" });
-      localStorage.setItem("operator_profile_id", profile.id);
-      localStorage.setItem("operator_plan_id", plan.id);
-      setSaving(false);
-      navigate(existingHost?.status === "approved" ? "/host/business-operations" : HOST_APPLICATION_URL, { replace: true });
+      navigate(HOST_APPLICATION_URL, { replace: true });
+
+      try {
+        const now = new Date().toISOString();
+        const existingHosts = await base44.entities.Host.filter({ email: user.email });
+        const existingHost = existingHosts?.[0];
+        const hostId = existingHost?.id || "";
+        const profile = await base44.entities.OperatorProfile.create({ host_id: hostId || undefined, user_id: user.id, ...savedAnswers, ...savedRecommendation, onboarding_status: hostId ? "host_pending" : "recommended", editable_by_host: true, last_updated_at: now });
+        const plan = await base44.entities.OperatorPlanConfiguration.create({ host_id: hostId || undefined, user_id: user.id, ...planDefaults(savedSelectedMode, savedAnswers, savedRecommendation.recommended_mode) });
+        await upsertOperatorAddonSelections(base44, { hostId, userId: user.id, selectedAddons: savedSelectedAddons, recommendedAddons: savedRecommendation.recommended_addons || [], selectedMode: savedSelectedMode, actor: user.email, source: "questionnaire" });
+        await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, new_mode: savedRecommendation.recommended_mode, reason: savedRecommendation.recommendation_reasoning.join(" "), changed_by: user.email, changed_at: now, source: "questionnaire" });
+        await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, previous_mode: savedRecommendation.recommended_mode, new_mode: savedSelectedMode, reason: "User confirmed setup from recommendation screen.", changed_by: user.email, changed_at: now, source: "user_selection" });
+        localStorage.setItem("operator_profile_id", profile.id);
+        localStorage.setItem("operator_plan_id", plan.id);
+      } catch (error) {
+        console.error("[OperatorSetup] Setup save failed after navigation:", error);
+      }
     };
 
     saveConfirmedSetup();
@@ -93,20 +97,24 @@ export default function SmartOperatorQuestionnaire() {
     }
 
     setSaving(true);
-    const now = new Date().toISOString();
-    const existingHosts = await base44.entities.Host.filter({ email: user.email });
-    const existingHost = existingHosts?.[0];
-    const hostId = existingHost?.id || "";
-    const profilePayload = { host_id: hostId || undefined, user_id: user.id, ...answers, ...result, onboarding_status: hostId ? "host_pending" : "recommended", editable_by_host: true, last_updated_at: now };
-    const profile = await base44.entities.OperatorProfile.create(profilePayload);
-    const plan = await base44.entities.OperatorPlanConfiguration.create({ host_id: hostId || undefined, user_id: user.id, ...planDefaults(chosenMode, answers, result.recommended_mode) });
-    await upsertOperatorAddonSelections(base44, { hostId, userId: user.id, selectedAddons, recommendedAddons: result.recommended_addons || [], selectedMode: chosenMode, actor: user.email, source: "questionnaire" });
-    await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, new_mode: result.recommended_mode, reason: result.recommendation_reasoning.join(" "), changed_by: user.email, changed_at: now, source: "questionnaire" });
-    await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, previous_mode: result.recommended_mode, new_mode: chosenMode, reason: "User confirmed setup from recommendation screen.", changed_by: user.email, changed_at: now, source: "user_selection" });
-    localStorage.setItem("operator_profile_id", profile.id);
-    localStorage.setItem("operator_plan_id", plan.id);
-    setSaving(false);
-    navigate(existingHost?.status === "approved" ? "/host/business-operations" : "/become-a-host?from=operator-questionnaire");
+    navigate(HOST_APPLICATION_URL, { replace: true });
+
+    try {
+      const now = new Date().toISOString();
+      const existingHosts = await base44.entities.Host.filter({ email: user.email });
+      const existingHost = existingHosts?.[0];
+      const hostId = existingHost?.id || "";
+      const profilePayload = { host_id: hostId || undefined, user_id: user.id, ...answers, ...result, onboarding_status: hostId ? "host_pending" : "recommended", editable_by_host: true, last_updated_at: now };
+      const profile = await base44.entities.OperatorProfile.create(profilePayload);
+      const plan = await base44.entities.OperatorPlanConfiguration.create({ host_id: hostId || undefined, user_id: user.id, ...planDefaults(chosenMode, answers, result.recommended_mode) });
+      await upsertOperatorAddonSelections(base44, { hostId, userId: user.id, selectedAddons, recommendedAddons: result.recommended_addons || [], selectedMode: chosenMode, actor: user.email, source: "questionnaire" });
+      await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, new_mode: result.recommended_mode, reason: result.recommendation_reasoning.join(" "), changed_by: user.email, changed_at: now, source: "questionnaire" });
+      await base44.entities.OperatorRecommendationHistory.create({ host_id: hostId || undefined, user_id: user.id, previous_mode: result.recommended_mode, new_mode: chosenMode, reason: "User confirmed setup from recommendation screen.", changed_by: user.email, changed_at: now, source: "user_selection" });
+      localStorage.setItem("operator_profile_id", profile.id);
+      localStorage.setItem("operator_plan_id", plan.id);
+    } catch (error) {
+      console.error("[OperatorSetup] Setup save failed after navigation:", error);
+    }
   };
 
   if (result) return <div className="min-h-screen bg-gray-50"><Header /><main className="max-w-lg mx-auto px-5 py-6"><RecommendedSetup result={result} selectedMode={selectedMode} onSelectMode={setSelectedMode} selectedAddons={selectedAddons} onAddonsChange={setSelectedAddons} onContinue={confirmSetup} /></main></div>;
