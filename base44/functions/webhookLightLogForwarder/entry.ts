@@ -35,12 +35,12 @@ const MEANINGFUL_PACKET_TYPES = new Map([
 const ALARM_EVENT_TYPES = new Set(['sos_alarm', 'overspeed_alarm', 'geofence_alarm', 'shock_alarm', 'power_alarm', 'unknown_alarm']);
 const ACTIVE_BOOKING_STATUSES = ['active', 'approved', 'confirmed'];
 const ALARM_DETAILS = {
-  sos_alarm: { title: 'SOS alarm triggered', safetyType: 'possible_accident', severity: 'critical', confidence: 'high' },
-  shock_alarm: { title: 'Shock alarm triggered', safetyType: 'possible_accident', severity: 'critical', confidence: 'medium' },
-  geofence_alarm: { title: 'Geofence alarm triggered', safetyType: 'vehicle_movement_detected', severity: 'warning', confidence: 'medium' },
-  overspeed_alarm: { title: 'Overspeed alarm triggered', safetyType: 'vehicle_movement_detected', severity: 'warning', confidence: 'medium' },
-  power_alarm: { title: 'Power alarm triggered', safetyType: 'vehicle_movement_detected', severity: 'warning', confidence: 'medium' },
-  unknown_alarm: { title: 'Device alarm triggered', safetyType: 'vehicle_movement_detected', severity: 'warning', confidence: 'low' }
+  sos_alarm: { title: 'Driver triggered SOS emergency button', safetyType: 'possible_accident', severity: 'critical', confidence: 'high', description: 'Driver emergency assistance may be needed' },
+  shock_alarm: { title: 'Impact detected on vehicle', safetyType: 'possible_accident', severity: 'critical', confidence: 'medium', description: 'Sudden deceleration or collision detected' },
+  geofence_alarm: { title: 'Vehicle zone boundary alert', safetyType: 'vehicle_movement_detected', severity: 'warning', confidence: 'medium', description: 'Vehicle entered/exited designated zone' },
+  overspeed_alarm: { title: 'Excessive speed detected', safetyType: 'vehicle_movement_detected', severity: 'warning', confidence: 'medium', description: 'Vehicle exceeded configured speed limit' },
+  power_alarm: { title: 'Device power loss detected', safetyType: 'vehicle_movement_detected', severity: 'warning', confidence: 'medium', description: 'Device lost power or experiencing low battery' },
+  unknown_alarm: { title: 'Device safety alert', safetyType: 'vehicle_movement_detected', severity: 'warning', confidence: 'low', description: 'Device triggered unrecognized alarm event' }
 };
 
 function getSecret(req, body) {
@@ -490,10 +490,18 @@ async function getHost(base44, hostId) {
   return (await base44.asServiceRole.entities.Host.filter({ id: hostId }))[0] || null;
 }
 
-function alarmMessage(detail, device, parsed) {
-  const location = parsed.latitude !== undefined && parsed.longitude !== undefined ? ` Location: ${parsed.latitude}, ${parsed.longitude}.` : '';
-  const speed = parsed.speed !== undefined ? ` Speed: ${parsed.speed}.` : '';
-  return `${detail.title} for device ${device?.unique_id || device?.id || 'unknown'}.${location}${speed}`;
+function alarmMessage(detail, device, parsed, recipient = 'admin') {
+  const location = parsed.latitude !== undefined && parsed.longitude !== undefined ? ` ${parsed.latitude.toFixed(3)}°, ${parsed.longitude.toFixed(3)}°` : '';
+  const speed = parsed.speed !== undefined && parsed.speed > 0 ? ` at ${parsed.speed} mph` : '';
+  
+  if (recipient === 'host') {
+    return `${detail.title}${speed}. ${detail.description}. Last known location: ${location || 'updating'}. Immediate attention required.`;
+  } else if (recipient === 'customer') {
+    return `Your rental vehicle triggered a safety alert: ${detail.description.toLowerCase()}. Fleet operator has been notified. Are you safe?`;
+  } else {
+    // admin
+    return `${detail.title} on device ${device?.unique_id || device?.id || 'unknown'}. ${detail.description}. Location: ${location || 'unknown'}${speed}.`;
+  }
 }
 
 async function resolveAlarmRecipients(base44, payload) {
@@ -597,7 +605,7 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
     shock_detected: parsed.event_type === 'shock_alarm',
     started_at: timestamp || now,
     status: 'open',
-    last_known_location: parsed.latitude !== undefined && parsed.longitude !== undefined ? `${parsed.latitude}, ${parsed.longitude}` : '',
+    last_known_location: parsed.latitude !== undefined && parsed.longitude !== undefined ? `${parsed.latitude.toFixed(3)}, ${parsed.longitude.toFixed(3)}` : '',
     raw_telemetry_snapshot: { alarm_type: parsed.event_type, telematics_event_id: event?.id || '', parsed_forwarded_log: parsed, raw: rawPayload },
     created_by: 'system'
   });
@@ -637,12 +645,16 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
   }
 
   if (!existingAlert) {
+    const adminMsg = alarmMessage(detail, device, parsed, 'admin');
+    const hostMsg = alarmMessage(detail, device, parsed, 'host');
+    const customerMsg = alarmMessage(detail, device, parsed, 'customer');
+    
     await createScopedAlarmNotification(base44, {
       recipient_role: 'admin',
       severity: detail.severity,
       title: detail.title,
-      body: message,
-      message,
+      body: adminMsg,
+      message: adminMsg,
       source_entity_type: 'TelematicsSafetyEvent',
       source_entity_id: safetyEvent.id,
       action_url: '/admin/telematics-operations'
@@ -654,8 +666,8 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
         recipient_phone: host.phone || '',
         severity: detail.severity,
         title: detail.title,
-        body: message,
-        message,
+        body: hostMsg,
+        message: hostMsg,
         source_entity_type: 'TelematicsSafetyEvent',
         source_entity_id: safetyEvent.id,
         action_url: '/host/telematics'
@@ -670,8 +682,8 @@ async function processAlarmUpload(base44, { device, parsed, event, rawPayload, t
         user_id: booking.user_id || '',
         severity: detail.severity,
         title: detail.title,
-        body: message,
-        message,
+        body: customerMsg,
+        message: customerMsg,
         source_entity_type: 'TelematicsSafetyEvent',
         source_entity_id: safetyEvent.id,
         action_url: '/my-bookings'
