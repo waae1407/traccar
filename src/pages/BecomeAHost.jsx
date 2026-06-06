@@ -316,7 +316,7 @@ export default function BecomeAHost() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className={labelClass}>Years in Business</label>
-              <input className={inputClass} type="number" value={form.years_in_business} onChange={e => set("years_in_business", e.target.value)} placeholder="0" /></div>
+              <input className={inputClass} required type="number" value={form.years_in_business} onChange={e => set("years_in_business", e.target.value)} placeholder="0" /></div>
             <div><label className={labelClass}>How'd you hear about us?</label>
               <input className={inputClass} value={form.referral_source} onChange={e => set("referral_source", e.target.value)} placeholder="Google, referral…" /></div>
           </div>
