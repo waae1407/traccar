@@ -23,17 +23,20 @@ const paymentModeFromPreference = (preference) => {
   return "own_payments";
 };
 
+const normalizeEmail = (value = "") => String(value).replace(/^mailto:/i, "").split("?")[0].trim().toLowerCase();
+
 export default function BecomeAHost() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [step, setStep] = useState(() => shouldShowApplicationForm(window.location.search) ? 2 : 1);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const [existingHost, setExistingHost] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(false);
   const defaultForm = {
     full_name: user?.full_name || "",
-    email: user?.email || "",
+    email: normalizeEmail(user?.email || ""),
     phone: "",
     business_name: "",
     city: "",
@@ -48,13 +51,20 @@ export default function BecomeAHost() {
     if (shouldShowApplicationForm(location.search)) setStep(2);
   }, [location.search]);
 
+  useEffect(() => {
+    const cleanEmail = normalizeEmail(form.email);
+    if (form.email && cleanEmail !== form.email) {
+      setForm(p => ({ ...p, email: cleanEmail }));
+    }
+  }, [form.email]);
+
   // Check for existing host record on mount (when user is logged in)
   useEffect(() => {
     if (!user?.email) return;
     let cancelled = false;
     const checkExistingHost = async () => {
       setCheckingExisting(true);
-      const hosts = await base44.entities.Host.filter({ email: user.email });
+      const hosts = await base44.entities.Host.filter({ email: normalizeEmail(user.email) });
       if (cancelled) return;
       if (hosts?.length > 0) {
         const host = hosts[0];
@@ -82,7 +92,7 @@ export default function BecomeAHost() {
           // Pre-fill form with existing data so they can update & resubmit
           setForm({
             full_name: host.full_name || user?.full_name || "",
-            email: host.email || user?.email || "",
+            email: normalizeEmail(host.email || user?.email || ""),
             phone: host.phone || "",
             business_name: host.business_name || "",
             city: host.city || "",
@@ -104,7 +114,11 @@ export default function BecomeAHost() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    const payload = { ...form, user_id: user?.id || "", status: "pending", commission_rate: 0.08 };
+    setSubmitError(null);
+    const cleanForm = { ...form, email: normalizeEmail(form.email) };
+    if (cleanForm.email !== form.email) setForm(cleanForm);
+    try {
+    const payload = { ...cleanForm, user_id: user?.id || "", status: "pending", commission_rate: 0.08 };
     let savedHost;
     // If rejected previously, update the existing record instead of creating a new one
     if (existingHost && existingHost.status === "rejected") {
@@ -134,8 +148,8 @@ export default function BecomeAHost() {
         await base44.entities.OperatorPlanConfiguration.create({ host_id: savedHost.id, user_id: user?.id || "", ...planDefaults(storedSelectedMode, storedAnswers, storedRecommendation.recommended_mode) });
       }
       if (storedRecommendation?.recommended_mode) {
-        await upsertOperatorAddonSelections(base44, { hostId: savedHost.id, userId: user?.id || "", selectedAddons: storedSelectedAddons, recommendedAddons: storedRecommendation.recommended_addons || [], selectedMode: storedSelectedMode || storedRecommendation.recommended_mode, actor: user?.email || form.email, source: "host_application" });
-        await base44.entities.OperatorRecommendationHistory.create({ host_id: savedHost.id, user_id: user?.id || "", previous_mode: storedRecommendation.recommended_mode, new_mode: storedSelectedMode || storedRecommendation.recommended_mode, reason: "Linked confirmed operator setup to host application.", changed_by: user?.email || form.email, changed_at: now, source: "user_selection" });
+        await upsertOperatorAddonSelections(base44, { hostId: savedHost.id, userId: user?.id || "", selectedAddons: storedSelectedAddons, recommendedAddons: storedRecommendation.recommended_addons || [], selectedMode: storedSelectedMode || storedRecommendation.recommended_mode, actor: user?.email || cleanForm.email, source: "host_application" });
+        await base44.entities.OperatorRecommendationHistory.create({ host_id: savedHost.id, user_id: user?.id || "", previous_mode: storedRecommendation.recommended_mode, new_mode: storedSelectedMode || storedRecommendation.recommended_mode, reason: "Linked confirmed operator setup to host application.", changed_by: user?.email || cleanForm.email, changed_at: now, source: "user_selection" });
       }
 
       const paymentMode = paymentModeFromPreference(storedAnswers.payment_preference);
@@ -188,6 +202,11 @@ export default function BecomeAHost() {
     ].forEach((key) => localStorage.removeItem(key));
     setStep(3);
     setSubmitting(false);
+    } catch (error) {
+      console.error("[HostApplication] Submit failed:", error);
+      setSubmitError(error?.message || "Something went wrong. Please try again.");
+      setSubmitting(false);
+    }
   };
 
   // Loading check
@@ -281,7 +300,7 @@ export default function BecomeAHost() {
             <div><label className={labelClass}>Full Name *</label>
               <input className={inputClass} required value={form.full_name} onChange={e => set("full_name", e.target.value)} placeholder="Your name" /></div>
             <div><label className={labelClass}>Email *</label>
-              <input className={inputClass} required type="email" value={form.email} onChange={e => set("email", e.target.value)} placeholder="you@email.com" /></div>
+              <input className={inputClass} required type="email" value={form.email} onChange={e => set("email", normalizeEmail(e.target.value))} placeholder="you@email.com" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className={labelClass}>Phone *</label>
@@ -309,6 +328,12 @@ export default function BecomeAHost() {
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-700 leading-relaxed">
             ✓ By submitting, you agree to uRide host terms. Your package controls tools; your payment mode controls how customers pay.
           </div>
+
+          {submitError && (
+            <div className="p-4 rounded-2xl bg-red-50 border border-red-100 text-sm text-red-600">
+              {submitError}
+            </div>
+          )}
 
           <button type="submit" disabled={submitting}
             className="w-full py-4 rounded-2xl font-bold text-white text-sm disabled:opacity-50 transition-all shadow-lg"
