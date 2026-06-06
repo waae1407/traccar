@@ -26,7 +26,7 @@ const paymentModeFromPreference = (preference) => {
 const normalizeEmail = (value = "") => String(value).replace(/^mailto:/i, "").split("?")[0].trim().toLowerCase();
 
 export default function BecomeAHost() {
-  const { user } = useAuth();
+  const { user, checkAppState } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [step, setStep] = useState(() => shouldShowApplicationForm(window.location.search) ? 2 : 1);
@@ -86,7 +86,10 @@ export default function BecomeAHost() {
           navigate("/host/business-operations", { replace: true });
         } else if (host.status === "pending") {
           const activation = await base44.functions.invoke("selfServiceActivateHost", { host_id: host.id });
-          if (activation.data?.ok) navigate("/host/business-operations", { replace: true });
+          if (activation.data?.ok) {
+            await checkAppState?.();
+            navigate("/host/business-operations", { replace: true });
+          }
           else setStep("pending");
         } else if (host.status === "rejected") {
           // Pre-fill form with existing data so they can update & resubmit
@@ -181,6 +184,7 @@ export default function BecomeAHost() {
           "operator_profile_id",
           "operator_plan_id"
         ].forEach((key) => localStorage.removeItem(key));
+        await checkAppState?.();
         navigate("/host/business-operations", { replace: true });
         return;
       }
@@ -229,7 +233,16 @@ export default function BecomeAHost() {
         <p className="text-gray-400 text-sm leading-relaxed mb-2">You already have a pending application. Our team reviews every application and approves quickly — typically within minutes.</p>
         <p className="text-gray-300 text-xs mb-8">Applied as: <span className="font-semibold text-gray-500">{existingHost?.email}</span></p>
         <div className="space-y-3">
-          <button onClick={() => existingHost?.id && base44.functions.invoke("selfServiceActivateHost", { host_id: existingHost.id }).then((res) => res.data?.ok ? navigate("/host/business-operations", { replace: true }) : navigate("/"))} className="flex items-center justify-center gap-2 w-full px-8 py-4 rounded-2xl text-white font-bold text-sm shadow-lg"
+          <button onClick={async () => {
+              if (!existingHost?.id) return;
+              const res = await base44.functions.invoke("selfServiceActivateHost", { host_id: existingHost.id });
+              if (res.data?.ok) {
+                await checkAppState?.();
+                navigate("/host/business-operations", { replace: true });
+              } else {
+                navigate("/");
+              }
+            }} className="flex items-center justify-center gap-2 w-full px-8 py-4 rounded-2xl text-white font-bold text-sm shadow-lg"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
             Continue Setup
           </button>
