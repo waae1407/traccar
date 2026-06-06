@@ -163,12 +163,6 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <div className="grid grid-cols-3 gap-4">
-            <FormField label="Make" required><input className={inputClass} value={form.make} onChange={(e) => set("make", e.target.value)} required /></FormField>
-            <FormField label="Model" required><input className={inputClass} value={form.model} onChange={(e) => set("model", e.target.value)} required /></FormField>
-            <FormField label="Year" required><input type="number" className={inputClass} value={form.year} onChange={(e) => set("year", e.target.value)} required /></FormField>
-          </div>
-
           <div className="space-y-2">
             <FormField label="VIN">
               <div className="flex gap-2">
@@ -180,6 +174,12 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
               {vinError && <p className="text-xs text-red-400 mt-1">{vinError}</p>}
             </FormField>
             <FormField label="Plate"><input className={inputClass} value={form.plate} onChange={(e) => set("plate", e.target.value)} /></FormField>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <FormField label="Make" required><input className={inputClass} value={form.make} onChange={(e) => set("make", e.target.value)} required /></FormField>
+            <FormField label="Model" required><input className={inputClass} value={form.model} onChange={(e) => set("model", e.target.value)} required /></FormField>
+            <FormField label="Year" required><input type="number" className={inputClass} value={form.year} onChange={(e) => set("year", e.target.value)} required /></FormField>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
