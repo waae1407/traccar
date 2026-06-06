@@ -35,6 +35,7 @@ export default function CheckoutFlow() {
   const bookingType = searchParams.get("type") || "Weekly";
   const requestId = searchParams.get("request");
   const companySlug = searchParams.get("company");
+  const storefrontSlug = searchParams.get("storefront");
   const refCode = searchParams.get("ref");
 
   const [booking, setBooking] = useState(null);
@@ -220,7 +221,7 @@ export default function CheckoutFlow() {
 
         {currentStep === "select_vehicle" && <StepVehicle {...commonProps} vehicleId={vehicleId} bookingType={bookingType} vehicles={vehicles} onSelect={async (v, type, opts = {}) => {
           if (!user) {
-            base44.auth.redirectToLogin(`/checkout?vehicle=${v.id}&type=${type}`);
+            base44.auth.redirectToLogin(`/checkout?vehicle=${v.id}&type=${type}${storefrontSlug ? `&storefront=${storefrontSlug}` : ""}`);
             return;
           }
           if (hardBlockingBooking) return;
@@ -252,11 +253,13 @@ export default function CheckoutFlow() {
             first_payment_amount: v.weekly_rate || 0,
             total_due_now: v.weekly_rate || 0,
             booking_status: "draft",
+            booking_source: storefrontSlug ? "direct" : "marketplace",
             checkout_step: "account",
             user_email: user?.email,
             user_id: user?.id,
             host_id: v.host_id || "",
             ...(refCode && { referral_code: refCode }),
+            ...(storefrontSlug && { storefront_slug: storefrontSlug }),
             ...(bookingCompanyId && { company_id: bookingCompanyId }),
             ...(opts.startDate && { start_date: opts.startDate }),
             ...(opts.endDate && { end_date: opts.endDate }),

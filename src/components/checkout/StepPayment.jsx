@@ -5,9 +5,11 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lucide-react";
 import OwnPaymentInstructions from "@/components/checkout/OwnPaymentInstructions";
+import ReservationRequestOnly from "@/components/checkout/ReservationRequestOnly";
+import PaymentProcessorBadge from "@/components/checkout/PaymentProcessorBadge";
 
 // ─── Inner form — lives inside <Elements> ────────────────────────────────────
-function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue, baseAmount }) {
+function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue, baseAmount, processor }) {
   const stripe = useStripe();
   const elements = useElements();
   const [ready, setReady] = useState(false);
@@ -17,6 +19,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
   const [autopayConsent, setAutopayConsent] = useState(false);
   const queryClient = useQueryClient();
   const submittedRef = useRef(false);
+  const processorLabel = processor === "host_stripe" ? "the host" : "uRide";
   const logEvent = useMutation({ mutationFn: (d) => base44.entities.ActivityEvent.create(d) });
   const markBooked = useMutation({ mutationFn: ({ id }) => base44.entities.Vehicle.update(id, { status: "Booked" }) });
 
@@ -70,7 +73,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           booking_request_id: booking?.id,
           event_type: "payment_received",
           event_title: "First Payment Received",
-          event_description: `$${amountDue} initial payment via Stripe`,
+          event_description: `$${amountDue} initial payment via ${processor === "host_stripe" ? "host Stripe" : "uRide Stripe"}`,
           event_status: "success",
           amount: amountDue,
         }).catch(() => {});
@@ -108,6 +111,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
         onPaymentSuccess({
           payment_status: "paid",
+          payment_processor: processor || "uride_stripe",
           booking_status: "pending_review",
           stripe_payment_intent_id: paymentIntentId,
           stripe_customer_id: stripeCustomerId,
@@ -188,7 +192,9 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           ⚠️ Required: Weekly Autopay Authorization
         </p>
         <p className="text-xs text-gray-600 mb-3 leading-relaxed">
-          All rentals are <strong>minimum 1 week</strong>. By proceeding, I authorize <strong>uRide to automatically charge my card ${booking?.weekly_rate || baseAmount} every week</strong> until I complete the drop-off photo inspection. Early returns are welcome but the full week is charged. Billing stops only after drop-off photos are reviewed and approved.
+          All rentals are <strong>minimum 1 week</strong>. By proceeding, I authorize{" "}
+          <strong>{`${processorLabel} to automatically charge my card $${booking?.weekly_rate || baseAmount} every week`}</strong>{" "}
+          until I complete the drop-off photo inspection. Early returns are welcome but the full week is charged. Billing stops only after drop-off photos are reviewed and approved.
         </p>
         <button type="button" onClick={() => setAutopayConsent(!autopayConsent)}
           className="flex items-start gap-3 w-full text-left">
@@ -196,7 +202,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
             {autopayConsent && <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
           </div>
           <span className="text-xs font-semibold text-gray-700">
-            I authorize uRide to charge my card weekly until I complete the drop-off inspection
+            I authorize {processorLabel} to charge my card weekly until I complete the drop-off inspection
           </span>
         </button>
         {!autopayConsent && (
@@ -236,6 +242,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
   const [stripeCustomerId, setStripeCustomerId] = useState(null);
+  const [paymentProcessor, setPaymentProcessor] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const initialized = useRef(false);
@@ -251,16 +258,18 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
     enabled: !!booking?.host_id,
   });
 
-  const { data: operatorPlans = [], isLoading: operatorPlanLoading } = useQuery({
-    queryKey: ["checkout-operator-plan", booking?.host_id],
-    queryFn: () => base44.entities.OperatorPlanConfiguration.filter({ host_id: booking.host_id }, "-updated_date", 1),
+  const { data: commerceProfiles = [], isLoading: commerceLoading } = useQuery({
+    queryKey: ["checkout-commerce-profile", booking?.host_id],
+    queryFn: () => base44.entities.HostCommerceProfile.filter({ host_id: booking.host_id }, "-updated_date", 1),
     enabled: !!booking?.host_id,
   });
 
   const paymentSettings = paymentSettingsList[0];
-  const operatorPlan = operatorPlans[0];
-  const marketplacePartnerBooking = (booking?.booking_source || "marketplace") === "marketplace" && (operatorPlan?.active_mode || operatorPlan?.selected_mode) === "marketplace_partner";
-  const ownPaymentActive = !!paymentSettings && !paymentSettings.uride_payments_enabled && !marketplacePartnerBooking;
+  const commerceProfile = commerceProfiles[0];
+  const processor = commerceProfile?.online_payments_enabled === false ? "manual_invoice" : commerceProfile?.payment_processor;
+  const fleetosManualReservation = commerceProfile?.plan_type === "fleetos_professional" && processor === "manual_invoice";
+  const ownPaymentActive = processor === "manual_invoice" && !!paymentSettings?.payment_instructions && !fleetosManualReservation;
+  const reservationRequestOnly = processor === "manual_invoice" && (!paymentSettings?.payment_instructions || fleetosManualReservation);
 
   // If already paid (e.g. page refresh), skip straight to confirmation
   useEffect(() => {
@@ -280,34 +289,26 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
       const pk = pkRes.data?.publishable_key;
       if (!pk) throw new Error("Missing Stripe publishable key");
 
-      const stripe = await loadStripe(pk);
+      const piRes = await base44.functions.invoke("createBookingPaymentIntent", {
+        booking_request_id: booking.id,
+        amount_cents: amountCents,
+        booking_type: booking.booking_type,
+        setup_future_usage: "off_session",
+      });
+      if (piRes.data?.reservation_request_only) {
+        setPaymentProcessor("manual_invoice");
+        setLoading(false);
+        return;
+      }
+
+      const stripe = await loadStripe(pk, piRes.data?.stripe_account_id ? { stripeAccount: piRes.data.stripe_account_id } : undefined);
       if (!stripe) throw new Error("Stripe failed to initialize");
       setStripeInstance(stripe);
+      setPaymentProcessor(piRes.data?.processor || "uride_stripe");
 
-      // Step 2: always create a fresh PaymentIntent with the current grossed-up amount
-      // (existing PI may have been created before the fee was added, so we never reuse it)
-      let secret, piId, custId;
-      if (false) {
-        // (disabled: we always create a new PI to ensure amount includes the Stripe fee)
-      } else {
-        // Create a new PaymentIntent and save it on the booking immediately
-        const piRes = await base44.functions.invoke("stripeCreatePaymentIntent", {
-          booking_request_id: booking.id,
-          amount_cents: amountCents,
-          booking_type: booking.booking_type,
-          setup_future_usage: "off_session",
-        });
-        secret = piRes.data?.client_secret;
-        piId = piRes.data?.payment_intent_id;
-        custId = piRes.data?.stripe_customer_id;
-        // Save to booking so we reuse it on refresh
-        if (piId) {
-          await base44.entities.BookingRequest.update(booking.id, {
-            stripe_payment_intent_id: piId,
-            stripe_customer_id: custId,
-          });
-        }
-      }
+      let secret = piRes.data?.client_secret;
+      let piId = piRes.data?.payment_intent_id;
+      let custId = piRes.data?.stripe_customer_id;
 
       if (!secret) throw new Error("No client_secret returned");
       setClientSecret(secret);
@@ -323,12 +324,12 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   };
 
   useEffect(() => {
-    if (!booking?.id || initialized.current || paymentSettingsLoading || operatorPlanLoading) return;
-    if (!paymentSettings) {
+    if (!booking?.id || initialized.current || paymentSettingsLoading || commerceLoading) return;
+    if (!paymentSettings && processor === "manual_invoice") {
       setLoading(false);
       return;
     }
-    if (ownPaymentActive) {
+    if (ownPaymentActive || reservationRequestOnly) {
       setLoading(false);
       return;
     }
@@ -338,7 +339,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
       return;
     }
     init();
-  }, [booking?.id, paymentSettingsLoading, operatorPlanLoading, paymentSettings?.id, ownPaymentActive]); // eslint-disable-line
+  }, [booking?.id, paymentSettingsLoading, commerceLoading, paymentSettings?.id, commerceProfile?.id, ownPaymentActive, reservationRequestOnly]); // eslint-disable-line
 
   const stripeOptions = useMemo(() => {
     if (!clientSecret) return null;
@@ -354,17 +355,12 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
 
   const handlePaymentSuccess = onPaymentSuccess || saveAndAdvance;
 
-  if (paymentSettingsLoading || operatorPlanLoading) {
+  if (paymentSettingsLoading || commerceLoading) {
     return <div className="flex items-center justify-center py-12"><div className="w-8 h-8 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" /></div>;
   }
 
-  if (!paymentSettings) {
-    return (
-      <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
-        <p className="font-bold text-amber-900 mb-1">Host payment setup required</p>
-        <p>This vehicle cannot accept checkout until the host chooses an explicit payment mode. Please contact support or select another vehicle.</p>
-      </div>
-    );
+  if (reservationRequestOnly) {
+    return <ReservationRequestOnly booking={booking} user={user} onSubmitBooking={handlePaymentSuccess} />;
   }
 
   if (ownPaymentActive) {
@@ -376,11 +372,14 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
       <div className="flex items-center gap-3 mb-5">
         <div className="h-12 w-12 rounded-2xl bg-green-50 flex items-center justify-center">
           <CreditCard className="h-6 w-6 text-green-600" />
-        </div>
-        <div>
-          <h2 className="font-bold text-gray-900 text-xl">Pay with Card</h2>
+          </div>
+          <div>
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-gray-900 text-xl">Pay with Card</h2>
+            <PaymentProcessorBadge processor={paymentProcessor || processor} />
+          </div>
           <p className="text-gray-400 text-sm">Powered by Stripe · Encrypted &amp; secure</p>
-        </div>
+          </div>
       </div>
 
       <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-2xl border border-pink-100 p-4 mb-5">
@@ -400,7 +399,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             <span>${amountDue.toLocaleString()}</span>
           </div>
         </div>
-        <p className="text-xs text-gray-400 mt-2">Booking stays <strong>Pending Review</strong> until admin approves</p>
+        <p className="text-xs text-gray-400 mt-2">Booking stays <strong>Pending Review</strong> until approved</p>
       </div>
 
       {loading ? (
@@ -429,6 +428,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             stripeCustomerId={stripeCustomerId}
             amountDue={amountDue}
             baseAmount={baseAmount}
+            processor={paymentProcessor || processor}
           />
         </Elements>
       ) : (

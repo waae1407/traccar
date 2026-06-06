@@ -34,6 +34,14 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date().toISOString();
+    const commerceProfiles = await base44.asServiceRole.entities.HostCommerceProfile.filter({ host_id }, '-updated_date', 1);
+    if (commerceProfiles?.[0]) {
+      await base44.asServiceRole.entities.HostCommerceProfile.update(commerceProfiles[0].id, {
+        stripe_account_id: accountId,
+        online_payments_enabled: commerceProfiles[0].plan_type === 'fleetos_professional' ? false : commerceProfiles[0].online_payments_enabled,
+        host_checkout_enabled: false
+      });
+    }
     const settings = await base44.asServiceRole.entities.HostPaymentSettings.filter({ host_id });
     if (settings?.[0]) {
       await base44.asServiceRole.entities.HostPaymentSettings.update(settings[0].id, { stripe_connect_started_at: now, last_updated_at: now });

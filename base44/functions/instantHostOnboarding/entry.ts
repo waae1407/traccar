@@ -63,6 +63,25 @@ const PLAN_CONFIG = {
   }
 };
 
+function commercePayload(host, mode) {
+  const isFleetOS = mode === 'fleetos_professional';
+  const isHybrid = mode === 'hybrid_growth';
+  const stripeReady = !!host?.stripe_onboarding_complete && !!host?.stripe_account_id;
+  return {
+    host_id: host.id,
+    plan_type: mode,
+    marketplace_enabled: !isFleetOS,
+    marketplace_visibility: !isFleetOS,
+    booking_enabled: true,
+    online_payments_enabled: isFleetOS ? stripeReady : true,
+    payment_processor: isFleetOS ? 'host_stripe' : 'uride_stripe',
+    commission_rate: isFleetOS ? 0 : isHybrid ? 0.04 : 0.08,
+    subscription_rate: isFleetOS || isHybrid ? 29.99 : 0,
+    stripe_account_id: host.stripe_account_id || '',
+    host_checkout_enabled: isFleetOS && stripeReady
+  };
+}
+
 function slugify(value) {
   return String(value || '')
     .toLowerCase()
@@ -160,6 +179,11 @@ Deno.serve(async (req) => {
       ? await base44.asServiceRole.entities.OperatorPlanConfiguration.update(existingPlans[0].id, planPayload)
       : await base44.asServiceRole.entities.OperatorPlanConfiguration.create(planPayload);
 
+    const commerce = commercePayload(host, mode);
+    const existingCommerce = await base44.asServiceRole.entities.HostCommerceProfile.filter({ host_id: host.id }, '-updated_date', 1);
+    if (existingCommerce?.[0]?.id) await base44.asServiceRole.entities.HostCommerceProfile.update(existingCommerce[0].id, commerce);
+    else await base44.asServiceRole.entities.HostCommerceProfile.create(commerce);
+
     const paymentPayload = {
       host_id: host.id,
       user_id: user.id,
@@ -206,7 +230,33 @@ Deno.serve(async (req) => {
 
     await base44.asServiceRole.entities.Host.update(host.id, { store_published: true, brand_builder_token: null });
 
-    await base44.asServiceRole.entities.OperatorRecommendationHistory.create({
+    const existingTemplates = await base44.asServiceRole.entities.ContractTemplate.filter({ host_id: host.id }, '-updated_date', 20);
+    const existingTemplateTypes = new Set((existingTemplates || []).map((template) => template.template_type));
+    const templateDefaults = [
+      ['weekly_rental', 'Weekly Rental'],
+      ['monthly_rental', 'Monthly Rental'],
+      ['rent_to_own', 'Rent-To-Own'],
+      ['commercial_fleet', 'Commercial Fleet']
+    ];
+    for (const [template_type, name] of templateDefaults) {
+      if (!existingTemplateTypes.has(template_type)) {
+        await base44.asServiceRole.entities.ContractTemplate.create({
+          host_id: host.id,
+          template_type,
+          name,
+          status: 'active',
+          deposit: 0,
+          late_fees: 'Late fees may apply according to the host payment policy.',
+          mileage_rules: 'Mileage limits and overage fees are set by the host.',
+          insurance_requirements: 'Customer must maintain valid insurance and comply with all rental requirements.',
+          smoking_fees: 'Smoking is prohibited and cleaning fees may apply.',
+          return_policies: 'Vehicle must be returned on time, clean, fueled, and in the same condition.',
+          version: 'v1'
+        });
+      }
+    }
+
+    await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ 
       host_id: host.id,
       user_id: user.id,
       new_mode: mode,

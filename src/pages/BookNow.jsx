@@ -83,19 +83,30 @@ export default function BookNow() {
     staleTime: 60_000,
   });
 
+  const { data: commerceProfiles = [] } = useQuery({
+    queryKey: ["public-commerce-profiles"],
+    queryFn: () => base44.entities.HostCommerceProfile.list("-updated_date", 500),
+    staleTime: 60_000,
+  });
+
   const { data: operatorPlans = [] } = useQuery({
-    queryKey: ["public-marketplace-eligible-plans"],
+    queryKey: ["public-marketplace-fallback-plans"],
     queryFn: () => base44.entities.OperatorPlanConfiguration.list("-updated_date", 500),
     staleTime: 60_000,
   });
 
-  const marketplacePlanByHost = useMemo(() => {
-    return operatorPlans.reduce((map, plan) => {
-      if (!plan.host_id || map[plan.host_id]) return map;
-      map[plan.host_id] = plan;
-      return map;
+  const marketplaceVisibilityByHost = useMemo(() => {
+    const map = operatorPlans.reduce((acc, plan) => {
+      if (!plan.host_id || acc[plan.host_id] !== undefined) return acc;
+      acc[plan.host_id] = plan.marketplace_enabled !== false;
+      return acc;
     }, {});
-  }, [operatorPlans]);
+    commerceProfiles.forEach((profile) => {
+      if (!profile.host_id) return;
+      map[profile.host_id] = profile.marketplace_enabled !== false && profile.marketplace_visibility !== false;
+    });
+    return map;
+  }, [commerceProfiles, operatorPlans]);
 
   // Suggested alternate cities for current location
   const suggested = useMemo(() => {
@@ -107,8 +118,7 @@ export default function BookNow() {
   const available = useMemo(() => {
     const avail = vehicles.filter((v) => {
       if (v.status !== "Available" || !v.host_id) return false;
-      const plan = marketplacePlanByHost[v.host_id];
-      return !plan || plan.marketplace_enabled !== false;
+      return marketplaceVisibilityByHost[v.host_id] !== false;
     });
     if (!location.lat || !location.lon) return avail;
     return avail
@@ -124,7 +134,7 @@ export default function BookNow() {
         if (b.distance === undefined) return -1;
         return a.distance - b.distance;
       });
-  }, [vehicles, location, marketplacePlanByHost]);
+  }, [vehicles, location, marketplaceVisibilityByHost]);
 
   const rtoEligible = available.filter((v) => v.rent_to_own_eligible);
 

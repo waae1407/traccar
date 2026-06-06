@@ -1,0 +1,66 @@
+{
+  "name": "HostCommerceProfile",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "plan_type": {
+      "type": "string",
+      "enum": [
+        "marketplace_partner",
+        "fleetos_professional",
+        "hybrid_growth"
+      ],
+      "default": "marketplace_partner"
+    },
+    "marketplace_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "marketplace_visibility": {
+      "type": "boolean",
+      "default": true
+    },
+    "booking_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "online_payments_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "payment_processor": {
+      "type": "string",
+      "enum": [
+        "uride_stripe",
+        "host_stripe",
+        "manual_invoice",
+        "paypal",
+        "square",
+        "authorize_net",
+        "quickbooks"
+      ],
+      "default": "uride_stripe"
+    },
+    "commission_rate": {
+      "type": "number",
+      "default": 0.08
+    },
+    "subscription_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "stripe_account_id": {
+      "type": "string"
+    },
+    "host_checkout_enabled": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "host_id",
+    "plan_type"
+  ]
+}

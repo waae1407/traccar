@@ -1,0 +1,61 @@
+{
+  "name": "ContractTemplate",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "template_type": {
+      "type": "string",
+      "enum": [
+        "weekly_rental",
+        "monthly_rental",
+        "rent_to_own",
+        "commercial_fleet"
+      ]
+    },
+    "name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "draft",
+        "archived"
+      ],
+      "default": "active"
+    },
+    "deposit": {
+      "type": "number",
+      "default": 0
+    },
+    "late_fees": {
+      "type": "string"
+    },
+    "mileage_rules": {
+      "type": "string"
+    },
+    "insurance_requirements": {
+      "type": "string"
+    },
+    "smoking_fees": {
+      "type": "string"
+    },
+    "return_policies": {
+      "type": "string"
+    },
+    "template_html": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "default": "v1"
+    }
+  },
+  "required": [
+    "host_id",
+    "template_type",
+    "name"
+  ]
+}

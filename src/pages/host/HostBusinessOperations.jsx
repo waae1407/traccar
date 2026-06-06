@@ -7,6 +7,7 @@ import { OPERATIONAL_MODES, buildAddonPayload } from "@/lib/operatorRecommendati
 import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import PaymentSetupBuilder from "@/components/host/PaymentSetupBuilder";
 import PlatformBillingCard from "@/components/host/PlatformBillingCard";
+import CommerceProfileCard from "@/components/host/CommerceProfileCard";
 
 export default function HostBusinessOperations() {
   const { user } = useAuth();
@@ -45,6 +46,12 @@ export default function HostBusinessOperations() {
     enabled: !!host?.id
   });
 
+  const { data: commerceProfiles = [] } = useQuery({
+    queryKey: ["host-commerce-profile", host?.id],
+    queryFn: () => base44.entities.HostCommerceProfile.filter({ host_id: host.id }, "-updated_date", 1),
+    enabled: !!host?.id
+  });
+
   const { data: addonConfigs = [] } = useQuery({
     queryKey: ["operator-addons", host?.id, user?.id],
     queryFn: async () => {
@@ -64,12 +71,14 @@ export default function HostBusinessOperations() {
   const plan = plans[0];
   const settings = paymentSettings[0];
   const platformSubscription = platformSubscriptions[0];
+  const commerceProfile = commerceProfiles[0];
 
   const updatePlan = useMutation({
     mutationFn: (mode) => base44.functions.invoke("manageHostPlatformPlan", { host_id: host.id, plan_id: plan.id, mode }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["operator-plan"] });
       qc.invalidateQueries({ queryKey: ["host-platform-subscription", host?.id] });
+      qc.invalidateQueries({ queryKey: ["host-commerce-profile", host?.id] });
       if (res.data?.url) window.location.href = res.data.url;
     }
   });
@@ -110,6 +119,7 @@ export default function HostBusinessOperations() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["operator-plan"] });
       qc.invalidateQueries({ queryKey: ["host-payment-settings", host?.id] });
+      qc.invalidateQueries({ queryKey: ["host-commerce-profile", host?.id] });
       if (res.data?.url) window.location.href = res.data.url;
     }
   });
@@ -123,23 +133,34 @@ export default function HostBusinessOperations() {
       if (!res.data?.charges_enabled && !res.data?.onboarding_complete) return;
       const now = new Date().toISOString();
       await base44.entities.Host.update(host.id, { stripe_onboarding_complete: true });
+      const isFleetOS = commerceProfile?.plan_type === "fleetos_professional" || plan.selected_mode === "fleetos_professional";
       await base44.entities.OperatorPlanConfiguration.update(plan.id, {
-        payment_mode: "uride_payments",
-        uses_uride_payments: true,
-        uses_own_payments: false,
-        uride_payments_enabled_at: now,
-        customer_payment_routing: "uride_checkout",
+        payment_mode: isFleetOS ? "own_payments" : "uride_payments",
+        uses_uride_payments: !isFleetOS,
+        uses_own_payments: isFleetOS,
+        uride_payments_enabled_at: isFleetOS ? plan.uride_payments_enabled_at : now,
+        own_payments_enabled_at: isFleetOS ? now : plan.own_payments_enabled_at,
+        customer_payment_routing: isFleetOS ? "host_external" : "uride_checkout",
         stripe_connect_required: false,
         stripe_connect_optional: true,
         last_updated_at: now
       });
+      if (commerceProfile?.id) {
+        await base44.entities.HostCommerceProfile.update(commerceProfile.id, {
+          stripe_account_id: host.stripe_account_id,
+          online_payments_enabled: commerceProfile.plan_type === "fleetos_professional" ? true : commerceProfile.online_payments_enabled,
+          host_checkout_enabled: commerceProfile.plan_type === "fleetos_professional",
+          payment_processor: commerceProfile.plan_type === "fleetos_professional" ? "host_stripe" : "uride_stripe"
+        });
+      }
       if (settings?.id) {
-        await base44.entities.HostPaymentSettings.update(settings.id, { payment_mode: "uride_payments", uride_payments_enabled: true, uride_payments_enabled_at: now, last_updated_at: now });
+        await base44.entities.HostPaymentSettings.update(settings.id, { payment_mode: isFleetOS ? "own_payments" : "uride_payments", uride_payments_enabled: !isFleetOS, uride_payments_enabled_at: isFleetOS ? settings.uride_payments_enabled_at : now, last_updated_at: now });
       } else {
-        await base44.entities.HostPaymentSettings.create({ host_id: host.id, user_id: user?.id || "", payment_mode: "uride_payments", uride_payments_enabled: true, uride_payments_enabled_at: now, last_updated_at: now });
+        await base44.entities.HostPaymentSettings.create({ host_id: host.id, user_id: user?.id || "", payment_mode: isFleetOS ? "own_payments" : "uride_payments", uride_payments_enabled: !isFleetOS, uride_payments_enabled_at: isFleetOS ? undefined : now, last_updated_at: now });
       }
       qc.invalidateQueries({ queryKey: ["operator-plan"] });
       qc.invalidateQueries({ queryKey: ["host-payment-settings", host?.id] });
+      qc.invalidateQueries({ queryKey: ["host-commerce-profile", host?.id] });
       window.history.replaceState({}, "", window.location.pathname);
     });
   }, [host?.id, plan?.id]); // eslint-disable-line
@@ -153,6 +174,8 @@ export default function HostBusinessOperations() {
       </div>
 
       {result && <RecommendedSetup result={result} compact selectedMode={plan?.selected_mode} selectedAddons={selectedAddons} onAddonsChange={(next) => updateAddons.mutate(next)} />}
+
+      {commerceProfile && <CommerceProfileCard commerceProfile={commerceProfile} />}
 
       {plan && <PlatformBillingCard plan={plan} subscription={platformSubscription} loading={updatePlan.isPending} onStartBilling={() => updatePlan.mutate(plan.selected_mode || plan.active_mode)} />}
 

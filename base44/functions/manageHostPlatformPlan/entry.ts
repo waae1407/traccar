@@ -16,16 +16,43 @@ function toIsoFromUnix(value) {
 }
 
 function paymentModeFields(plan, mode) {
-  const usesUridePayments = !!plan?.uses_uride_payments;
+  const isFleetOS = mode === 'fleetos_professional';
+  const usesUridePayments = !isFleetOS;
   return {
-    payment_mode: plan?.payment_mode || (usesUridePayments ? 'uride_payments' : 'own_payments'),
+    payment_mode: isFleetOS ? 'own_payments' : 'uride_payments',
     uses_uride_payments: usesUridePayments,
     uses_own_payments: !usesUridePayments,
-    customer_payment_routing: usesUridePayments ? 'uride_checkout' : 'host_external',
+    customer_payment_routing: isFleetOS ? 'host_external' : 'uride_checkout',
     stripe_connect_required: false,
     stripe_connect_optional: true,
-    marketplace_enabled: mode !== 'fleetos_professional',
+    marketplace_enabled: !isFleetOS,
   };
+}
+
+function commercePayload(host, mode) {
+  const isFleetOS = mode === 'fleetos_professional';
+  const isHybrid = mode === 'hybrid_growth';
+  const stripeReady = !!host?.stripe_onboarding_complete && !!host?.stripe_account_id;
+  return {
+    host_id: host.id,
+    plan_type: mode,
+    marketplace_enabled: !isFleetOS,
+    marketplace_visibility: !isFleetOS,
+    booking_enabled: true,
+    online_payments_enabled: isFleetOS ? stripeReady : true,
+    payment_processor: isFleetOS ? 'host_stripe' : 'uride_stripe',
+    commission_rate: isFleetOS ? 0 : isHybrid ? 0.04 : 0.08,
+    subscription_rate: isFleetOS || isHybrid ? 29.99 : 0,
+    stripe_account_id: host.stripe_account_id || '',
+    host_checkout_enabled: isFleetOS && stripeReady
+  };
+}
+
+async function upsertCommerceProfile(base44, host, mode) {
+  const existing = await base44.asServiceRole.entities.HostCommerceProfile.filter({ host_id: host.id }, '-updated_date', 1);
+  const payload = commercePayload(host, mode);
+  if (existing?.[0]?.id) return base44.asServiceRole.entities.HostCommerceProfile.update(existing[0].id, payload);
+  return base44.asServiceRole.entities.HostCommerceProfile.create(payload);
 }
 
 async function getOrCreateStripeCustomer(host, existingCustomerId) {
@@ -106,6 +133,7 @@ Deno.serve(async (req) => {
         status_audit_log: [...(plan.status_audit_log || []), { ...auditEntry, to_status: 'active' }]
       });
 
+      await upsertCommerceProfile(base44, host, mode);
       await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ host_id, user_id: user.id, previous_mode: plan.selected_mode || plan.active_mode || '', new_mode: mode, reason: 'Host changed package from Business Operations.', changed_by: user.email, changed_at: now, source: 'host_edit' });
       return Response.json({ ok: true, mode, status: 'active' });
     }
@@ -144,6 +172,7 @@ Deno.serve(async (req) => {
         status_audit_log: [...(plan.status_audit_log || []), { ...auditEntry, to_status: 'active', reason: `Host selected ${config.label}; active platform subscription reused.` }]
       });
 
+      await upsertCommerceProfile(base44, host, mode);
       await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ host_id, user_id: user.id, previous_mode: plan.selected_mode || plan.active_mode || '', new_mode: mode, reason: 'Host changed package and reused active subscription.', changed_by: user.email, changed_at: now, source: 'host_edit' });
       return Response.json({ ok: true, mode, status: 'active', reused_subscription: true });
     }
@@ -204,6 +233,7 @@ Deno.serve(async (req) => {
       audit_log: [...(existingSubscription?.audit_log || []), { action: 'checkout_started', status: 'checkout_started', changed_by: user.email, changed_at: now, note: `Stripe subscription checkout opened for ${config.label}.` }]
     });
 
+    await upsertCommerceProfile(base44, host, mode);
     await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ host_id, user_id: user.id, previous_mode: plan.selected_mode || plan.active_mode || '', new_mode: mode, reason: 'Host changed package and platform subscription checkout was started.', changed_by: user.email, changed_at: now, source: 'host_edit' });
 
     return Response.json({ ok: true, mode, status: 'checkout_started', url: session.url });

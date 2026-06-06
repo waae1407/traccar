@@ -1,8 +1,11 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { FileText, PenLine, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react";
 import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 import { generateWeeklyContract } from "./contracts/WeeklyRentalContract";
 import { generateRTOContract } from "./contracts/RentToOwnContract";
+import { templateForBookingType } from "./contracts/contractTemplateConfig";
 import InitialClause from "./InitialClause";
 
 // ─── Clause definitions ────────────────────────────────────────────────────────
@@ -49,9 +52,18 @@ const RTO_CLAUSE = {
 // ─── Component ─────────────────────────────────────────────────────────────────
 export default function StepContract({ booking, vehicle, saveAndAdvance }) {
   const isRTO = booking?.booking_type === "Rent-to-Own";
-  const contractHTML = isRTO ? generateRTOContract(booking) : generateWeeklyContract(booking);
+  const templateConfig = templateForBookingType(booking?.booking_type);
+  const { data: templates = [] } = useQuery({
+    queryKey: ["contract-template", booking?.host_id, templateConfig.type],
+    queryFn: () => base44.entities.ContractTemplate.filter({ host_id: booking.host_id, template_type: templateConfig.type, status: "active" }, "-updated_date", 1),
+    enabled: !!booking?.host_id,
+  });
+  const activeTemplate = templates[0];
+  const baseContractHTML = isRTO ? generateRTOContract(booking) : generateWeeklyContract(booking);
+  const policyHTML = activeTemplate ? `<hr/><h3>Host Policies</h3><p><strong>Deposit:</strong> $${activeTemplate.deposit || 0}</p><p><strong>Late Fees:</strong> ${activeTemplate.late_fees || "Standard late fees apply."}</p><p><strong>Mileage:</strong> ${activeTemplate.mileage_rules || "Standard mileage rules apply."}</p><p><strong>Insurance:</strong> ${activeTemplate.insurance_requirements || "Valid insurance is required."}</p><p><strong>Smoking Fees:</strong> ${activeTemplate.smoking_fees || "Smoking is prohibited."}</p><p><strong>Return Policy:</strong> ${activeTemplate.return_policies || "Vehicle must be returned in the same condition."}</p>` : "";
+  const contractHTML = `${baseContractHTML}${policyHTML}`;
   const contractType = isRTO ? "rent_to_own" : "weekly";
-  const contractVersion = isRTO ? "RTO-v2.0" : "WR-v2.0";
+  const contractVersion = activeTemplate?.version || templateConfig.version;
 
   const clauses = isRTO ? [...COMMON_CLAUSES, RTO_CLAUSE] : COMMON_CLAUSES;
 
@@ -123,7 +135,7 @@ export default function StepContract({ booking, vehicle, saveAndAdvance }) {
         <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
         {isRTO
           ? "Rent-to-Own contract — initials required on all 6 critical clauses below."
-          : "Weekly Rental contract — initials required on 5 critical clauses below."}
+          : `${templateConfig.label} — initials required on 5 critical clauses below.`}
       </div>
 
       {/* Full contract viewer */}

@@ -14,19 +14,21 @@ export default function HomeFeaturedVehicles() {
   const { data: vehicles = [] } = useQuery({
     queryKey: ["home-featured-vehicles"],
     queryFn: async () => {
-      const [vehicleRows, plans] = await Promise.all([
+      const [vehicleRows, profiles, plans] = await Promise.all([
         base44.entities.Vehicle.filter({ status: "Available" }, "-created_date", 30),
+        base44.entities.HostCommerceProfile.list("-updated_date", 500),
         base44.entities.OperatorPlanConfiguration.list("-updated_date", 500),
       ]);
-      const planByHost = plans.reduce((map, plan) => {
-        if (!plan.host_id || map[plan.host_id]) return map;
-        map[plan.host_id] = plan;
+      const visibilityByHost = plans.reduce((map, plan) => {
+        if (!plan.host_id || map[plan.host_id] !== undefined) return map;
+        map[plan.host_id] = plan.marketplace_enabled !== false;
         return map;
       }, {});
-      return vehicleRows.filter((vehicle) => {
-        const plan = planByHost[vehicle.host_id];
-        return !plan || plan.marketplace_enabled !== false;
-      }).slice(0, 6);
+      profiles.forEach((profile) => {
+        if (!profile.host_id) return;
+        visibilityByHost[profile.host_id] = profile.marketplace_enabled !== false && profile.marketplace_visibility !== false;
+      });
+      return vehicleRows.filter((vehicle) => visibilityByHost[vehicle.host_id] !== false).slice(0, 6);
     },
   });
 
