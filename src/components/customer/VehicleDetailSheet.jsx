@@ -4,7 +4,7 @@ import PublicTrustBadges from "@/components/trust/PublicTrustBadges";
 import PublicRating from "@/components/trust/PublicRating";
 import { latestSnapshotFor, publicRating, publicVehicleLabels } from "@/lib/reputation/publicTrust";
 
-export default function VehicleDetailSheet({ vehicle, onClose, onBook, user, reviews = [], signalSnapshots = [] }) {
+export default function VehicleDetailSheet({ vehicle, onClose, onBook, user, reviews = [], signalSnapshots = [], bookingDisabled = false, disabledReason = "" }) {
   if (!vehicle) return null;
 
   const weeklyRate = vehicle.weekly_rate || 0;
@@ -107,12 +107,18 @@ export default function VehicleDetailSheet({ vehicle, onClose, onBook, user, rev
           </div>
 
           {/* CTA */}
+          {bookingDisabled && disabledReason && (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+              {disabledReason}
+            </div>
+          )}
           <button
-            onClick={() => onBook(vehicle)}
-            className="w-full mt-5 h-13 py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-between px-5 transition-all hover:opacity-90 active:scale-[0.98]"
+            onClick={() => !bookingDisabled && onBook(vehicle)}
+            disabled={bookingDisabled}
+            className="w-full mt-3 h-13 py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-between px-5 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
           >
-            <span>Book This Vehicle</span>
+            <span>{bookingDisabled ? "Bookings Disabled" : "Book This Vehicle"}</span>
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>

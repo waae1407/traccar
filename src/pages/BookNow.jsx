@@ -83,6 +83,20 @@ export default function BookNow() {
     staleTime: 60_000,
   });
 
+  const { data: operatorPlans = [] } = useQuery({
+    queryKey: ["public-marketplace-eligible-plans"],
+    queryFn: () => base44.entities.OperatorPlanConfiguration.list("-updated_date", 500),
+    staleTime: 60_000,
+  });
+
+  const marketplacePlanByHost = useMemo(() => {
+    return operatorPlans.reduce((map, plan) => {
+      if (!plan.host_id || map[plan.host_id]) return map;
+      map[plan.host_id] = plan;
+      return map;
+    }, {});
+  }, [operatorPlans]);
+
   // Suggested alternate cities for current location
   const suggested = useMemo(() => {
     const key = location.city.toLowerCase();
@@ -91,7 +105,11 @@ export default function BookNow() {
 
   // All available vehicles, sorted by distance if location is known (no hard distance cutoff)
   const available = useMemo(() => {
-    const avail = vehicles.filter((v) => v.status === "Available" && v.host_id);
+    const avail = vehicles.filter((v) => {
+      if (v.status !== "Available" || !v.host_id) return false;
+      const plan = marketplacePlanByHost[v.host_id];
+      return !plan || plan.marketplace_enabled !== false;
+    });
     if (!location.lat || !location.lon) return avail;
     return avail
       .map((v) => ({
@@ -106,7 +124,7 @@ export default function BookNow() {
         if (b.distance === undefined) return -1;
         return a.distance - b.distance;
       });
-  }, [vehicles, location]);
+  }, [vehicles, location, marketplacePlanByHost]);
 
   const rtoEligible = available.filter((v) => v.rent_to_own_eligible);
 

@@ -13,7 +13,21 @@ const TRUST_BADGES = [
 export default function HomeFeaturedVehicles() {
   const { data: vehicles = [] } = useQuery({
     queryKey: ["home-featured-vehicles"],
-    queryFn: () => base44.entities.Vehicle.filter({ status: "Available" }, "-created_date", 6),
+    queryFn: async () => {
+      const [vehicleRows, plans] = await Promise.all([
+        base44.entities.Vehicle.filter({ status: "Available" }, "-created_date", 30),
+        base44.entities.OperatorPlanConfiguration.list("-updated_date", 500),
+      ]);
+      const planByHost = plans.reduce((map, plan) => {
+        if (!plan.host_id || map[plan.host_id]) return map;
+        map[plan.host_id] = plan;
+        return map;
+      }, {});
+      return vehicleRows.filter((vehicle) => {
+        const plan = planByHost[vehicle.host_id];
+        return !plan || plan.marketplace_enabled !== false;
+      }).slice(0, 6);
+    },
   });
 
   if (vehicles.length === 0) {

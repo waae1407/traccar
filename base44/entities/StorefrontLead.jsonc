@@ -1,0 +1,42 @@
+{
+  "name": "StorefrontLead",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "business_slug": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "interest_note": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "default": "storefront_waitlist"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "contacted",
+        "converted",
+        "closed"
+      ],
+      "default": "new"
+    }
+  },
+  "required": [
+    "email",
+    "business_slug"
+  ]
+}

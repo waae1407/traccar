@@ -9,11 +9,11 @@ import LocationContext from "@/components/customer/booknow/LocationContext";
 import RentForFreeBanner from "@/components/customer/booknow/RentForFreeBanner";
 import BookNowRtoBanner from "@/components/customer/booknow/BookNowRtoBanner";
 import BookNowVehicleGrid from "@/components/customer/booknow/BookNowVehicleGrid";
-import WaitlistEmptyState from "@/components/customer/booknow/WaitlistEmptyState";
 import useUserLocation from "@/hooks/useUserLocation";
-import { Gift, CalendarCheck, Key, ChevronRight } from "lucide-react";
+import { CalendarCheck, Key, ChevronRight, CreditCard } from "lucide-react";
 import { canonicalCheckoutUrl, isCustomDomainHost } from "@/lib/customDomain";
 import HostTrustPanel from "@/components/trust/HostTrustPanel";
+import StorefrontLeadCapture from "@/components/host/storefront/StorefrontLeadCapture";
 import { latestSnapshotFor, publicHostLabels, publicRating } from "@/lib/reputation/publicTrust";
 
 // Haversine distance in miles
@@ -43,6 +43,21 @@ export default function HostStorefrontHome() {
   const showRto = brand?.show_rto_options !== false;
   const showRentForFree = brand?.show_rent_for_free !== false;
 
+  const { data: hosts = [] } = useQuery({
+    queryKey: ["storefront-host", brand?.host_id],
+    queryFn: () => base44.entities.Host.filter({ id: brand.host_id }),
+    enabled: !!brand?.host_id,
+  });
+  const host = hosts[0];
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ["storefront-host-plan", brand?.host_id],
+    queryFn: () => base44.entities.OperatorPlanConfiguration.filter({ host_id: brand.host_id }, "-updated_date", 1),
+    enabled: !!brand?.host_id,
+  });
+  const plan = plans[0];
+  const fleetosBookingsDisabled = plan?.selected_mode === "fleetos_professional" && !host?.stripe_onboarding_complete;
+
   const { data: reviews = [] } = useQuery({
     queryKey: ["storefront-public-reviews", brand?.host_id],
     queryFn: () => base44.entities.HostReview.filter({ host_id: brand.host_id, moderation_status: "approved", visibility_status: "public" }, "-created_date", 500),
@@ -65,7 +80,21 @@ export default function HostStorefrontHome() {
   // Marketplace vehicles (all approved) — only if host enabled it
   const { data: marketplaceVehicles = [], isLoading: loadingMarket } = useQuery({
     queryKey: ["storefront-market-vehicles"],
-    queryFn: () => base44.entities.Vehicle.filter({ approval_status: "approved", status: "Available" }),
+    queryFn: async () => {
+      const [vehicleRows, planRows] = await Promise.all([
+        base44.entities.Vehicle.filter({ approval_status: "approved", status: "Available" }),
+        base44.entities.OperatorPlanConfiguration.list("-updated_date", 500),
+      ]);
+      const planByHost = planRows.reduce((map, row) => {
+        if (!row.host_id || map[row.host_id]) return map;
+        map[row.host_id] = row;
+        return map;
+      }, {});
+      return vehicleRows.filter((vehicle) => {
+        const vehiclePlan = planByHost[vehicle.host_id];
+        return !vehiclePlan || vehiclePlan.marketplace_enabled !== false;
+      });
+    },
     enabled: !!showMarketplace,
   });
 
@@ -111,6 +140,7 @@ export default function HostStorefrontHome() {
   const completedTrips = hostSnapshot?.completed_bookings_count || 0;
 
   const handleBook = (vehicle) => {
+    if (fleetosBookingsDisabled) return;
     setSelectedVehicle(null);
     const params = new URLSearchParams({ vehicle: vehicle.id, type: bookingType, storefront: businessSlug, return: `/host/${businessSlug}` });
     if (isCustomDomainHost()) window.location.href = canonicalCheckoutUrl(params);
@@ -178,6 +208,16 @@ export default function HostStorefrontHome() {
 
       <HostTrustPanel labels={hostLabels} rating={hostRating.rating} reviewCount={hostRating.count} completedTrips={completedTrips} />
 
+      {fleetosBookingsDisabled && (
+        <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <CreditCard className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-black text-amber-900">Connect Stripe to accept bookings.</p>
+            <p className="text-xs text-amber-700 mt-1">This FleetOS storefront is live and vehicles are visible, but reservations stay disabled until the host connects Stripe.</p>
+          </div>
+        </div>
+      )}
+
       {/* Rent for Free banner */}
       {showRentForFree && <RentForFreeBanner />}
 
@@ -229,7 +269,7 @@ export default function HostStorefrontHome() {
       {/* Vehicles */}
       <div id="vehicle-grid" />
       {!isLoading && available.length === 0 ? (
-        <WaitlistEmptyState location={location} onChangeLocation={() => {}} />
+        <StorefrontLeadCapture brand={brand} businessSlug={businessSlug} />
       ) : (
         <BookNowVehicleGrid
           vehicles={filtered}
@@ -249,6 +289,8 @@ export default function HostStorefrontHome() {
         user={user}
         reviews={reviews}
         signalSnapshots={signalSnapshots}
+        bookingDisabled={fleetosBookingsDisabled}
+        disabledReason="Connect Stripe to accept bookings."
       />
     </div>
   );
