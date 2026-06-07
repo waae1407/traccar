@@ -44,14 +44,17 @@ export default function StorefrontSuccessPanel({ result }) {
       </div>
 
       <div className="mt-6 rounded-2xl bg-white/5 border border-white/10 p-4 space-y-3">
-        <p className="text-sm font-black">Next Steps</p>
-        <div className="space-y-2">
-          <div className="flex gap-2 text-xs text-white/70"><span className="text-white/40">□</span> Add your first vehicle</div>
-          <div className="flex gap-2 text-xs text-white/70"><span className="text-white/40">□</span> Add pricing</div>
-          <div className="flex gap-2 text-xs text-white/70"><span className="text-white/40">□</span> Connect Stripe (if required)</div>
-          <div className="flex gap-2 text-xs text-white/70"><span className="text-white/40">□</span> Customize your storefront</div>
+        <div>
+          <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">🚀 YOUR BUSINESS IS OPEN</p>
+        </div>
+        <div className="space-y-2 text-sm">
+          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Your storefront is live now</p>
+          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Customers can discover your business immediately</p>
+          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Add inventory whenever you're ready</p>
+          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Connect Stripe and GPS later</p>
         </div>
       </div>
+      <p className="text-xs text-white/40 border-t border-white/10 pt-3">Start simple. Grow at your own pace.</p>
 
       <Link to="/host/vehicles" className="mt-5 w-full rounded-2xl bg-pink-600 hover:bg-pink-700 font-black text-sm py-3 flex items-center justify-center">
         Add Your First Vehicle

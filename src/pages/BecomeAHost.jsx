@@ -14,23 +14,23 @@ const OPTIONS = [
   {
     id: "marketplace_partner",
     goal: "Get customers",
-    label: "Marketplace Partner",
+    label: "Let uRide Bring You Customers",
     price: "8% per completed booking",
-    bullets: ["We send renters directly to your vehicles", "Rental contracts are handled for you", "We collect payment from customers", "Your earnings are paid out automatically"],
+    bullets: ["uRide sends ready-to-book renters to your vehicles", "Rental contracts are handled for you", "We collect payment from customers", "Your earnings are paid out automatically"],
   },
   {
     id: "fleetos_professional",
     goal: "Manage my fleet",
-    label: "FleetOS Professional",
+    label: "Run My Own Rental Business",
     price: "$29.99/month",
-    bullets: ["Keep and manage your own customers", "Manage vehicles, customers, contracts, and GPS in one place", "Use your own rental agreements", "Get paid directly through your Stripe account", "Track and control your vehicles remotely"],
+    bullets: ["Keep and manage your own customers", "Run bookings, customers, contracts, payments, and GPS in one place", "Use your own rental agreements", "Get paid directly through your Stripe account", "Track and control your vehicles remotely"],
   },
   {
     id: "hybrid_growth",
     goal: "Both",
-    label: "Hybrid Growth",
+    label: "Grow Faster With Both",
     price: "$29.99/month + 4%",
-    bullets: ["Get renters from the uRide marketplace", "Keep and manage your own customers", "Manage your fleet and bookings in one place", "Track and control your vehicles remotely"],
+    bullets: ["Get renters from uRide while building your own customer base", "Keep and manage your own customers", "Manage your fleet and bookings in one place", "Track and control your vehicles remotely"],
   },
 ];
 
