@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { ArrowRight, Building2, Store } from "lucide-react";
@@ -48,12 +48,24 @@ function slugify(value) {
 
 export default function BecomeAHost() {
   const { user, checkAppState } = useAuth();
+  const navigate = useNavigate();
   const [selectedMode, setSelectedMode] = useState("marketplace_partner");
   const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const resumeAttemptedRef = useRef(false);
+
+  const clearOnboardingState = () => {
+    sessionStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(DRAFT_KEY);
+    clearPendingAction();
+    clearTaskDraft(ONBOARDING_DRAFT_KEY);
+  };
+
+  const routeToSuccess = (hostId) => {
+    navigate(`/host/onboarding-success?host_id=${hostId}`, { replace: true });
+  };
 
   useEffect(() => {
     if (!user?.email || resumeAttemptedRef.current) return;
@@ -65,15 +77,32 @@ export default function BecomeAHost() {
     if (pending?.intended_action !== "create_store" || !pending?.store_name) return;
 
     resumeAttemptedRef.current = true;
-    const payload = {
-      store_name: pending.store_name,
-      selected_mode: pending.selected_plan || pending.selected_mode || "marketplace_partner",
-      requested_slug: pending.generated_slug || pending.requested_slug || slugify(pending.store_name),
+    const resumeOnboarding = async () => {
+      const existingHosts = await base44.entities.Host.filter({ email: user.email });
+      const approvedHost = existingHosts?.find((host) => host.status === "approved");
+      if (approvedHost?.id) {
+        const storefronts = await base44.entities.HostBrandSettings.filter({ host_id: approvedHost.id });
+        const liveStorefront = storefronts?.find((storefront) => storefront.published_status === "live");
+        if (liveStorefront?.id) {
+          clearOnboardingState();
+          await checkAppState?.();
+          routeToSuccess(approvedHost.id);
+          return;
+        }
+      }
+
+      const payload = {
+        store_name: pending.store_name,
+        selected_mode: pending.selected_plan || pending.selected_mode || "marketplace_partner",
+        requested_slug: pending.generated_slug || pending.requested_slug || slugify(pending.store_name),
+      };
+
+      setSelectedMode(payload.selected_mode);
+      setStoreName(payload.store_name);
+      await createStore(payload);
     };
 
-    setSelectedMode(payload.selected_mode);
-    setStoreName(payload.store_name);
-    createStore(payload).catch((err) => {
+    resumeOnboarding().catch((err) => {
       setError(err?.response?.data?.error || err.message || "Could not create your store. Please try again.");
       setLoading(false);
       resumeAttemptedRef.current = false;
@@ -87,14 +116,11 @@ export default function BecomeAHost() {
     setLoading(true);
     setError("");
     const res = await base44.functions.invoke("instantHostOnboarding", payload);
-    sessionStorage.removeItem(DRAFT_KEY);
-    localStorage.removeItem(DRAFT_KEY);
-    clearPendingAction();
-    clearTaskDraft(ONBOARDING_DRAFT_KEY);
+    clearOnboardingState();
     await checkAppState?.();
     setResult(res.data);
     setLoading(false);
-    window.history.replaceState({}, "", "/become-a-host");
+    navigate(`/host/onboarding-success?host_id=${res.data.host_id}`, { replace: true, state: { onboardingResult: res.data } });
   };
 
   const handleSubmit = async (e) => {

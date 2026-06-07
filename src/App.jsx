@@ -95,6 +95,7 @@ import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
 import HostTelematicsCommandTest from '@/pages/host/HostTelematicsCommandTest.jsx';
 import HostPaymentAlerts from '@/pages/host/HostPaymentAlerts.jsx';
+import HostOnboardingSuccess from '@/pages/host/HostOnboardingSuccess.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
 import CustomDomainGate from '@/components/host/storefront/CustomDomainGate';
@@ -156,6 +157,7 @@ const AuthenticatedApp = () => {
       {/* ── HOST ROUTES ── */}
       <Route element={<HostGuard><HostLayout /></HostGuard>}>
         <Route path="/host/dashboard" element={<HostDashboard />} />
+        <Route path="/host/onboarding-success" element={<HostOnboardingSuccess />} />
         <Route path="/host/vehicles" element={<HostVehicles />} />
         <Route path="/host/payments" element={<HostPayments />} />
         <Route path="/host/payouts" element={<HostPayouts />} />
