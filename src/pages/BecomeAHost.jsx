@@ -16,21 +16,21 @@ const OPTIONS = [
     goal: "Get customers",
     label: "Let uRide Bring You Customers",
     price: "8% per completed booking",
-    bullets: ["uRide sends ready-to-book renters to your vehicles", "Rental contracts are handled for you", "We collect payment from customers", "Your earnings are paid out automatically"],
+    bullets: ["We bring renters", "Payments handled", "Contracts handled", "Paid automatically"],
   },
   {
     id: "fleetos_professional",
     goal: "Manage my fleet",
     label: "Run My Own Rental Business",
     price: "$29.99/month",
-    bullets: ["Keep and manage your own customers", "Run bookings, customers, contracts, payments, and GPS in one place", "Use your own rental agreements", "Get paid directly through your Stripe account", "Track and control your vehicles remotely"],
+    bullets: ["Own your customers", "Own your operation", "Own your payments", "Control vehicles remotely"],
   },
   {
     id: "hybrid_growth",
     goal: "Both",
     label: "Grow Faster With Both",
     price: "$29.99/month + 4%",
-    bullets: ["Get renters from uRide while building your own customer base", "Keep and manage your own customers", "Manage your fleet and bookings in one place", "Track and control your vehicles remotely"],
+    bullets: ["Marketplace renters", "Your own customers", "One operating system", "Remote vehicle control"],
   },
 ];
 
@@ -121,7 +121,7 @@ export default function BecomeAHost() {
             <h1 className="text-3xl sm:text-5xl font-black text-gray-950 mt-3 leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
               Launch your rental business in under 30 seconds
             </h1>
-            <p className="text-gray-500 mt-3 max-w-xl">Create your store now. Add vehicles, payments, GPS, and branding later.</p>
+            <p className="text-gray-500 mt-3 max-w-xl">Create your rental business now. Add vehicles, payments, GPS, and branding when you're ready.</p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div className="grid gap-3">
