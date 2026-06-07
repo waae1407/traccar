@@ -65,6 +65,7 @@ const menuSections = [
     icon: Satellite,
     items: [
       { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
+      { label: "Vehicle Command Center", icon: Zap, path: "/admin/vehicle-command-center" },
       { label: "Telematics Setup", icon: Satellite, path: "/admin/telematics" },
       { label: "Command Verification", icon: Zap, path: "/admin/telematics-command-test" },
       { label: "Installer Portal", icon: Wrench, path: "/installer/telematics" },

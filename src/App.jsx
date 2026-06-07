@@ -55,6 +55,7 @@ import AdminTelematicsCenter from '@/pages/admin/AdminTelematicsCenter.jsx';
 import AdminTraccarReadiness from '@/pages/admin/AdminTraccarReadiness.jsx';
 import AdminTelematicsOperationsCenter from '@/pages/admin/AdminTelematicsOperationsCenter.jsx';
 import AdminTelematicsCommandTest from '@/pages/admin/AdminTelematicsCommandTest.jsx';
+import VehicleCommandCenter from '@/pages/VehicleCommandCenter.jsx';
 import TelematicsRolloutDashboard from '@/pages/admin/TelematicsRolloutDashboard.jsx';
 import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import AdminCommunications from '@/pages/admin/AdminCommunications';
@@ -174,6 +175,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/payment-alerts" element={<HostPaymentAlerts />} />
         <Route path="/host/dealer-network" element={<HostDealerNetwork />} />
         <Route path="/host/telematics" element={<HostTelematicsDashboard />} />
+        <Route path="/host/vehicle-command-center" element={<VehicleCommandCenter mode="host" />} />
         <Route path="/host/telematics-command-test" element={<HostTelematicsCommandTest />} />
       </Route>
 
@@ -198,6 +200,7 @@ const AuthenticatedApp = () => {
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/support" element={<RenterAIChat />} />
+        <Route path="/vehicle-command-center" element={<VehicleCommandCenter mode="customer" />} />
         <Route path="/messages" element={<CustomerCommunications />} />
       </Route>
 
@@ -236,6 +239,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/operational-alerts" element={<AdminOperationalAlerts />} />
         <Route path="/admin/gps-monitor" element={<AdminGPSMonitor />} />
         <Route path="/admin/telematics" element={<AdminTelematicsCenter />} />
+        <Route path="/admin/vehicle-command-center" element={<VehicleCommandCenter mode="admin" />} />
         <Route path="/admin/telematics-command-test" element={<AdminTelematicsCommandTest />} />
         <Route path="/admin/telematics-operations" element={<AdminTelematicsOperationsCenter />} />
         <Route path="/admin/telematics-rollout" element={<TelematicsRolloutDashboard />} />

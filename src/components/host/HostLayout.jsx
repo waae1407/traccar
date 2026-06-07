@@ -12,6 +12,7 @@ const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b12
 const baseNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/host/dashboard" },
   { label: "My Vehicles", icon: Car, path: "/host/vehicles" },
+  { label: "Vehicle Command", icon: Zap, path: "/host/vehicle-command-center" },
   { label: "Telematics", icon: Satellite, path: "/host/telematics" },
   { label: "Command Verification", icon: Zap, path: "/host/telematics-command-test" },
   { label: "Brand Builder", icon: Sparkles, path: "/host/brand" },

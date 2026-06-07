@@ -1,11 +1,12 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, CalendarDays, HelpCircle, User, MessageSquare } from "lucide-react";
+import { Home, CalendarDays, HelpCircle, User, MessageSquare, Car } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { label: "Home", icon: Home, path: "/book-now" },
   { label: "Bookings", icon: CalendarDays, path: "/my-bookings" },
+  { label: "Vehicle", icon: Car, path: "/vehicle-command-center" },
   { label: "Messages", icon: MessageSquare, path: "/messages" },
   { label: "Support", icon: HelpCircle, path: "/support" },
   { label: "Account", icon: User, path: "/account" },
@@ -25,7 +26,7 @@ export default function CustomerBottomNav() {
               key={tab.path}
               to={tab.path}
               className={cn(
-                "flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all min-w-[60px] relative",
+                "flex flex-col items-center gap-1 px-2 py-2 rounded-2xl transition-all min-w-[52px] relative",
                 isActive ? "text-pink-600" : "text-gray-400 hover:text-gray-600"
               )}
             >
