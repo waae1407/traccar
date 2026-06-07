@@ -54,6 +54,8 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
   }, [lookupData?.session?.id]);
 
   const sendCommand = async (commandType, isStarter) => {
+    const reason = isHostMode && isStarter ? window.prompt('Reason for starter command') : '';
+    if (isHostMode && isStarter && (!reason || reason.trim().length < 5 || !window.confirm('Confirm this high-risk starter command?'))) return;
     setSending(commandType);
     setLookupError('');
     setSentCommands((prev) => ({ ...prev, [commandType]: true }));
@@ -62,7 +64,9 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
         command_type: commandType,
         telematics_device_id: lookupData.device.id,
         vehicle_id: lookupData.vehicle?.id,
-        source: 'host_command_test'
+        source: 'host_command_test',
+        reason,
+        confirm_starter_command: !!isStarter
       } : {
         command_type: commandType,
         telematics_device_id: lookupData.device.id,

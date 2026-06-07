@@ -232,16 +232,18 @@ async function sendEmail(base44, to, subject, body) {
   return true;
 }
 
-async function starterInterrupt(deviceId, disable) {
-  const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
-  const command = disable ? "kill" : "unkill";
-  const params = new URLSearchParams({ key: deviceId, ...(partnerApiKey && { partner_api_key: partnerApiKey }) });
-  const url = `https://www.moovetrax.com/api/${command}?${params.toString()}`;
-  console.log(`[MooveTrax] ${command.toUpperCase()} starter access only for device: ${deviceId}`);
-  const res = await fetch(url, { method: "GET" });
-  const text = await res.text();
-  console.log(`[MooveTrax] ${command} response: ${text}`);
-  return { ok: res.ok, response: text };
+async function starterInterrupt(base44, booking, disable) {
+  const commandType = disable ? 'disable_starter' : 'restore_starter';
+  const response = await base44.asServiceRole.functions.invoke('sendTelematicsCommand', {
+    vehicle_id: booking.vehicle_id,
+    booking_id: booking.id,
+    command_type: commandType,
+    service_context: 'payment_enforcement',
+    source: 'processGracePeriod',
+    reason: disable ? 'Payment enforcement: failed payment recovery window expired.' : 'Payment enforcement: payment recovered, restoring starter access.',
+    confirm_starter_command: true
+  });
+  return { ok: true, response: response.data };
 }
 
 async function getVehicleDevice(base44, vehicleId) {
@@ -304,7 +306,7 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
   const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
 
   if ((booking.starter_disabled || booking.moovetrax_kill_active) && deviceId) {
-    await starterInterrupt(deviceId, false);
+    await starterInterrupt(base44, booking, false);
   }
 
   await createPaymentAlert(base44, {
@@ -473,7 +475,7 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
 async function disableStarterAfterWindow(base44, booking, now) {
   const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
   if (deviceId && !(booking.starter_disabled || booking.moovetrax_kill_active)) {
-    await starterInterrupt(deviceId, true);
+    await starterInterrupt(base44, booking, true);
   }
 
   await base44.asServiceRole.entities.BookingRequest.update(booking.id, {

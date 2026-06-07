@@ -60,7 +60,10 @@ export default function AdminGPSMonitor() {
     if (!device.vehicle_id) return;
     setSendingCommand(`${device.id}-${command}`);
     try {
-      await base44.functions.invoke("sendTelematicsCommand", { vehicle_id: device.vehicle_id, command_type: command, source: "admin_gps_monitor" });
+      const starter = command === "disable_starter" || command === "restore_starter";
+      const reason = starter ? window.prompt("Reason for starter command") : "";
+      if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
+      await base44.functions.invoke("sendTelematicsCommand", { vehicle_id: device.vehicle_id, command_type: command, source: "admin_gps_monitor", reason, confirm_starter_command: starter });
       queryClient.invalidateQueries({ queryKey: ["gps-monitor-telematics-devices"] });
     } finally {
       setSendingCommand(null);

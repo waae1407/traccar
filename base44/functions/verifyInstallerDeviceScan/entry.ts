@@ -18,8 +18,8 @@ function noranCommandDefaults() {
     unlock_double_pulse_enabled: true,
     host_starter_control_enabled: true,
     installer_starter_test_enabled: true,
-    production_commands_enabled: true,
-    production_command_scope: 'all_supported_commands'
+    production_commands_enabled: false,
+    production_command_scope: 'non_starter_only'
   };
 }
 async function findTraccarDevice(identifier) {

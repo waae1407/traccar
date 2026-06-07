@@ -12,12 +12,15 @@
       "type": "string",
       "enum": [
         "locate",
+        "status",
         "lock",
         "unlock",
+        "horn",
+        "lights",
         "horn_lights",
+        "alarm_pulse",
         "disable_starter",
-        "restore_starter",
-        "status"
+        "restore_starter"
       ]
     },
     "provider_command_name": {

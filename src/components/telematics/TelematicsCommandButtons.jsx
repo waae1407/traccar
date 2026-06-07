@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Lock, Unlock, Volume2, Loader2, Zap, RotateCcw } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
+import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
 
 const COMMANDS = [
   { key: "locate", label: "Locate", icon: MapPin, capability: "supports_location", deviceFlag: "gps_enabled", roles: ["admin", "host", "customer", "installer"], tone: "bg-blue-500/15 text-blue-300 border-blue-500/30" },
@@ -21,25 +22,30 @@ const COMMANDS = [
 export default function TelematicsCommandButtons({ vehicleId, bookingId, device, provider, role = "admin", booking, allowStarter = false, onResult }) {
   const [loading, setLoading] = useState(null);
   const dryRun = provider?.execution_mode === "dry_run" || provider?.allow_live_commands === false;
-  const deviceReady = !device || ["approved", "live_enabled"].includes(device.lifecycle_status) || device.provider_key === "moovetrax" || device.traccar_test_activation_enabled;
+  const deviceReady = !device || ["installed", "live_ready", "live_enabled", "installation_completed", "installation_completed_unlinked"].includes(device.lifecycle_status) || device.install_status === "installed" || device.provider_key === "moovetrax" || device.traccar_test_activation_enabled;
   const bookingAllowsControls = role !== "customer" || (!!booking && ["active", "approved", "confirmed"].includes(booking.booking_status) && booking.payment_status !== "failed" && !booking.starter_disabled && !booking.moovetrax_kill_active);
 
   const visibleCommands = useMemo(() => COMMANDS.filter(cmd => {
     if (!cmd.roles.includes(role)) return false;
-    if (cmd.starter && role === "customer") return false;
-    if (cmd.starter && role === "host" && !allowStarter) return false;
     if (!deviceReady) return false;
-    if (cmd.starter && provider?.allow_starter_commands === false) return false;
-    if (provider && provider[cmd.capability] === false) return false;
-    if (device && cmd.deviceFlag && device[cmd.deviceFlag] === false) return false;
-    if (role === "customer" && !bookingAllowsControls) return false;
-    return true;
-  }), [role, allowStarter, provider, device, bookingAllowsControls, deviceReady]);
+    return getCommandReadiness({
+      command: cmd.key,
+      role,
+      device,
+      provider,
+      booking,
+      hostOwnsVehicle: role === "host",
+      allowStarter
+    }).supported;
+  }), [role, allowStarter, provider, device, booking, deviceReady]);
 
   const send = async (command_type) => {
+    const starter = command_type === "disable_starter" || command_type === "restore_starter";
+    const reason = starter ? window.prompt("Reason for starter command") : "";
+    if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
     setLoading(command_type);
     try {
-      const res = await TelematicsService.sendCommand({ vehicle_id: vehicleId, booking_id: bookingId, command_type });
+      const res = await TelematicsService.sendCommand({ vehicle_id: vehicleId, booking_id: bookingId, command_type, reason, confirm_starter_command: starter });
       onResult?.(res.data);
     } finally {
       setLoading(null);

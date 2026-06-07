@@ -1,239 +1,109 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// MooveTrax Base URL — adjust if they provide a different one
+// Compatibility-only wrapper for legacy MooveTrax callers.
+// Canonical vehicle command execution now routes through sendTelematicsCommand.
 const MOOVETRAX_BASE = "https://www.moovetrax.com/api";
+const COMMAND_ALIASES = {
+  location: 'locate',
+  panic: 'alarm_pulse',
+  find_my_car: 'alarm_pulse',
+  kill: 'disable_starter',
+  unkill: 'restore_starter',
+  lock: 'lock',
+  unlock: 'unlock',
+};
+const LEGACY_DATA_COMMANDS = ['mileage', 'speed'];
 
-async function logEvent(base44, data) {
-  try {
-    await base44.asServiceRole.entities.ActivityEvent.create({
-      event_type: data.event_type,
-      actor_id: data.actor_id || 'admin',
-      actor_email: data.actor_email || 'admin',
-      actor_role: data.actor_role || 'admin',
-      target_entity: data.target_entity || 'Vehicle',
-      target_id: data.target_id || '',
-      host_id: data.host_id || '',
-      booking_id: data.booking_id || '',
-      vehicle_id: data.vehicle_id || '',
-      summary: data.summary || '',
-      metadata: data.metadata || {},
-      source: data.source || 'admin_panel',
-      user_email: data.actor_email || 'admin',
-      event_title: data.summary || data.event_type,
-      event_status: data.event_status || 'success',
-    });
-  } catch (e) {
-    console.error('[AuditLog]', e.message);
-  }
+async function logLegacyGpsEvent(base44, { vehicle, bookingId, deviceKey, command, user, responseStatus, payload, notes }) {
+  const eventMap = {
+    disable_starter: responseStatus === 'failed' ? 'kill_failed' : 'kill_sent',
+    restore_starter: responseStatus === 'failed' ? 'reinstate_failed' : 'reinstate_sent',
+    unlock: responseStatus === 'failed' ? 'unlock_failed' : 'unlock_sent',
+  };
+  await base44.asServiceRole.entities.GPSEvent.create({
+    vehicle_id: vehicle?.id || '',
+    booking_request_id: bookingId || '',
+    device_id: deviceKey || '',
+    event_type: eventMap[command] || (responseStatus === 'failed' ? 'command_failed' : 'command_sent'),
+    command_sent_by: user.email,
+    command_sent_at: new Date().toISOString(),
+    response_status: responseStatus,
+    response_payload: payload || {},
+    notes: notes || 'Legacy MooveTrax compatibility event. Canonical history is TelematicsCommand.',
+  });
 }
 
-/**
- * Unified MooveTrax command handler.
- * Commands: location, lock, unlock, panic, kill, unkill, mileage, speed
- *
- * Auth params (per MooveTrax API):
- *   key = device-level key (stored as moovetrax_device_id on Vehicle)
- *   partner_api_key = global partner key (MOOVETRAX_PARTNER_API_KEY secret) — optional for now
- */
-async function callMoovetrax(command, deviceKey, extraParams = {}) {
+async function callMoovetraxData(command, deviceKey, extraParams = {}) {
   const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
-
-  const params = new URLSearchParams({
-    key: deviceKey,
-    ...(partnerApiKey && { partner_api_key: partnerApiKey }),
-    ...extraParams,
-  });
-
-  const url = `${MOOVETRAX_BASE}/${command}?${params.toString()}`;
-  console.log(`[MooveTrax] ${command.toUpperCase()} → device: ${deviceKey}`);
-
-  const res = await fetch(url, { method: "GET" });
+  const params = new URLSearchParams({ key: deviceKey, ...(partnerApiKey && { partner_api_key: partnerApiKey }), ...extraParams });
+  const res = await fetch(`${MOOVETRAX_BASE}/${command}?${params.toString()}`);
   const text = await res.text();
-
   let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = { raw: text };
-  }
-
-  if (!res.ok) {
-    throw new Error(`MooveTrax ${command} failed (${res.status}): ${text}`);
-  }
-
-  console.log(`[MooveTrax] ${command} response:`, JSON.stringify(data));
+  try { data = JSON.parse(text); } catch { data = { raw: text }; }
+  if (!res.ok) throw new Error(`MooveTrax ${command} failed (${res.status}): ${text}`);
   return data;
+}
+
+async function resolveVehicle(base44, { vehicle_id, booking_id }) {
+  if (vehicle_id) return (await base44.asServiceRole.entities.Vehicle.filter({ id: vehicle_id }))[0] || null;
+  if (!booking_id) return null;
+  const booking = (await base44.asServiceRole.entities.BookingRequest.filter({ id: booking_id }))[0];
+  if (!booking?.vehicle_id) return null;
+  return (await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id }))[0] || null;
 }
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { command, booking_id, vehicle_id, value } = body;
+    const legacyCommand = String(body.command || body.command_type || '').trim();
+    const command = COMMAND_ALIASES[legacyCommand] || legacyCommand;
+    const { booking_id, vehicle_id, value } = body;
 
-    const VALID_COMMANDS = ["location", "lock", "unlock", "panic", "kill", "unkill", "mileage", "speed"];
-    if (!command || !VALID_COMMANDS.includes(command)) {
-      return Response.json({ error: `Invalid command. Must be one of: ${VALID_COMMANDS.join(", ")}` }, { status: 400 });
+    const vehicle = await resolveVehicle(base44, { vehicle_id, booking_id });
+    if (!vehicle) return Response.json({ error: "Vehicle not found" }, { status: 404 });
+    if (!vehicle.moovetrax_device_id) return Response.json({ error: "This vehicle does not have a MooveTrax device configured" }, { status: 400 });
+
+    if (vehicle_id && user.role !== 'admin') {
+      const host = vehicle.host_id ? (await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }))[0] : null;
+      if (!(host?.email === user.email || host?.user_id === user.id)) return Response.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Admin-only commands
-    const ADMIN_ONLY = ["kill", "unkill", "speed"];
-    if (ADMIN_ONLY.includes(command) && user.role !== "admin") {
-      return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+    if (LEGACY_DATA_COMMANDS.includes(command)) {
+      if (['speed'].includes(command) && user.role !== 'admin') return Response.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+      const result = await callMoovetraxData(command, vehicle.moovetrax_device_id, command === 'speed' && value ? { speed: String(value) } : {});
+      await logLegacyGpsEvent(base44, { vehicle, bookingId: booking_id, deviceKey: vehicle.moovetrax_device_id, command, user, responseStatus: 'confirmed', payload: result, notes: `Legacy MooveTrax ${command} data request. Canonical command execution remains sendTelematicsCommand.` });
+      if (command === 'mileage' && booking_id && result.mileage) await base44.asServiceRole.entities.BookingRequest.update(booking_id, { return_mileage: result.mileage });
+      return Response.json({ ok: true, command, result, compatibility_only: true });
     }
 
-    // Resolve vehicle
-    let vehicleDoc;
-    if (vehicle_id) {
-      const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: vehicle_id });
-      vehicleDoc = vehicles[0];
-    } else if (booking_id) {
-      const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ id: booking_id });
-      const booking = bookings[0];
-      if (!booking) return Response.json({ error: "Booking not found" }, { status: 404 });
-
-      // For customer commands, verify this booking belongs to them
-      if (user.role !== "admin" && booking.user_email !== user.email) {
-        return Response.json({ error: "Forbidden" }, { status: 403 });
-      }
-
-      // Customer can only control if booking is active and kill is NOT active
-      if (user.role !== "admin") {
-        const activeStatuses = ["active", "approved", "confirmed"];
-        if (!activeStatuses.includes(booking.booking_status)) {
-          return Response.json({ error: "Vehicle controls are only available for active rentals" }, { status: 403 });
-        }
-        if (booking.moovetrax_kill_active) {
-          return Response.json({ error: "Vehicle is currently disabled due to a payment issue" }, { status: 403 });
-        }
-      }
-
-      const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
-      vehicleDoc = vehicles[0];
+    if (!COMMAND_ALIASES[legacyCommand] && !['locate', 'status', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter'].includes(command)) {
+      return Response.json({ error: "Invalid command" }, { status: 400 });
     }
 
-    if (!vehicleDoc) {
-      return Response.json({ error: "Vehicle not found" }, { status: 404 });
-    }
-
-    if (vehicle_id && user.role !== "admin") {
-      const hosts = vehicleDoc.host_id ? await base44.asServiceRole.entities.Host.filter({ id: vehicleDoc.host_id }) : [];
-      const host = hosts[0];
-      const isHostOwner = host?.email === user.email || host?.user_id === user.id;
-      if (!isHostOwner) return Response.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    if (!vehicleDoc.moovetrax_device_id) {
-      return Response.json({ error: "This vehicle does not have a MooveTrax device configured" }, { status: 400 });
-    }
-
-    const deviceKey = vehicleDoc.moovetrax_device_id;
-
-    // Extra params per command
-    const extraParams = {};
-    if (command === "speed" && value) {
-      extraParams.speed = String(value);
-    }
-
-    // Map command to GPS event type
-    const gpsEventMap = { kill: 'kill_sent', unkill: 'reinstate_sent', unlock: 'unlock_sent' };
-    const activityEventMap = { kill: 'gps.kill_sent', unkill: 'gps.reinstate_sent', unlock: 'gps.command_sent' };
-    const gpsEventType = gpsEventMap[command] || 'command_sent';
-    const activityEventType = activityEventMap[command] || 'gps.command_sent';
-
-    let result;
-    let commandFailed = false;
-    let failureReason = '';
-
-    try {
-      result = await callMoovetrax(command, deviceKey, extraParams);
-    } catch (cmdErr) {
-      commandFailed = true;
-      failureReason = cmdErr.message;
-      // Write failed GPS event
-      await base44.asServiceRole.entities.GPSEvent.create({
-        vehicle_id: vehicleDoc.id,
-        booking_request_id: booking_id || '',
-        device_id: deviceKey,
-        event_type: gpsEventType.replace('_sent', '_failed'),
-        command_sent_by: user.email,
-        command_sent_at: new Date().toISOString(),
-        response_status: 'failed',
-        response_payload: { error: failureReason },
-        notes: `Command ${command} failed: ${failureReason}`,
-      });
-      await logEvent(base44, {
-        event_type: 'gps.command_failed',
-        actor_id: user.id || user.email,
-        actor_email: user.email,
-        actor_role: user.role,
-        target_entity: 'Vehicle',
-        target_id: vehicleDoc.id,
-        vehicle_id: vehicleDoc.id,
-        booking_id: booking_id || '',
-        summary: `GPS command '${command}' FAILED on device ${deviceKey}: ${failureReason}`,
-        metadata: { command, device_id: deviceKey, error: failureReason },
-        source: user.role === 'admin' ? 'admin_panel' : 'customer_app',
-        event_status: 'error',
-      });
-      return Response.json({ error: failureReason, command_failed: true }, { status: 500 });
-    }
-
-    // Write success GPS event
-    await base44.asServiceRole.entities.GPSEvent.create({
-      vehicle_id: vehicleDoc.id,
-      booking_request_id: booking_id || '',
-      device_id: deviceKey,
-      event_type: gpsEventType,
-      command_sent_by: user.email,
-      command_sent_at: new Date().toISOString(),
-      response_status: 'confirmed',
-      response_payload: result || {},
-      notes: `Command ${command} executed successfully`,
-    });
-
-    await logEvent(base44, {
-      event_type: activityEventType,
-      actor_id: user.id || user.email,
-      actor_email: user.email,
-      actor_role: user.role,
-      target_entity: 'Vehicle',
-      target_id: vehicleDoc.id,
-      vehicle_id: vehicleDoc.id,
+    const starter = command === 'disable_starter' || command === 'restore_starter';
+    const canonical = await base44.functions.invoke('sendTelematicsCommand', {
+      vehicle_id: vehicle.id,
       booking_id: booking_id || '',
-      summary: `GPS command '${command}' sent to device ${deviceKey} for vehicle ${vehicleDoc.id}`,
-      metadata: { command, device_id: deviceKey },
-      source: user.role === 'admin' ? 'admin_panel' : 'customer_app',
+      command_type: command,
+      source: 'legacy_moovetrax_compatibility',
+      reason: body.reason || (starter ? `Legacy MooveTrax ${legacyCommand} compatibility command` : ''),
+      confirm_starter_command: starter || body.confirm_starter_command === true,
     });
 
-    // Post-command side-effects
-    if (command === "kill" && booking_id) {
+    if (starter && booking_id) {
       await base44.asServiceRole.entities.BookingRequest.update(booking_id, {
-        moovetrax_kill_active: true,
-        starter_disabled: true,
-      });
-    }
-    if (command === "unkill" && booking_id) {
-      await base44.asServiceRole.entities.BookingRequest.update(booking_id, {
-        moovetrax_kill_active: false,
-        starter_disabled: false,
-      });
-    }
-    if (command === "mileage" && booking_id && result.mileage) {
-      await base44.asServiceRole.entities.BookingRequest.update(booking_id, {
-        return_mileage: result.mileage,
+        moovetrax_kill_active: command === 'disable_starter',
+        starter_disabled: command === 'disable_starter',
       });
     }
 
-    return Response.json({ ok: true, command, result });
+    await logLegacyGpsEvent(base44, { vehicle, bookingId: booking_id, deviceKey: vehicle.moovetrax_device_id, command, user, responseStatus: 'confirmed', payload: canonical.data || {}, notes: 'Compatibility GPSEvent only. Canonical command history is TelematicsCommand.' });
+    return Response.json({ ok: true, command, legacy_command: legacyCommand, result: canonical.data?.result || canonical.data, command_id: canonical.data?.command_id, compatibility_only: true });
   } catch (error) {
-    console.error("[MooveTrax] Error:", error.message);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: error.message, command_failed: true }, { status: 500 });
   }
 });

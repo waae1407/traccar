@@ -183,19 +183,7 @@ async function resolveMarketplaceFee(base44, booking = {}) {
   return { feeRate, operatorMode, bookingSource, fallbackUsed, reason };
 }
 
-// MooveTrax kill switch — real API call
-async function moovetraxKillSwitch(deviceId, enable) {
-  const partnerApiKey = Deno.env.get("MOOVETRAX_PARTNER_API_KEY") || "";
-  const command = enable ? "kill" : "unkill";
-  const params = new URLSearchParams({ key: deviceId, ...(partnerApiKey && { partner_api_key: partnerApiKey }) });
-  const url = `https://www.moovetrax.com/api/${command}?${params.toString()}`;
-  console.log(`[MooveTrax] ${command.toUpperCase()} device: ${deviceId}`);
-  const res = await fetch(url, { method: "GET" });
-  const text = await res.text();
-  console.log(`[MooveTrax] Response: ${text}`);
-  return { ok: res.ok, response: text };
-}
-
+// Starter commands are handled by processGracePeriod through sendTelematicsCommand.
 // Send SMS via Twilio
 async function sendSMS(to, message) {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");

@@ -23,8 +23,8 @@ Deno.serve(async (req) => {
 
     if (record.telematics_device_id) {
       await base44.asServiceRole.entities.TelematicsDevice.update(record.telematics_device_id, {
-        lifecycle_status: approved ? 'approved' : 'qa_review',
-        install_status: approved ? 'installed' : 'needs_review'
+        lifecycle_status: approved ? 'live_ready' : 'installation_started',
+        install_status: approved ? 'installed' : 'correction_needed'
       });
     }
 

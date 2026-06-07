@@ -43,6 +43,8 @@ async function sendPulse(base44, { session, vehicle, pulseNumber }) {
   return response.data;
 }
 async function runAlarmCycle(base44, sessionId) {
+  // Cleanup note: this existing sleep/pulse loop is preserved for compatibility.
+  // Future improvement: move repeated alarm pulses to a queued/background worker.
   const initialSession = (await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ id: sessionId }))[0];
   const startPulse = Number(initialSession?.pulses_sent || 0) + 1;
   for (let pulse = startPulse; pulse <= DEFAULT_MAX_PULSES; pulse += 1) {
