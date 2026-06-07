@@ -48,10 +48,10 @@ export default function StorefrontSuccessPanel({ result }) {
           <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">🚀 YOUR BUSINESS IS OPEN</p>
         </div>
         <div className="space-y-2 text-sm">
-          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Your storefront is live now</p>
-          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Customers can discover your business immediately</p>
-          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Add vehicles whenever you're ready</p>
-          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Connect Stripe and GPS later</p>
+          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Live immediately</p>
+          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Customers can find you now</p>
+          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Add vehicles anytime</p>
+          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Connect Stripe & GPS later</p>
         </div>
         <p className="text-xs text-white/40 border-t border-white/10 pt-3">Start simple. Grow at your own pace.</p>
       </div>
