@@ -16,21 +16,21 @@ const OPTIONS = [
     goal: "Get customers",
     label: "Marketplace Partner",
     price: "8% per completed booking",
-    bullets: ["Get customers from the uRide marketplace", "Rental contracts handled for you", "Payments processed by uRide", "Automatic payouts after rentals"],
+    bullets: ["We send renters directly to your vehicles", "Rental contracts are handled for you", "We collect payment from customers", "Your earnings are paid out automatically"],
   },
   {
     id: "fleetos_professional",
     goal: "Manage my fleet",
     label: "FleetOS Professional",
     price: "$29.99/month",
-    bullets: ["Keep your own customers", "Run your business from one dashboard", "Use your own rental agreements", "Get paid directly through your Stripe account", "GPS tracking & vehicle controls"],
+    bullets: ["Keep and manage your own customers", "Manage vehicles, customers, contracts, and GPS in one place", "Use your own rental agreements", "Get paid directly through your Stripe account", "Track and control your vehicles remotely"],
   },
   {
     id: "hybrid_growth",
     goal: "Both",
     label: "Hybrid Growth",
     price: "$29.99/month + 4%",
-    bullets: ["Get customers from the uRide marketplace", "Keep and manage your own customers", "Run your fleet from one dashboard", "GPS tracking & vehicle controls"],
+    bullets: ["Get renters from the uRide marketplace", "Keep and manage your own customers", "Manage your fleet and bookings in one place", "Track and control your vehicles remotely"],
   },
 ];
 
@@ -118,11 +118,10 @@ export default function BecomeAHost() {
       <main className="max-w-5xl mx-auto px-5 py-6 lg:py-10">
         <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-6 items-start">
           <section>
-            <p className="text-xs font-black text-pink-600 uppercase tracking-[0.2em]">Launch in under 30 seconds</p>
             <h1 className="text-3xl sm:text-5xl font-black text-gray-950 mt-3 leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
-              What are you trying to do?
+              Launch your rental business in under 30 seconds
             </h1>
-            <p className="text-gray-500 mt-3 max-w-xl">Choose your goal, name your store, and get a live storefront URL immediately. Vehicle setup, payments, Stripe, GPS, and branding come later.</p>
+            <p className="text-gray-500 mt-3 max-w-xl">Create your store now. Add vehicles, payments, GPS, and branding later.</p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div className="grid gap-3">
@@ -160,7 +159,7 @@ export default function BecomeAHost() {
                 )}
 
                 <div className="rounded-2xl bg-pink-50 border border-pink-100 p-3">
-                  <p className="text-xs font-bold text-pink-700">Live URL Preview</p>
+                  <p className="text-xs font-bold text-pink-700">Your Storefront URL</p>
                   <p className="font-mono text-sm text-gray-900 mt-1 break-all">uridehub.com/host/{previewSlug}</p>
                   <p className="text-xs text-pink-600 font-semibold mt-2 flex items-center gap-1">✓ Store name available</p>
                 </div>
@@ -186,14 +185,15 @@ export default function BecomeAHost() {
             </div>
             <div className="mt-6 rounded-2xl bg-white/10 border border-white/10 p-4 space-y-3">
               <div>
-                <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">🚀 Your Store Goes Live Instantly</p>
+                <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">🚀 YOUR STORE IS LIVE TODAY</p>
               </div>
               <div className="space-y-2 text-sm">
-                <p className="text-white/70 flex items-center gap-2"><span>✓</span> No vehicle setup required</p>
-                <p className="text-white/70 flex items-center gap-2"><span>✓</span> No Stripe setup required</p>
-                <p className="text-white/70 flex items-center gap-2"><span>✓</span> No GPS setup required</p>
+                <p className="text-white/70 flex items-center gap-2"><span>✓</span> Your storefront is created immediately</p>
+                <p className="text-white/70 flex items-center gap-2"><span>✓</span> Customers can find your business right away</p>
+                <p className="text-white/70 flex items-center gap-2"><span>✓</span> Add vehicles when you are ready</p>
+                <p className="text-white/70 flex items-center gap-2"><span>✓</span> Connect Stripe and GPS later</p>
               </div>
-              <p className="text-xs text-white/40 border-t border-white/10 pt-3">Create your storefront now. Finish setup later.</p>
+              <p className="text-xs text-white/40 border-t border-white/10 pt-3">Start simple. Grow at your own pace.</p>
             </div>
           </aside>
         </div>
