@@ -56,6 +56,7 @@ import AdminTraccarReadiness from '@/pages/admin/AdminTraccarReadiness.jsx';
 import AdminTelematicsOperationsCenter from '@/pages/admin/AdminTelematicsOperationsCenter.jsx';
 import AdminTelematicsCommandTest from '@/pages/admin/AdminTelematicsCommandTest.jsx';
 import VehicleCommandCenter from '@/pages/VehicleCommandCenter.jsx';
+import CustomerMyVehicle from '@/pages/customer/MyVehicle.jsx';
 import TelematicsRolloutDashboard from '@/pages/admin/TelematicsRolloutDashboard.jsx';
 import AdminComplianceQueue from '@/pages/admin/AdminComplianceQueue';
 import AdminCommunications from '@/pages/admin/AdminCommunications';
@@ -200,7 +201,7 @@ const AuthenticatedApp = () => {
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/support" element={<RenterAIChat />} />
-        <Route path="/vehicle-command-center" element={<VehicleCommandCenter mode="customer" />} />
+        <Route path="/vehicle-command-center" element={<CustomerMyVehicle />} />
         <Route path="/messages" element={<CustomerCommunications />} />
       </Route>
 

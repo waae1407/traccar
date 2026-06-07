@@ -13,15 +13,32 @@ import HomeFeaturedVehicles from "@/components/home/HomeFeaturedVehicles";
 import { ArrowRight, Building2, Car } from "lucide-react";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
+const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
+
+function hasActiveRental(bookings = []) {
+  return bookings.some((booking) => {
+    if (!ACTIVE_RENTAL_STATUSES.includes(booking.booking_status) || booking.rental_ended_at) return false;
+    if (booking.end_date && Date.now() > new Date(`${booking.end_date}T23:59:59`).getTime()) return false;
+    return true;
+  });
+}
 
 export default function PublicHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user?.role === "admin") navigate("/dashboard", { replace: true });
-    else if (user?.role === "host") navigate("/host/dashboard", { replace: true });
-    else if (user) navigate("/book-now", { replace: true });
+    let cancelled = false;
+    const routeCustomer = async () => {
+      if (user?.role === "admin") navigate("/dashboard", { replace: true });
+      else if (user?.role === "host") navigate("/host/dashboard", { replace: true });
+      else if (user?.email) {
+        const bookings = await base44.entities.BookingRequest.filter({ user_email: user.email });
+        if (!cancelled) navigate(hasActiveRental(bookings) ? "/vehicle-command-center" : "/book-now", { replace: true });
+      }
+    };
+    routeCustomer();
+    return () => { cancelled = true; };
   }, [user, navigate]);
 
   return (
