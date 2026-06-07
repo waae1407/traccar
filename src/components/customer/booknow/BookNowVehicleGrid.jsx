@@ -25,7 +25,7 @@ function getVehicleTags(v) {
   return tags;
 }
 
-function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapshots = [] }) {
+function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapshots = [], presentationStyle = 'clean_grid' }) {
   const tags = getVehicleTags(v);
   const snapshot = latestSnapshotFor(signalSnapshots, "vehicle", v.id);
   const labels = publicVehicleLabels(snapshot);
@@ -34,7 +34,7 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
   return (
     <button
       onClick={() => onSelect(v)}
-      className="w-full text-left rounded-2xl overflow-hidden active:scale-[0.97] transition-all duration-200 relative group"
+      className={`w-full text-left overflow-hidden active:scale-[0.97] transition-all duration-200 relative group ${presentationStyle === "compact" ? "rounded-xl" : presentationStyle === "editorial" ? "rounded-[1.75rem]" : "rounded-2xl"}`}
       style={{
         background: "#fff",
         border: "1px solid #e5e7eb",
@@ -42,7 +42,7 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
       }}
     >
       {/* Image */}
-      <div className="relative overflow-hidden" style={{ height: featured ? "210px" : "190px" }}>
+      <div className="relative overflow-hidden" style={{ height: presentationStyle === "compact" ? "130px" : presentationStyle === "editorial" ? "240px" : featured ? "210px" : "190px" }}>
         <img
           src={v.image_url || PLACEHOLDER}
           alt={`${v.make} ${v.model}`}
@@ -138,7 +138,7 @@ function SkeletonCard() {
   );
 }
 
-export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSelect, isExpandedRadius, reviews = [], signalSnapshots = [] }) {
+export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSelect, isExpandedRadius, reviews = [], signalSnapshots = [], presentationStyle = 'clean_grid' }) {
   if (isLoading) {
     return (
       <div className="px-5">
@@ -184,9 +184,17 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className={presentationStyle === "compact" ? "grid grid-cols-2 gap-3" : presentationStyle === "editorial" ? "grid grid-cols-1 gap-5" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
         {vehicles.map((v, i) => (
-          <VehicleCard key={v.id} v={v} onSelect={onSelect} featured={i === 0} reviews={reviews} signalSnapshots={signalSnapshots} />
+          <VehicleCard
+            key={v.id}
+            v={v}
+            onSelect={onSelect}
+            featured={presentationStyle === "spotlight" ? i === 0 : presentationStyle !== "compact" && i === 0}
+            reviews={reviews}
+            signalSnapshots={signalSnapshots}
+            presentationStyle={presentationStyle}
+          />
         ))}
       </div>
     </div>

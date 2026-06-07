@@ -39,6 +39,8 @@ export default function HostStorefrontHome() {
 
   const brandColor = brand?.brand_color || "#e91e8c";
   const secondaryColor = brand?.secondary_color || "#7c3aed";
+  const coverImageUrl = brand?.cover_image_url;
+  const inventoryPresentationStyle = brand?.inventory_presentation_style || "clean_grid";
   const showMarketplace = brand?.show_marketplace_vehicles;
   const showRto = brand?.show_rto_options !== false;
   const showRentForFree = brand?.show_rent_for_free !== false;
@@ -160,29 +162,29 @@ export default function HostStorefrontHome() {
 
   return (
     <div className="min-h-screen pb-4 bg-gray-50">
-      {/* Gig worker hero banner */}
+      {/* Branded hero banner */}
       <button
         onClick={() => {
           const params = new URLSearchParams({ storefront: businessSlug, return: `/host/${businessSlug}` });
           if (isCustomDomainHost()) window.location.href = canonicalCheckoutUrl(params);
           else navigate(`/checkout?${params.toString()}`);
         }}
-        className="mx-5 mt-5 mb-5 rounded-2xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block"
+        className="mx-5 mt-5 mb-5 rounded-3xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block min-h-[210px]"
         style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${secondaryColor} 100%)` }}>
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full opacity-20 bg-white" />
-        </div>
-        <div className="relative px-5 py-5 flex items-center justify-between gap-3">
+        {coverImageUrl && <img src={coverImageUrl} alt="Storefront hero" className="absolute inset-0 h-full w-full object-cover" />}
+        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${brandColor}dd, ${secondaryColor}aa), linear-gradient(to top, rgba(0,0,0,.45), transparent)` }} />
+        <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full opacity-20 bg-white" />
+        <div className="relative px-5 py-6 flex h-full min-h-[210px] flex-col justify-end gap-3">
           <div>
-            <p className="text-white font-bold text-base leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
-              Drive for Uber, DoorDash or Lyft?
+            <p className="text-white font-black text-2xl leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
+              {brand?.hero_title || "Find Your Ride"}
             </p>
-            <p className="text-white/75 text-sm mt-1">Start earning today — get a car in minutes</p>
+            <p className="text-white/82 text-sm mt-2 max-w-sm">{brand?.hero_subtitle || "Start earning today — get a car in minutes"}</p>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <span className="text-2xl">🚀</span>
-            <ChevronRight className="h-4 w-4 text-white/80" />
-          </div>
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/18 px-4 py-2 text-xs font-black text-white backdrop-blur-sm">
+            {brand?.cta_button_text || "Book Now"}
+            <ChevronRight className="h-4 w-4" />
+          </span>
         </div>
       </button>
 
@@ -204,7 +206,7 @@ export default function HostStorefrontHome() {
         <h1 className="text-3xl font-black" style={{ fontFamily: "var(--font-syne)", background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
           {brand?.hero_title || "Find Your Ride"}
         </h1>
-        {brand?.hero_subtitle && <p className="text-gray-400 text-sm mt-1">{brand.hero_subtitle}</p>}
+        {brand?.about_text && <p className="text-gray-500 text-sm mt-3 leading-relaxed">{brand.about_text}</p>}
       </div>
 
       <HostTrustPanel labels={hostLabels} rating={hostRating.rating} reviewCount={hostRating.count} completedTrips={completedTrips} />
@@ -280,6 +282,7 @@ export default function HostStorefrontHome() {
           isExpandedRadius={false}
           reviews={reviews}
           signalSnapshots={signalSnapshots}
+          presentationStyle={inventoryPresentationStyle}
         />
       )}
 

@@ -97,10 +97,67 @@ function initials(name) {
   return (parts[0]?.[0] || 'S') + (parts[1]?.[0] || parts[0]?.[1] || '');
 }
 
-function heroTitle(mode, storeName) {
-  if (mode === 'fleetos_professional') return `Reserve Vehicles Directly From ${storeName}`;
-  if (mode === 'hybrid_growth') return 'Browse Our Rental Fleet';
-  return 'Find Your Next Rental Vehicle';
+const STOREFRONT_THEMES = [
+  { primary: '#e91e8c', secondary: '#7c3aed', style: 'bold', template: 'modern', font: 'syne', inventory: 'spotlight' },
+  { primary: '#0f766e', secondary: '#2563eb', style: 'executive', template: 'prestige', font: 'inter', inventory: 'clean_grid' },
+  { primary: '#ea580c', secondary: '#111827', style: 'street', template: 'street', font: 'syne', inventory: 'editorial' },
+  { primary: '#16a34a', secondary: '#0891b2', style: 'local', template: 'family', font: 'inter', inventory: 'compact' },
+  { primary: '#4f46e5', secondary: '#db2777', style: 'premium', template: 'prestige', font: 'syne', inventory: 'spotlight' },
+  { primary: '#334155', secondary: '#f59e0b', style: 'utility', template: 'modern', font: 'inter', inventory: 'clean_grid' }
+];
+
+const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1400&q=80',
+  'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1400&q=80',
+  'https://images.unsplash.com/photo-1511918984145-48de785d4c4e?w=1400&q=80',
+  'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=1400&q=80',
+  'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=1400&q=80',
+  'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?w=1400&q=80'
+];
+
+function hashString(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+  return Math.abs(hash);
+}
+
+function pick(list, seed, offset = 0) {
+  return list[(seed + offset) % list.length];
+}
+
+function storefrontIdentity(mode, storeName, slug, email) {
+  const seed = hashString(`${storeName}|${slug}|${email}|${mode}`);
+  const theme = pick(STOREFRONT_THEMES, seed);
+  const headlinePatterns = mode === 'fleetos_professional'
+    ? [`${storeName} Direct Fleet Rentals`, `Reserve Direct With ${storeName}`, `${storeName} Fleet Access`]
+    : [`Drive With ${storeName}`, `${storeName} Rental Fleet`, `Find Your Ride With ${storeName}`];
+  const subheadlinePatterns = [
+    'Flexible vehicles, fast reservations, and a local team behind every trip.',
+    'A curated rental experience built around reliability, speed, and service.',
+    'Simple booking, trusted vehicles, and support from a real fleet operator.',
+    'Reserve confidently with a fleet experience designed for working drivers.'
+  ];
+  const aboutPatterns = [
+    `${storeName} helps drivers get moving with practical vehicle options, straightforward booking, and responsive local service.`,
+    `${storeName} is built for renters who value clear pricing, dependable vehicles, and a smoother way to reserve transportation.`,
+    `At ${storeName}, every listing is presented with a focus on convenience, transparency, and getting customers on the road quickly.`,
+    `${storeName} gives customers a direct path to reserve vehicles from a host-operated fleet with a personal, business-owned feel.`
+  ];
+  const ctas = ['Reserve Your Ride', 'Start Booking', 'View Available Vehicles', 'Get on the Road'];
+
+  return {
+    brand_color: theme.primary,
+    secondary_color: theme.secondary,
+    font_style: theme.font,
+    layout_template: theme.template,
+    default_branding_style: theme.style,
+    inventory_presentation_style: theme.inventory,
+    cover_image_url: pick(HERO_IMAGES, seed, 2),
+    hero_title: pick(headlinePatterns, seed, 1),
+    hero_subtitle: pick(subheadlinePatterns, seed, 3),
+    about_text: pick(aboutPatterns, seed, 5),
+    cta_button_text: pick(ctas, seed, 7)
+  };
 }
 
 async function uniqueSlug(base44, requestedSlug) {
@@ -199,18 +256,23 @@ Deno.serve(async (req) => {
 
     const existingBrands = await base44.asServiceRole.entities.HostBrandSettings.filter({ host_id: host.id }, '-updated_date', 1);
     const slug = existingBrands?.[0]?.business_slug || await uniqueSlug(base44, requested_slug || storeName);
+    const identity = storefrontIdentity(mode, storeName, slug, user.email);
     const brandPayload = {
       host_id: host.id,
       business_slug: slug,
       business_display_name: storeName,
-      brand_color: '#e91e8c',
-      secondary_color: '#7c3aed',
-      font_style: 'inter',
-      layout_template: 'modern',
-      hero_title: heroTitle(mode, storeName),
-      hero_subtitle: '',
-      about_text: '',
-      cta_button_text: 'Book Now',
+      logo_url: existingBrands?.[0]?.logo_url || '',
+      cover_image_url: existingBrands?.[0]?.cover_image_url || identity.cover_image_url,
+      brand_color: existingBrands?.[0]?.brand_color || identity.brand_color,
+      secondary_color: existingBrands?.[0]?.secondary_color || identity.secondary_color,
+      font_style: existingBrands?.[0]?.font_style || identity.font_style,
+      layout_template: existingBrands?.[0]?.layout_template || identity.layout_template,
+      default_branding_style: existingBrands?.[0]?.default_branding_style || identity.default_branding_style,
+      inventory_presentation_style: existingBrands?.[0]?.inventory_presentation_style || identity.inventory_presentation_style,
+      hero_title: existingBrands?.[0]?.hero_title || identity.hero_title,
+      hero_subtitle: existingBrands?.[0]?.hero_subtitle || identity.hero_subtitle,
+      about_text: existingBrands?.[0]?.about_text || identity.about_text,
+      cta_button_text: existingBrands?.[0]?.cta_button_text || identity.cta_button_text,
       show_reviews: true,
       show_rto_options: true,
       show_weekly_pricing: true,

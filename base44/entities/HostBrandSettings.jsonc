@@ -45,6 +45,28 @@
       ],
       "default": "modern"
     },
+    "default_branding_style": {
+      "type": "string",
+      "enum": [
+        "executive",
+        "bold",
+        "local",
+        "premium",
+        "utility",
+        "street"
+      ],
+      "default": "premium"
+    },
+    "inventory_presentation_style": {
+      "type": "string",
+      "enum": [
+        "spotlight",
+        "clean_grid",
+        "compact",
+        "editorial"
+      ],
+      "default": "clean_grid"
+    },
     "hero_title": {
       "type": "string"
     },
