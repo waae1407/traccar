@@ -210,7 +210,7 @@ export default function BecomeAHost() {
 
                 {error && <div className="rounded-2xl bg-red-50 border border-red-100 p-3 text-sm text-red-600">{error}</div>}
 
-                <button disabled={loading} className="w-full rounded-2xl py-4 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+                <button disabled={loading} className="w-full rounded-2xl py-4 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                   {loading ? "Creating Store…" : "Create My Store"} <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
