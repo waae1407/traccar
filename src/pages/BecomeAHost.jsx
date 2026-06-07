@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -51,15 +51,31 @@ export default function BecomeAHost() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const resumeAttemptedRef = useRef(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (!params.get("instant_return") || !user?.email) return;
-    const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
-    if (!draft?.store_name) return;
-    setSelectedMode(draft.selected_mode || "marketplace_partner");
-    setStoreName(draft.store_name || "");
-    createStore(draft);
+    if (!user?.email || resumeAttemptedRef.current) return;
+
+    const rawPending = sessionStorage.getItem(DRAFT_KEY) || localStorage.getItem(DRAFT_KEY);
+    if (!rawPending) return;
+
+    const pending = JSON.parse(rawPending);
+    if (pending?.intended_action !== "create_store" || !pending?.store_name) return;
+
+    resumeAttemptedRef.current = true;
+    const payload = {
+      store_name: pending.store_name,
+      selected_mode: pending.selected_plan || pending.selected_mode || "marketplace_partner",
+      requested_slug: pending.generated_slug || pending.requested_slug || slugify(pending.store_name),
+    };
+
+    setSelectedMode(payload.selected_mode);
+    setStoreName(payload.store_name);
+    createStore(payload).catch((err) => {
+      setError(err?.response?.data?.error || err.message || "Could not create your store. Please try again.");
+      setLoading(false);
+      resumeAttemptedRef.current = false;
+    });
   }, [user?.email]); // eslint-disable-line
 
   const selectedOption = OPTIONS.find((option) => option.id === selectedMode) || OPTIONS[0];
@@ -69,6 +85,7 @@ export default function BecomeAHost() {
     setLoading(true);
     setError("");
     const res = await base44.functions.invoke("instantHostOnboarding", payload);
+    sessionStorage.removeItem(DRAFT_KEY);
     localStorage.removeItem(DRAFT_KEY);
     await checkAppState?.();
     setResult(res.data);
@@ -82,8 +99,16 @@ export default function BecomeAHost() {
     if (!storeName.trim()) return setError("Store name is required.");
 
     if (!user) {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
-      base44.auth.redirectToLogin(`${window.location.origin}/become-a-host?instant_return=1`);
+      const pendingOnboarding = JSON.stringify({
+        selected_plan: selectedMode,
+        store_name: storeName,
+        generated_slug: previewSlug,
+        intended_action: "create_store",
+        timestamp: new Date().toISOString(),
+      });
+      sessionStorage.setItem(DRAFT_KEY, pendingOnboarding);
+      localStorage.setItem(DRAFT_KEY, pendingOnboarding);
+      base44.auth.redirectToLogin(`${window.location.origin}/become-a-host`);
       return;
     }
 
