@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import SessionContinuityManager from '@/components/session/SessionContinuityManager';
 
 // Layouts
 import AppLayout from '@/components/layout/AppLayout';
@@ -139,6 +140,7 @@ const AuthenticatedApp = () => {
 
   return (
     <CustomDomainGate>
+    <SessionContinuityManager />
     <Routes>
       {/* ── PUBLIC PAGES (no login required) ── */}
       <Route path="/" element={<PublicHome />} />

@@ -7,9 +7,11 @@ import PlanChoiceCard from "@/components/host/onboarding/PlanChoiceCard";
 import StorefrontSuccessPanel from "@/components/host/onboarding/StorefrontSuccessPanel";
 import PostSignupChecklist from "@/components/host/onboarding/PostSignupChecklist";
 import SelectedSetupSummaryCard from "@/components/host/onboarding/SelectedSetupSummaryCard";
+import { clearPendingAction, clearTaskDraft, EXPIRATION_MS, prepareAuthResume, savePendingAction, saveTaskDraft } from "@/lib/sessionContinuity";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 const DRAFT_KEY = "instant_host_onboarding_draft";
+const ONBOARDING_DRAFT_KEY = "host_onboarding:create_store";
 
 const OPTIONS = [
   {
@@ -87,6 +89,8 @@ export default function BecomeAHost() {
     const res = await base44.functions.invoke("instantHostOnboarding", payload);
     sessionStorage.removeItem(DRAFT_KEY);
     localStorage.removeItem(DRAFT_KEY);
+    clearPendingAction();
+    clearTaskDraft(ONBOARDING_DRAFT_KEY);
     await checkAppState?.();
     setResult(res.data);
     setLoading(false);
@@ -108,6 +112,15 @@ export default function BecomeAHost() {
       });
       sessionStorage.setItem(DRAFT_KEY, pendingOnboarding);
       localStorage.setItem(DRAFT_KEY, pendingOnboarding);
+      savePendingAction({
+        action_type: "create_store",
+        route: "/become-a-host",
+        entity_type: "Host",
+        current_step: "create_store",
+        form_state: { selected_plan: selectedMode, store_name: storeName, generated_slug: previewSlug },
+      });
+      saveTaskDraft(ONBOARDING_DRAFT_KEY, { selected_plan: selectedMode, store_name: storeName, generated_slug: previewSlug }, { route: "/become-a-host", entity_type: "Host", expires_in_ms: EXPIRATION_MS.activeDraft });
+      prepareAuthResume({ pathname: "/become-a-host", search: "" }, user, { pending_action: { action_type: "create_store", route: "/become-a-host" } });
       base44.auth.redirectToLogin(`${window.location.origin}/become-a-host`);
       return;
     }
@@ -204,7 +217,10 @@ function Header() {
           <img src={LOGO_ICON} alt="uRide" className="h-7 w-7 rounded-lg object-cover" />
           <span className="font-black text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>uRide</span>
         </Link>
-        <button onClick={() => base44.auth.redirectToLogin(window.location.href)} className="text-sm font-bold text-gray-500 hover:text-gray-900">Sign In</button>
+        <button onClick={() => {
+          prepareAuthResume(window.location, null);
+          base44.auth.redirectToLogin(window.location.href);
+        }} className="text-sm font-bold text-gray-500 hover:text-gray-900">Sign In</button>
       </div>
     </header>
   );
