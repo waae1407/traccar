@@ -74,7 +74,7 @@ export default function HomeHero() {
           </Link>
           <Link to="/become-a-host"
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl border border-white/25 text-white/90 font-semibold text-sm hover:bg-white/10 hover:border-white/40 transition-all">
-            <Building2 className="h-4 w-4" /> Become a Fleet Partner
+            <Building2 className="h-4 w-4" /> Launch a Rental Business
           </Link>
         </div>
 
