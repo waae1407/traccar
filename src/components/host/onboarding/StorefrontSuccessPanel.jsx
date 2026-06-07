@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { CheckCircle2, Copy, ExternalLink, Share2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import SelectedSetupSummaryCard from "@/components/host/onboarding/SelectedSetupSummaryCard";
 
 export default function StorefrontSuccessPanel({ result }) {
   const [copied, setCopied] = useState(false);
@@ -43,18 +44,7 @@ export default function StorefrontSuccessPanel({ result }) {
         </button>
       </div>
 
-      <div className="mt-6 rounded-2xl bg-white/5 border border-white/10 p-4 space-y-3">
-        <div>
-          <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">🚀 YOUR BUSINESS IS OPEN</p>
-        </div>
-        <div className="space-y-2 text-sm">
-          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Live immediately</p>
-          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Customers can find you now</p>
-          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Add vehicles anytime</p>
-          <p className="text-white/70 flex items-center gap-2"><span>✓</span> Connect Stripe & GPS later</p>
-        </div>
-        <p className="text-xs text-white/40 border-t border-white/10 pt-3">Start simple. Grow at your own pace.</p>
-      </div>
+      <SelectedSetupSummaryCard className="mt-6 rounded-2xl bg-white/5 border border-white/10 p-4 space-y-3" />
 
       <Link to="/host/vehicles" className="mt-5 w-full rounded-2xl bg-pink-600 hover:bg-pink-700 font-black text-sm py-3 flex items-center justify-center">
         Add Your First Vehicle

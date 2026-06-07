@@ -6,6 +6,7 @@ import { ArrowRight, Building2, Lock, Mail, Store } from "lucide-react";
 import PlanChoiceCard from "@/components/host/onboarding/PlanChoiceCard";
 import StorefrontSuccessPanel from "@/components/host/onboarding/StorefrontSuccessPanel";
 import PostSignupChecklist from "@/components/host/onboarding/PostSignupChecklist";
+import SelectedSetupSummaryCard from "@/components/host/onboarding/SelectedSetupSummaryCard";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 const DRAFT_KEY = "instant_host_onboarding_draft";
@@ -183,18 +184,7 @@ export default function BecomeAHost() {
             <div className="mt-5 space-y-2">
               {selectedOption.bullets.map((bullet) => <p key={bullet} className="text-sm text-white/80">✓ {bullet}</p>)}
             </div>
-            <div className="mt-6 rounded-2xl bg-white/10 border border-white/10 p-4 space-y-3">
-              <div>
-                <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">🚀 YOUR BUSINESS IS OPEN</p>
-              </div>
-              <div className="space-y-2 text-sm">
-                <p className="text-white/70 flex items-center gap-2"><span>✓</span> Live immediately</p>
-                <p className="text-white/70 flex items-center gap-2"><span>✓</span> Customers can find you now</p>
-                <p className="text-white/70 flex items-center gap-2"><span>✓</span> Add vehicles anytime</p>
-                <p className="text-white/70 flex items-center gap-2"><span>✓</span> Connect Stripe & GPS later</p>
-              </div>
-              <p className="text-xs text-white/40 border-t border-white/10 pt-3">Start simple. Grow at your own pace.</p>
-            </div>
+            <SelectedSetupSummaryCard />
           </aside>
         </div>
       </main>
