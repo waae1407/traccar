@@ -162,7 +162,7 @@ export default function BecomeAHost() {
                 <div className="rounded-2xl bg-pink-50 border border-pink-100 p-3">
                   <p className="text-xs font-bold text-pink-700">Live URL Preview</p>
                   <p className="font-mono text-sm text-gray-900 mt-1 break-all">uridehub.com/host/{previewSlug}</p>
-                  {storeName.trim() && <p className="text-xs text-pink-600 font-semibold mt-2 flex items-center gap-1">✓ Store name available</p>}
+                  <p className="text-xs text-pink-600 font-semibold mt-2 flex items-center gap-1">✓ Store name available</p>
                 </div>
 
                 {error && <div className="rounded-2xl bg-red-50 border border-red-100 p-3 text-sm text-red-600">{error}</div>}
@@ -186,7 +186,7 @@ export default function BecomeAHost() {
             </div>
             <div className="mt-6 rounded-2xl bg-white/10 border border-white/10 p-4 space-y-3">
               <div>
-                <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">✈ Your Store Goes Live Instantly</p>
+                <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">🚀 Your Store Goes Live Instantly</p>
               </div>
               <div className="space-y-2 text-sm">
                 <p className="text-white/70 flex items-center gap-2"><span>✓</span> No vehicle setup required</p>
