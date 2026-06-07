@@ -3,7 +3,7 @@ import { Link, useOutletContext } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays } from "date-fns";
 import { base44 } from "@/api/base44Client";
-import { Bot, CalendarClock, Camera, Car, ChevronDown, CreditCard, FileText, MapPin, MessageSquare, Navigation, ShieldCheck, Sparkles, Wifi, Wrench } from "lucide-react";
+import { Bot, CalendarClock, Camera, Car, ChevronDown, CreditCard, FileText, MapPin, MessageSquare, Navigation, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import PickupAddressCard from "@/components/customer/mybookings/PickupAddressCard";
 import ContractModal from "@/components/customer/mybookings/ContractModal";
@@ -34,6 +34,27 @@ function freshness(device) {
 
 function money(value) {
   return `$${Number(value || 0).toLocaleString()}`;
+}
+
+function eventTitle(event) {
+  const labels = {
+    contract_signed: "Contract Signed",
+    payment_received: "Payment Received",
+    booking_confirmed: "Rental Confirmed",
+    booking_active: "Rental Active",
+    "booking.approved": "Rental Approved",
+    "booking.activated": "Rental Activated",
+    "booking.completed": "Rental Completed",
+    "payment.succeeded": "Payment Received",
+    "gps.command_sent": "Vehicle Command Sent",
+    "gps.command_failed": "Vehicle Command Failed",
+  };
+  return event.event_title || event.summary || labels[event.event_type] || event.event_type?.replaceAll("_", " ") || "Rental Update";
+}
+
+function commandTitle(command) {
+  const labels = { locate: "Vehicle Located", lock: "Vehicle Locked", unlock: "Vehicle Unlocked", alarm_pulse: "Find Vehicle Triggered" };
+  return labels[command.command_type] || command.command_type?.replaceAll("_", " ") || "Vehicle Action";
 }
 
 export default function MyVehicle() {
@@ -94,11 +115,25 @@ export default function MyVehicle() {
     enabled: !!user?.email,
   });
 
+  const { data: communicationPreview = { threads: [] } } = useQuery({
+    queryKey: ["my-vehicle-communication-preview", booking?.id, booking?.vehicle_id],
+    queryFn: async () => {
+      const res = await base44.functions.invoke("searchCommunicationThreads", {
+        booking_request_id: booking.id,
+        vehicle_id: booking.vehicle_id,
+        limit: 3,
+      });
+      return res.data;
+    },
+    enabled: !!booking?.id,
+  });
+  const recentThread = communicationPreview.threads?.[0];
+
   const recentActivity = useMemo(() => {
     const rentalEvents = events.filter((event) => event.booking_request_id === booking?.id || event.booking_id === booking?.id || event.vehicle_id === booking?.vehicle_id)
-      .map((event) => ({ id: event.id, type: "Activity", title: event.event_title || event.summary || event.event_type, detail: event.event_description || event.event_status, date: event.created_date }));
-    const commandEvents = commands.map((command) => ({ id: command.id, type: "Vehicle", title: command.command_type?.replaceAll("_", " "), detail: command.queue_status || command.status, date: command.created_date || command.created_at }));
-    const notices = notifications.slice(0, 4).map((notice) => ({ id: notice.id, type: "Notice", title: notice.title, detail: notice.body, date: notice.created_date }));
+      .map((event) => ({ id: event.id, type: "Activity", title: eventTitle(event), detail: event.event_description || event.event_status || "Rental timeline updated", date: event.created_date }));
+    const commandEvents = commands.map((command) => ({ id: command.id, type: "Vehicle", title: commandTitle(command), detail: command.queue_status || command.status, date: command.created_date || command.created_at }));
+    const notices = notifications.slice(0, 4).map((notice) => ({ id: notice.id, type: "Notice", title: notice.title || "Important Notice", detail: notice.body, date: notice.created_date }));
     return [...commandEvents, ...rentalEvents, ...notices].filter((item) => item.title).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 8);
   }, [events, commands, notifications, booking]);
 
@@ -109,6 +144,7 @@ export default function MyVehicle() {
   const name = vehicleName(vehicle, booking);
   const daysRemaining = booking.end_date ? Math.max(0, differenceInCalendarDays(new Date(`${booking.end_date}T23:59:59`), new Date())) : null;
   const paidThrough = booking.next_billing_date ? format(new Date(`${booking.next_billing_date}T00:00:00`), "MMMM d") : "current period";
+  const nextBillingLabel = booking.next_billing_date ? format(new Date(`${booking.next_billing_date}T00:00:00`), "MMM d") : "Auto-Renew";
   const pickupDone = booking.pickup_photos?.length > 0;
   const returnDone = booking.return_exterior_photos?.length > 0;
   const needsPayment = booking.payment_status !== "paid" || booking.starter_disabled || booking.moovetrax_kill_active;
@@ -145,9 +181,10 @@ export default function MyVehicle() {
                 <h1 className="text-3xl font-black leading-tight" style={{ fontFamily: "var(--font-syne)" }}>{name}</h1>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 p-3">
+            <div className="grid grid-cols-3 gap-2 p-3">
               <HeroMetric icon={CalendarClock} label="Rental Time" value={daysRemaining !== null ? `${daysRemaining} Days Remaining` : "Auto-Renewing"} />
               <HeroMetric icon={CreditCard} label="Payment" value={booking.payment_status === "paid" ? `Paid Through ${paidThrough}` : "Payment Needed"} />
+              <HeroMetric icon={CalendarClock} label="Next Billing" value={nextBillingLabel} />
             </div>
           </div>
         </div>
@@ -174,11 +211,11 @@ export default function MyVehicle() {
           </div>
         </Section>
 
-        <Section title="Rental Documents" eyebrow="Agreement" icon={FileText}>
+        <Section title="Rental Documents" eyebrow="Official Agreement" icon={FileText}>
           <div className="grid gap-2">
-            <ActionButton disabled={!(booking.contract_status === "signed" && booking.contract_html)} onClick={() => setContractBooking(booking)} label="View Signed Contract" sub="Open the active rental agreement" />
-            <ActionButton disabled={!booking.contract_html} onClick={() => downloadContract(booking)} label="Download Contract" sub="Save a copy of your rental agreement" />
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs font-semibold text-blue-700">Rental terms remain exactly as signed during checkout.</div>
+            <ActionButton disabled={!(booking.contract_status === "signed" && booking.contract_html)} onClick={() => setContractBooking(booking)} label="View Official Rental Agreement" sub="Open your signed agreement in uRide" />
+            <ActionButton disabled={!booking.contract_html} onClick={() => downloadContract(booking)} label="Download Official Agreement" sub="Save a customer copy for your records" />
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs font-semibold text-blue-700">This is your signed rental agreement. Terms remain exactly as accepted during checkout.</div>
           </div>
         </Section>
 
@@ -207,8 +244,9 @@ export default function MyVehicle() {
 
         <Section title="Support" eyebrow="Help & Communication" icon={MessageSquare}>
           <div className="grid gap-2">
+            <MessagePreview thread={recentThread} />
             <SupportLink to="/messages" icon={MessageSquare} label="Message Host" sub="Open secure rental messages" />
-            <SupportLink to="mailto:support@uridehub.com" icon={Wrench} label="Contact Support" sub="Get help from uRide" external />
+            <SupportLink to="/support" icon={Wrench} label="Contact Support" sub="Get help inside uRide" />
             <SupportLink to="/support" icon={Bot} label="AI Assistant" sub="Ask about your rental instantly" />
           </div>
         </Section>
@@ -233,10 +271,31 @@ function ActionButton({ label, sub, onClick, disabled, success }) {
   return <button disabled={disabled} onClick={onClick} className="flex w-full items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 p-4 text-left transition active:scale-[0.98] disabled:opacity-45"><div><p className="text-sm font-black text-gray-950">{label}</p><p className="mt-0.5 text-xs font-semibold text-gray-400">{sub}</p></div>{success ? <ShieldCheck className="h-5 w-5 text-emerald-500" /> : <span className="text-xl text-gray-300">›</span>}</button>;
 }
 
-function SupportLink({ to, icon: Icon, label, sub, external }) {
-  const className = "flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 active:scale-[0.98] transition";
-  const content = <><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white"><Icon className="h-5 w-5 text-pink-600" /></div><div><p className="text-sm font-black text-gray-950">{label}</p><p className="text-xs font-semibold text-gray-400">{sub}</p></div></>;
-  return external ? <a href={to} className={className}>{content}</a> : <Link to={to} className={className}>{content}</Link>;
+function MessagePreview({ thread }) {
+  if (!thread) return (
+    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+      <p className="text-sm font-black text-gray-950">Need help?</p>
+      <p className="mt-1 text-xs font-semibold text-gray-500">Start a secure conversation with your host or uRide support without leaving the app.</p>
+    </div>
+  );
+
+  return (
+    <div className="rounded-2xl border border-pink-100 bg-pink-50/70 p-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-pink-500">Recent Conversation</p>
+      <p className="mt-1 text-sm font-black text-gray-950">{thread.subject || "Rental conversation"}</p>
+      <p className="mt-1 text-xs font-semibold text-gray-500">{thread.host_name || thread.vehicle_label || "Secure uRide messaging"}</p>
+      <Link to="/messages" className="mt-3 inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-black text-pink-600 shadow-sm">Open Conversation</Link>
+    </div>
+  );
+}
+
+function SupportLink({ to, icon: Icon, label, sub }) {
+  return (
+    <Link to={to} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 active:scale-[0.98] transition">
+      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white"><Icon className="h-5 w-5 text-pink-600" /></div>
+      <div><p className="text-sm font-black text-gray-950">{label}</p><p className="text-xs font-semibold text-gray-400">{sub}</p></div>
+    </Link>
+  );
 }
 
 function EmptyState({ title, text, action, href }) {
@@ -244,11 +303,12 @@ function EmptyState({ title, text, action, href }) {
 }
 
 function downloadContract(booking) {
-  const blob = new Blob([booking.contract_html || ""], { type: "text/html" });
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>uRide Official Rental Agreement</title><style>body{font-family:Inter,Arial,sans-serif;margin:40px;color:#111827;line-height:1.6}.cover{border-bottom:2px solid #e5e7eb;margin-bottom:24px;padding-bottom:16px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#db2777}h1{margin:4px 0 8px;font-size:28px}.meta{font-size:13px;color:#6b7280}</style></head><body><div class="cover"><div class="eyebrow">uRide Official Rental Agreement</div><h1>${booking.vehicle_name || "Rental Vehicle"}</h1><div class="meta">Agreement ID: ${booking.id || ""} · Downloaded ${new Date().toLocaleString()}</div></div>${booking.contract_html || ""}</body></html>`;
+  const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${booking.vehicle_name || "rental"}-agreement.html`;
+  link.download = `uRide-official-rental-agreement-${booking.id?.slice(-8) || "customer"}.html`;
   link.click();
   URL.revokeObjectURL(url);
 }
