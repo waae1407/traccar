@@ -16,10 +16,15 @@ export default function RecommendedSetup({ result, onContinue, compact = false, 
         <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Your Recommended Setup</p>
         <h2 className="text-2xl font-black mb-2" style={{ fontFamily: "var(--font-syne)" }}>{mode.label}</h2>
         <p className="text-white/65 text-sm leading-relaxed">{mode.summary}</p>
+        {mode.benefits && (
+          <div className="mt-4 rounded-2xl bg-white/10 p-4 space-y-2 border border-white/20">
+            {mode.benefits.map(b => <p key={b} className="text-white text-sm flex gap-2"><span className="flex-shrink-0">✓</span>{b}</p>)}
+          </div>
+        )}
         <div className="mt-4 rounded-2xl bg-white/10 p-4">
-          <p className="text-xs text-white/40">Pricing summary</p>
+          <p className="text-xs text-white/40">Pricing</p>
           <p className="font-black text-lg">{mode.price}</p>
-          <p className="text-[11px] text-white/35 mt-1">Payment-driven activation for paid plans — no real billing is activated from this screen.</p>
+          <p className="text-[11px] text-white/35 mt-1">Activation happens after checkout. No billing until setup is complete.</p>
         </div>
       </div>
 
@@ -48,6 +53,7 @@ export default function RecommendedSetup({ result, onContinue, compact = false, 
               <div className="flex gap-1.5">{key === recommendedMode && <span className="text-[10px] font-black text-pink-600 bg-pink-50 px-2 py-1 rounded-full">Recommended</span>}{key === currentSelection && <span className="text-[10px] font-black text-white bg-pink-600 px-2 py-1 rounded-full">Selected</span>}</div>
             </div>
             <p className="text-xs text-gray-500 mt-2">{item.summary}</p>
+            {item.benefits && <div className="mt-3 space-y-1">{item.benefits.map(b => <p key={b} className="text-xs text-gray-600 flex gap-1.5"><span className="text-pink-600 font-black">✓</span>{b}</p>)}</div>}
             <div className="flex flex-wrap gap-1.5 mt-3">{item.tools.map(t => <span key={t} className="text-[10px] font-bold bg-gray-50 text-gray-500 px-2 py-1 rounded-full">{t}</span>)}</div>
           </button>
         ))}

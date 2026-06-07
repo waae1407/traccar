@@ -3,18 +3,21 @@ export const OPERATIONAL_MODES = {
     label: "Marketplace Partner",
     price: "8% per completed marketplace booking",
     summary: "Best when uRideHub helps bring renters and marketplace demand.",
+    benefits: ["Get customers from the uRide marketplace", "Rental contracts handled for you", "Payments processed by uRide", "Automatic payouts after rentals"],
     tools: ["Marketplace exposure", "Payment routing options", "Contracts", "Compliance", "Customer flow"],
   },
   fleetos_professional: {
     label: "FleetOS Professional",
     price: "$29.99/month",
     summary: "Best for operators with their own customers who need infrastructure.",
+    benefits: ["Keep your own customers", "Run your business from one dashboard", "Use your own rental agreements", "Get paid directly through your Stripe account", "GPS tracking & vehicle controls"],
     tools: ["Booking system", "Contracts", "Operations dashboard", "Customer management", "No marketplace transaction fee on direct business"],
   },
   hybrid_growth: {
     label: "Hybrid Growth",
     price: "$29.99/month + 4% marketplace booking fee",
     summary: "Best when you have direct customers but also want uRideHub demand.",
+    benefits: ["Get customers from the uRide marketplace", "Keep and manage your own customers", "Run your fleet from one dashboard", "GPS tracking & vehicle controls"],
     tools: ["Direct operations", "Marketplace demand", "Custom storefront", "Payments options", "Growth tools"],
   },
 };

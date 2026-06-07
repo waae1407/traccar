@@ -13,24 +13,24 @@ const DRAFT_KEY = "instant_host_onboarding_draft";
 const OPTIONS = [
   {
     id: "marketplace_partner",
-    goal: "Get bookings",
+    goal: "Get customers",
     label: "Marketplace Partner",
     price: "8% per completed booking",
-    bullets: ["Marketplace exposure", "uRide contracts", "uRide checkout", "Host payouts"],
+    bullets: ["Get customers from the uRide marketplace", "Rental contracts handled for you", "Payments processed by uRide", "Automatic payouts after rentals"],
   },
   {
     id: "fleetos_professional",
     goal: "Manage my fleet",
     label: "FleetOS Professional",
     price: "$29.99/month",
-    bullets: ["Manage your own customers", "Fleet dashboard", "Your own contracts", "Direct Stripe payments", "GPS & operations tools"],
+    bullets: ["Keep your own customers", "Run your business from one dashboard", "Use your own rental agreements", "Get paid directly through your Stripe account", "GPS tracking & vehicle controls"],
   },
   {
     id: "hybrid_growth",
     goal: "Both",
     label: "Hybrid Growth",
     price: "$29.99/month + 4%",
-    bullets: ["Marketplace customers", "Your own customers", "Fleet dashboard", "GPS & operations tools"],
+    bullets: ["Get customers from the uRide marketplace", "Keep and manage your own customers", "Run your fleet from one dashboard", "GPS tracking & vehicle controls"],
   },
 ];
 
@@ -162,6 +162,7 @@ export default function BecomeAHost() {
                 <div className="rounded-2xl bg-pink-50 border border-pink-100 p-3">
                   <p className="text-xs font-bold text-pink-700">Live URL Preview</p>
                   <p className="font-mono text-sm text-gray-900 mt-1 break-all">uridehub.com/host/{previewSlug}</p>
+                  {storeName.trim() && <p className="text-xs text-pink-600 font-semibold mt-2 flex items-center gap-1">✓ Store name available</p>}
                 </div>
 
                 {error && <div className="rounded-2xl bg-red-50 border border-red-100 p-3 text-sm text-red-600">{error}</div>}
@@ -183,10 +184,16 @@ export default function BecomeAHost() {
             <div className="mt-5 space-y-2">
               {selectedOption.bullets.map((bullet) => <p key={bullet} className="text-sm text-white/80">✓ {bullet}</p>)}
             </div>
-            <div className="mt-6 rounded-2xl bg-white/10 border border-white/10 p-4">
-              <p className="text-xs text-white/45">Storefront status after signup</p>
-              <p className="font-black text-lg mt-1">Live immediately</p>
-              <p className="text-xs text-white/50 mt-1">No Stripe, GPS, payment settings, vehicle setup, or brand wizard required.</p>
+            <div className="mt-6 rounded-2xl bg-white/10 border border-white/10 p-4 space-y-3">
+              <div>
+                <p className="text-[11px] text-white/40 uppercase font-black tracking-wider">✈ Your Store Goes Live Instantly</p>
+              </div>
+              <div className="space-y-2 text-sm">
+                <p className="text-white/70 flex items-center gap-2"><span>✓</span> No vehicle setup required</p>
+                <p className="text-white/70 flex items-center gap-2"><span>✓</span> No Stripe setup required</p>
+                <p className="text-white/70 flex items-center gap-2"><span>✓</span> No GPS setup required</p>
+              </div>
+              <p className="text-xs text-white/40 border-t border-white/10 pt-3">Create your storefront now. Finish setup later.</p>
             </div>
           </aside>
         </div>
