@@ -15,11 +15,13 @@ function defaultCommerceProfile(host, plan) {
     marketplace_visibility: !isFleetOS,
     booking_enabled: true,
     online_payments_enabled: isFleetOS ? !!host?.stripe_onboarding_complete : true,
-    payment_processor: isFleetOS ? (host?.stripe_onboarding_complete ? 'host_stripe' : 'manual_invoice') : 'uride_stripe',
+    payment_processor: isFleetOS ? (host?.stripe_onboarding_complete && host?.stripe_account_id ? 'host_stripe' : 'reservation_only') : 'uride_stripe',
     commission_rate: isFleetOS ? 0 : isHybrid ? 0.04 : 0.08,
     subscription_rate: isFleetOS || isHybrid ? 29.99 : 0,
     stripe_account_id: host?.stripe_account_id || '',
-    host_checkout_enabled: isFleetOS && !!host?.stripe_onboarding_complete && !!host?.stripe_account_id
+    host_checkout_enabled: isFleetOS && !!host?.stripe_onboarding_complete && !!host?.stripe_account_id,
+    contract_owner: isFleetOS ? 'host' : 'uride',
+    payment_owner: isFleetOS ? 'host' : 'uride'
   };
 }
 
@@ -78,7 +80,7 @@ Deno.serve(async (req) => {
     if (!commerce.booking_enabled) return Response.json({ error: 'Booking is disabled for this host' }, { status: 400 });
 
     const processor = commerce.online_payments_enabled ? commerce.payment_processor : 'manual_invoice';
-    if (processor === 'manual_invoice') {
+    if (processor === 'manual_invoice' || processor === 'reservation_only') {
       return Response.json({ processor, reservation_request_only: true, message: 'Online payment is not enabled. Submit a reservation request instead.' });
     }
     if (!['uride_stripe', 'host_stripe'].includes(processor)) {

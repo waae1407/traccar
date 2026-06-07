@@ -18,7 +18,24 @@ export default function Marketplace() {
 
   const { data: listings = [], isLoading } = useQuery({
     queryKey: ["marketplace-listings"],
-    queryFn: () => base44.entities.VehicleSaleListing.filter({ status: "active" }),
+    queryFn: async () => {
+      const [saleListings, commerceProfiles, operatorPlans] = await Promise.all([
+        base44.entities.VehicleSaleListing.filter({ status: "active" }),
+        base44.entities.HostCommerceProfile.list("-updated_date", 500),
+        base44.entities.OperatorPlanConfiguration.list("-updated_date", 500),
+      ]);
+      const visibilityByHost = operatorPlans.reduce((map, plan) => {
+        if (!plan.host_id || map[plan.host_id] !== undefined) return map;
+        const mode = plan.active_mode && plan.active_mode !== "none" ? plan.active_mode : plan.selected_mode;
+        map[plan.host_id] = mode === "fleetos_professional" ? false : plan.marketplace_enabled !== false;
+        return map;
+      }, {});
+      commerceProfiles.forEach((profile) => {
+        if (!profile.host_id) return;
+        visibilityByHost[profile.host_id] = profile.marketplace_enabled !== false && profile.marketplace_visibility !== false;
+      });
+      return saleListings.filter((listing) => !listing.host_id || visibilityByHost[listing.host_id] !== false);
+    },
   });
 
   const filtered = listings.filter(l => {

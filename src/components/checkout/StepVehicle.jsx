@@ -6,14 +6,16 @@ import PublicTrustBadges from "@/components/trust/PublicTrustBadges";
 import { latestSnapshotFor, publicVehicleLabels } from "@/lib/reputation/publicTrust";
 import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 
-const BOOKING_TYPES = ["Weekly", "Rent-to-Own"];
+const BOOKING_TYPES = ["Weekly", "Monthly", "Rent-to-Own", "Commercial"];
 const RADIUS_OPTIONS = [10, 25, 50, 100, 250];
 
 function calcEndDate(startDate, type) {
   if (!startDate) return null;
   const d = new Date(startDate);
   if (type === "Weekly") return format(addWeeks(d, 1), "yyyy-MM-dd");
+  if (type === "Monthly") return format(addWeeks(d, 4), "yyyy-MM-dd");
   if (type === "Rent-to-Own") return format(addWeeks(d, 52), "yyyy-MM-dd");
+  if (type === "Commercial") return format(addWeeks(d, 4), "yyyy-MM-dd");
   return null;
 }
 
@@ -146,7 +148,7 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
             }`}
             style={type === t ? {} : {}}
           >
-            {t === "Weekly" ? "📅 Weekly" : "🔑 Rent-to-Own"}
+            {t === "Weekly" ? "📅 Weekly" : t === "Monthly" ? "🗓️ Monthly" : t === "Commercial" ? "🏢 Commercial" : "🔑 Rent-to-Own"}
           </button>
         ))}
       </div>
@@ -181,7 +183,7 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
               📅 {type === "Rent-to-Own" ? "52-week program" : "Minimum 1-week rental"}
             </p>
             <p className="text-xs text-amber-700">
-              End date: <strong>{format(new Date(endDate), "MMM d, yyyy")}</strong>. You may return early but will be charged for the full week.
+            End date: <strong>{format(new Date(endDate), "MMM d, yyyy")}</strong>. You may return early but will be charged for the minimum rental period.
             </p>
           </div>
         )}

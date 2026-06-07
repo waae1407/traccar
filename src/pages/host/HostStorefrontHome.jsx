@@ -56,7 +56,7 @@ export default function HostStorefrontHome() {
     enabled: !!brand?.host_id,
   });
   const commerceProfile = commerceProfiles[0];
-  const reservationRequestOnly = commerceProfile?.booking_enabled !== false && !commerceProfile?.online_payments_enabled && commerceProfile?.payment_processor === "host_stripe";
+  const reservationRequestOnly = commerceProfile?.booking_enabled !== false && (!commerceProfile?.online_payments_enabled || commerceProfile?.payment_processor === "reservation_only") && ["host_stripe", "reservation_only"].includes(commerceProfile?.payment_processor);
 
   const { data: reviews = [] } = useQuery({
     queryKey: ["storefront-public-reviews", brand?.host_id],

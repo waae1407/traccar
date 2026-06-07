@@ -53,6 +53,40 @@ async function createPaymentAlert(base44, payload) {
   }
 }
 
+async function resolveCommerceAndPlan(base44, hostId) {
+  if (!hostId) return { commerce: null, plan: null };
+  const [profiles, plans] = await Promise.all([
+    base44.asServiceRole.entities.HostCommerceProfile.filter({ host_id: hostId }, '-updated_date', 1),
+    base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id: hostId }, '-updated_date', 1),
+  ]);
+  return { commerce: profiles?.[0] || null, plan: plans?.[0] || null };
+}
+
+function isFleetOSProfile(commerce, plan) {
+  return commerce?.plan_type === 'fleetos_professional' || plan?.active_mode === 'fleetos_professional' || plan?.selected_mode === 'fleetos_professional';
+}
+
+async function createFleetOSPaymentAlert(base44, booking, reason, source = 'processWeeklyBilling') {
+  await createPaymentAlert(base44, {
+    alert_type: 'fleetos_manual_payment_required',
+    severity: 'critical',
+    billing_context: 'fleetos_billing',
+    booking_id: booking.id,
+    host_id: booking.host_id || '',
+    customer_id: booking.user_id || '',
+    vehicle_id: booking.vehicle_id || '',
+    renter_email: booking.user_email || '',
+    related_entity_type: 'BookingRequest',
+    related_entity_id: booking.id,
+    title: 'FleetOS payment skipped',
+    message: reason,
+    recommended_action: 'Collect payment through host-owned payment process or connect host Stripe. uRide Stripe was not used.',
+    financial_impact_amount: booking.weekly_rate || 0,
+    currency: 'usd',
+    source
+  });
+}
+
 async function applyReceivableOffset(base44, hostId, amount, now) {
   const receivables = await base44.asServiceRole.entities.HostReceivable.filter({ host_id: hostId });
   let remainingOffset = Math.max(0, amount);
@@ -206,7 +240,6 @@ Deno.serve(async (req) => {
     const billingTargets = activeBookings.filter((b) => {
       if (!['approved', 'confirmed', 'active'].includes(b.booking_status)) return false;
       if (b.clean_return_status === 'approved_clean') return false; // rental ended
-      if (!b.stripe_payment_method_id || !b.stripe_customer_id) return false;
       if (!b.start_date) return false;
       if (!b.next_billing_date) return false;
 
@@ -292,7 +325,22 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Attempt charge
+        const { commerce, plan } = await resolveCommerceAndPlan(base44, resolvedHostId);
+        const isFleetOS = isFleetOSProfile(commerce, plan);
+        const fleetOSHostStripeReady = commerce?.payment_processor === 'host_stripe' && commerce?.online_payments_enabled && commerce?.stripe_account_id;
+
+        if (isFleetOS && (!fleetOSHostStripeReady || !booking.stripe_customer_id || !booking.stripe_payment_method_id)) {
+          const reason = 'FleetOS weekly billing skipped: host Stripe or saved payment method is missing/incomplete. uRide Stripe was not touched.';
+          await createFleetOSPaymentAlert(base44, { ...booking, host_id: resolvedHostId }, reason);
+          await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+            payment_status: 'due_soon',
+            payment_failure_reason: reason,
+          });
+          results.push({ id: booking.id, status: 'fleetos_manual_payment_required' });
+          continue;
+        }
+
+        const stripeOptions = isFleetOS ? { stripeAccount: commerce.stripe_account_id } : {};
         const paymentIntent = await stripe.paymentIntents.create({
           amount: amountCents,
           currency: "usd",
@@ -300,9 +348,9 @@ Deno.serve(async (req) => {
           payment_method: booking.stripe_payment_method_id,
           off_session: true,
           confirm: true,
-          description: `uRide Week ${weekNum} — ${booking.vehicle_name || ""}`,
-          metadata: { booking_request_id: booking.id, week_number: String(weekNum), billing_context: 'rental_marketplace_payment' },
-        });
+          description: isFleetOS ? `Host Week ${weekNum} — ${booking.vehicle_name || ""}` : `uRide Week ${weekNum} — ${booking.vehicle_name || ""}`,
+          metadata: { booking_request_id: booking.id, week_number: String(weekNum), billing_context: isFleetOS ? 'fleetos_host_direct_payment' : 'rental_marketplace_payment', payment_processor: isFleetOS ? 'host_stripe' : 'uride_stripe' },
+        }, stripeOptions);
 
         if (paymentIntent.status === "succeeded") {
           // Calculate next billing date: anchor to current next_billing_date + 7
@@ -321,7 +369,7 @@ Deno.serve(async (req) => {
           });
 
           // ── HOST PAYOUT SPLIT (Stripe Connect) ──
-          if (resolvedHostId) {
+          if (resolvedHostId && !isFleetOS) {
             const hosts = await base44.asServiceRole.entities.Host.filter({ id: resolvedHostId });
             const host = hosts[0];
             resolvedHost = host;

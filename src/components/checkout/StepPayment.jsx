@@ -266,10 +266,10 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
 
   const paymentSettings = paymentSettingsList[0];
   const commerceProfile = commerceProfiles[0];
-  const processor = commerceProfile?.online_payments_enabled === false ? "manual_invoice" : commerceProfile?.payment_processor;
-  const fleetosManualReservation = commerceProfile?.plan_type === "fleetos_professional" && processor === "manual_invoice";
+  const processor = commerceProfile?.online_payments_enabled === false ? "reservation_only" : commerceProfile?.payment_processor;
+  const fleetosManualReservation = commerceProfile?.plan_type === "fleetos_professional" && ["manual_invoice", "reservation_only"].includes(processor);
   const ownPaymentActive = processor === "manual_invoice" && !!paymentSettings?.payment_instructions && !fleetosManualReservation;
-  const reservationRequestOnly = processor === "manual_invoice" && (!paymentSettings?.payment_instructions || fleetosManualReservation);
+  const reservationRequestOnly = ["manual_invoice", "reservation_only"].includes(processor) && (!paymentSettings?.payment_instructions || fleetosManualReservation);
 
   // If already paid (e.g. page refresh), skip straight to confirmation
   useEffect(() => {

@@ -40,11 +40,13 @@ function commercePayload(host, mode) {
     marketplace_visibility: !isFleetOS,
     booking_enabled: true,
     online_payments_enabled: isFleetOS ? stripeReady : true,
-    payment_processor: isFleetOS ? 'host_stripe' : 'uride_stripe',
+    payment_processor: isFleetOS ? (stripeReady ? 'host_stripe' : 'reservation_only') : 'uride_stripe',
     commission_rate: isFleetOS ? 0 : isHybrid ? 0.04 : 0.08,
     subscription_rate: isFleetOS || isHybrid ? 29.99 : 0,
     stripe_account_id: host.stripe_account_id || '',
-    host_checkout_enabled: isFleetOS && stripeReady
+    host_checkout_enabled: isFleetOS && stripeReady,
+    contract_owner: isFleetOS ? 'host' : 'uride',
+    payment_owner: isFleetOS ? 'host' : 'uride'
   };
 }
 
@@ -98,6 +100,7 @@ Deno.serve(async (req) => {
     if (!plan) return Response.json({ error: 'Operator plan not found' }, { status: 404 });
 
     const now = new Date().toISOString();
+    const previousMode = plan.active_mode && plan.active_mode !== 'none' ? plan.active_mode : (plan.selected_mode || plan.recommended_mode || 'marketplace_partner');
     const existingSubscription = await findLatestSubscription(base44, host_id);
     const auditEntry = { from_status: plan.status || 'unknown', to_status: mode === 'marketplace_partner' ? 'active' : 'pending_payment', changed_by: user.email, changed_at: now, reason: `Host selected ${config.label}.`, source: 'host_edit' };
 
@@ -233,7 +236,11 @@ Deno.serve(async (req) => {
       audit_log: [...(existingSubscription?.audit_log || []), { action: 'checkout_started', status: 'checkout_started', changed_by: user.email, changed_at: now, note: `Stripe subscription checkout opened for ${config.label}.` }]
     });
 
-    await upsertCommerceProfile(base44, host, mode);
+    if (previousMode === 'fleetos_professional' && mode === 'hybrid_growth') {
+      await upsertCommerceProfile(base44, host, 'fleetos_professional');
+    } else if (mode !== 'hybrid_growth') {
+      await upsertCommerceProfile(base44, host, mode);
+    }
     await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ host_id, user_id: user.id, previous_mode: plan.selected_mode || plan.active_mode || '', new_mode: mode, reason: 'Host changed package and platform subscription checkout was started.', changed_by: user.email, changed_at: now, source: 'host_edit' });
 
     return Response.json({ ok: true, mode, status: 'checkout_started', url: session.url });

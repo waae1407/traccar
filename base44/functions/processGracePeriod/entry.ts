@@ -81,6 +81,40 @@ async function createPaymentAlert(base44, payload) {
   }
 }
 
+async function resolveCommerceAndPlan(base44, hostId) {
+  if (!hostId) return { commerce: null, plan: null };
+  const [profiles, plans] = await Promise.all([
+    base44.asServiceRole.entities.HostCommerceProfile.filter({ host_id: hostId }, '-updated_date', 1),
+    base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id: hostId }, '-updated_date', 1),
+  ]);
+  return { commerce: profiles?.[0] || null, plan: plans?.[0] || null };
+}
+
+function isFleetOSProfile(commerce, plan) {
+  return commerce?.plan_type === 'fleetos_professional' || plan?.active_mode === 'fleetos_professional' || plan?.selected_mode === 'fleetos_professional';
+}
+
+async function createFleetOSPaymentAlert(base44, booking, reason, source = 'processGracePeriod') {
+  await createPaymentAlert(base44, {
+    alert_type: 'fleetos_manual_payment_required',
+    severity: 'critical',
+    billing_context: 'fleetos_payment_recovery',
+    booking_id: booking.id,
+    host_id: booking.host_id || '',
+    customer_id: booking.user_id || '',
+    vehicle_id: booking.vehicle_id || '',
+    renter_email: booking.user_email || '',
+    related_entity_type: 'BookingRequest',
+    related_entity_id: booking.id,
+    title: 'FleetOS payment recovery skipped',
+    message: reason,
+    recommended_action: 'Collect payment through host-owned payment process or connect host Stripe. uRide Stripe was not used.',
+    financial_impact_amount: booking.weekly_rate || 0,
+    currency: 'usd',
+    source
+  });
+}
+
 async function applyReceivableOffset(base44, hostId, amount, now) {
   const receivables = await base44.asServiceRole.entities.HostReceivable.filter({ host_id: hostId });
   let remainingOffset = Math.max(0, amount);
@@ -264,7 +298,7 @@ function friendlyPaymentRetryMessage(booking, retryAttempt, errorMessage) {
   return `Payment recovery retry ${retryAttempt} failed for ${booking.vehicle_name || booking.id}: ${errorMessage}`;
 }
 
-async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now) {
+async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now, skipPayout = false) {
   const nextDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const nextBillingDate = nextDate.toISOString().split("T")[0];
   const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
@@ -396,7 +430,7 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     metadata: { payment_log_id: paymentLog.id, dedupe_key: paymentDedupeKey, source_type: sourceType },
   });
 
-  if (booking.host_id) {
+  if (booking.host_id && !skipPayout) {
     const recHosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
     const recHost = recHosts[0];
     if (recHost?.stripe_onboarding_complete && recHost?.stripe_account_id) {
@@ -564,6 +598,24 @@ Deno.serve(async (req) => {
 
         console.log(`[PaymentEnforcement] Retry ${retryAttempt} for ${booking.id} — base=$${baseAmount} gross=$${grossedAmount}`);
 
+        const { commerce, plan } = await resolveCommerceAndPlan(base44, booking.host_id || '');
+        const isFleetOS = isFleetOSProfile(commerce, plan);
+        const fleetOSHostStripeReady = commerce?.payment_processor === 'host_stripe' && commerce?.online_payments_enabled && commerce?.stripe_account_id;
+
+        if (isFleetOS && !fleetOSHostStripeReady) {
+          const reason = 'FleetOS payment recovery skipped: host Stripe is missing, disabled, or incomplete. uRide Stripe was not touched.';
+          await createFleetOSPaymentAlert(base44, booking, reason);
+          await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+            booking_status: 'payment_due',
+            payment_status: 'failed',
+            payment_failure_reason: reason,
+            last_retry_at: now.toISOString(),
+          });
+          results.skipped++;
+          continue;
+        }
+
+        const stripeOptions = isFleetOS ? { stripeAccount: commerce.stripe_account_id } : {};
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(grossedAmount * 100),
           currency: "usd",
@@ -571,12 +623,12 @@ Deno.serve(async (req) => {
           payment_method: booking.stripe_payment_method_id,
           off_session: true,
           confirm: true,
-          description: `uRide payment recovery retry ${retryAttempt} — ${booking.vehicle_name}`,
-          metadata: { booking_request_id: booking.id, payment_recovery_retry: `${retryAttempt}`, billing_context: 'rental_marketplace_payment' },
-        });
+          description: isFleetOS ? `Host payment recovery retry ${retryAttempt} — ${booking.vehicle_name}` : `uRide payment recovery retry ${retryAttempt} — ${booking.vehicle_name}`,
+          metadata: { booking_request_id: booking.id, payment_recovery_retry: `${retryAttempt}`, billing_context: isFleetOS ? 'fleetos_host_direct_payment' : 'rental_marketplace_payment', payment_processor: isFleetOS ? 'host_stripe' : 'uride_stripe' },
+        }, stripeOptions);
 
         if (paymentIntent.status === "succeeded") {
-          await restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now);
+          await restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now, isFleetOS);
           results.recovered++;
         }
       } catch (retryErr) {

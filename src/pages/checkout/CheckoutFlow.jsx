@@ -242,6 +242,11 @@ export default function CheckoutFlow() {
             (b) => [...STALE_STATUSES, "draft", "pending_payment"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
           );
           await Promise.all(allStaleToCancel.map((b) => cancelStaleMutation.mutateAsync(b.id)));
+          const dueNow = type === "Monthly"
+            ? (v.monthly_rate || (v.weekly_rate || 0) * 4)
+            : type === "Commercial"
+            ? (v.monthly_rate || (v.weekly_rate || 0) * 4)
+            : v.weekly_rate || 0;
           await createMutation.mutateAsync({
             vehicle_id: v.id,
             vehicle_name: `${v.year} ${v.make} ${v.model}`,
@@ -249,9 +254,10 @@ export default function CheckoutFlow() {
             booking_type: type,
             city: v.city || v.current_city,
             weekly_rate: v.weekly_rate,
+            monthly_rate: v.monthly_rate,
             deposit_amount: 0,
-            first_payment_amount: v.weekly_rate || 0,
-            total_due_now: v.weekly_rate || 0,
+            first_payment_amount: dueNow,
+            total_due_now: dueNow,
             booking_status: "draft",
             booking_source: storefrontSlug ? "direct" : "marketplace",
             checkout_step: "account",

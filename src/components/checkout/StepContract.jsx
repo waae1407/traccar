@@ -3,9 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { FileText, PenLine, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react";
 import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
-import { generateWeeklyContract } from "./contracts/WeeklyRentalContract";
-import { generateRTOContract } from "./contracts/RentToOwnContract";
 import { templateForBookingType } from "./contracts/contractTemplateConfig";
+import { generateContractDocument } from "./contracts/ContractDocument";
 import InitialClause from "./InitialClause";
 
 // ─── Clause definitions ────────────────────────────────────────────────────────
@@ -53,19 +52,53 @@ const RTO_CLAUSE = {
 export default function StepContract({ booking, vehicle, saveAndAdvance }) {
   const isRTO = booking?.booking_type === "Rent-to-Own";
   const templateConfig = templateForBookingType(booking?.booking_type);
-  const { data: templates = [] } = useQuery({
+  const { data: hostTemplates = [] } = useQuery({
     queryKey: ["contract-template", booking?.host_id, templateConfig.type],
     queryFn: () => base44.entities.ContractTemplate.filter({ host_id: booking.host_id, template_type: templateConfig.type, status: "active" }, "-updated_date", 1),
     enabled: !!booking?.host_id,
   });
-  const activeTemplate = templates[0];
-  const baseContractHTML = isRTO ? generateRTOContract(booking) : generateWeeklyContract(booking);
+  const { data: defaultTemplates = [] } = useQuery({
+    queryKey: ["contract-template-default", templateConfig.type],
+    queryFn: () => base44.entities.ContractTemplate.filter({ host_id: "default", template_type: templateConfig.type, status: "active" }, "-updated_date", 1),
+    enabled: !!templateConfig.type,
+  });
+  const { data: commerceProfiles = [] } = useQuery({
+    queryKey: ["contract-commerce-profile", booking?.host_id],
+    queryFn: () => base44.entities.HostCommerceProfile.filter({ host_id: booking.host_id }, "-updated_date", 1),
+    enabled: !!booking?.host_id,
+  });
+  const { data: plans = [] } = useQuery({
+    queryKey: ["contract-operator-plan", booking?.host_id],
+    queryFn: () => base44.entities.OperatorPlanConfiguration.filter({ host_id: booking.host_id }, "-updated_date", 1),
+    enabled: !!booking?.host_id,
+  });
+  const { data: hosts = [] } = useQuery({
+    queryKey: ["contract-host", booking?.host_id],
+    queryFn: () => base44.entities.Host.filter({ id: booking.host_id }),
+    enabled: !!booking?.host_id,
+  });
+  const activeTemplate = hostTemplates[0] || defaultTemplates[0];
+  const commerceProfile = commerceProfiles[0];
+  const plan = plans[0];
+  const host = hosts[0];
+  const isFleetOSContract = commerceProfile?.plan_type === "fleetos_professional" || plan?.active_mode === "fleetos_professional" || plan?.selected_mode === "fleetos_professional";
+  const contractType = templateConfig.type;
+  const baseContractHTML = generateContractDocument({
+    booking,
+    contractType,
+    isFleetOS: isFleetOSContract,
+    hostName: host?.business_name || host?.full_name,
+  });
+  const templateHTML = activeTemplate?.template_html ? `<hr/><h3>Template Terms</h3>${activeTemplate.template_html}` : "";
   const policyHTML = activeTemplate ? `<hr/><h3>Host Policies</h3><p><strong>Deposit:</strong> $${activeTemplate.deposit || 0}</p><p><strong>Late Fees:</strong> ${activeTemplate.late_fees || "Standard late fees apply."}</p><p><strong>Mileage:</strong> ${activeTemplate.mileage_rules || "Standard mileage rules apply."}</p><p><strong>Insurance:</strong> ${activeTemplate.insurance_requirements || "Valid insurance is required."}</p><p><strong>Smoking Fees:</strong> ${activeTemplate.smoking_fees || "Smoking is prohibited."}</p><p><strong>Return Policy:</strong> ${activeTemplate.return_policies || "Vehicle must be returned in the same condition."}</p>` : "";
-  const contractHTML = `${baseContractHTML}${policyHTML}`;
-  const contractType = isRTO ? "rent_to_own" : "weekly";
+  const contractHTML = `${baseContractHTML}${templateHTML}${policyHTML}`;
   const contractVersion = activeTemplate?.version || templateConfig.version;
 
-  const clauses = isRTO ? [...COMMON_CLAUSES, RTO_CLAUSE] : COMMON_CLAUSES;
+  const providerName = isFleetOSContract ? (host?.business_name || host?.full_name || "Host Business") : "uRide";
+  const commonClauses = isFleetOSContract
+    ? COMMON_CLAUSES.map((clause) => ({ ...clause, text: clause.text.replaceAll("uRide", providerName) }))
+    : COMMON_CLAUSES;
+  const clauses = isRTO ? [...commonClauses, RTO_CLAUSE] : commonClauses;
 
   // initials state: { clause_id: string }
   const [initials, setInitials, clearInitialsDraft] = usePersistentFormDraft(
@@ -124,7 +157,7 @@ export default function StepContract({ booking, vehicle, saveAndAdvance }) {
         </div>
         <div>
           <h2 className="font-bold text-gray-900 text-xl">
-            {isRTO ? "Rent-to-Own Agreement" : "Weekly Rental Agreement"}
+            {templateConfig.label}
           </h2>
           <p className="text-gray-400 text-sm">Version {contractVersion} · Initial each clause below.</p>
         </div>

@@ -45,7 +45,8 @@
         "Daily",
         "Weekly",
         "Monthly",
-        "Rent-to-Own"
+        "Rent-to-Own",
+        "Commercial"
       ]
     },
     "start_date": {
@@ -167,6 +168,9 @@
     "weekly_rate": {
       "type": "number"
     },
+    "monthly_rate": {
+      "type": "number"
+    },
     "deposit_amount": {
       "type": "number"
     },
@@ -236,7 +240,10 @@
       "type": "string",
       "enum": [
         "weekly",
-        "rent_to_own"
+        "rent_to_own",
+        "weekly_rental",
+        "monthly_rental",
+        "commercial_fleet"
       ]
     },
     "contract_version": {
