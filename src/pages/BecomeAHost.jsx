@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { ArrowRight, Building2, Lock, Mail, Store } from "lucide-react";
+import { ArrowRight, Building2, Store } from "lucide-react";
 import PlanChoiceCard from "@/components/host/onboarding/PlanChoiceCard";
 import StorefrontSuccessPanel from "@/components/host/onboarding/StorefrontSuccessPanel";
 import PostSignupChecklist from "@/components/host/onboarding/PostSignupChecklist";
@@ -48,15 +48,9 @@ export default function BecomeAHost() {
   const { user, checkAppState } = useAuth();
   const [selectedMode, setSelectedMode] = useState("marketplace_partner");
   const [storeName, setStoreName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
-
-  useEffect(() => {
-    if (user?.email) setEmail(user.email);
-  }, [user?.email]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -140,23 +134,8 @@ export default function BecomeAHost() {
                   </div>
                 </label>
 
-                <label className="block">
-                  <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Email *</span>
-                  <div className="mt-2 relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" required disabled={!!user?.email} className="w-full rounded-2xl bg-gray-50 border border-gray-200 pl-11 pr-4 py-3.5 text-gray-900 focus:outline-none focus:border-pink-400 disabled:opacity-70" />
-                  </div>
-                </label>
-
                 {!user && (
-                  <label className="block">
-                    <span className="text-xs font-black text-gray-500 uppercase tracking-wider">Password *</span>
-                    <div className="mt-2 relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Create a secure password" required className="w-full rounded-2xl bg-gray-50 border border-gray-200 pl-11 pr-4 py-3.5 text-gray-900 focus:outline-none focus:border-pink-400" />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1.5">Account creation is completed through uRide's secure sign-up screen.</p>
-                  </label>
+                  <p className="text-xs text-gray-400 -mt-1">We’ll ask you to sign in after you choose your store name.</p>
                 )}
 
                 <div className="rounded-2xl bg-pink-50 border border-pink-100 p-3">
@@ -167,7 +146,7 @@ export default function BecomeAHost() {
 
                 {error && <div className="rounded-2xl bg-red-50 border border-red-100 p-3 text-sm text-red-600">{error}</div>}
 
-                <button disabled={loading || (!user && !password)} className="w-full rounded-2xl py-4 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+                <button disabled={loading} className="w-full rounded-2xl py-4 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                   {loading ? "Creating Store…" : "Create My Store"} <ArrowRight className="h-4 w-4" />
                 </button>
               </div>

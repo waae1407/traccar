@@ -1,26 +1,25 @@
 import React from "react";
-import { Car, DollarSign, Camera, ShieldCheck, CreditCard, FileText, ArrowRight } from "lucide-react";
+import { Car, DollarSign, CreditCard, FileText, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const checklistByMode = {
   marketplace_partner: [
-    [Car, "Add Vehicle", "/host/vehicles"],
-    [DollarSign, "Add Pricing", "/host/vehicles"],
-    [Camera, "Add Photos", "/host/vehicles"],
-    [ShieldCheck, "Complete Verification", "/host/compliance"],
+    [Car, "Add your first vehicle", "/host/vehicles"],
+    [DollarSign, "Add pricing", "/host/vehicles"],
+    [CreditCard, "Connect Stripe, if needed", "/host/business-operations"],
+    [FileText, "Customize storefront", "/host/brand"],
   ],
   hybrid_growth: [
-    [Car, "Add Vehicle", "/host/vehicles"],
-    [DollarSign, "Add Pricing", "/host/vehicles"],
-    [Camera, "Add Photos", "/host/vehicles"],
-    [ShieldCheck, "Complete Verification", "/host/compliance"],
-    [CreditCard, "Connect Stripe", "/host/business-operations"],
+    [Car, "Add your first vehicle", "/host/vehicles"],
+    [DollarSign, "Add pricing", "/host/vehicles"],
+    [CreditCard, "Connect Stripe, if needed", "/host/business-operations"],
+    [FileText, "Customize storefront", "/host/brand"],
   ],
   fleetos_professional: [
-    [Car, "Add Vehicle", "/host/vehicles"],
-    [DollarSign, "Add Pricing", "/host/vehicles"],
-    [CreditCard, "Connect Stripe", "/host/business-operations"],
-    [FileText, "Configure Contract Template", "/host/business-operations"],
+    [Car, "Add your first vehicle", "/host/vehicles"],
+    [DollarSign, "Add pricing", "/host/vehicles"],
+    [CreditCard, "Connect Stripe, if needed", "/host/business-operations"],
+    [FileText, "Customize storefront", "/host/brand"],
   ],
 };
 
