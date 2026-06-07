@@ -3,33 +3,67 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { LayoutDashboard, Car, DollarSign, Shield, FileKey, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2, CreditCard, ClipboardCheck, ShieldAlert, Satellite } from "lucide-react";
+import { LayoutDashboard, Car, DollarSign, Shield, FileKey, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2, CreditCard, ClipboardCheck, ShieldAlert, Satellite, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import HostAlarmAttentionBanner from "@/components/host/HostAlarmAttentionBanner";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
-const baseNavItems = [
+const quickLinks = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/host/dashboard" },
-  { label: "My Vehicles", icon: Car, path: "/host/vehicles" },
-  { label: "Vehicle Command", icon: Zap, path: "/host/vehicle-command-center" },
-  { label: "Telematics", icon: Satellite, path: "/host/telematics" },
-  { label: "Command Verification", icon: Zap, path: "/host/telematics-command-test" },
-  { label: "Brand Builder", icon: Sparkles, path: "/host/brand" },
-  { label: "Customers", icon: Users, path: "/host/customers" },
-  { label: "Payments", icon: CreditCard, path: "/host/payments" },
-  { label: "Payment Alerts", icon: ShieldAlert, path: "/host/payment-alerts" },
-  { label: "Communications", icon: MessageSquare, path: "/host/communications" },
-  { label: "Return Reviews", icon: ClipboardCheck, path: "/host/return-reviews" },
-  { label: "Payouts", icon: DollarSign, path: "/host/payouts" },
-  { label: "Expenses", icon: Receipt, path: "/host/expenses" },
-  { label: "Maintenance", icon: Wrench, path: "/host/maintenance" },
-  { label: "P&L Dashboard 💰", icon: BarChart2, path: "/host/pnl" },
-  { label: "Compliance", icon: Shield, path: "/host/compliance" },
-  { label: "RTO Contracts", icon: FileKey, path: "/host/rto" },
-  { label: "Verification & Tax", icon: Shield, path: "/host/verification" },
-  { label: "Business Operations", icon: Sparkles, path: "/host/business-operations" },
-  { label: "AI Assistant", icon: MessageSquare, path: "/host/chat" },
+];
+
+const hostMenuSections = [
+  {
+    label: "Fleet",
+    icon: Car,
+    items: [
+      { label: "My Vehicles", icon: Car, path: "/host/vehicles" },
+      { label: "Vehicle Command", icon: Zap, path: "/host/vehicle-command-center" },
+      { label: "Telematics", icon: Satellite, path: "/host/telematics" },
+      { label: "Command Verification", icon: Zap, path: "/host/telematics-command-test" },
+      { label: "Dealer Network", icon: Car, path: "/host/dealer-network", requiresDealer: true },
+    ],
+  },
+  {
+    label: "Storefront",
+    icon: Sparkles,
+    items: [
+      { label: "Brand Builder", icon: Sparkles, path: "/host/brand" },
+      { label: "Business Operations", icon: Sparkles, path: "/host/business-operations" },
+    ],
+  },
+  {
+    label: "Customers",
+    icon: Users,
+    items: [
+      { label: "Customers", icon: Users, path: "/host/customers" },
+      { label: "Communications", icon: MessageSquare, path: "/host/communications" },
+      { label: "AI Assistant", icon: MessageSquare, path: "/host/chat" },
+    ],
+  },
+  {
+    label: "Financial",
+    icon: DollarSign,
+    items: [
+      { label: "Payments", icon: CreditCard, path: "/host/payments" },
+      { label: "Payment Alerts", icon: ShieldAlert, path: "/host/payment-alerts" },
+      { label: "Payouts", icon: DollarSign, path: "/host/payouts" },
+      { label: "Expenses", icon: Receipt, path: "/host/expenses" },
+      { label: "P&L Dashboard 💰", icon: BarChart2, path: "/host/pnl" },
+    ],
+  },
+  {
+    label: "Operations",
+    icon: Wrench,
+    items: [
+      { label: "Maintenance", icon: Wrench, path: "/host/maintenance" },
+      { label: "Compliance", icon: Shield, path: "/host/compliance" },
+      { label: "Return Reviews", icon: ClipboardCheck, path: "/host/return-reviews" },
+      { label: "RTO Contracts", icon: FileKey, path: "/host/rto" },
+      { label: "Verification & Tax", icon: Shield, path: "/host/verification" },
+    ],
+  },
 ];
 
 // Internal-only / secondary host routes — accessible via direct URL, hidden from nav:
@@ -42,6 +76,7 @@ export default function HostLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openSections, setOpenSections] = useState({});
 
   const { data: hosts = [] } = useQuery({
     queryKey: ["host-layout-host", user?.email],
@@ -56,9 +91,33 @@ export default function HostLayout() {
   });
   const plan = plans[0];
   const showDealerNetwork = plan?.dealer_network_enabled || ["pending_payment", "active"].includes(plan?.dealer_network_membership_status);
-  const navItems = showDealerNetwork
-    ? [...baseNavItems.slice(0, 3), { label: "Dealer Network", icon: Car, path: "/host/dealer-network" }, ...baseNavItems.slice(3)]
-    : baseNavItems;
+  const visibleSections = hostMenuSections
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => !item.requiresDealer || showDealerNetwork),
+    }))
+    .filter(section => section.items.length > 0);
+
+  const isItemActive = (item) => location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+  const toggleSection = (label) => setOpenSections(prev => ({ ...prev, [label]: !prev[label] }));
+
+  const HostNavLink = ({ item }) => {
+    const isActive = isItemActive(item);
+    return (
+      <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
+        className={cn(
+          "group flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all",
+          isActive
+            ? "text-pink-600 font-semibold"
+            : "text-gray-400 hover:text-gray-900 hover:bg-gray-50"
+        )}
+        style={isActive ? { background: "linear-gradient(135deg, hsl(338 90% 56% / 0.08), hsl(265 80% 62% / 0.06))", border: "1px solid hsl(338 90% 56% / 0.15)" } : {}}>
+        <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-pink-600" : "text-gray-400 group-hover:text-gray-600")} />
+        <span>{item.label}</span>
+        {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />}
+      </Link>
+    );
+  };
 
   return (
     <div className="min-h-screen" style={{ fontFamily: "var(--font-inter)", background: "#f8f8fa" }}>
@@ -86,23 +145,34 @@ export default function HostLayout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-300 px-3 mb-3">Host Menu</p>
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+          <HostNavLink item={quickLinks[0]} />
+          <div className="my-2 border-t border-gray-100" />
+
+          {visibleSections.map((section) => {
+            const sectionActive = section.items.some(isItemActive);
+            const isOpen = openSections[section.label] ?? sectionActive;
             return (
-              <Link key={item.path} to={item.path} onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "group flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-all",
-                  isActive
-                    ? "text-pink-600 font-semibold"
-                    : "text-gray-400 hover:text-gray-900 hover:bg-gray-50"
+              <div key={section.label} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.label)}
+                  className={cn(
+                    "w-full group flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-semibold transition-all",
+                    sectionActive ? "text-gray-950 bg-gray-50" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                  )}
+                >
+                  <section.icon className={cn("h-4 w-4 flex-shrink-0", sectionActive ? "text-pink-600" : "text-gray-400 group-hover:text-gray-600")} />
+                  <span className="flex-1 text-left">{section.label}</span>
+                  <ChevronDown className={cn("h-4 w-4 text-gray-300 transition-transform", isOpen && "rotate-180")} />
+                </button>
+                {isOpen && (
+                  <div className="ml-4 pl-3 border-l border-gray-100 space-y-1">
+                    {section.items.map((item) => <HostNavLink key={item.path} item={item} />)}
+                  </div>
                 )}
-                style={isActive ? { background: "linear-gradient(135deg, hsl(338 90% 56% / 0.08), hsl(265 80% 62% / 0.06))", border: "1px solid hsl(338 90% 56% / 0.15)" } : {}}>
-                <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-pink-600" : "text-gray-400 group-hover:text-gray-600")} />
-                <span>{item.label}</span>
-                {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />}
-              </Link>
+              </div>
             );
           })}
         </nav>
