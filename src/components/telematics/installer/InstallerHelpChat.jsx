@@ -8,13 +8,20 @@ export default function InstallerHelpChat({ open, onOpenChange, contextTest, onR
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
 
-  const seed = contextTest ? getInstallerTip(contextTest) : 'What failed? I can help with power, GPS, ignition, locks, horn, lights, or starter.';
+  const seed = contextTest
+    ? `${getInstallerTip(contextTest)}\n\nAsk me for MT2V wiring diagram, LED codes, SIM/eSIM support, APN setup, SMS commands, or installation checklist.`
+    : 'What failed? I can help with MT2V wiring diagrams, LED codes, SIM/eSIM support, APN setup, SMS commands, GPS, ignition, locks, horn, lights, or starter.';
   const visibleMessages = messages.length ? messages : [{ role: 'assistant', content: seed }];
+
+  const ask = (value) => {
+    if (!value) return;
+    setMessages(prev => [...prev, { role: 'user', content: value }, { role: 'assistant', content: getInstallerChatReply(value, contextTest) }]);
+  };
 
   const send = () => {
     const value = text.trim();
     if (!value) return;
-    setMessages(prev => [...prev, { role: 'user', content: value }, { role: 'assistant', content: getInstallerChatReply(value, contextTest) }]);
+    ask(value);
     setText('');
   };
 
@@ -34,7 +41,12 @@ export default function InstallerHelpChat({ open, onOpenChange, contextTest, onR
       </div>
       <div className="max-h-56 space-y-2 overflow-auto rounded-3xl bg-slate-50 p-3">
         {visibleMessages.map((message, index) => (
-          <div key={index} className={`rounded-2xl px-3 py-2 text-sm font-semibold ${message.role === 'user' ? 'ml-8 bg-slate-950 text-white' : 'mr-8 bg-white text-slate-700 shadow-sm'}`}>{message.content}</div>
+          <div key={index} className={`whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm font-semibold ${message.role === 'user' ? 'ml-8 bg-slate-950 text-white' : 'mr-8 bg-white text-slate-700 shadow-sm'}`}>{message.content}</div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {['Wiring diagram', 'LED codes', 'SIM/eSIM?', 'APN setup'].map((prompt) => (
+          <Button key={prompt} type="button" variant="outline" onClick={() => ask(prompt)} className="h-8 rounded-full border-slate-200 bg-white px-3 text-xs font-black text-slate-700">{prompt}</Button>
         ))}
       </div>
       <div className="mt-3 flex gap-2">
