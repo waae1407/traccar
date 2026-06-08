@@ -73,7 +73,7 @@ export default function HomePathCards() {
             </div>
           </div>
 
-          <h2 className="text-xl font-black mt-3 mb-1" style={{ fontFamily: "var(--font-syne)", color: "rgba(255,255,255,0.95)", textShadow: "0 1px 6px rgba(0,0,0,0.2)" }}>Launch a Rental Business</h2>
+          <h2 className="text-xl font-black mt-3 mb-1" style={{ fontFamily: "var(--font-syne)", color: "rgba(255,255,255,0.95)", textShadow: "0 1px 6px rgba(0,0,0,0.2)" }}>I Own Vehicles</h2>
           <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.88)" }}>Launch your own rental storefront and turn idle vehicles into recurring income.</p>
 
           <div className="space-y-2 mb-4">
@@ -86,7 +86,7 @@ export default function HomePathCards() {
           </div>
 
           <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/15 text-white text-xs font-bold">
-            Launch a Rental Business <ArrowRight className="h-3 w-3" />
+            Become a Fleet Partner <ArrowRight className="h-3 w-3" />
           </span>
         </div>
       </Link>
