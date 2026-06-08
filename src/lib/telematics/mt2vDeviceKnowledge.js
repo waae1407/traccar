@@ -9,48 +9,38 @@ export const MT2V_DEVICE_KNOWLEDGE = {
 • 3-second flash: GPS is acquiring location.
 • Steady on: GSM registered and GPS locked.
 • 0.1s on/off for over 3 minutes: SIM card issue — reseat SIM and confirm service.`,
-  wiringDiagram: `MT2V WIRING SKETCH
+  wiringDiagram: `MT2V WIRING SKETCH — INSTALLER VIEW
 
-                         ┌───────────────────┐
-                         │    MT2V DEVICE    │
-                         │  Car GPS Tracker  │
-                         └─────────┬─────────┘
-                                   │
-        ┌──────────────────────────┴──────────────────────────┐
-        │                                                     │
-┌───────▼────────┐                                  ┌─────────▼──────────┐
-│ INTERFACE 1    │                                  │ INTERFACE 2         │
-│ Output Control │                                  │ Power / Inputs      │
-└───────┬────────┘                                  └─────────┬──────────┘
-        │                                                     │
-        │                                                     │
-  ┌─────▼────────────────────┐                   ┌────────────▼────────────┐
-  │ 1 Horn In   ──┐          │                   │ 1 DC+      ── RED ─────► Battery + 9–36V
-  │ 2 Horn Out  ──┴─► Horn   │                   │ 6 GND      ── BLACK ───► Vehicle Ground
-  │                           │                   │ 4 ACC      ── YELLOW ─► Ignition / Accessory
-  │ 3 Kill In   ──┐          │                   │                            
-  │ 4 Kill Out  ──┴─► Starter│                   │ 3 Lock In   ───────────► Lock Trigger
-  │                  / Fuel  │                   │ 8 Lock Out  ───────────► Lock Relay
-  │                  Cut     │                   │ 5 Unlock In ───────────► Unlock Trigger
-  │                           │                   │10 Unlock Out───────────► Unlock Relay
-  │ 5 Light In  ──┐          │                   │ 9 Door      ───────────► Door Sensor
-  │ 6 Light Out ──┴─► Lights │                   │ 7 SOS       ───────────► SOS Button
-  └──────────────────────────┘                   │ 2 Analog   ───────────► Optional Sensor
-                                                 └─────────────────────────┘
+[VEHICLE BATTERY +]
+        │
+        ▼
+Fuse / protected power
+        │
+        ▼
+MT2V DC+  Pin 1
 
-ANTENNAS
-┌──────────────────────┐     ┌──────────────────────┐
-│ GPS antenna          │     │ GSM antenna          │
-│ Mount with clear sky │     │ Mount for best signal│
-│ view, away from metal│     │ outside / unobstructed│
-└──────────────────────┘     └──────────────────────┘
+[VEHICLE GROUND] ─────────────► MT2V GND  Pin 6
+[IGNITION / ACC] ─────────────► MT2V ACC  Pin 4
 
-CRITICAL POWER CHECK
-Battery +  ─────────────► DC+ Pin 1
-Battery -  ─────────────► GND Pin 6
-Ignition   ─────────────► ACC Pin 4
+CONTROL WIRES
+Horn        Interface 1 Pins 1–2  ─────► Horn circuit
+Starter cut Interface 1 Pins 3–4  ─────► Starter / fuel cut relay
+Lights      Interface 1 Pins 5–6  ─────► Light circuit
+Lock        Interface 2 Pins 3 & 8 ─────► Lock trigger / relay
+Unlock      Interface 2 Pins 5 & 10 ────► Unlock trigger / relay
+Door        Interface 2 Pin 9     ─────► Door sensor
+SOS         Interface 2 Pin 7     ─────► SOS button
+Analog      Interface 2 Pin 2     ─────► Optional sensor
 
-If the device has no LED/status: check DC+, GND, fuse, and polarity first.`,
+ANTENNA PLACEMENT
+GPS antenna: clear sky view, away from metal.
+GSM antenna: open signal area, not buried under metal trim.
+
+FIRST CHECK IF DEVICE DOES NOT POWER ON
+1. DC+ has 9–36V constant power.
+2. GND is solid chassis ground.
+3. ACC changes with ignition/accessory.
+4. Fuse and polarity are correct.`,
   commands: `Useful MT2V SMS commands:
 • Location: A000000,000
 • Change password: A000000,001,{newPassword}
