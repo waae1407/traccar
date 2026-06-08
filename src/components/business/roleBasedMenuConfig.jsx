@@ -1,0 +1,157 @@
+import {
+  LayoutDashboard, Users, Car, CalendarDays, DollarSign,
+  Wrench, BarChart3, Building2, Gift, Home, Wallet, Zap,
+  Shield, MapPin, ClipboardList, Activity, MessageSquare, Star, Camera,
+  ShieldAlert, Satellite, Settings, Network,
+} from "lucide-react";
+
+export const BUSINESS_PORTAL_ROLES = {
+  ADMIN: "admin",
+  HOST: "host",
+};
+
+export const masterQuickLinks = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    paths: {
+      admin: "/dashboard",
+      host: "/host/dashboard",
+    },
+    roles: ["admin", "host"],
+  },
+  {
+    id: "book-now",
+    label: "Book Now ↗",
+    icon: Car,
+    paths: {
+      admin: "/",
+    },
+    roles: ["admin"],
+    special: true,
+  },
+];
+
+export const masterMenuSections = [
+  {
+    label: "Accounts",
+    icon: Users,
+    items: [
+      { id: "customers", label: "Customers", icon: Users, paths: { admin: "/customers", host: "/host/customers" }, roles: ["admin", "host"] },
+      { id: "hosts", label: "Hosts", icon: Home, paths: { admin: "/admin/hosts" }, roles: ["admin"], badgeKey: "pendingHosts" },
+    ],
+  },
+  {
+    label: "Fleet",
+    icon: Car,
+    items: [
+      { id: "vehicles", label: "Vehicles", icon: Car, paths: { admin: "/vehicles", host: "/host/vehicles" }, roles: ["admin", "host"] },
+      { id: "maintenance", label: "Maintenance", icon: Wrench, paths: { admin: "/admin/maintenance", host: "/host/maintenance" }, roles: ["admin", "host"] },
+      { id: "reports", label: "Reports", icon: BarChart3, paths: { admin: "/reports", host: "/host/reports" }, roles: ["admin", "host"] },
+    ],
+  },
+  {
+    label: "Bookings",
+    icon: CalendarDays,
+    items: [
+      { id: "bookings", label: "Bookings", icon: CalendarDays, paths: { admin: "/bookings-admin" }, roles: ["admin"] },
+      { id: "rto-contracts", label: "RTO Contracts", icon: Shield, paths: { host: "/host/rto" }, roles: ["host"] },
+    ],
+  },
+  {
+    label: "Financial",
+    icon: DollarSign,
+    items: [
+      { id: "payments", label: "Payments", icon: DollarSign, paths: { admin: "/payments", host: "/host/payments" }, roles: ["admin", "host"] },
+      { id: "pnl", label: "P&L Dashboard", icon: BarChart3, paths: { admin: "/admin/pnl", host: "/host/pnl" }, roles: ["admin", "host"] },
+      { id: "payouts", label: "Host Payouts", hostLabel: "Payouts", icon: Wallet, paths: { admin: "/admin/payouts", host: "/host/payouts" }, roles: ["admin", "host"] },
+      { id: "expenses", label: "Expenses", icon: DollarSign, paths: { admin: "/admin/expenses", host: "/host/expenses" }, roles: ["admin", "host"] },
+      { id: "payment-alerts", label: "Payment Alerts", icon: ShieldAlert, paths: { admin: "/admin/payment-alerts", host: "/host/payment-alerts" }, roles: ["admin", "host"] },
+    ],
+  },
+  {
+    label: "Operations",
+    icon: Activity,
+    items: [
+      { id: "operations-center", label: "Operations Center", icon: Activity, paths: { admin: "/admin/operations" }, roles: ["admin"] },
+      { id: "compliance-queue", label: "Compliance Queue", hostLabel: "Compliance", icon: ClipboardList, paths: { admin: "/admin/compliance-queue", host: "/host/compliance" }, roles: ["admin", "host"] },
+      { id: "disputes", label: "Disputes", icon: Shield, paths: { admin: "/admin/disputes" }, roles: ["admin"] },
+      { id: "communications", label: "Communications", icon: MessageSquare, paths: { admin: "/admin/communications", host: "/host/communications" }, roles: ["admin", "host"] },
+      { id: "return-reviews", label: "Return Reviews", icon: ClipboardList, paths: { host: "/host/return-reviews" }, roles: ["host"] },
+      { id: "verification-tax", label: "Verification & Tax", icon: Shield, paths: { host: "/host/verification" }, roles: ["host"] },
+    ],
+  },
+  {
+    label: "Telematics",
+    icon: Satellite,
+    items: [
+      { id: "gps-monitor", label: "GPS Monitor", hostLabel: "GPS / Telematics", icon: MapPin, paths: { admin: "/admin/gps-monitor", host: "/host/telematics" }, roles: ["admin", "host"] },
+      { id: "vehicle-command", label: "Vehicle Command Center", icon: Zap, paths: { admin: "/admin/vehicle-command-center", host: "/host/vehicle-command-center" }, roles: ["admin", "host"] },
+      { id: "telematics-setup", label: "Telematics Setup", icon: Satellite, paths: { admin: "/admin/telematics" }, roles: ["admin"] },
+      { id: "command-verification", label: "Command Verification", icon: Zap, paths: { admin: "/admin/telematics-command-test", host: "/host/telematics-command-test" }, roles: ["admin", "host"] },
+      { id: "installer-portal", label: "Installer Portal", icon: Wrench, paths: { admin: "/installer/telematics" }, roles: ["admin"] },
+      { id: "telematics-operations", label: "Telematics Operations", icon: Activity, paths: { admin: "/admin/telematics-operations" }, roles: ["admin"] },
+      { id: "telematics-rollout", label: "Telematics Rollout", icon: BarChart3, paths: { admin: "/admin/telematics-rollout" }, roles: ["admin"] },
+      { id: "network-readiness", label: "Network Readiness", icon: Satellite, paths: { admin: "/admin/traccar-readiness" }, roles: ["admin"] },
+    ],
+  },
+  {
+    label: "Trust & Quality",
+    icon: Shield,
+    items: [
+      { id: "reputation-validation", label: "Reputation Validation", icon: Activity, paths: { admin: "/admin/reputation-validation" }, roles: ["admin"] },
+      { id: "review-moderation", label: "Review Moderation", icon: Star, paths: { admin: "/admin/review-moderation" }, roles: ["admin"] },
+      { id: "inspection-oversight", label: "Inspection Oversight", icon: Camera, paths: { admin: "/admin/inspection-oversight" }, roles: ["admin"] },
+    ],
+  },
+  {
+    label: "Network",
+    icon: Network,
+    items: [
+      { id: "dealer-network", label: "Dealer Network", icon: Car, paths: { admin: "/admin/dealer-network", host: "/host/dealer-network" }, roles: ["admin", "host"], requiresDealer: true },
+      { id: "referrals", label: "Referrals", icon: Gift, paths: { admin: "/referrals" }, roles: ["admin"] },
+    ],
+  },
+  {
+    label: "Platform",
+    icon: Settings,
+    items: [
+      { id: "companies", label: "Companies", icon: Building2, paths: { admin: "/companies" }, roles: ["admin"], superadminOnly: true },
+      { id: "ai-oracle", label: "AI Oracle", icon: Zap, paths: { admin: "/admin/ai-chat" }, roles: ["admin"] },
+      { id: "brand-builder", label: "Brand Builder", icon: Settings, paths: { host: "/host/brand" }, roles: ["host"] },
+      { id: "business-operations", label: "Business Operations", icon: Settings, paths: { host: "/host/business-operations" }, roles: ["host"] },
+      { id: "host-ai", label: "AI Assistant", icon: MessageSquare, paths: { host: "/host/chat" }, roles: ["host"] },
+    ],
+  },
+];
+
+function materializeItem(item, role) {
+  const path = item.paths?.[role];
+  if (!path || !item.roles?.includes(role)) return null;
+  return {
+    ...item,
+    label: role === "host" && item.hostLabel ? item.hostLabel : item.label,
+    path,
+  };
+}
+
+export function getBusinessPortalMenu({ role, isSuperadmin = false, showDealerNetwork = true }) {
+  const quickLinks = masterQuickLinks
+    .map((item) => materializeItem(item, role))
+    .filter(Boolean)
+    .filter((item) => !item.superadminOnly || isSuperadmin);
+
+  const sections = masterMenuSections
+    .map((section) => ({
+      ...section,
+      items: section.items
+        .map((item) => materializeItem(item, role))
+        .filter(Boolean)
+        .filter((item) => !item.superadminOnly || isSuperadmin)
+        .filter((item) => !item.requiresDealer || role === "admin" || showDealerNetwork),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  return { quickLinks, sections };
+}
