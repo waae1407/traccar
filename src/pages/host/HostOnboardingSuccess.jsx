@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, Copy, ExternalLink, Share2, LayoutDashboard, Car } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, Share2, LayoutDashboard } from "lucide-react";
 
 export default function HostOnboardingSuccess() {
   const [copied, setCopied] = useState(false);
@@ -20,18 +20,22 @@ export default function HostOnboardingSuccess() {
       const host = hosts?.[0];
       if (!host?.id) return { user, host: null, brand: null, plan: null };
 
-      const [brands, plans] = await Promise.all([
+      const [brands, plans, subscriptions] = await Promise.all([
         base44.entities.HostBrandSettings.filter({ host_id: host.id }, "-updated_date", 1),
         base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }, "-updated_date", 1),
+        base44.entities.HostPlatformSubscription.filter({ host_id: host.id }, "-updated_date", 1),
       ]);
 
-      return { user, host, brand: brands?.[0] || null, plan: plans?.[0] || null };
+      return { user, host, brand: brands?.[0] || null, plan: plans?.[0] || null, subscription: subscriptions?.[0] || null };
     },
   });
 
   const brand = data?.brand;
   const host = data?.host;
   const plan = data?.plan;
+  const subscription = data?.subscription;
+  const isPaidPlan = ["fleetos_professional", "hybrid_growth"].includes(plan?.selected_mode || plan?.active_mode);
+  const trialEndDate = subscription?.trial_end_date || subscription?.current_period_end;
   const storefrontPath = brand?.business_slug ? `/host/${brand.business_slug}` : "/host/brand";
   const storefrontUrl = brand?.business_slug ? `${window.location.origin}/host/${brand.business_slug}` : "";
 
@@ -74,8 +78,11 @@ export default function HostOnboardingSuccess() {
             <CheckCircle2 className="h-8 w-8 text-emerald-300" />
           </div>
           <p className="text-sm font-black uppercase tracking-[0.22em] text-white/50">Self-service setup complete</p>
-          <h1 className="text-4xl sm:text-5xl font-black mt-2" style={{ fontFamily: "var(--font-syne)" }}>🚀 Your Rental Business Is Open</h1>
-          <p className="text-white/75 text-lg mt-3">{brand.business_display_name || host.business_name} is approved and your storefront is live.</p>
+          <h1 className="text-4xl sm:text-5xl font-black mt-2" style={{ fontFamily: "var(--font-syne)" }}>🎉 YOUR BUSINESS IS OPEN</h1>
+          <p className="text-white/75 text-lg mt-3">
+            {isPaidPlan ? "Your free 14-day trial has started." : `${brand.business_display_name || host.business_name} is approved and your storefront is live.`}
+          </p>
+          {isPaidPlan && trialEndDate && <p className="text-white/90 font-bold mt-2">Trial ends on: {new Date(trialEndDate).toLocaleDateString()}</p>}
 
           <div className="mt-6 rounded-2xl bg-white/10 border border-white/10 p-4">
             <p className="text-xs text-white/45 uppercase font-black tracking-wider mb-2">Your storefront is live:</p>
@@ -83,9 +90,9 @@ export default function HostOnboardingSuccess() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
-            <a href={storefrontPath} target="_blank" rel="noreferrer" className="rounded-2xl bg-white text-gray-950 font-black text-sm py-3 flex items-center justify-center gap-2 hover:bg-gray-50">
-              <ExternalLink className="h-4 w-4" /> Open Store
-            </a>
+            <Link to="/host/dashboard" className="rounded-2xl bg-white text-gray-950 font-black text-sm py-3 flex items-center justify-center gap-2 hover:bg-gray-50">
+              <LayoutDashboard className="h-4 w-4" /> Go To Dashboard
+            </Link>
             <button onClick={copyLink} className="rounded-2xl bg-white/10 border border-white/15 font-black text-sm py-3 flex items-center justify-center gap-2 hover:bg-white/20">
               <Copy className="h-4 w-4" /> {copied ? "Copied" : "Copy Link"}
             </button>
@@ -96,7 +103,20 @@ export default function HostOnboardingSuccess() {
         </div>
 
         <Card className="bg-white border-gray-100 shadow-sm">
-          <CardContent className="p-5 grid sm:grid-cols-3 gap-3 text-sm">
+          <CardContent className="p-5 space-y-4 text-sm">
+            {isPaidPlan && (
+              <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
+                <p className="font-black text-emerald-900 mb-2">You can now:</p>
+                <div className="grid sm:grid-cols-2 gap-2 text-emerald-800 font-semibold">
+                  <p>✓ Add vehicles</p>
+                  <p>✓ Connect Stripe</p>
+                  <p>✓ Configure GPS</p>
+                  <p>✓ Customize your storefront</p>
+                  <p>✓ Accept bookings</p>
+                </div>
+              </div>
+            )}
+            <div className="grid sm:grid-cols-3 gap-3">
             <div className="rounded-2xl bg-gray-50 p-4">
               <p className="text-gray-400 font-black uppercase text-xs">Host Status</p>
               <p className="font-black text-emerald-600 mt-1 capitalize">{host.status}</p>
@@ -109,6 +129,7 @@ export default function HostOnboardingSuccess() {
               <p className="text-gray-400 font-black uppercase text-xs">Plan</p>
               <p className="font-black text-gray-900 mt-1">{plan?.selected_mode?.replaceAll("_", " ") || "Marketplace Partner"}</p>
             </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -117,7 +138,7 @@ export default function HostOnboardingSuccess() {
             <Link to="/host/dashboard"><LayoutDashboard className="h-4 w-4 mr-2" /> Go To Host Dashboard</Link>
           </Button>
           <Button asChild variant="outline" className="rounded-2xl h-12 font-black bg-white">
-            <Link to="/host/vehicles"><Car className="h-4 w-4 mr-2" /> Add First Vehicle</Link>
+            <a href={storefrontPath} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4 mr-2" /> View Storefront</a>
           </Button>
         </div>
       </div>

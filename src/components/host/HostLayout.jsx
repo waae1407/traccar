@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { LayoutDashboard, Car, DollarSign, Shield, FileKey, Zap, LogOut, Menu, X, MessageSquare, Sparkles, Users, Receipt, Wrench, BarChart2, CreditCard, ClipboardCheck, ShieldAlert, Satellite, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import HostAlarmAttentionBanner from "@/components/host/HostAlarmAttentionBanner";
+import HostSubscriptionBanner from "@/components/host/HostSubscriptionBanner";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
@@ -90,6 +91,10 @@ export default function HostLayout() {
     enabled: !!host?.id,
   });
   const plan = plans[0];
+  const paidMode = ["fleetos_professional", "hybrid_growth"].includes(plan?.selected_mode || plan?.active_mode);
+  const subscriptionExpired = paidMode && ["expired", "cancelled", "canceled"].includes(plan?.status);
+  const lockedHostPaths = ["/host/payments", "/host/payouts", "/host/pnl", "/host/reports", "/host/fleet-insights", "/host/telematics", "/host/vehicle-command-center", "/host/telematics-command-test", "/host/dealer-network"];
+  const lockedRoute = subscriptionExpired && lockedHostPaths.some((path) => location.pathname === path || location.pathname.startsWith(path + "/"));
   const showDealerNetwork = plan?.dealer_network_enabled || ["pending_payment", "active"].includes(plan?.dealer_network_membership_status);
   const visibleSections = hostMenuSections
     .map(section => ({
@@ -214,7 +219,14 @@ export default function HostLayout() {
 
         <main className="flex-1 p-4 md:p-6 max-w-5xl w-full mx-auto space-y-5">
           <HostAlarmAttentionBanner host={host} />
-          <Outlet />
+          <HostSubscriptionBanner host={host} plan={plan} />
+          {lockedRoute ? (
+            <div className="rounded-3xl border border-red-100 bg-white p-6 text-center shadow-sm">
+              <h1 className="text-xl font-black text-gray-950">Your subscription is inactive.</h1>
+              <p className="text-sm text-gray-500 mt-2 max-w-md mx-auto">Reactivate your plan to continue operating FleetOS tools, revenue dashboards, GPS controls, and marketplace exposure. Your storefront and business data remain intact.</p>
+              <Link to="/host/business-operations" className="inline-flex items-center justify-center mt-5 rounded-2xl bg-gray-950 px-5 py-3 text-sm font-black text-white">Reactivate Subscription</Link>
+            </div>
+          ) : <Outlet />}
         </main>
       </div>
     </div>

@@ -118,6 +118,10 @@ export default function BecomeAHost() {
     const res = await base44.functions.invoke("instantHostOnboarding", payload);
     clearOnboardingState();
     await checkAppState?.();
+    if (res.data?.subscription_checkout_url || res.data?.url) {
+      window.location.href = res.data.subscription_checkout_url || res.data.url;
+      return;
+    }
     setResult(res.data);
     setLoading(false);
     navigate(`/host/onboarding-success?host_id=${res.data.host_id}`, { replace: true, state: { onboardingResult: res.data } });

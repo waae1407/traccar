@@ -33,18 +33,55 @@
       "type": "string",
       "enum": [
         "checkout_started",
-        "active",
         "trialing",
+        "active",
         "past_due",
         "canceling",
         "canceled",
+        "cancelled",
         "unpaid",
         "incomplete",
         "incomplete_expired",
         "paused",
+        "expired",
         "not_required"
       ],
       "default": "checkout_started"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "checkout_started",
+        "trialing",
+        "active",
+        "past_due",
+        "canceling",
+        "canceled",
+        "cancelled",
+        "unpaid",
+        "incomplete",
+        "incomplete_expired",
+        "paused",
+        "expired",
+        "not_required"
+      ],
+      "default": "checkout_started"
+    },
+    "trial_active": {
+      "type": "boolean",
+      "default": false
+    },
+    "trial_days": {
+      "type": "number",
+      "default": 14
+    },
+    "trial_start_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "trial_end_date": {
+      "type": "string",
+      "format": "date-time"
     },
     "monthly_amount": {
       "type": "number",
@@ -61,6 +98,9 @@
       "type": "string"
     },
     "stripe_checkout_session_id": {
+      "type": "string"
+    },
+    "stripe_product_id": {
       "type": "string"
     },
     "stripe_price_id": {

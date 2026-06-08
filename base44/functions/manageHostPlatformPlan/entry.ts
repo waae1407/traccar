@@ -3,10 +3,13 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), { apiVersion: '2023-10-16' });
 
+const TRIAL_DAYS = 14;
+const HOST_SUBSCRIPTION_CONTEXT = 'host_platform_subscription';
+
 const PLAN_CONFIG = {
   marketplace_partner: { label: 'Marketplace Partner', monthlyAmount: 0, billingRoute: 'commission', marketplaceFeeRate: 0.08 },
-  fleetos_professional: { label: 'FleetOS Professional', monthlyAmount: 29.99, billingRoute: 'subscription', marketplaceFeeRate: 0 },
-  hybrid_growth: { label: 'Hybrid Growth', monthlyAmount: 29.99, billingRoute: 'subscription_plus_marketplace', marketplaceFeeRate: 0.04 }
+  fleetos_professional: { label: 'FleetOS Professional', monthlyAmount: 29.99, billingRoute: 'subscription', marketplaceFeeRate: 0, productName: 'FleetOS Professional', lookupKey: 'uride_fleetos_professional_monthly_usd' },
+  hybrid_growth: { label: 'Hybrid Growth', monthlyAmount: 29.99, billingRoute: 'subscription_plus_marketplace', marketplaceFeeRate: 0.04, productName: 'Hybrid Growth', lookupKey: 'uride_hybrid_growth_monthly_usd' }
 };
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
@@ -62,9 +65,28 @@ async function getOrCreateStripeCustomer(host, existingCustomerId) {
   const customer = await stripe.customers.create({
     email: host.email,
     name: host.business_name || host.full_name || host.email,
-    metadata: { host_id: host.id, user_id: host.user_id || '', billing_context: 'operator_subscription' }
+    metadata: { host_id: host.id, user_id: host.user_id || '', billing_context: HOST_SUBSCRIPTION_CONTEXT, customer_role: 'host_subscription' }
   });
   return customer.id;
+}
+
+async function getOrCreateStripePrice(config, mode) {
+  const existing = await stripe.prices.list({ lookup_keys: [config.lookupKey], active: true, limit: 1 });
+  if (existing.data?.[0]) return existing.data[0];
+
+  const product = await stripe.products.create({
+    name: config.productName,
+    metadata: { billing_context: HOST_SUBSCRIPTION_CONTEXT, plan_mode: mode }
+  });
+
+  return stripe.prices.create({
+    currency: 'usd',
+    unit_amount: Math.round(config.monthlyAmount * 100),
+    recurring: { interval: 'month' },
+    product: product.id,
+    lookup_key: config.lookupKey,
+    metadata: { billing_context: HOST_SUBSCRIPTION_CONTEXT, plan_mode: mode }
+  });
 }
 
 async function findLatestSubscription(base44, hostId) {
@@ -111,6 +133,7 @@ Deno.serve(async (req) => {
           plan_mode: mode,
           billing_route: 'commission',
           status: 'canceling',
+          subscription_status: 'canceling',
           cancel_at_period_end: true,
           last_payment_status: 'cancelled',
           source: 'package_change',
@@ -144,7 +167,7 @@ Deno.serve(async (req) => {
     if (existingSubscription?.stripe_subscription_id && ACTIVE_SUBSCRIPTION_STATUSES.has(existingSubscription.status)) {
       await stripe.subscriptions.update(existingSubscription.stripe_subscription_id, {
         cancel_at_period_end: false,
-        metadata: { billing_context: 'operator_subscription', host_id, user_id: user.id || '', operator_plan_id: plan.id, plan_mode: mode }
+        metadata: { billing_context: HOST_SUBSCRIPTION_CONTEXT, host_id, user_id: user.id || '', operator_plan_id: plan.id, plan_mode: mode }
       });
 
       await base44.asServiceRole.entities.HostPlatformSubscription.update(existingSubscription.id, {
@@ -152,6 +175,8 @@ Deno.serve(async (req) => {
         plan_mode: mode,
         billing_route: config.billingRoute,
         status: existingSubscription.status === 'trialing' ? 'trialing' : 'active',
+        subscription_status: existingSubscription.status === 'trialing' ? 'trialing' : 'active',
+        trial_active: existingSubscription.status === 'trialing',
         monthly_amount: config.monthlyAmount,
         cancel_at_period_end: false,
         source: 'package_change',
@@ -168,7 +193,7 @@ Deno.serve(async (req) => {
         platform_billing_route: config.billingRoute,
         payment_required: true,
         billing_activation_pending: false,
-        last_payment_status: 'paid',
+        last_payment_status: existingSubscription.status === 'trialing' ? 'pending' : 'paid',
         activation_source: 'subscription_payment',
         last_updated_at: now,
         ...paymentModeFields(plan, mode),
@@ -197,24 +222,20 @@ Deno.serve(async (req) => {
     });
 
     const stripeCustomerId = await getOrCreateStripeCustomer(host, existingSubscription?.stripe_customer_id);
+    const stripePrice = await getOrCreateStripePrice(config, mode);
     const origin = req.headers.get('origin') || 'https://uridehub.com';
+    const subscriptionMetadata = { billing_context: HOST_SUBSCRIPTION_CONTEXT, host_id, user_id: user.id || '', operator_plan_id: plan.id, plan_mode: mode, trial_days: String(TRIAL_DAYS) };
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: stripeCustomerId,
       payment_method_types: ['card'],
-      line_items: [{
-        quantity: 1,
-        price_data: {
-          currency: 'usd',
-          unit_amount: Math.round(config.monthlyAmount * 100),
-          recurring: { interval: 'month' },
-          product_data: { name: `uRide ${config.label}`, metadata: { billing_context: 'operator_subscription', plan_mode: mode } }
-        }
-      }],
+      payment_method_collection: 'always',
+      line_items: [{ quantity: 1, price: stripePrice.id }],
       subscription_data: {
-        metadata: { billing_context: 'operator_subscription', host_id, user_id: user.id || '', operator_plan_id: plan.id, plan_mode: mode }
+        trial_period_days: TRIAL_DAYS,
+        metadata: subscriptionMetadata
       },
-      metadata: { billing_context: 'operator_subscription', host_id, user_id: user.id || '', operator_plan_id: plan.id, plan_mode: mode },
+      metadata: subscriptionMetadata,
       success_url: `${origin}/host/business-operations?platform_subscription_return=1`,
       cancel_url: `${origin}/host/business-operations?platform_subscription_cancel=1`
     });
@@ -226,10 +247,15 @@ Deno.serve(async (req) => {
       plan_mode: mode,
       billing_route: config.billingRoute,
       status: 'checkout_started',
+      subscription_status: 'checkout_started',
+      trial_active: false,
+      trial_days: TRIAL_DAYS,
       monthly_amount: config.monthlyAmount,
       currency: 'usd',
       stripe_customer_id: stripeCustomerId,
       stripe_checkout_session_id: session.id,
+      stripe_product_id: typeof stripePrice.product === 'string' ? stripePrice.product : stripePrice.product?.id || '',
+      stripe_price_id: stripePrice.id,
       last_payment_status: 'pending',
       source: 'package_change',
       last_updated_at: now,

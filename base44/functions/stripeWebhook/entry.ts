@@ -95,7 +95,15 @@ function toIsoFromUnix(value) {
   return value ? new Date(value * 1000).toISOString() : undefined;
 }
 
-function planFieldsForSubscription(mode) {
+function isHostSubscriptionContext(context) {
+  return context === 'host_platform_subscription' || context === 'operator_subscription';
+}
+
+function addDaysIso(date, days) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function planFieldsForSubscription(mode, stripeStatus = 'active') {
   const isHybrid = mode === 'hybrid_growth';
   const isFleetOS = mode === 'fleetos_professional';
   return {
@@ -108,8 +116,8 @@ function planFieldsForSubscription(mode) {
     platform_billing_route: isHybrid ? 'subscription_plus_marketplace' : 'subscription',
     payment_required: true,
     billing_activation_pending: false,
-    last_payment_status: 'paid',
-    subscription_payment_succeeded_at: new Date().toISOString(),
+    last_payment_status: stripeStatus === 'trialing' ? 'pending' : 'paid',
+    subscription_payment_succeeded_at: stripeStatus === 'trialing' ? undefined : new Date().toISOString(),
     last_updated_at: new Date().toISOString()
   };
 }
@@ -130,7 +138,12 @@ async function updateOperatorSubscriptionFromStripe(base44, { subscription, sess
   const existing = records[0];
 
   const status = statusOverride || subscription?.status || existing?.status || 'active';
-  const now = new Date().toISOString();
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const isTrialing = status === 'trialing';
+  const isPastDue = ['past_due', 'unpaid', 'incomplete'].includes(status);
+  const graceEndsAt = isPastDue ? (existing?.billing_grace_ends_at || addDaysIso(nowDate, 7)) : undefined;
+  const subscriptionItem = subscription?.items?.data?.[0];
   const payload = {
     host_id: hostId || existing?.host_id || '',
     user_id: metadata.user_id || existing?.user_id || '',
@@ -138,17 +151,25 @@ async function updateOperatorSubscriptionFromStripe(base44, { subscription, sess
     plan_mode: mode,
     billing_route: mode === 'hybrid_growth' ? 'subscription_plus_marketplace' : 'subscription',
     status,
+    subscription_status: status,
+    trial_active: isTrialing,
+    trial_days: Number(metadata.trial_days || existing?.trial_days || 14),
+    trial_start_date: toIsoFromUnix(subscription?.trial_start) || existing?.trial_start_date,
+    trial_end_date: toIsoFromUnix(subscription?.trial_end) || existing?.trial_end_date,
     monthly_amount: 29.99,
     currency: subscription?.currency || invoice?.currency || existing?.currency || 'usd',
     stripe_customer_id: subscription?.customer || session?.customer || invoice?.customer || existing?.stripe_customer_id || '',
     stripe_subscription_id: subscriptionId || existing?.stripe_subscription_id || '',
     stripe_checkout_session_id: session?.id || existing?.stripe_checkout_session_id || '',
+    stripe_product_id: typeof subscriptionItem?.price?.product === 'string' ? subscriptionItem.price.product : subscriptionItem?.price?.product?.id || existing?.stripe_product_id || '',
+    stripe_price_id: subscriptionItem?.price?.id || existing?.stripe_price_id || '',
     stripe_invoice_id: invoice?.id || existing?.stripe_invoice_id || '',
     current_period_start: toIsoFromUnix(subscription?.current_period_start) || existing?.current_period_start,
     current_period_end: toIsoFromUnix(subscription?.current_period_end) || existing?.current_period_end,
     cancel_at_period_end: !!subscription?.cancel_at_period_end,
     cancelled_at: toIsoFromUnix(subscription?.canceled_at) || existing?.cancelled_at,
-    last_payment_status: paymentStatus || (status === 'active' || status === 'trialing' ? 'paid' : status === 'past_due' ? 'past_due' : existing?.last_payment_status || 'pending'),
+    billing_grace_ends_at: isPastDue ? graceEndsAt : undefined,
+    last_payment_status: paymentStatus || (status === 'active' ? 'paid' : status === 'trialing' ? 'pending' : status === 'past_due' ? 'past_due' : existing?.last_payment_status || 'pending'),
     last_payment_at: paymentStatus === 'paid' ? now : existing?.last_payment_at,
     last_payment_failed_at: paymentStatus === 'failed' ? now : existing?.last_payment_failed_at,
     source: 'webhook',
@@ -164,7 +185,7 @@ async function updateOperatorSubscriptionFromStripe(base44, { subscription, sess
     const plans = await base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ id: resolvedPlanId });
     const plan = plans[0];
     await base44.asServiceRole.entities.OperatorPlanConfiguration.update(resolvedPlanId, {
-      ...planFieldsForSubscription(mode),
+    ...planFieldsForSubscription(mode, status),
       status_audit_log: [...(plan?.status_audit_log || []), { from_status: plan?.status || 'pending_payment', to_status: 'active', changed_by: 'stripe_webhook', changed_at: now, reason: 'Platform subscription payment confirmed by Stripe.', source: 'webhook' }]
     });
   } else if (resolvedPlanId && ['past_due', 'unpaid', 'incomplete'].includes(status)) {
@@ -172,10 +193,22 @@ async function updateOperatorSubscriptionFromStripe(base44, { subscription, sess
   } else if (resolvedPlanId && ['canceled', 'incomplete_expired'].includes(status)) {
     await base44.asServiceRole.entities.OperatorPlanConfiguration.update(resolvedPlanId, { status: 'cancelled', active_mode: 'none', billing_activation_pending: true, last_payment_status: 'cancelled', cancelled_at: now, last_updated_at: now });
   }
+
+  if (hostId) {
+    const commerceProfiles = await base44.asServiceRole.entities.HostCommerceProfile.filter({ host_id: hostId }, '-updated_date', 1);
+    if (commerceProfiles?.[0]?.id) {
+      const disabled = ['canceled', 'cancelled', 'incomplete_expired', 'expired'].includes(status);
+      await base44.asServiceRole.entities.HostCommerceProfile.update(commerceProfiles[0].id, {
+        booking_enabled: !disabled,
+        marketplace_visibility: !disabled && mode !== 'fleetos_professional',
+        marketplace_enabled: mode !== 'fleetos_professional'
+      });
+    }
+  }
 }
 
 function alertTypeForInvoiceFailure(context) {
-  if (context === 'operator_subscription') return 'subscription_payment_failed';
+  if (isHostSubscriptionContext(context)) return 'subscription_payment_failed';
   if (context === 'dealer_network_membership') return 'dealer_membership_payment_failed';
   if (context === 'contactless_gps' || context === 'gps_contactless_subscription') return 'contactless_gps_payment_failed';
   return 'unknown_payment_failed';
@@ -243,17 +276,17 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        if (session.metadata?.billing_context === 'operator_subscription') {
+        if (isHostSubscriptionContext(session.metadata?.billing_context)) {
           const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
           const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
-          await updateOperatorSubscriptionFromStripe(base44, { subscription, session, statusOverride: subscription?.status || 'active', paymentStatus: 'paid' });
+          await updateOperatorSubscriptionFromStripe(base44, { subscription, session, statusOverride: subscription?.status || 'active', paymentStatus: subscription?.status === 'trialing' ? 'pending' : 'paid' });
         }
         break;
       }
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
-        if (subscription.metadata?.billing_context === 'operator_subscription') {
+        if (isHostSubscriptionContext(subscription.metadata?.billing_context)) {
           await updateOperatorSubscriptionFromStripe(base44, { subscription, statusOverride: subscription.status });
         }
         break;
@@ -261,7 +294,7 @@ Deno.serve(async (req) => {
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object;
-        if (subscription.metadata?.billing_context === 'operator_subscription') {
+        if (isHostSubscriptionContext(subscription.metadata?.billing_context)) {
           await updateOperatorSubscriptionFromStripe(base44, { subscription, statusOverride: 'canceled', paymentStatus: 'cancelled' });
         }
         break;
@@ -270,10 +303,10 @@ Deno.serve(async (req) => {
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
         const billingContext = getBillingContext(invoice.metadata || {});
-        if (billingContext === 'operator_subscription' || invoice.subscription) {
+        if (isHostSubscriptionContext(billingContext) || invoice.subscription) {
           const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
           const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
-          if (subscription?.metadata?.billing_context === 'operator_subscription') {
+          if (isHostSubscriptionContext(subscription?.metadata?.billing_context)) {
             await updateOperatorSubscriptionFromStripe(base44, { subscription, invoice, statusOverride: subscription.status, paymentStatus: 'paid' });
           }
         }
@@ -559,8 +592,8 @@ Deno.serve(async (req) => {
         let billingContext = getBillingContext(invoice.metadata || {});
         const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
         const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
-        if (subscription?.metadata?.billing_context === 'operator_subscription') {
-          billingContext = 'operator_subscription';
+        if (isHostSubscriptionContext(subscription?.metadata?.billing_context)) {
+          billingContext = subscription.metadata.billing_context;
           await updateOperatorSubscriptionFromStripe(base44, { subscription, invoice, statusOverride: subscription.status || 'past_due', paymentStatus: 'failed' });
         }
         await createPaymentAlert(base44, { alert_type: alertTypeForInvoiceFailure(billingContext), severity: 'critical', billing_context: billingContext, stripe_event_type: event.type, stripe_invoice_id: invoice.id, host_id: subscription?.metadata?.host_id || '', title: 'Invoice payment failed', message: `Invoice payment failed for ${billingContext}. No automatic suspension or subscription activation occurred.`, recommended_action: 'Review billing issue and contact the operator/customer as appropriate.', financial_impact_amount: (invoice.amount_due || 0) / 100, currency: invoice.currency || 'usd', requires_customer_action: false, source: 'stripe_webhook' });
