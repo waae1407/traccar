@@ -73,8 +73,8 @@ export default function HomeHero() {
             <Car className="h-4 w-4" /> I Need a Vehicle
           </Link>
           <Link to="/become-a-host"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl border border-white/25 text-white/90 font-semibold text-sm hover:bg-white/10 hover:border-white/40 transition-all">
-            <Building2 className="h-4 w-4" /> Become a Fleet Partner
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-white text-gray-900 font-bold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all ring-2 ring-white/25">
+            <Building2 className="h-4 w-4" /> Start a Rental Fleet
           </Link>
         </div>
 
