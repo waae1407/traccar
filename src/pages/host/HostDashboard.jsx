@@ -9,6 +9,7 @@ import OperationalEvidenceNudges from "@/components/host/reputation/OperationalE
 import HostCoachingDashboard from "@/components/host/reputation/HostCoachingDashboard";
 import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import TelematicsMap from "@/components/telematics/TelematicsMap";
+import InstallerLocatorCTA from "@/components/installers/InstallerLocatorCTA";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -105,6 +106,12 @@ export default function HostDashboard() {
       </div>
 
       <PaymentOperationalAlertPanel scope="host" hostId={host.id} limit={3} />
+
+      <InstallerLocatorCTA
+        source="host_dashboard"
+        title="Find GPS Installers Near You"
+        description="Locate GPS, alarm, and vehicle security installers near your fleet."
+      />
 
       {/* Launch Card — shown until store is live */}
       {host.status === "approved" && !storeIsLive && (

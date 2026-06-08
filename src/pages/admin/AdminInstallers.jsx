@@ -69,7 +69,7 @@ export default function AdminInstallers() {
             <span>{lead.location_verified ? 'Verified' : 'Review'}</span>
             <span>{lead.lead_status || 'pending'}</span>
             <div className="col-span-8 space-y-3">
-              <InstallerCard installer={lead} adminActions={actions(lead)} />
+              <InstallerCard installer={lead} adminActions={actions(lead)} source="admin_installers" />
               <div className="rounded-2xl border border-border bg-background/40 p-3">
                 <p className="mb-2 text-xs font-black uppercase tracking-wider text-muted-foreground">Related install records</p>
                 {relatedRecords(installRecords, lead).length === 0 ? <p className="text-xs text-muted-foreground">No matching install records yet.</p> : relatedRecords(installRecords, lead).map(record => (

@@ -8,6 +8,7 @@ import HostPageHeader from "@/components/host/HostPageHeader";
 import VehicleFormDialog from "@/components/vehicles/VehicleFormDialog";
 import { Link } from "react-router-dom";
 import VehicleQualityCoaching from "@/components/host/reputation/VehicleQualityCoaching";
+import InstallerLocatorCTA from "@/components/installers/InstallerLocatorCTA";
 import { latestSnapshotFor } from "@/lib/reputation/publicTrust";
 
 const statusColors = {
@@ -130,6 +131,7 @@ export default function HostVehicles() {
             const active = activeForVehicle(v.id);
             const complianceStatus = getVehicleComplianceStatus(v.id);
             const snapshot = latestSnapshotFor(signalSnapshots, "vehicle", v.id);
+            const needsTelematicsHelp = !v.telematics_device_id && !v.moovetrax_device_id;
             return (
               <div key={v.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all hover:-translate-y-0.5">
                 {v.image_url ? (
@@ -180,6 +182,17 @@ export default function HostVehicles() {
                     <div className="flex items-center gap-2 w-full mb-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
                       <Shield className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
                       <p className="text-xs font-bold text-emerald-700">Compliance Verified ✓</p>
+                    </div>
+                  )}
+
+                  {needsTelematicsHelp && (
+                    <div className="mb-3">
+                      <InstallerLocatorCTA
+                        source="vehicle_detail"
+                        vehicle={v}
+                        title="Need help installing your GPS device?"
+                        description="Find a nearby installer."
+                      />
                     </div>
                   )}
 

@@ -2,6 +2,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { BatteryCharging, Clock3, Gauge, KeyRound, RadioTower, WalletCards } from "lucide-react";
 import { getGpsFreshness, getSupportedCommands } from "@/lib/telematics/commandReadiness";
+import InstallerLocatorCTA from "@/components/installers/InstallerLocatorCTA";
 
 function valueOrDash(value, suffix = "") {
   if (value === undefined || value === null || value === "") return "—";
@@ -42,6 +43,12 @@ export default function VehicleStatusCard({ mode, vehicle, device, provider, boo
         {supported.map((item) => <Badge key={item.command} variant="outline" className="rounded-full bg-slate-50 text-slate-700">{item.command.replaceAll("_", " ")}</Badge>)}
         {supported.length === 0 && <span className="text-sm text-slate-500">No commands are ready for this vehicle.</span>}
       </div>
+
+      {mode === "host" && !device && (
+        <div className="mt-4">
+          <InstallerLocatorCTA source="vehicle_detail" vehicle={vehicle} title="Need help installing your GPS device?" description="Find a nearby installer." />
+        </div>
+      )}
     </div>
   );
 }

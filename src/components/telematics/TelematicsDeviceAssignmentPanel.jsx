@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Copy, Link as LinkIcon, MapPin, RefreshCw, Unlink } from 'lucide-react';
 import { deviceFreshness, formatDeviceTime, providerDisplayName } from './deviceStatus';
+import InstallerLocatorCTA from '@/components/installers/InstallerLocatorCTA';
 
 function Detail({ label, value }) {
   return (
@@ -117,6 +118,15 @@ export default function TelematicsDeviceAssignmentPanel({ vehicle, devices = [],
           <p className="font-bold">Assignment mismatch detected.</p>
           <Button size="sm" variant="outline" className="mt-2" onClick={() => invoke({ action: 'repair_assignment', vehicle_id: vehicle.id })}>Repair Assignment</Button>
         </div>
+      )}
+
+      {role === 'host' && !linked && (
+        <InstallerLocatorCTA
+          source="telematics_setup"
+          vehicle={vehicle}
+          title="Need an Installer?"
+          description="Find a verified installer near you."
+        />
       )}
 
       {linked ? (

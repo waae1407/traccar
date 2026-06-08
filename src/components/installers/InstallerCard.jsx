@@ -1,11 +1,20 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Mail, MapPin, Navigation, Phone, ShieldCheck } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import InstallerStatusBadge from './InstallerStatusBadge';
 
-export default function InstallerCard({ installer, adminActions }) {
+export default function InstallerCard({ installer, adminActions, source = 'locator' }) {
   const address = [installer.business_address, installer.business_city, installer.business_state, installer.business_zip].filter(Boolean).join(', ');
   const directions = address ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}` : '';
+
+  useEffect(() => {
+    if (!installer?.id) return;
+    base44.analytics.track({ eventName: 'installer_card_viewed', properties: { installer_id: installer.id, source } });
+  }, [installer?.id, source]);
+
+  const trackContact = (method) => base44.analytics.track({ eventName: 'installer_contact_clicked', properties: { installer_id: installer.id, method, source } });
+  const trackDirections = () => base44.analytics.track({ eventName: 'installer_directions_clicked', properties: { installer_id: installer.id, source } });
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -25,9 +34,10 @@ export default function InstallerCard({ installer, adminActions }) {
 
       {address && <p className="mt-3 text-sm text-slate-500">{address}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
-        {installer.installer_phone && <Button asChild size="sm" variant="outline" className="rounded-xl"><a href={`tel:${installer.installer_phone}`}><Phone className="h-4 w-4" /> Call</a></Button>}
-        {installer.installer_email && <Button asChild size="sm" variant="outline" className="rounded-xl"><a href={`mailto:${installer.installer_email}`}><Mail className="h-4 w-4" /> Email</a></Button>}
-        {directions && <Button asChild size="sm" className="rounded-xl bg-slate-950"><a href={directions} target="_blank" rel="noreferrer"><Navigation className="h-4 w-4" /> Directions</a></Button>}
+        {installer.installer_phone && <Button asChild size="sm" variant="outline" className="rounded-xl"><a href={`tel:${installer.installer_phone}`} onClick={() => trackContact('phone')}><Phone className="h-4 w-4" /> Call</a></Button>}
+        {installer.installer_email && <Button asChild size="sm" variant="outline" className="rounded-xl"><a href={`mailto:${installer.installer_email}`} onClick={() => trackContact('email')}><Mail className="h-4 w-4" /> Email</a></Button>}
+        {directions && <Button asChild size="sm" className="rounded-xl bg-slate-950"><a href={directions} target="_blank" rel="noreferrer" onClick={trackDirections}><Navigation className="h-4 w-4" /> Directions</a></Button>}
+        <Button size="sm" variant="outline" disabled className="rounded-xl opacity-60">Request Installation</Button>
         {adminActions}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import InstallerCard from '@/components/installers/InstallerCard';
 import InstallerLocatorMap from '@/components/installers/InstallerLocatorMap';
@@ -13,17 +14,24 @@ async function geocodeSearch(query) {
     const res = await base44.functions.invoke('geocodeZipcode', { zipcode: value });
     return { lat: res.data.lat, lon: res.data.lon };
   }
+  if (/\d+\s+/.test(value)) {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value)}&country=US&format=json&limit=1`);
+    const hit = (await res.json())?.[0];
+    return hit ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null;
+  }
   const [city, state = ''] = value.split(',').map(part => part.trim());
   const res = await base44.functions.invoke('geocodeCity', { city, state });
   return { lat: res.data.lat, lon: res.data.lon };
 }
 
 export default function HostInstallers() {
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [center, setCenter] = useState(null);
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState(searchParams.get('vehicle_id') || '');
   const [radius, setRadius] = useState(25);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [locationInitialized, setLocationInitialized] = useState(false);
 
   const { data: me } = useQuery({ queryKey: ['me-host-installers'], queryFn: () => base44.auth.me() });
   const { data: host } = useQuery({ queryKey: ['host-installers-host', me?.id, me?.email], enabled: !!me, queryFn: async () => (await base44.entities.Host.filter({ user_id: me.id }))[0] || (await base44.entities.Host.filter({ email: me.email }))[0] || null });
@@ -31,11 +39,32 @@ export default function HostInstallers() {
   const { data: installers = [], isLoading } = useQuery({ queryKey: ['host-installer-leads'], queryFn: () => base44.entities.PreferredInstallerLead.list('-successful_install_count', 500) });
 
   useEffect(() => {
-    if (center || !host?.city) return;
-    geocodeSearch([host.city, host.state].filter(Boolean).join(', ')).then(loc => {
-      if (loc?.lat && loc?.lon) setCenter(loc);
-    });
-  }, [host?.city, host?.state, center]);
+    const source = searchParams.get('source') || 'manual_navigation';
+    base44.analytics.track({ eventName: 'installer_locator_opened', properties: { source, vehicle_id: searchParams.get('vehicle_id') || null } });
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (locationInitialized || center) return;
+    const lat = Number(searchParams.get('lat'));
+    const lon = Number(searchParams.get('lon'));
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      setCenter({ lat, lon });
+      setLocationInitialized(true);
+      return;
+    }
+    if (!host) return;
+    const hostLocation = [host.business_address, host.city, host.state].filter(Boolean).join(', ');
+    if (hostLocation) {
+      geocodeSearch(hostLocation).then(loc => {
+        if (loc?.lat && loc?.lon) setCenter(loc);
+        else navigator.geolocation?.getCurrentPosition(pos => setCenter({ lat: pos.coords.latitude, lon: pos.coords.longitude }));
+        setLocationInitialized(true);
+      });
+      return;
+    }
+    navigator.geolocation?.getCurrentPosition(pos => setCenter({ lat: pos.coords.latitude, lon: pos.coords.longitude }));
+    setLocationInitialized(true);
+  }, [host, center, locationInitialized, searchParams]);
 
   const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
   const effectiveCenter = selectedVehicle?.vehicle_lat && selectedVehicle?.vehicle_lon ? { lat: selectedVehicle.vehicle_lat, lon: selectedVehicle.vehicle_lon } : center;
@@ -63,7 +92,7 @@ export default function HostInstallers() {
         </select>
       )}
       <InstallerLocatorMap installers={visible} center={effectiveCenter ? [effectiveCenter.lat, effectiveCenter.lon] : null} />
-      {isLoading ? <div className="rounded-3xl bg-card p-8 text-center font-bold text-muted-foreground">Loading installers...</div> : visible.length === 0 ? <div className="rounded-3xl border border-border bg-card p-8 text-center font-bold text-muted-foreground">No installers found nearby yet.</div> : <div className="grid gap-4 md:grid-cols-2">{visible.map(installer => <InstallerCard key={installer.id} installer={installer} />)}</div>}
+      {isLoading ? <div className="rounded-3xl bg-card p-8 text-center font-bold text-muted-foreground">Loading installers...</div> : visible.length === 0 ? <div className="rounded-3xl border border-border bg-card p-8 text-center font-bold text-muted-foreground">No installers found nearby yet.</div> : <div className="grid gap-4 md:grid-cols-2">{visible.map(installer => <InstallerCard key={installer.id} installer={installer} source={searchParams.get('source') || 'manual_navigation'} />)}</div>}
     </div>
   );
 }
