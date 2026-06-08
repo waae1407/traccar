@@ -66,6 +66,7 @@ import AdminReviewModeration from '@/pages/admin/AdminReviewModeration.jsx';
 import AdminInspectionOversight from '@/pages/admin/AdminInspectionOversight.jsx';
 import AdminDealerNetwork from '@/pages/admin/AdminDealerNetwork.jsx';
 import PaymentOperationsAlertCenter from '@/pages/admin/PaymentOperationsAlertCenter.jsx';
+import AdminInstallers from '@/pages/admin/AdminInstallers.jsx';
 import HostCommunications from '@/pages/host/HostCommunications';
 import CustomerCommunications from '@/pages/customer/CustomerCommunications';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
@@ -94,6 +95,7 @@ import HostDealerNetwork from '@/pages/host/HostDealerNetwork.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
 import HostTelematicsCommandTest from '@/pages/host/HostTelematicsCommandTest.jsx';
+import HostInstallers from '@/pages/host/HostInstallers.jsx';
 import HostPaymentAlerts from '@/pages/host/HostPaymentAlerts.jsx';
 import HostOnboardingSuccess from '@/pages/host/HostOnboardingSuccess.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
@@ -106,6 +108,7 @@ import BecomeAHost from '@/pages/BecomeAHost';
 import SmartOperatorQuestionnaire from '@/pages/SmartOperatorQuestionnaire.jsx';
 import Marketplace from '@/pages/Marketplace';
 import SwapMarketplace from '@/pages/SwapMarketplace';
+import Installers from '@/pages/Installers.jsx';
 import InstallerTelematicsPortal from '@/pages/InstallerTelematicsPortal.jsx';
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -130,7 +133,7 @@ const AuthenticatedApp = () => {
     // auth_required means the PLATFORM requires login — respect that
     // But allow public pages through even without auth
     if (authError.type === 'auth_required') {
-      const publicPaths = ['/', '/privacy', '/terms', '/become-a-host', '/operator-questionnaire', '/marketplace', '/swap', '/installer/telematics'];
+      const publicPaths = ['/', '/privacy', '/terms', '/become-a-host', '/operator-questionnaire', '/marketplace', '/swap', '/installers', '/installer/telematics'];
       if (!publicPaths.includes(window.location.pathname)) {
         navigateToLogin(); return null;
       }
@@ -153,6 +156,7 @@ const AuthenticatedApp = () => {
       <Route path="/operator-questionnaire" element={<SmartOperatorQuestionnaire />} />
       <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/swap" element={<SwapMarketplace />} />
+      <Route path="/installers" element={<Installers />} />
 
       {/* ── HOST ROUTES ── */}
       <Route element={<HostGuard><HostLayout /></HostGuard>}>
@@ -180,6 +184,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/payment-alerts" element={<HostPaymentAlerts />} />
         <Route path="/host/dealer-network" element={<HostDealerNetwork />} />
         <Route path="/host/telematics" element={<HostTelematicsDashboard />} />
+        <Route path="/host/installers" element={<HostInstallers />} />
         <Route path="/host/vehicle-command-center" element={<VehicleCommandCenter mode="host" />} />
         <Route path="/host/telematics-command-test" element={<HostTelematicsCommandTest />} />
       </Route>
@@ -257,6 +262,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/inspection-oversight" element={<AdminInspectionOversight />} />
         <Route path="/admin/dealer-network" element={<AdminDealerNetwork />} />
         <Route path="/admin/payment-alerts" element={<PaymentOperationsAlertCenter />} />
+        <Route path="/admin/installers" element={<AdminInstallers />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

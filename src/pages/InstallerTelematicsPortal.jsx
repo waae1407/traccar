@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import CameraBarcodeScanner from "@/components/telematics/CameraBarcodeScanner";
 import InstallerTestingStep from "@/components/telematics/installer/InstallerTestingStep";
 import InstallerHelpChat from "@/components/telematics/installer/InstallerHelpChat";
+import PreferredInstallerJoinBox from "@/components/installers/PreferredInstallerJoinBox";
 import {
   ArrowLeft,
   Camera,
@@ -474,6 +475,7 @@ function SuccessScreen({ result, form, vehicleLookup }) {
             <p className="text-xs font-black uppercase tracking-widest text-emerald-600">Notifications Sent</p>
             <div className="mt-3 flex gap-3"><Badge className="bg-emerald-500 text-white">✓ Host</Badge><Badge className="bg-emerald-500 text-white">✓ Admin</Badge></div>
           </div>
+          <PreferredInstallerJoinBox installResult={result} form={form} />
           <Button className="mt-6 h-14 w-full rounded-3xl bg-slate-950 font-black text-white hover:bg-slate-800" onClick={() => { clearInstallerDraft(); window.location.href = "/installer/telematics"; }}>Start Another Install</Button>
         </LuxuryCard>
       </div>

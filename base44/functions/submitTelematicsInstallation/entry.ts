@@ -202,6 +202,8 @@ Deno.serve(async (req) => {
       device_unique_id: device.unique_id,
       installer_name: String(body.installer_name || '').trim(),
       installer_signature_name: String(body.installer_signature_name || '').trim(),
+      installer_email: String(body.installer_email || body.assigned_installer_email || '').trim().toLowerCase(),
+      installer_phone: String(body.installer_phone || '').replace(/[^0-9+]/g, ''),
       installation_started_at: existing[0]?.installation_started_at || now,
       installation_notes: String(body.installation_notes || ''),
       install_photos: body.install_photos,
@@ -272,6 +274,10 @@ Deno.serve(async (req) => {
     const record = existing[0]
       ? await base44.asServiceRole.entities.TelematicsInstallRecord.update(existing[0].id, payload)
       : await base44.asServiceRole.entities.TelematicsInstallRecord.create(payload);
+
+    if (testsPassed) {
+      await base44.asServiceRole.functions.invoke('recalculatePreferredInstallerProgress', { install_record_id: record.id, installer_email: payload.installer_email, installer_phone: payload.installer_phone }).catch(() => null);
+    }
 
     await base44.asServiceRole.entities.TelematicsEvent.create({
       company_id: device.company_id || vehicle?.company_id || '',

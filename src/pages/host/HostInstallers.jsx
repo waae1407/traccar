@@ -1,0 +1,69 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import InstallerCard from '@/components/installers/InstallerCard';
+import InstallerLocatorMap from '@/components/installers/InstallerLocatorMap';
+import InstallerSearchControls from '@/components/installers/InstallerSearchControls';
+import { filterAndRankInstallers } from '@/lib/installers/installerLocatorUtils';
+
+async function geocodeSearch(query) {
+  const value = String(query || '').trim();
+  if (!value) return null;
+  if (/^\d{5}$/.test(value)) {
+    const res = await base44.functions.invoke('geocodeZipcode', { zipcode: value });
+    return { lat: res.data.lat, lon: res.data.lon };
+  }
+  const [city, state = ''] = value.split(',').map(part => part.trim());
+  const res = await base44.functions.invoke('geocodeCity', { city, state });
+  return { lat: res.data.lat, lon: res.data.lon };
+}
+
+export default function HostInstallers() {
+  const [query, setQuery] = useState('');
+  const [center, setCenter] = useState(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [radius, setRadius] = useState(25);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+
+  const { data: me } = useQuery({ queryKey: ['me-host-installers'], queryFn: () => base44.auth.me() });
+  const { data: host } = useQuery({ queryKey: ['host-installers-host', me?.id, me?.email], enabled: !!me, queryFn: async () => (await base44.entities.Host.filter({ user_id: me.id }))[0] || (await base44.entities.Host.filter({ email: me.email }))[0] || null });
+  const { data: vehicles = [] } = useQuery({ queryKey: ['host-installer-vehicles', host?.id], enabled: !!host?.id, queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }) });
+  const { data: installers = [], isLoading } = useQuery({ queryKey: ['host-installer-leads'], queryFn: () => base44.entities.PreferredInstallerLead.list('-successful_install_count', 500) });
+
+  useEffect(() => {
+    if (center || !host?.city) return;
+    geocodeSearch([host.city, host.state].filter(Boolean).join(', ')).then(loc => {
+      if (loc?.lat && loc?.lon) setCenter(loc);
+    });
+  }, [host?.city, host?.state, center]);
+
+  const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
+  const effectiveCenter = selectedVehicle?.vehicle_lat && selectedVehicle?.vehicle_lon ? { lat: selectedVehicle.vehicle_lat, lon: selectedVehicle.vehicle_lon } : center;
+  const visible = useMemo(() => filterAndRankInstallers(installers, effectiveCenter, radius), [installers, effectiveCenter, radius]);
+
+  const handleSearch = async (value) => {
+    setLoadingSearch(true);
+    const loc = await geocodeSearch(value);
+    if (loc?.lat && loc?.lon) setCenter(loc);
+    setLoadingSearch(false);
+  };
+  const useCurrentLocation = () => navigator.geolocation?.getCurrentPosition(pos => setCenter({ lat: pos.coords.latitude, lon: pos.coords.longitude }));
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Installer Locator</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-foreground">Find GPS and vehicle security installers near your fleet.</h1>
+      </div>
+      <InstallerSearchControls query={query} setQuery={setQuery} radius={radius} setRadius={setRadius} onSearch={handleSearch} onCurrentLocation={useCurrentLocation} loading={loadingSearch} />
+      {vehicles.length > 0 && (
+        <select value={selectedVehicleId} onChange={e => setSelectedVehicleId(e.target.value)} className="h-12 w-full rounded-2xl border border-border bg-card px-4 text-sm font-bold text-foreground md:max-w-md">
+          <option value="">Filter near selected vehicle</option>
+          {vehicles.map(v => <option key={v.id} value={v.id}>{[v.year, v.make, v.model, v.vin].filter(Boolean).join(' ')}</option>)}
+        </select>
+      )}
+      <InstallerLocatorMap installers={visible} center={effectiveCenter ? [effectiveCenter.lat, effectiveCenter.lon] : null} />
+      {isLoading ? <div className="rounded-3xl bg-card p-8 text-center font-bold text-muted-foreground">Loading installers...</div> : visible.length === 0 ? <div className="rounded-3xl border border-border bg-card p-8 text-center font-bold text-muted-foreground">No installers found nearby yet.</div> : <div className="grid gap-4 md:grid-cols-2">{visible.map(installer => <InstallerCard key={installer.id} installer={installer} />)}</div>}
+    </div>
+  );
+}

@@ -1,0 +1,134 @@
+{
+  "name": "PreferredInstallerLead",
+  "type": "object",
+  "properties": {
+    "installer_name": {
+      "type": "string"
+    },
+    "installer_signature_name": {
+      "type": "string"
+    },
+    "installer_email": {
+      "type": "string"
+    },
+    "installer_phone": {
+      "type": "string"
+    },
+    "business_name": {
+      "type": "string"
+    },
+    "business_address": {
+      "type": "string"
+    },
+    "business_city": {
+      "type": "string"
+    },
+    "business_state": {
+      "type": "string"
+    },
+    "business_zip": {
+      "type": "string"
+    },
+    "business_latitude": {
+      "type": "number"
+    },
+    "business_longitude": {
+      "type": "number"
+    },
+    "install_record_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "device_unique_id": {
+      "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "company_id": {
+      "type": "string"
+    },
+    "joined_preferred_network": {
+      "type": "boolean",
+      "default": true
+    },
+    "location_verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "verification_progress_count": {
+      "type": "number",
+      "default": 0
+    },
+    "verification_required_count": {
+      "type": "number",
+      "default": 3
+    },
+    "installer_status": {
+      "type": "string",
+      "enum": [
+        "not_verified",
+        "in_progress",
+        "almost_verified",
+        "verified",
+        "preferred",
+        "suspended"
+      ],
+      "default": "not_verified"
+    },
+    "lead_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "contacted",
+        "active",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "last_install_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "successful_install_count": {
+      "type": "number",
+      "default": 0
+    },
+    "failed_install_count": {
+      "type": "number",
+      "default": 0
+    },
+    "success_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "install_completion",
+        "admin_created",
+        "google_import_later"
+      ],
+      "default": "install_completion"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "installer_name"
+  ]
+}

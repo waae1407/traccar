@@ -31,6 +31,28 @@
     "installer_id": {
       "type": "string"
     },
+    "installer_email": {
+      "type": "string"
+    },
+    "installer_phone": {
+      "type": "string"
+    },
+    "installer_business_name": {
+      "type": "string"
+    },
+    "installer_business_address": {
+      "type": "string"
+    },
+    "preferred_installer_lead_id": {
+      "type": "string"
+    },
+    "verification_excluded": {
+      "type": "boolean",
+      "default": false
+    },
+    "verification_exclusion_reason": {
+      "type": "string"
+    },
     "telematics_device_id": {
       "type": "string"
     },
