@@ -11,6 +11,8 @@ import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperation
 import TelematicsMap from "@/components/telematics/TelematicsMap";
 import InstallerLocatorCTA from "@/components/installers/InstallerLocatorCTA";
 import HostSmartReadinessPanel from "@/components/host/HostSmartReadinessPanel";
+import QuickActionsCard from "@/components/shared/QuickActionsCard";
+import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -36,6 +38,7 @@ const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
 export default function HostDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [qaOpen, setQaOpen] = React.useState(false);
 
   const { data: hosts = [] } = useQuery({
     queryKey: ["my-host-profile", user?.email],
@@ -96,6 +99,9 @@ export default function HostDashboard() {
 
   return (
     <div className="space-y-5">
+      <QuickActionsCard role="host" onOpenDrawer={() => setQaOpen(true)} />
+      <QuickActionsDrawer open={qaOpen} onClose={() => setQaOpen(false)} role="host" />
+
       <div className="rounded-3xl overflow-hidden -mx-1" style={{ background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)" }}>
         <div className="relative px-5 py-5">
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 80% 20%, hsl(338 90% 56% / 0.25) 0%, transparent 60%)" }} />

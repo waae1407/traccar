@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import StatCardDrawer, { DrawerRow, DrawerBookingRow } from "@/components/dashboard/StatCardDrawer";
 import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import FleetSnapshotCard from "@/components/dashboard/FleetSnapshotCard";
+import QuickActionsCard from "@/components/shared/QuickActionsCard";
+import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid
@@ -38,6 +40,7 @@ export default function Dashboard() {
   const { tenantFilter, companyId, isSuperadmin, overrideCompanyId } = useTenant();
   const scopeKey = companyId || "all";
   const [activeDrawer, setActiveDrawer] = useState(null);
+  const [qaOpen, setQaOpen] = useState(false);
   const [backfillState, setBackfillState] = useState("idle"); // idle | running | done
   const [billingState, setBillingState] = useState("idle"); // idle | running | done | error
 
@@ -204,6 +207,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in-up">
+      <QuickActionsCard role="admin" onOpenDrawer={() => setQaOpen(true)} />
+      <QuickActionsDrawer open={qaOpen} onClose={() => setQaOpen(false)} role="admin" />
+
       <PaymentOperationalAlertPanel scope="admin" limit={3} />
 
       <FleetSnapshotCard vehicles={vehicles} devices={gpsDevices} bookings={bookingRequests} />

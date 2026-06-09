@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Menu, Search, Bell, Sparkles } from "lucide-react";
+import { Menu, Search, Bell, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "react-router-dom";
+import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
 
 const pageMeta = {
   "/dashboard": { title: "Dashboard", subtitle: "Fleet overview & analytics" },
@@ -34,6 +35,7 @@ const pageMeta = {
 
 export default function BusinessPortalTopBar({ onMenuClick, role = "admin" }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [qaOpen, setQaOpen] = useState(false);
   const location = useLocation();
   const meta = pageMeta[location.pathname] || { title: role === "host" ? "Business Portal" : "uRide", subtitle: "" };
 
@@ -66,11 +68,21 @@ export default function BusinessPortalTopBar({ onMenuClick, role = "admin" }) {
           <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-primary rounded-full shadow-[0_0_6px_hsl(338_90%_56%/0.8)] animate-pulse-glow" />
         </button>
 
+        <button
+          onClick={() => setQaOpen(true)}
+          className="flex items-center gap-1.5 h-9 px-3 rounded-xl border text-xs font-bold transition-all"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56% / 0.15), hsl(265 80% 62% / 0.15))", borderColor: "hsl(338 90% 56% / 0.3)", color: "hsl(338 90% 70%)" }}>
+          <Zap className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Quick Actions</span>
+        </button>
+
         <button className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl bg-gradient-to-r from-primary/20 to-purple-500/20 border border-primary/30 text-primary text-xs font-medium hover:from-primary/30 hover:to-purple-500/30 transition-all">
           <Sparkles className="h-3.5 w-3.5" />
           <span>{role === "host" ? "Business Insights" : "AI Insights"}</span>
         </button>
       </div>
+
+      <QuickActionsDrawer open={qaOpen} onClose={() => setQaOpen(false)} role={role} />
     </header>
   );
 }
