@@ -80,7 +80,6 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
         const agreementMeta = {
           agreement_accepted_at: new Date().toISOString(),
-          agreement_ip_address: "captured-server-side",
           agreement_device_info: navigator.userAgent || "unknown",
           agreement_version: "v1.0",
           payment_accepted_recurring_notice: true,
@@ -293,7 +292,8 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
         amount_cents: amountCents,
         booking_type: booking.booking_type,
         setup_future_usage: "off_session",
-      });
+        payment_flow: isPaymentRecovery ? "recovery" : "initial_checkout",
+        });
       if (piRes.data?.reservation_request_only) {
         setPaymentProcessor("manual_invoice");
         setLoading(false);

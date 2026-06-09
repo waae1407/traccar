@@ -316,12 +316,94 @@ Deno.serve(async (req) => {
       case 'payment_intent.succeeded': {
         const pi = event.data.object;
         const billingContext = getBillingContext(pi.metadata || {});
-        if (!['rental_marketplace_payment', 'fleetos_host_direct_payment'].includes(billingContext)) {
+        if (!['rental_marketplace_payment', 'fleetos_host_direct_payment', 'payment_recovery_customer_self_service'].includes(billingContext)) {
           console.log(`[Webhook] Recognized non-rental billing context ${billingContext}; no live subscription/dealer/GPS billing action taken.`);
           await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.succeeded context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
           break;
         }
         const bookingRequestId = pi.metadata?.booking_request_id;
+        if (billingContext === 'payment_recovery_customer_self_service') {
+          if (bookingRequestId) {
+            const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });
+            const booking = records[0];
+            if (booking) {
+              const chargeData = pi.charges?.data?.[0];
+              const receiptUrl = chargeData?.receipt_url || '';
+              const chargeId = chargeData?.id || '';
+              const balanceTransactionId = typeof chargeData?.balance_transaction === 'string' ? chargeData.balance_transaction : chargeData?.balance_transaction?.id || '';
+              const grossAmount = pi.amount / 100;
+              const paidAt = new Date().toISOString();
+              const paymentWeekNumber = (booking.billing_week_number || 1) + 1;
+              const dedupeKey = generatePaymentDedupeKey({ sourceType: 'grace_retry', bookingId: bookingRequestId, weekNumber: paymentWeekNumber, amount: grossAmount, paidAt, paymentIntentId: pi.id, paymentMethod: 'stripe' });
+
+              await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
+                payment_status: 'paid',
+                stripe_payment_intent_id: pi.id,
+                stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
+                stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
+                receipt_url: receiptUrl || null,
+                payment_failure_attempts: 0,
+                payment_failure_reason: null,
+                last_payment_failure_at: null,
+                last_retry_at: null,
+                payment_failure_started_at: null,
+                starter_disable_scheduled_at: null
+              });
+
+              await base44.asServiceRole.functions.invoke('autoApproveBooking', { booking_request_id: bookingRequestId, source: 'customer_self_service_payment_recovery' }).catch((error) => console.error('[AutoApproveRecovery]', error.message));
+
+              const existingPaymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({ stripe_payment_intent_id: pi.id });
+              if (existingPaymentLogs.length === 0 && grossAmount > 0) {
+                await base44.asServiceRole.entities.PaymentLog.create({
+                  booking_request_id: bookingRequestId,
+                  host_id: booking.host_id || pi.metadata?.host_id || '',
+                  customer_email: booking.user_email,
+                  customer_name: booking.customer_full_name || '',
+                  vehicle_id: booking.vehicle_id,
+                  vehicle_name: booking.vehicle_name || '',
+                  week_number: paymentWeekNumber,
+                  billing_period_start: paidAt.slice(0, 10),
+                  billing_period_end: booking.next_billing_date || '',
+                  amount: grossAmount,
+                  currency: pi.currency || 'usd',
+                  payment_method: 'stripe',
+                  source_type: 'grace_retry',
+                  source_confidence: classifyPaymentConfidence({ paymentIntentId: pi.id }),
+                  legacy_flag: false,
+                  external_reconcilable: true,
+                  dedupe_key: dedupeKey,
+                  stripe_payment_intent_id: pi.id,
+                  stripe_charge_id: chargeId,
+                  stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
+                  stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
+                  stripe_balance_transaction_id: balanceTransactionId,
+                  stripe_receipt_url: receiptUrl,
+                  receipt_url: receiptUrl,
+                  status: 'paid',
+                  recorded_by: 'customer_self_service_recovery',
+                  paid_at: paidAt,
+                });
+              }
+
+              await logEvent(base44, {
+                event_type: 'payment.recovery_succeeded',
+                actor_id: 'stripe_webhook',
+                actor_email: 'stripe@stripe.com',
+                actor_role: 'stripe',
+                target_entity: 'BookingRequest',
+                target_id: bookingRequestId,
+                booking_id: bookingRequestId,
+                vehicle_id: booking.vehicle_id || '',
+                host_id: booking.host_id || '',
+                customer_id: booking.user_email || '',
+                summary: `Customer self-service payment recovery succeeded for booking ${bookingRequestId}`,
+                metadata: { payment_intent_id: pi.id, amount: grossAmount, billing_context: billingContext, payout_isolated: true },
+                source: 'webhook',
+              });
+            }
+          }
+          break;
+        }
         if (billingContext === 'fleetos_host_direct_payment') {
           if (bookingRequestId) {
             const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });

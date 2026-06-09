@@ -61,12 +61,15 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { booking_request_id, amount_cents, booking_type, setup_future_usage } = await req.json();
+    const { booking_request_id, amount_cents, booking_type, setup_future_usage, payment_flow } = await req.json();
     if (!booking_request_id) return Response.json({ error: 'Missing booking_request_id' }, { status: 400 });
     if (!Number.isInteger(amount_cents) || amount_cents < 50) return Response.json({ error: 'Invalid amount' }, { status: 400 });
 
     const booking = await base44.asServiceRole.entities.BookingRequest.get(booking_request_id);
     if (!booking) return Response.json({ error: 'Booking not found' }, { status: 404 });
+    if (user.role !== 'admin' && booking.user_email !== user.email && booking.user_id !== user.id) {
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const vehicle = booking.vehicle_id ? await base44.asServiceRole.entities.Vehicle.get(booking.vehicle_id) : null;
     const hostId = booking.host_id || vehicle?.host_id;
@@ -91,13 +94,16 @@ Deno.serve(async (req) => {
     if (processor === 'host_stripe' && !stripeOptions.stripeAccount) return Response.json({ error: 'Host Stripe is not connected' }, { status: 400 });
 
     const customerId = await getOrCreateCustomer(base44, stripeOptions, user, booking_request_id);
+    const isRecovery = payment_flow === 'recovery';
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amount_cents,
       currency: 'usd',
       customer: customerId,
       setup_future_usage: setup_future_usage || 'off_session',
       metadata: {
-        billing_context: processor === 'host_stripe' ? 'fleetos_host_direct_payment' : 'rental_marketplace_payment',
+        billing_context: isRecovery ? 'payment_recovery_customer_self_service' : processor === 'host_stripe' ? 'fleetos_host_direct_payment' : 'rental_marketplace_payment',
+        payment_flow: isRecovery ? 'recovery' : 'initial_checkout',
+        original_booking_id: booking.id,
         booking_request_id,
         host_id: hostId,
         user_email: user.email,

@@ -42,6 +42,7 @@ export default function CheckoutFlow() {
   const [booking, setBooking] = useState(null);
   const [currentStep, setCurrentStep] = useState("select_vehicle");
   const [complianceError, setComplianceError] = useState(null);
+  const [accessDenied, setAccessDenied] = useState(false);
   const initializedRef = useRef(false);
 
   const { data: companyBySlug } = useQuery({
@@ -107,12 +108,21 @@ export default function CheckoutFlow() {
   useEffect(() => {
     if (existingRequest && requestedStep === "payment" && !user) return;
     if (existingRequest && !initializedRef.current) {
+      const ownsRequest = user && (existingRequest.user_email === user.email || existingRequest.user_id === user.id || user.role === "admin");
+      if (!ownsRequest) {
+        initializedRef.current = true;
+        setBooking(null);
+        setAccessDenied(true);
+        setCurrentStep("select_vehicle");
+        return;
+      }
+
       initializedRef.current = true;
+      setAccessDenied(false);
       setBooking(existingRequest);
       const terminalStatuses = ["cancelled", "completed", "rejected"];
-      const ownsRequest = user && (existingRequest.user_email === user.email || existingRequest.user_id === user.id || user.role === "admin");
       const retryEligible = ["failed", "payment_due", "past_due", "payment_retry_required"].includes(existingRequest.payment_status) || ["payment_due", "suspended", "grace_period"].includes(existingRequest.booking_status);
-      if (requestedStep === "payment" && ownsRequest && retryEligible) {
+      if (requestedStep === "payment" && retryEligible) {
         setCurrentStep("payment");
       } else if (terminalStatuses.includes(existingRequest.booking_status)) {
         setCurrentStep("select_vehicle");
@@ -178,6 +188,20 @@ export default function CheckoutFlow() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="w-10 h-10 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-sm w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
+          <h2 className="font-bold text-gray-900 text-lg mb-2">Access denied</h2>
+          <p className="text-gray-500 text-sm mb-5">This booking is not available for your account.</p>
+          <button onClick={() => navigate("/my-bookings", { replace: true })} className="w-full py-3 rounded-xl font-bold text-sm text-white" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            Go to My Bookings
+          </button>
+        </div>
       </div>
     );
   }

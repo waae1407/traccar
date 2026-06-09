@@ -39,6 +39,27 @@ async function validateVehicleCompliance(base44, vehicle) {
   return { ok: true };
 }
 
+function rtoInitialsComplete(contractInitials) {
+  if (!contractInitials) return false;
+  try {
+    const initials = typeof contractInitials === 'string' ? JSON.parse(contractInitials) : contractInitials;
+    return !!initials?.rto_forfeiture?.initials;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function validateRtoAutoApprovalMinimums(booking, vehicle) {
+  if (booking.booking_type !== 'Rent-to-Own') return { ok: true };
+  if (vehicle?.rent_to_own_eligible !== true) return fail('Vehicle is not eligible for rent-to-own.', 'blocked');
+  if (booking.contract_status !== 'signed') return fail('Rent-to-own contract must be signed.', 'review_required');
+  if (booking.payment_status !== 'paid') return fail('Rent-to-own payment must be paid.', 'review_required');
+  if (booking.verification_status !== 'verified') return fail('Customer identity verification is complete.', 'review_required');
+  if (!rtoInitialsComplete(booking.contract_initials)) return fail('Required rent-to-own contract initials are completed.', 'review_required');
+  if (vehicle?.status === 'Compliance Hold') return fail('Vehicle is on compliance hold.', 'blocked');
+  return { ok: true };
+}
+
 async function restoreStarterIfNeeded(base44, booking) {
   if (!(booking.starter_disabled || booking.moovetrax_kill_active) || !booking.vehicle_id) return false;
   try {
@@ -131,9 +152,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (booking.booking_type === 'Rent-to-Own' && vehicle?.rent_to_own_eligible !== true) {
-      const updated = await writeOutcome(base44, booking, fail('Vehicle is not eligible for rent-to-own.', 'blocked'), 'rejected');
-      return Response.json({ ok: false, auto_approval_status: 'blocked', auto_approval_reason: 'Vehicle is not eligible for rent-to-own.', booking: updated });
+    const rtoValidation = validateRtoAutoApprovalMinimums(booking, vehicle);
+    if (!rtoValidation.ok) {
+      const updated = await writeOutcome(base44, booking, rtoValidation, rtoValidation.status === 'blocked' ? 'rejected' : 'under_review');
+      return Response.json({ ok: false, auto_approval_status: rtoValidation.status, auto_approval_reason: rtoValidation.reason, booking: updated });
     }
 
     const compliance = await validateVehicleCompliance(base44, vehicle);
