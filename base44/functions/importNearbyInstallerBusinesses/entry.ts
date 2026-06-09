@@ -16,7 +16,7 @@ const VERIFIED_STATUSES = new Set(['in_progress', 'almost_verified', 'verified',
 function clean(value) { return String(value || '').trim(); }
 function norm(value) { return clean(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 function cleanPhone(value) { return clean(value).replace(/[^0-9+]/g, ''); }
-function metersFromMiles(miles) { return Math.max(1, Number(miles || 25)) * 1609.344; }
+function metersFromMiles(miles) { return Math.min(50000, Math.max(1, Number(miles || 25)) * 1609.344); }
 function getComponent(place, type, key = 'longText') {
   const component = (place.addressComponents || place.address_components || []).find(item => item.types?.includes(type));
   if (!component) return '';
