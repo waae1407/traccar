@@ -62,7 +62,7 @@ export default function HostSmartReadinessPanel({ readiness, storeUrl }) {
           <div className="max-w-2xl">
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-pink-500">Next step</p>
             <h2 className="mt-1 text-2xl font-black text-gray-950" style={{ fontFamily: 'var(--font-syne)' }}>Get Your First Vehicle Live</h2>
-            <p className="mt-2 text-sm text-gray-600">Your storefront is live. Add a vehicle and we’ll guide you through what’s needed.</p>
+            <p className="mt-2 text-sm text-gray-600">Complete the readiness steps below to get your first vehicle live. Registration and insurance are handled inside vehicle setup.</p>
             {absoluteStoreUrl && (
               <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
                 <p className="text-xs font-black uppercase tracking-wider text-emerald-700">Your storefront is live:</p>

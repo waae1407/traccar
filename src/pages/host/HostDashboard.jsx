@@ -87,18 +87,12 @@ export default function HostDashboard() {
   const availableVehicles = vehicles.filter(v => v.status === "Available").length;
   const rentedVehicles = vehicles.filter(v => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"].includes(v.status)).length;
   const fleetUtilization = vehicles.length > 0 ? Math.round((rentedVehicles / vehicles.length) * 100) : 0;
-  const hasLiveVehicles = vehicles.some(v => ["Available", "Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"].includes(v.status) && v.approval_status === "approved");
   const readiness = readinessResponse?.data;
-
-  const onboardingSteps = [
-    { id: 1, label: "Application approved", done: host.status === "approved", href: null, icon: CheckCircle2 },
-    { id: 2, label: "Connect Stripe for payouts", done: !!host.stripe_onboarding_complete, href: "/host/payouts", icon: DollarSign, cta: "Connect →" },
-    { id: 3, label: "Add your first vehicle", done: vehicles.length > 0, href: "/host/vehicles/setup", icon: Car, cta: "Add Vehicle →" },
-    { id: 4, label: "Upload compliance documents", done: compliance.length > 0, href: "/host/compliance", icon: Shield, cta: "Upload Docs →" },
-    { id: 5, label: "Build your brand storefront", done: !!host.store_published, href: "/host/brand", icon: Sparkles, cta: "Build Store →" },
-  ];
-  const completedSteps = onboardingSteps.filter(s => s.done).length;
-  const onboardingDone = completedSteps === onboardingSteps.length;
+  const hasLiveVehicles = Number.isFinite(Number(readiness?.live_vehicle_count))
+    ? Number(readiness.live_vehicle_count) > 0
+    : vehicles.some(v => ["Available", "Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"].includes(v.status) && v.approval_status === "approved");
+  const smartReadinessActive = host.status === "approved" && !hasLiveVehicles;
+  const onboardingDone = !!readiness?.publish_ready;
 
   return (
     <div className="space-y-5">
@@ -122,7 +116,7 @@ export default function HostDashboard() {
       />
 
       {/* Launch Card — shown until store is live */}
-      {host.status === "approved" && !storeIsLive && (
+      {host.status === "approved" && !storeIsLive && !smartReadinessActive && (
         <button onClick={() => navigate("/host/brand")} className="w-full text-left rounded-3xl overflow-hidden relative group active:scale-[0.98] transition-all" style={{ background: "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #1a0533 100%)" }}>
           <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 70% 50%, hsl(338 90% 56% / 0.35) 0%, transparent 65%)" }} />
           <div className="relative z-10 px-6 py-6">
@@ -149,15 +143,7 @@ export default function HostDashboard() {
         <div className="flex items-center gap-3 p-4 rounded-2xl border border-gray-200 bg-gray-50"><div className="h-9 w-9 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0"><Rocket className="h-4 w-4 text-violet-600" /></div><div className="flex-1"><p className="text-sm font-bold text-gray-800">Complete setup to publish your storefront.</p><p className="text-xs text-gray-500">Go live to start receiving bookings from customers.</p></div><Link to="/host/brand" className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Go Live →</Link></div>
       ) : null}
 
-      {hasLiveVehicles && !onboardingDone && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-1"><h3 className="font-bold text-gray-900 text-sm">🚀 Get Started — {completedSteps}/{onboardingSteps.length} complete</h3><span className="text-xs font-bold text-pink-600">{Math.round((completedSteps / onboardingSteps.length) * 100)}%</span></div>
-          <div className="h-1.5 rounded-full bg-gray-100 mb-4"><div className="h-full rounded-full transition-all" style={{ width: `${(completedSteps / onboardingSteps.length) * 100}%`, background: "linear-gradient(90deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} /></div>
-          <div className="space-y-2">{onboardingSteps.map((step, i) => <div key={step.id} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${step.done ? "bg-emerald-50" : "bg-gray-50 border border-gray-100"}`}><div className={`h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 ${step.done ? "bg-emerald-500" : "bg-gray-200"}`}>{step.done ? <CheckCircle2 className="h-4 w-4 text-white" /> : <span className="text-xs font-bold text-gray-500">{i + 1}</span>}</div><p className={`text-sm flex-1 ${step.done ? "text-emerald-800 font-semibold" : "text-gray-700 font-medium"}`}>{step.label}</p>{step.done && <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full flex-shrink-0">Done</span>}{!step.done && step.href && <a href={step.href} className="text-xs font-bold px-3 py-1 rounded-lg text-white flex-shrink-0" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>{step.cta}</a>}</div>)}</div>
-        </div>
-      )}
-
-      {!hasLiveVehicles && <HostSmartReadinessPanel readiness={readiness} storeUrl={storeUrl} />}
+      {smartReadinessActive && <HostSmartReadinessPanel readiness={readiness} storeUrl={storeUrl} />}
 
       {hasLiveVehicles && !host.stripe_onboarding_complete && <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-yellow-200 bg-yellow-50"><div className="flex items-center gap-3"><AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" /><div><p className="text-sm font-bold text-yellow-900">Set Up Your Payouts</p><p className="text-xs text-yellow-700">Complete Stripe Connect onboarding to receive automatic fleet payouts.</p></div></div><Link to="/host/payouts" className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-yellow-800 bg-yellow-200 hover:bg-yellow-300 transition-all">Set Up →</Link></div>}
 

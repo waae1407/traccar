@@ -61,9 +61,9 @@ Deno.serve(async (req) => {
     const subscription = subscriptions[0] || null;
     const commerce = commerceProfiles[0] || null;
     const payment = paymentSettings[0] || null;
-    const vehicle = vehicle_id ? allVehicles.find((v) => v.id === vehicle_id) : null;
-    const vehicleDocs = vehicle ? allDocs.filter((doc) => doc.vehicle_id === vehicle.id) : [];
     const liveVehicles = allVehicles.filter((v) => LIVE_STATUSES.has(v.status) && v.approval_status === 'approved');
+    const vehicle = vehicle_id ? allVehicles.find((v) => v.id === vehicle_id) : allVehicles.find((v) => !liveVehicles.some((live) => live.id === v.id)) || allVehicles[0] || null;
+    const vehicleDocs = vehicle ? allDocs.filter((doc) => doc.vehicle_id === vehicle.id) : [];
 
     const planMode = plan?.selected_mode || plan?.active_mode || commerce?.plan_type || 'marketplace_partner';
     const subscriptionStatus = subscription?.subscription_status || subscription?.status || plan?.status || 'not_required';
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
       vehicle_details_status: vehicle ? (detailsDone ? status('Done') : status('Needed')) : status('Needed'),
       registration_status: vehicle ? (registrationDone ? status('Done') : status('Needed')) : status('Needed'),
       insurance_status: vehicle ? (insuranceDone ? status('Done') : status('Needed')) : status('Needed'),
-      host_identity_status: identityDone ? status('Done', 'Identity Verified on File') : identityFailed ? status('Needed', host.verification_notes || 'Verification failed') : status('Needed'),
+      host_identity_status: identityDone ? status('Done', 'Identity Verified On File') : identityFailed ? status('Needed', host.verification_notes || 'Verification failed') : status('Needed'),
       subscription_status: subscriptionDone ? status('Done', paidMode ? `${modeLabel(planMode)} ${subscriptionStatus}` : 'Marketplace Partner has no monthly subscription') : status('Needed', `Start ${modeLabel(planMode)} 14-Day Trial`),
       payment_setup_status: paymentDone ? status('Done', 'Payments Connected') : paymentRequired ? status('Needed', 'Connect Stripe') : status('Optional'),
       gps_status: gpsDone ? status('Done', 'GPS Connected') : gpsRequired ? status('Needed') : status('Optional'),
