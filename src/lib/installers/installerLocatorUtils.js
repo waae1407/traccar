@@ -10,7 +10,7 @@ export function distanceMiles(lat1, lon1, lat2, lon2) {
 }
 
 export function sortInstallers(a, b) {
-  const rank = { preferred: 0, verified: 1, almost_verified: 2, in_progress: 3, not_verified: 4, suspended: 9 };
+  const rank = { preferred: 0, verified: 1, almost_verified: 2, in_progress: 3, not_verified: 4, listed: 5, suspended: 9 };
   const status = (rank[a.installer_status] ?? 5) - (rank[b.installer_status] ?? 5);
   if (status !== 0) return status;
   if (a.distance !== undefined && b.distance !== undefined) return a.distance - b.distance;

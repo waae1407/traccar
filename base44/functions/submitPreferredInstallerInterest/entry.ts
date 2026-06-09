@@ -65,8 +65,19 @@ Deno.serve(async (req) => {
     const locationVerified = !!geo && signals.some(signal => distanceMiles(geo, signal) <= 1);
 
     let existing = null;
-    if (installerEmail) existing = (await base44.asServiceRole.entities.PreferredInstallerLead.filter({ installer_email: installerEmail }))[0];
+    if (body.google_place_id) existing = (await base44.asServiceRole.entities.PreferredInstallerLead.filter({ google_place_id: norm(body.google_place_id) }))[0];
+    if (!existing && installerEmail) existing = (await base44.asServiceRole.entities.PreferredInstallerLead.filter({ installer_email: installerEmail }))[0];
     if (!existing && installerPhone) existing = (await base44.asServiceRole.entities.PreferredInstallerLead.filter({ installer_phone: installerPhone }))[0];
+    if (!existing) {
+      const candidates = await base44.asServiceRole.entities.PreferredInstallerLead.list('-updated_at', 1000);
+      const businessKey = businessName.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const zip = body.business_zip || geo?.zip || businessAddress.match(/\b\d{5}\b/)?.[0] || '';
+      existing = candidates.find(lead => {
+        const leadKey = String(lead.business_name || lead.installer_name || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const leadZip = lead.business_zip || String(lead.business_address || '').match(/\b\d{5}\b/)?.[0] || '';
+        return businessKey && leadKey === businessKey && (!zip || !leadZip || zip === leadZip);
+      }) || null;
+    }
 
     const payload = {
       installer_name: installerName,
@@ -88,9 +99,17 @@ Deno.serve(async (req) => {
       host_id: record?.host_id || '',
       company_id: record?.company_id || '',
       joined_preferred_network: true,
-      location_verified: locationVerified,
+      location_verified: existing?.source === 'google_places' ? (existing.location_verified === true || locationVerified) : locationVerified,
+      verification_progress_count: existing?.verification_progress_count || 0,
       verification_required_count: 3,
-      lead_status: existing?.lead_status || 'pending',
+      google_place_id: norm(body.google_place_id || existing?.google_place_id),
+      phone: installerPhone || existing?.phone || '',
+      website: norm(body.website || existing?.website),
+      google_rating: existing?.google_rating || 0,
+      google_review_count: existing?.google_review_count || 0,
+      claim_status: existing?.claim_status || 'unclaimed',
+      is_public: existing?.is_public !== false,
+      lead_status: existing?.lead_status === 'imported' ? 'active' : existing?.lead_status || 'pending',
       source: existing?.source || 'install_completion',
       created_at: existing?.created_at || now,
       updated_at: now

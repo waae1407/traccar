@@ -2,6 +2,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 
 const LABELS = {
+  listed: 'Listed',
   not_verified: 'Not Verified',
   in_progress: 'In Progress',
   almost_verified: 'Almost Verified',
@@ -11,6 +12,7 @@ const LABELS = {
 };
 
 const STYLES = {
+  listed: 'bg-slate-50 text-slate-700 border-slate-200',
   not_verified: 'bg-slate-100 text-slate-700 border-slate-200',
   in_progress: 'bg-blue-50 text-blue-700 border-blue-200',
   almost_verified: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -24,7 +26,7 @@ export default function InstallerStatusBadge({ status, count = 0, required = 3 }
   const showProgress = !['preferred', 'suspended'].includes(safeStatus);
   return (
     <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs font-black ${STYLES[safeStatus] || STYLES.not_verified}`}>
-      {LABELS[safeStatus] || LABELS.not_verified}{showProgress ? ` · ${Math.min(count, required)}/${required} installs` : ''}
+      {LABELS[safeStatus] || LABELS.not_verified}{showProgress ? ` · ${Math.min(count, required)}/${required} uRide installs` : ''}
     </Badge>
   );
 }

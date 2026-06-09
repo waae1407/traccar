@@ -204,6 +204,8 @@ Deno.serve(async (req) => {
       installer_signature_name: String(body.installer_signature_name || '').trim(),
       installer_email: String(body.installer_email || body.assigned_installer_email || '').trim().toLowerCase(),
       installer_phone: String(body.installer_phone || '').replace(/[^0-9+]/g, ''),
+      installer_business_name: String(body.installer_business_name || body.business_name || '').trim(),
+      installer_business_address: String(body.installer_business_address || body.business_address || '').trim(),
       installation_started_at: existing[0]?.installation_started_at || now,
       installation_notes: String(body.installation_notes || ''),
       install_photos: body.install_photos,

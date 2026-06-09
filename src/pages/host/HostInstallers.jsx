@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import InstallerCard from '@/components/installers/InstallerCard';
@@ -30,8 +30,10 @@ export default function HostInstallers() {
   const [center, setCenter] = useState(null);
   const [selectedVehicleId, setSelectedVehicleId] = useState(searchParams.get('vehicle_id') || '');
   const [radius, setRadius] = useState(25);
+  const queryClient = useQueryClient();
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [locationInitialized, setLocationInitialized] = useState(false);
+  const [importedKey, setImportedKey] = useState('');
 
   const { data: me } = useQuery({ queryKey: ['me-host-installers'], queryFn: () => base44.auth.me() });
   const { data: host } = useQuery({ queryKey: ['host-installers-host', me?.id, me?.email], enabled: !!me, queryFn: async () => (await base44.entities.Host.filter({ user_id: me.id }))[0] || (await base44.entities.Host.filter({ email: me.email }))[0] || null });
@@ -69,6 +71,16 @@ export default function HostInstallers() {
   const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
   const effectiveCenter = selectedVehicle?.vehicle_lat && selectedVehicle?.vehicle_lon ? { lat: selectedVehicle.vehicle_lat, lon: selectedVehicle.vehicle_lon } : center;
   const visible = useMemo(() => filterAndRankInstallers(installers, effectiveCenter, radius), [installers, effectiveCenter, radius]);
+
+  useEffect(() => {
+    if (!effectiveCenter || isLoading || visible.length >= 5) return;
+    const key = `${Number(effectiveCenter.lat).toFixed(4)},${Number(effectiveCenter.lon).toFixed(4)},${radius}`;
+    if (importedKey === key) return;
+    setImportedKey(key);
+    base44.functions.invoke('importNearbyInstallerBusinesses', { latitude: effectiveCenter.lat, longitude: effectiveCenter.lon, radius_miles: radius })
+      .then(() => queryClient.invalidateQueries({ queryKey: ['host-installer-leads'] }))
+      .catch(error => console.warn('Installer import failed', error?.message));
+  }, [effectiveCenter, radius, visible.length, isLoading, importedKey, queryClient]);
 
   const handleSearch = async (value) => {
     setLoadingSearch(true);

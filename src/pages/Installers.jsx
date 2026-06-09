@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import InstallerCard from '@/components/installers/InstallerCard';
@@ -16,6 +16,11 @@ async function geocodeSearch(query) {
     const res = await base44.functions.invoke('geocodeZipcode', { zipcode: value });
     return { lat: res.data.lat, lon: res.data.lon };
   }
+  if (/\d+\s+/.test(value)) {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(value)}&country=US&format=json&limit=1`);
+    const hit = (await res.json())?.[0];
+    return hit ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null;
+  }
   const [city, state = ''] = value.split(',').map(part => part.trim());
   const res = await base44.functions.invoke('geocodeCity', { city, state });
   return { lat: res.data.lat, lon: res.data.lon };
@@ -24,8 +29,10 @@ async function geocodeSearch(query) {
 export default function Installers() {
   const [query, setQuery] = useState('');
   const [center, setCenter] = useState(null);
+  const queryClient = useQueryClient();
   const [radius, setRadius] = useState(25);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [importedKey, setImportedKey] = useState('');
 
   const { data: installers = [], isLoading } = useQuery({
     queryKey: ['public-installer-leads'],
@@ -33,6 +40,16 @@ export default function Installers() {
   });
 
   const visible = useMemo(() => filterAndRankInstallers(installers, center, radius), [installers, center, radius]);
+
+  useEffect(() => {
+    if (!center || isLoading || visible.length >= 5) return;
+    const key = `${center.lat.toFixed(4)},${center.lon.toFixed(4)},${radius}`;
+    if (importedKey === key) return;
+    setImportedKey(key);
+    base44.functions.invoke('importNearbyInstallerBusinesses', { latitude: center.lat, longitude: center.lon, radius_miles: radius })
+      .then(() => queryClient.invalidateQueries({ queryKey: ['public-installer-leads'] }))
+      .catch(error => console.warn('Installer import failed', error?.message));
+  }, [center, radius, visible.length, isLoading, importedKey, queryClient]);
 
   const handleSearch = async (value) => {
     setLoadingSearch(true);
@@ -63,8 +80,8 @@ export default function Installers() {
         <InstallerLocatorMap installers={visible} center={center ? [center.lat, center.lon] : null} />
         {isLoading ? <div className="rounded-3xl bg-white p-8 text-center font-bold text-slate-500">Loading installers...</div> : visible.length === 0 ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">
-            <h2 className="text-xl font-black">No uRide installer leads found nearby yet.</h2>
-            <p className="mt-2 text-slate-500">Contact uRide support for installation help.</p>
+            <h2 className="text-xl font-black">No installers found nearby yet.</h2>
+            <p className="mt-2 text-slate-500">Try a nearby ZIP code or expand your search radius.</p>
           </div>
         ) : <div className="grid gap-4 md:grid-cols-2">{visible.map(installer => <InstallerCard key={installer.id} installer={installer} />)}</div>}
       </main>

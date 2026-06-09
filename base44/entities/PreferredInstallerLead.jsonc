@@ -14,6 +14,12 @@
     "installer_phone": {
       "type": "string"
     },
+    "phone": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
     "business_name": {
       "type": "string"
     },
@@ -33,6 +39,15 @@
       "type": "number"
     },
     "business_longitude": {
+      "type": "number"
+    },
+    "google_place_id": {
+      "type": "string"
+    },
+    "google_rating": {
+      "type": "number"
+    },
+    "google_review_count": {
       "type": "number"
     },
     "install_record_id": {
@@ -75,6 +90,7 @@
     "installer_status": {
       "type": "string",
       "enum": [
+        "listed",
         "not_verified",
         "in_progress",
         "almost_verified",
@@ -84,15 +100,30 @@
       ],
       "default": "not_verified"
     },
+    "claim_status": {
+      "type": "string",
+      "enum": [
+        "unclaimed",
+        "claimed",
+        "claim_pending",
+        "rejected"
+      ],
+      "default": "unclaimed"
+    },
     "lead_status": {
       "type": "string",
       "enum": [
+        "imported",
         "pending",
         "contacted",
         "active",
         "rejected"
       ],
       "default": "pending"
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": true
     },
     "last_install_at": {
       "type": "string",
@@ -113,6 +144,7 @@
     "source": {
       "type": "string",
       "enum": [
+        "google_places",
         "install_completion",
         "admin_created",
         "google_import_later"
