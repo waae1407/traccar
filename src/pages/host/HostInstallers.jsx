@@ -34,6 +34,7 @@ export default function HostInstallers() {
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [locationInitialized, setLocationInitialized] = useState(false);
   const [importedKey, setImportedKey] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const { data: me } = useQuery({ queryKey: ['me-host-installers'], queryFn: () => base44.auth.me() });
   const { data: host } = useQuery({ queryKey: ['host-installers-host', me?.id, me?.email], enabled: !!me, queryFn: async () => (await base44.entities.Host.filter({ user_id: me.id }))[0] || (await base44.entities.Host.filter({ email: me.email }))[0] || null });
@@ -77,9 +78,11 @@ export default function HostInstallers() {
     const key = `${Number(effectiveCenter.lat).toFixed(4)},${Number(effectiveCenter.lon).toFixed(4)},${radius}`;
     if (importedKey === key) return;
     setImportedKey(key);
+    setIsImporting(true);
     base44.functions.invoke('importNearbyInstallerBusinesses', { latitude: effectiveCenter.lat, longitude: effectiveCenter.lon, radius_miles: radius })
-      .then(() => queryClient.invalidateQueries({ queryKey: ['host-installer-leads'] }))
-      .catch(error => console.warn('Installer import failed', error?.message));
+      .then(() => queryClient.refetchQueries({ queryKey: ['host-installer-leads'] }))
+      .catch(error => console.warn('Installer import failed', error?.message))
+      .finally(() => setIsImporting(false));
   }, [effectiveCenter, radius, visible.length, isLoading, importedKey, queryClient]);
 
   const handleSearch = async (value) => {
@@ -104,7 +107,7 @@ export default function HostInstallers() {
         </select>
       )}
       <InstallerLocatorMap installers={visible} center={effectiveCenter ? [effectiveCenter.lat, effectiveCenter.lon] : null} />
-      {isLoading ? <div className="rounded-3xl bg-card p-8 text-center font-bold text-muted-foreground">Loading installers...</div> : visible.length === 0 ? <div className="rounded-3xl border border-border bg-card p-8 text-center font-bold text-muted-foreground">No installers found nearby yet.</div> : <div className="grid gap-4 md:grid-cols-2">{visible.map(installer => <InstallerCard key={installer.id} installer={installer} source={searchParams.get('source') || 'manual_navigation'} />)}</div>}
+      {isLoading || isImporting ? <div className="rounded-3xl bg-card p-8 text-center font-bold text-muted-foreground">Loading nearby installers...</div> : visible.length === 0 ? <div className="rounded-3xl border border-border bg-card p-8 text-center font-bold text-muted-foreground">No installers found nearby yet.</div> : <div className="grid gap-4 md:grid-cols-2">{visible.map(installer => <InstallerCard key={installer.id} installer={installer} source={searchParams.get('source') || 'manual_navigation'} />)}</div>}
     </div>
   );
 }

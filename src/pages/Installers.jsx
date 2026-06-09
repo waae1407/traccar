@@ -33,6 +33,7 @@ export default function Installers() {
   const [radius, setRadius] = useState(25);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [importedKey, setImportedKey] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
 
   const { data: installers = [], isLoading } = useQuery({
     queryKey: ['public-installer-leads'],
@@ -46,9 +47,11 @@ export default function Installers() {
     const key = `${center.lat.toFixed(4)},${center.lon.toFixed(4)},${radius}`;
     if (importedKey === key) return;
     setImportedKey(key);
+    setIsImporting(true);
     base44.functions.invoke('importNearbyInstallerBusinesses', { latitude: center.lat, longitude: center.lon, radius_miles: radius })
-      .then(() => queryClient.invalidateQueries({ queryKey: ['public-installer-leads'] }))
-      .catch(error => console.warn('Installer import failed', error?.message));
+      .then(() => queryClient.refetchQueries({ queryKey: ['public-installer-leads'] }))
+      .catch(error => console.warn('Installer import failed', error?.message))
+      .finally(() => setIsImporting(false));
   }, [center, radius, visible.length, isLoading, importedKey, queryClient]);
 
   const handleSearch = async (value) => {
@@ -78,7 +81,7 @@ export default function Installers() {
         </div>
         <InstallerSearchControls query={query} setQuery={setQuery} radius={radius} setRadius={setRadius} onSearch={handleSearch} onCurrentLocation={useCurrentLocation} loading={loadingSearch} />
         <InstallerLocatorMap installers={visible} center={center ? [center.lat, center.lon] : null} />
-        {isLoading ? <div className="rounded-3xl bg-white p-8 text-center font-bold text-slate-500">Loading installers...</div> : visible.length === 0 ? (
+        {isLoading || isImporting ? <div className="rounded-3xl bg-white p-8 text-center font-bold text-slate-500">Loading nearby installers...</div> : visible.length === 0 ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">
             <h2 className="text-xl font-black">No installers found nearby yet.</h2>
             <p className="mt-2 text-slate-500">Try a nearby ZIP code or expand your search radius.</p>

@@ -20,10 +20,16 @@ export function sortInstallers(a, b) {
 export function filterAndRankInstallers(installers, center, radius) {
   return installers
     .filter(i => i.lead_status !== 'rejected' && i.installer_status !== 'suspended')
-    .map(i => ({
-      ...i,
-      distance: center && i.business_latitude && i.business_longitude ? distanceMiles(center.lat, center.lon, i.business_latitude, i.business_longitude) : undefined
-    }))
+    .map(i => {
+      const latitude = i.business_latitude ?? i.latitude ?? i.lat;
+      const longitude = i.business_longitude ?? i.longitude ?? i.lng ?? i.lon;
+      return {
+        ...i,
+        business_latitude: latitude,
+        business_longitude: longitude,
+        distance: center && Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)) ? distanceMiles(center.lat, center.lon, latitude, longitude) : undefined
+      };
+    })
     .filter(i => !center || i.distance === undefined || i.distance <= radius)
     .sort(sortInstallers);
 }

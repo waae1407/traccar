@@ -1,5 +1,5 @@
-import React from 'react';
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import InstallerStatusBadge from './InstallerStatusBadge';
@@ -14,6 +14,21 @@ function markerIcon(status) {
   });
 }
 
+function InstallerMapController({ center, located }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (located.length > 1) {
+      const bounds = L.latLngBounds(located.map(installer => [Number(installer.business_latitude), Number(installer.business_longitude)]));
+      map.fitBounds(bounds, { padding: [32, 32], maxZoom: 12 });
+      return;
+    }
+    if (center) map.setView(center, located.length ? 11 : 10);
+  }, [center, located, map]);
+
+  return null;
+}
+
 export default function InstallerLocatorMap({ installers = [], center }) {
   const located = installers.filter(i => Number.isFinite(Number(i.business_latitude)) && Number.isFinite(Number(i.business_longitude)));
   const mapCenter = center || (located[0] ? [Number(located[0].business_latitude), Number(located[0].business_longitude)] : [39.5, -98.35]);
@@ -21,6 +36,7 @@ export default function InstallerLocatorMap({ installers = [], center }) {
   return (
     <div className="h-[360px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <MapContainer center={mapCenter} zoom={located.length ? 10 : 4} style={{ height: '100%', width: '100%' }}>
+        <InstallerMapController center={mapCenter} located={located} />
         <TileLayer attribution="&copy; OpenStreetMap contributors &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         {located.map(installer => (
           <Marker key={installer.id} position={[Number(installer.business_latitude), Number(installer.business_longitude)]} icon={markerIcon(installer.installer_status)}>
