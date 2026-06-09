@@ -1,4 +1,5 @@
 import React from "react";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { CreditCard, ExternalLink, ShieldCheck } from "lucide-react";
 
@@ -11,8 +12,8 @@ export default function OwnPaymentInstructions({ booking, settings, onSubmitBook
   const bookingStatus = confirmationMode === "auto_confirm" ? "confirmed" : "pending_review";
   const proofRequired = confirmationMode === "payment_proof_required" || settings?.manual_payment_proof_required;
 
-  const submit = () => {
-    onSubmitBooking({
+  const submit = async () => {
+    await onSubmitBooking({
       payment_status: "pending",
       booking_status: bookingStatus,
       submitted_at: new Date().toISOString(),
@@ -21,6 +22,9 @@ export default function OwnPaymentInstructions({ booking, settings, onSubmitBook
       admin_attention_priority: proofRequired ? "high" : "normal",
       admin_notes: "Customer was directed to the host's own payment instructions. No uRideHub/Stripe checkout was used."
     });
+    if (bookingStatus === "confirmed" && booking?.id) {
+      await base44.functions.invoke("autoApproveBooking", { booking_request_id: booking.id, source: "host_manual_auto_confirm" });
+    }
   };
 
   return (

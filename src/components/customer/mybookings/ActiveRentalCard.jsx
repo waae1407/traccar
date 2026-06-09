@@ -39,7 +39,7 @@ function StatusBadge({ status }) {
 }
 
 // Statuses where customer has paid — show pickup address
-const PAID_STATUSES = ["active", "approved", "confirmed", "pending_review"];
+const PAID_STATUSES = ["active", "approved", "confirmed"];
 
 export default function ActiveRentalCard({ booking, onDelete, onCancelRequest, onInspect, onViewContract, isDeleting }) {
   const isResumable   = RESUMABLE.includes(booking.booking_status);
@@ -117,7 +117,7 @@ export default function ActiveRentalCard({ booking, onDelete, onCancelRequest, o
 
         {/* Pickup Address — revealed after payment */}
         {isPaid && vehicle?.pickup_address && (
-          <PickupAddressCard vehicle={vehicle} />
+          <PickupAddressCard vehicle={vehicle} booking={booking} />
         )}
 
         {/* Billing info for active rentals */}

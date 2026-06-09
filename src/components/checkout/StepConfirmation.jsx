@@ -21,7 +21,8 @@ export default function StepConfirmation({ booking, user }) {
     enabled: !!booking?.vehicle_id,
   });
 
-  const isContactless = !!(vehicle?.contactless_pickup && vehicle?.moovetrax_device_id);
+  const isApproved = ["approved", "active", "confirmed"].includes(booking?.booking_status);
+  const isContactless = isApproved && !!(vehicle?.contactless_pickup && vehicle?.moovetrax_device_id);
   const vehicleSnapshot = latestSnapshotFor(signalSnapshots, "vehicle", booking?.vehicle_id);
   const trustLabels = publicVehicleLabels(vehicleSnapshot);
 
@@ -53,12 +54,12 @@ export default function StepConfirmation({ booking, user }) {
       </div>
 
       <h2 className="text-2xl font-bold text-gray-900 mb-2">
-        {isContactless ? "Your Car is Ready! 🚗" : "You're Almost There!"}
+        {["approved", "active", "confirmed"].includes(booking?.booking_status) ? "Booking Approved" : "Your Booking Needs Attention"}
       </h2>
       <p className="text-gray-400 text-sm max-w-xs mb-6">
-        {isContactless
-          ? "Payment confirmed! Your vehicle is active. Use the app to unlock your car and start your rental."
-          : "Your booking request has been submitted. We're reviewing your verification and will confirm shortly."}
+        {["approved", "active", "confirmed"].includes(booking?.booking_status)
+          ? "Your rental is confirmed. Pickup details are now available."
+          : (booking?.auto_approval_reason || "Your booking needs attention before pickup details can unlock.")}
       </p>
 
       {/* Booking card */}
@@ -88,9 +89,9 @@ export default function StepConfirmation({ booking, user }) {
         <div className="mt-4 pt-3 border-t border-gray-100">
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500">Status</span>
-            {isContactless
-              ? <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">● Active</span>
-              : <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">Pending Review</span>}
+            {["approved", "active", "confirmed"].includes(booking?.booking_status)
+              ? <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">{booking?.booking_status === "active" ? "● Active" : "✓ Approved"}</span>
+              : <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-yellow-100 text-yellow-700">Needs Attention</span>}
           </div>
         </div>
       </div>
@@ -98,9 +99,9 @@ export default function StepConfirmation({ booking, user }) {
       <CheckoutTrustSection labels={trustLabels} />
 
       {/* Pickup Address — revealed immediately after payment */}
-      {vehicle?.pickup_address && (
+      {vehicle && (
         <div className="w-full mb-5">
-          <PickupAddressCard vehicle={vehicle} />
+          <PickupAddressCard vehicle={vehicle} booking={booking} />
         </div>
       )}
 
@@ -139,8 +140,8 @@ export default function StepConfirmation({ booking, user }) {
           <p className="font-semibold text-blue-800 text-sm mb-2">What happens next?</p>
           <div className="space-y-1.5">
             {[
-              "We'll review your ID and documents (usually within 24 hours)",
-              "You'll receive a notification once approved",
+              booking?.auto_approval_reason || "Resolve the issue shown above before pickup details unlock",
+              "You'll receive a notification when your booking is approved",
               "Complete pickup inspection photos before driving — required for liability",
             ].map((step, i) => (
               <div key={i} className="flex items-start gap-2">
@@ -153,9 +154,9 @@ export default function StepConfirmation({ booking, user }) {
       )}
 
       <div className="w-full space-y-3">
-        <Link to="/my-bookings" className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm text-white"
+        <Link to={["approved", "active", "confirmed"].includes(booking?.booking_status) ? "/vehicle-command-center" : "/my-bookings"} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm text-white"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
-          View My Bookings <ArrowRight className="h-4 w-4" />
+          {["approved", "active", "confirmed"].includes(booking?.booking_status) ? "View My Vehicle" : "View My Bookings"} <ArrowRight className="h-4 w-4" />
         </Link>
         <Link to="/" className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm text-gray-600 border border-gray-200">
           <Home className="h-4 w-4" /> Back to Home

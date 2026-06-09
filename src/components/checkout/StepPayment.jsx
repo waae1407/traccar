@@ -9,7 +9,7 @@ import ReservationRequestOnly from "@/components/checkout/ReservationRequestOnly
 import PaymentProcessorBadge from "@/components/checkout/PaymentProcessorBadge";
 
 // ─── Inner form — lives inside <Elements> ────────────────────────────────────
-function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue, baseAmount, processor }) {
+function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue, baseAmount, processor, isPaymentRecovery }) {
   const stripe = useStripe();
   const elements = useElements();
   const [ready, setReady] = useState(false);
@@ -109,20 +109,19 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
           vehicle_id: booking?.vehicle_id,
         }).catch(() => {});
 
-        onPaymentSuccess({
+        await onPaymentSuccess({
           payment_status: "paid",
           payment_processor: processor || "uride_stripe",
-          booking_status: "pending_review",
           stripe_payment_intent_id: paymentIntentId,
           stripe_customer_id: stripeCustomerId,
           stripe_payment_method_id: paymentIntent.payment_method || null,
           total_due_now: amountDue,
           submitted_at: new Date().toISOString(),
           viewed_by_admin: false,
-          pending_review_alert_active: true,
-          admin_attention_priority: "high",
+          pending_review_alert_active: false,
+          admin_attention_priority: "normal",
           ...agreementMeta,
-        });
+        }, { paymentRecovery: isPaymentRecovery });
         queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       } else if (status === "processing") {
         setError("Payment is still processing. Check your bookings page in a moment.");
@@ -237,7 +236,7 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 // ─── Outer wrapper ─────────────────────────────────────────────────────────────
 const STRIPE_RATE = 0.0305; // 3.05% displayed rate
 
-export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSuccess }) {
+export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSuccess, isPaymentRecovery = false }) {
   const [stripeInstance, setStripeInstance] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
   const [paymentIntentId, setPaymentIntentId] = useState(null);
@@ -399,7 +398,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             <span>${amountDue.toLocaleString()}</span>
           </div>
         </div>
-        <p className="text-xs text-gray-400 mt-2">Booking stays <strong>Pending Review</strong> until approved</p>
+        <p className="text-xs text-gray-400 mt-2">Booking is approved automatically when system checks pass.</p>
       </div>
 
       {loading ? (
@@ -429,6 +428,7 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
             amountDue={amountDue}
             baseAmount={baseAmount}
             processor={paymentProcessor || processor}
+            isPaymentRecovery={isPaymentRecovery}
           />
         </Elements>
       ) : (

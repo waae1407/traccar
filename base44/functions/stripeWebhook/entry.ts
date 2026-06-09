@@ -316,12 +316,28 @@ Deno.serve(async (req) => {
       case 'payment_intent.succeeded': {
         const pi = event.data.object;
         const billingContext = getBillingContext(pi.metadata || {});
-        if (billingContext !== 'rental_marketplace_payment') {
+        if (!['rental_marketplace_payment', 'fleetos_host_direct_payment'].includes(billingContext)) {
           console.log(`[Webhook] Recognized non-rental billing context ${billingContext}; no live subscription/dealer/GPS billing action taken.`);
           await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.succeeded context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
           break;
         }
         const bookingRequestId = pi.metadata?.booking_request_id;
+        if (billingContext === 'fleetos_host_direct_payment') {
+          if (bookingRequestId) {
+            const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });
+            const booking = records[0];
+            if (booking) {
+              await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
+                payment_status: 'paid',
+                stripe_payment_intent_id: pi.id,
+                stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
+                stripe_customer_id: pi.customer || booking.stripe_customer_id || ''
+              });
+              await base44.asServiceRole.functions.invoke('autoApproveBooking', { booking_request_id: bookingRequestId, source: 'stripe_webhook_host_stripe' }).catch((error) => console.error('[AutoApprove]', error.message));
+            }
+          }
+          break;
+        }
         const chargeData = pi.charges?.data?.[0];
         const receiptUrl = chargeData?.receipt_url;
         const chargeId = chargeData?.id;
@@ -331,30 +347,15 @@ Deno.serve(async (req) => {
           const records = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });
           const booking = records[0];
           if (booking) {
-            // Check if vehicle is contactless — auto-approve without admin review
-            let isContactless = false;
-            if (booking.vehicle_id) {
-              const vRecords = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
-              isContactless = !!(vRecords[0]?.contactless_pickup && vRecords[0]?.moovetrax_device_id);
-            }
-
             await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
               payment_status: 'paid',
               stripe_payment_intent_id: pi.id,
+              stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
+              stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
               receipt_url: receiptUrl || null,
-              ...(isContactless && { booking_status: 'active' }),
             });
 
-            if (isContactless) {
-              await base44.asServiceRole.entities.Notification.create({
-                user_email: booking.user_email,
-                title: '🚗 Your Vehicle is Ready!',
-                body: `Your ${booking.vehicle_name} is confirmed and ready to go. Use the app to unlock your vehicle. Don't forget: pickup inspection photos are required for liability protection before you drive off.`,
-                type: 'booking',
-                booking_request_id: bookingRequestId,
-              });
-              console.log(`[Webhook] Contactless booking ${bookingRequestId} auto-approved → active`);
-            }
+            await base44.asServiceRole.functions.invoke('autoApproveBooking', { booking_request_id: bookingRequestId, source: 'stripe_webhook' }).catch((error) => console.error('[AutoApprove]', error.message));
 
             const grossAmount = pi.amount / 100;
             let resolvedHostId = booking.host_id || '';

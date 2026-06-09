@@ -49,7 +49,7 @@ const RTO_CLAUSE = {
 };
 
 // ─── Component ─────────────────────────────────────────────────────────────────
-export default function StepContract({ booking, vehicle, saveAndAdvance }) {
+export default function StepContract({ booking, vehicle, user, saveAndAdvance }) {
   const isRTO = booking?.booking_type === "Rent-to-Own";
   const templateConfig = templateForBookingType(booking?.booking_type);
   const { data: hostTemplates = [] } = useQuery({
@@ -113,9 +113,22 @@ export default function StepContract({ booking, vehicle, saveAndAdvance }) {
   const allInitialed = clauses.every((c) => initials[c.id].trim().length >= 1);
   const canSign = allInitialed && contractReviewed && signatureName.trim().length > 2;
 
-  const handleSign = () => {
+  const handleSign = async () => {
     const signedAt = new Date().toISOString();
     const deviceInfo = navigator.userAgent || "unknown";
+    let signatureEvidence = {
+      signature_ip_address: null,
+      signature_user_agent: deviceInfo,
+      signature_device_info: deviceInfo,
+      signature_timestamp: signedAt,
+      signature_user_id: user?.id || "",
+      signature_email: user?.email || "",
+      contract_signed_at: signedAt,
+      contract_signature_evidence_status: "partial"
+    };
+
+    const evidenceResponse = await base44.functions.invoke("captureContractSignatureEvidence", { booking_request_id: booking.id });
+    signatureEvidence = { ...signatureEvidence, ...(evidenceResponse.data || {}) };
 
     // Build per-clause initials record
     const initialsRecord = Object.fromEntries(
@@ -134,8 +147,7 @@ export default function StepContract({ booking, vehicle, saveAndAdvance }) {
     clearReviewedDraft();
     saveAndAdvance({
       signature_name: signatureName,
-      signature_device_info: deviceInfo,
-      signature_ip_address: "captured-server-side",
+      ...signatureEvidence,
       signed_at: signedAt,
       contract_html: contractHTML,
       contract_type: contractType,

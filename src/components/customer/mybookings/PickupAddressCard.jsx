@@ -1,11 +1,29 @@
 import React, { useState } from "react";
 import { MapPin, Clock, Copy, Check, Navigation } from "lucide-react";
 
-export default function PickupAddressCard({ vehicle }) {
+export default function PickupAddressCard({ vehicle, booking }) {
   const [copied, setCopied] = useState(false);
 
   const address = vehicle?.pickup_address;
   const hours = vehicle?.pickup_hours;
+  const approved = !booking || ["approved", "active", "confirmed"].includes(booking.booking_status);
+
+  if (!approved) {
+    const area = [vehicle?.city || booking?.city, vehicle?.state].filter(Boolean).join(", ") || booking?.city || "Pickup area";
+    return (
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+        <div className="flex items-start gap-3">
+          <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
+            <MapPin className="h-4 w-4 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-blue-900">Pickup details unlock after booking approval.</p>
+            <p className="mt-1 text-xs font-semibold text-blue-700">General pickup area: {area}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!address) return null;
 

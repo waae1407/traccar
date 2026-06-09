@@ -21,26 +21,8 @@ Deno.serve(async (req) => {
       weekly_rate, vehicle_id, start_date, end_date, rental_days,
     } = await req.json();
 
-    // Fetch vehicle for pickup address
-    let pickupAddress = null;
-    let pickupHours = null;
-    if (vehicle_id) {
-      const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: vehicle_id });
-      if (vehicles[0]?.pickup_address) {
-        pickupAddress = vehicles[0].pickup_address;
-        pickupHours = vehicles[0].pickup_hours || null;
-      }
-    }
-
-    if (pickupAddress) {
-      await base44.asServiceRole.entities.Notification.create({
-        user_email,
-        title: "📍 Your Pickup Address is Ready!",
-        body: `Payment confirmed for ${vehicle_name}. Your pickup location: ${pickupAddress}${pickupHours ? ` (${pickupHours})` : ""}`,
-        type: "booking",
-        booking_request_id,
-      });
-    }
+    // Pickup details are intentionally not included in payment receipts.
+    // They unlock only after the booking is approved or active.
 
     const isRecurring = booking_type === "Weekly" || booking_type === "Rent-to-Own" || booking_type === "Monthly";
     const receiptRef = `UR-${booking_request_id?.slice(-6)?.toUpperCase() || '000000'}`;
@@ -84,14 +66,7 @@ Deno.serve(async (req) => {
   <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 20px 0;" />
 
   <p style="margin: 0 0 4px; font-size: 14px; color: #374151;">Processed by Stripe</p>
-  <p style="margin: 0 0 2px; font-size: 13px; color: #6b7280;">Booking status: Pending Review — our team reviews within 24 hours.</p>
-
-  ${pickupAddress ? `
-  <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 20px 0;" />
-  <p style="margin: 0 0 4px; font-size: 14px; font-weight: bold; color: #166534;">📍 Pickup Address</p>
-  <p style="margin: 0 0 2px; font-size: 14px; color: #111;">${pickupAddress}</p>
-  ${pickupHours ? `<p style="margin: 0; font-size: 13px; color: #16a34a;">🕐 ${pickupHours}</p>` : ""}
-  ` : ""}
+  <p style="margin: 0 0 2px; font-size: 13px; color: #6b7280;">Pickup details unlock after booking approval.</p>
 
   ${isRecurring ? `
   <hr style="border: none; border-top: 1px dashed #d1d5db; margin: 20px 0;" />

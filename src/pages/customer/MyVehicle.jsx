@@ -203,7 +203,7 @@ export default function MyVehicle() {
         </Section>
 
         <Section title="Pickup & Return" eyebrow="Rental Logistics" icon={Navigation}>
-          <PickupAddressCard vehicle={vehicle} />
+          <PickupAddressCard vehicle={vehicle} booking={booking} />
           <div className="mt-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
             <p className="text-sm font-black text-gray-900">Return instructions</p>
             <p className="mt-1 text-xs leading-relaxed text-gray-500">When you are ready to return the vehicle, complete the drop-off inspection below. Billing stops only after return photos are submitted and reviewed.</p>

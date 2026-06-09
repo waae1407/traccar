@@ -37,6 +37,7 @@ export default function CheckoutFlow() {
   const companySlug = searchParams.get("company");
   const storefrontSlug = searchParams.get("storefront");
   const refCode = searchParams.get("ref");
+  const requestedStep = searchParams.get("step");
 
   const [booking, setBooking] = useState(null);
   const [currentStep, setCurrentStep] = useState("select_vehicle");
@@ -104,11 +105,16 @@ export default function CheckoutFlow() {
   });
 
   useEffect(() => {
+    if (existingRequest && requestedStep === "payment" && !user) return;
     if (existingRequest && !initializedRef.current) {
       initializedRef.current = true;
       setBooking(existingRequest);
       const terminalStatuses = ["cancelled", "completed", "rejected"];
-      if (terminalStatuses.includes(existingRequest.booking_status)) {
+      const ownsRequest = user && (existingRequest.user_email === user.email || existingRequest.user_id === user.id || user.role === "admin");
+      const retryEligible = ["failed", "payment_due", "past_due", "payment_retry_required"].includes(existingRequest.payment_status) || ["payment_due", "suspended", "grace_period"].includes(existingRequest.booking_status);
+      if (requestedStep === "payment" && ownsRequest && retryEligible) {
+        setCurrentStep("payment");
+      } else if (terminalStatuses.includes(existingRequest.booking_status)) {
         setCurrentStep("select_vehicle");
       } else if (existingRequest.booking_status === "pending_payment") {
         setCurrentStep("payment");
@@ -116,7 +122,7 @@ export default function CheckoutFlow() {
         setCurrentStep(existingRequest.checkout_step || "select_vehicle");
       }
     }
-  }, [existingRequest]);
+  }, [existingRequest, requestedStep, user?.id]);
 
   const bookingCompanyId = companyBySlug?.id || user?.company_id || null;
   const selectedVehicle = vehicles.find((v) => v.id === (booking?.vehicle_id || vehicleId));
@@ -125,6 +131,7 @@ export default function CheckoutFlow() {
     (b) => HARD_BLOCK_STATUSES.includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
   );
   const stepIndex = STEPS.indexOf(currentStep);
+  const isPaymentRecovery = requestedStep === "payment" && booking && (["failed", "payment_due", "past_due", "payment_retry_required"].includes(booking.payment_status) || ["payment_due", "suspended", "grace_period"].includes(booking.booking_status));
 
   const saveAndAdvance = (stepData, nextStep) => {
     if (booking?.id) {
@@ -141,9 +148,9 @@ export default function CheckoutFlow() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const onPaymentSuccess = (updateData) => {
+  const onPaymentSuccess = async (updateData, options = {}) => {
     if (booking?.id) {
-      updateMutation.mutate({
+      const updated = await updateMutation.mutateAsync({
         id: booking.id,
         data: {
           ...updateData,
@@ -151,6 +158,15 @@ export default function CheckoutFlow() {
           checkout_step: "confirmation",
         },
       });
+      setBooking(updated);
+
+      if (updateData.payment_status === "paid") {
+        const approval = await base44.functions.invoke("autoApproveBooking", {
+          booking_request_id: booking.id,
+          source: options.paymentRecovery ? "payment_recovery" : "checkout_payment_success"
+        });
+        if (approval.data?.booking) setBooking(approval.data.booking);
+      }
     }
     setCurrentStep("confirmation");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -284,7 +300,7 @@ export default function CheckoutFlow() {
         {currentStep === "verification" && <StepVerification {...commonProps} />}
         {currentStep === "terms" && <StepTerms {...commonProps} />}
         {currentStep === "contract" && <StepContract {...commonProps} />}
-        {currentStep === "payment" && <StepPayment {...commonProps} onPaymentSuccess={onPaymentSuccess} />}
+        {currentStep === "payment" && <StepPayment {...commonProps} onPaymentSuccess={onPaymentSuccess} isPaymentRecovery={isPaymentRecovery} />}
         {currentStep === "confirmation" && <StepConfirmation {...commonProps} />}
       </div>
     </div>

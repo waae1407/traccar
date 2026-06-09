@@ -34,9 +34,9 @@ export default function ReservationRequestOnly({ booking, user, onSubmitBooking 
       delivery_channels: ["in_app"],
       delivery_status: "pending"
     });
-    onSubmitBooking({
+    await onSubmitBooking({
       payment_status: "pending",
-      booking_status: "pending_review",
+      booking_status: "under_review",
       submitted_at: new Date().toISOString(),
       viewed_by_admin: false,
       pending_review_alert_active: true,
