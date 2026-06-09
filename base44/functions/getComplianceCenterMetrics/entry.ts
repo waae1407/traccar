@@ -43,16 +43,31 @@ Deno.serve(async (req) => {
           : Promise.resolve([]),
     ]);
 
-    // Batch 3: Inspections + contracts + alerts (bounded)
-    const [inspectionPackets, contractTemplates, operationalAlerts] = await Promise.all([
-      scopedHostId
-        ? base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 100)
-        : base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 100),
+    // Batch 3: Contracts + alerts (bounded)
+    const [contractTemplates, operationalAlerts, allInspectionPackets] = await Promise.all([
       scopedHostId
         ? base44.asServiceRole.entities.ContractTemplate.filter({ host_id: scopedHostId })
         : base44.asServiceRole.entities.ContractTemplate.list('-created_date', 100),
       base44.asServiceRole.entities.OperationalAlert.list('-created_date', 100),
+      base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 100),
     ]);
+
+    // SECURITY FIX: Scope InspectionEvidencePackets to host-owned bookings/vehicles only.
+    // Admin sees all. Host sees only packets tied to their bookings or vehicles.
+    let inspectionPackets = allInspectionPackets;
+    let inspectionExcludedCount = 0;
+    if (scopedHostId) {
+      const bookingIds = new Set(bookings.map(b => b.id));
+      const vehicleIds = new Set(vehicles.map(v => v.id));
+      const scopedPackets = allInspectionPackets.filter(p => {
+        if (p.booking_request_id && bookingIds.has(p.booking_request_id)) return true;
+        if (p.booking_id && bookingIds.has(p.booking_id)) return true;
+        if (p.vehicle_id && vehicleIds.has(p.vehicle_id)) return true;
+        return false;
+      });
+      inspectionExcludedCount = allInspectionPackets.length - scopedPackets.length;
+      inspectionPackets = scopedPackets;
+    }
 
     const vehicleMap = Object.fromEntries(vehicles.map(v => [v.id, v]));
     const hostMap = Object.fromEntries(hosts.map(h => [h.id, h]));
@@ -114,6 +129,7 @@ Deno.serve(async (req) => {
       warnings.push(`${activeVehiclesWithNoCompliance.length} active/approved vehicle(s) have no compliance documents on file`);
     }
     if (isTruncated) warnings.push('Compliance document results capped at 1000 — apply vehicle or host filter for complete data');
+    if (inspectionExcludedCount > 0) warnings.push(`Some inspection packets were excluded because ownership could not be verified.`);
 
     return Response.json({
       vehicle_documents: { all: enrichedDocs, expired: expiredDocs, expiring_soon: expiringSoon, valid: validDocs, missing_expiry: missingExpiry },
