@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
     const { booking_request_id } = await req.json();
     if (!booking_request_id) return Response.json({ error: 'booking_request_id required' }, { status: 400 });
 
-    const booking = await base44.asServiceRole.entities.BookingRequest.get(booking_request_id);
+    // FIX #7: Return 404 (not 500) for invalid IDs
+    let booking;
+    try {
+      booking = await base44.asServiceRole.entities.BookingRequest.get(booking_request_id);
+    } catch (e) {
+      if (e.message && e.message.includes('not found')) return Response.json({ error: 'Booking not found' }, { status: 404 });
+      throw e;
+    }
     if (!booking) return Response.json({ error: 'Booking not found' }, { status: 404 });
 
     const isAdmin = user.role === 'admin';
@@ -18,13 +25,14 @@ Deno.serve(async (req) => {
         const hosts = await base44.asServiceRole.entities.Host.filter({ email: user.email });
         const hostByUserId = await base44.asServiceRole.entities.Host.filter({ user_id: user.id });
         const myHost = hosts[0] || hostByUserId[0];
+        // FIX #7: Explicit 403
         if (!myHost || booking.host_id !== myHost.id) return Response.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
 
     const [vehicle, host, paymentLogs, payouts, alerts, notifications, activityEvents, disputes, communications, telematicsCommands, inspectionPackets, contractTemplate] = await Promise.all([
-      booking.vehicle_id ? base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id }).then(r => r[0]) : null,
-      booking.host_id ? base44.asServiceRole.entities.Host.filter({ id: booking.host_id }).then(r => r[0]) : null,
+      booking.vehicle_id ? base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id }).then(r => r[0]) : Promise.resolve(null),
+      booking.host_id ? base44.asServiceRole.entities.Host.filter({ id: booking.host_id }).then(r => r[0]) : Promise.resolve(null),
       base44.asServiceRole.entities.PaymentLog.filter({ booking_request_id }),
       base44.asServiceRole.entities.HostPayout.filter({ booking_request_id }),
       base44.asServiceRole.entities.PaymentOperationalAlert.filter({ booking_id: booking_request_id }),
@@ -34,13 +42,19 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.CommunicationThread.filter({ booking_request_id }),
       base44.asServiceRole.entities.TelematicsCommand.filter({ booking_id: booking_request_id }),
       base44.asServiceRole.entities.InspectionEvidencePacket.filter({ booking_request_id }),
-      booking.host_id ? base44.asServiceRole.entities.ContractTemplate.filter({ host_id: booking.host_id }).then(r => r.find(t => ['weekly_rental', 'rent_to_own'].includes(t.template_type))) : null,
+      booking.host_id ? base44.asServiceRole.entities.ContractTemplate.filter({ host_id: booking.host_id }).then(r => r.find(t => ['weekly_rental', 'rent_to_own'].includes(t.template_type))) : Promise.resolve(null),
     ]);
 
     const paidLogs = paymentLogs.filter(p => p.status === 'paid');
     const failedLogs = paymentLogs.filter(p => p.status === 'failed');
     const totalCollected = paidLogs.reduce((s, p) => s + (p.amount || 0), 0);
-    const totalPaidOut = payouts.filter(p => p.status === 'paid').reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+
+    // FIX #2: Payout status breakdown for this booking
+    const payoutsPaid = payouts.filter(p => p.status === 'paid');
+    const payoutsPending = payouts.filter(p => !p.status || ['pending', 'processing'].includes(p.status));
+    const totalPaidOut = payoutsPaid.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+    const totalPendingPayout = payoutsPending.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+    const totalPayoutCreated = payouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
     const totalPlatformFees = payouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0);
 
     const warnings = [];
@@ -48,6 +62,7 @@ Deno.serve(async (req) => {
     if (paidLogs.length > 0 && payouts.length === 0) warnings.push('Paid payments exist but no HostPayout records found — potential payout gap');
     if (booking.payment_status === 'paid' && paidLogs.length === 0) warnings.push('Booking marked paid but no PaymentLog records found');
     if (payouts.some(p => p._synthesized)) warnings.push('Some payout rows are synthesized estimates — not real transfers');
+    if (totalPendingPayout > 0) warnings.push(`$${totalPendingPayout.toFixed(2)} in payouts are pending (not yet transferred)`);
 
     return Response.json({
       booking,
@@ -55,6 +70,10 @@ Deno.serve(async (req) => {
       host: host || null,
       payment_summary: {
         total_collected: totalCollected,
+        // FIX #2: Breakdown instead of just paid=0
+        total_payout_created: totalPayoutCreated,
+        total_payout_paid: totalPaidOut,
+        total_payout_pending: totalPendingPayout,
         total_paid_out: totalPaidOut,
         total_platform_fees: totalPlatformFees,
         paid_payment_count: paidLogs.length,

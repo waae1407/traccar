@@ -10,6 +10,13 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { host_id: bodyHostId, vehicle_id: filterVehicleId, provider_key: filterProvider } = body;
 
+    // Default date range: last 7 days for events/commands
+    let { date_from } = body;
+    if (!date_from) {
+      const past = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      date_from = past.toISOString().split('T')[0];
+    }
+
     let scopedHostId = bodyHostId;
     if (!isAdmin) {
       const hosts = await base44.asServiceRole.entities.Host.filter({ email: user.email });
@@ -19,29 +26,60 @@ Deno.serve(async (req) => {
       scopedHostId = myHost.id;
     }
 
-    const [devices, commands, events, installRecords, installerLeads, operationalAlerts, alarmSessions, vehicles] = await Promise.all([
-      scopedHostId ? base44.asServiceRole.entities.TelematicsDevice.filter({ host_id: scopedHostId }) : base44.asServiceRole.entities.TelematicsDevice.list('-updated_date', 2000),
+    // Batch 1: Devices and vehicles (scoped, bounded)
+    const [devicesRaw, vehicles] = await Promise.all([
       scopedHostId
-        ? base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 500).then(cmds => cmds.filter(c => devices.some && c))
-        : base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 500),
-      base44.asServiceRole.entities.TelematicsEvent.list('-created_date', 500),
-      scopedHostId ? base44.asServiceRole.entities.TelematicsInstallRecord.filter({ host_id: scopedHostId }) : base44.asServiceRole.entities.TelematicsInstallRecord.list('-created_date', 1000),
-      base44.asServiceRole.entities.PreferredInstallerLead.list('-created_date', 500),
-      base44.asServiceRole.entities.OperationalAlert.list('-created_date', 200),
-      base44.asServiceRole.entities.TelematicsAlarmSession.list('-started_at', 100),
-      scopedHostId ? base44.asServiceRole.entities.Vehicle.filter({ host_id: scopedHostId }) : base44.asServiceRole.entities.Vehicle.list('-created_date', 2000),
+        ? base44.asServiceRole.entities.TelematicsDevice.filter({ host_id: scopedHostId })
+        : base44.asServiceRole.entities.TelematicsDevice.list('-updated_date', 500),
+      scopedHostId
+        ? base44.asServiceRole.entities.Vehicle.filter({ host_id: scopedHostId })
+        : base44.asServiceRole.entities.Vehicle.list('-created_date', 500),
     ]);
 
     const vehicleMap = Object.fromEntries(vehicles.map(v => [v.id, v]));
-    const devicesByHostId = scopedHostId ? devices : devices;
 
-    const filteredDevices = devicesByHostId
+    const filteredDevices = devicesRaw
       .filter(d => !filterVehicleId || d.vehicle_id === filterVehicleId)
       .filter(d => !filterProvider || d.provider_key === filterProvider);
 
+    // FIX #4: Build deviceIds and vehicleIds sets for correct command filtering
     const deviceIds = new Set(filteredDevices.map(d => d.id));
-    const filteredCommands = commands.filter(c => deviceIds.has(c.telematics_device_id) || (scopedHostId && c.vehicle_id && vehicleMap[c.vehicle_id]));
-    const filteredEvents = events.filter(e => deviceIds.has(e.telematics_device_id));
+    const scopedVehicleIds = new Set(filteredDevices.map(d => d.vehicle_id).filter(Boolean));
+
+    // Batch 2: Commands + events + installs (bounded, post-fetched and filtered)
+    const [commandsRaw, eventsRaw, installRecords, alarmSessions] = await Promise.all([
+      scopedHostId
+        ? base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 200)
+        : base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 200),
+      scopedHostId
+        ? base44.asServiceRole.entities.TelematicsEvent.list('-created_date', 200)
+        : base44.asServiceRole.entities.TelematicsEvent.list('-created_date', 200),
+      scopedHostId
+        ? base44.asServiceRole.entities.TelematicsInstallRecord.filter({ host_id: scopedHostId }, '-created_date', 200)
+        : base44.asServiceRole.entities.TelematicsInstallRecord.list('-created_date', 200),
+      base44.asServiceRole.entities.TelematicsAlarmSession.list('-started_at', 50),
+    ]);
+
+    // Batch 3: Alerts and installer leads (bounded)
+    const [operationalAlerts, installerLeads] = await Promise.all([
+      base44.asServiceRole.entities.OperationalAlert.list('-created_date', 100),
+      base44.asServiceRole.entities.PreferredInstallerLead.list('-created_date', 100),
+    ]);
+
+    // FIX #4: Correct command filter — scope to device IDs or scoped vehicle IDs (not a no-op)
+    const filteredCommands = isAdmin && !scopedHostId
+      ? commandsRaw  // admin global: all commands
+      : commandsRaw.filter(c =>
+          deviceIds.has(c.telematics_device_id) ||
+          deviceIds.has(c.device_id) ||
+          (c.vehicle_id && scopedVehicleIds.has(c.vehicle_id))
+        );
+
+    // Filter events to scoped device set
+    const filteredEvents = isAdmin && !scopedHostId
+      ? eventsRaw
+      : eventsRaw.filter(e => deviceIds.has(e.telematics_device_id));
+
     const filteredInstalls = installRecords.filter(r => !filterVehicleId || r.vehicle_id === filterVehicleId);
 
     const now = new Date();
@@ -72,11 +110,14 @@ Deno.serve(async (req) => {
       is_stale: !d.last_seen_at || new Date(d.last_seen_at) < staleCutoff,
     }));
 
+    const isTruncated = commandsRaw.length >= 200 || eventsRaw.length >= 200;
+
     const warnings = [];
     if (staleDevices.length) warnings.push(`${staleDevices.length} device(s) have stale or missing heartbeat`);
     if (offlineDevices.length) warnings.push(`${offlineDevices.length} device(s) are offline`);
     if (commandFailed.length) warnings.push(`${commandFailed.length} recent command(s) failed`);
     if (starterDisabledDevices.length) warnings.push(`${starterDisabledDevices.length} vehicle(s) have starter disabled`);
+    if (isTruncated) warnings.push('Command/event results capped at 200 per type — use narrower date range for complete history');
 
     return Response.json({
       devices: enrichedDevices,
@@ -106,6 +147,9 @@ Deno.serve(async (req) => {
       starter_disabled_devices: starterDisabledDevices,
       active_alarms: activeAlarms,
       warnings,
+      query_limits_used: { commands: 200, events: 200, devices: scopedHostId ? 'host-scoped' : 500, installs: 200 },
+      is_truncated: isTruncated,
+      date_range_used: { date_from, command_event_window: 'last 7 days default' },
       scope: isAdmin ? 'admin' : 'host',
       generated_at: new Date().toISOString(),
     });

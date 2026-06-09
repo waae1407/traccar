@@ -10,7 +10,6 @@ Deno.serve(async (req) => {
     const { search, customer_id, user_id, email, booking_id, host_id: filterHostId } = body;
 
     const isAdmin = user.role === 'admin';
-    const isHost = user.role === 'host' || (!isAdmin && user.role !== 'admin');
 
     // Resolve host scope for non-admin
     let scopedHostId = null;
@@ -24,22 +23,32 @@ Deno.serve(async (req) => {
     // Find matching bookings
     let bookings = [];
     if (booking_id) {
-      const b = await base44.asServiceRole.entities.BookingRequest.filter({ id: booking_id });
-      bookings = b;
+      bookings = await base44.asServiceRole.entities.BookingRequest.filter({ id: booking_id });
     } else if (email) {
       bookings = await base44.asServiceRole.entities.BookingRequest.filter({ user_email: email });
     } else if (customer_id || user_id) {
-      const allBookings = await base44.asServiceRole.entities.BookingRequest.list('-created_date', 2000);
-      bookings = allBookings.filter(b => b.user_id === (user_id || customer_id) || b.user_email);
+      // Scoped search — filter by user_id directly (avoids loading 2000 records)
+      const [byUserId, byEmail] = await Promise.all([
+        base44.asServiceRole.entities.BookingRequest.filter({ user_id: user_id || customer_id }, '-created_date', 100),
+        user_id ? Promise.resolve([]) : base44.asServiceRole.entities.BookingRequest.filter({ user_email: customer_id }, '-created_date', 100),
+      ]);
+      bookings = [...byUserId, ...byEmail];
     } else if (search) {
       const s = String(search || '').toLowerCase();
-      const allBookings = await base44.asServiceRole.entities.BookingRequest.list('-created_date', 2000);
-      bookings = allBookings.filter(b =>
-        (b.customer_full_name || '').toLowerCase().includes(s) ||
-        (b.user_email || '').toLowerCase().includes(s) ||
-        (b.customer_phone || '').toLowerCase().includes(s) ||
-        b.id === s
-      );
+      // Try email filter first (exact match is cheap)
+      const byEmail = await base44.asServiceRole.entities.BookingRequest.filter({ user_email: search }, '-created_date', 100);
+      if (byEmail.length > 0) {
+        bookings = byEmail;
+      } else {
+        // Fall back to name search with bounded list
+        const allBookings = await base44.asServiceRole.entities.BookingRequest.list('-created_date', 500);
+        bookings = allBookings.filter(b =>
+          (b.customer_full_name || '').toLowerCase().includes(s) ||
+          (b.user_email || '').toLowerCase().includes(s) ||
+          (b.customer_phone || '').toLowerCase().includes(s) ||
+          b.id === s
+        );
+      }
     }
 
     if (!bookings.length) return Response.json({ customer: null, message: 'No records found' });
@@ -48,29 +57,35 @@ Deno.serve(async (req) => {
     if (scopedHostId) {
       bookings = bookings.filter(b => b.host_id === scopedHostId);
     }
+    // FIX #7: Return 403 not 500 when host has no access
     if (!bookings.length) return Response.json({ error: 'Forbidden' }, { status: 403 });
 
     const sampleBooking = bookings[0];
     const customerEmail = sampleBooking.user_email;
 
-    // Parallel data fetch
-    const [paymentLogs, payouts, alerts, notifications, activityEvents, disputes, communications, telematicsCommands, inspectionPackets, customers] = await Promise.all([
+    // Batch 1: Customer-scoped data (all direct filter, no large lists)
+    const [paymentLogs, alerts, notifications, customers] = await Promise.all([
       base44.asServiceRole.entities.PaymentLog.filter({ customer_email: customerEmail }),
-      base44.asServiceRole.entities.HostPayout.list('-created_date', 500),
       base44.asServiceRole.entities.PaymentOperationalAlert.filter({ renter_email: customerEmail }),
-      base44.asServiceRole.entities.Notification.filter({ user_email: customerEmail }),
-      base44.asServiceRole.entities.ActivityEvent.list('-created_date', 500),
-      base44.asServiceRole.entities.Dispute.list('-created_date', 200),
-      base44.asServiceRole.entities.CommunicationThread.list('-last_message_at', 100),
-      base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 300),
-      base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 100),
+      base44.asServiceRole.entities.Notification.filter({ user_email: customerEmail }, '-created_date', 50),
       base44.asServiceRole.entities.Customer.filter({ email: customerEmail }),
     ]);
 
+    // Batch 2: Booking-scoped data (bounded)
     const bookingIds = new Set(bookings.map(b => b.id));
     const vehicleIds = [...new Set(bookings.map(b => b.vehicle_id).filter(Boolean))];
     const hostIds = [...new Set(bookings.map(b => b.host_id).filter(Boolean))];
 
+    const [payouts, disputes, communications, telematicsCommands, inspectionPackets, activityEvents] = await Promise.all([
+      base44.asServiceRole.entities.HostPayout.list('-created_date', 200),
+      base44.asServiceRole.entities.Dispute.list('-created_date', 100),
+      base44.asServiceRole.entities.CommunicationThread.list('-last_message_at', 50),
+      base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 100),
+      base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 50),
+      base44.asServiceRole.entities.ActivityEvent.list('-created_date', 200),
+    ]);
+
+    // Batch 3: Vehicle/host lookups (small sets)
     const [vehicles, hosts] = await Promise.all([
       Promise.all(vehicleIds.map(id => base44.asServiceRole.entities.Vehicle.filter({ id }).then(r => r[0]))),
       Promise.all(hostIds.map(id => base44.asServiceRole.entities.Host.filter({ id }).then(r => r[0]))),
@@ -137,7 +152,7 @@ Deno.serve(async (req) => {
       },
       payment_logs: scopedPaymentLogs,
       payouts: scopedPayouts,
-      alerts: alerts,
+      alerts,
       notifications: notifications.slice(0, 50),
       activity_events: scopedActivity.slice(0, 100),
       disputes: scopedDisputes,

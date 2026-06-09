@@ -19,14 +19,39 @@ Deno.serve(async (req) => {
       scopedHostId = myHost.id;
     }
 
-    const [complianceDocs, vehicles, hosts, bookings, inspectionPackets, contractTemplates, operationalAlerts] = await Promise.all([
-      scopedHostId ? base44.asServiceRole.entities.HostVehicleCompliance.filter({ host_id: scopedHostId }) : base44.asServiceRole.entities.HostVehicleCompliance.list('-created_date', 5000),
-      scopedHostId ? base44.asServiceRole.entities.Vehicle.filter({ host_id: scopedHostId }) : base44.asServiceRole.entities.Vehicle.list('-created_date', 2000),
-      isAdmin && !scopedHostId ? base44.asServiceRole.entities.Host.list('-created_date', 500) : scopedHostId ? base44.asServiceRole.entities.Host.filter({ id: scopedHostId }) : [],
-      isAdmin && !scopedHostId ? base44.asServiceRole.entities.BookingRequest.list('-created_date', 2000) : scopedHostId ? base44.asServiceRole.entities.BookingRequest.filter({ host_id: scopedHostId }) : [],
-      scopedHostId ? base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 200) : base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 200),
-      scopedHostId ? base44.asServiceRole.entities.ContractTemplate.filter({ host_id: scopedHostId }) : base44.asServiceRole.entities.ContractTemplate.list('-created_date', 200),
-      base44.asServiceRole.entities.OperationalAlert.list('-created_date', 200),
+    // Batch 1: Core compliance + vehicles
+    const [complianceDocs, vehicles] = await Promise.all([
+      scopedHostId
+        ? base44.asServiceRole.entities.HostVehicleCompliance.filter({ host_id: scopedHostId })
+        : base44.asServiceRole.entities.HostVehicleCompliance.list('-created_date', 1000),
+      scopedHostId
+        ? base44.asServiceRole.entities.Vehicle.filter({ host_id: scopedHostId })
+        : base44.asServiceRole.entities.Vehicle.list('-created_date', 500),
+    ]);
+
+    // Batch 2: Hosts + bookings (bounded)
+    const [hosts, bookings] = await Promise.all([
+      isAdmin && !scopedHostId
+        ? base44.asServiceRole.entities.Host.list('-created_date', 200)
+        : scopedHostId
+          ? base44.asServiceRole.entities.Host.filter({ id: scopedHostId })
+          : Promise.resolve([]),
+      isAdmin && !scopedHostId
+        ? base44.asServiceRole.entities.BookingRequest.list('-created_date', 500)
+        : scopedHostId
+          ? base44.asServiceRole.entities.BookingRequest.filter({ host_id: scopedHostId }, '-created_date', 200)
+          : Promise.resolve([]),
+    ]);
+
+    // Batch 3: Inspections + contracts + alerts (bounded)
+    const [inspectionPackets, contractTemplates, operationalAlerts] = await Promise.all([
+      scopedHostId
+        ? base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 100)
+        : base44.asServiceRole.entities.InspectionEvidencePacket.list('-created_date', 100),
+      scopedHostId
+        ? base44.asServiceRole.entities.ContractTemplate.filter({ host_id: scopedHostId })
+        : base44.asServiceRole.entities.ContractTemplate.list('-created_date', 100),
+      base44.asServiceRole.entities.OperationalAlert.list('-created_date', 100),
     ]);
 
     const vehicleMap = Object.fromEntries(vehicles.map(v => [v.id, v]));
@@ -53,6 +78,14 @@ Deno.serve(async (req) => {
     const complianceHolds = vehicles.filter(v => v.status === 'Compliance Hold' || v.approval_status === 'pending');
     const pendingApproval = vehicles.filter(v => v.approval_status === 'pending');
 
+    // FIX #3: Detect active vehicles with no compliance docs
+    const bookableStatuses = new Set(['Available', 'Reserved', 'Active Rental', 'Booked', 'Payment Due', 'Grace Period']);
+    const activeVehiclesWithNoCompliance = vehicles.filter(v => {
+      if (!bookableStatuses.has(v.status) && v.approval_status !== 'approved') return false;
+      const vehicleDocs = complianceDocs.filter(d => d.vehicle_id === v.id || d.vin === v.vin);
+      return vehicleDocs.length === 0;
+    });
+
     // Host verification
     const verifiedHosts = hosts.filter(h => h.verification_status === 'verified');
     const unverifiedHosts = hosts.filter(h => !h.verification_status || h.verification_status === 'not_started');
@@ -69,16 +102,33 @@ Deno.serve(async (req) => {
     const signedContracts = allBookings.filter(b => b.contract_status === 'signed');
     const unsignedContracts = allBookings.filter(b => b.contract_status && b.contract_status !== 'signed' && ['pending_contract', 'pending_review', 'confirmed', 'active'].includes(b.booking_status));
 
+    const isTruncated = complianceDocs.length >= 1000;
+
     const warnings = [];
     if (expiredDocs.length) warnings.push(`${expiredDocs.length} compliance document(s) expired`);
     if (expiringSoon.length) warnings.push(`${expiringSoon.length} compliance document(s) expiring within 30 days`);
     if (complianceHolds.length) warnings.push(`${complianceHolds.length} vehicle(s) on compliance hold`);
     if (missingExpiry.length) warnings.push(`${missingExpiry.length} compliance document(s) missing expiration date`);
+    // FIX #3: Warn on active vehicles with no docs
+    if (activeVehiclesWithNoCompliance.length) {
+      warnings.push(`${activeVehiclesWithNoCompliance.length} active/approved vehicle(s) have no compliance documents on file`);
+    }
+    if (isTruncated) warnings.push('Compliance document results capped at 1000 — apply vehicle or host filter for complete data');
 
     return Response.json({
       vehicle_documents: { all: enrichedDocs, expired: expiredDocs, expiring_soon: expiringSoon, valid: validDocs, missing_expiry: missingExpiry },
       compliance_holds: complianceHolds,
       pending_vehicle_approval: pendingApproval,
+      // FIX #3: Vehicles with no docs
+      vehicles_missing_compliance: activeVehiclesWithNoCompliance.map(v => ({
+        vehicle_id: v.id,
+        make: v.make,
+        model: v.model,
+        year: v.year,
+        vin: v.vin,
+        status: v.status,
+        host_id: v.host_id,
+      })),
       host_verification: { verified: verifiedHosts.length, unverified: unverifiedHosts.length, pending: verificationPending.length, failed: verificationFailed.length, hosts },
       customer_verification: { verified: verifiedCustomers.length, unverified: unverifiedCustomers.length, manual_review: verificationManualReview.length },
       contracts: { templates: contractTemplates, signed: signedContracts.length, unsigned: unsignedContracts.length },
@@ -92,8 +142,11 @@ Deno.serve(async (req) => {
         compliance_hold_count: complianceHolds.length,
         host_verified_count: verifiedHosts.length,
         customer_verified_count: verifiedCustomers.length,
+        vehicles_missing_compliance_count: activeVehiclesWithNoCompliance.length,
       },
       warnings,
+      query_limits_used: { compliance_docs: 1000, vehicles: 500, bookings: 500 },
+      is_truncated: isTruncated,
       scope: isAdmin ? 'admin' : 'host',
       generated_at: new Date().toISOString(),
     });

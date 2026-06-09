@@ -9,7 +9,14 @@ Deno.serve(async (req) => {
     const { vehicle_id } = await req.json();
     if (!vehicle_id) return Response.json({ error: 'vehicle_id required' }, { status: 400 });
 
-    const vehicle = await base44.asServiceRole.entities.Vehicle.get(vehicle_id);
+    // FIX #7: Return 404 (not 500) for invalid IDs
+    let vehicle;
+    try {
+      vehicle = await base44.asServiceRole.entities.Vehicle.get(vehicle_id);
+    } catch (e) {
+      if (e.message && e.message.includes('not found')) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
+      throw e;
+    }
     if (!vehicle) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
 
     const isAdmin = user.role === 'admin';
@@ -35,8 +42,17 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.OperationalAlert.filter({ vehicle_id }),
     ]);
 
+    // Also try to fetch compliance by host_id if vehicle_id returns nothing (fallback for legacy records)
+    let allComplianceDocs = complianceDocs;
+    if (complianceDocs.length === 0 && vehicle.host_id) {
+      const hostDocs = await base44.asServiceRole.entities.HostVehicleCompliance.filter({ host_id: vehicle.host_id });
+      // Filter to this specific vehicle if possible, otherwise include all for the host
+      const vehicleSpecific = hostDocs.filter(d => d.vehicle_id === vehicle_id || d.vin === vehicle.vin);
+      allComplianceDocs = vehicleSpecific.length > 0 ? vehicleSpecific : hostDocs;
+    }
+
     const completedBookings = bookings.filter(b => b.booking_status === 'completed');
-    const activeBooking = bookings.find(b => ['active', 'confirmed', 'approved', 'payment_due', 'suspended'].includes(b.booking_status));
+    const activeBooking = bookings.find(b => ['active', 'confirmed', 'approved', 'payment_due', 'suspended', 'grace_period'].includes(b.booking_status));
 
     const paidLogs = paymentLogs.filter(p => p.status === 'paid');
     const vehicleRevenue = paidLogs.reduce((s, p) => s + (p.amount || 0), 0);
@@ -45,7 +61,7 @@ Deno.serve(async (req) => {
     const netProfit = vehicleRevenue - totalExpenses - totalMaintenanceCost;
     const roi = vehicle.purchase_price > 0 ? (netProfit / vehicle.purchase_price) * 100 : null;
 
-    // Utilization: rough estimate from booking days
+    // Utilization
     const now = new Date();
     const firstBooking = bookings.length ? new Date(bookings[bookings.length - 1].created_date) : null;
     const availableDays = firstBooking ? Math.ceil((now - firstBooking) / (1000 * 60 * 60 * 24)) : 0;
@@ -55,8 +71,8 @@ Deno.serve(async (req) => {
     }, 0);
     const utilizationRate = availableDays > 0 ? (rentedDays / availableDays) * 100 : null;
 
-    const registration = complianceDocs.find(d => d.doc_type === 'registration');
-    const insurance = complianceDocs.find(d => d.doc_type === 'insurance');
+    const registration = allComplianceDocs.find(d => d.doc_type === 'registration');
+    const insurance = allComplianceDocs.find(d => d.doc_type === 'insurance');
 
     const gpsStatus = telematicsDevice
       ? { online: telematicsDevice.online_status === 'online', status: telematicsDevice.online_status, last_seen: telematicsDevice.last_seen_at, lat: telematicsDevice.last_latitude, lon: telematicsDevice.last_longitude, starter_disabled: telematicsDevice.starter_disabled }
@@ -71,7 +87,25 @@ Deno.serve(async (req) => {
       return days !== null && days >= 0 && days <= 14;
     });
 
+    // FIX #3: Detect bookable/operational vehicles with missing compliance records
+    const isBookableStatus = ['Available', 'Reserved', 'Active Rental', 'Booked', 'Payment Due', 'Grace Period'].includes(vehicle.status);
+    const isApproved = vehicle.approval_status === 'approved';
+    const complianceMissing = allComplianceDocs.length === 0;
+    const registrationMissing = !registration;
+    const insuranceMissing = !insurance;
+    const complianceReady = !complianceMissing && !registrationMissing && !insuranceMissing &&
+      registration?.status !== 'expired' && insurance?.status !== 'expired';
+
     const warnings = [];
+
+    // FIX #3: Warn on missing compliance for active/approved vehicles
+    if ((isApproved || isBookableStatus) && complianceMissing) {
+      warnings.push('Missing vehicle compliance records — no registration or insurance documents found for this vehicle');
+    } else {
+      if ((isApproved || isBookableStatus) && registrationMissing) warnings.push('Vehicle registration document is missing');
+      if ((isApproved || isBookableStatus) && insuranceMissing) warnings.push('Vehicle insurance document is missing');
+    }
+
     if (utilizationRate !== null && utilizationRate === 0 && completedBookings.length === 0) warnings.push('Utilization is estimated — no completed bookings found');
     if (!vehicle.purchase_price) warnings.push('Purchase price not set — ROI cannot be calculated');
     if (!telematicsDevice) warnings.push('No telematics device assigned to this vehicle');
@@ -103,7 +137,16 @@ Deno.serve(async (req) => {
       payment_logs: paymentLogs,
       expenses,
       maintenance: { logs: maintenanceLogs, overdue: overdueMaintenace, due_soon: dueSoonMaintenance },
-      compliance: { all: complianceDocs, registration: registration || null, insurance: insurance || null },
+      compliance: {
+        all: allComplianceDocs,
+        registration: registration || null,
+        insurance: insurance || null,
+        // FIX #3: Explicit missing fields
+        registration_status: registration ? (registration.status || 'found') : 'missing',
+        insurance_status: insurance ? (insurance.status || 'found') : 'missing',
+        compliance_ready: complianceReady,
+        compliance_missing: complianceMissing,
+      },
       gps: gpsStatus,
       telematics_device: telematicsDevice || null,
       telematics_commands: telematicsCommands,
