@@ -67,6 +67,16 @@ import AdminInspectionOversight from '@/pages/admin/AdminInspectionOversight.jsx
 import AdminDealerNetwork from '@/pages/admin/AdminDealerNetwork.jsx';
 import PaymentOperationsAlertCenter from '@/pages/admin/PaymentOperationsAlertCenter.jsx';
 import AdminInstallers from '@/pages/admin/AdminInstallers.jsx';
+import Customer360 from '@/pages/admin/Customer360.jsx';
+import Booking360 from '@/pages/admin/Booking360.jsx';
+import Host360 from '@/pages/admin/Host360.jsx';
+import Vehicle360 from '@/pages/admin/Vehicle360.jsx';
+import FinancialCenter from '@/pages/admin/FinancialCenter.jsx';
+import ExpenseCenter from '@/pages/admin/ExpenseCenter.jsx';
+import MaintenanceCenter from '@/pages/admin/MaintenanceCenter.jsx';
+import TelematicsCenter from '@/pages/admin/TelematicsCenter.jsx';
+import ComplianceCenter from '@/pages/admin/ComplianceCenter.jsx';
+import OperationsCenter from '@/pages/admin/OperationsCenter.jsx';
 import HostCommunications from '@/pages/host/HostCommunications';
 import CustomerCommunications from '@/pages/customer/CustomerCommunications';
 import RenterAIChat from '@/pages/customer/RenterAIChat';
@@ -265,6 +275,16 @@ const AuthenticatedApp = () => {
         <Route path="/admin/dealer-network" element={<AdminDealerNetwork />} />
         <Route path="/admin/payment-alerts" element={<PaymentOperationsAlertCenter />} />
         <Route path="/admin/installers" element={<AdminInstallers />} />
+        <Route path="/admin/customer-360" element={<Customer360 />} />
+        <Route path="/admin/booking-360" element={<Booking360 />} />
+        <Route path="/admin/host-360" element={<Host360 />} />
+        <Route path="/admin/vehicle-360" element={<Vehicle360 />} />
+        <Route path="/admin/financial-center" element={<FinancialCenter />} />
+        <Route path="/admin/expense-center" element={<ExpenseCenter />} />
+        <Route path="/admin/maintenance-center" element={<MaintenanceCenter />} />
+        <Route path="/admin/telematics-center" element={<TelematicsCenter />} />
+        <Route path="/admin/compliance-center" element={<ComplianceCenter />} />
+        <Route path="/admin/operations-center" element={<OperationsCenter />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

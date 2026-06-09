@@ -1,0 +1,178 @@
+import React, { useState } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertTriangle, CheckCircle, XCircle, Wifi, WifiOff } from 'lucide-react';
+import { format } from 'date-fns';
+
+function SBadge({ status }) {
+  const m = { Available: 'bg-green-500/20 text-green-400', paid: 'bg-green-500/20 text-green-400', valid: 'bg-green-500/20 text-green-400', online: 'bg-green-500/20 text-green-400', offline: 'bg-red-500/20 text-red-400', expired: 'bg-red-500/20 text-red-400', expiring_soon: 'bg-yellow-500/20 text-yellow-400', failed: 'bg-red-500/20 text-red-400', overdue: 'bg-red-500/20 text-red-400', due_soon: 'bg-yellow-500/20 text-yellow-400' };
+  return <Badge className={m[status] || 'bg-muted text-muted-foreground text-xs'}>{status?.replace(/_/g, ' ')}</Badge>;
+}
+
+function MetricCard({ label, value, sub, color }) {
+  return (
+    <div className="rounded-xl bg-secondary/40 p-4">
+      <p className="text-muted-foreground text-xs">{label}</p>
+      <p className={`text-xl font-bold mt-1 ${color || ''}`}>{value}</p>
+      {sub && <p className="text-muted-foreground text-xs mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+export default function Vehicle360() {
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [loadedVehicleId, setLoadedVehicleId] = useState('');
+
+  const { data: allVehicles } = useQuery({ queryKey: ['vehicles_list_360'], queryFn: () => base44.entities.Vehicle.list('-created_date', 300) });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['vehicle360', loadedVehicleId],
+    queryFn: () => base44.functions.invoke('getVehicle360', { vehicle_id: loadedVehicleId }).then(r => r.data),
+    enabled: !!loadedVehicleId,
+  });
+
+  const v = data?.vehicle;
+  const fin = data?.financials;
+  const gps = data?.gps;
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Vehicle 360</h1>
+        <p className="text-muted-foreground text-sm mt-1">Full vehicle view — revenue, expenses, maintenance, GPS, compliance</p>
+      </div>
+      <div className="flex gap-3">
+        <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
+          <SelectTrigger className="w-80"><SelectValue placeholder="Select a vehicle..." /></SelectTrigger>
+          <SelectContent>{allVehicles?.map(v => <SelectItem key={v.id} value={v.id}>{v.year} {v.make} {v.model} — {v.vin || 'no VIN'}</SelectItem>)}</SelectContent>
+        </Select>
+        <Button onClick={() => setLoadedVehicleId(selectedVehicleId)} disabled={!selectedVehicleId || isLoading}>{isLoading ? 'Loading…' : 'Load Vehicle'}</Button>
+      </div>
+
+      {data?.warnings?.map((w, i) => <Alert key={i} className="border-yellow-500/30 bg-yellow-500/10 py-2"><AlertTriangle className="h-3 w-3 text-yellow-400" /><AlertDescription className="text-yellow-300 text-xs">{w}</AlertDescription></Alert>)}
+
+      {v && (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MetricCard label="Gross Revenue" value={`$${(fin?.gross_revenue || 0).toLocaleString()}`} sub="PaymentLog (paid)" color="text-green-400" />
+            <MetricCard label="Total Expenses" value={`$${(fin?.total_expenses || 0).toLocaleString()}`} />
+            <MetricCard label="Maintenance Cost" value={`$${(fin?.total_maintenance_cost || 0).toLocaleString()}`} />
+            <MetricCard label="Net Profit" value={`$${(fin?.net_profit || 0).toLocaleString()}`} sub={fin?.roi_percent != null ? `ROI: ${fin.roi_percent.toFixed(1)}%` : 'ROI: N/A (no purchase price)'} color={fin?.net_profit >= 0 ? 'text-green-400' : 'text-red-400'} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-card border-border">
+              <CardContent className="pt-4 text-sm space-y-2">
+                <p className="font-semibold text-base">{v.year} {v.make} {v.model}</p>
+                <p className="text-muted-foreground text-xs">VIN: {v.vin || '—'}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div><p className="text-muted-foreground text-xs">Status</p><SBadge status={v.status} /></div>
+                  <div><p className="text-muted-foreground text-xs">Approval</p><SBadge status={v.approval_status} /></div>
+                  <div><p className="text-muted-foreground text-xs">Weekly Rate</p><p className="text-green-400">${v.weekly_rate || 0}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Host</p><p>{data.host?.full_name || '—'}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Mileage</p><p>{v.mileage?.toLocaleString() || '—'}</p></div>
+                  <div><p className="text-muted-foreground text-xs">Purchase Price</p><p>{v.purchase_price ? `$${v.purchase_price.toLocaleString()}` : '—'}</p></div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+              <CardContent className="pt-4 text-sm space-y-2">
+                <p className="font-semibold">GPS / Telematics</p>
+                {gps ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">{gps.online ? <Wifi className="h-4 w-4 text-green-400" /> : <WifiOff className="h-4 w-4 text-red-400" />}<SBadge status={gps.status} /></div>
+                    <p className="text-muted-foreground text-xs">Last seen: {gps.last_seen ? format(new Date(gps.last_seen), 'MMM d, h:mm a') : '—'}</p>
+                    {gps.lat && <p className="text-muted-foreground text-xs">{gps.lat.toFixed(4)}, {gps.lon.toFixed(4)}</p>}
+                    {gps.starter_disabled && <Badge className="bg-red-500/20 text-red-400 text-xs">⚡ Starter Disabled</Badge>}
+                  </div>
+                ) : <p className="text-muted-foreground text-xs">No telematics device assigned</p>}
+              </CardContent>
+            </Card>
+            <Card className="bg-card border-border">
+              <CardContent className="pt-4 text-sm space-y-2">
+                <p className="font-semibold">Compliance</p>
+                <div><p className="text-muted-foreground text-xs">Registration</p>{data.compliance?.registration ? <SBadge status={data.compliance.registration.status} /> : <Badge className="bg-red-500/20 text-red-400 text-xs">Missing</Badge>}<p className="text-xs text-muted-foreground">Expires: {data.compliance?.registration?.expiry_date || '—'}</p></div>
+                <div><p className="text-muted-foreground text-xs">Insurance</p>{data.compliance?.insurance ? <SBadge status={data.compliance.insurance.status} /> : <Badge className="bg-red-500/20 text-red-400 text-xs">Missing</Badge>}<p className="text-xs text-muted-foreground">Expires: {data.compliance?.insurance?.expiry_date || '—'}</p></div>
+                <div><p className="text-muted-foreground text-xs">Utilization</p><p>{data.utilization?.utilization_rate_percent != null ? `${data.utilization.utilization_rate_percent}%` : '—'}{data.utilization?.is_estimated && <span className="text-yellow-400 text-xs ml-1">(est.)</span>}</p></div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Tabs defaultValue="revenue">
+            <TabsList className="flex-wrap h-auto gap-1">
+              {[['revenue','Revenue'],['expenses','Expenses'],['maintenance','Maintenance'],['commands','Commands'],['inspections','Inspections'],['bookings','Booking History']].map(([v,l]) => (
+                <TabsTrigger key={v} value={v}>{l}</TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value="revenue" className="mt-4 space-y-2">
+              {data.payment_logs?.filter(p => p.status === 'paid').map(p => (
+                <div key={p.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                  <div><p className="font-medium">${(p.amount || 0).toFixed(2)} · Week {p.week_number}</p><p className="text-muted-foreground text-xs">{p.paid_at ? format(new Date(p.paid_at), 'MMM d, yyyy') : '—'}</p></div>
+                  <SBadge status={p.status} />
+                </div>
+              ))}
+              {!data.payment_logs?.filter(p => p.status === 'paid').length && <p className="text-muted-foreground text-sm">No paid payment records found.</p>}
+            </TabsContent>
+
+            <TabsContent value="expenses" className="mt-4 space-y-2">
+              {data.expenses?.map(e => (
+                <div key={e.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                  <div><p className="font-medium">{e.expense_type?.replace(/_/g,' ')} — {e.description || '—'}</p><p className="text-muted-foreground text-xs">{e.date}</p></div>
+                  <p className="text-red-400 font-medium">${(e.amount || 0).toFixed(2)}</p>
+                </div>
+              ))}
+              {!data.expenses?.length && <p className="text-muted-foreground text-sm">No expenses found.</p>}
+            </TabsContent>
+
+            <TabsContent value="maintenance" className="mt-4 space-y-2">
+              {data.maintenance?.logs?.map(m => (
+                <div key={m.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                  <div><p className="font-medium">{m.service_type?.replace(/_/g,' ')}</p><p className="text-muted-foreground text-xs">{m.date} · {m.shop_name || '—'}</p>{m.next_service_date && <p className="text-xs text-yellow-400">Next due: {m.next_service_date}</p>}</div>
+                  <p className="text-muted-foreground">${(m.cost || 0).toFixed(2)}</p>
+                </div>
+              ))}
+              {!data.maintenance?.logs?.length && <p className="text-muted-foreground text-sm">No maintenance records found.</p>}
+            </TabsContent>
+
+            <TabsContent value="commands" className="mt-4 space-y-2">
+              {data.telematics_commands?.map(cmd => (
+                <div key={cmd.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                  <div><p className="font-medium">{cmd.command_type?.replace(/_/g,' ')} {cmd.production_command && <span className="text-green-400 text-xs ml-1">LIVE</span>}</p><p className="text-muted-foreground text-xs">{cmd.requested_by} · {cmd.created_at ? format(new Date(cmd.created_at), 'MMM d, h:mm a') : '—'}</p></div>
+                  <SBadge status={cmd.queue_status || cmd.status} />
+                </div>
+              ))}
+              {!data.telematics_commands?.length && <p className="text-muted-foreground text-sm">No telematics commands found.</p>}
+            </TabsContent>
+
+            <TabsContent value="inspections" className="mt-4 space-y-2">
+              {data.inspections?.map(i => (
+                <div key={i.id} className="rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                  <div className="flex justify-between"><p className="font-medium">{i.inspection_type?.replace(/_/g,' ')} · by {i.submitted_by_role}</p><SBadge status={i.evidence_status} /></div>
+                  <p className="text-muted-foreground text-xs">{i.submitted_at ? format(new Date(i.submitted_at), 'MMM d, yyyy') : '—'} · Photos: {i.required_photo_slots_completed}</p>
+                </div>
+              ))}
+              {!data.inspections?.length && <p className="text-muted-foreground text-sm">No inspections found.</p>}
+            </TabsContent>
+
+            <TabsContent value="bookings" className="mt-4 space-y-2">
+              {data.all_bookings?.slice(0, 20).map(b => (
+                <div key={b.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                  <div><p className="font-medium">{b.customer_full_name || b.user_email}</p><p className="text-muted-foreground text-xs">{b.start_date} → {b.end_date || '—'}</p></div>
+                  <SBadge status={b.booking_status} />
+                </div>
+              ))}
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
+    </div>
+  );
+}

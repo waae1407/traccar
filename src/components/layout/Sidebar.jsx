@@ -16,59 +16,61 @@ const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b12
 
 const menuSections = [
   {
+    label: "Command Centers",
+    icon: LayoutDashboard,
+    items: [
+      { label: "Operations Center", icon: Activity, path: "/admin/operations-center" },
+      { label: "Financial Center", icon: DollarSign, path: "/admin/financial-center" },
+      { label: "Telematics Center", icon: Satellite, path: "/admin/telematics-center" },
+      { label: "Compliance Center", icon: Shield, path: "/admin/compliance-center" },
+    ],
+  },
+  {
+    label: "360 Views",
+    icon: BarChart3,
+    items: [
+      { label: "Customer 360", icon: Users, path: "/admin/customer-360" },
+      { label: "Booking 360", icon: CalendarDays, path: "/admin/booking-360" },
+      { label: "Host 360", icon: Home, path: "/admin/host-360" },
+      { label: "Vehicle 360", icon: Car, path: "/admin/vehicle-360" },
+    ],
+  },
+  {
+    label: "Smart Centers",
+    icon: Wrench,
+    items: [
+      { label: "Smart Expense Center", icon: DollarSign, path: "/admin/expense-center" },
+      { label: "Smart Maintenance Center", icon: Wrench, path: "/admin/maintenance-center" },
+    ],
+  },
+  {
     label: "Accounts",
     icon: Users,
     items: [
       { label: "Customers", icon: Users, path: "/customers" },
       { label: "Hosts", icon: Home, path: "/admin/hosts", badgeKey: "pendingHosts" },
-    ],
-  },
-  {
-    label: "Fleet",
-    icon: Car,
-    items: [
       { label: "Vehicles", icon: Car, path: "/vehicles" },
-      { label: "Maintenance", icon: Wrench, path: "/admin/maintenance" },
-      { label: "Reports", icon: BarChart3, path: "/reports" },
-    ],
-  },
-  {
-    label: "Bookings",
-    icon: CalendarDays,
-    items: [
       { label: "Bookings", icon: CalendarDays, path: "/bookings-admin" },
     ],
   },
   {
-    label: "Financial",
+    label: "Financial (Legacy)",
     icon: DollarSign,
     items: [
       { label: "Payments", icon: DollarSign, path: "/payments" },
-      { label: "P&L Dashboard", icon: BarChart3, path: "/admin/pnl" },
       { label: "Host Payouts", icon: Wallet, path: "/admin/payouts" },
-      { label: "Expenses", icon: DollarSign, path: "/admin/expenses" },
       { label: "Payment Alerts", icon: ShieldAlert, path: "/admin/payment-alerts" },
+      { label: "P&L Dashboard", icon: BarChart3, path: "/admin/pnl" },
     ],
   },
   {
-    label: "Operations",
-    icon: Activity,
-    items: [
-      { label: "Operations Center", icon: Activity, path: "/admin/operations" },
-      { label: "Compliance Queue", icon: ClipboardList, path: "/admin/compliance-queue" },
-      { label: "Disputes", icon: Shield, path: "/admin/disputes" },
-      { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
-    ],
-  },
-  {
-    label: "Telematics",
+    label: "Telematics (Legacy)",
     icon: Satellite,
     items: [
       { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
       { label: "Vehicle Command Center", icon: Zap, path: "/admin/vehicle-command-center" },
       { label: "Telematics Setup", icon: Satellite, path: "/admin/telematics" },
       { label: "Command Verification", icon: Zap, path: "/admin/telematics-command-test" },
-      { label: "Installer Portal", icon: Wrench, path: "/installer/telematics" },
       { label: "Telematics Operations", icon: Activity, path: "/admin/telematics-operations" },
       { label: "Telematics Rollout", icon: BarChart3, path: "/admin/telematics-rollout" },
       { label: "Network Readiness", icon: Satellite, path: "/admin/traccar-readiness" },
@@ -81,20 +83,17 @@ const menuSections = [
       { label: "Reputation Validation", icon: Activity, path: "/admin/reputation-validation" },
       { label: "Review Moderation", icon: Star, path: "/admin/review-moderation" },
       { label: "Inspection Oversight", icon: Camera, path: "/admin/inspection-oversight" },
-    ],
-  },
-  {
-    label: "Network",
-    icon: Network,
-    items: [
-      { label: "Dealer Network", icon: Car, path: "/admin/dealer-network" },
-      { label: "Referrals", icon: Gift, path: "/referrals" },
+      { label: "Disputes", icon: Shield, path: "/admin/disputes" },
     ],
   },
   {
     label: "Platform",
     icon: Settings,
     items: [
+      { label: "Dealer Network", icon: Car, path: "/admin/dealer-network" },
+      { label: "Referrals", icon: Gift, path: "/referrals" },
+      { label: "Installers", icon: Wrench, path: "/admin/installers" },
+      { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
       { label: "Companies", icon: Building2, path: "/companies", superadminOnly: true },
       { label: "AI Oracle", icon: Zap, path: "/admin/ai-chat" },
     ],
