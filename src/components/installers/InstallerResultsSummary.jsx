@@ -15,9 +15,9 @@ export default function InstallerResultsSummary({ installers = [] }) {
             <p className="text-lg font-black text-emerald-700">{verified}</p>
             <p className="text-xs font-bold text-emerald-700">Verified</p>
           </div>
-          <div className="rounded-2xl bg-pink-50 px-3 py-2">
-            <p className="text-lg font-black text-pink-700">{preferred}</p>
-            <p className="text-xs font-bold text-pink-700">Preferred</p>
+          <div className="rounded-2xl bg-blue-50 px-3 py-2">
+            <p className="text-lg font-black text-blue-700">{preferred}</p>
+            <p className="text-xs font-bold text-blue-700">Preferred</p>
           </div>
           <div className="rounded-2xl bg-slate-50 px-3 py-2">
             <p className="text-lg font-black text-slate-700">{listed}</p>

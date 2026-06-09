@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { ChevronDown } from 'lucide-react';
 import InstallerCard from '@/components/installers/InstallerCard';
 import InstallerLocatorMap from '@/components/installers/InstallerLocatorMap';
 import InstallerSearchControls from '@/components/installers/InstallerSearchControls';
@@ -36,6 +37,7 @@ export default function HostInstallers() {
   const [locationInitialized, setLocationInitialized] = useState(false);
   const [importedKey, setImportedKey] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   const { data: me } = useQuery({ queryKey: ['me-host-installers'], queryFn: () => base44.auth.me() });
   const { data: host } = useQuery({ queryKey: ['host-installers-host', me?.id, me?.email], enabled: !!me, queryFn: async () => (await base44.entities.Host.filter({ user_id: me.id }))[0] || (await base44.entities.Host.filter({ email: me.email }))[0] || null });
@@ -108,7 +110,11 @@ export default function HostInstallers() {
         </select>
       )}
       <InstallerResultsSummary installers={visible} />
-      <InstallerLocatorMap installers={visible} center={effectiveCenter ? [effectiveCenter.lat, effectiveCenter.lon] : null} />
+      <button onClick={() => setMapExpanded(!mapExpanded)} className="flex w-full items-center justify-between rounded-3xl border border-border bg-card p-4 shadow-sm">
+        <span className="text-lg font-black text-foreground">{mapExpanded ? 'Hide' : 'Show'} Map</span>
+        <ChevronDown className={`h-5 w-5 transition-transform ${mapExpanded ? 'rotate-180' : ''}`} />
+      </button>
+      {mapExpanded && <InstallerLocatorMap installers={visible} center={effectiveCenter ? [effectiveCenter.lat, effectiveCenter.lon] : null} />}
       {isLoading || isImporting ? <div className="rounded-3xl bg-card p-8 text-center font-bold text-muted-foreground">Loading nearby installers...</div> : visible.length === 0 ? <div className="rounded-3xl border border-border bg-card p-8 text-center font-bold text-muted-foreground">No installers found nearby yet.</div> : <div className="grid gap-4 md:grid-cols-2">{visible.map(installer => <InstallerCard key={installer.id} installer={installer} source={searchParams.get('source') || 'manual_navigation'} />)}</div>}
     </div>
   );
