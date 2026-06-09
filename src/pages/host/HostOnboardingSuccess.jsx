@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, Copy, ExternalLink, Share2, LayoutDashboard } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, Share2, LayoutDashboard, Car } from "lucide-react";
 
 export default function HostOnboardingSuccess() {
   const [copied, setCopied] = useState(false);
@@ -80,7 +80,7 @@ export default function HostOnboardingSuccess() {
           <p className="text-sm font-black uppercase tracking-[0.22em] text-white/50">Self-service setup complete</p>
           <h1 className="text-4xl sm:text-5xl font-black mt-2" style={{ fontFamily: "var(--font-syne)" }}>🎉 YOUR BUSINESS IS OPEN</h1>
           <p className="text-white/75 text-lg mt-3">
-            {isPaidPlan ? "Your free 14-day trial has started." : `${brand.business_display_name || host.business_name} is approved and your storefront is live.`}
+            Your store is live. Add your first vehicle to start accepting bookings.
           </p>
           {isPaidPlan && trialEndDate && <p className="text-white/90 font-bold mt-2">Trial ends on: {new Date(trialEndDate).toLocaleDateString()}</p>}
 
@@ -90,15 +90,15 @@ export default function HostOnboardingSuccess() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
-            <Link to="/host/dashboard" className="rounded-2xl bg-white text-gray-950 font-black text-sm py-3 flex items-center justify-center gap-2 hover:bg-gray-50">
-              <LayoutDashboard className="h-4 w-4" /> Go To Dashboard
+            <Link to="/host/vehicles/setup" className="rounded-2xl bg-white text-gray-950 font-black text-sm py-3 flex items-center justify-center gap-2 hover:bg-gray-50">
+              <Car className="h-4 w-4" /> Add First Vehicle
             </Link>
             <button onClick={copyLink} className="rounded-2xl bg-white/10 border border-white/15 font-black text-sm py-3 flex items-center justify-center gap-2 hover:bg-white/20">
               <Copy className="h-4 w-4" /> {copied ? "Copied" : "Copy Link"}
             </button>
-            <button onClick={shareStore} className="rounded-2xl bg-white/10 border border-white/15 font-black text-sm py-3 flex items-center justify-center gap-2 hover:bg-white/20">
-              <Share2 className="h-4 w-4" /> Share Store
-            </button>
+            <a href={storefrontPath} target="_blank" rel="noreferrer" className="rounded-2xl bg-white/10 border border-white/15 font-black text-sm py-3 flex items-center justify-center gap-2 hover:bg-white/20">
+              <ExternalLink className="h-4 w-4" /> View Storefront
+            </a>
           </div>
         </div>
 
@@ -135,10 +135,10 @@ export default function HostOnboardingSuccess() {
 
         <div className="grid sm:grid-cols-2 gap-3">
           <Button asChild className="rounded-2xl h-12 font-black">
-            <Link to="/host/dashboard"><LayoutDashboard className="h-4 w-4 mr-2" /> Go To Host Dashboard</Link>
+            <Link to="/host/vehicles/setup"><Car className="h-4 w-4 mr-2" /> Add First Vehicle</Link>
           </Button>
           <Button asChild variant="outline" className="rounded-2xl h-12 font-black bg-white">
-            <a href={storefrontPath} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4 mr-2" /> View Storefront</a>
+            <Link to="/host/dashboard"><LayoutDashboard className="h-4 w-4 mr-2" /> Go To Dashboard</Link>
           </Button>
         </div>
       </div>

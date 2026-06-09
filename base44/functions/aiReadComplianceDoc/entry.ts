@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
   try {
@@ -84,7 +84,7 @@ Be strict about document validity. If you cannot read an expiry date with reason
           const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: vehicle_id });
           const vehicle = vehicles[0];
           if (vehicle && vehicle.approval_status === "pending") {
-            await base44.asServiceRole.entities.Vehicle.update(vehicle_id, { approval_status: "approved", status: "Available" });
+            await base44.asServiceRole.entities.Vehicle.update(vehicle_id, { approval_status: "approved" });
 
             // Notify host
             const hosts = await base44.asServiceRole.entities.Host.filter({ id: host_id });
@@ -92,13 +92,13 @@ Be strict about document validity. If you cannot read an expiry date with reason
             if (host) {
               await base44.asServiceRole.integrations.Core.SendEmail({
                 to: host.email,
-                subject: `✅ Vehicle Approved — ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-                body: `Great news! Your ${vehicle.year} ${vehicle.make} ${vehicle.model} has been verified and is now LIVE on your storefront. Renters can book it immediately.\n\nInsurance and registration documents have been verified by our AI compliance system.\n\nuRide Host Team`,
+                subject: `✅ Vehicle Documents Verified — ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+                body: `Great news! Insurance and registration documents for your ${vehicle.year} ${vehicle.make} ${vehicle.model} have been verified. Open your vehicle setup checklist to finish any remaining items and publish the vehicle.\n\nuRide Host Team`,
               });
               await base44.asServiceRole.entities.Notification.create({
                 user_email: host.email,
-                title: `✅ Vehicle Live — ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-                body: `Insurance and registration verified. Your vehicle is now live and accepting bookings!`,
+                title: `✅ Vehicle Documents Verified — ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+                body: `Insurance and registration verified. Finish setup to publish this vehicle.`,
                 type: "success",
               });
             }

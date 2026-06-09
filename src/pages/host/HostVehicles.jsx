@@ -98,10 +98,10 @@ export default function HostVehicles() {
         title="My Vehicles"
         subtitle={`${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""} in your fleet`}
         action={
-          <button onClick={openNew} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
+          <Link to="/host/vehicles/setup" className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-lg"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
             <Plus className="h-4 w-4" /> Add Vehicle
-          </button>
+          </Link>
         }
       />
 
@@ -122,8 +122,8 @@ export default function HostVehicles() {
           </div>
           <h3 className="text-lg font-bold text-gray-900 mb-2">No vehicles yet</h3>
           <p className="text-gray-400 text-sm mb-5">Add your first vehicle to start earning</p>
-          <button onClick={openNew} className="px-6 py-2.5 rounded-xl text-sm font-bold text-white"
-            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Add Your First Vehicle</button>
+          <Link to="/host/vehicles/setup" className="px-6 py-2.5 rounded-xl text-sm font-bold text-white"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Add Your First Vehicle</Link>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
