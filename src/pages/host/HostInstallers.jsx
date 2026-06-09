@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import InstallerCard from '@/components/installers/InstallerCard';
 import InstallerLocatorMap from '@/components/installers/InstallerLocatorMap';
 import InstallerSearchControls from '@/components/installers/InstallerSearchControls';
+import InstallerResultsSummary from '@/components/installers/InstallerResultsSummary';
 import { filterAndRankInstallers } from '@/lib/installers/installerLocatorUtils';
 
 async function geocodeSearch(query) {
@@ -106,6 +107,7 @@ export default function HostInstallers() {
           {vehicles.map(v => <option key={v.id} value={v.id}>{[v.year, v.make, v.model, v.vin].filter(Boolean).join(' ')}</option>)}
         </select>
       )}
+      <InstallerResultsSummary installers={visible} />
       <InstallerLocatorMap installers={visible} center={effectiveCenter ? [effectiveCenter.lat, effectiveCenter.lon] : null} />
       {isLoading || isImporting ? <div className="rounded-3xl bg-card p-8 text-center font-bold text-muted-foreground">Loading nearby installers...</div> : visible.length === 0 ? <div className="rounded-3xl border border-border bg-card p-8 text-center font-bold text-muted-foreground">No installers found nearby yet.</div> : <div className="grid gap-4 md:grid-cols-2">{visible.map(installer => <InstallerCard key={installer.id} installer={installer} source={searchParams.get('source') || 'manual_navigation'} />)}</div>}
     </div>

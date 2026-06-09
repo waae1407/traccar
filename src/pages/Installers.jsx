@@ -5,6 +5,7 @@ import { base44 } from '@/api/base44Client';
 import InstallerCard from '@/components/installers/InstallerCard';
 import InstallerLocatorMap from '@/components/installers/InstallerLocatorMap';
 import InstallerSearchControls from '@/components/installers/InstallerSearchControls';
+import InstallerResultsSummary from '@/components/installers/InstallerResultsSummary';
 import { filterAndRankInstallers } from '@/lib/installers/installerLocatorUtils';
 
 const LOGO_ICON = 'https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg';
@@ -80,6 +81,7 @@ export default function Installers() {
           <p className="mt-2 max-w-2xl text-slate-600">Search for installer leads near you. Verification badges show progress based on successful uRide installation tests.</p>
         </div>
         <InstallerSearchControls query={query} setQuery={setQuery} radius={radius} setRadius={setRadius} onSearch={handleSearch} onCurrentLocation={useCurrentLocation} loading={loadingSearch} />
+        <InstallerResultsSummary installers={visible} />
         <InstallerLocatorMap installers={visible} center={center ? [center.lat, center.lon] : null} />
         {isLoading || isImporting ? <div className="rounded-3xl bg-white p-8 text-center font-bold text-slate-500">Loading nearby installers...</div> : visible.length === 0 ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">

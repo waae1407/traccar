@@ -2,8 +2,8 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 
 const LABELS = {
-  listed: 'Listed',
-  not_verified: 'Not Verified',
+  listed: 'Listed Installer',
+  not_verified: 'Listed Installer',
   in_progress: 'In Progress',
   almost_verified: 'Almost Verified',
   verified: 'uRide Verified',
@@ -26,7 +26,7 @@ export default function InstallerStatusBadge({ status, count = 0, required = 3 }
   const showProgress = !['preferred', 'suspended'].includes(safeStatus);
   return (
     <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs font-black ${STYLES[safeStatus] || STYLES.not_verified}`}>
-      {LABELS[safeStatus] || LABELS.not_verified}{showProgress ? ` · ${Math.min(count, required)}/${required} uRide installs` : ''}
+      {LABELS[safeStatus] || LABELS.not_verified}{showProgress ? ` · ${Math.min(count, required)}/${required} Verified Installs` : ''}
     </Badge>
   );
 }
