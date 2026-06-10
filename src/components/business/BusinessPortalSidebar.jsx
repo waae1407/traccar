@@ -1,6 +1,8 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronLeft, ChevronRight, ChevronDown, X } from "lucide-react";
+import { getLogoHomeRoute } from "@/lib/logoHomeRoute";
+import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
 import { useTenant } from "@/lib/useTenant";
@@ -14,6 +16,8 @@ const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b12
 export default function BusinessPortalSidebar({ role = "admin", collapsed, setCollapsed, mobileOpen, setMobileOpen, showDealerNetwork = true }) {
   const location = useLocation();
   const { isSuperadmin } = useTenant();
+  const { user } = useAuth();
+  const logoRoute = role === "admin" ? "/admin/operations-center" : "/host/dashboard";
   const [openSections, setOpenSections] = React.useState({});
   const isAdmin = role === "admin";
 
@@ -78,7 +82,7 @@ export default function BusinessPortalSidebar({ role = "admin", collapsed, setCo
 
         <div className="relative h-[70px] flex items-center justify-between px-4 border-b border-white/[0.06]">
           {!collapsed ? (
-            <div className="flex items-center gap-3">
+            <Link to={logoRoute} aria-label="Go to home" className="flex items-center gap-3 cursor-pointer" onClick={() => setMobileOpen(false)}>
               <div className="relative">
                 <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md" />
                 <img src={LOGO_ICON} alt="uRide" className="relative h-9 w-9 rounded-xl object-cover ring-1 ring-primary/40" />
@@ -87,12 +91,12 @@ export default function BusinessPortalSidebar({ role = "admin", collapsed, setCo
                 <span className="font-bold text-white text-xl tracking-tight leading-none" style={{ fontFamily: "var(--font-syne)" }}>uRide</span>
                 {role === "host" && <p className="text-[10px] text-primary/60 font-bold leading-none mt-1">Business Portal</p>}
               </div>
-            </div>
+            </Link>
           ) : (
-            <div className="relative mx-auto">
+            <Link to={logoRoute} aria-label="Go to home" className="relative mx-auto cursor-pointer" onClick={() => setMobileOpen(false)}>
               <div className="absolute inset-0 rounded-xl bg-primary/30 blur-md" />
               <img src={LOGO_ICON} alt="uRide" className="relative h-9 w-9 rounded-xl object-cover ring-1 ring-primary/40" />
-            </div>
+            </Link>
           )}
           <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors">
             <X className="h-4 w-4" />

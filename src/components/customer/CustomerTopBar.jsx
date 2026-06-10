@@ -1,18 +1,39 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { MapPin, ChevronDown, Bell, User, LogIn } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { getLogoHomeRoute } from "@/lib/logoHomeRoute";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
 export default function CustomerTopBar({ user, city, onCityChange }) {
+  const navigate = useNavigate();
+
+  // Minimal query — only fetches one booking, only for customers
+  const { data: activeBookings = [] } = useQuery({
+    queryKey: ["logo-active-booking", user?.id],
+    queryFn: () => base44.entities.BookingRequest.filter(
+      { user_id: user.id },
+      "-updated_date",
+      5
+    ),
+    enabled: !!user?.id && user?.role !== "admin" && user?.role !== "host",
+    staleTime: 60_000,
+  });
+  const activeBooking = activeBookings.find(b =>
+    ["approved","active","confirmed","payment_due","grace_period","return_pending_host_review","under_review"].includes(b.booking_status)
+  ) || null;
+  const logoRoute = getLogoHomeRoute(user, activeBooking);
+
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100">
       <div className="w-full max-w-2xl mx-auto px-5 h-16 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <Link to={logoRoute} aria-label="Go to home" className="flex items-center gap-2 cursor-pointer">
           <img src={LOGO_ICON} alt="uRide" className="h-8 w-8 rounded-xl object-cover" />
           <span className="font-bold text-gray-900 text-lg tracking-tight">uRide</span>
-        </div>
+        </Link>
 
         {/* City selector */}
         <button

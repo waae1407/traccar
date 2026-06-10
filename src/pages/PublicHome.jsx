@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getLogoHomeRoute } from "@/lib/logoHomeRoute";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
 import HomeHero from "@/components/home/HomeHero";
@@ -47,11 +48,11 @@ export default function PublicHome() {
       {/* NAV */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="max-w-3xl mx-auto px-5 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/" aria-label="Go to home" className="flex items-center gap-2 cursor-pointer">
             <img src={LOGO_ICON} alt="uRide" className="h-7 w-7 rounded-lg object-cover" />
             <span className="font-black text-gray-900 text-base tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>uRide</span>
             <span className="hidden sm:inline text-[10px] font-semibold text-gray-300 ml-1 border border-gray-200 px-1.5 py-0.5 rounded-full tracking-wide uppercase">Fleet Platform</span>
-          </div>
+          </Link>
           <button
             onClick={() => base44.auth.redirectToLogin(window.location.href)}
             className="px-4 py-1.5 rounded-full text-sm font-semibold text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 transition-all"
