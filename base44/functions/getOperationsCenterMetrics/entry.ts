@@ -88,6 +88,16 @@ Deno.serve(async (req) => {
     const suspendedVehicles = vehicles.filter(v => ['Suspended', 'Out of Service', 'Compliance Hold', 'Maintenance Hold'].includes(v.status));
     const availableVehicles = vehicles.filter(v => v.status === 'Available');
     const vehiclesNotEarning = availableVehicles.filter(v => !activeBookings.some(b => b.vehicle_id === v.id));
+
+    // Listing visibility metrics
+    const approvedAvailable = vehicles.filter(v => v.status === 'Available' && v.approval_status === 'approved');
+    const marketplaceListed = approvedAvailable.filter(v => v.marketplace_visible !== false && v.admin_marketplace_approved !== false);
+    const storefrontListed = approvedAvailable.filter(v => v.storefront_visible !== false);
+    const marketplaceHidden = approvedAvailable.filter(v => v.marketplace_visible === false);
+    const storefrontHidden = approvedAvailable.filter(v => v.storefront_visible === false);
+    const pendingMarketplaceApproval = approvedAvailable.filter(v => v.marketplace_visible !== false && v.admin_marketplace_approved === false);
+    const marketplaceBlockedByCompliance = vehicles.filter(v => v.status === 'Compliance Hold');
+    const notListedAnywhere = approvedAvailable.filter(v => v.marketplace_visible === false && v.storefront_visible === false);
     const gpsOfflineVehicles = telematicsDevices.filter(d =>
       d.online_status === 'offline' || (d.last_seen_at && new Date(d.last_seen_at) < staleCutoff)
     );
@@ -134,6 +144,13 @@ Deno.serve(async (req) => {
         customers_needing_attention: customersNeedingAttention.length,
         vehicles_suspended: suspendedVehicles.length,
         vehicles_not_earning: vehiclesNotEarning.length,
+        marketplace_listed: marketplaceListed.length,
+        storefront_listed: storefrontListed.length,
+        marketplace_hidden: marketplaceHidden.length,
+        storefront_hidden: storefrontHidden.length,
+        pending_marketplace_approval: pendingMarketplaceApproval.length,
+        marketplace_blocked_by_compliance: marketplaceBlockedByCompliance.length,
+        not_listed_anywhere: notListedAnywhere.length,
         gps_offline_count: gpsOfflineVehicles.length,
         compliance_expiring_count: expiringCompliance.length,
         compliance_expired_count: expiredCompliance.length,
@@ -174,7 +191,7 @@ Deno.serve(async (req) => {
         active: activeBookings,
       },
       hosts: { all: hosts, with_blockers: hostsWithBlockers },
-      vehicles: { all: vehicles, suspended: suspendedVehicles, not_earning: vehiclesNotEarning },
+      vehicles: { all: vehicles, suspended: suspendedVehicles, not_earning: vehiclesNotEarning, not_listed_anywhere: notListedAnywhere, pending_marketplace_approval: pendingMarketplaceApproval },
       gps_offline: gpsOfflineVehicles,
       compliance: { expiring: expiringCompliance, expired: expiredCompliance },
       alerts: {

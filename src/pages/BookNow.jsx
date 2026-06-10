@@ -95,6 +95,27 @@ export default function BookNow() {
     staleTime: 60_000,
   });
 
+  const { data: approvedHosts = [] } = useQuery({
+    queryKey: ["public-approved-hosts"],
+    queryFn: () => base44.entities.Host.filter({ status: "approved" }, "-created_date", 500),
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: brandSettings = [] } = useQuery({
+    queryKey: ["public-brand-moderation"],
+    queryFn: () => base44.entities.HostBrandSettings.list("-updated_date", 500),
+    staleTime: 5 * 60_000,
+  });
+
+  // Build approved host set and brand moderation set
+  const approvedHostIds = useMemo(() => new Set(approvedHosts.map(h => h.id)), [approvedHosts]);
+  const blockedHostIds = useMemo(() => new Set(
+    approvedHosts.filter(h => h.booking_blocked === true).map(h => h.id)
+  ), [approvedHosts]);
+  const suspendedStorefrontHostIds = useMemo(() => new Set(
+    brandSettings.filter(b => b.moderation_status === "suspended").map(b => b.host_id)
+  ), [brandSettings]);
+
   const marketplaceVisibilityByHost = useMemo(() => {
     const map = operatorPlans.reduce((acc, plan) => {
       if (!plan.host_id || acc[plan.host_id] !== undefined) return acc;
@@ -117,7 +138,14 @@ export default function BookNow() {
   // All available vehicles, sorted by distance if location is known (no hard distance cutoff)
   const available = useMemo(() => {
     const avail = vehicles.filter((v) => {
-      if (v.status !== "Available" || !v.host_id) return false;
+      if (v.status !== "Available") return false;
+      if (!v.host_id) return false;
+      if (v.approval_status && v.approval_status !== "approved") return false;
+      if (v.marketplace_visible === false) return false;
+      if (v.admin_marketplace_approved === false) return false;
+      if (!approvedHostIds.has(v.host_id)) return false;
+      if (blockedHostIds.has(v.host_id)) return false;
+      if (suspendedStorefrontHostIds.has(v.host_id)) return false;
       return marketplaceVisibilityByHost[v.host_id] !== false;
     });
     if (!location.lat || !location.lon) return avail;
@@ -134,7 +162,7 @@ export default function BookNow() {
         if (b.distance === undefined) return -1;
         return a.distance - b.distance;
       });
-  }, [vehicles, location, marketplaceVisibilityByHost]);
+  }, [vehicles, location, marketplaceVisibilityByHost, approvedHostIds, blockedHostIds, suspendedStorefrontHostIds]);
 
   const rtoEligible = available.filter((v) => v.rent_to_own_eligible);
 

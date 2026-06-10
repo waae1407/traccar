@@ -156,12 +156,14 @@ export default function HostFirstVehicleSetup() {
   });
 
   const publishVehicle = useMutation({
-    mutationFn: async () => {
-      const latest = await base44.functions.invoke('getHostVehicleSetupReadiness', { host_id: host.id, vehicle_id: vehicleId });
-      if (!latest.data?.publish_ready) throw new Error(`Missing: ${(latest.data?.missing_requirements || []).join(', ')}`);
-      return base44.entities.Vehicle.update(vehicleId, { status: 'Available', approval_status: 'approved' });
-    },
-    onSuccess: () => navigate('/host/dashboard'),
+  mutationFn: async () => {
+    const latest = await base44.functions.invoke('getHostVehicleSetupReadiness', { host_id: host.id, vehicle_id: vehicleId });
+    if (!latest.data?.publish_ready) throw new Error(`Missing: ${(latest.data?.missing_requirements || []).join(', ')}`);
+    // FleetOS Professional: marketplace off by default; all others: on by default
+    const marketplace_visible = planMode !== 'fleetos_professional';
+    return base44.entities.Vehicle.update(vehicleId, { status: 'Available', approval_status: 'approved', storefront_visible: true, marketplace_visible, admin_marketplace_approved: true });
+  },
+  onSuccess: () => navigate('/host/dashboard'),
   });
 
   const setVehicle = (field, value) => setVehicleForm((previous) => ({ ...previous, [field]: value }));

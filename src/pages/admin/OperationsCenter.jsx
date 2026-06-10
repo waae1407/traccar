@@ -130,9 +130,15 @@ export default function OperationsCenter() {
         </TabsContent>
 
         <TabsContent value="vehicles" className="mt-4">
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <MetricCard label="Suspended/Offline" value={s?.vehicles_suspended || 0} color="text-red-400" />
-            <MetricCard label="Available but Not Earning" value={s?.vehicles_not_earning || 0} color="text-yellow-400" />
+            <MetricCard label="Not Earning" value={s?.vehicles_not_earning || 0} color="text-yellow-400" />
+            <MetricCard label="Marketplace Listed" value={s?.marketplace_listed || 0} color="text-green-400" />
+            <MetricCard label="Storefront Listed" value={s?.storefront_listed || 0} color="text-blue-400" />
+            <MetricCard label="Marketplace Hidden" value={s?.marketplace_hidden || 0} color={s?.marketplace_hidden > 0 ? 'text-yellow-400' : ''} />
+            <MetricCard label="Storefront Hidden" value={s?.storefront_hidden || 0} />
+            <MetricCard label="Pending Mkt Approval" value={s?.pending_marketplace_approval || 0} color={s?.pending_marketplace_approval > 0 ? 'text-orange-400' : ''} alert={s?.pending_marketplace_approval > 0} />
+            <MetricCard label="Not Listed Anywhere" value={s?.not_listed_anywhere || 0} color={s?.not_listed_anywhere > 0 ? 'text-red-400' : ''} />
           </div>
           <div className="space-y-2">
             {data?.vehicles?.suspended?.map(v => (
@@ -145,6 +151,18 @@ export default function OperationsCenter() {
               <div key={v.id} className="flex justify-between rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-3 py-2 text-sm">
                 <div><p className="font-medium">{v.year} {v.make} {v.model}</p><p className="text-muted-foreground text-xs">${v.weekly_rate || 0}/wk listed</p></div>
                 <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Not Earning</Badge>
+              </div>
+            ))}
+            {data?.vehicles?.pending_marketplace_approval?.map(v => (
+              <div key={v.id} className="flex justify-between rounded-lg bg-orange-500/10 border border-orange-500/20 px-3 py-2 text-sm">
+                <div><p className="font-medium">{v.year} {v.make} {v.model}</p><p className="text-muted-foreground text-xs">Host: {v.host_id?.slice(-8)} · Awaiting marketplace approval</p></div>
+                <Badge className="bg-orange-500/20 text-orange-400 text-xs">Mkt Pending</Badge>
+              </div>
+            ))}
+            {data?.vehicles?.not_listed_anywhere?.map(v => (
+              <div key={v.id} className="flex justify-between rounded-lg bg-muted/30 border border-border px-3 py-2 text-sm">
+                <div><p className="font-medium">{v.year} {v.make} {v.model}</p><p className="text-muted-foreground text-xs">Hidden from storefront and marketplace</p></div>
+                <Badge className="bg-muted text-muted-foreground text-xs">Not Listed</Badge>
               </div>
             ))}
           </div>
