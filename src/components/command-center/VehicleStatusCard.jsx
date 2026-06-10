@@ -2,6 +2,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { BatteryCharging, Clock3, Gauge, KeyRound, RadioTower, WalletCards } from "lucide-react";
 import { getGpsFreshness, getSupportedCommands } from "@/lib/telematics/commandReadiness";
+import { getDeviceFreshness, hasValidCoordinates } from "@/lib/telematics/telematicsReporting";
 import InstallerLocatorCTA from "@/components/installers/InstallerLocatorCTA";
 
 function valueOrDash(value, suffix = "") {
@@ -15,9 +16,18 @@ function fmt(value) {
 
 export default function VehicleStatusCard({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter }) {
   const freshness = getGpsFreshness(device || {});
+  const deviceFreshness = getDeviceFreshness(device);
   const supported = getSupportedCommands({ role: mode, device, provider: provider || {}, booking, hostOwnsVehicle, allowStarter })
     .filter((item) => mode !== "customer" || ["locate", "lock", "unlock", "alarm_pulse"].includes(item.command));
-  const online = device?.online_status === "online";
+
+  const FRESHNESS_BADGE = {
+    online:  { cls: "bg-emerald-50 text-emerald-700", label: "Live" },
+    recent:  { cls: "bg-blue-50 text-blue-700",      label: "Recently Seen" },
+    stale:   { cls: "bg-yellow-50 text-yellow-700",  label: "Stale" },
+    offline: { cls: "bg-red-50 text-red-700",        label: "Offline" },
+    unknown: { cls: "bg-gray-100 text-gray-500",     label: "Unknown" },
+  };
+  const badge = FRESHNESS_BADGE[deviceFreshness.status] || FRESHNESS_BADGE.unknown;
 
   return (
     <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
@@ -27,7 +37,7 @@ export default function VehicleStatusCard({ mode, vehicle, device, provider, boo
           <h2 className="mt-1 text-2xl font-black text-slate-950">{vehicle?.display_name || [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean).join(" ") || booking?.vehicle_name || "Selected Vehicle"}</h2>
           <p className="mt-1 text-sm text-slate-500">{vehicle?.status || booking?.booking_status || "Ready status pending"}</p>
         </div>
-        <Badge className={`rounded-full px-3 py-1 ${online ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{online ? "Online" : "Offline / Unknown"}</Badge>
+        <Badge className={`rounded-full px-3 py-1 ${badge.cls}`}>{badge.label}{deviceFreshness.ageMinutes !== null ? ` · ${deviceFreshness.ageMinutes}m` : ""}</Badge>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-6">

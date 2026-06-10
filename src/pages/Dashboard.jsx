@@ -82,8 +82,9 @@ export default function Dashboard() {
   const { data: vehicles = [] } = useQuery({ queryKey: ["vehicles", scopeKey], queryFn: () => base44.entities.Vehicle.filter(tenantFilter()) });
   const { data: customers = [] } = useQuery({ queryKey: ["customers", scopeKey], queryFn: () => base44.entities.Customer.filter(tenantFilter()) });
   const { data: bookings = [] } = useQuery({ queryKey: ["bookings", scopeKey], queryFn: () => base44.entities.Booking.filter(tenantFilter()) });
-  const { data: payments = [] } = useQuery({ queryKey: ["payments", scopeKey], queryFn: () => base44.entities.Payment.filter(tenantFilter()) });
   const { data: contracts = [] } = useQuery({ queryKey: ["contracts", scopeKey], queryFn: () => base44.entities.RentToOwnContract.filter(tenantFilter()) });
+  // Canonical revenue source: PaymentLog only (not legacy Payment entity)
+  const { data: paymentLogs = [] } = useQuery({ queryKey: ["payment-logs-dash", scopeKey], queryFn: () => base44.entities.PaymentLog.list("-paid_at", 500) });
   const { data: bookingRequests = [] } = useQuery({ queryKey: ["booking-requests-admin", scopeKey], queryFn: () => base44.entities.BookingRequest.filter(tenantFilter(), "-created_date", 200), refetchInterval: 30_000 });
   const { data: gpsDevices = [] } = useQuery({ queryKey: ["dashboard-gps-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-location_updated_at", 500), refetchInterval: 60_000 });
   const { data: pendingHosts = [] } = useQuery({ queryKey: ["pending-hosts-dash"], queryFn: () => base44.entities.Host.filter({ status: "pending" }), refetchInterval: 60_000 });
@@ -118,44 +119,38 @@ export default function Dashboard() {
   // Real active rentals from BookingRequests (source of truth)
   const activeRentals = bookingRequests.filter((b) => ["approved", "confirmed", "active", "pending_review"].includes(b.booking_status)).length;
   const availableVehicles = vehicles.filter((v) => v.status === "Available").length;
-  const overduePayments = payments.filter((p) => p.status === "Overdue");
   const activeContracts = contracts.filter((c) => c.status === "Active").length +
     bookingRequests.filter((b) => b.booking_type === "Rent-to-Own" && ["approved", "confirmed", "active"].includes(b.booking_status)).length;
 
-  // Real revenue: BookingRequests (paid) + legacy Payment records
-  const revenueFromRequests = bookingRequests
-    .filter((b) => b.payment_status === "paid")
-    .reduce((s, b) => s + (b.total_due_now || 0), 0);
-  const revenueFromPayments = payments.filter((p) => p.status === "Paid").reduce((s, p) => s + (p.amount || 0), 0);
-  const totalRevenue = revenueFromRequests + revenueFromPayments;
+  // ── Canonical overdue: BookingRequest only (not legacy Payment entity) ──
+  const OVERDUE_BOOKING_STATUSES = ["payment_due", "grace_period", "suspended"];
+  const OVERDUE_PAYMENT_STATUSES = ["failed", "overdue"];
+  const overdueBookings = bookingRequests.filter((b) =>
+    OVERDUE_PAYMENT_STATUSES.includes(b.payment_status) ||
+    OVERDUE_BOOKING_STATUSES.includes(b.booking_status)
+  );
+  const overdueAmount = overdueBookings.reduce((s, b) => s + (b.weekly_rate || b.total_due_now || 0), 0);
+  const overdueCustomers = new Set(overdueBookings.map(b => b.user_email).filter(Boolean)).size;
+  const oldestOverdue = overdueBookings
+    .filter(b => b.last_payment_failure_at || b.grace_period_started_at)
+    .sort((a, b) => new Date(a.last_payment_failure_at || a.grace_period_started_at) - new Date(b.last_payment_failure_at || b.grace_period_started_at))[0];
 
+  // ── Canonical revenue: PaymentLog only ──
   const now = new Date();
-  const thisMonthRevenue = bookingRequests
-    .filter((b) => {
-      if (b.payment_status !== "paid") return false;
-      const dateStr = b.agreement_accepted_at || b.submitted_at || b.created_date;
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    })
-    .reduce((s, b) => s + (b.total_due_now || 0), 0)
-    + payments.filter((p) => {
-      if (!p.paid_date || p.status !== "Paid") return false;
-      const d = new Date(p.paid_date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }).reduce((s, p) => s + (p.amount || 0), 0);
+  const paidLogs = paymentLogs.filter(p => p.status === "paid");
+  const refundedLogs = paymentLogs.filter(p => p.status === "refunded");
+  const totalRevenue = paidLogs.reduce((s, p) => s + (p.amount || 0), 0)
+    - refundedLogs.reduce((s, p) => s + (p.amount || 0), 0);
+  const thisMonthRevenue = paidLogs.filter(p => {
+    const d = new Date(p.paid_at || p.created_date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).reduce((s, p) => s + (p.amount || 0), 0);
 
-  // Monthly trend (BookingRequests + legacy Payments)
+  // Monthly trend from PaymentLog
   const monthlyData = {};
-  bookingRequests.filter((b) => b.payment_status === "paid").forEach((b) => {
-    const dateStr = b.agreement_accepted_at || b.submitted_at || b.created_date;
-    if (!dateStr) return;
-    const d = new Date(dateStr);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    monthlyData[key] = (monthlyData[key] || 0) + (b.total_due_now || 0);
-  });
-  payments.filter((p) => p.status === "Paid" && p.paid_date).forEach((p) => {
-    const d = new Date(p.paid_date);
+  paidLogs.forEach((p) => {
+    const d = new Date(p.paid_at || p.created_date);
+    if (!d || isNaN(d.getTime())) return;
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     monthlyData[key] = (monthlyData[key] || 0) + (p.amount || 0);
   });
@@ -169,9 +164,9 @@ export default function Dashboard() {
     fleetPie.push({ name: "No Data", value: 1 });
   }
 
-  // Payment method breakdown
+  // Payment method breakdown from PaymentLog
   const methodData = {};
-  payments.filter((p) => p.status === "Paid").forEach((p) => {
+  paidLogs.forEach((p) => {
     methodData[p.payment_method || "Other"] = (methodData[p.payment_method || "Other"] || 0) + (p.amount || 0);
   });
   const methodChart = Object.entries(methodData).map(([name, value]) => ({ name, value }));
@@ -183,24 +178,21 @@ export default function Dashboard() {
 
   const activeRentalsList = bookingRequests.filter((b) => ["approved", "confirmed", "active", "pending_review"].includes(b.booking_status));
   const availableVehiclesList = vehicles.filter((v) => v.status === "Available");
-  const paidBookingRequests = bookingRequests.filter((b) => b.payment_status === "paid");
-  const thisMonthPaid = bookingRequests.filter((b) => {
-    if (b.payment_status !== "paid") return false;
-    const dateStr = b.agreement_accepted_at || b.submitted_at || b.created_date;
-    if (!dateStr) return false;
-    const d = new Date(dateStr);
+  const thisMonthPaidLogs = paidLogs.filter(p => {
+    const d = new Date(p.paid_at || p.created_date);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
   const activeRTOList = [
     ...contracts.filter((c) => c.status === "Active"),
     ...bookingRequests.filter((b) => b.booking_type === "Rent-to-Own" && ["approved", "confirmed", "active"].includes(b.booking_status)),
   ];
+  // unused legacy Payment entity no longer queried
 
   const stats = [
     { title: "Active Rentals", value: activeRentals, icon: CalendarDays, colorIndex: 0, drawer: "active_rentals" },
     { title: "Available Vehicles", value: availableVehicles, icon: Car, colorIndex: 2, drawer: "available_vehicles" },
-    { title: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 1, drawer: "total_revenue" },
-    { title: "Monthly Revenue", value: `$${thisMonthRevenue.toLocaleString()}`, icon: DollarSign, colorIndex: 3, drawer: "monthly_revenue" },
+    { title: "Total Revenue", value: `$${totalRevenue.toLocaleString()}`, subtitle: paymentLogs.length === 0 ? "No logs yet — run billing" : "From payment logs", icon: DollarSign, colorIndex: 1, drawer: "total_revenue" },
+    { title: "Monthly Revenue", value: `$${thisMonthRevenue.toLocaleString()}`, subtitle: format(now, "MMMM yyyy"), icon: DollarSign, colorIndex: 3, drawer: "monthly_revenue" },
     { title: "Total Customers", value: customers.length, icon: Users, colorIndex: 5, drawer: "customers" },
     { title: "Active RTO", value: activeContracts, icon: FileKey, colorIndex: 4, drawer: "active_rto" },
   ];
@@ -456,27 +448,25 @@ export default function Dashboard() {
       </StatCardDrawer>
 
       {/* Total Revenue */}
-      <StatCardDrawer open={activeDrawer === "total_revenue"} onClose={() => setActiveDrawer(null)} title="Total Revenue" linkTo="/payments" linkLabel="View payments">
+      <StatCardDrawer open={activeDrawer === "total_revenue"} onClose={() => setActiveDrawer(null)} title="Total Revenue" linkTo="/admin/financial-center" linkLabel="View financial center">
         <div className="mb-4 p-4 rounded-2xl border border-white/[0.07] bg-white/[0.03]">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-1">All-time collected</p>
+          <p className="text-xs text-white/40 uppercase tracking-wider mb-1">All-time collected (PaymentLog)</p>
           <p className="text-3xl font-syne font-bold text-white">${totalRevenue.toLocaleString()}</p>
+          {refundedLogs.length > 0 && <p className="text-xs text-red-400 mt-1">−${refundedLogs.reduce((s,p)=>s+(p.amount||0),0).toLocaleString()} refunded</p>}
         </div>
-        {paidBookingRequests.map((b) => (
-          <DrawerRow key={b.id} label={b.customer_full_name || "Customer"} value={`$${(b.total_due_now || 0).toLocaleString()}`} sub={`${b.vehicle_name} · ${b.booking_type}`} highlight="green" />
-        ))}
-        {payments.filter((p) => p.status === "Paid").map((p) => (
-          <DrawerRow key={p.id} label={p.customer_name || "Customer"} value={`$${(p.amount || 0).toLocaleString()}`} sub={`${p.payment_type} · ${p.payment_method}`} highlight="green" />
+        {paidLogs.slice(0, 50).map((p) => (
+          <DrawerRow key={p.id} label={p.customer_name || p.customer_email || "Customer"} value={`$${(p.amount || 0).toLocaleString()}`} sub={`${p.vehicle_name || "Vehicle"} · Wk ${p.week_number || "—"} · ${p.payment_method || "—"}`} highlight="green" />
         ))}
       </StatCardDrawer>
 
       {/* Monthly Revenue */}
-      <StatCardDrawer open={activeDrawer === "monthly_revenue"} onClose={() => setActiveDrawer(null)} title="Monthly Revenue" linkTo="/payments" linkLabel="View payments">
+      <StatCardDrawer open={activeDrawer === "monthly_revenue"} onClose={() => setActiveDrawer(null)} title="Monthly Revenue" linkTo="/admin/financial-center" linkLabel="View financial center">
         <div className="mb-4 p-4 rounded-2xl border border-white/[0.07] bg-white/[0.03]">
-          <p className="text-xs text-white/40 uppercase tracking-wider mb-1">{format(now, "MMMM yyyy")}</p>
+          <p className="text-xs text-white/40 uppercase tracking-wider mb-1">{format(now, "MMMM yyyy")} (PaymentLog)</p>
           <p className="text-3xl font-syne font-bold text-white">${thisMonthRevenue.toLocaleString()}</p>
         </div>
-        {thisMonthPaid.length === 0 ? <p className="text-white/30 text-sm text-center py-6">No payments this month</p> : thisMonthPaid.map((b) => (
-          <DrawerRow key={b.id} label={b.customer_full_name || "Customer"} value={`$${(b.total_due_now || 0).toLocaleString()}`} sub={`${b.vehicle_name} · ${b.booking_type}`} highlight="green" />
+        {thisMonthPaidLogs.length === 0 ? <p className="text-white/30 text-sm text-center py-6">No payments this month</p> : thisMonthPaidLogs.map((p) => (
+          <DrawerRow key={p.id} label={p.customer_name || p.customer_email || "Customer"} value={`$${(p.amount || 0).toLocaleString()}`} sub={`${p.vehicle_name || "Vehicle"} · Wk ${p.week_number || "—"}`} highlight="green" />
         ))}
       </StatCardDrawer>
 
@@ -600,23 +590,27 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-5">
             <div>
               <h3 className="font-syne font-bold text-white text-base">Overdue Payments</h3>
-              <p className="text-xs text-white/35 mt-0.5">Requires attention</p>
+              <p className="text-xs text-white/35 mt-0.5">
+                {overdueBookings.length > 0
+                  ? `${overdueBookings.length} booking${overdueBookings.length > 1 ? "s" : ""} · ${overdueCustomers} customer${overdueCustomers !== 1 ? "s" : ""} · $${overdueAmount.toLocaleString()}`
+                  : "Requires attention"}
+              </p>
             </div>
-            <Link to="/payments" className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
+            <Link to="/admin/operations-center" className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
               View all <ArrowUpRight className="h-3 w-3" />
             </Link>
           </div>
           <div className="space-y-2.5">
-            {overduePayments.length > 0 ? overduePayments.slice(0, 4).map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-red-500/[0.07] border border-red-500/20 hover:bg-red-500/10 transition-colors">
+            {overdueBookings.length > 0 ? overdueBookings.slice(0, 4).map((b) => (
+              <div key={b.id} className="flex items-center justify-between p-3 rounded-xl bg-red-500/[0.07] border border-red-500/20 hover:bg-red-500/10 transition-colors">
                 <div className="min-w-0">
-                  <p className="font-medium text-white text-sm truncate">{p.customer_name}</p>
+                  <p className="font-medium text-white text-sm truncate">{b.customer_full_name || b.user_email || "Customer"}</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     <Clock className="h-3 w-3 text-red-400" />
-                    <p className="text-xs text-red-400/80">{p.due_date ? format(new Date(p.due_date), "MMM d") : "N/A"}</p>
+                    <p className="text-xs text-red-400/80 truncate">{b.vehicle_name} · {b.booking_status?.replace("_", " ")}</p>
                   </div>
                 </div>
-                <p className="font-bold text-red-400 text-sm">${p.amount?.toLocaleString()}</p>
+                <p className="font-bold text-red-400 text-sm">${(b.weekly_rate || b.total_due_now || 0).toLocaleString()}</p>
               </div>
             )) : (
               <div className="flex flex-col items-center py-6">

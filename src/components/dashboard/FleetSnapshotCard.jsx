@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, MapPin, Wifi, WifiOff, Satellite } from "lucide-react";
-import { getTelematicsDeviceStats, getVehicleTelematicsDevice, hasValidCoordinates } from "@/lib/telematics/telematicsReporting";
+import { ArrowUpRight, MapPin, Wifi, WifiOff, Satellite, Clock } from "lucide-react";
+import { getTelematicsDeviceStats, getVehicleTelematicsDevice, hasValidCoordinates, getDeviceFreshness } from "@/lib/telematics/telematicsReporting";
 
 const ACTIVE_VEHICLE_STATUSES = ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"];
 const ACTIVE_BOOKING_STATUSES = ["approved", "confirmed", "active", "pending_review"];
@@ -20,10 +20,20 @@ function MiniStat({ label, value, icon: Icon, tone }) {
 
 export default function FleetSnapshotCard({ vehicles = [], devices = [], bookings = [] }) {
   const deviceStats = getTelematicsDeviceStats(devices);
-  const onlineVehicles = vehicles.filter(vehicle => getVehicleTelematicsDevice(vehicle, devices)?.online_status === "online").length;
-  const offlineVehicles = vehicles.filter(vehicle => getVehicleTelematicsDevice(vehicle, devices)?.online_status === "offline").length;
+  // Freshness-based online counts — not raw provider field
+  const onlineVehicles = vehicles.filter(v => getDeviceFreshness(getVehicleTelematicsDevice(v, devices)).status === "online").length;
+  const offlineOrStaleVehicles = vehicles.filter(v => {
+    const f = getDeviceFreshness(getVehicleTelematicsDevice(v, devices));
+    return ["offline", "stale", "unknown"].includes(f.status);
+  }).length;
   const activeRentals = bookings.filter(booking => ACTIVE_BOOKING_STATUSES.includes(booking.booking_status)).length;
   const activeDeviceLocations = devices.filter(device => hasValidCoordinates(device) && vehicles.some(vehicle => vehicle.id === device.vehicle_id && ACTIVE_VEHICLE_STATUSES.includes(vehicle.status))).slice(0, 6);
+
+  // Most recent sync time across all devices
+  const lastSyncTimes = devices.map(d => d.location_updated_at || d.last_seen_at).filter(Boolean).sort().reverse();
+  const lastSyncLabel = lastSyncTimes[0]
+    ? `Cached · synced ${Math.round((Date.now() - new Date(lastSyncTimes[0]).getTime()) / 60000)}m ago`
+    : "Cached GPS status";
 
   return (
     <Link to="/admin/telematics-operations" className="block rounded-3xl border border-white/[0.07] p-5 glass-hover" style={{ background: "hsl(222 24% 10% / 0.9)" }}>
@@ -31,15 +41,15 @@ export default function FleetSnapshotCard({ vehicles = [], devices = [], booking
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-primary">Fleet Snapshot</p>
           <h3 className="mt-1 text-xl font-black text-white">GPS visibility summary</h3>
-          <p className="mt-1 text-xs text-white/40">Lightweight preview. Open the full map for filters and all devices.</p>
+          <p className="mt-1 text-xs text-white/40 flex items-center gap-1"><Clock className="h-3 w-3 inline" />{lastSyncLabel}</p>
         </div>
         <span className="inline-flex items-center gap-1 rounded-xl bg-primary/15 px-3 py-2 text-xs font-bold text-primary">Full map <ArrowUpRight className="h-3.5 w-3.5" /></span>
       </div>
       <div className="grid gap-3 sm:grid-cols-4">
-        <MiniStat label="Vehicles Online" value={onlineVehicles} icon={Wifi} tone="text-green-400" />
-        <MiniStat label="Vehicles Offline" value={offlineVehicles} icon={WifiOff} tone="text-red-400" />
+        <MiniStat label="Live Online" value={onlineVehicles} icon={Wifi} tone="text-green-400" />
+        <MiniStat label="Offline / Stale" value={offlineOrStaleVehicles} icon={WifiOff} tone="text-red-400" />
         <MiniStat label="Active Rentals" value={activeRentals} icon={MapPin} tone="text-pink-400" />
-        <MiniStat label="GPS Devices Online" value={deviceStats.online} icon={Satellite} tone="text-blue-400" />
+        <MiniStat label="Recently Seen" value={deviceStats.recentlySeen} icon={Satellite} tone="text-blue-400" />
       </div>
       <div className="mt-4 h-24 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] relative">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "18px 18px" }} />
