@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const [vehicle, host, paymentLogs, payouts, alerts, notifications, activityEvents, disputes, communications, telematicsCommands, inspectionPackets, contractTemplate] = await Promise.all([
+    const [vehicle, host, paymentLogs, payouts, alerts, notifications, activityEvents, disputes, communications, telematicsCommands, inspectionPackets, contractTemplate, manualFeeReceivables] = await Promise.all([
       booking.vehicle_id ? base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id }).then(r => r[0]) : Promise.resolve(null),
       booking.host_id ? base44.asServiceRole.entities.Host.filter({ id: booking.host_id }).then(r => r[0]) : Promise.resolve(null),
       base44.asServiceRole.entities.PaymentLog.filter({ booking_request_id }),
@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.TelematicsCommand.filter({ booking_id: booking_request_id }),
       base44.asServiceRole.entities.InspectionEvidencePacket.filter({ booking_request_id }),
       booking.host_id ? base44.asServiceRole.entities.ContractTemplate.filter({ host_id: booking.host_id }).then(r => r.find(t => ['weekly_rental', 'rent_to_own'].includes(t.template_type))) : Promise.resolve(null),
+      base44.asServiceRole.entities.HostReceivable.filter({ booking_request_id }),
     ]);
 
     const paidLogs = paymentLogs.filter(p => p.status === 'paid');
@@ -57,9 +58,27 @@ Deno.serve(async (req) => {
     const totalPayoutCreated = payouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
     const totalPlatformFees = payouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0);
 
+    // Manual payment fee summary for this booking
+    const manualLogs = paidLogs.filter(p => ['zelle','cash','cashapp','venmo','check','other'].includes(p.payment_method));
+    const manualFeeReceivablesOpen = manualFeeReceivables.filter(r => r.status === 'open');
+    const manualFeeReceivablesPaid = manualFeeReceivables.filter(r => r.status === 'paid');
+    const manualFeeReceivablesWaived = manualFeeReceivables.filter(r => r.status === 'waived');
+    const totalManualCollected = manualLogs.reduce((s, p) => s + (p.amount || 0), 0);
+    const totalManualFeeDue = manualFeeReceivablesOpen.reduce((s, r) => s + (r.platform_fee_amount_due || r.remaining_amount || r.original_amount || 0), 0);
+
+    // Stripe-sourced paid logs (should have payouts)
+    const stripePaidLogs = paidLogs.filter(p => p.payment_method === 'stripe' || !['zelle','cash','cashapp','venmo','check','other'].includes(p.payment_method));
+
     const warnings = [];
     if (paymentLogs.some(p => !p.stripe_payment_intent_id && p.payment_method === 'stripe')) warnings.push('Some PaymentLog records missing Stripe IDs');
-    if (paidLogs.length > 0 && payouts.length === 0) warnings.push('Paid payments exist but no HostPayout records found — potential payout gap');
+    // Only warn about missing HostPayout for Stripe payments — manual payments intentionally have no HostPayout
+    if (stripePaidLogs.length > 0 && payouts.length === 0 && manualLogs.length === 0) warnings.push('Stripe payments exist but no HostPayout records found — potential payout gap');
+    if (stripePaidLogs.length > 0 && payouts.length === 0 && manualLogs.length > 0) warnings.push('Mix of Stripe and manual payments — no HostPayout found for Stripe portion. Manual payment platform fee tracked via host receivable.');
+    if (manualLogs.length > 0 && payouts.length === 0) {
+      // All manual — no payout warning; instead note the receivable
+      if (manualFeeReceivablesOpen.length > 0) warnings.push(`Manual payment recorded. Platform fee reconciliation ($${totalManualFeeDue.toFixed(2)} due) is tracked with host via receivable.`);
+      else warnings.push('Manual payment recorded. Platform fee reconciliation is tracked with host.');
+    }
     if (booking.payment_status === 'paid' && paidLogs.length === 0) warnings.push('Booking marked paid but no PaymentLog records found');
     if (payouts.some(p => p._synthesized)) warnings.push('Some payout rows are synthesized estimates — not real transfers');
     if (totalPendingPayout > 0) warnings.push(`$${totalPendingPayout.toFixed(2)} in payouts are pending (not yet transferred)`);
@@ -89,6 +108,15 @@ Deno.serve(async (req) => {
       },
       payment_logs: paymentLogs,
       payouts,
+      manual_fee_summary: {
+        manual_logs: manualLogs,
+        manual_collected: totalManualCollected,
+        manual_fee_due: totalManualFeeDue,
+        receivables: manualFeeReceivables,
+        open_receivables: manualFeeReceivablesOpen,
+        paid_receivables: manualFeeReceivablesPaid,
+        waived_receivables: manualFeeReceivablesWaived,
+      },
       alerts,
       notifications,
       activity_events: activityEvents,

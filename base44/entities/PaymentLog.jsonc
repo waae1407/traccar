@@ -128,6 +128,37 @@
     "paid_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "platform_fee_rate": {
+      "type": "number",
+      "description": "Effective platform fee rate resolved by canonical fee resolver at time of payment"
+    },
+    "platform_fee_amount_due": {
+      "type": "number",
+      "description": "Platform fee owed to uRide on this payment"
+    },
+    "host_net_after_platform_fee": {
+      "type": "number",
+      "description": "Host net amount after platform fee deduction"
+    },
+    "platform_fee_collection_status": {
+      "type": "string",
+      "enum": [
+        "due",
+        "not_applicable",
+        "collected_via_payout",
+        "waived"
+      ],
+      "description": "How the platform fee will be/was collected"
+    },
+    "manual_collection_requires_platform_fee": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when payment is manual and host plan has a platform fee obligation"
+    },
+    "plan_mode_at_payment": {
+      "type": "string",
+      "description": "Host plan mode captured at time of payment for immutable audit"
     }
   },
   "required": [

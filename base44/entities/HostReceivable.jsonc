@@ -8,6 +8,16 @@
     "booking_request_id": {
       "type": "string"
     },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "payment_log_id": {
+      "type": "string",
+      "description": "PaymentLog record that triggered this receivable"
+    },
     "host_payout_id": {
       "type": "string"
     },
@@ -25,20 +35,103 @@
       "enum": [
         "chargeback_recovery",
         "marketplace_commission",
+        "manual_payment_fee",
         "admin_adjustment"
       ],
       "default": "chargeback_recovery"
+    },
+    "source_payment_type": {
+      "type": "string",
+      "enum": [
+        "stripe",
+        "manual_payment"
+      ],
+      "description": "Whether this fee came from a Stripe or manual payment collection"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "stripe",
+        "zelle",
+        "cash",
+        "cashapp",
+        "venmo",
+        "check",
+        "other"
+      ],
+      "description": "Payment method used in the manual collection"
+    },
+    "gross_collected_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Total amount collected from the customer"
+    },
+    "platform_fee_rate": {
+      "type": "number",
+      "default": 0,
+      "description": "Effective platform fee rate resolved from canonical fee resolver"
+    },
+    "platform_fee_amount_due": {
+      "type": "number",
+      "default": 0,
+      "description": "Platform fee owed to uRide from this manual collection"
+    },
+    "host_net_after_fee": {
+      "type": "number",
+      "default": 0,
+      "description": "Host's net amount after platform fee is deducted"
+    },
+    "plan_mode": {
+      "type": "string",
+      "description": "Host plan mode at time of payment (marketplace_partner|hybrid_growth|fleetos_professional)"
     },
     "status": {
       "type": "string",
       "enum": [
         "open",
-        "partially_recovered",
-        "recovered",
+        "partially_paid",
+        "paid",
         "waived",
         "disputed"
       ],
       "default": "open"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "description": {
+      "type": "string"
+    },
+    "created_by_admin": {
+      "type": "string",
+      "description": "Admin email who created the receivable"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string"
+    },
+    "resolution_method": {
+      "type": "string",
+      "enum": [
+        "stripe_payment",
+        "ach",
+        "check",
+        "offset_from_payout",
+        "admin_waived",
+        "admin_adjustment"
+      ],
+      "description": "How this receivable was ultimately resolved"
+    },
+    "external_reference": {
+      "type": "string"
+    },
+    "dedupe_key": {
+      "type": "string",
+      "description": "Idempotency key \u2014 manual_fee:{booking_request_id}:{payment_log_id}"
     },
     "original_amount": {
       "type": "number",
@@ -88,6 +181,9 @@
           "changed_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "changed_by": {
+            "type": "string"
           },
           "note": {
             "type": "string"

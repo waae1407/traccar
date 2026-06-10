@@ -1,5 +1,55 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import Stripe from 'npm:stripe@14.21.0';
+
+// ---------------------------------------------------------------------------
+// CANONICAL PLATFORM FEE RESOLVER (inlined — no local imports in Deno deploy)
+// Mirrors lib/platformFeeResolver.js exactly. Any changes to fee rules MUST be
+// applied to BOTH this inline copy AND lib/platformFeeResolver.js.
+// ---------------------------------------------------------------------------
+const PLAN_FEE_DEFAULTS = {
+  marketplace_partner:  { platform_fee_rate: 0.08, requires_platform_fee: true },
+  hybrid_growth:        { platform_fee_rate: 0.04, requires_platform_fee: true },
+  fleetos_professional: { platform_fee_rate: 0.00, requires_platform_fee: false },
+};
+const MANUAL_PAYMENT_METHODS = ['zelle', 'cash', 'cashapp', 'venmo', 'check', 'other'];
+
+function resolvePlatformFee({ planMode, grossAmount, paymentMethod = 'stripe', operatorPlan = null, commerceProfile = null }) {
+  const gross = Number(grossAmount) || 0;
+  // Normalize plan mode
+  let normalizedPlan = planMode;
+  if (!normalizedPlan || normalizedPlan === 'none' || !PLAN_FEE_DEFAULTS[normalizedPlan]) {
+    normalizedPlan = operatorPlan?.active_mode || operatorPlan?.selected_mode;
+  }
+  if (!normalizedPlan || normalizedPlan === 'none' || !PLAN_FEE_DEFAULTS[normalizedPlan]) {
+    normalizedPlan = commerceProfile?.plan_type;
+  }
+  if (!normalizedPlan || !PLAN_FEE_DEFAULTS[normalizedPlan]) normalizedPlan = 'marketplace_partner';
+
+  const planDefaults = PLAN_FEE_DEFAULTS[normalizedPlan];
+  let effectiveFeeRate = planDefaults.platform_fee_rate;
+  if (operatorPlan?.marketplace_fee_rate != null && operatorPlan.marketplace_fee_rate >= 0) {
+    effectiveFeeRate = operatorPlan.marketplace_fee_rate;
+  } else if (commerceProfile?.commission_rate != null && commerceProfile.commission_rate >= 0) {
+    effectiveFeeRate = commerceProfile.commission_rate;
+  }
+
+  const isManual = MANUAL_PAYMENT_METHODS.includes((paymentMethod || '').toLowerCase());
+  const requiresFee = planDefaults.requires_platform_fee && effectiveFeeRate > 0;
+  const platformFeeAmountDue = requiresFee ? Math.round(gross * effectiveFeeRate * 100) / 100 : 0;
+  const hostNetAfterFee = Math.round((gross - platformFeeAmountDue) * 100) / 100;
+
+  return {
+    platform_fee_rate: effectiveFeeRate,
+    platform_fee_amount_due: platformFeeAmountDue,
+    host_net_after_fee: hostNetAfterFee,
+    requires_platform_fee: requiresFee,
+    fee_collection_status: platformFeeAmountDue > 0 ? 'due' : 'not_applicable',
+    manual_collection_requires_platform_fee: isManual && requiresFee,
+    is_manual_payment: isManual,
+    plan_mode: normalizedPlan,
+  };
+}
+// ---------------------------------------------------------------------------
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
 
@@ -327,8 +377,29 @@ Deno.serve(async (req) => {
         const today = new Date().toISOString().slice(0, 10);
         const dedupeKey = `payment:admin_manual:${booking_request_id}:week:${weekNum}:amount:${payAmount}:date:${today}:method:${payment_method}:ref:${external_reference || 'none'}`;
 
-        // Create the PaymentLog entry
-        await base44.asServiceRole.entities.PaymentLog.create({
+        // --- CANONICAL FEE RESOLUTION ---
+        // Fetch host plan and commerce profile for fee resolution
+        const [hostPlanArr, commerceProfileArr] = await Promise.all([
+          booking.host_id
+            ? base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id: booking.host_id }, '-updated_date', 1)
+            : Promise.resolve([]),
+          booking.host_id
+            ? base44.asServiceRole.entities.HostCommerceProfile.filter({ host_id: booking.host_id }, '-updated_date', 1)
+            : Promise.resolve([]),
+        ]);
+        const hostPlan = hostPlanArr[0] || null;
+        const commerceProfile = commerceProfileArr[0] || null;
+
+        const feeResolution = resolvePlatformFee({
+          planMode: hostPlan?.active_mode || hostPlan?.selected_mode,
+          grossAmount: payAmount,
+          paymentMethod: payment_method,
+          operatorPlan: hostPlan,
+          commerceProfile,
+        });
+
+        // Create the PaymentLog entry with canonical fee data
+        const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
           booking_request_id,
           host_id: booking.host_id || '',
           customer_email: booking.user_email,
@@ -353,7 +424,57 @@ Deno.serve(async (req) => {
           recorded_by: user.email,
           notes: payNotes,
           paid_at: new Date().toISOString(),
+          // Canonical fee fields
+          platform_fee_rate: feeResolution.platform_fee_rate,
+          platform_fee_amount_due: feeResolution.platform_fee_amount_due,
+          host_net_after_platform_fee: feeResolution.host_net_after_fee,
+          platform_fee_collection_status: feeResolution.fee_collection_status,
+          manual_collection_requires_platform_fee: feeResolution.manual_collection_requires_platform_fee,
+          plan_mode_at_payment: feeResolution.plan_mode,
         });
+
+        // --- CREATE HOST RECEIVABLE IF FEE IS DUE ---
+        let hostReceivable = null;
+        if (feeResolution.platform_fee_amount_due > 0 && feeResolution.is_manual_payment) {
+          const receivableDedupeKey = `manual_fee:${booking_request_id}:${paymentLog.id}`;
+          // Idempotency: check for existing receivable on this payment log
+          const existingReceivables = await base44.asServiceRole.entities.HostReceivable.filter({
+            dedupe_key: receivableDedupeKey,
+          });
+          if (!existingReceivables.length) {
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + 7); // 7-day payment due window
+            hostReceivable = await base44.asServiceRole.entities.HostReceivable.create({
+              host_id: booking.host_id || '',
+              booking_request_id,
+              vehicle_id: booking.vehicle_id || '',
+              customer_email: booking.user_email || '',
+              payment_log_id: paymentLog.id,
+              receivable_type: 'manual_payment_fee',
+              source_payment_type: 'manual_payment',
+              payment_method,
+              gross_collected_amount: payAmount,
+              platform_fee_rate: feeResolution.platform_fee_rate,
+              platform_fee_amount_due: feeResolution.platform_fee_amount_due,
+              host_net_after_fee: feeResolution.host_net_after_fee,
+              plan_mode: feeResolution.plan_mode,
+              original_amount: feeResolution.platform_fee_amount_due,
+              remaining_amount: feeResolution.platform_fee_amount_due,
+              recovered_amount: 0,
+              status: 'open',
+              due_date: dueDate.toISOString().slice(0, 10),
+              description: `Platform fee (${(feeResolution.platform_fee_rate * 100).toFixed(0)}%) on $${payAmount} ${payment_method} payment — Week ${weekNum} — ${booking.vehicle_name || ''}`,
+              created_by_admin: user.email,
+              dedupe_key: receivableDedupeKey,
+              created_at: new Date().toISOString(),
+              offset_from_future_payouts: true,
+              currency: 'usd',
+              notes: `Admin recorded manual ${payment_method} payment of $${payAmount}. Platform fee of $${feeResolution.platform_fee_amount_due} due from host. Plan: ${feeResolution.plan_mode}`,
+            });
+          } else {
+            hostReceivable = existingReceivables[0];
+          }
+        }
 
         // Determine if booking is in a delinquent state that needs restoration
         const delinquentStatuses = ['payment_due', 'grace_period', 'suspended'];
@@ -481,6 +602,15 @@ Deno.serve(async (req) => {
           amount: payAmount,
           payment_method,
           dedupe_key: dedupeKey,
+          fee_resolution: {
+            plan_mode: feeResolution.plan_mode,
+            platform_fee_rate: feeResolution.platform_fee_rate,
+            platform_fee_amount_due: feeResolution.platform_fee_amount_due,
+            host_net_after_fee: feeResolution.host_net_after_fee,
+            fee_collection_status: feeResolution.fee_collection_status,
+          },
+          host_receivable_id: hostReceivable?.id || null,
+          host_receivable_status: hostReceivable?.status || null,
         });
       }
 

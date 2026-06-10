@@ -45,10 +45,10 @@ Deno.serve(async (req) => {
         : base44.asServiceRole.entities.HostPlatformSubscription.list('-updated_date', 200),
     ]);
 
-    // Batch 3: Disputes and receivables (bounded)
+    // Batch 3: Disputes, receivables, and hosts for name resolution
     const [disputes, receivables, alerts] = await Promise.all([
       base44.asServiceRole.entities.Dispute.list('-created_date', 200),
-      base44.asServiceRole.entities.HostReceivable.list('-created_date', 200),
+      base44.asServiceRole.entities.HostReceivable.list('-created_date', 500),
       base44.asServiceRole.entities.PaymentOperationalAlert.list('-created_date', 200),
     ]);
 
@@ -107,8 +107,21 @@ Deno.serve(async (req) => {
 
     const openDisputes = disputes.filter(d => !['resolved_host_favor', 'resolved_customer_favor', 'resolved_split', 'closed_no_action'].includes(d.status));
     const chargebackExposure = disputes.filter(d => d.dispute_type === 'chargeback').reduce((s, d) => s + (d.stripe_dispute_amount || 0), 0);
-    const openReceivables = receivables.filter(r => ['open', 'partially_recovered'].includes(r.status));
-    const openReceivableAmount = openReceivables.reduce((s, r) => s + (r.remaining_amount || 0), 0);
+    const openReceivables = receivables.filter(r => ['open', 'partially_recovered', 'partially_paid'].includes(r.status));
+    const openReceivableAmount = openReceivables.reduce((s, r) => s + (r.remaining_amount || r.original_amount || 0), 0);
+
+    // Manual payment fee receivables — separate from chargeback receivables
+    const manualFeeReceivables = receivables.filter(r => r.receivable_type === 'manual_payment_fee' || r.source_payment_type === 'manual_payment');
+    const manualFeeOpen = manualFeeReceivables.filter(r => r.status === 'open');
+    const manualFeePaid = manualFeeReceivables.filter(r => r.status === 'paid');
+    const manualFeeWaived = manualFeeReceivables.filter(r => r.status === 'waived');
+
+    const manualPaymentLogs = scopedLogs.filter(p => p.status === 'paid' && ['zelle','cash','cashapp','venmo','check','other'].includes(p.payment_method));
+    const manualPaymentCollected = manualPaymentLogs.reduce((s, p) => s + (p.amount || 0), 0);
+    const manualFeeDueTotal = manualFeeOpen.reduce((s, r) => s + (r.platform_fee_amount_due || r.remaining_amount || r.original_amount || 0), 0);
+    const manualFeePaidTotal = manualFeePaid.reduce((s, r) => s + (r.platform_fee_amount_due || r.original_amount || 0), 0);
+    const manualFeeWaivedTotal = manualFeeWaived.reduce((s, r) => s + (r.platform_fee_amount_due || r.original_amount || 0), 0);
+    const manualNetHostTotal = manualPaymentLogs.reduce((s, p) => s + (p.host_net_after_platform_fee || p.amount || 0), 0);
 
     const isTruncated = paymentLogs.length >= 1000 || payouts.length >= 500 || bookings.length >= 500;
 
@@ -143,6 +156,11 @@ Deno.serve(async (req) => {
         open_receivable_amount: openReceivableAmount,
         failed_payment_booking_count: failedPaymentBookings.length,
         starter_disabled_count: starterDisabledCount,
+        manual_payments_collected: manualPaymentCollected,
+        manual_fees_due: manualFeeDueTotal,
+        manual_fees_paid: manualFeePaidTotal,
+        manual_fees_waived: manualFeeWaivedTotal,
+        manual_net_host_amount: manualNetHostTotal,
       },
       revenue: { gmv, paid_payment_count: paidLogs.length, failed_payment_count: failedLogs.length, payment_logs: scopedLogs },
       payouts: {
@@ -179,6 +197,18 @@ Deno.serve(async (req) => {
         receivables,
         open_receivable_amount: openReceivableAmount,
       },
+      manual_fees: {
+        receivables: manualFeeReceivables,
+        open: manualFeeOpen,
+        paid: manualFeePaid,
+        waived: manualFeeWaived,
+        manual_payments_collected: manualPaymentCollected,
+        manual_fees_due: manualFeeDueTotal,
+        manual_fees_paid: manualFeePaidTotal,
+        manual_fees_waived: manualFeeWaivedTotal,
+        manual_net_host_amount: manualNetHostTotal,
+        payment_logs: manualPaymentLogs,
+      },
       warnings,
       query_limits_used: { payment_logs: 1000, payouts: 500, bookings: 500 },
       is_truncated: isTruncated,
@@ -193,6 +223,8 @@ Deno.serve(async (req) => {
         'Subscription MRR = HostPlatformSubscription.monthly_amount (active only)',
         'Trialing MRR is projected, not collected',
         'FleetOS direct payments are outside uRide platform funds',
+        'Manual payment platform fees tracked via HostReceivable (receivable_type=manual_payment_fee)',
+        'Manual fee resolution uses canonical platformFeeResolver — same rules as Stripe/billing flows',
         'Payment entity is legacy and excluded from Financial Center',
         'VehicleExpense entity is legacy and excluded',
         'calculateHostEarnings is legacy and excluded',

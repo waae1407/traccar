@@ -40,12 +40,13 @@ Deno.serve(async (req) => {
     ]);
 
     // --- Batch 3: Financial records (scoped to host, bounded) ---
-    const [paymentLogs, payouts, expenses, recurringExpenses, alerts] = await Promise.all([
+    const [paymentLogs, payouts, expenses, recurringExpenses, alerts, hostReceivables] = await Promise.all([
       base44.asServiceRole.entities.PaymentLog.filter({ host_id }, '-paid_at', 500),
       base44.asServiceRole.entities.HostPayout.filter({ host_id }, '-created_date', 200),
       base44.asServiceRole.entities.HostExpense.filter({ host_id }, '-created_date', 200),
       base44.asServiceRole.entities.RecurringExpense.filter({ host_id }),
       base44.asServiceRole.entities.PaymentOperationalAlert.filter({ host_id }, '-created_date', 50),
+      base44.asServiceRole.entities.HostReceivable.filter({ host_id }, '-created_date', 200),
     ]);
 
     // --- Batch 4: Operations (scoped to host, bounded) ---
@@ -83,6 +84,17 @@ Deno.serve(async (req) => {
     const totalPayoutPending = payoutsPending.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
     const totalPayoutFailed = payoutsFailed.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
 
+    // Manual payment fee receivables
+    const manualFeeReceivables = hostReceivables.filter(r => r.receivable_type === 'manual_payment_fee' || r.source_payment_type === 'manual_payment');
+    const manualFeeOpen = manualFeeReceivables.filter(r => r.status === 'open');
+    const manualFeePaid = manualFeeReceivables.filter(r => r.status === 'paid');
+    const manualFeeWaived = manualFeeReceivables.filter(r => r.status === 'waived');
+    const manualPaymentLogs = paidLogs.filter(p => ['zelle','cash','cashapp','venmo','check','other'].includes(p.payment_method));
+    const totalManualCollected = manualPaymentLogs.reduce((s, p) => s + (p.amount || 0), 0);
+    const totalManualFeeDue = manualFeeOpen.reduce((s, r) => s + (r.platform_fee_amount_due || r.remaining_amount || r.original_amount || 0), 0);
+    const totalManualFeePaid = manualFeePaid.reduce((s, r) => s + (r.platform_fee_amount_due || r.original_amount || 0), 0);
+    const totalManualFeeWaived = manualFeeWaived.reduce((s, r) => s + (r.platform_fee_amount_due || r.original_amount || 0), 0);
+
     const expiringDocs = complianceDocs.filter(d => ['expiring_soon', 'expired'].includes(d.status));
     const expiredDocs = complianceDocs.filter(d => d.status === 'expired');
 
@@ -103,6 +115,7 @@ Deno.serve(async (req) => {
     if (isTrialing) warnings.push('Subscription is trialing — no cash collected yet');
     if (failedPaymentBookings.length) warnings.push(`${failedPaymentBookings.length} booking(s) have failed payments`);
     if (payoutsHeld.length) warnings.push(`${payoutsHeld.length} payout(s) are currently held`);
+    if (manualFeeOpen.length > 0) warnings.push(`${manualFeeOpen.length} open platform fee receivable(s) from manual payments — $${totalManualFeeDue.toFixed(2)} due from host`);
     if (totalPayoutPending > 0) warnings.push(`$${totalPayoutPending.toFixed(2)} in payouts are pending (created but not yet transferred)`);
     if (paymentLogs.length >= 500) warnings.push('Payment log results may be truncated — showing last 500 records');
     if (bookings.length >= 200) warnings.push('Booking results may be truncated — showing last 200 records');
@@ -138,6 +151,17 @@ Deno.serve(async (req) => {
         // Legacy alias — now correct
         net_host_paid_out: totalPayoutPaid,
         net_host_payout_created: totalPayoutCreated,
+      },
+      manual_payment_fees: {
+        receivables: manualFeeReceivables,
+        open: manualFeeOpen,
+        paid: manualFeePaid,
+        waived: manualFeeWaived,
+        total_manual_collected: totalManualCollected,
+        total_fee_due: totalManualFeeDue,
+        total_fee_paid: totalManualFeePaid,
+        total_fee_waived: totalManualFeeWaived,
+        payment_logs: manualPaymentLogs,
       },
       expenses: { all: expenses, recurring: recurringExpenses, total: totalExpenses },
       maintenance: { logs: maintenanceLogs, total_cost: totalMaintenanceCost },

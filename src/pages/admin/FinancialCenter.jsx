@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, DollarSign, TrendingUp, CreditCard, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertTriangle, DollarSign, TrendingUp, CreditCard, AlertCircle, CheckCircle, XCircle, Banknote, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
 function MetricCard({ label, value, sub, color, warning }) {
@@ -61,6 +61,20 @@ export default function FinancialCenter() {
         <MetricCard label="Vehicle Access Restricted" value={s?.starter_disabled_count || 0} sub="Active payment enforcement" color={s?.starter_disabled_count > 0 ? 'text-red-400' : ''} />
       </div>
 
+      {/* Manual Collection Fee KPIs — shown only if there is data */}
+      {(s?.manual_payments_collected > 0 || s?.manual_fees_due > 0) && (
+        <div>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-2 flex items-center gap-1.5"><Banknote className="h-3.5 w-3.5" /> Manual Collection Fees</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <MetricCard label="Manual Payments Collected" value={`$${(s?.manual_payments_collected || 0).toLocaleString()}`} sub="Zelle / Cash / Check / etc." color="text-blue-400" />
+            <MetricCard label="Platform Fees Due" value={`$${(s?.manual_fees_due || 0).toFixed(2)}`} sub="Open receivables" color={s?.manual_fees_due > 0 ? 'text-yellow-400' : ''} warning={s?.manual_fees_due > 0} />
+            <MetricCard label="Platform Fees Paid" value={`$${(s?.manual_fees_paid || 0).toFixed(2)}`} sub="Collected from host" color="text-green-400" />
+            <MetricCard label="Platform Fees Waived" value={`$${(s?.manual_fees_waived || 0).toFixed(2)}`} sub="Admin waived" />
+            <MetricCard label="Host Net Amount" value={`$${(s?.manual_net_host_amount || 0).toFixed(2)}`} sub="After platform fee" />
+          </div>
+        </div>
+      )}
+
       {s?.fleetos_direct_revenue > 0 && (
         <Alert className="border-blue-500/30 bg-blue-500/10 py-2">
           <AlertDescription className="text-blue-300 text-xs">ℹ Direct host payment revenue detected (${s.fleetos_direct_revenue.toFixed(2)}) — these payments flow through the host's own payment processor, not uRide platform funds. They are excluded from commission calculations.</AlertDescription>
@@ -69,7 +83,7 @@ export default function FinancialCenter() {
 
       <Tabs defaultValue="overview">
         <TabsList className="flex-wrap h-auto gap-1">
-          {[['overview','Overview'],['revenue','Revenue'],['payments','Payments'],['failed','Failed Payments'],['payouts','Payouts'],['subscriptions','Subscriptions'],['collections','Collections'],['chargebacks','Chargebacks']].map(([v,l]) => (
+          {[['overview','Overview'],['revenue','Revenue'],['payments','Payments'],['failed','Failed Payments'],['payouts','Payouts'],['subscriptions','Subscriptions'],['manual_fees','Manual Collection Fees'],['collections','Collections'],['chargebacks','Chargebacks']].map(([v,l]) => (
             <TabsTrigger key={v} value={v}>{l}</TabsTrigger>
           ))}
         </TabsList>
@@ -191,6 +205,75 @@ export default function FinancialCenter() {
             </div>
           ))}
           {!data?.collections?.alerts?.length && <p className="text-muted-foreground text-sm">No open collection alerts.</p>}
+        </TabsContent>
+
+        <TabsContent value="manual_fees" className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MetricCard label="Manual Payments Collected" value={`$${(s?.manual_payments_collected || 0).toFixed(2)}`} color="text-blue-400" />
+            <MetricCard label="Fees Due (Open)" value={`$${(s?.manual_fees_due || 0).toFixed(2)}`} color={s?.manual_fees_due > 0 ? 'text-yellow-400' : ''} warning={s?.manual_fees_due > 0} />
+            <MetricCard label="Fees Paid" value={`$${(s?.manual_fees_paid || 0).toFixed(2)}`} color="text-green-400" />
+            <MetricCard label="Fees Waived" value={`$${(s?.manual_fees_waived || 0).toFixed(2)}`} />
+          </div>
+
+          {!data?.manual_fees?.open?.length && !data?.manual_fees?.paid?.length && (
+            <p className="text-muted-foreground text-sm">No manual collection fee receivables found in this date range.</p>
+          )}
+
+          {data?.manual_fees?.open?.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-yellow-400 mb-2 flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Open Receivables ({data.manual_fees.open.length})</p>
+              <div className="space-y-2">
+                {data.manual_fees.open.map(r => (
+                  <div key={r.id} className="rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-3 py-2 text-sm">
+                    <div className="flex flex-wrap justify-between gap-2 items-start">
+                      <div>
+                        <p className="font-medium">{r.customer_email} · {r.payment_method?.toUpperCase()}</p>
+                        <p className="text-muted-foreground text-xs mt-0.5">{r.description || `Booking ${r.booking_request_id?.slice(-8)}`}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Plan: {r.plan_mode?.replace(/_/g,' ')} · Rate: {((r.platform_fee_rate || 0) * 100).toFixed(0)}%</p>
+                      </div>
+                      <div className="text-right space-y-0.5">
+                        <p className="font-bold text-yellow-400">${(r.platform_fee_amount_due || 0).toFixed(2)} due</p>
+                        <p className="text-muted-foreground text-xs">Gross collected: ${(r.gross_collected_amount || 0).toFixed(2)}</p>
+                        <p className="text-muted-foreground text-xs">Host net: ${(r.host_net_after_fee || 0).toFixed(2)}</p>
+                        {r.due_date && <p className="text-xs text-yellow-400/70">Due: {r.due_date}</p>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {data?.manual_fees?.paid?.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-green-400 mb-2 flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> Paid Receivables ({data.manual_fees.paid.length})</p>
+              <div className="space-y-2">
+                {data.manual_fees.paid.map(r => (
+                  <div key={r.id} className="rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2 text-sm">
+                    <div className="flex justify-between">
+                      <div>
+                        <p className="font-medium">{r.customer_email} · {r.payment_method?.toUpperCase()}</p>
+                        <p className="text-muted-foreground text-xs">{r.description || `Booking ${r.booking_request_id?.slice(-8)}`}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-green-400">${(r.platform_fee_amount_due || 0).toFixed(2)} paid</p>
+                        {r.resolved_at && <p className="text-muted-foreground text-xs">{format(new Date(r.resolved_at), 'MMM d, yyyy')}</p>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-lg bg-secondary/20 p-3 text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-foreground">How Manual Fees Work</p>
+            <p>• When an admin records a Zelle, Cash App, wire, cash, or check payment, no HostPayout is created.</p>
+            <p>• The canonical platform fee resolver determines whether a platform fee is owed based on the host's active plan.</p>
+            <p>• Marketplace Partner (8%) and Hybrid Growth (4%) plans generate a HostReceivable for the fee owed to uRide.</p>
+            <p>• FleetOS Professional ($0 commission) does not generate a fee receivable.</p>
+            <p>• Stripe payments are unaffected — platform fee is captured automatically in the payout split.</p>
+          </div>
         </TabsContent>
 
         <TabsContent value="chargebacks" className="mt-4 space-y-2">
