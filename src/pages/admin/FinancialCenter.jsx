@@ -208,12 +208,46 @@ export default function FinancialCenter() {
         </TabsContent>
 
         <TabsContent value="manual_fees" className="mt-4 space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard label="Manual Payments Collected" value={`$${(s?.manual_payments_collected || 0).toFixed(2)}`} color="text-blue-400" />
-            <MetricCard label="Fees Due (Open)" value={`$${(s?.manual_fees_due || 0).toFixed(2)}`} color={s?.manual_fees_due > 0 ? 'text-yellow-400' : ''} warning={s?.manual_fees_due > 0} />
-            <MetricCard label="Fees Paid" value={`$${(s?.manual_fees_paid || 0).toFixed(2)}`} color="text-green-400" />
+          {/* Wallet KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <MetricCard label="Manual Payments Collected" value={`$${(s?.manual_payments_collected || 0).toFixed(2)}`} color="text-blue-400" sub="Zelle / Cash / Check / etc." />
+            <MetricCard label="Fees Due (Open)" value={`$${(s?.manual_fees_due || 0).toFixed(2)}`} color={s?.manual_fees_due > 0 ? 'text-yellow-400' : ''} warning={s?.manual_fees_due > 0} sub="Host wallet balance owed" />
+            <MetricCard label="Fees Offset" value={`$${(s?.manual_fees_offset || 0).toFixed(2)}`} color="text-blue-400" sub="Cleared via payout deduction" />
+            <MetricCard label="Fees Paid/Cleared" value={`$${(s?.manual_fees_paid || 0).toFixed(2)}`} color="text-green-400" />
             <MetricCard label="Fees Waived" value={`$${(s?.manual_fees_waived || 0).toFixed(2)}`} />
           </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <MetricCard label="Hosts With Negative Balance" value={s?.hosts_with_negative_balance || 0} color={s?.hosts_with_negative_balance > 0 ? 'text-yellow-400' : ''} warning={s?.hosts_with_negative_balance > 0} />
+            <MetricCard label="Total Balance Outstanding" value={`$${(s?.total_wallet_balance_outstanding || 0).toFixed(2)}`} color={s?.total_wallet_balance_outstanding > 0 ? 'text-yellow-400' : ''} warning={s?.total_wallet_balance_outstanding > 0} sub="Across all hosts" />
+          </div>
+
+          {/* Per-host wallet summary */}
+          {data?.manual_fees?.hosts_with_negative_balance?.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-yellow-400 mb-2 flex items-center gap-1.5"><Banknote className="h-3.5 w-3.5" /> Host Wallet Balances ({data.manual_fees.hosts_with_negative_balance.length})</p>
+              <div className="space-y-2">
+                {data.manual_fees.hosts_with_negative_balance.map(h => {
+                  const ageDays = h.oldest_date ? Math.floor((Date.now() - new Date(h.oldest_date).getTime()) / 86400000) : 0;
+                  const severity = h.balance_owed >= 250 || ageDays >= 30 ? 'critical' : h.balance_owed >= 100 || ageDays >= 7 ? 'warning' : 'info';
+                  const colors = { critical: 'border-red-500/30 bg-red-500/10', warning: 'border-yellow-500/30 bg-yellow-500/10', info: 'border-blue-500/20 bg-blue-500/8' };
+                  return (
+                    <div key={h.host_id} className={`rounded-lg border px-3 py-2 text-sm ${colors[severity]}`}>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium text-foreground">Host <span className="text-muted-foreground font-mono text-xs">{h.host_id?.slice(-8)}</span></p>
+                          <p className="text-muted-foreground text-xs">{h.open_count} open item{h.open_count !== 1 ? 's' : ''} · Oldest: {ageDays} days ago</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-bold ${severity === 'critical' ? 'text-red-400' : 'text-yellow-400'}`}>-${h.balance_owed.toFixed(2)}</p>
+                          <p className="text-muted-foreground text-xs">owed to uRide</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {!data?.manual_fees?.open?.length && !data?.manual_fees?.paid?.length && (
             <p className="text-muted-foreground text-sm">No manual collection fee receivables found in this date range.</p>
@@ -244,19 +278,21 @@ export default function FinancialCenter() {
             </div>
           )}
 
-          {data?.manual_fees?.paid?.length > 0 && (
+          {(data?.manual_fees?.offset_applied?.length > 0 || data?.manual_fees?.paid?.length > 0) && (
             <div>
-              <p className="text-xs font-semibold text-green-400 mb-2 flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> Paid Receivables ({data.manual_fees.paid.length})</p>
+              <p className="text-xs font-semibold text-green-400 mb-2 flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5" /> Cleared Receivables ({(data.manual_fees.offset_applied?.length || 0) + (data.manual_fees.paid?.length || 0)})</p>
               <div className="space-y-2">
-                {data.manual_fees.paid.map(r => (
+                {[...(data.manual_fees.offset_applied || []), ...(data.manual_fees.paid?.filter(r => r.status !== 'offset_applied') || [])].map(r => (
                   <div key={r.id} className="rounded-lg bg-green-500/10 border border-green-500/20 px-3 py-2 text-sm">
                     <div className="flex justify-between">
                       <div>
                         <p className="font-medium">{r.customer_email} · {r.payment_method?.toUpperCase()}</p>
                         <p className="text-muted-foreground text-xs">{r.description || `Booking ${r.booking_request_id?.slice(-8)}`}</p>
+                        {r.offset_host_payout_id && <p className="text-muted-foreground text-xs">Offset payout: {r.offset_host_payout_id?.slice(-8)}</p>}
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-green-400">${(r.platform_fee_amount_due || 0).toFixed(2)} paid</p>
+                        <p className="font-bold text-green-400">${(r.platform_fee_amount_due || r.original_amount || 0).toFixed(2)}</p>
+                        <p className="text-xs text-blue-400">{r.status === 'offset_applied' ? 'Offset Applied' : 'Paid'}</p>
                         {r.resolved_at && <p className="text-muted-foreground text-xs">{format(new Date(r.resolved_at), 'MMM d, yyyy')}</p>}
                       </div>
                     </div>
