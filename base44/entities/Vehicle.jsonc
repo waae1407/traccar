@@ -96,6 +96,21 @@
       ],
       "default": "approved"
     },
+    "marketplace_visible": {
+      "type": "boolean",
+      "default": true,
+      "description": "Host-controlled: whether this vehicle should appear on the uRide public marketplace. Ignored for Marketplace Partner plan (always on). Default OFF for FleetOS Professional."
+    },
+    "storefront_visible": {
+      "type": "boolean",
+      "default": true,
+      "description": "Host-controlled: whether this vehicle appears on the host's own storefront."
+    },
+    "admin_marketplace_approved": {
+      "type": "boolean",
+      "default": true,
+      "description": "Admin approval gate for marketplace listing. Set to false to remove from marketplace without changing operational status."
+    },
     "buyout_price": {
       "type": "number"
     },
@@ -133,7 +148,7 @@
     },
     "telematics_device_id": {
       "type": "string",
-      "description": "Convenience reference to the active TelematicsDevice. TelematicsDevice.vehicle_id remains the assignment source of truth."
+      "description": "Convenience reference to the active TelematicsDevice."
     },
     "contactless_pickup": {
       "type": "boolean",

@@ -6,6 +6,7 @@ import { FormField, inputClass } from "@/components/shared/FormField";
 import VehicleExpenseList from "./VehicleExpenseList";
 import { Loader } from "lucide-react";
 import { calculateRentalPrice } from "@/utils/rentalPricing";
+import VehicleVisibilityControls from "./VehicleVisibilityControls";
 
 const emptyForm = {
   host_id: "", vin: "", plate: "", make: "", model: "", year: "", color: "",
@@ -15,6 +16,7 @@ const emptyForm = {
   minimum_rental_days: 7, maximum_rental_days: "", rental_duration_type: "weekly",
   daily_rate: "", monthly_rate: "",
   allow_daily_booking: false, allow_weekly_booking: true, allow_monthly_booking: false,
+  storefront_visible: true, marketplace_visible: true,
 };
 
 const PREVIEW_DAYS = [1, 3, 7, 14, 30];
@@ -45,7 +47,7 @@ function PricingPreview({ form }) {
   );
 }
 
-export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving, requiredHostId = "" }) {
+export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving, requiredHostId = "", planMode = "" }) {
   const [form, setForm] = useState(emptyForm);
   const [decodingVIN, setDecodingVIN] = useState(false);
   const [vinError, setVinError] = useState("");
@@ -78,7 +80,9 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
       allow_weekly_booking: vehicle.allow_weekly_booking ?? true,
       allow_monthly_booking: vehicle.allow_monthly_booking ?? false,
       host_id: vehicle.host_id || requiredHostId || "",
-    } : { ...emptyForm, host_id: requiredHostId || "" });
+      storefront_visible: vehicle.storefront_visible ?? true,
+      marketplace_visible: vehicle.marketplace_visible ?? (planMode === 'fleetos_professional' ? false : true),
+    } : { ...emptyForm, host_id: requiredHostId || "", marketplace_visible: planMode === 'fleetos_professional' ? false : true });
     setVinError("");
   }, [vehicle, open, requiredHostId]);
 
@@ -264,6 +268,8 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             {toggle("rent_to_own_eligible")}
             <span className="text-sm text-white/60">Rent-to-Own Eligible</span>
           </div>
+
+          <VehicleVisibilityControls form={form} onChange={set} planMode={planMode} />
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">Cancel</button>

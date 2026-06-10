@@ -72,7 +72,7 @@ export default function HostStorefrontHome() {
     enabled: !!brand?.host_id,
   });
 
-  // Host's own vehicles
+  // Host's own vehicles — storefront_visible filter applied in useMemo below
   const { data: hostVehicles = [], isLoading: loadingHost } = useQuery({
     queryKey: ["storefront-host-vehicles", brand?.host_id],
     queryFn: () => base44.entities.Vehicle.filter({ host_id: brand.host_id, approval_status: "approved" }),
@@ -97,7 +97,11 @@ export default function HostStorefrontHome() {
         if (!row.host_id) return;
         visibilityByHost[row.host_id] = row.marketplace_enabled !== false && row.marketplace_visibility !== false;
       });
-      return vehicleRows.filter((vehicle) => visibilityByHost[vehicle.host_id] !== false);
+      return vehicleRows.filter((vehicle) =>
+        visibilityByHost[vehicle.host_id] !== false &&
+        vehicle.marketplace_visible !== false &&
+        vehicle.admin_marketplace_approved !== false
+      );
     },
     enabled: !!showMarketplace,
   });
@@ -112,7 +116,10 @@ export default function HostStorefrontHome() {
   }, [hostVehicles, marketplaceVehicles, showMarketplace]);
 
   const available = useMemo(() => {
-    const avail = allVehicles.filter(v => v.status === "Available");
+    const avail = allVehicles.filter(v =>
+      v.status === "Available" &&
+      v.storefront_visible !== false
+    );
     if (!location.lat || !location.lon) return avail;
     return avail.map(v => ({
       ...v,

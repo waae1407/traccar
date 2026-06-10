@@ -63,6 +63,13 @@ export default function HostVehicles() {
     enabled: !!host?.id,
   });
 
+  const { data: operatorPlans = [] } = useQuery({
+    queryKey: ["host-operator-plan", host?.id],
+    queryFn: () => base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }, "-updated_date", 1),
+    enabled: !!host?.id,
+  });
+  const planMode = operatorPlans[0]?.active_mode || operatorPlans[0]?.selected_mode || "marketplace_partner";
+
   const saveMutation = useMutation({
     mutationFn: (data) => {
       const explicitPaymentSetup = paymentSettings[0] && paymentSettings[0].payment_mode && typeof paymentSettings[0].uride_payments_enabled === "boolean";
@@ -227,6 +234,7 @@ export default function HostVehicles() {
         vehicle={editing}
         isSaving={saveMutation.isPending}
         requiredHostId={host?.id || ""}
+        planMode={planMode}
       />
     </div>
   );

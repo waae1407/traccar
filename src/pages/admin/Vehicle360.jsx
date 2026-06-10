@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import ListingControlsCard from '@/components/vehicles/ListingControlsCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +32,7 @@ export default function Vehicle360() {
 
   const { data: allVehicles } = useQuery({ queryKey: ['vehicles_list_360'], queryFn: () => base44.entities.Vehicle.list('-created_date', 300) });
 
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['vehicle360', loadedVehicleId],
     queryFn: () => base44.functions.invoke('getVehicle360', { vehicle_id: loadedVehicleId }).then(r => r.data),
@@ -66,6 +68,8 @@ export default function Vehicle360() {
             <MetricCard label="Maintenance Cost" value={`$${(fin?.total_maintenance_cost || 0).toLocaleString()}`} />
             <MetricCard label="Net Profit" value={`$${(fin?.net_profit || 0).toLocaleString()}`} sub={fin?.roi_percent != null ? `ROI: ${fin.roi_percent.toFixed(1)}%` : 'ROI: N/A (no purchase price)'} color={fin?.net_profit >= 0 ? 'text-green-400' : 'text-red-400'} />
           </div>
+
+          <ListingControlsCard vehicle={v} onUpdate={() => qc.invalidateQueries({ queryKey: ['vehicle360', loadedVehicleId] })} />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="bg-card border-border">
