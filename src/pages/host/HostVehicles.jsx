@@ -69,6 +69,7 @@ export default function HostVehicles() {
     enabled: !!host?.id,
   });
   const planMode = operatorPlans[0]?.active_mode || operatorPlans[0]?.selected_mode || "marketplace_partner";
+  const hybridSubscriptionActive = planMode !== "hybrid_growth" || ["active", "trialing"].includes(operatorPlans[0]?.status);
 
   const saveMutation = useMutation({
     mutationFn: (data) => {
@@ -235,6 +236,7 @@ export default function HostVehicles() {
         isSaving={saveMutation.isPending}
         requiredHostId={host?.id || ""}
         planMode={planMode}
+        hybridSubscriptionActive={hybridSubscriptionActive}
       />
     </div>
   );

@@ -47,7 +47,7 @@ function PricingPreview({ form }) {
   );
 }
 
-export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving, requiredHostId = "", planMode = "" }) {
+export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving, requiredHostId = "", planMode = "", hybridSubscriptionActive = true }) {
   const [form, setForm] = useState(emptyForm);
   const [decodingVIN, setDecodingVIN] = useState(false);
   const [vinError, setVinError] = useState("");
@@ -269,7 +269,7 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             <span className="text-sm text-white/60">Rent-to-Own Eligible</span>
           </div>
 
-          <VehicleVisibilityControls form={form} onChange={set} planMode={planMode} />
+          <VehicleVisibilityControls form={form} onChange={set} planMode={planMode} hybridSubscriptionActive={hybridSubscriptionActive} />
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">Cancel</button>

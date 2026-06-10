@@ -116,18 +116,28 @@ export default function BookNow() {
     brandSettings.filter(b => b.moderation_status === "suspended").map(b => b.host_id)
   ), [brandSettings]);
 
+  // Build a per-host plan mode map for marketplace eligibility
+  const hostPlanModeMap = useMemo(() => {
+    const map = {};
+    operatorPlans.forEach((plan) => {
+      if (plan.host_id && !map[plan.host_id]) {
+        map[plan.host_id] = {
+          mode: plan.active_mode || plan.selected_mode || "marketplace_partner",
+          status: plan.status,
+        };
+      }
+    });
+    return map;
+  }, [operatorPlans]);
+
   const marketplaceVisibilityByHost = useMemo(() => {
-    const map = operatorPlans.reduce((acc, plan) => {
-      if (!plan.host_id || acc[plan.host_id] !== undefined) return acc;
-      acc[plan.host_id] = plan.marketplace_enabled !== false;
-      return acc;
-    }, {});
+    const map = {};
     commerceProfiles.forEach((profile) => {
       if (!profile.host_id) return;
       map[profile.host_id] = profile.marketplace_enabled !== false && profile.marketplace_visibility !== false;
     });
     return map;
-  }, [commerceProfiles, operatorPlans]);
+  }, [commerceProfiles]);
 
   // Suggested alternate cities for current location
   const suggested = useMemo(() => {
@@ -141,12 +151,25 @@ export default function BookNow() {
       if (v.status !== "Available") return false;
       if (!v.host_id) return false;
       if (v.approval_status && v.approval_status !== "approved") return false;
-      if (v.marketplace_visible === false) return false;
       if (v.admin_marketplace_approved === false) return false;
       if (!approvedHostIds.has(v.host_id)) return false;
       if (blockedHostIds.has(v.host_id)) return false;
       if (suspendedStorefrontHostIds.has(v.host_id)) return false;
-      return marketplaceVisibilityByHost[v.host_id] !== false;
+      // Commerce profile level check
+      if (marketplaceVisibilityByHost[v.host_id] === false) return false;
+      // Plan-level rules
+      const hostPlan = hostPlanModeMap[v.host_id];
+      const planMode = hostPlan?.mode || "marketplace_partner";
+      const planStatus = hostPlan?.status;
+      // FleetOS: always blocked from marketplace
+      if (planMode === "fleetos_professional") return false;
+      // Hybrid Growth: must have marketplace_visible = true AND active/trialing sub
+      if (planMode === "hybrid_growth") {
+        if (v.marketplace_visible === false) return false;
+        if (planStatus && !["active", "trialing"].includes(planStatus)) return false;
+      }
+      // Marketplace Partner: always eligible (ignore marketplace_visible field)
+      return true;
     });
     if (!location.lat || !location.lon) return avail;
     return avail
@@ -162,7 +185,7 @@ export default function BookNow() {
         if (b.distance === undefined) return -1;
         return a.distance - b.distance;
       });
-  }, [vehicles, location, marketplaceVisibilityByHost, approvedHostIds, blockedHostIds, suspendedStorefrontHostIds]);
+  }, [vehicles, location, marketplaceVisibilityByHost, hostPlanModeMap, approvedHostIds, blockedHostIds, suspendedStorefrontHostIds]);
 
   const rtoEligible = available.filter((v) => v.rent_to_own_eligible);
 

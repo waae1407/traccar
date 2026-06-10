@@ -44,6 +44,21 @@ Deno.serve(async (req) => {
           : Promise.resolve([]),
     ]);
 
+    // Batch 2b: Operator plans for plan-aware visibility metrics
+    const operatorPlans = isAdmin
+      ? await base44.asServiceRole.entities.OperatorPlanConfiguration.list('-updated_date', 500)
+      : scopedHostId
+        ? await base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id: scopedHostId }, '-updated_date', 1)
+        : [];
+
+    // Build host plan map
+    const hostPlanMap = {};
+    operatorPlans.forEach(p => {
+      if (p.host_id && !hostPlanMap[p.host_id]) {
+        hostPlanMap[p.host_id] = { mode: p.active_mode || p.selected_mode || 'marketplace_partner', status: p.status };
+      }
+    });
+
     // Batch 3: Alerts + comms (capped small — FIX #6)
     const [paymentAlerts, operationalAlerts, communications] = await Promise.all([
       base44.asServiceRole.entities.PaymentOperationalAlert.filter({ status: 'new' }, '-created_date', 100),
@@ -89,15 +104,47 @@ Deno.serve(async (req) => {
     const availableVehicles = vehicles.filter(v => v.status === 'Available');
     const vehiclesNotEarning = availableVehicles.filter(v => !activeBookings.some(b => b.vehicle_id === v.id));
 
-    // Listing visibility metrics
+    // Listing visibility metrics — plan-aware
     const approvedAvailable = vehicles.filter(v => v.status === 'Available' && v.approval_status === 'approved');
-    const marketplaceListed = approvedAvailable.filter(v => v.marketplace_visible !== false && v.admin_marketplace_approved !== false);
-    const storefrontListed = approvedAvailable.filter(v => v.storefront_visible !== false);
-    const marketplaceHidden = approvedAvailable.filter(v => v.marketplace_visible === false);
-    const storefrontHidden = approvedAvailable.filter(v => v.storefront_visible === false);
-    const pendingMarketplaceApproval = approvedAvailable.filter(v => v.marketplace_visible !== false && v.admin_marketplace_approved === false);
+
+    const getHostPlanMode = (hostId) => (hostPlanMap[hostId]?.mode || 'marketplace_partner');
+    const getHostPlanStatus = (hostId) => (hostPlanMap[hostId]?.status || 'active');
+
+    const isMarketplaceEligible = (v) => {
+      const mode = getHostPlanMode(v.host_id);
+      if (mode === 'fleetos_professional') return false;
+      if (v.admin_marketplace_approved === false) return false;
+      if (mode === 'marketplace_partner') return true; // locked on
+      // hybrid_growth
+      if (v.marketplace_visible === false) return false;
+      const planStatus = getHostPlanStatus(v.host_id);
+      if (!['active', 'trialing'].includes(planStatus)) return false;
+      return true;
+    };
+
+    const isStorefrontEligible = (v) => {
+      const mode = getHostPlanMode(v.host_id);
+      if (mode === 'marketplace_partner') return true; // locked on
+      return v.storefront_visible !== false;
+    };
+
+    const marketplaceListed = approvedAvailable.filter(v => isMarketplaceEligible(v));
+    const storefrontListed = approvedAvailable.filter(v => isStorefrontEligible(v));
+    const marketplaceHidden = approvedAvailable.filter(v => {
+      const mode = getHostPlanMode(v.host_id);
+      return mode === 'hybrid_growth' && v.marketplace_visible === false;
+    });
+    const marketplaceBlockedByPlan = approvedAvailable.filter(v => getHostPlanMode(v.host_id) === 'fleetos_professional');
+    const storefrontHidden = approvedAvailable.filter(v => {
+      const mode = getHostPlanMode(v.host_id);
+      return mode !== 'marketplace_partner' && v.storefront_visible === false;
+    });
+    const pendingMarketplaceApproval = approvedAvailable.filter(v => {
+      const mode = getHostPlanMode(v.host_id);
+      return mode !== 'fleetos_professional' && v.admin_marketplace_approved === false;
+    });
     const marketplaceBlockedByCompliance = vehicles.filter(v => v.status === 'Compliance Hold');
-    const notListedAnywhere = approvedAvailable.filter(v => v.marketplace_visible === false && v.storefront_visible === false);
+    const notListedAnywhere = approvedAvailable.filter(v => !isMarketplaceEligible(v) && !isStorefrontEligible(v));
     const gpsOfflineVehicles = telematicsDevices.filter(d =>
       d.online_status === 'offline' || (d.last_seen_at && new Date(d.last_seen_at) < staleCutoff)
     );
@@ -150,6 +197,7 @@ Deno.serve(async (req) => {
         storefront_hidden: storefrontHidden.length,
         pending_marketplace_approval: pendingMarketplaceApproval.length,
         marketplace_blocked_by_compliance: marketplaceBlockedByCompliance.length,
+        marketplace_blocked_by_plan: marketplaceBlockedByPlan.length,
         not_listed_anywhere: notListedAnywhere.length,
         gps_offline_count: gpsOfflineVehicles.length,
         compliance_expiring_count: expiringCompliance.length,

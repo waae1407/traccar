@@ -97,11 +97,17 @@ export default function HostStorefrontHome() {
         if (!row.host_id) return;
         visibilityByHost[row.host_id] = row.marketplace_enabled !== false && row.marketplace_visibility !== false;
       });
-      return vehicleRows.filter((vehicle) =>
-        visibilityByHost[vehicle.host_id] !== false &&
-        vehicle.marketplace_visible !== false &&
-        vehicle.admin_marketplace_approved !== false
-      );
+      // Build plan mode map to enforce FleetOS block
+      const planModeMap = {};
+      planRows.forEach((p) => { if (p.host_id && !planModeMap[p.host_id]) planModeMap[p.host_id] = p.active_mode || p.selected_mode || "marketplace_partner"; });
+      return vehicleRows.filter((vehicle) => {
+        if (visibilityByHost[vehicle.host_id] === false) return false;
+        if (vehicle.admin_marketplace_approved === false) return false;
+        const mode = planModeMap[vehicle.host_id] || "marketplace_partner";
+        if (mode === "fleetos_professional") return false;
+        if (mode === "hybrid_growth" && vehicle.marketplace_visible === false) return false;
+        return true;
+      });
     },
     enabled: !!showMarketplace,
   });

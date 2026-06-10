@@ -138,6 +138,7 @@ export default function OperationsCenter() {
             <MetricCard label="Marketplace Hidden" value={s?.marketplace_hidden || 0} color={s?.marketplace_hidden > 0 ? 'text-yellow-400' : ''} />
             <MetricCard label="Storefront Hidden" value={s?.storefront_hidden || 0} />
             <MetricCard label="Pending Mkt Approval" value={s?.pending_marketplace_approval || 0} color={s?.pending_marketplace_approval > 0 ? 'text-orange-400' : ''} alert={s?.pending_marketplace_approval > 0} />
+            <MetricCard label="Blocked by Plan (FleetOS)" value={s?.marketplace_blocked_by_plan || 0} color="text-muted-foreground" />
             <MetricCard label="Not Listed Anywhere" value={s?.not_listed_anywhere || 0} color={s?.not_listed_anywhere > 0 ? 'text-red-400' : ''} />
           </div>
           <div className="space-y-2">

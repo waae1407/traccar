@@ -69,7 +69,7 @@ export default function Vehicle360() {
             <MetricCard label="Net Profit" value={`$${(fin?.net_profit || 0).toLocaleString()}`} sub={fin?.roi_percent != null ? `ROI: ${fin.roi_percent.toFixed(1)}%` : 'ROI: N/A (no purchase price)'} color={fin?.net_profit >= 0 ? 'text-green-400' : 'text-red-400'} />
           </div>
 
-          <ListingControlsCard vehicle={v} onUpdate={() => qc.invalidateQueries({ queryKey: ['vehicle360', loadedVehicleId] })} />
+          <ListingControlsCard vehicle={v} hostPlan={data?.host_plan || data?.plan?.active_mode || data?.plan?.selected_mode} onUpdate={() => qc.invalidateQueries({ queryKey: ['vehicle360', loadedVehicleId] })} />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="bg-card border-border">
