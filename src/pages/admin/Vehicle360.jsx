@@ -2,13 +2,12 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ListingControlsCard from '@/components/vehicles/ListingControlsCard';
-import { Button } from '@/components/ui/button';
+import VehicleSearchBox from '@/components/admin/vehicle360/VehicleSearchBox';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, CheckCircle, XCircle, Wifi, WifiOff } from 'lucide-react';
+import { AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import { format } from 'date-fns';
 
 function SBadge({ status }) {
@@ -27,10 +26,7 @@ function MetricCard({ label, value, sub, color }) {
 }
 
 export default function Vehicle360() {
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [loadedVehicleId, setLoadedVehicleId] = useState('');
-
-  const { data: allVehicles } = useQuery({ queryKey: ['vehicles_list_360'], queryFn: () => base44.entities.Vehicle.list('-created_date', 300) });
 
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -49,15 +45,23 @@ export default function Vehicle360() {
         <h1 className="text-2xl font-bold">Vehicle 360</h1>
         <p className="text-muted-foreground text-sm mt-1">Full vehicle view — revenue, expenses, maintenance, GPS, compliance</p>
       </div>
-      <div className="flex gap-3">
-        <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-          <SelectTrigger className="w-80"><SelectValue placeholder="Select a vehicle..." /></SelectTrigger>
-          <SelectContent>{allVehicles?.map(v => <SelectItem key={v.id} value={v.id}>{v.year} {v.make} {v.model} — {v.vin || 'no VIN'}</SelectItem>)}</SelectContent>
-        </Select>
-        <Button onClick={() => setLoadedVehicleId(selectedVehicleId)} disabled={!selectedVehicleId || isLoading}>{isLoading ? 'Loading…' : 'Load Vehicle'}</Button>
-      </div>
+      <VehicleSearchBox onSelect={setLoadedVehicleId} selectedVehicleId={loadedVehicleId} />
+
+      {isLoading && loadedVehicleId && (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
+          <div className="h-4 w-4 border-2 border-border border-t-primary rounded-full animate-spin" />
+          Loading vehicle data…
+        </div>
+      )}
 
       {data?.warnings?.map((w, i) => <Alert key={i} className="border-yellow-500/30 bg-yellow-500/10 py-2"><AlertTriangle className="h-3 w-3 text-yellow-400" /><AlertDescription className="text-yellow-300 text-xs">{w}</AlertDescription></Alert>)}
+
+      {!loadedVehicleId && !isLoading && (
+        <div className="rounded-xl border border-border/50 bg-secondary/20 px-6 py-10 text-center text-muted-foreground">
+          <p className="text-sm">Search for a vehicle above to load its full 360° view.</p>
+          <p className="text-xs mt-1 opacity-60">Use VIN, plate, customer name, booking ID, or host name.</p>
+        </div>
+      )}
 
       {v && (
         <div className="space-y-4">
