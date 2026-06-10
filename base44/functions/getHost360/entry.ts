@@ -68,8 +68,30 @@ Deno.serve(async (req) => {
     const failedPaymentBookings = bookings.filter(b => b.payment_status === 'failed');
 
     const paidLogs = paymentLogs.filter(p => p.status === 'paid');
+
+    // ─── CANONICAL KPI SOURCE MAP ────────────────────────────────────────────
+    // Gross Revenue       → PaymentLog.amount            WHERE status = paid
+    // Platform Fees       → PaymentLog.platform_fee_amount_due WHERE status = paid
+    // Outstanding Fees    → HostReceivable.remaining_amount   WHERE status IN open/partially_paid
+    // Host Wallet Balance → HostReceivable.remaining_amount   WHERE status IN open/partially_paid
+    // Net Host Paid Out   → HostPayout.net_host_payout        WHERE status IN paid/transferred
+    // Pending Payouts     → HostPayout.net_host_payout        WHERE status = pending
+    // Subscription MRR   → HostPlatformSubscription.monthly_amount WHERE status IN active/trialing
+    //
+    // ⚠️  DO NOT use HostPayout to calculate platform fees.
+    //     HostPayout is payout execution tracking only — records can be failed,
+    //     voided, pending, or missing entirely for manual/host-direct payments.
+    //     PaymentLog is the canonical fee ledger — every payment creates a log entry.
+    // ────────────────────────────────────────────────────────────────────────
+
     const grossRevenue = paidLogs.reduce((s, p) => s + (p.amount || 0), 0);
-    const totalPlatformFees = payouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0);
+
+    // Platform fees: canonical source = PaymentLog.platform_fee_amount_due (status=paid)
+    // NOT HostPayout.uride_platform_fee_amount (unreliable — includes voided/failed records,
+    // missing for host-direct manual payments that never generate a HostPayout)
+    const totalPlatformFees = paidLogs.reduce((s, p) => s + (p.platform_fee_amount_due || 0), 0);
+
+    // Stripe processing fees: HostPayout is the correct source here (execution record)
     const totalStripeFees = payouts.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0);
     const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
     const totalMaintenanceCost = maintenanceLogs.reduce((s, m) => s + (m.cost || 0), 0);
@@ -140,10 +162,26 @@ Deno.serve(async (req) => {
       vehicles: { all: vehicles, live: liveVehicles, offline: offlineVehicles, total: vehicles.length },
       bookings: { all: bookings.length, active: activeBookings.length, failed_payment: failedPaymentBookings.length },
       revenue: {
+        // "All paid customer payments" — sum of PaymentLog.amount WHERE status=paid
         gross_revenue: grossRevenue,
+        // "Total uRide platform fees" — sum of PaymentLog.platform_fee_amount_due WHERE status=paid
+        // Source: PaymentLog (canonical fee ledger). NOT HostPayout.
         platform_fees: totalPlatformFees,
+        // Stripe processing fees — sourced from HostPayout.stripe_fee_amount (execution record)
         stripe_fees: totalStripeFees,
-        payment_log_source: true,
+        // Audit metadata
+        payment_log_count: paidLogs.length,
+        payment_log_count_with_fee_data: paidLogs.filter(p => p.platform_fee_amount_due != null).length,
+      },
+      // KPI source map — for UI display labeling and downstream audit consumers
+      kpi_sources: {
+        gross_revenue:         { label: 'All paid customer payments',     entity: 'PaymentLog', field: 'amount',                    filter: 'status=paid' },
+        platform_fees:         { label: 'Total uRide platform fees',      entity: 'PaymentLog', field: 'platform_fee_amount_due',    filter: 'status=paid' },
+        outstanding_fees:      { label: 'Due from manual collections',    entity: 'HostReceivable', field: 'remaining_amount',       filter: 'status in [open, partially_paid]' },
+        wallet_balance:        { label: 'uRide fee balance',              entity: 'HostReceivable', field: 'remaining_amount',       filter: 'status in [open, partially_paid]' },
+        net_host_paid_out:     { label: 'Paid to host',                   entity: 'HostPayout', field: 'net_host_payout',            filter: 'status in [paid, transferred]' },
+        pending_payouts:       { label: 'Pending transfer',               entity: 'HostPayout', field: 'net_host_payout',            filter: 'status=pending' },
+        subscription_mrr:      { label: 'Monthly subscription revenue',   entity: 'HostPlatformSubscription', field: 'monthly_amount', filter: 'status in [active, trialing]' },
       },
       payouts: {
         all: payouts,
