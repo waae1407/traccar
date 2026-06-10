@@ -1,0 +1,77 @@
+{
+  "name": "DealerOffer",
+  "type": "object",
+  "properties": {
+    "listing_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "sell_request_id": {
+      "type": "string"
+    },
+    "buyer_user_id": {
+      "type": "string"
+    },
+    "buyer_email": {
+      "type": "string"
+    },
+    "buyer_name": {
+      "type": "string"
+    },
+    "buyer_phone": {
+      "type": "string"
+    },
+    "offer_type": {
+      "type": "string",
+      "enum": [
+        "offer",
+        "inquiry"
+      ],
+      "default": "inquiry"
+    },
+    "offer_amount": {
+      "type": "number"
+    },
+    "message": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "rejected",
+        "countered",
+        "expired",
+        "withdrawn"
+      ],
+      "default": "pending"
+    },
+    "counter_amount": {
+      "type": "number"
+    },
+    "host_response": {
+      "type": "string"
+    },
+    "responded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "vehicle_label": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "listing_id",
+    "buyer_email"
+  ]
+}

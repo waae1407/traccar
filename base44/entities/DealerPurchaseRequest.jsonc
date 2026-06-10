@@ -1,0 +1,240 @@
+{
+  "name": "DealerPurchaseRequest",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "host_email": {
+      "type": "string"
+    },
+    "host_name": {
+      "type": "string"
+    },
+    "assigned_agent_id": {
+      "type": "string"
+    },
+    "assigned_agent_email": {
+      "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "year": {
+      "type": "number"
+    },
+    "make": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "trim": {
+      "type": "string"
+    },
+    "mileage": {
+      "type": "number"
+    },
+    "condition_notes": {
+      "type": "string"
+    },
+    "auction_source": {
+      "type": "string",
+      "enum": [
+        "acv",
+        "manheim",
+        "adesa",
+        "iaai",
+        "copart",
+        "openlane",
+        "backlot",
+        "other"
+      ],
+      "default": "other"
+    },
+    "auction_link": {
+      "type": "string"
+    },
+    "max_bid": {
+      "type": "number"
+    },
+    "buying_power_amount": {
+      "type": "number"
+    },
+    "transport_needed": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes_to_agent": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "funded",
+        "under_review",
+        "bid_placed",
+        "outbid",
+        "won",
+        "lost",
+        "cancelled",
+        "invoice_pending",
+        "payment_due",
+        "completed"
+      ],
+      "default": "draft"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "stripe_payment_method_id": {
+      "type": "string"
+    },
+    "stripe_customer_id": {
+      "type": "string"
+    },
+    "hold_amount": {
+      "type": "number"
+    },
+    "hold_captured": {
+      "type": "boolean",
+      "default": false
+    },
+    "hold_released": {
+      "type": "boolean",
+      "default": false
+    },
+    "hold_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "authorized",
+        "captured",
+        "released",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "bid_amount": {
+      "type": "number"
+    },
+    "auction_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "buyer_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "transport_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "title_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "storage_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "stripe_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "uride_concierge_fee": {
+      "type": "number",
+      "default": 50
+    },
+    "other_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "total_due": {
+      "type": "number"
+    },
+    "invoice_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "final_payment_intent_id": {
+      "type": "string"
+    },
+    "final_payment_captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "vehicle_id": {
+      "type": "string",
+      "description": "Linked Vehicle record if added to fleet"
+    },
+    "won_vehicle_id": {
+      "type": "string",
+      "description": "Linked DealerWonVehicle record"
+    },
+    "agent_notes": {
+      "type": "string"
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "funded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "won_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lost_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "auction_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "activity_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "host_id",
+    "vin",
+    "max_bid"
+  ]
+}

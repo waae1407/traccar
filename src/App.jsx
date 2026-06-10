@@ -102,6 +102,8 @@ import HostVerificationDocs from '@/pages/host/HostVerificationDocs';
 import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
 import HostReturnReviews from '@/pages/host/HostReturnReviews.jsx';
 import HostDealerNetwork from '@/pages/host/HostDealerNetwork.jsx';
+import HostDealer360 from '@/pages/host/HostDealer360.jsx';
+import AdminDealer360 from '@/pages/admin/AdminDealer360.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
 import HostTelematicsCommandTest from '@/pages/host/HostTelematicsCommandTest.jsx';
@@ -195,6 +197,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/business-operations" element={<HostBusinessOperations />} />
         <Route path="/host/payment-alerts" element={<HostPaymentAlerts />} />
         <Route path="/host/dealer-network" element={<HostDealerNetwork />} />
+        <Route path="/host/dealer360" element={<HostDealer360 />} />
         <Route path="/host/telematics" element={<HostTelematicsDashboard />} />
         <Route path="/host/installers" element={<HostInstallers />} />
         <Route path="/host/vehicle-command-center" element={<VehicleCommandCenter mode="host" />} />
@@ -275,6 +278,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/dealer-network" element={<AdminDealerNetwork />} />
         <Route path="/admin/payment-alerts" element={<PaymentOperationsAlertCenter />} />
         <Route path="/admin/installers" element={<AdminInstallers />} />
+        <Route path="/admin/dealer360" element={<AdminDealer360 />} />
         <Route path="/admin/customer-360" element={<Customer360 />} />
         <Route path="/admin/booking-360" element={<Booking360 />} />
         <Route path="/admin/host-360" element={<Host360 />} />

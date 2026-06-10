@@ -1,0 +1,137 @@
+{
+  "name": "DealerWonVehicle",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "host_email": {
+      "type": "string"
+    },
+    "purchase_request_id": {
+      "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "year": {
+      "type": "number"
+    },
+    "make": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "trim": {
+      "type": "string"
+    },
+    "mileage": {
+      "type": "number"
+    },
+    "color": {
+      "type": "string"
+    },
+    "auction_source": {
+      "type": "string"
+    },
+    "auction_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "purchase_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "bid_amount": {
+      "type": "number"
+    },
+    "auction_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "buyer_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "transport_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "title_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "storage_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "uride_concierge_fee": {
+      "type": "number",
+      "default": 50
+    },
+    "other_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "total_cost": {
+      "type": "number"
+    },
+    "agent_email": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_transit",
+        "received",
+        "inspecting",
+        "title_pending",
+        "ready",
+        "added_to_fleet",
+        "listed_for_sale",
+        "sold"
+      ],
+      "default": "received"
+    },
+    "title_status": {
+      "type": "string",
+      "enum": [
+        "clean",
+        "salvage",
+        "rebuilt",
+        "flood",
+        "lemon",
+        "pending",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "host_id",
+    "vin",
+    "purchase_request_id"
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "name": "DealerPublicListing",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "host_name": {
+      "type": "string"
+    },
+    "sell_request_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "year": {
+      "type": "number"
+    },
+    "make": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "trim": {
+      "type": "string"
+    },
+    "mileage": {
+      "type": "number"
+    },
+    "color": {
+      "type": "string"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "good",
+        "fair",
+        "poor"
+      ],
+      "default": "good"
+    },
+    "condition_notes": {
+      "type": "string"
+    },
+    "title_status": {
+      "type": "string",
+      "enum": [
+        "clean",
+        "salvage",
+        "rebuilt",
+        "flood",
+        "lemon",
+        "pending",
+        "unknown"
+      ],
+      "default": "clean"
+    },
+    "asking_price": {
+      "type": "number"
+    },
+    "location": {
+      "type": "string"
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "description": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "pending_sale",
+        "sold",
+        "removed"
+      ],
+      "default": "draft"
+    },
+    "views": {
+      "type": "number",
+      "default": 0
+    },
+    "inquiry_count": {
+      "type": "number",
+      "default": 0
+    },
+    "featured": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "host_id",
+    "vin"
+  ]
+}

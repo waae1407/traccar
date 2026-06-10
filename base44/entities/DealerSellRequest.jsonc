@@ -1,0 +1,227 @@
+{
+  "name": "DealerSellRequest",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string"
+    },
+    "host_email": {
+      "type": "string"
+    },
+    "host_name": {
+      "type": "string"
+    },
+    "assigned_agent_id": {
+      "type": "string"
+    },
+    "assigned_agent_email": {
+      "type": "string"
+    },
+    "sell_route": {
+      "type": "string",
+      "enum": [
+        "auction",
+        "uride_direct",
+        "public_listing"
+      ],
+      "default": "auction"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "year": {
+      "type": "number"
+    },
+    "make": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "trim": {
+      "type": "string"
+    },
+    "mileage": {
+      "type": "number"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "good",
+        "fair",
+        "poor"
+      ],
+      "default": "good"
+    },
+    "condition_notes": {
+      "type": "string"
+    },
+    "title_status": {
+      "type": "string",
+      "enum": [
+        "clean",
+        "salvage",
+        "rebuilt",
+        "flood",
+        "lemon",
+        "pending",
+        "unknown"
+      ],
+      "default": "clean"
+    },
+    "desired_minimum_price": {
+      "type": "number"
+    },
+    "location": {
+      "type": "string"
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes_to_agent": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "submitted",
+        "under_review",
+        "valuation_complete",
+        "listed",
+        "offer_received",
+        "accepted",
+        "inspection_scheduled",
+        "sold",
+        "cancelled",
+        "lost"
+      ],
+      "default": "draft"
+    },
+    "ai_wholesale_value": {
+      "type": "number"
+    },
+    "ai_recommended_buy_price": {
+      "type": "number"
+    },
+    "ai_recommended_auction_min": {
+      "type": "number"
+    },
+    "ai_recommended_public_price": {
+      "type": "number"
+    },
+    "ai_risk_score": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "ai_valuation_notes": {
+      "type": "string"
+    },
+    "uride_offer_amount": {
+      "type": "number"
+    },
+    "uride_offer_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "rejected",
+        "expired"
+      ]
+    },
+    "uride_offer_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host_accepted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sale_price": {
+      "type": "number"
+    },
+    "auction_fees": {
+      "type": "number",
+      "default": 0
+    },
+    "transport_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "storage_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "uride_concierge_fee": {
+      "type": "number",
+      "default": 50
+    },
+    "net_proceeds": {
+      "type": "number"
+    },
+    "proceeds_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sold_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "won_vehicle_id": {
+      "type": "string"
+    },
+    "agent_notes": {
+      "type": "string"
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "listing_id": {
+      "type": "string",
+      "description": "Linked DealerPublicListing ID"
+    },
+    "activity_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "host_id",
+    "vin",
+    "sell_route"
+  ]
+}
