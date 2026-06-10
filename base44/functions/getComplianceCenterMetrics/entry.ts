@@ -19,6 +19,10 @@ Deno.serve(async (req) => {
       scopedHostId = myHost.id;
     }
 
+    // Load compliance enforcement setting
+    const platformSettingsList = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'compliance_enforcement_enabled' }, '-updated_date', 1).catch(() => []);
+    const enforcementEnabled = platformSettingsList[0] ? platformSettingsList[0].value_boolean !== false : true;
+
     // Batch 1: Core compliance + vehicles
     const [complianceDocs, vehicles] = await Promise.all([
       scopedHostId
@@ -131,7 +135,13 @@ Deno.serve(async (req) => {
     if (isTruncated) warnings.push('Compliance document results capped at 1000 — apply vehicle or host filter for complete data');
     if (inspectionExcludedCount > 0) warnings.push(`Some inspection packets were excluded because ownership could not be verified.`);
 
+    if (!enforcementEnabled) {
+      warnings.unshift('⚠️ COMPLIANCE ENFORCEMENT IS OFF — testing mode active. Compliance issues do NOT block vehicles from listing or booking. Turn enforcement ON before production.');
+    }
+
     return Response.json({
+      compliance_enforcement_enabled: enforcementEnabled,
+      compliance_blocking_active: enforcementEnabled,
       vehicle_documents: { all: enrichedDocs, expired: expiredDocs, expiring_soon: expiringSoon, valid: validDocs, missing_expiry: missingExpiry },
       compliance_holds: complianceHolds,
       pending_vehicle_approval: pendingApproval,

@@ -8,6 +8,7 @@ import BusinessPortalSidebar from "@/components/business/BusinessPortalSidebar";
 import BusinessPortalTopBar from "@/components/business/BusinessPortalTopBar";
 import HostAlarmAttentionBanner from "@/components/host/HostAlarmAttentionBanner";
 import HostSubscriptionBanner from "@/components/host/HostSubscriptionBanner";
+import ComplianceEnforcementBanner from "@/components/shared/ComplianceEnforcementBanner";
 
 export default function BusinessPortalLayout({ role = "admin" }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -53,6 +54,12 @@ export default function BusinessPortalLayout({ role = "admin" }) {
             <div className="mb-5 space-y-5">
               <HostAlarmAttentionBanner host={host} />
               <HostSubscriptionBanner host={host} plan={plan} />
+              <ComplianceEnforcementBanner variant="host" />
+            </div>
+          )}
+          {!isHost && (
+            <div className="mb-4">
+              <ComplianceEnforcementBanner variant="admin" />
             </div>
           )}
           {lockedRoute ? (

@@ -44,6 +44,10 @@ Deno.serve(async (req) => {
           : Promise.resolve([]),
     ]);
 
+    // Load compliance enforcement setting
+    const platformSettingsList = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'compliance_enforcement_enabled' }, '-updated_date', 1).catch(() => []);
+    const enforcementEnabled = platformSettingsList[0] ? platformSettingsList[0].value_boolean !== false : true;
+
     // Batch 2b: Operator plans for plan-aware visibility metrics
     const operatorPlans = isAdmin
       ? await base44.asServiceRole.entities.OperatorPlanConfiguration.list('-updated_date', 500)
@@ -174,6 +178,9 @@ Deno.serve(async (req) => {
     const isTruncated = bookings.length >= 500 || vehicles.length >= 500;
 
     const warnings = [];
+    if (!enforcementEnabled) {
+      warnings.unshift('🚨 CRITICAL: Compliance enforcement is OFF. Vehicles may be listed or booked without valid insurance/registration. Turn enforcement ON before production.');
+    }
     if (gracePeriodBookings.length) warnings.push(`${gracePeriodBookings.length} booking(s) in grace period — customers added to needing_attention`);
     if (starterDisabled.length) warnings.push(`${starterDisabled.length} booking(s) have starter kill active`);
     if (isTruncated) warnings.push('Booking/vehicle results capped at 500 — use host_id filter for complete data');
@@ -253,6 +260,8 @@ Deno.serve(async (req) => {
       query_limits_used: { bookings: 500, vehicles: 500, alerts: 100 },
       is_truncated: isTruncated,
       scope: isAdmin ? 'admin' : 'host',
+      compliance_enforcement_enabled: enforcementEnabled,
+      compliance_blocking_active: enforcementEnabled,
       generated_at: new Date().toISOString(),
     });
   } catch (error) {

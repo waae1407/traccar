@@ -1,0 +1,44 @@
+{
+  "name": "PlatformSetting",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Setting key, e.g. compliance_enforcement_enabled"
+    },
+    "value_boolean": {
+      "type": "boolean",
+      "description": "Boolean value for boolean settings"
+    },
+    "value_string": {
+      "type": "string",
+      "description": "String value for string settings"
+    },
+    "value_number": {
+      "type": "number",
+      "description": "Number value for numeric settings"
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable label"
+    },
+    "description": {
+      "type": "string",
+      "description": "Admin-facing description"
+    },
+    "updated_by": {
+      "type": "string",
+      "description": "Email of admin who last updated"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "key"
+  ],
+  "unique_fields": [
+    "key"
+  ]
+}

@@ -22,21 +22,34 @@ function fail(reason, status = 'blocked') {
 }
 
 async function validateVehicleCompliance(base44, vehicle) {
-  if (!vehicle) return fail('Vehicle not found.', 'rejected');
-  if (!vehicle.host_id) return fail('Vehicle is missing host assignment.', 'blocked');
-  if (vehicle.status === 'Compliance Hold') return fail('Vehicle is on compliance hold.', 'blocked');
-  if (!['Available', 'Booked', 'Reserved', 'Active Rental'].includes(vehicle.status)) return fail('Vehicle is not available for this booking.', 'blocked');
+  if (!vehicle) return { ok: false, ...fail('Vehicle not found.', 'rejected') };
+  if (!vehicle.host_id) return { ok: false, ...fail('Vehicle is missing host assignment.', 'blocked') };
+  if (vehicle.status === 'Compliance Hold') return { ok: false, ...fail('Vehicle is on compliance hold.', 'blocked') };
+  if (!['Available', 'Booked', 'Reserved', 'Active Rental'].includes(vehicle.status)) return { ok: false, ...fail('Vehicle is not available for this booking.', 'blocked') };
+
+  // Load enforcement setting
+  const platformSettings = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'compliance_enforcement_enabled' }, '-updated_date', 1).catch(() => []);
+  const enforcementEnabled = platformSettings[0] ? platformSettings[0].value_boolean !== false : true;
 
   const compliance = await base44.asServiceRole.entities.HostVehicleCompliance.filter({ vehicle_id: vehicle.id });
   const expired = compliance.filter(c => c.status === 'expired');
-  if (expired.length) return fail(`Expired compliance documents: ${expired.map(c => c.doc_type).join(', ')}.`, 'blocked');
-
   const required = ['insurance', 'registration'];
   const uploaded = compliance.map(c => c.doc_type);
   const missing = required.filter(type => !uploaded.includes(type));
-  if (missing.length) return fail(`Missing required compliance documents: ${missing.join(', ')}.`, 'blocked');
 
-  return { ok: true };
+  const issues = [];
+  if (expired.length) issues.push(`Expired compliance documents: ${expired.map(c => c.doc_type).join(', ')}.`);
+  if (missing.length) issues.push(`Missing required compliance documents: ${missing.join(', ')}.`);
+
+  if (issues.length > 0) {
+    if (enforcementEnabled) {
+      return { ok: false, ...fail(issues[0], 'blocked'), compliance_enforcement_enabled: true };
+    }
+    // Enforcement OFF — pass with warning
+    return { ok: true, compliance_warning: `Compliance enforcement is OFF. Issues: ${issues.join(' ')}`, compliance_enforcement_enabled: false };
+  }
+
+  return { ok: true, compliance_enforcement_enabled: enforcementEnabled };
 }
 
 function rtoInitialsComplete(contractInitials) {

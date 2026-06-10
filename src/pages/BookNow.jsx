@@ -107,6 +107,14 @@ export default function BookNow() {
     staleTime: 5 * 60_000,
   });
 
+  const { data: platformSettingsData } = useQuery({
+    queryKey: ["platform-settings-public"],
+    queryFn: () => base44.functions.invoke('getPlatformSettings', {}).then(r => r.data),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const complianceEnforcementEnabled = platformSettingsData ? platformSettingsData.compliance_enforcement_enabled !== false : true;
+
   // Build approved host set and brand moderation set
   const approvedHostIds = useMemo(() => new Set(approvedHosts.map(h => h.id)), [approvedHosts]);
   const blockedHostIds = useMemo(() => new Set(

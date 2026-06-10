@@ -241,6 +241,13 @@ export default function HostFirstVehicleSetup() {
             <StatusCard title={currentStep === 1 ? 'Registration' : 'Insurance'} item={currentStep === 1 ? readiness?.registration_status : readiness?.insurance_status}>
               <p className="mt-1 text-sm text-gray-600">{currentStep === 1 ? 'Upload Registration' : 'Upload Insurance'} for this vehicle. This is required per vehicle.</p>
             </StatusCard>
+            {/* Show warning (not block) when enforcement is OFF */}
+            {readiness?.compliance_enforcement_enabled === false && (
+              <div className="flex items-start gap-2 rounded-xl border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs font-bold text-yellow-800">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
+                Compliance enforcement is currently OFF for testing. You can continue without uploading this document, but it will be required when enforcement is turned ON.
+              </div>
+            )}
             {!vehicleId ? <p className="text-sm font-bold text-amber-700">Save vehicle details first.</p> : (
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm font-black text-gray-700">
                 {docLoading[currentStep === 1 ? 'registration' : 'insurance'] ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}

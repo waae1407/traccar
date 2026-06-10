@@ -27,6 +27,10 @@ Deno.serve(async (req) => {
       if (!myHost || vehicle.host_id !== myHost.id) return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Load compliance enforcement setting
+    const platformSettingsList = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'compliance_enforcement_enabled' }, '-updated_date', 1).catch(() => []);
+    const enforcementEnabled = platformSettingsList[0] ? platformSettingsList[0].value_boolean !== false : true;
+
     const [host, bookings, paymentLogs, expenses, maintenanceLogs, complianceDocs, telematicsDevice, telematicsCommands, telematicsEvents, positionHistory, inspectionPackets, operationalAlerts] = await Promise.all([
       vehicle.host_id ? base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }).then(r => r[0]) : null,
       base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id }),
@@ -98,12 +102,16 @@ Deno.serve(async (req) => {
 
     const warnings = [];
 
-    // FIX #3: Warn on missing compliance for active/approved vehicles
+    // Warn on missing compliance for active/approved vehicles (always shown regardless of enforcement)
     if ((isApproved || isBookableStatus) && complianceMissing) {
-      warnings.push('Missing vehicle compliance records — no registration or insurance documents found for this vehicle');
+      const prefix = enforcementEnabled ? '' : '[Enforcement OFF] ';
+      warnings.push(`${prefix}Missing vehicle compliance records — no registration or insurance documents found for this vehicle`);
     } else {
-      if ((isApproved || isBookableStatus) && registrationMissing) warnings.push('Vehicle registration document is missing');
-      if ((isApproved || isBookableStatus) && insuranceMissing) warnings.push('Vehicle insurance document is missing');
+      if ((isApproved || isBookableStatus) && registrationMissing) warnings.push(`${enforcementEnabled ? '' : '[Enforcement OFF] '}Vehicle registration document is missing`);
+      if ((isApproved || isBookableStatus) && insuranceMissing) warnings.push(`${enforcementEnabled ? '' : '[Enforcement OFF] '}Vehicle insurance document is missing`);
+    }
+    if (!enforcementEnabled) {
+      warnings.push('Compliance enforcement is currently OFF for testing. Missing insurance/registration will NOT block listing or booking. Turn enforcement ON before production.');
     }
 
     if (utilizationRate !== null && utilizationRate === 0 && completedBookings.length === 0) warnings.push('Utilization is estimated — no completed bookings found');
@@ -141,11 +149,12 @@ Deno.serve(async (req) => {
         all: allComplianceDocs,
         registration: registration || null,
         insurance: insurance || null,
-        // FIX #3: Explicit missing fields
         registration_status: registration ? (registration.status || 'found') : 'missing',
         insurance_status: insurance ? (insurance.status || 'found') : 'missing',
         compliance_ready: complianceReady,
         compliance_missing: complianceMissing,
+        compliance_enforcement_enabled: enforcementEnabled,
+        compliance_blocking_active: enforcementEnabled,
       },
       gps: gpsStatus,
       telematics_device: telematicsDevice || null,

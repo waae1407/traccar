@@ -45,6 +45,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Load compliance enforcement setting
+    const platformSettingsList = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'compliance_enforcement_enabled' }, '-updated_date', 1).catch(() => []);
+    const enforcementEnabled = platformSettingsList[0] ? platformSettingsList[0].value_boolean !== false : true;
+
     const [brands, plans, subscriptions, commerceProfiles, paymentSettings, allVehicles, allDocs, devices] = await Promise.all([
       base44.asServiceRole.entities.HostBrandSettings.filter({ host_id }, '-updated_date', 1),
       base44.asServiceRole.entities.OperatorPlanConfiguration.filter({ host_id }, '-updated_date', 1),
@@ -84,8 +88,11 @@ Deno.serve(async (req) => {
     if (!storefrontDone) missing.push('Storefront live');
     if (!vehicle) missing.push('Add vehicle');
     if (vehicle && !detailsDone) missing.push('Vehicle details');
-    if (vehicle && !registrationDone) missing.push('Vehicle registration');
-    if (vehicle && !insuranceDone) missing.push('Vehicle insurance');
+    // Compliance docs block publish only when enforcement is ON
+    if (enforcementEnabled) {
+      if (vehicle && !registrationDone) missing.push('Vehicle registration');
+      if (vehicle && !insuranceDone) missing.push('Vehicle insurance');
+    }
     if (!identityDone) missing.push('Host ID verification');
     if (!subscriptionDone) missing.push(`${modeLabel(planMode)} trial`);
     if (paymentRequired && !paymentDone) missing.push('Stripe setup');
@@ -103,7 +110,14 @@ Deno.serve(async (req) => {
       : publishReady ? 'publish_vehicle'
       : 'review_requirements';
 
+    // Compliance warnings (always shown regardless of enforcement)
+    const complianceWarnings = [];
+    if (vehicle && !registrationDone) complianceWarnings.push('Vehicle registration missing or expired');
+    if (vehicle && !insuranceDone) complianceWarnings.push('Vehicle insurance missing or expired');
+
     return Response.json({
+      compliance_enforcement_enabled: enforcementEnabled,
+      compliance_warnings: complianceWarnings,
       storefront_status: storefrontDone ? status('Done') : status('Needed'),
       storefront_url: brand?.business_slug ? `/host/${brand.business_slug}` : '',
       live_vehicle_count: liveVehicles.length,

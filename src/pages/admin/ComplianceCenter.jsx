@@ -1,10 +1,10 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle, CheckCircle, XCircle, Clock, Shield } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Clock, Shield, ShieldOff } from 'lucide-react';
 import { format } from 'date-fns';
 
 function MetricCard({ label, value, sub, color }) {
@@ -23,11 +23,36 @@ function SBadge({ status }) {
 }
 
 export default function ComplianceCenter() {
+  const qc = useQueryClient();
+  const [togglingEnforcement, setTogglingEnforcement] = useState(false);
+
   const { data, isLoading } = useQuery({
     queryKey: ['compliance_center'],
     queryFn: () => base44.functions.invoke('getComplianceCenterMetrics', {}).then(r => r.data),
     refetchOnWindowFocus: false,
   });
+
+  const { data: platformSettings } = useQuery({
+    queryKey: ['platform_settings'],
+    queryFn: () => base44.functions.invoke('getPlatformSettings', {}).then(r => r.data),
+    refetchOnWindowFocus: false,
+  });
+
+  const enforcementEnabled = platformSettings ? platformSettings.compliance_enforcement_enabled !== false : true;
+
+  const toggleEnforcement = async () => {
+    setTogglingEnforcement(true);
+    await base44.functions.invoke('getPlatformSettings', {
+      action: 'set',
+      key: 'compliance_enforcement_enabled',
+      value_boolean: !enforcementEnabled,
+      label: 'Compliance Enforcement',
+      description: 'When ON, vehicles must have valid insurance and registration before they can be listed or booked. When OFF, missing compliance documents create warnings but do not block testing.',
+    });
+    await qc.invalidateQueries({ queryKey: ['platform_settings'] });
+    await qc.invalidateQueries({ queryKey: ['compliance_center'] });
+    setTogglingEnforcement(false);
+  };
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading Compliance Center…</div>;
 
@@ -35,10 +60,43 @@ export default function ComplianceCenter() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Compliance Center</h1>
-        <p className="text-muted-foreground text-sm mt-1">Vehicle docs · Host verification · Customer ID · Contracts · Inspections · Holds</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold">Compliance Center</h1>
+          <p className="text-muted-foreground text-sm mt-1">Vehicle docs · Host verification · Customer ID · Contracts · Inspections · Holds</p>
+        </div>
+        {/* Admin-only Compliance Enforcement Toggle */}
+        <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${enforcementEnabled ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/40 bg-red-500/15'}`}>
+          <div>
+            <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+              {enforcementEnabled ? <Shield className="h-3 w-3 text-green-400" /> : <ShieldOff className="h-3 w-3 text-red-400" />}
+              Compliance Enforcement
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {enforcementEnabled
+                ? 'ON — vehicles require valid insurance & registration.'
+                : 'OFF — missing docs warn but do not block.'}
+            </p>
+          </div>
+          <button
+            onClick={toggleEnforcement}
+            disabled={togglingEnforcement}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none disabled:opacity-50 ${enforcementEnabled ? 'bg-green-500' : 'bg-red-500'}`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${enforcementEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </div>
       </div>
+
+      {/* Critical banner when enforcement is OFF */}
+      {!enforcementEnabled && (
+        <Alert className="border-red-500/40 bg-red-500/15 py-3">
+          <AlertTriangle className="h-4 w-4 text-red-400" />
+          <AlertDescription className="text-red-300 text-sm font-semibold">
+            ⚠️ Compliance enforcement is OFF. Vehicles may be listed or booked without valid insurance/registration. <strong>Turn this back ON before production.</strong>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {data?.warnings?.map((w, i) => <Alert key={i} className="border-yellow-500/30 bg-yellow-500/10 py-2"><AlertTriangle className="h-3 w-3 text-yellow-400" /><AlertDescription className="text-yellow-300 text-xs">{w}</AlertDescription></Alert>)}
 
