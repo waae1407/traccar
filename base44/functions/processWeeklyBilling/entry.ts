@@ -536,6 +536,24 @@ Deno.serve(async (req) => {
     return Response.json({ ok: true, processed: billingTargets.length, results });
   } catch (error) {
     console.error("[WeeklyBilling] Fatal error:", error.message);
+    // M1 FIX: Create billing system failure alert even when outer catch fires
+    try {
+      const base44 = createClientFromRequest(req);
+      await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', {
+        alert_type: 'unknown_billing_context',
+        severity: 'critical',
+        billing_context: 'weekly_billing',
+        title: 'Weekly billing system failure',
+        message: `processWeeklyBilling encountered a fatal error: ${error.message}`,
+        recommended_action: 'Review billing logs immediately. Some bookings due today may not have been charged.',
+        financial_impact_amount: 0,
+        currency: 'usd',
+        requires_admin_action: true,
+        source: 'processWeeklyBilling',
+      });
+    } catch (alertErr) {
+      console.error('[WeeklyBilling] Failed to create billing failure alert:', alertErr.message);
+    }
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

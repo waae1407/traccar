@@ -9,17 +9,22 @@ import TelematicsPanel from "./TelematicsPanel";
 import FindMyVehicleMap from "./FindMyVehicleMap";
 
 const STATUS_CONFIG = {
-  confirmed:              { label: "✓ Confirmed",       style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
-  active:                 { label: "● Active",          style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
-  approved:               { label: "✓ Approved",        style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
-  pending_review:         { label: "⏳ Under Review",   style: { background: "linear-gradient(135deg, #d97706, #b45309)", color: "#fff" } },
-  pending_payment:        { label: "💳 Payment Due",    style: { background: "linear-gradient(135deg, #ea580c, #c2410c)", color: "#fff" } },
-  pending_verification:   { label: "🔍 Verifying",      style: { background: "linear-gradient(135deg, #2563eb, #1d4ed8)", color: "#fff" } },
-  pending_contract:       { label: "📄 Sign Contract",  style: { background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "#fff" } },
-  draft:                  { label: "Draft",              style: { background: "#e5e7eb", color: "#6b7280" } },
-  cancellation_requested: { label: "⏳ Cancel Pending", style: { background: "#fee2e2", color: "#dc2626" } },
-  return_pending_host_review: { label: "⏳ Return Review", style: { background: "linear-gradient(135deg, #d97706, #b45309)", color: "#fff" } },
-  under_review: { label: "⚠️ Under Review", style: { background: "linear-gradient(135deg, #dc2626, #991b1b)", color: "#fff" } },
+  confirmed:              { label: "✓ Confirmed",                   style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
+  active:                 { label: "● Active Rental",               style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
+  approved:               { label: "✓ Approved",                    style: { background: "linear-gradient(135deg, #16a34a, #15803d)", color: "#fff" } },
+  pending_review:         { label: "⏳ Under Review",               style: { background: "linear-gradient(135deg, #d97706, #b45309)", color: "#fff" } },
+  pending_payment:        { label: "💳 Payment Required",           style: { background: "linear-gradient(135deg, #ea580c, #c2410c)", color: "#fff" } },
+  pending_verification:   { label: "🔍 Verifying Identity",         style: { background: "linear-gradient(135deg, #2563eb, #1d4ed8)", color: "#fff" } },
+  pending_contract:       { label: "📄 Sign Contract",              style: { background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "#fff" } },
+  draft:                  { label: "Draft",                          style: { background: "#e5e7eb", color: "#6b7280" } },
+  payment_due:            { label: "⚠️ Payment Required",           style: { background: "linear-gradient(135deg, #dc2626, #991b1b)", color: "#fff" } },
+  grace_period:           { label: "🚨 Payment Overdue — Act Now",  style: { background: "linear-gradient(135deg, #dc2626, #7f1d1d)", color: "#fff" } },
+  suspended:              { label: "🔒 Vehicle Access Restricted",  style: { background: "linear-gradient(135deg, #1f2937, #111827)", color: "#fff" } },
+  cancellation_requested: { label: "⏳ Cancellation Pending",       style: { background: "#fee2e2", color: "#dc2626" } },
+  return_pending_host_review: { label: "⏳ Return Under Review",    style: { background: "linear-gradient(135deg, #d97706, #b45309)", color: "#fff" } },
+  under_review:           { label: "⚠️ Under Review",               style: { background: "linear-gradient(135deg, #dc2626, #991b1b)", color: "#fff" } },
+  completed:              { label: "✓ Completed",                   style: { background: "#f3f4f6", color: "#374151" } },
+  cancelled:              { label: "Cancelled",                      style: { background: "#f3f4f6", color: "#6b7280" } },
 };
 
 const CANCELLABLE = ["pending_payment", "pending_review", "approved", "confirmed", "active"];

@@ -360,12 +360,22 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     await sendSMS(booking.customer_phone, `uRide: Payment received for ${booking.vehicle_name}. Your rental is active and starter access has been restored.`);
   }
 
+  // M3 FIX: isolate email so failure never fails parent billing workflow
   await sendEmail(
     base44,
     booking.user_email,
     `Payment Received — ${booking.vehicle_name || 'Your Rental'} Restored`,
     `Hi ${booking.customer_full_name || ""},\n\nYour rental payment has been processed successfully. Your booking is active and starter access has been restored.\n\nNext billing: ${nextBillingDate}\n\nThe uRide Team`
-  );
+  ).catch(async (emailErr) => {
+    console.error('[GracePeriod] Recovery email failed:', emailErr.message);
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: 'email_delivery_failed', actor_id: 'processGracePeriod', actor_email: 'automation@uridehub.com',
+      actor_role: 'automation', target_entity: 'BookingRequest', target_id: booking.id,
+      booking_id: booking.id, customer_id: booking.user_email || '',
+      summary: `Payment recovery email failed for booking ${booking.id}: ${emailErr.message}`,
+      metadata: { error: emailErr.message, email_type: 'payment_recovery' }, source: 'payment_enforcement', event_status: 'error',
+    }).catch(() => {});
+  });
 
   await logEvent(base44, {
     event_type: 'payment.succeeded',
@@ -518,12 +528,22 @@ async function disableStarterAfterWindow(base44, booking, now) {
     await sendSMS(booking.customer_phone, `uRide: Payment is still unresolved after 2 hours. Starter access for ${booking.vehicle_name} has been disabled. This does not shut down a running engine. Pay now to restore.`);
   }
 
+  // M3 FIX: isolate starter-disable email so failure never fails parent billing workflow
   await sendEmail(
     base44,
     booking.user_email,
     `Starter Access Disabled — Payment Required`,
     `Hi ${booking.customer_full_name || ""},\n\nYour rental payment is still unresolved after the 2-hour recovery window. Vehicle restart access for ${booking.vehicle_name || 'your rental'} has been disabled.\n\nThis is a starter interrupt only and does not shut down a running engine.\n\nPlease update your payment method to restore starter access.\n\nThe uRide Team`
-  );
+  ).catch(async (emailErr) => {
+    console.error('[GracePeriod] Starter-disable email failed:', emailErr.message);
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: 'email_delivery_failed', actor_id: 'processGracePeriod', actor_email: 'automation@uridehub.com',
+      actor_role: 'automation', target_entity: 'BookingRequest', target_id: booking.id,
+      booking_id: booking.id, customer_id: booking.user_email || '',
+      summary: `Starter-disable email failed for booking ${booking.id}: ${emailErr.message}`,
+      metadata: { error: emailErr.message, email_type: 'starter_disable_notice' }, source: 'payment_enforcement', event_status: 'error',
+    }).catch(() => {});
+  });
 
   await logEvent(base44, {
     event_type: 'payment.starter_disabled',

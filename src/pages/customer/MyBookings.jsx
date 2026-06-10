@@ -21,6 +21,7 @@ const STATUS_PRIORITY = {
 const ACTIVE_STATUSES = [
   "active", "confirmed", "approved", "pending_review", "pending_payment",
   "pending_verification", "pending_contract", "cancellation_requested", "return_pending_host_review", "under_review", "draft",
+  "payment_due", "grace_period", "suspended",
 ];
 const PAST_STATUSES = ["completed", "cancelled"];
 

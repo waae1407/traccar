@@ -728,6 +728,43 @@ Deno.serve(async (req) => {
           await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
             payment_status: 'refunded',
           });
+
+          // H2 FIX: Create PaymentLog for refund so it appears in reconciliation
+          const refundedAmount = (charge.amount_refunded || 0) / 100;
+          if (refundedAmount > 0) {
+            const refundedAt = new Date().toISOString();
+            const existingRefundLog = await base44.asServiceRole.entities.PaymentLog.filter({ dedupe_key: `refund:${charge.id}` });
+            if (existingRefundLog.length === 0) {
+              const bookingRec = (await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId }))[0];
+              await base44.asServiceRole.entities.PaymentLog.create({
+                booking_request_id: bookingRequestId,
+                host_id: bookingRec?.host_id || charge.metadata?.host_id || '',
+                customer_email: bookingRec?.user_email || '',
+                customer_name: bookingRec?.customer_full_name || '',
+                vehicle_id: bookingRec?.vehicle_id || '',
+                vehicle_name: bookingRec?.vehicle_name || '',
+                week_number: bookingRec?.billing_week_number || 0,
+                billing_period_start: refundedAt.slice(0, 10),
+                billing_period_end: refundedAt.slice(0, 10),
+                amount: refundedAmount,
+                currency: charge.currency || 'usd',
+                payment_method: 'stripe',
+                source_type: 'refund',
+                source_confidence: 'trusted',
+                legacy_flag: false,
+                external_reconcilable: true,
+                dedupe_key: `refund:${charge.id}`,
+                stripe_payment_intent_id: charge.payment_intent || '',
+                stripe_charge_id: charge.id,
+                stripe_customer_id: charge.customer || bookingRec?.stripe_customer_id || '',
+                status: 'refunded',
+                recorded_by: 'stripe_webhook',
+                notes: `Stripe refund: ${charge.id}`,
+                paid_at: refundedAt,
+              });
+            }
+          }
+
           await logEvent(base44, {
             event_type: 'payment.refunded',
             actor_id: 'stripe_webhook',

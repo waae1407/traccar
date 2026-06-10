@@ -154,6 +154,39 @@ Deno.serve(async (req) => {
           booking_request_id,
         });
 
+        // H1 FIX: Create PaymentLog for all admin charges
+        const chargeData = paymentIntent.charges?.data?.[0];
+        const paidAt = new Date().toISOString();
+        await base44.asServiceRole.entities.PaymentLog.create({
+          booking_request_id,
+          host_id: booking.host_id || '',
+          customer_email: booking.user_email,
+          customer_name: booking.customer_full_name || '',
+          vehicle_id: booking.vehicle_id || '',
+          vehicle_name: booking.vehicle_name || '',
+          week_number: booking.billing_week_number || 0,
+          billing_period_start: paidAt.slice(0, 10),
+          billing_period_end: paidAt.slice(0, 10),
+          amount,
+          currency: 'usd',
+          payment_method: 'stripe',
+          source_type: 'admin_manual',
+          source_confidence: 'trusted',
+          legacy_flag: false,
+          external_reconcilable: true,
+          dedupe_key: `admin:${action}:${paymentIntent.id}`,
+          stripe_payment_intent_id: paymentIntent.id,
+          stripe_charge_id: chargeData?.id || '',
+          stripe_customer_id: booking.stripe_customer_id || '',
+          stripe_payment_method_id: booking.stripe_payment_method_id || '',
+          stripe_receipt_url: chargeData?.receipt_url || '',
+          receipt_url: chargeData?.receipt_url || '',
+          status: 'paid',
+          recorded_by: user.email,
+          notes: `${action} — ${description || reason || chargeDescription}`,
+          paid_at: paidAt,
+        }).catch(e => console.error('[AdminPaymentAction] PaymentLog create failed:', e.message));
+
         await logEvent(base44, user.email, {
           event_type: 'payment.succeeded',
           target_id: booking_request_id,

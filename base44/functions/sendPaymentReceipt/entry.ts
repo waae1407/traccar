@@ -78,7 +78,24 @@ Deno.serve(async (req) => {
   <p style="margin: 0; font-size: 13px; color: #6b7280;">Questions? Contact <strong>support@uridehub.com</strong></p>
 </div>`;
 
-    await sendEmail(user_email, `Payment Confirmed — $${amount} · ${vehicle_name || "UrideHub Booking"} · ${receiptRef}`, emailBody, "uRide");
+    // M3 FIX: email failure returns success so checkout flow is never blocked
+    try {
+      await sendEmail(user_email, `Payment Confirmed — $${amount} · ${vehicle_name || "UrideHub Booking"} · ${receiptRef}`, emailBody, "uRide");
+    } catch (emailErr) {
+      console.error('[sendPaymentReceipt] Email delivery failed:', emailErr.message);
+      // Log but do not propagate — receipt email failure must never fail the payment confirmation
+      try {
+        const base44 = createClientFromRequest(req);
+        await base44.asServiceRole.entities.ActivityEvent.create({
+          event_type: 'email_delivery_failed', actor_id: 'sendPaymentReceipt', actor_email: 'automation@uridehub.com',
+          actor_role: 'automation', target_entity: 'BookingRequest', target_id: booking_request_id || '',
+          booking_id: booking_request_id || '',
+          summary: `Payment receipt email failed for ${user_email}: ${emailErr.message}`,
+          metadata: { error: emailErr.message, email_type: 'payment_receipt', booking_request_id },
+          source: 'sendPaymentReceipt', event_status: 'error',
+        });
+      } catch (_) {}
+    }
 
     return Response.json({ success: true });
   } catch (error) {
