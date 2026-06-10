@@ -8,7 +8,7 @@ import Stripe from 'npm:stripe@14.21.0';
 // ---------------------------------------------------------------------------
 const PLAN_FEE_DEFAULTS = {
   marketplace_partner:  { platform_fee_rate: 0.08, requires_platform_fee: true },
-  hybrid_growth:        { platform_fee_rate: 0.04, requires_platform_fee: true },
+  hybrid_growth:        { platform_fee_rate: 0.05, requires_platform_fee: true },
   fleetos_professional: { platform_fee_rate: 0.00, requires_platform_fee: false },
 };
 const MANUAL_PAYMENT_METHODS = ['zelle', 'cash', 'cashapp', 'venmo', 'check', 'other'];

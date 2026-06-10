@@ -95,6 +95,14 @@ Deno.serve(async (req) => {
     const totalManualFeePaid = manualFeePaid.reduce((s, r) => s + (r.platform_fee_amount_due || r.original_amount || 0), 0);
     const totalManualFeeWaived = manualFeeWaived.reduce((s, r) => s + (r.platform_fee_amount_due || r.original_amount || 0), 0);
 
+    // Wallet calculations
+    const hostDirectOpen = manualFeeOpen.filter(r => !r.payment_collection_method || r.payment_collection_method === 'host_direct');
+    const urideCollectedOpen = manualFeeOpen.filter(r => r.payment_collection_method === 'uride_collected');
+    const totalHostDirectFeeDue = hostDirectOpen.reduce((s, r) => s + (r.remaining_amount || r.platform_fee_amount_due || 0), 0);
+    const totalUrideCollectedFeeDue = urideCollectedOpen.reduce((s, r) => s + (r.remaining_amount || r.platform_fee_amount_due || 0), 0);
+    const outstandingPlatformFees = Math.round((totalHostDirectFeeDue + totalUrideCollectedFeeDue) * 100) / 100;
+    const netTransferAvailable = Math.round(Math.max(0, totalPayoutPending - outstandingPlatformFees) * 100) / 100;
+
     const expiringDocs = complianceDocs.filter(d => ['expiring_soon', 'expired'].includes(d.status));
     const expiredDocs = complianceDocs.filter(d => d.status === 'expired');
 

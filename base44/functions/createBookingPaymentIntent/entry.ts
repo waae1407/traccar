@@ -16,7 +16,7 @@ function defaultCommerceProfile(host, plan) {
     booking_enabled: true,
     online_payments_enabled: isFleetOS ? !!host?.stripe_onboarding_complete : true,
     payment_processor: isFleetOS ? (host?.stripe_onboarding_complete && host?.stripe_account_id ? 'host_stripe' : 'reservation_only') : 'uride_stripe',
-    commission_rate: isFleetOS ? 0 : isHybrid ? 0.04 : 0.08,
+    commission_rate: isFleetOS ? 0 : isHybrid ? 0.05 : 0.08,
     subscription_rate: isFleetOS || isHybrid ? 29.99 : 0,
     stripe_account_id: host?.stripe_account_id || '',
     host_checkout_enabled: isFleetOS && !!host?.stripe_onboarding_complete && !!host?.stripe_account_id,

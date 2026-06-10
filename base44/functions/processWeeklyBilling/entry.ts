@@ -161,7 +161,7 @@ async function resolveMarketplaceFee(base44, booking = {}) {
 
   let feeRate = 0;
   if (bookingSource === 'marketplace') {
-    feeRate = operatorMode === 'hybrid_growth' ? 0.04 : operatorMode === 'fleetos_professional' ? 0 : 0.08;
+    feeRate = operatorMode === 'hybrid_growth' ? 0.05 : operatorMode === 'fleetos_professional' ? 0 : 0.08;
   } else {
     feeRate = 0;
     reason = fallbackUsed ? 'Non-marketplace booking source uses no marketplace fee fallback.' : 'Non-marketplace booking source uses no marketplace fee.';

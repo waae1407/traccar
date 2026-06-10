@@ -111,7 +111,7 @@ function planFieldsForSubscription(mode, stripeStatus = 'active') {
     active_mode: mode,
     status: 'active',
     marketplace_enabled: !isFleetOS,
-    marketplace_fee_rate: isHybrid ? 0.04 : 0,
+    marketplace_fee_rate: isHybrid ? 0.05 : 0,
     monthly_subscription_amount: 29.99,
     platform_billing_route: isHybrid ? 'subscription_plus_marketplace' : 'subscription',
     payment_required: true,
@@ -236,7 +236,7 @@ async function resolveMarketplaceFee(base44, booking = {}) {
 
   let feeRate = 0;
   if (bookingSource === 'marketplace') {
-    feeRate = operatorMode === 'hybrid_growth' ? 0.04 : operatorMode === 'fleetos_professional' ? 0 : 0.08;
+    feeRate = operatorMode === 'hybrid_growth' ? 0.05 : operatorMode === 'fleetos_professional' ? 0 : 0.08;
   } else {
     feeRate = 0;
     reason = fallbackUsed ? 'Non-marketplace booking source uses no marketplace fee fallback.' : 'Non-marketplace booking source uses no marketplace fee.';
