@@ -365,14 +365,22 @@ Deno.serve(async (req) => {
         let telematicsNote = null;
 
         if (needsRestore) {
-          // Update booking to active/paid
+          // Update booking to active/paid — clear all failure and restriction flags
           await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
             booking_status: 'active',
             payment_status: 'paid',
             moovetrax_kill_active: false,
             starter_disabled: false,
+            starter_disable_pending: false,
+            final_reminder_sent: false,
             payment_failure_attempts: 0,
             payment_failure_reason: '',
+            payment_failure_started_at: null,
+            starter_disable_scheduled_at: null,
+            suspended_at: null,
+            suspension_triggered_at: null,
+            grace_period_started_at: null,
+            grace_period_ends_at: null,
           });
 
           // Update vehicle status

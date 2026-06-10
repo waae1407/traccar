@@ -567,8 +567,9 @@ async function schedulePreChargeWarning(base44, booking, nextBillingDate, amount
 
 async function handleFailedPayment(base44, booking, reason, attemptNum) {
   const now = new Date();
-  const disableAt = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-  const warningMessage = "Your rental payment could not be processed. Please update your payment method. Vehicle restart access will be disabled in 2 hours if payment is not successfully collected.";
+  const recoveryWindowHours = parseInt(Deno.env.toObject().PAYMENT_RECOVERY_WINDOW_HOURS || '24', 10);
+  const disableAt = new Date(now.getTime() + recoveryWindowHours * 60 * 60 * 1000);
+  const warningMessage = `Your payment failed. Please update your payment method or contact support. Vehicle access may be restricted after ${recoveryWindowHours} hours if payment is not resolved.`;
 
   let hostEmail = '';
   if (booking.host_id) {
@@ -590,7 +591,7 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     related_entity_id: booking.id,
     title: 'Weekly rental payment failed',
     message: `${warningMessage} Failure reason: ${reason}`,
-    recommended_action: 'Customer has 2 hours to resolve payment before starter access is disabled by processGracePeriod.',
+    recommended_action: `Customer has ${recoveryWindowHours} hours to resolve payment before starter access is disabled by processGracePeriod.`,
     financial_impact_amount: booking.weekly_rate || 0,
     currency: 'usd',
     retry_attempts: attemptNum,
@@ -627,8 +628,8 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
 
   await base44.asServiceRole.integrations.Core.SendEmail({
     to: booking.user_email,
-    subject: "Payment Failed — 2 Hours to Resolve",
-    body: `Hi ${booking.customer_full_name || ""},\n\n${warningMessage}\n\nYour vehicle remains operational during this 2-hour recovery window. This policy uses starter disable only and does not shut down a running engine.\n\nPlease open the app and update your payment method.\n\nThe uRide Team`,
+    subject: `Payment Failed — ${recoveryWindowHours} Hours to Resolve`,
+    body: `Hi ${booking.customer_full_name || ""},\n\n${warningMessage}\n\nYour vehicle remains operational during this ${recoveryWindowHours}-hour recovery window. This policy uses starter interrupt only and does not shut down a running engine.\n\nPlease open the app and update your payment method immediately.\n\nThe uRide Team`,
   });
 
   await logEvent(base44, {
@@ -642,13 +643,14 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     booking_id: booking.id,
     vehicle_id: booking.vehicle_id || '',
     customer_id: booking.user_email || '',
-    summary: `Payment FAILED — 2-hour starter-disable recovery window started for ${booking.vehicle_name || booking.id}`,
+    summary: `Payment FAILED — ${recoveryWindowHours}-hour starter-interrupt recovery window started for ${booking.vehicle_name || booking.id}`,
     metadata: {
       reason,
       attempt_num: attemptNum,
+      recovery_window_hours: recoveryWindowHours,
       payment_failure_started_at: now.toISOString(),
       starter_disable_scheduled_at: disableAt.toISOString(),
-      starter_disable_only: true,
+      starter_interrupt_only: true,
       no_engine_shutdown: true,
       authoritative_workflow: 'processGracePeriod'
     },

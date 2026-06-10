@@ -46,11 +46,11 @@ export default function OperationsCenter() {
       {/* Critical metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MetricCard label="Failed Payments" value={s?.bookings_payment_failed || 0} color="text-red-400" alert={s?.bookings_payment_failed > 0} />
-        <MetricCard label="Payment Due" value={s?.bookings_payment_due || 0} color="text-yellow-400" />
-        <MetricCard label="Suspended" value={s?.bookings_suspended || 0} color="text-red-400" alert={s?.bookings_suspended > 0} />
+        <MetricCard label="In 24h Recovery Window" value={s?.bookings_payment_due || 0} color="text-yellow-400" sub="payment_due — grace active" />
+        <MetricCard label="Suspended After Grace" value={s?.bookings_suspended || 0} color="text-red-400" alert={s?.bookings_suspended > 0} sub="grace expired" />
         <MetricCard label="Starter Disabled" value={s?.starter_disabled_count || 0} color="text-red-400" alert={s?.starter_disabled_count > 0} />
+        <MetricCard label="Starter Disable Pending" value={data?.bookings?.payment_due?.filter(b => b.starter_disable_pending)?.length || 0} color="text-orange-400" alert={(data?.bookings?.payment_due?.filter(b => b.starter_disable_pending)?.length || 0) > 0} sub="vehicle may be running" />
         <MetricCard label="GPS Offline" value={s?.gps_offline_count || 0} color={s?.gps_offline_count > 0 ? 'text-red-400' : ''} />
-        <MetricCard label="Compliance Expiring" value={s?.compliance_expiring_count || 0} color="text-yellow-400" />
         <MetricCard label="Open Payment Alerts" value={s?.open_payment_alerts || 0} color={s?.open_payment_alerts > 0 ? 'text-red-400' : ''} />
         <MetricCard label="Unread Messages" value={s?.unread_comms || 0} color={s?.unread_comms > 0 ? 'text-primary' : ''} />
       </div>
@@ -71,19 +71,34 @@ export default function OperationsCenter() {
             <MetricCard label="Pending Review" value={s?.bookings_pending_review || 0} color="text-blue-400" />
           </div>
           <div className="space-y-2">
-            {[...(data?.bookings?.failed_payment || []), ...(data?.bookings?.suspended || []), ...(data?.bookings?.payment_due || [])].slice(0, 20).map(b => (
-              <div key={b.id} className="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
-                <div>
-                  <p className="font-medium">{b.customer_full_name || b.user_email}</p>
-                  <p className="text-muted-foreground text-xs">{b.vehicle_name || '—'} · ${b.weekly_rate || 0}/wk · Attempts: {b.payment_failure_attempts || 0}</p>
-                  {(b.starter_disabled || b.moovetrax_kill_active) && <Badge className="bg-red-500/20 text-red-400 text-xs">⚡ Starter Off</Badge>}
+            {[...(data?.bookings?.failed_payment || []), ...(data?.bookings?.suspended || []), ...(data?.bookings?.payment_due || [])].slice(0, 20).map(b => {
+              const deadline = b.starter_disable_scheduled_at ? new Date(b.starter_disable_scheduled_at) : null;
+              const hoursLeft = deadline ? Math.max(0, (deadline.getTime() - Date.now()) / (1000 * 60 * 60)) : null;
+              const isUrgent = hoursLeft !== null && hoursLeft <= 4;
+              const isCritical = hoursLeft !== null && hoursLeft <= 8;
+              return (
+                <div key={b.id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${isUrgent ? 'bg-red-500/15 border border-red-500/30' : isCritical ? 'bg-orange-500/10 border border-orange-500/20' : 'bg-secondary/30'}`}>
+                  <div className="flex-1 min-w-0 mr-3">
+                    <p className="font-medium truncate">{b.customer_full_name || b.user_email}</p>
+                    <p className="text-muted-foreground text-xs">{b.vehicle_name || '—'} · ${b.weekly_rate || 0}/wk · Attempts: {b.payment_failure_attempts || 0}</p>
+                    {deadline && hoursLeft !== null && b.booking_status === 'payment_due' && (
+                      <p className={`text-xs font-semibold mt-0.5 ${isUrgent ? 'text-red-400' : isCritical ? 'text-orange-400' : 'text-yellow-400'}`}>
+                        {hoursLeft < 1 ? '⚡ Expires in <1h' : `⏱ Grace expires in ~${Math.round(hoursLeft)}h`}
+                      </p>
+                    )}
+                    <div className="flex gap-1 mt-0.5 flex-wrap">
+                      {(b.starter_disabled || b.moovetrax_kill_active) && <Badge className="bg-red-500/20 text-red-400 text-xs">⚡ Starter Off</Badge>}
+                      {b.starter_disable_pending && <Badge className="bg-orange-500/20 text-orange-400 text-xs">⏳ Disable Pending</Badge>}
+                      {b.final_reminder_sent && <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Final Reminder Sent</Badge>}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <SBadge status={b.booking_status} />
+                    <SBadge status={b.payment_status} />
+                  </div>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <SBadge status={b.booking_status} />
-                  <SBadge status={b.payment_status} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </TabsContent>
 

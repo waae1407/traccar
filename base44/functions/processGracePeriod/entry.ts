@@ -11,26 +11,33 @@ import Stripe from 'npm:stripe@14.21.0';
  *   successful payment → starter restored immediately
  */
 
-const RECOVERY_WINDOW_HOURS = 2;
+function getRecoveryWindowHours() {
+  const raw = Deno.env.toObject().PAYMENT_RECOVERY_WINDOW_HOURS;
+  const parsed = parseInt(raw || '24', 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.warn('[PaymentEnforcement] PAYMENT_RECOVERY_WINDOW_HOURS invalid; defaulting to 24 hours');
+    return 24;
+  }
+  return parsed;
+}
 
 function getRetryIntervalMinutes() {
   const rawValue = Deno.env.toObject().PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES;
   if (!rawValue) {
-    console.warn('[PaymentEnforcement] PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES missing; defaulting to 30 minutes');
-    return 30;
+    console.warn('[PaymentEnforcement] PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES missing; defaulting to 480 minutes (8 hours)');
+    return 480;
   }
-
   const parsed = parseInt(rawValue, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    console.warn('[PaymentEnforcement] PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES invalid; defaulting to 30 minutes');
-    return 30;
+    console.warn('[PaymentEnforcement] PAYMENT_RECOVERY_RETRY_INTERVAL_MINUTES invalid; defaulting to 480 minutes (8 hours)');
+    return 480;
   }
-
   return parsed;
 }
 
+const RECOVERY_WINDOW_HOURS = getRecoveryWindowHours();
 const RETRY_INTERVAL_MINUTES = getRetryIntervalMinutes();
-const STARTER_WARNING_MESSAGE = "Your rental payment could not be processed. Please update your payment method. Vehicle restart access will be disabled in 2 hours if payment is not successfully collected.";
+const STARTER_WARNING_MESSAGE = `Your payment failed. Please update your payment method or contact support. Vehicle access may be restricted after ${RECOVERY_WINDOW_HOURS} hours if payment is not resolved.`;
 
 async function logEvent(base44, data) {
   try {
@@ -341,6 +348,8 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     starter_disable_scheduled_at: null,
     starter_disabled: false,
     moovetrax_kill_active: false,
+    starter_disable_pending: false,
+    final_reminder_sent: false,
     grace_period_started_at: null,
     grace_period_ends_at: null,
     suspension_triggered_at: null,
@@ -482,18 +491,144 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
   }
 }
 
+async function checkVehicleSafeForStarterDisable(base44, vehicleId) {
+  if (!vehicleId) return { safe: true, reason: 'no_vehicle_id' };
+  const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ vehicle_id: vehicleId });
+  const device = devices[0];
+  if (!device) return { safe: true, reason: 'no_device', has_device: false };
+
+  const ignition = device.ignition_status || device.last_ignition_status;
+  const speed = device.speed || device.last_speed || 0;
+  const motion = device.motion_status || device.last_motion_status || '';
+  const online = device.online_status;
+
+  // If we can confirm ignition is OFF or vehicle is parked/stopped at speed 0 — safe to disable
+  if (ignition === 'off' || ignition === 'OFF' || ignition === false) {
+    return { safe: true, reason: 'ignition_off', has_device: true };
+  }
+  if (Number(speed) === 0 && ['stopped', 'parked', 'idle'].includes(String(motion).toLowerCase())) {
+    return { safe: true, reason: 'speed_zero_parked', has_device: true };
+  }
+  // If device is offline and we have no recent telemetry — treat as safe (starter interrupt only)
+  if (online === 'offline') {
+    return { safe: true, reason: 'device_offline_no_active_trip', has_device: true };
+  }
+  // Vehicle appears to be running or moving — do NOT disable
+  if (ignition === 'on' || ignition === 'ON' || ignition === true || Number(speed) > 0) {
+    return { safe: false, reason: 'vehicle_appears_running', has_device: true, ignition, speed, motion };
+  }
+  // Unknown state — treat as safe (starter interrupt only, not engine kill)
+  return { safe: true, reason: 'state_unknown_treat_as_safe', has_device: true };
+}
+
 async function disableStarterAfterWindow(base44, booking, now) {
   const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
-  if (deviceId && !(booking.starter_disabled || booking.moovetrax_kill_active)) {
-    await starterInterrupt(base44, booking, true);
+
+  // No device — do NOT set hardware flags, just suspend and log
+  if (!deviceId) {
+    await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+      booking_status: 'suspended',
+      suspension_triggered_at: now.toISOString(),
+      suspended_at: now.toISOString(),
+      starter_disabled: false,
+      moovetrax_kill_active: false,
+    });
+
+    await logEvent(base44, {
+      event_type: 'payment.no_device_starter_disable_not_sent',
+      target_id: booking.id,
+      host_id: booking.host_id || '',
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      customer_id: booking.user_email || '',
+      summary: `no_telematics_device_starter_disable_not_sent — booking ${booking.id} suspended (financial status only)`,
+      metadata: { booking_status: 'suspended', device_command_sent: false, no_device: true },
+      event_status: 'warning',
+    });
+
+    await createPaymentAlert(base44, {
+      alert_type: 'weekly_billing_failed',
+      severity: 'critical',
+      billing_context: 'weekly_billing',
+      booking_id: booking.id,
+      host_id: booking.host_id || '',
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      renter_email: booking.user_email || '',
+      related_entity_type: 'BookingRequest',
+      related_entity_id: booking.id,
+      title: `Grace period expired — no telematics device`,
+      message: `Payment remains unpaid after ${RECOVERY_WINDOW_HOURS}-hour grace period for ${booking.vehicle_name || booking.id}. No telematics device found — account suspended, no hardware command sent.`,
+      recommended_action: 'Account is suspended financially. No starter disable was sent (no device). Contact customer to resolve payment.',
+      financial_impact_amount: booking.weekly_rate || 0,
+      currency: 'usd',
+      retry_attempts: booking.payment_failure_attempts || 0,
+      source: 'processGracePeriod'
+    });
+
+    await notifyGraceExpired(base44, booking, false, false);
+    return;
   }
 
+  // Check if vehicle is safe to disable
+  const safetyCheck = await checkVehicleSafeForStarterDisable(base44, booking.vehicle_id);
+
+  if (!safetyCheck.safe) {
+    // Vehicle appears running/moving — set pending flag, do NOT send command
+    await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+      booking_status: 'suspended',
+      suspension_triggered_at: now.toISOString(),
+      suspended_at: now.toISOString(),
+      starter_disable_pending: true,
+      starter_disabled: false,
+      moovetrax_kill_active: false,
+    });
+
+    await createPaymentAlert(base44, {
+      alert_type: 'weekly_billing_failed',
+      severity: 'critical',
+      billing_context: 'weekly_billing',
+      booking_id: booking.id,
+      host_id: booking.host_id || '',
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      renter_email: booking.user_email || '',
+      related_entity_type: 'BookingRequest',
+      related_entity_id: booking.id,
+      title: 'Starter disable PENDING — vehicle may be in motion',
+      message: `Grace period expired for ${booking.vehicle_name || booking.id} but vehicle telemetry suggests it may be running (ignition=${safetyCheck.ignition}, speed=${safetyCheck.speed}). Starter disable deferred — will retry when parked.`,
+      recommended_action: 'Monitor telematics. Starter-interrupt command will be sent automatically when vehicle is confirmed parked/ignition off. Manually verify if needed.',
+      financial_impact_amount: booking.weekly_rate || 0,
+      currency: 'usd',
+      source: 'processGracePeriod'
+    });
+
+    await logEvent(base44, {
+      event_type: 'payment.starter_disable_pending_vehicle_running',
+      target_id: booking.id,
+      host_id: booking.host_id || '',
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      customer_id: booking.user_email || '',
+      summary: `Starter disable deferred — vehicle appears running for ${booking.vehicle_name || booking.id}. starter_disable_pending=true`,
+      metadata: { safety_check: safetyCheck, starter_interrupt_only: true, no_engine_shutdown: true },
+      event_status: 'warning',
+    });
+
+    await notifyGraceExpired(base44, booking, true, true);
+    return;
+  }
+
+  // Safe to send starter interrupt
+  await starterInterrupt(base44, booking, true);
+
   await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-    booking_status: "suspended",
+    booking_status: 'suspended',
     suspension_triggered_at: now.toISOString(),
     suspended_at: now.toISOString(),
     starter_disabled: true,
     moovetrax_kill_active: true,
+    starter_disable_pending: false,
   });
 
   await createPaymentAlert(base44, {
@@ -507,42 +642,13 @@ async function disableStarterAfterWindow(base44, booking, now) {
     renter_email: booking.user_email || '',
     related_entity_type: 'BookingRequest',
     related_entity_id: booking.id,
-    title: 'Starter access disabled after unpaid recovery window',
-    message: `Payment remains failed after the 2-hour recovery window for ${booking.vehicle_name || booking.id}. Starter interrupt was sent only; no engine shutdown command was issued.`,
-    recommended_action: 'Monitor payment recovery. Restore starter immediately after successful payment or approved admin override.',
+    title: `Starter interrupt sent after ${RECOVERY_WINDOW_HOURS}h grace period`,
+    message: `Payment remains unpaid after ${RECOVERY_WINDOW_HOURS}-hour grace period for ${booking.vehicle_name || booking.id}. Starter interrupt command sent (vehicle confirmed parked). No engine shutdown command was issued.`,
+    recommended_action: 'Restore starter immediately after successful payment or admin override.',
     financial_impact_amount: booking.weekly_rate || 0,
     currency: 'usd',
     retry_attempts: booking.payment_failure_attempts || 0,
     source: 'processGracePeriod'
-  });
-
-  await base44.asServiceRole.entities.Notification.create({
-    user_email: booking.user_email,
-    title: "Starter access disabled — payment required",
-    body: `Your payment for ${booking.vehicle_name} remains unresolved after 2 hours. Vehicle restart access has been disabled. This does not shut down a running engine. Please update your payment method to restore access.`,
-    type: "payment",
-    booking_request_id: booking.id,
-  });
-
-  if (booking.customer_phone) {
-    await sendSMS(booking.customer_phone, `uRide: Payment is still unresolved after 2 hours. Starter access for ${booking.vehicle_name} has been disabled. This does not shut down a running engine. Pay now to restore.`);
-  }
-
-  // M3 FIX: isolate starter-disable email so failure never fails parent billing workflow
-  await sendEmail(
-    base44,
-    booking.user_email,
-    `Starter Access Disabled — Payment Required`,
-    `Hi ${booking.customer_full_name || ""},\n\nYour rental payment is still unresolved after the 2-hour recovery window. Vehicle restart access for ${booking.vehicle_name || 'your rental'} has been disabled.\n\nThis is a starter interrupt only and does not shut down a running engine.\n\nPlease update your payment method to restore starter access.\n\nThe uRide Team`
-  ).catch(async (emailErr) => {
-    console.error('[GracePeriod] Starter-disable email failed:', emailErr.message);
-    await base44.asServiceRole.entities.ActivityEvent.create({
-      event_type: 'email_delivery_failed', actor_id: 'processGracePeriod', actor_email: 'automation@uridehub.com',
-      actor_role: 'automation', target_entity: 'BookingRequest', target_id: booking.id,
-      booking_id: booking.id, customer_id: booking.user_email || '',
-      summary: `Starter-disable email failed for booking ${booking.id}: ${emailErr.message}`,
-      metadata: { error: emailErr.message, email_type: 'starter_disable_notice' }, source: 'payment_enforcement', event_status: 'error',
-    }).catch(() => {});
   });
 
   await logEvent(base44, {
@@ -552,15 +658,54 @@ async function disableStarterAfterWindow(base44, booking, now) {
     booking_id: booking.id,
     vehicle_id: booking.vehicle_id || '',
     customer_id: booking.user_email || '',
-    summary: `Starter access disabled after 2-hour failed-payment recovery window for ${booking.vehicle_name || booking.id}`,
+    summary: `Starter interrupt sent after ${RECOVERY_WINDOW_HOURS}h grace for ${booking.vehicle_name || booking.id}`,
     metadata: {
-      starter_disable_only: true,
+      starter_interrupt_only: true,
       no_engine_shutdown: true,
+      safety_check: safetyCheck,
       scheduled_at: booking.starter_disable_scheduled_at,
-      device_command_sent: !!deviceId,
+      device_command_sent: true,
       authoritative_workflow: 'processGracePeriod'
     },
     event_status: 'warning',
+  });
+
+  await notifyGraceExpired(base44, booking, true, false);
+}
+
+async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
+  const title = isPending ? '⚠️ Account Suspended — Vehicle Access Pending Restriction' : hasDevice ? '🔒 Account Suspended — Vehicle Access Restricted' : '🔒 Account Suspended — Payment Required';
+  const body = isPending
+    ? `Your payment for ${booking.vehicle_name} remains unresolved. Your account is suspended. Vehicle access will be restricted as soon as the vehicle is parked. Please resolve payment immediately.`
+    : hasDevice
+      ? `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Vehicle starter access has been interrupted. This does not shut down a running engine. Please update your payment method to restore access.`
+      : `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Your account has been suspended. Please contact support to resolve.`;
+
+  await base44.asServiceRole.entities.Notification.create({
+    user_email: booking.user_email,
+    title,
+    body,
+    type: 'payment',
+    booking_request_id: booking.id,
+  });
+
+  if (booking.customer_phone) {
+    await sendSMS(booking.customer_phone, `uRide: ${body}`);
+  }
+
+  await sendEmail(
+    base44,
+    booking.user_email,
+    title,
+    `Hi ${booking.customer_full_name || ''},\n\n${body}\n\nThe uRide Team`
+  ).catch(async (emailErr) => {
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: 'email_delivery_failed', actor_id: 'processGracePeriod', actor_email: 'automation@uridehub.com',
+      actor_role: 'automation', target_entity: 'BookingRequest', target_id: booking.id,
+      booking_id: booking.id, customer_id: booking.user_email || '',
+      summary: `Grace-expired email failed for booking ${booking.id}: ${emailErr.message}`,
+      metadata: { error: emailErr.message, email_type: 'grace_expired' }, source: 'payment_enforcement', event_status: 'error',
+    }).catch(() => {});
   });
 }
 
@@ -599,10 +744,68 @@ Deno.serve(async (req) => {
 
       const isPastDisableTime = now >= disableScheduledAt;
 
-      if (booking.booking_status === "payment_due" && isPastDisableTime && !(booking.starter_disabled || booking.moovetrax_kill_active)) {
+      // Grace expired — escalate to suspended
+      if (booking.booking_status === "payment_due" && isPastDisableTime) {
         await disableStarterAfterWindow(base44, booking, now);
         results.disabled++;
         continue;
+      }
+
+      // Retry starter disable for pending-disable bookings (vehicle was running when grace expired)
+      if (booking.booking_status === "suspended" && booking.starter_disable_pending && !booking.starter_disabled) {
+        const safetyCheck = await checkVehicleSafeForStarterDisable(base44, booking.vehicle_id);
+        const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
+        if (safetyCheck.safe && deviceId) {
+          await starterInterrupt(base44, booking, true);
+          await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+            starter_disabled: true,
+            moovetrax_kill_active: true,
+            starter_disable_pending: false,
+          });
+          await logEvent(base44, {
+            event_type: 'payment.starter_disabled',
+            target_id: booking.id,
+            host_id: booking.host_id || '',
+            booking_id: booking.id,
+            vehicle_id: booking.vehicle_id || '',
+            customer_id: booking.user_email || '',
+            summary: `Deferred starter interrupt now sent — vehicle confirmed parked for ${booking.vehicle_name || booking.id}`,
+            metadata: { safety_check: safetyCheck, deferred_send: true, starter_interrupt_only: true },
+            event_status: 'warning',
+          });
+        }
+        // Continue to allow retry attempt even after pending-disable check
+      }
+
+      // Hour-8 and Hour-16 final reminders based on hours elapsed since failure
+      const failureHoursElapsed = failureStartedAt ? (now.getTime() - failureStartedAt.getTime()) / (60 * 60 * 1000) : 0;
+      const hoursUntilDisable = disableScheduledAt ? (disableScheduledAt.getTime() - now.getTime()) / (60 * 60 * 1000) : RECOVERY_WINDOW_HOURS;
+      // Send final reminder when 8 or fewer hours remain (≈ Hour-16 for 24h window)
+      const shouldSendFinalReminder = hoursUntilDisable > 0 && hoursUntilDisable <= 8 && !booking.final_reminder_sent;
+      if (shouldSendFinalReminder) {
+        const hoursRemaining = Math.max(1, Math.round(hoursUntilDisable));
+        await base44.asServiceRole.entities.Notification.create({
+          user_email: booking.user_email,
+          title: `⚠️ Final Reminder — Payment due in ${hoursRemaining} hour(s)`,
+          body: `Your payment for ${booking.vehicle_name} is still overdue. Vehicle access may be restricted in approximately ${hoursRemaining} hour(s) if payment is not resolved.`,
+          type: 'payment',
+          booking_request_id: booking.id,
+        });
+        if (booking.customer_phone) {
+          await sendSMS(booking.customer_phone, `uRide FINAL REMINDER: Your payment for ${booking.vehicle_name} is overdue. Access may be restricted in ~${hoursRemaining} hour(s). Pay now to avoid restriction.`);
+        }
+        await base44.asServiceRole.entities.BookingRequest.update(booking.id, { final_reminder_sent: true });
+        await logEvent(base44, {
+          event_type: 'payment.final_reminder_sent',
+          target_id: booking.id,
+          host_id: booking.host_id || '',
+          booking_id: booking.id,
+          vehicle_id: booking.vehicle_id || '',
+          customer_id: booking.user_email || '',
+          summary: `Final payment reminder sent — ~${hoursRemaining}h remaining for ${booking.vehicle_name || booking.id}`,
+          metadata: { hours_remaining: hoursRemaining, recovery_window_hours: RECOVERY_WINDOW_HOURS },
+          event_status: 'warning',
+        });
       }
 
       const lastRetryAt = booking.last_retry_at ? new Date(booking.last_retry_at) : null;

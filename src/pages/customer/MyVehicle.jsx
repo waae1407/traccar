@@ -226,6 +226,27 @@ export default function MyVehicle() {
             <Mini label="Weekly Rate" value={money(booking.weekly_rate)} />
             <Mini label="Amount Due" value={needsPayment ? money(booking.total_due_now || booking.weekly_rate) : "$0"} />
           </div>
+          {booking.booking_status === "payment_due" && booking.starter_disable_scheduled_at && (() => {
+            const deadline = new Date(booking.starter_disable_scheduled_at);
+            const hoursLeft = Math.max(0, (deadline.getTime() - Date.now()) / (1000 * 60 * 60));
+            const urgent = hoursLeft <= 8;
+            return (
+              <div className={`mt-3 rounded-2xl p-4 ${urgent ? "bg-red-50 border border-red-200" : "bg-orange-50 border border-orange-200"}`}>
+                <p className={`text-sm font-black ${urgent ? "text-red-800" : "text-orange-800"}`}>
+                  {urgent ? "⚠️ Final Reminder — Payment must be resolved soon" : "Payment Required"}
+                </p>
+                <p className={`text-xs mt-1 ${urgent ? "text-red-600" : "text-orange-600"}`}>
+                  Your payment failed. Please resolve within {hoursLeft < 1 ? "less than 1 hour" : `~${Math.round(hoursLeft)} hours`} to avoid vehicle access restriction.
+                </p>
+              </div>
+            );
+          })()}
+          {booking.booking_status === "suspended" && (
+            <div className="mt-3 rounded-2xl bg-red-50 border border-red-200 p-4">
+              <p className="text-sm font-black text-red-800">🔒 Vehicle Access Restricted</p>
+              <p className="text-xs mt-1 text-red-600">Your account is suspended due to an overdue payment. Please resolve your balance to restore access.</p>
+            </div>
+          )}
           {needsPayment && <Link to={`/checkout?request=${booking.id}&step=payment`} className="mt-3 flex w-full items-center justify-center rounded-2xl bg-red-500 px-4 py-3 text-sm font-black text-white">Pay Now to Restore Access</Link>}
         </Section>
 
