@@ -15,7 +15,7 @@ export const OPERATIONAL_MODES = {
   },
   hybrid_growth: {
     label: "Hybrid Growth",
-    price: "$29.99/month + 4% marketplace booking fee",
+    price: "$29.99/month + 5% marketplace booking fee",
     summary: "Best when you have direct customers but also want uRideHub demand.",
     benefits: ["Get customers from the uRide marketplace", "Keep and manage your own customers", "Run your fleet from one dashboard", "GPS tracking & vehicle controls"],
     tools: ["Direct operations", "Marketplace demand", "Custom storefront", "Payments options", "Growth tools"],
@@ -191,7 +191,7 @@ export function planDefaults(mode, answers = {}, recommendedMode = mode, options
     active_mode: isMarketplace ? "marketplace_partner" : "none",
     status: isMarketplace ? "active" : "pending_payment",
     marketplace_enabled: mode !== "fleetos_professional",
-    marketplace_fee_rate: mode === "fleetos_professional" ? 0 : mode === "hybrid_growth" ? 0.04 : 0.08,
+    marketplace_fee_rate: mode === "fleetos_professional" ? 0 : mode === "hybrid_growth" ? 0.05 : 0.08,
     monthly_subscription_amount: isMarketplace ? 0 : 29.99,
     payment_mode: paymentMode,
     uses_uride_payments: usesUridePayments,

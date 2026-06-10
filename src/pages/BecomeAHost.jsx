@@ -32,7 +32,7 @@ const OPTIONS = [
     id: "hybrid_growth",
     goal: "Both",
     label: "Grow Faster With Both",
-    price: "$29.99/month + 4%",
+    price: "$29.99/month + 5%",
     bullets: ["Marketplace renters", "Your own customers", "One operating system", "Remote vehicle control"],
   },
 ];
