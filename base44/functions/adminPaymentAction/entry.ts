@@ -476,6 +476,27 @@ Deno.serve(async (req) => {
           }
         }
 
+        // --- OPTION B GUARD: Void orphaned pending HostPayouts for this booking ---
+        // Any HostPayout that is 'pending' with no stripe_transfer_id and no stripe_payment_intent_id
+        // is an orphan (created before Stripe confirmed). Void them now that manual payment is recorded.
+        if (booking.host_id) {
+          const orphanPayouts = await base44.asServiceRole.entities.HostPayout.filter({
+            booking_request_id: booking_request_id,
+          });
+          for (const op of orphanPayouts) {
+            if (['pending', 'processing'].includes(op.status) && !op.stripe_transfer_id && !op.stripe_payment_intent_id) {
+              await base44.asServiceRole.entities.HostPayout.update(op.id, {
+                status: 'failed',
+                hold_reason: 'admin_override',
+                hold_notes: `VOIDED: Orphaned HostPayout — no Stripe transfer. Manual ${payment_method} payment of $${payAmount} recorded by ${user.email} on ${new Date().toISOString().slice(0,10)}. Accounting handled via HostReceivable + PaymentLog.`,
+                held_at: new Date().toISOString(),
+                held_by: user.email,
+              }).catch(e => console.warn('[record_manual_payment] orphan payout void failed:', e.message));
+              console.log(`[record_manual_payment] Voided orphaned HostPayout ${op.id} for booking ${booking_request_id}`);
+            }
+          }
+        }
+
         // Determine if booking is in a delinquent state that needs restoration
         const delinquentStatuses = ['payment_due', 'grace_period', 'suspended'];
         const needsRestore = delinquentStatuses.includes(booking.booking_status) ||

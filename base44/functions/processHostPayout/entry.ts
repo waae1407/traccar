@@ -75,6 +75,21 @@ Deno.serve(async (req) => {
       return Response.json({ error: "Payout is not eligible for execution" }, { status: 400 });
     }
 
+    // ── OPTION C GUARD: Reject orphaned payouts (no Stripe backing) ──────────
+    // A HostPayout must have either a stripe_payment_intent_id (weekly autopay)
+    // or a booking_request_id (initial checkout). If neither exists, this is an
+    // orphan created before Stripe confirmed — block execution and auto-void it.
+    if (!payout.stripe_payment_intent_id && !payout.booking_request_id) {
+      await base44.asServiceRole.entities.HostPayout.update(payout.id, {
+        status: 'failed',
+        hold_reason: 'admin_override',
+        hold_notes: `AUTO-VOIDED by processHostPayout: No stripe_payment_intent_id and no booking_request_id. This payout has no Stripe backing and cannot be transferred. Likely created before Stripe confirmed payment. Correct accounting should be in HostReceivable + PaymentLog.`,
+        held_at: new Date().toISOString(),
+        held_by: 'processHostPayout_guard',
+      }).catch(e => console.error('[HostPayout] auto-void failed:', e.message));
+      return Response.json({ error: "Rejected: orphaned payout with no Stripe PaymentIntent or booking reference. Payout has been auto-voided. Check HostReceivable for correct accounting." }, { status: 422 });
+    }
+
     // ── 2. Load Host ─────────────────────────────────────────────────────────
     const hosts = await base44.asServiceRole.entities.Host.filter({ id: payout.host_id });
     const host = hosts[0];
