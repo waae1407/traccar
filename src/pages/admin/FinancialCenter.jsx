@@ -1,6 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { formatPaymentSource, formatPaymentReference, sanitizeInternalText } from '@/lib/displayFormatters';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -50,19 +51,19 @@ export default function FinancialCenter() {
 
       {/* Top metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard label="GMV (Collected)" value={`$${(s?.gmv || 0).toLocaleString()}`} sub="PaymentLog paid only" color="text-green-400" />
-        <MetricCard label="Platform Commission" value={`$${(s?.platform_commission || 0).toLocaleString()}`} sub="HostPayout.uride_platform_fee" color="text-primary" />
-        <MetricCard label="Net Host Paid Out" value={`$${(s?.net_host_paid_out || 0).toLocaleString()}`} sub="HostPayout.net_host_payout" />
+        <MetricCard label="GMV (Collected)" value={`$${(s?.gmv || 0).toLocaleString()}`} sub="Paid payment records only" color="text-green-400" />
+        <MetricCard label="Platform Commission" value={`$${(s?.platform_commission || 0).toLocaleString()}`} sub="Platform fees from payouts" color="text-primary" />
+        <MetricCard label="Net Host Paid Out" value={`$${(s?.net_host_paid_out || 0).toLocaleString()}`} sub="Net host payout total" />
         <MetricCard label="Active MRR" value={`$${(s?.active_mrr || 0).toFixed(2)}`} sub={s?.trialing_projected_mrr > 0 ? `+$${s.trialing_projected_mrr.toFixed(2)} projected (trialing)` : 'Active subscriptions only'} />
         <MetricCard label="Amount at Risk" value={`$${(s?.amount_at_risk || 0).toFixed(2)}`} sub={`${s?.failed_payment_booking_count || 0} bookings`} color={s?.amount_at_risk > 0 ? 'text-red-400' : ''} warning={s?.amount_at_risk > 0} />
         <MetricCard label="Chargeback Exposure" value={`$${(s?.chargeback_exposure || 0).toFixed(2)}`} color={s?.chargeback_exposure > 0 ? 'text-red-400' : ''} warning={s?.chargeback_exposure > 0} />
-        <MetricCard label="Stripe Fees" value={`$${(s?.stripe_fees || 0).toFixed(2)}`} sub="From HostPayout records" />
-        <MetricCard label="Starter Disabled" value={s?.starter_disabled_count || 0} sub="Active enforcement" color={s?.starter_disabled_count > 0 ? 'text-red-400' : ''} />
+        <MetricCard label="Processing Fees" value={`$${(s?.stripe_fees || 0).toFixed(2)}`} sub="From payout records" />
+        <MetricCard label="Vehicle Access Restricted" value={s?.starter_disabled_count || 0} sub="Active payment enforcement" color={s?.starter_disabled_count > 0 ? 'text-red-400' : ''} />
       </div>
 
       {s?.fleetos_direct_revenue > 0 && (
         <Alert className="border-blue-500/30 bg-blue-500/10 py-2">
-          <AlertDescription className="text-blue-300 text-xs">ℹ FleetOS direct revenue detected (${s.fleetos_direct_revenue.toFixed(2)}) — these payments flow through host Stripe, not uRide platform funds. They are excluded from commission calculations.</AlertDescription>
+          <AlertDescription className="text-blue-300 text-xs">ℹ Direct host payment revenue detected (${s.fleetos_direct_revenue.toFixed(2)}) — these payments flow through the host's own payment processor, not uRide platform funds. They are excluded from commission calculations.</AlertDescription>
         </Alert>
       )}
 
@@ -109,8 +110,8 @@ export default function FinancialCenter() {
                 <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
                 <div>
                   <p className="font-medium">${(p.amount || 0).toFixed(2)} · Week {p.week_number} · {p.customer_name || p.customer_email}</p>
-                  <p className="text-muted-foreground text-xs">{p.paid_at ? format(new Date(p.paid_at), 'MMM d, yyyy') : '—'} · {p.source_type}</p>
-                  {!p.stripe_payment_intent_id && p.payment_method === 'stripe' && <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Missing Stripe ID</Badge>}
+                  <p className="text-muted-foreground text-xs">{p.paid_at ? format(new Date(p.paid_at), 'MMM d, yyyy') : '—'} · {formatPaymentSource(p.source_type)}</p>
+                  {!p.stripe_payment_intent_id && p.payment_method === 'stripe' && <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">No payment reference on file</Badge>}
                 </div>
               </div>
               <div className="text-right text-xs text-muted-foreground">{p.host_id?.slice(-6)}</div>
@@ -142,7 +143,7 @@ export default function FinancialCenter() {
                 <div><p className="font-medium">{b.customer_full_name || b.user_email}</p><p className="text-muted-foreground text-xs">{b.vehicle_name || '—'} · ${b.weekly_rate || 0}/wk</p></div>
                 <div className="text-right"><SBadge status={b.booking_status} /><p className="text-xs text-muted-foreground mt-0.5">Attempts: {b.payment_failure_attempts || 0}</p></div>
               </div>
-              {(b.starter_disabled || b.moovetrax_kill_active) && <Badge className="bg-red-500/20 text-red-400 text-xs mt-1">⚡ Starter Disabled</Badge>}
+              {(b.starter_disabled || b.moovetrax_kill_active) && <Badge className="bg-red-500/20 text-red-400 text-xs mt-1">⚡ Vehicle access restricted</Badge>}
             </div>
           ))}
           {!data?.collections?.failed_payment_bookings?.length && <p className="text-muted-foreground text-sm">No failed payment bookings.</p>}
@@ -158,7 +159,7 @@ export default function FinancialCenter() {
             <div key={p.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
               <div>
                 <p className="font-medium">{p.host_name} — Net: <span className="text-green-400">${(p.net_host_payout || p.net_payout || 0).toFixed(2)}</span></p>
-                <p className="text-muted-foreground text-xs">Gross: ${(p.gross_booking_amount || 0).toFixed(2)} · Fees: ${(p.uride_platform_fee_amount || 0).toFixed(2)} · Transfer: {p.stripe_transfer_id?.slice(-8) || '—'}</p>
+                <p className="text-muted-foreground text-xs">Gross: ${(p.gross_booking_amount || 0).toFixed(2)} · Platform fee: ${(p.uride_platform_fee_amount || 0).toFixed(2)} · Ref: {p.stripe_transfer_id ? formatPaymentReference(p.stripe_transfer_id, 'admin') : '—'}</p>
                 {p._synthesized && <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Estimated / Not Created</Badge>}
               </div>
               <SBadge status={p.status} />
@@ -175,7 +176,7 @@ export default function FinancialCenter() {
           </div>
           {[...(data?.subscriptions?.active || []), ...(data?.subscriptions?.trialing || [])].map(s => (
             <div key={s.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
-              <div><p className="font-medium">{s.plan_mode?.replace(/_/g,' ')} — {s.host_id?.slice(-8)}</p><p className="text-muted-foreground text-xs">${(s.monthly_amount || 0).toFixed(2)}/mo · {s.stripe_subscription_id?.slice(-8) || '—'}</p></div>
+              <div><p className="font-medium">{s.plan_mode?.replace(/_/g,' ')} — {s.host_id?.slice(-8)}</p><p className="text-muted-foreground text-xs">${(s.monthly_amount || 0).toFixed(2)}/mo · Ref: {s.stripe_subscription_id ? formatPaymentReference(s.stripe_subscription_id, 'admin') : '—'}</p></div>
               <SBadge status={s.status} />
             </div>
           ))}

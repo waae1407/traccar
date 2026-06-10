@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { sanitizeInternalText, formatCommandStatus } from "@/lib/displayFormatters";
 import { Link, useOutletContext } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays } from "date-fns";
@@ -131,8 +132,8 @@ export default function MyVehicle() {
 
   const recentActivity = useMemo(() => {
     const rentalEvents = events.filter((event) => event.booking_request_id === booking?.id || event.booking_id === booking?.id || event.vehicle_id === booking?.vehicle_id)
-      .map((event) => ({ id: event.id, type: "Activity", title: eventTitle(event), detail: event.event_description || event.event_status || "Rental timeline updated", date: event.created_date }));
-    const commandEvents = commands.map((command) => ({ id: command.id, type: "Vehicle", title: commandTitle(command), detail: command.queue_status || command.status, date: command.created_date || command.created_at }));
+      .map((event) => ({ id: event.id, type: "Activity", title: eventTitle(event), detail: sanitizeInternalText(event.event_description || event.event_status || "Rental timeline updated"), date: event.created_date }));
+    const commandEvents = commands.map((command) => ({ id: command.id, type: "Vehicle", title: commandTitle(command), detail: formatCommandStatus(command.queue_status || command.status), date: command.created_date || command.created_at }));
     const notices = notifications.slice(0, 4).map((notice) => ({ id: notice.id, type: "Notice", title: notice.title || "Important Notice", detail: notice.body, date: notice.created_date }));
     return [...commandEvents, ...rentalEvents, ...notices].filter((item) => item.title).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 8);
   }, [events, commands, notifications, booking]);

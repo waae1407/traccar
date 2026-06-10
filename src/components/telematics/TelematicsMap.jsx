@@ -220,7 +220,7 @@ export default function TelematicsMap({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-3">
         <div>
           <p className="flex items-center gap-2 text-sm font-black"><Satellite className="h-4 w-4 text-primary" /> Fleet GPS Map</p>
-          <p className="text-xs text-muted-foreground">Near-real-time cached location. Not true live streaming.</p>
+          <p className="text-xs text-muted-foreground">Cached GPS location — updated periodically, not live streaming.</p>
           <p className="text-xs font-semibold text-primary">Map devices with coordinates: {located.length}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

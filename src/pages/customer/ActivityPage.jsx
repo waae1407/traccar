@@ -1,5 +1,6 @@
 import React from "react";
 import { base44 } from "@/api/base44Client";
+import { sanitizeInternalText } from "@/lib/displayFormatters";
 import { useQuery } from "@tanstack/react-query";
 import { useOutletContext } from "react-router-dom";
 import { DollarSign, FileText, ShieldCheck, Activity, CheckCircle2, AlertCircle, Clock, Car, PenLine } from "lucide-react";
@@ -164,14 +165,14 @@ export default function ActivityPage() {
                     </div>
                     <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm px-4 py-3">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="font-bold text-gray-900 text-sm">{ev.event_title}</p>
+                        <p className="font-bold text-gray-900 text-sm">{sanitizeInternalText(ev.event_title)}</p>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
                           ev.event_status === "success" ? "bg-green-100 text-green-700" :
                           ev.event_status === "warning" ? "bg-amber-100 text-amber-700" :
                           ev.event_status === "error" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-500"
-                        }`}>{ev.event_status}</span>
+                        }`}>{ev.event_status === 'success' ? 'Completed' : ev.event_status === 'warning' ? 'Attention' : ev.event_status === 'error' ? 'Issue' : ev.event_status || 'Update'}</span>
                       </div>
-                      {ev.event_description && <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{ev.event_description}</p>}
+                      {ev.event_description && <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{sanitizeInternalText(ev.event_description)}</p>}
                       {ev.amount && <p className="text-sm font-black text-emerald-600 mt-1">${ev.amount.toLocaleString()}</p>}
                       <p className="text-[10px] text-gray-300 mt-1.5">{ev.created_date ? format(new Date(ev.created_date), "MMM d, yyyy · h:mm a") : ""}</p>
                     </div>

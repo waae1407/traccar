@@ -77,7 +77,7 @@ export default function PaymentOperationalAlertPanel({ scope = "admin", hostId =
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-black uppercase tracking-wide">{alert.severity}</span>
-                    <span className="text-[10px] font-bold opacity-60">{alert.billing_context}</span>
+                    <span className="text-[10px] font-bold opacity-60">{alert.billing_context?.replace(/_/g, ' ')}</span>
                   </div>
                   <p className="font-black text-sm mt-1">{alert.title}</p>
                   <p className="text-xs mt-1 opacity-80">{alert.message}</p>

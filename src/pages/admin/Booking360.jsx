@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { formatPaymentSource, formatVehicleAction, formatPaymentReference, formatActivityMessage, sanitizeInternalText } from '@/lib/displayFormatters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -81,7 +82,7 @@ export default function Booking360() {
                   <div><p className="text-muted-foreground text-xs">Retries</p><p>{ps?.payment_failure_attempts || 0}</p></div>
                   <div><p className="text-muted-foreground text-xs">Next Billing</p><p>{ps?.next_billing_date || '—'}</p></div>
                 </div>
-                {ps?.starter_disabled && <div className="flex items-center gap-2 rounded bg-red-500/10 border border-red-500/30 px-2 py-1"><Zap className="h-3 w-3 text-red-400" /><span className="text-red-400 text-xs font-bold">Starter DISABLED</span></div>}
+                {ps?.starter_disabled && <div className="flex items-center gap-2 rounded bg-red-500/10 border border-red-500/30 px-2 py-1"><Zap className="h-3 w-3 text-red-400" /><span className="text-red-400 text-xs font-bold">Vehicle access restricted</span></div>}
               </CardContent>
             </Card>
             <Card className="bg-card border-border">
@@ -98,7 +99,7 @@ export default function Booking360() {
 
           <Tabs defaultValue="payments">
             <TabsList className="flex-wrap h-auto gap-1">
-              {[['payments','Payment Logs'],['payouts','Payouts'],['telematics','Telematics'],['inspections','Inspections'],['disputes','Disputes'],['comms','Comms'],['activity','Activity']].map(([v,l]) => (
+              {[['payments','Payments'],['payouts','Payouts'],['telematics','Vehicle Actions'],['inspections','Inspections'],['disputes','Disputes'],['comms','Comms'],['activity','Activity']].map(([v,l]) => (
                 <TabsTrigger key={v} value={v}>{l}</TabsTrigger>
               ))}
             </TabsList>
@@ -109,15 +110,15 @@ export default function Booking360() {
                   <div className="flex items-center gap-3">
                     {p.status === 'paid' ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
                     <div>
-                      <p className="font-medium">${(p.amount || 0).toFixed(2)} · Week {p.week_number} · {p.source_type}</p>
+                      <p className="font-medium">${(p.amount || 0).toFixed(2)} · Week {p.week_number} · {formatPaymentSource(p.source_type)}</p>
                       <p className="text-muted-foreground text-xs">{p.paid_at ? format(new Date(p.paid_at), 'MMM d, yyyy') : '—'}</p>
-                      {p.stripe_payment_intent_id && <p className="text-muted-foreground font-mono text-xs">PI: {p.stripe_payment_intent_id.slice(-12)}</p>}
+                      {p.stripe_payment_intent_id && <p className="text-muted-foreground text-xs">Ref {formatPaymentReference(p.stripe_payment_intent_id, 'admin')}</p>}
                     </div>
                   </div>
                   <SBadge status={p.status} />
                 </div>
               ))}
-              {!data.payment_logs?.length && <p className="text-muted-foreground text-sm">No PaymentLog records found.</p>}
+              {!data.payment_logs?.length && <p className="text-muted-foreground text-sm">No payment records found.</p>}
             </TabsContent>
 
             <TabsContent value="payouts" className="mt-4 space-y-2">
@@ -125,26 +126,26 @@ export default function Booking360() {
                 <div key={p.id} className="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
                   <div>
                     <p className="font-medium">Net: ${(p.net_host_payout || p.net_payout || 0).toFixed(2)} · Gross: ${(p.gross_booking_amount || 0).toFixed(2)}</p>
-                    <p className="text-muted-foreground text-xs">Stripe Transfer: {p.stripe_transfer_id || '—'}</p>
-                    <p className="text-muted-foreground text-xs">Platform fee: ${(p.uride_platform_fee_amount || 0).toFixed(2)} · Stripe fee: ${(p.stripe_fee_amount || 0).toFixed(2)}</p>
+                    <p className="text-muted-foreground text-xs">Transfer ref: {p.stripe_transfer_id ? formatPaymentReference(p.stripe_transfer_id, 'admin') : '—'}</p>
+                    <p className="text-muted-foreground text-xs">Platform fee: ${(p.uride_platform_fee_amount || 0).toFixed(2)} · Processing fee: ${(p.stripe_fee_amount || 0).toFixed(2)}</p>
                   </div>
                   <SBadge status={p.status} />
                 </div>
               ))}
-              {!data.payouts?.length && <p className="text-muted-foreground text-sm">No HostPayout records found.</p>}
+              {!data.payouts?.length && <p className="text-muted-foreground text-sm">No payout records found.</p>}
             </TabsContent>
 
             <TabsContent value="telematics" className="mt-4 space-y-2">
               {data.telematics_commands?.map(cmd => (
                 <div key={cmd.id} className="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
                   <div>
-                    <p className="font-medium">{cmd.command_type?.replace(/_/g, ' ')} · {cmd.production_command ? <span className="text-green-400 text-xs">LIVE</span> : <span className="text-muted-foreground text-xs">dry-run</span>}</p>
+                    <p className="font-medium">{formatVehicleAction(cmd.command_type)} {cmd.production_command ? <span className="text-green-400 text-xs">· Live command</span> : <span className="text-muted-foreground text-xs">· Test mode</span>}</p>
                     <p className="text-muted-foreground text-xs">{cmd.requested_by} · {cmd.created_at ? format(new Date(cmd.created_at), 'MMM d, h:mm a') : '—'}</p>
                   </div>
                   <SBadge status={cmd.queue_status || cmd.status} />
                 </div>
               ))}
-              {!data.telematics_commands?.length && <p className="text-muted-foreground text-sm">No telematics commands found.</p>}
+              {!data.telematics_commands?.length && <p className="text-muted-foreground text-sm">No vehicle actions found.</p>}
             </TabsContent>
 
             <TabsContent value="inspections" className="mt-4 space-y-2">
@@ -185,7 +186,7 @@ export default function Booking360() {
               {data.activity_events?.map(e => (
                 <div key={e.id} className="flex gap-3 text-xs py-1.5 border-b border-border">
                   <Activity className="h-3 w-3 text-muted-foreground mt-0.5 flex-shrink-0" />
-                  <div><p>{e.summary || e.event_type}</p><p className="text-muted-foreground">{e.created_date ? format(new Date(e.created_date), 'MMM d, h:mm a') : '—'} · {e.actor_email}</p></div>
+                  <div><p>{sanitizeInternalText(e.summary || formatActivityMessage(e.event_type))}</p><p className="text-muted-foreground">{e.created_date ? format(new Date(e.created_date), 'MMM d, h:mm a') : '—'} · {e.actor_email}</p></div>
                 </div>
               ))}
               {!data.activity_events?.length && <p className="text-muted-foreground text-sm">No activity found.</p>}

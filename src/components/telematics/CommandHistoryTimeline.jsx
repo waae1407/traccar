@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { commandLabel, normalizeCommandName } from "@/lib/telematics/commandVocabulary";
+import { formatCommandStatus } from "@/lib/displayFormatters";
 
 function fmt(value) {
   return value ? new Date(value).toLocaleString() : "—";
@@ -34,10 +35,10 @@ export default function CommandHistoryTimeline({ commands = [], vehiclesById = {
                 <p className="text-xs text-muted-foreground">
                   {command.requested_by || "system"} · {command.requested_role || "—"} · {fmt(command.sent_at || command.created_at || command.created_date)}
                 </p>
-                {!compact && <p className="text-xs text-muted-foreground mt-1">Vehicle: {vehicle?.display_name || vehicle?.vin || command.vehicle_id || "—"} · Device: {device?.unique_id || command.device_unique_id || command.telematics_device_id || "—"}</p>}
+                {!compact && <p className="text-xs text-muted-foreground mt-1">Vehicle: {vehicle?.display_name || vehicle?.vin || (command.vehicle_id ? `…${command.vehicle_id.slice(-6)}` : "—")} · Device: {device?.unique_id || command.device_unique_id || (command.telematics_device_id ? `…${command.telematics_device_id.slice(-6)}` : "—")}</p>}
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline">{status}</Badge>
+              <Badge variant="outline">{formatCommandStatus(status)}</Badge>
                 <Button size="sm" variant="outline" onClick={() => setExpanded(isExpanded ? null : command.id)}>{isExpanded ? "Hide" : "Details"}</Button>
               </div>
             </div>
@@ -48,7 +49,7 @@ export default function CommandHistoryTimeline({ commands = [], vehiclesById = {
                 <Info label="Latency" value={latency(command)} />
                 <Info label="Failure" value={command.failure_reason || "—"} />
                 <div className="sm:col-span-2">
-                  <p className="font-bold text-muted-foreground">Provider response</p>
+                  <p className="font-bold text-muted-foreground">System response</p>
                   <pre className="mt-1 max-h-40 overflow-auto rounded-lg bg-black/20 p-2 text-[10px] whitespace-pre-wrap">{JSON.stringify(command.provider_response || {}, null, 2)}</pre>
                 </div>
               </div>

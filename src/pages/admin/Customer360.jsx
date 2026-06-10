@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { formatPaymentSource, formatVehicleAction, formatActivityMessage, formatPaymentReference, sanitizeInternalText } from '@/lib/displayFormatters';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -40,10 +41,10 @@ function PaymentSummaryCard({ ps, warnings }) {
           <div><p className="text-muted-foreground text-xs">Amount at Risk</p><p className={`font-medium ${ps?.amount_at_risk > 0 ? 'text-red-400' : 'text-muted-foreground'}`}>${(ps?.amount_at_risk || 0).toFixed(2)}</p></div>
         </div>
         {ps?.starter_disabled && (
-          <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2">
-            <Zap className="h-4 w-4 text-red-400" />
-            <span className="text-red-400 text-xs font-semibold">Starter access is DISABLED</span>
-          </div>
+        <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-2">
+        <Zap className="h-4 w-4 text-red-400" />
+        <span className="text-red-400 text-xs font-semibold">Vehicle access restricted</span>
+        </div>
         )}
         {ps?.grace_period_ends_at && (
           <div className="flex items-center gap-2 rounded-lg bg-orange-500/10 border border-orange-500/30 px-3 py-2">
@@ -157,13 +158,13 @@ export default function Customer360() {
                     {p.status === 'paid' ? <CheckCircle className="h-4 w-4 text-green-400" /> : <XCircle className="h-4 w-4 text-red-400" />}
                     <div>
                       <p className="font-medium">${(p.amount || 0).toFixed(2)} — Week {p.week_number}</p>
-                      <p className="text-muted-foreground text-xs">{p.paid_at ? format(new Date(p.paid_at), 'MMM d, yyyy h:mm a') : '—'} · {p.source_type}</p>
+                      <p className="text-muted-foreground text-xs">{p.paid_at ? format(new Date(p.paid_at), 'MMM d, yyyy h:mm a') : '—'} · {formatPaymentSource(p.source_type)}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <StatusBadge status={p.status} />
-                    {p.stripe_payment_intent_id && <p className="text-muted-foreground text-xs mt-0.5 font-mono">{p.stripe_payment_intent_id.slice(-8)}</p>}
-                    {!p.stripe_payment_intent_id && p.payment_method === 'stripe' && <Badge className="bg-yellow-500/20 text-yellow-400 text-xs ml-1">Missing Stripe ID</Badge>}
+                    {p.stripe_payment_intent_id && <p className="text-muted-foreground text-xs mt-0.5">Ref {formatPaymentReference(p.stripe_payment_intent_id, 'admin')}</p>}
+                    {!p.stripe_payment_intent_id && p.payment_method === 'stripe' && <Badge className="bg-yellow-500/20 text-yellow-400 text-xs ml-1">No payment reference</Badge>}
                   </div>
                 </div>
               ))}
@@ -190,17 +191,17 @@ export default function Customer360() {
             </TabsContent>
 
             <TabsContent value="telematics" className="space-y-3 mt-4">
-              <h3 className="text-sm font-semibold text-muted-foreground">Telematics Commands ({data.telematics_commands?.length || 0})</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground">Vehicle Actions ({data.telematics_commands?.length || 0})</h3>
               {data.telematics_commands?.map(cmd => (
                 <div key={cmd.id} className="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
                   <div>
-                    <p className="font-medium">{cmd.command_type?.replace(/_/g, ' ')}</p>
+                    <p className="font-medium">{formatVehicleAction(cmd.command_type)}</p>
                     <p className="text-muted-foreground text-xs">{cmd.created_at ? format(new Date(cmd.created_at), 'MMM d, h:mm a') : '—'} · by {cmd.requested_by}</p>
                   </div>
                   <StatusBadge status={cmd.queue_status || cmd.status} />
                 </div>
               ))}
-              {!data.telematics_commands?.length && <p className="text-muted-foreground text-sm">No telematics commands found.</p>}
+              {!data.telematics_commands?.length && <p className="text-muted-foreground text-sm">No vehicle actions found.</p>}
               {data.inspections?.map(i => (
                 <div key={i.id} className="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
                   <div>
@@ -244,7 +245,7 @@ export default function Customer360() {
                 <div key={e.id} className="flex gap-3 text-xs py-2 border-b border-border">
                   <Activity className="h-3 w-3 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-foreground">{e.summary || e.event_type}</p>
+                    <p className="text-foreground">{sanitizeInternalText(e.summary || formatActivityMessage(e.event_type))}</p>
                     <p className="text-muted-foreground">{e.created_date ? format(new Date(e.created_date), 'MMM d, h:mm a') : '—'} · {e.actor_email}</p>
                   </div>
                 </div>

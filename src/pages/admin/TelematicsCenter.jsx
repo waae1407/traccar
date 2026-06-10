@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Wifi, WifiOff, Zap, CheckCircle, XCircle, ChevronLeft, ChevronRight, RefreshCw, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatVehicleAction, formatCommandStatus, formatGpsFreshnessLabel } from '@/lib/displayFormatters';
 
 // ── helpers ─────────────────────────────────────────────────────
 function MetricCard({ label, value, sub, color }) {
@@ -112,8 +113,8 @@ function DevicesTab({ activeTab, scopeParams }) {
             <div>
               <p className="font-medium">{d.unique_id} — {d.provider_key}</p>
               <p className="text-muted-foreground text-xs">
-                {d.vehicle ? `${d.vehicle.year} ${d.vehicle.make} ${d.vehicle.model}` : 'No vehicle'}
-                {' · Last: '}{d.last_seen_at ? format(new Date(d.last_seen_at), 'MMM d, h:mm a') : 'never'}
+                {d.vehicle ? `${d.vehicle.year} ${d.vehicle.make} ${d.vehicle.model}` : 'No vehicle assigned'}
+                {' · Last seen: '}{d.last_seen_at ? format(new Date(d.last_seen_at), 'MMm d, h:mm a') : 'never'}
               </p>
               {d.is_stale && <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Stale heartbeat</Badge>}
             </div>
@@ -153,7 +154,7 @@ function CommandsTab({ activeTab, scopeParams }) {
                 ? <CheckCircle className="h-4 w-4 text-green-400" />
                 : <div className="h-4 w-4 rounded-full border-2 border-yellow-400 border-t-transparent animate-spin" />}
             <div>
-              <p className="font-medium">{cmd.command_type?.replace(/_/g, ' ')} {cmd.production_command && <span className="text-green-400 text-xs">LIVE</span>}</p>
+              <p className="font-medium">{cmd.command_type ? cmd.command_type.replace(/_/g, ' ') : '—'} {cmd.production_command && <span className="text-green-400 text-xs">Live</span>}</p>
               <p className="text-muted-foreground text-xs">{cmd.requested_by} · {cmd.created_at ? format(new Date(cmd.created_at), 'MMM d, h:mm a') : '—'}</p>
               {cmd.failure_reason && <p className="text-red-400 text-xs">{cmd.failure_reason}</p>}
             </div>
@@ -204,7 +205,7 @@ function OfflineTab({ offlineSummary }) {
         <div key={d.id} className="flex items-center justify-between rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm">
           <div>
             <p className="font-medium">{d.unique_id}</p>
-            <p className="text-muted-foreground text-xs">Last seen: {d.last_seen_at ? format(new Date(d.last_seen_at), 'MMM d, h:mm a') : 'never'} · {d.provider_key}</p>
+            <p className="text-muted-foreground text-xs">Last seen: {d.last_seen_at ? format(new Date(d.last_seen_at), 'MMM d, h:mm a') : 'never'} · GPS device</p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <SBadge status={d.online_status} />
@@ -307,7 +308,7 @@ function MapTab({ activeTab, scopeParams }) {
     <div className="space-y-2 mt-4">
       {isLoading && <p className="text-muted-foreground text-sm py-4">Loading GPS positions…</p>}
       {!isLoading && (
-        <p className="text-xs text-muted-foreground mb-2">{positions.length} device(s) with GPS position · Latest positions only</p>
+        <p className="text-xs text-muted-foreground mb-2">{positions.length} device(s) with cached GPS location · Not live streaming</p>
       )}
       {!isLoading && positions.map(d => (
         <div key={d.id} className="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
@@ -390,7 +391,7 @@ export default function TelematicsCenter() {
         <MetricCard label="Offline" value={kpis?.offline_count} color={kpis?.offline_count > 0 ? 'text-red-400' : ''} />
         <MetricCard label="Stale Heartbeat" value={kpis?.stale_count} color={kpis?.stale_count > 0 ? 'text-yellow-400' : ''} />
         <MetricCard label="Starter Disabled" value={kpis?.starter_disabled_count} color={kpis?.starter_disabled_count > 0 ? 'text-red-400' : ''} />
-        <MetricCard label="Commands Failed" value={kpis?.command_failed_count} color={kpis?.command_failed_count > 0 ? 'text-red-400' : ''} sub="last 50" />
+        <MetricCard label="Actions Failed" value={kpis?.command_failed_count} color={kpis?.command_failed_count > 0 ? 'text-red-400' : ''} sub="last 50 actions" />
         <MetricCard label="Active Alarms" value={kpis?.active_alarms} color={kpis?.active_alarms > 0 ? 'text-orange-400' : ''} />
         <MetricCard label="Pending QA" value={kpis?.installs_pending_qa} color={kpis?.installs_pending_qa > 0 ? 'text-yellow-400' : ''} />
       </div>
