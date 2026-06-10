@@ -307,6 +307,175 @@ Deno.serve(async (req) => {
         return Response.json({ ok: true, action: "vehicle_killed" });
       }
 
+      case "record_manual_payment": {
+        // Permanent fix: log admin_manual payment and auto-restore booking if now current
+        const {
+          payment_method = 'zelle',
+          week_number,
+          amount: payAmount,
+          billing_period_start,
+          billing_period_end,
+          external_reference = '',
+          notes: payNotes = '',
+        } = body;
+
+        if (!payAmount || payAmount <= 0) {
+          return Response.json({ error: "amount is required and must be positive" }, { status: 400 });
+        }
+
+        const weekNum = week_number || booking.billing_week_number || 0;
+        const today = new Date().toISOString().slice(0, 10);
+        const dedupeKey = `payment:admin_manual:${booking_request_id}:week:${weekNum}:amount:${payAmount}:date:${today}:method:${payment_method}:ref:${external_reference || 'none'}`;
+
+        // Create the PaymentLog entry
+        await base44.asServiceRole.entities.PaymentLog.create({
+          booking_request_id,
+          host_id: booking.host_id || '',
+          customer_email: booking.user_email,
+          customer_name: booking.customer_full_name || '',
+          vehicle_id: booking.vehicle_id || '',
+          vehicle_name: booking.vehicle_name || '',
+          week_number: weekNum,
+          billing_period_start: billing_period_start || today,
+          billing_period_end: billing_period_end || today,
+          amount: payAmount,
+          currency: 'usd',
+          payment_method,
+          source_type: 'admin_manual',
+          source_confidence: external_reference ? 'trusted' : 'partially_trusted',
+          legacy_flag: false,
+          external_reconcilable: !!external_reference,
+          external_reference,
+          dedupe_key: dedupeKey,
+          stripe_payment_intent_id: null,
+          stripe_charge_id: null,
+          status: 'paid',
+          recorded_by: user.email,
+          notes: payNotes,
+          paid_at: new Date().toISOString(),
+        });
+
+        // Determine if booking is in a delinquent state that needs restoration
+        const delinquentStatuses = ['payment_due', 'grace_period', 'suspended'];
+        const needsRestore = delinquentStatuses.includes(booking.booking_status) ||
+          booking.starter_disabled ||
+          booking.moovetrax_kill_active;
+
+        let restored = false;
+        let telematicsNote = null;
+
+        if (needsRestore) {
+          // Update booking to active/paid
+          await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
+            booking_status: 'active',
+            payment_status: 'paid',
+            moovetrax_kill_active: false,
+            starter_disabled: false,
+            payment_failure_attempts: 0,
+            payment_failure_reason: '',
+          });
+
+          // Update vehicle status
+          if (booking.vehicle_id) {
+            await base44.asServiceRole.entities.Vehicle.update(booking.vehicle_id, {
+              status: 'Active Rental',
+            }).catch(e => console.warn('[record_manual_payment] vehicle update failed:', e.message));
+          }
+
+          // Handle telematics starter restore if device exists
+          if (booking.vehicle_id) {
+            const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
+            const vehicle = vehicles[0];
+            const hasDevice = vehicle?.telematics_provider && vehicle.telematics_provider !== 'none' && vehicle.telematics_device_id;
+            const hasMoovetrax = vehicle?.moovetrax_device_id;
+
+            if (hasDevice || hasMoovetrax) {
+              // Use existing sendTelematicsCommand via SDK
+              await base44.asServiceRole.functions.invoke('sendTelematicsCommand', {
+                vehicle_id: booking.vehicle_id,
+                command_type: 'starter_restore',
+                reason: `Admin manual payment recorded — booking restored by ${user.email}`,
+              }).catch(e => console.warn('[record_manual_payment] starter_restore command failed:', e.message));
+              telematicsNote = 'starter_restore_command_sent';
+            } else {
+              telematicsNote = 'no_telematics_device_restore_not_required';
+            }
+          }
+
+          // Resolve any open PaymentOperationalAlerts for this booking
+          const openAlerts = await base44.asServiceRole.entities.PaymentOperationalAlert.filter({
+            booking_id: booking_request_id,
+          });
+          for (const alert of openAlerts) {
+            if (!['resolved', 'dismissed', 'closed'].includes(alert.status)) {
+              await base44.asServiceRole.entities.PaymentOperationalAlert.update(alert.id, {
+                status: 'resolved',
+                resolved_at: new Date().toISOString(),
+                resolved_by: user.email,
+                resolution_notes: `Auto-resolved: admin manual ${payment_method} payment of $${payAmount} recorded by ${user.email}`,
+                manually_actioned: true,
+                manually_actioned_at: new Date().toISOString(),
+                manually_actioned_by: user.email,
+                action_taken: 'manual_payment_recorded',
+              });
+            }
+          }
+
+          // Notify customer
+          await base44.asServiceRole.entities.Notification.create({
+            user_email: booking.user_email,
+            title: '✅ Payment Received — Account Restored',
+            body: `Your $${payAmount} payment for ${booking.vehicle_name} has been recorded. Your account is now in good standing.`,
+            type: 'payment',
+            booking_request_id,
+          });
+
+          // Log ActivityEvent
+          await logEvent(base44, user.email, {
+            event_type: 'admin_manual_payment_restored_booking',
+            target_id: booking_request_id,
+            booking_id: booking_request_id,
+            vehicle_id: booking.vehicle_id || '',
+            host_id: booking.host_id || '',
+            summary: `Admin recorded manual ${payment_method} payment of $${payAmount} — booking restored to active. ${telematicsNote || ''}`,
+            metadata: {
+              payment_method,
+              amount: payAmount,
+              week_number: weekNum,
+              previous_status: booking.booking_status,
+              telematics_note: telematicsNote,
+              recorded_by: user.email,
+            },
+            event_status: 'success',
+          });
+
+          restored = true;
+        } else {
+          // Booking already active — just log the payment, no state change needed
+          await logEvent(base44, user.email, {
+            event_type: 'payment.manual_recorded',
+            target_id: booking_request_id,
+            booking_id: booking_request_id,
+            vehicle_id: booking.vehicle_id || '',
+            host_id: booking.host_id || '',
+            summary: `Admin recorded manual ${payment_method} payment of $${payAmount} — week ${weekNum} — booking already active`,
+            metadata: { payment_method, amount: payAmount, week_number: weekNum, recorded_by: user.email },
+            event_status: 'success',
+          });
+        }
+
+        return Response.json({
+          ok: true,
+          action: 'record_manual_payment',
+          restored,
+          telematics_note: telematicsNote,
+          week_number: weekNum,
+          amount: payAmount,
+          payment_method,
+          dedupe_key: dedupeKey,
+        });
+      }
+
       case "unkill_vehicle": {
         if (booking.vehicle_id) {
           const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
