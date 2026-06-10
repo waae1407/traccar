@@ -94,7 +94,12 @@ Deno.serve(async (req) => {
     const hostMap = Object.fromEntries(hosts.filter(Boolean).map(h => [h.id, h]));
 
     const scopedPaymentLogs = paymentLogs.filter(p => bookingIds.has(p.booking_request_id));
-    const scopedPayouts = payouts.filter(p => bookingIds.has(p.booking_request_id));
+    // Match payouts by booking_request_id OR by host_id (handles orphan rollup payouts with null booking_request_id)
+    const bookingHostIds = new Set(bookings.map(b => b.host_id).filter(Boolean));
+    const scopedPayouts = payouts.filter(p =>
+      bookingIds.has(p.booking_request_id) ||
+      (p.booking_request_id == null && bookingHostIds.has(p.host_id))
+    );
     const scopedActivity = activityEvents.filter(e => bookingIds.has(e.booking_id) || (e.customer_id === customerEmail));
     const scopedDisputes = disputes.filter(d => bookingIds.has(d.booking_request_id) || d.customer_email === customerEmail);
     const scopedComms = communications.filter(c => c.customer_id && bookingIds.has(c.booking_request_id));
@@ -112,9 +117,11 @@ Deno.serve(async (req) => {
     const amountAtRisk = bookings.filter(b => ['payment_due', 'suspended', 'grace_period'].includes(b.booking_status)).reduce((s, b) => s + (b.weekly_rate || 0), 0);
 
     const warnings = [];
-    if (scopedPaymentLogs.some(p => !p.stripe_payment_intent_id && p.payment_method === 'stripe')) warnings.push('Some PaymentLog records are missing Stripe IDs');
+    if (scopedPaymentLogs.some(p => !p.stripe_payment_intent_id && p.payment_method === 'stripe' && p.source_type !== 'backfill')) warnings.push('Some PaymentLog records are missing Stripe IDs');
     if (!customers.length) warnings.push('Customer identity match is email-only — no Customer record found');
-    if (scopedPayouts.length === 0 && paidLogs.length > 0) warnings.push('Paid payments found but no HostPayout records exist for this customer');
+    // Only warn if there are stripe-method paid logs AND no payouts found — manual-only bookings don't generate HostPayouts
+    const stripeMethodPaidLogs = paidLogs.filter(p => p.payment_method === 'stripe');
+    if (scopedPayouts.length === 0 && stripeMethodPaidLogs.length > 0) warnings.push('Paid Stripe payments found but no HostPayout records exist for this customer');
 
     return Response.json({
       customer: {
