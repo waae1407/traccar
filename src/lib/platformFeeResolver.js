@@ -7,13 +7,13 @@
  *
  * Plan defaults:
  *   marketplace_partner  → 8% marketplace commission
- *   hybrid_growth        → 4% hybrid commission
+ *   hybrid_growth        → 5% hybrid commission
  *   fleetos_professional → 0% (subscription-based, no marketplace commission)
  */
 
 const PLAN_FEE_DEFAULTS = {
   marketplace_partner:  { platform_fee_rate: 0.08, requires_platform_fee: true,  label: 'Marketplace Partner (8%)' },
-  hybrid_growth:        { platform_fee_rate: 0.04, requires_platform_fee: true,  label: 'Hybrid Growth (4%)' },
+  hybrid_growth:        { platform_fee_rate: 0.05, requires_platform_fee: true,  label: 'Hybrid Growth (5%)' },
   fleetos_professional: { platform_fee_rate: 0.00, requires_platform_fee: false, label: 'FleetOS Professional (0%)' },
 };
 
