@@ -23,6 +23,7 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
   const [auctionLink, setAuctionLink] = useState('');
   const [vinCopied, setVinCopied] = useState(false);
   const sessionEndedRef = useRef(false);
+  const pingIntervalRef = useRef(null);
 
   // Auto-end session on unmount
   useEffect(() => {
@@ -31,8 +32,32 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
         sessionEndedRef.current = true;
         base44.functions.invoke('acvViewerSession', { action: 'end_session', session_id: sessionId }).catch(() => {});
       }
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
     };
   }, [sessionId]);
+
+  // Idle timeout ping: every 2 minutes, check/refresh last_activity_at
+  useEffect(() => {
+    if (!sessionId || state !== 'active') {
+      if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
+      return;
+    }
+    pingIntervalRef.current = setInterval(async () => {
+      const res = await base44.functions.invoke('acvViewerSession', { action: 'ping_session', session_id: sessionId }).catch(() => null);
+      const data = res?.data;
+      if (!data?.active) {
+        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+        setState('idle');
+        setSessionId(null);
+        setExpiresAt(null);
+        const msg = data?.code === 'SESSION_IDLE_TIMEOUT'
+          ? 'Session expired due to inactivity. Start a new session to continue.'
+          : 'ACV viewer session expired. Start a new session to continue.';
+        toast.info(msg);
+      }
+    }, 2 * 60 * 1000);
+    return () => { if (pingIntervalRef.current) clearInterval(pingIntervalRef.current); };
+  }, [sessionId, state]);
 
   // Auto-expire UI when session reaches max time
   useEffect(() => {
@@ -78,6 +103,7 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
       sessionEndedRef.current = true;
       await base44.functions.invoke('acvViewerSession', { action: 'end_session', session_id: sessionId }).catch(() => {});
     }
+    if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
     setState('idle');
     setSessionId(null);
     setExpiresAt(null);
@@ -87,8 +113,9 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
     if (!vin.trim()) return;
     navigator.clipboard.writeText(vin.trim());
     setVinCopied(true);
-    // Log VIN copy against session
+    // Log VIN copy + update last_activity_at
     if (sessionId) {
+      base44.functions.invoke('acvViewerSession', { action: 'ping_session', session_id: sessionId }).catch(() => {});
       base44.asServiceRole?.entities?.ACVViewerSession?.update(sessionId, { vin_copied: vin.trim() }).catch(() => {});
     }
     toast.success('VIN copied to clipboard');
@@ -97,8 +124,11 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
 
   function handleStartPurchaseRequest() {
     if (sessionId) {
+      // Ping last_activity_at then end
+      base44.functions.invoke('acvViewerSession', { action: 'ping_session', session_id: sessionId }).catch(() => {});
       base44.functions.invoke('acvViewerSession', { action: 'end_session', session_id: sessionId }).catch(() => {});
       sessionEndedRef.current = true;
+      if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
     }
     onStartPurchaseRequest({
       auction_source: 'acv',

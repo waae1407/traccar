@@ -8,12 +8,18 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  * the viewer_session_url. Credentials are NEVER returned.
  *
  * Actions:
- *   start_session  — initiate a viewer session
- *   end_session    — mark a session as ended
- *   list_sessions  — admin: list active/recent sessions
- *   revoke_session — admin: revoke a specific session by id
- *   toggle_viewer  — admin: enable/disable viewer (updates PlatformSetting)
+ *   start_session    — initiate a viewer session
+ *   end_session      — mark a session as ended
+ *   ping_session     — update last_activity_at (idle timeout heartbeat)
+ *   list_sessions    — admin: list active/recent sessions
+ *   revoke_session   — admin: revoke a specific session by id
+ *   toggle_viewer    — admin: enable/disable viewer (updates PlatformSetting)
+ *   cleanup_sessions — admin/scheduler: expire orphaned/idle sessions
  */
+
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;   // 15 minutes
+const MAX_SESSION_MS  = 60 * 60 * 1000;    // 60 minutes
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -28,7 +34,7 @@ Deno.serve(async (req) => {
     const { action = 'start_session', session_id } = body;
 
     // ── ADMIN-ONLY ACTIONS ──────────────────────────────────────────────────
-    if (['list_sessions', 'revoke_session', 'toggle_viewer'].includes(action)) {
+    if (['list_sessions', 'revoke_session', 'toggle_viewer', 'cleanup_sessions'].includes(action)) {
       if (!isAdmin) {
         return Response.json({ error: 'Admin access required' }, { status: 403 });
       }
@@ -66,6 +72,33 @@ Deno.serve(async (req) => {
         });
         return Response.json({ success: true });
       }
+
+      if (action === 'cleanup_sessions') {
+        // Expire sessions where:
+        //   1. expires_at <= now (max duration exceeded)
+        //   2. last_activity_at <= now - 15min (idle timeout)
+        // Both for sessions still marked active
+        const allActive = await base44.asServiceRole.entities.ACVViewerSession.filter({ status: 'active' });
+        const now = Date.now();
+        let expiredCount = 0;
+
+        for (const session of allActive) {
+          const maxExpired = session.expires_at && new Date(session.expires_at).getTime() <= now;
+          const idleExpired = session.last_activity_at
+            ? (now - new Date(session.last_activity_at).getTime()) >= IDLE_TIMEOUT_MS
+            : (now - new Date(session.started_at || 0).getTime()) >= IDLE_TIMEOUT_MS;
+
+          if (maxExpired || idleExpired) {
+            await base44.asServiceRole.entities.ACVViewerSession.update(session.id, {
+              status: 'expired',
+              ended_at: new Date().toISOString(),
+            });
+            expiredCount++;
+          }
+        }
+
+        return Response.json({ success: true, expired_count: expiredCount, checked: allActive.length });
+      }
     }
 
     // ── END SESSION ─────────────────────────────────────────────────────────
@@ -76,6 +109,39 @@ Deno.serve(async (req) => {
         ended_at: new Date().toISOString(),
       });
       return Response.json({ success: true });
+    }
+
+    // ── PING SESSION (idle timeout heartbeat) ────────────────────────────────
+    if (action === 'ping_session') {
+      if (!session_id) return Response.json({ error: 'session_id required' }, { status: 400 });
+
+      const sessions = await base44.asServiceRole.entities.ACVViewerSession.filter({ id: session_id });
+      const session = sessions[0];
+      if (!session) return Response.json({ error: 'Session not found' }, { status: 404 });
+
+      // Check if session should be expired
+      const now = Date.now();
+      const maxExpired = session.expires_at && new Date(session.expires_at).getTime() <= now;
+      const lastActivity = session.last_activity_at || session.started_at;
+      const idleExpired = lastActivity
+        ? (now - new Date(lastActivity).getTime()) >= IDLE_TIMEOUT_MS
+        : false;
+
+      if (session.status !== 'active' || maxExpired || idleExpired) {
+        if (session.status === 'active') {
+          await base44.asServiceRole.entities.ACVViewerSession.update(session_id, {
+            status: 'expired',
+            ended_at: new Date().toISOString(),
+          });
+        }
+        return Response.json({ active: false, code: idleExpired ? 'SESSION_IDLE_TIMEOUT' : 'SESSION_EXPIRED' });
+      }
+
+      // Still valid — update last_activity_at
+      await base44.asServiceRole.entities.ACVViewerSession.update(session_id, {
+        last_activity_at: new Date().toISOString(),
+      });
+      return Response.json({ active: true, expires_at: session.expires_at });
     }
 
     // ── START SESSION ────────────────────────────────────────────────────────
@@ -105,7 +171,7 @@ Deno.serve(async (req) => {
 
     // Create session record
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000); // 60 min max
+    const expiresAt = new Date(now.getTime() + MAX_SESSION_MS);
     const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
@@ -121,6 +187,7 @@ Deno.serve(async (req) => {
       status: 'active',
       started_at: now.toISOString(),
       expires_at: expiresAt.toISOString(),
+      last_activity_at: now.toISOString(),
       ip_address: ipAddress,
       user_agent: userAgent,
     });

@@ -43,6 +43,11 @@
       "type": "string",
       "format": "date-time"
     },
+    "last_activity_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Updated on each viewer interaction; used for 15-minute idle timeout enforcement"
+    },
     "revoked_by": {
       "type": "string"
     },

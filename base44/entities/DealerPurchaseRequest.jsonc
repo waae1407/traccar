@@ -82,7 +82,8 @@
         "cancelled",
         "invoice_pending",
         "payment_due",
-        "completed"
+        "completed",
+        "refunded"
       ],
       "default": "draft"
     },
@@ -116,6 +117,21 @@
         "failed"
       ],
       "default": "pending"
+    },
+    "hold_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the Stripe authorization hold expires (funded_at + 7 days)"
+    },
+    "hold_expiry_warning_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the 48-hour expiry warning was sent"
+    },
+    "hold_expiry_final_warning_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the 24-hour final expiry warning was sent"
     },
     "bid_amount": {
       "type": "number"
@@ -163,6 +179,44 @@
       "type": "string"
     },
     "final_payment_captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "refund_amount": {
+      "type": "number",
+      "description": "Amount refunded via Stripe"
+    },
+    "refund_reason": {
+      "type": "string",
+      "enum": [
+        "auction_cancelled",
+        "seller_withdrew",
+        "vehicle_unavailable",
+        "title_issue",
+        "transport_damage",
+        "administrative_error",
+        "other"
+      ],
+      "description": "Reason for post-capture refund"
+    },
+    "refund_payment_intent_id": {
+      "type": "string",
+      "description": "Stripe PaymentIntent that was refunded"
+    },
+    "refund_stripe_refund_id": {
+      "type": "string",
+      "description": "Stripe Refund object ID"
+    },
+    "refund_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "succeeded",
+        "failed"
+      ],
+      "description": "Status of the Stripe refund"
+    },
+    "refunded_at": {
       "type": "string",
       "format": "date-time"
     },

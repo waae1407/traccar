@@ -3,7 +3,7 @@
  *
  * Creates a Stripe authorization hold for a DealerPurchaseRequest.
  * Hold amount = max_bid * 1.3 (covers bid + fees + uRide concierge + adjustments).
- * If hold succeeds → status = funded.
+ * If hold succeeds → status = funded, hold_expires_at = funded_at + 7 days.
  * If hold fails → do not submit to admin.
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
@@ -83,7 +83,6 @@ Deno.serve(async (req) => {
         stripe_payment_intent_id: paymentIntent.id,
         admin_notes: `Hold failed: ${paymentIntent.status}`,
       });
-      // Notify host of hold failure
       await base44.asServiceRole.entities.Notification.create({
         user_email: pr.host_email,
         title: `Payment Authorization Failed — ${pr.year} ${pr.make} ${pr.model}`,
@@ -93,20 +92,29 @@ Deno.serve(async (req) => {
       return Response.json({ ok: false, error: 'Authorization hold failed. Please check your payment method.', pi_status: paymentIntent.status }, { status: 402 });
     }
 
-    // Hold authorized — update request to funded/ready
-    const now = new Date().toISOString();
+    // Hold authorized — set hold_expires_at = now + 7 days
+    const now = new Date();
+    const fundedAt = now.toISOString();
+    const holdExpiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
     await base44.asServiceRole.entities.DealerPurchaseRequest.update(pr.id, {
       status: 'funded',
       hold_status: 'authorized',
       hold_amount: holdAmount / 100,
+      hold_expires_at: holdExpiresAt,
       stripe_payment_intent_id: paymentIntent.id,
       stripe_customer_id: stripeCustomerId,
       stripe_payment_method_id: stripePaymentMethodId,
-      funded_at: now,
-      submitted_at: now,
+      funded_at: fundedAt,
+      submitted_at: fundedAt,
       activity_log: [
         ...(pr.activity_log || []),
-        { action: 'buying_power_hold_authorized', actor: user.email, note: `Hold of $${(holdAmount / 100).toFixed(2)} authorized. PI: ${paymentIntent.id}`, at: now },
+        {
+          action: 'buying_power_hold_authorized',
+          actor: user.email,
+          note: `Hold of $${(holdAmount / 100).toFixed(2)} authorized. PI: ${paymentIntent.id}. Expires: ${holdExpiresAt}`,
+          at: fundedAt,
+        },
       ],
     });
 
@@ -115,13 +123,13 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.Notification.create({
         user_email: 'admin',
         title: '🚗 New Dealer360 Purchase Request — Funded',
-        body: `${pr.host_name || pr.host_email} submitted a purchase request for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Buying power hold of $${(holdAmount / 100).toFixed(2)} authorized. Ready for bid desk review.`,
+        body: `${pr.host_name || pr.host_email} submitted a purchase request for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Buying power hold of $${(holdAmount / 100).toFixed(2)} authorized. Expires ${new Date(holdExpiresAt).toLocaleDateString()}. Ready for bid desk review.`,
         type: 'payment',
       }),
       base44.asServiceRole.entities.Notification.create({
         user_email: pr.host_email,
         title: `✅ Buying Power Hold Authorized — ${pr.year} ${pr.make} ${pr.model}`,
-        body: `Your buying power hold of $${(holdAmount / 100).toFixed(2)} has been authorized for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Your request has been submitted to the bid desk for review.`,
+        body: `Your buying power hold of $${(holdAmount / 100).toFixed(2)} has been authorized for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Your request has been submitted to the bid desk for review. Hold expires ${new Date(holdExpiresAt).toLocaleDateString()}.`,
         type: 'payment',
       }),
     ]);
@@ -130,13 +138,13 @@ Deno.serve(async (req) => {
       ok: true,
       status: 'funded',
       hold_amount: holdAmount / 100,
+      hold_expires_at: holdExpiresAt,
       payment_intent_id: paymentIntent.id,
       pi_status: paymentIntent.status,
     });
 
   } catch (error) {
     console.error('[dealer360BuyingPowerHold]', error.message);
-    // Stripe card errors
     if (error.type === 'StripeCardError') {
       return Response.json({ ok: false, error: error.message, error_code: 'card_error' }, { status: 402 });
     }

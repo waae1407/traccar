@@ -43,12 +43,22 @@ Deno.serve(async (req) => {
         if (pr.hold_status !== 'authorized' || !pr.stripe_payment_intent_id) {
           return Response.json({ error: 'Cannot mark vehicle won without active Buying Power Hold.', code: 'NO_ACTIVE_HOLD' }, { status: 400 });
         }
-        // Check hold has not expired (Stripe auth holds expire at 7 days; we check 6 days as safety margin)
-        if (pr.funded_at) {
-          const ageMs = Date.now() - new Date(pr.funded_at).getTime();
-          const ageDays = ageMs / (1000 * 60 * 60 * 24);
+        // Check hold_expires_at field (set at hold creation time)
+        if (pr.hold_expires_at) {
+          if (new Date(pr.hold_expires_at).getTime() <= Date.now()) {
+            return Response.json({
+              error: 'Cannot mark vehicle won. Buying Power Hold has expired. Please contact the host to reauthorize.',
+              code: 'HOLD_EXPIRED'
+            }, { status: 400 });
+          }
+        } else if (pr.funded_at) {
+          // Fallback: calculate from funded_at with 6.5-day safety margin
+          const ageDays = (Date.now() - new Date(pr.funded_at).getTime()) / (1000 * 60 * 60 * 24);
           if (ageDays >= 6.5) {
-            return Response.json({ error: 'Cannot mark vehicle won without active Buying Power Hold. The authorization hold may have expired — please verify in Stripe before proceeding.', code: 'HOLD_POSSIBLY_EXPIRED' }, { status: 400 });
+            return Response.json({
+              error: 'Cannot mark vehicle won. Buying Power Hold has expired or is about to expire — please verify in Stripe before proceeding.',
+              code: 'HOLD_POSSIBLY_EXPIRED'
+            }, { status: 400 });
           }
         }
       }
@@ -422,6 +432,96 @@ Base your estimates on current US used car market conditions, mileage depreciati
       });
 
       return Response.json({ ok: true, valuation: result });
+    }
+
+    // ── POST-CAPTURE REFUND ───────────────────────────────────────────────────
+    if (action === 'post_capture_refund') {
+      const { purchase_request_id, refund_reason, refund_amount } = body;
+      const requests = await base44.asServiceRole.entities.DealerPurchaseRequest.filter({ id: purchase_request_id });
+      const pr = requests[0];
+      if (!pr) return Response.json({ error: 'Not found' }, { status: 404 });
+
+      // Only allowed after capture
+      if (!pr.hold_captured || !pr.final_payment_captured_at) {
+        return Response.json({ error: 'Refund only allowed after payment has been captured.', code: 'NOT_CAPTURED' }, { status: 400 });
+      }
+      if (pr.refund_status === 'succeeded') {
+        return Response.json({ error: 'This purchase has already been refunded.', code: 'ALREADY_REFUNDED' }, { status: 409 });
+      }
+
+      const validReasons = ['auction_cancelled', 'seller_withdrew', 'vehicle_unavailable', 'title_issue', 'transport_damage', 'administrative_error', 'other'];
+      if (!refund_reason || !validReasons.includes(refund_reason)) {
+        return Response.json({ error: `refund_reason must be one of: ${validReasons.join(', ')}` }, { status: 400 });
+      }
+
+      const refundablePI = pr.final_payment_intent_id || pr.stripe_payment_intent_id;
+      if (!refundablePI) return Response.json({ error: 'No payment intent on record to refund' }, { status: 400 });
+
+      // Determine refund amount — default to full total_due
+      const refundDollars = refund_amount && refund_amount > 0 ? refund_amount : pr.total_due;
+      const refundCents = Math.round(refundDollars * 100);
+
+      const stripeRefund = await stripe.refunds.create({
+        payment_intent: refundablePI,
+        amount: refundCents,
+        reason: 'requested_by_customer',
+        metadata: {
+          purchase_request_id: pr.id,
+          refund_reason,
+          actor: user.email,
+        },
+      }, {
+        idempotencyKey: `dealer360_refund:${pr.id}`,
+      });
+
+      const refundSuccess = stripeRefund.status === 'succeeded' || stripeRefund.status === 'pending';
+
+      // Update DealerPurchaseRequest
+      await base44.asServiceRole.entities.DealerPurchaseRequest.update(purchase_request_id, {
+        status: 'refunded',
+        refund_amount: refundDollars,
+        refund_reason,
+        refund_payment_intent_id: refundablePI,
+        refund_stripe_refund_id: stripeRefund.id,
+        refund_status: stripeRefund.status,
+        refunded_at: now,
+        activity_log: [...(pr.activity_log || []), {
+          action: 'post_capture_refund',
+          actor: user.email,
+          note: `Refund of $${refundDollars.toFixed(2)} — reason: ${refund_reason}. Stripe refund: ${stripeRefund.id}`,
+          at: now,
+        }],
+      });
+
+      // Update DealerWonVehicle if linked
+      if (pr.won_vehicle_id) {
+        await base44.asServiceRole.entities.DealerWonVehicle.update(pr.won_vehicle_id, {
+          status: 'refunded',
+          refund_status: 'refunded',
+        }).catch(() => {});
+      }
+
+      // Notify host and admin
+      await Promise.all([
+        base44.asServiceRole.entities.Notification.create({
+          user_email: pr.host_email,
+          title: `💸 Vehicle Purchase Refunded — ${pr.year} ${pr.make} ${pr.model}`,
+          body: `Your vehicle purchase for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}) has been refunded. Amount: $${refundDollars.toFixed(2)}. Reason: ${refund_reason.replace(/_/g, ' ')}. Funds will return within 5-10 business days.`,
+          type: 'payment',
+        }),
+        base44.asServiceRole.entities.Notification.create({
+          user_email: 'admin',
+          title: `💸 Dealer360 Refund Processed — ${pr.year} ${pr.make} ${pr.model}`,
+          body: `Refund of $${refundDollars.toFixed(2)} issued by ${user.email} for ${pr.host_email}'s purchase of ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Reason: ${refund_reason}. Stripe ID: ${stripeRefund.id}`,
+          type: 'payment',
+        }),
+      ]);
+
+      if (!refundSuccess) {
+        return Response.json({ ok: false, error: 'Refund submitted but Stripe status is not yet confirmed.', stripe_status: stripeRefund.status, refund_id: stripeRefund.id }, { status: 202 });
+      }
+
+      return Response.json({ ok: true, refund_id: stripeRefund.id, refund_amount: refundDollars, stripe_status: stripeRefund.status });
     }
 
     // ── UPDATE SELL STATUS ────────────────────────────────────────────────────

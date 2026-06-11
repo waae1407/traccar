@@ -90,7 +90,8 @@
         "ready",
         "added_to_fleet",
         "listed_for_sale",
-        "sold"
+        "sold",
+        "refunded"
       ],
       "default": "received"
     },
@@ -106,6 +107,15 @@
         "unknown"
       ],
       "default": "unknown"
+    },
+    "refund_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "refunded"
+      ],
+      "default": "none",
+      "description": "Set to refunded when post-capture refund is processed"
     },
     "vehicle_id": {
       "type": "string"

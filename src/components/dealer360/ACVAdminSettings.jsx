@@ -54,12 +54,34 @@ export default function ACVAdminSettings() {
   const viewerEnabled = viewerSetting?.value_boolean ?? false;
 
   // Sessions
+  const [cleanupResult, setCleanupResult] = useState(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+
   const { data: sessionsData, isLoading: sessionsLoading, refetch: refetchSessions } = useQuery({
     queryKey: ['acv_viewer_sessions'],
     queryFn: () => base44.functions.invoke('acvViewerSession', { action: 'list_sessions' }).then(r => r.data?.sessions || []),
   });
   const sessions = sessionsData || [];
   const activeSessions = sessions.filter(s => s.status === 'active');
+  const expiredSessions = sessions.filter(s => s.status === 'expired');
+  const revokedSessions = sessions.filter(s => s.status === 'revoked');
+
+  // Orphaned: active sessions past expires_at
+  const now = Date.now();
+  const orphanedSessions = activeSessions.filter(s => s.expires_at && new Date(s.expires_at).getTime() <= now);
+
+  async function handleCleanup() {
+    setCleanupLoading(true);
+    const res = await base44.functions.invoke('acvViewerSession', { action: 'cleanup_sessions' });
+    if (res.data?.success) {
+      setCleanupResult(res.data);
+      toast.success(`Cleanup complete — ${res.data.expired_count} session(s) expired`);
+      refetchSessions();
+    } else {
+      toast.error('Cleanup failed');
+    }
+    setCleanupLoading(false);
+  }
 
   async function handleToggle(enabled) {
     setToggling(true);
@@ -136,6 +158,40 @@ export default function ACVAdminSettings() {
             {viewerEnabled ? 'Enabled' : 'Disabled'}
           </Badge>
         </div>
+      </div>
+
+      {/* Session stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Active', count: activeSessions.length, color: 'text-green-400' },
+          { label: 'Expired', count: expiredSessions.length, color: 'text-muted-foreground' },
+          { label: 'Revoked', count: revokedSessions.length, color: 'text-red-400' },
+          { label: 'Orphaned', count: orphanedSessions.length, color: orphanedSessions.length > 0 ? 'text-yellow-400' : 'text-muted-foreground' },
+        ].map(({ label, count, color }) => (
+          <div key={label} className="rounded-lg border border-border/40 bg-card/30 p-3 text-center">
+            <p className={`text-xl font-bold ${color}`}>{count}</p>
+            <p className="text-xs text-muted-foreground">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Cleanup controls */}
+      <div className="rounded-xl border border-border/50 bg-card/40 p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Session Cleanup</p>
+            <p className="text-xs text-muted-foreground">Expire orphaned and idle sessions (runs automatically every 10 minutes)</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={handleCleanup} disabled={cleanupLoading} className="text-xs shrink-0">
+            {cleanupLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+            Run Now
+          </Button>
+        </div>
+        {cleanupResult && (
+          <p className="text-xs text-muted-foreground">
+            Last run: {cleanupResult.expired_count} expired out of {cleanupResult.checked} checked.
+          </p>
+        )}
       </div>
 
       {/* Active sessions */}
