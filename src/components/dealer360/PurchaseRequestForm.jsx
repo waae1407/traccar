@@ -20,11 +20,12 @@ const AUCTION_SITES = {
   other: { label: 'Other', url: null },
 };
 
-export default function PurchaseRequestForm({ hostId, hostEmail, hostName, onSuccess }) {
+export default function PurchaseRequestForm({ hostId, hostEmail, hostName, onSuccess, prefill }) {
   const { toast } = useToast();
   const [form, setForm] = useState({
-    vin: '', year: '', make: '', model: '', trim: '', mileage: '',
-    condition_notes: '', auction_source: 'acv', auction_link: '',
+    vin: prefill?.vin || '', year: '', make: '', model: '', trim: '', mileage: '',
+    condition_notes: '', auction_source: prefill?.auction_source || 'acv',
+    auction_link: prefill?.auction_link || '',
     max_bid: '', transport_needed: false, notes_to_agent: '',
   });
   const [saving, setSaving] = useState(false);

@@ -1,0 +1,68 @@
+{
+  "name": "ACVViewerSession",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "user_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "host"
+      ]
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "host_email": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "ended",
+        "revoked",
+        "expired"
+      ],
+      "default": "active"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revoked_by": {
+      "type": "string"
+    },
+    "ip_address": {
+      "type": "string"
+    },
+    "user_agent": {
+      "type": "string"
+    },
+    "vin_copied": {
+      "type": "string",
+      "description": "Last VIN copied during this session"
+    },
+    "purchase_request_started": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "user_id",
+    "user_email"
+  ]
+}

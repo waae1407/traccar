@@ -5,11 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Gavel, TrendingDown, Globe, Trophy, ArrowRightLeft, Search } from 'lucide-react';
+import { Loader2, Gavel, TrendingDown, Globe, Trophy, ArrowRightLeft, Search, AlertTriangle, Monitor } from 'lucide-react';
 import PurchaseRequestDrawer from '@/components/dealer360/PurchaseRequestDrawer';
 import SellRequestDrawer from '@/components/dealer360/SellRequestDrawer';
 import PublicListingsTab from '@/components/dealer360/PublicListingsTab';
 import Dealer360StatusBadge from '@/components/dealer360/StatusBadge';
+import ACVAdminSettings from '@/components/dealer360/ACVAdminSettings';
 
 const fmt = (n) => n != null ? `$${Number(n).toLocaleString()}` : '—';
 
@@ -81,6 +82,7 @@ const PURCHASE_STATUS_GROUPS = {
 export default function AdminDealer360() {
   const qc = useQueryClient();
   const [tab, setTab] = useState('purchase');
+  const [showACVSettings, setShowACVSettings] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedPR, setSelectedPR] = useState(null);
   const [selectedSR, setSelectedSR] = useState(null);
@@ -132,10 +134,20 @@ export default function AdminDealer360() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Dealer360 — Admin Bid Desk</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Manage all host acquisition and liquidation requests</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><ArrowRightLeft className="h-6 w-6 text-primary" />Dealer360 — Admin Bid Desk</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage all host acquisition and liquidation requests</p>
+        </div>
+        <button onClick={() => setShowACVSettings(s => !s)} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${showACVSettings ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-400' : 'border-border text-muted-foreground hover:text-foreground'}`}>
+          <Monitor className="h-3.5 w-3.5" />ACV Viewer Settings
+        </button>
       </div>
+      {showACVSettings && (
+        <div className="rounded-2xl border border-border/50 bg-card/60 p-5">
+          <ACVAdminSettings />
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Plus, Gavel, TrendingDown, Globe, Trophy, ArrowRightLeft, Sparkles } from 'lucide-react';
+import { Loader2, Plus, Gavel, TrendingDown, Globe, Trophy, ArrowRightLeft, Sparkles, Monitor } from 'lucide-react';
 import PurchaseRequestForm from '@/components/dealer360/PurchaseRequestForm';
 import PurchaseRequestDrawer from '@/components/dealer360/PurchaseRequestDrawer';
 import SellRequestForm from '@/components/dealer360/SellRequestForm';
@@ -15,6 +15,7 @@ import SellRequestDrawer from '@/components/dealer360/SellRequestDrawer';
 import PublicListingsTab from '@/components/dealer360/PublicListingsTab';
 import AIValuationTool from '@/components/dealer360/AIValuationTool';
 import Dealer360StatusBadge from '@/components/dealer360/StatusBadge';
+import ACVViewerPanel from '@/components/dealer360/ACVViewerPanel';
 
 const fmt = (n) => n != null ? `$${Number(n).toLocaleString()}` : '—';
 
@@ -90,6 +91,7 @@ export default function HostDealer360() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState('buy');
+  const [buyFormPrefill, setBuyFormPrefill] = useState(null);
   const [showBuyForm, setShowBuyForm] = useState(false);
   const [showSellForm, setShowSellForm] = useState(false);
   const [showValuation, setShowValuation] = useState(false);
@@ -174,6 +176,7 @@ export default function HostDealer360() {
           <TabsTrigger value="won" className="flex items-center gap-1.5"><Trophy className="h-3.5 w-3.5" />Won Vehicles</TabsTrigger>
           <TabsTrigger value="sell" className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5" />Sell</TabsTrigger>
           <TabsTrigger value="listings" className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" />Public Listings</TabsTrigger>
+          <TabsTrigger value="acv" className="flex items-center gap-1.5"><Monitor className="h-3.5 w-3.5" />ACV Viewer</TabsTrigger>
         </TabsList>
 
         <TabsContent value="buy" className="space-y-3 mt-4">
@@ -230,14 +233,25 @@ export default function HostDealer360() {
         <TabsContent value="listings" className="mt-4">
           <PublicListingsTab hostId={host?.id} isAdmin={false} />
         </TabsContent>
+
+        <TabsContent value="acv" className="mt-4 max-w-xl">
+          <ACVViewerPanel
+            onStartPurchaseRequest={(prefill) => {
+              setBuyFormPrefill(prefill);
+              setShowBuyForm(true);
+              setTab('buy');
+            }}
+          />
+        </TabsContent>
       </Tabs>
 
       {/* Buy Form Dialog */}
-      <Dialog open={showBuyForm} onOpenChange={setShowBuyForm}>
+      <Dialog open={showBuyForm} onOpenChange={(open) => { setShowBuyForm(open); if (!open) setBuyFormPrefill(null); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-border">
           <DialogHeader><DialogTitle>New Purchase Request</DialogTitle></DialogHeader>
           <PurchaseRequestForm
             hostId={host?.id} hostEmail={host?.email || user?.email} hostName={host?.full_name || user?.full_name}
+            prefill={buyFormPrefill}
             onSuccess={refresh} />
         </DialogContent>
       </Dialog>
