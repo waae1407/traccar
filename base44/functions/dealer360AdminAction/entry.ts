@@ -461,40 +461,55 @@ Base your estimates on current US used car market conditions, mileage depreciati
       const refundDollars = refund_amount && refund_amount > 0 ? refund_amount : pr.total_due;
       const refundCents = Math.round(refundDollars * 100);
 
-      const stripeRefund = await stripe.refunds.create({
-        payment_intent: refundablePI,
-        amount: refundCents,
-        reason: 'requested_by_customer',
-        metadata: {
-          purchase_request_id: pr.id,
-          refund_reason,
-          actor: user.email,
-        },
-      }, {
-        idempotencyKey: `dealer360_refund:${pr.id}`,
-      });
+      let stripeRefundId = null;
+      let stripeRefundStatus = 'pending';
+      let stripeError = null;
 
-      const refundSuccess = stripeRefund.status === 'succeeded' || stripeRefund.status === 'pending';
+      try {
+        const stripeRefund = await stripe.refunds.create({
+          payment_intent: refundablePI,
+          amount: refundCents,
+          reason: 'requested_by_customer',
+          metadata: {
+            purchase_request_id: pr.id,
+            refund_reason,
+            actor: user.email,
+          },
+        }, {
+          idempotencyKey: `dealer360_refund:${pr.id}`,
+        });
+        stripeRefundId = stripeRefund.id;
+        stripeRefundStatus = stripeRefund.status;
+      } catch (stripeErr) {
+        // Stripe failed (e.g. test PI, already refunded, etc.) — log but still record refund attempt
+        stripeError = stripeErr.message || 'Stripe refund failed';
+        stripeRefundStatus = 'failed';
+        console.error('[dealer360AdminAction] Stripe refund error:', stripeError);
+      }
 
-      // Update DealerPurchaseRequest
+      const refundSuccess = stripeRefundStatus === 'succeeded' || stripeRefundStatus === 'pending';
+
+      // Update DealerPurchaseRequest regardless of Stripe outcome
       await base44.asServiceRole.entities.DealerPurchaseRequest.update(purchase_request_id, {
-        status: 'refunded',
+        status: refundSuccess ? 'refunded' : pr.status,
         refund_amount: refundDollars,
         refund_reason,
         refund_payment_intent_id: refundablePI,
-        refund_stripe_refund_id: stripeRefund.id,
-        refund_status: stripeRefund.status,
-        refunded_at: now,
+        refund_stripe_refund_id: stripeRefundId,
+        refund_status: stripeRefundStatus,
+        refunded_at: refundSuccess ? now : null,
         activity_log: [...(pr.activity_log || []), {
           action: 'post_capture_refund',
           actor: user.email,
-          note: `Refund of $${refundDollars.toFixed(2)} — reason: ${refund_reason}. Stripe refund: ${stripeRefund.id}`,
+          note: stripeError
+            ? `Refund attempt of $${refundDollars.toFixed(2)} — reason: ${refund_reason}. Stripe error: ${stripeError}`
+            : `Refund of $${refundDollars.toFixed(2)} — reason: ${refund_reason}. Stripe refund: ${stripeRefundId}`,
           at: now,
         }],
       });
 
-      // Update DealerWonVehicle if linked
-      if (pr.won_vehicle_id) {
+      // Update DealerWonVehicle if linked and refund succeeded
+      if (pr.won_vehicle_id && refundSuccess) {
         await base44.asServiceRole.entities.DealerWonVehicle.update(pr.won_vehicle_id, {
           status: 'refunded',
           refund_status: 'refunded',
@@ -512,16 +527,20 @@ Base your estimates on current US used car market conditions, mileage depreciati
         base44.asServiceRole.entities.Notification.create({
           user_email: 'admin',
           title: `💸 Dealer360 Refund Processed — ${pr.year} ${pr.make} ${pr.model}`,
-          body: `Refund of $${refundDollars.toFixed(2)} issued by ${user.email} for ${pr.host_email}'s purchase of ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Reason: ${refund_reason}. Stripe ID: ${stripeRefund.id}`,
+          body: `Refund of $${refundDollars.toFixed(2)} issued by ${user.email} for ${pr.host_email}'s purchase of ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Reason: ${refund_reason}. Stripe ID: ${stripeRefundId || 'N/A'}${stripeError ? '. Error: ' + stripeError : ''}`,
           type: 'payment',
         }),
-      ]);
+      ]).catch(() => {});
 
-      if (!refundSuccess) {
-        return Response.json({ ok: false, error: 'Refund submitted but Stripe status is not yet confirmed.', stripe_status: stripeRefund.status, refund_id: stripeRefund.id }, { status: 202 });
+      if (stripeError) {
+        return Response.json({ ok: false, error: stripeError, code: 'STRIPE_REFUND_FAILED', refund_status: stripeRefundStatus }, { status: 502 });
       }
 
-      return Response.json({ ok: true, refund_id: stripeRefund.id, refund_amount: refundDollars, stripe_status: stripeRefund.status });
+      if (!refundSuccess) {
+        return Response.json({ ok: false, error: 'Refund submitted but Stripe status is not yet confirmed.', stripe_status: stripeRefundStatus, refund_id: stripeRefundId }, { status: 202 });
+      }
+
+      return Response.json({ ok: true, refund_id: stripeRefundId, refund_amount: refundDollars, stripe_status: stripeRefundStatus });
     }
 
     // ── UPDATE SELL STATUS ────────────────────────────────────────────────────
