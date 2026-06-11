@@ -32,6 +32,12 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'max_bid is required and must be positive' }, { status: 400 });
     }
 
+    // D2 — Re-hold guard: block if request is already funded or beyond
+    const blockedStatuses = ['funded','under_review','bid_approved','bid_placed','outbid','won','invoice_pending','payment_due','completed','cancelled','lost'];
+    if (blockedStatuses.includes(pr.status) || pr.hold_status === 'authorized' || pr.stripe_payment_intent_id) {
+      return Response.json({ ok: false, error: 'Buying Power Hold already exists for this request.', error_code: 'already_funded' }, { status: 409 });
+    }
+
     // Resolve Stripe customer from BookingRequest (host's saved payment)
     const bookings = await base44.asServiceRole.entities.BookingRequest.filter(
       { host_id: pr.host_id },
@@ -49,7 +55,7 @@ Deno.serve(async (req) => {
 
     const holdAmount = Math.round(pr.max_bid * 1.3 * 100); // cents
 
-    // Create authorize-only payment intent (capture_method: manual)
+    // D1 — Create authorize-only payment intent with idempotency key to prevent duplicate holds
     const paymentIntent = await stripe.paymentIntents.create({
       amount: holdAmount,
       currency: 'usd',
@@ -65,6 +71,8 @@ Deno.serve(async (req) => {
         vin: pr.vin,
         type: 'buying_power_hold',
       },
+    }, {
+      idempotencyKey: `dealer360_buying_power_hold:${pr.id}`,
     });
 
     const holdSucceeded = ['requires_capture', 'succeeded'].includes(paymentIntent.status);
@@ -75,6 +83,13 @@ Deno.serve(async (req) => {
         stripe_payment_intent_id: paymentIntent.id,
         admin_notes: `Hold failed: ${paymentIntent.status}`,
       });
+      // Notify host of hold failure
+      await base44.asServiceRole.entities.Notification.create({
+        user_email: pr.host_email,
+        title: `Payment Authorization Failed — ${pr.year} ${pr.make} ${pr.model}`,
+        body: `Your buying power hold for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}) could not be authorized. Please check your payment method and try again.`,
+        type: 'payment',
+      }).catch(() => {});
       return Response.json({ ok: false, error: 'Authorization hold failed. Please check your payment method.', pi_status: paymentIntent.status }, { status: 402 });
     }
 
@@ -95,13 +110,21 @@ Deno.serve(async (req) => {
       ],
     });
 
-    // Notify admin
-    await base44.asServiceRole.entities.Notification.create({
-      user_email: 'admin',
-      title: '🚗 New Dealer360 Purchase Request — Funded',
-      body: `${pr.host_name || pr.host_email} submitted a purchase request for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Buying power hold of $${(holdAmount / 100).toFixed(2)} authorized. Ready for bid desk review.`,
-      type: 'payment',
-    });
+    // Notify admin and host
+    await Promise.all([
+      base44.asServiceRole.entities.Notification.create({
+        user_email: 'admin',
+        title: '🚗 New Dealer360 Purchase Request — Funded',
+        body: `${pr.host_name || pr.host_email} submitted a purchase request for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Buying power hold of $${(holdAmount / 100).toFixed(2)} authorized. Ready for bid desk review.`,
+        type: 'payment',
+      }),
+      base44.asServiceRole.entities.Notification.create({
+        user_email: pr.host_email,
+        title: `✅ Buying Power Hold Authorized — ${pr.year} ${pr.make} ${pr.model}`,
+        body: `Your buying power hold of $${(holdAmount / 100).toFixed(2)} has been authorized for ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}). Your request has been submitted to the bid desk for review.`,
+        type: 'payment',
+      }),
+    ]);
 
     return Response.json({
       ok: true,

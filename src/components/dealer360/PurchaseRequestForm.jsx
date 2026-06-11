@@ -55,6 +55,7 @@ export default function PurchaseRequestForm({ hostId, hostEmail, hostName, onSuc
       transport_needed: form.transport_needed,
       notes_to_agent: form.notes_to_agent,
       status: 'draft',
+      activity_log: [{ action: 'request_created', actor: hostEmail, note: `Draft saved for VIN ${form.vin.toUpperCase().trim()}`, at: new Date().toISOString() }],
     });
     setSavedId(record.id);
     setSaving(false);
@@ -81,6 +82,7 @@ export default function PurchaseRequestForm({ hostId, hostEmail, hostName, onSuc
         transport_needed: form.transport_needed,
         notes_to_agent: form.notes_to_agent,
         status: 'draft',
+        activity_log: [{ action: 'request_created', actor: hostEmail, note: `Purchase request created for VIN ${form.vin.toUpperCase().trim()}`, at: new Date().toISOString() }],
       });
       prId = record.id;
       setSavedId(prId);

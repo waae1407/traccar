@@ -75,6 +75,10 @@ export default function PurchaseRequestDrawer({ pr, open, onClose, isAdmin, onRe
 
   if (!pr) return null;
 
+  // Hold expiry warning: Stripe auth holds expire at 7 days; warn after 6 days
+  const holdAgeDays = pr.funded_at ? (Date.now() - new Date(pr.funded_at).getTime()) / (1000 * 60 * 60 * 24) : null;
+  const holdExpiringSoon = holdAgeDays !== null && holdAgeDays >= 6 && pr.hold_status === 'authorized';
+
   const adminAction = async (actionData) => {
     setActionLoading(actionData.action || '');
     const res = await base44.functions.invoke('dealer360AdminAction', { ...actionData, purchase_request_id: pr.id });
@@ -105,6 +109,16 @@ export default function PurchaseRequestDrawer({ pr, open, onClose, isAdmin, onRe
             <Dealer360StatusBadge status={pr.status} />
           </SheetTitle>
         </SheetHeader>
+
+        {/* Hold expiry warning */}
+        {holdExpiringSoon && (
+          <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-yellow-300">
+              <strong>Buying Power Hold expires soon.</strong> Stripe authorization holds expire after 7 days. This hold is {Math.floor(holdAgeDays)} days old — verify in Stripe before marking won.
+            </p>
+          </div>
+        )}
 
         {/* Vehicle Info */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">

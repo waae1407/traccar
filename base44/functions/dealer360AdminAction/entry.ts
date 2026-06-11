@@ -38,6 +38,21 @@ Deno.serve(async (req) => {
       const pr = requests[0];
       if (!pr) return Response.json({ error: 'Not found' }, { status: 404 });
 
+      // D6 — Block marking won without an active authorized hold
+      if (status === 'won') {
+        if (pr.hold_status !== 'authorized' || !pr.stripe_payment_intent_id) {
+          return Response.json({ error: 'Cannot mark vehicle won without active Buying Power Hold.', code: 'NO_ACTIVE_HOLD' }, { status: 400 });
+        }
+        // Check hold has not expired (Stripe auth holds expire at 7 days; we check 6 days as safety margin)
+        if (pr.funded_at) {
+          const ageMs = Date.now() - new Date(pr.funded_at).getTime();
+          const ageDays = ageMs / (1000 * 60 * 60 * 24);
+          if (ageDays >= 6.5) {
+            return Response.json({ error: 'Cannot mark vehicle won without active Buying Power Hold. The authorization hold may have expired — please verify in Stripe before proceeding.', code: 'HOLD_POSSIBLY_EXPIRED' }, { status: 400 });
+          }
+        }
+      }
+
       const updateData = {
         status,
         agent_notes: agent_notes || pr.agent_notes,
@@ -78,6 +93,10 @@ Deno.serve(async (req) => {
       const pr = requests[0];
       if (!pr) return Response.json({ error: 'Not found' }, { status: 404 });
 
+      if (!bid_amount || bid_amount <= 0) {
+        return Response.json({ error: 'Bid amount is required and must be greater than $0.' }, { status: 400 });
+      }
+
       const total_due = (bid_amount || 0) + (auction_fee || 0) + (buyer_fee || 0) + (transport_fee || 0) + (title_fee || 0) + (storage_fee || 0) + (stripe_fee || 0) + (uride_concierge_fee || 50) + (other_fee || 0);
 
       await base44.asServiceRole.entities.DealerPurchaseRequest.update(purchase_request_id, {
@@ -111,35 +130,94 @@ Deno.serve(async (req) => {
       if (!pr.stripe_payment_intent_id) return Response.json({ error: 'No payment intent on record' }, { status: 400 });
       if (!pr.total_due) return Response.json({ error: 'Invoice not entered yet' }, { status: 400 });
 
+      // D3 — Double-capture guard
+      if (pr.hold_captured || pr.status === 'completed' || pr.final_payment_captured_at) {
+        return Response.json({ error: 'Final payment already captured.', code: 'ALREADY_CAPTURED' }, { status: 409 });
+      }
+
+      // D3 — Check for existing WonVehicle to prevent duplicates
+      const existingWon = await base44.asServiceRole.entities.DealerWonVehicle.filter({ purchase_request_id });
+      if (existingWon.length > 0) {
+        return Response.json({ error: 'Final payment already captured.', code: 'ALREADY_CAPTURED' }, { status: 409 });
+      }
+
       const totalCents = Math.round(pr.total_due * 100);
       const holdCents = Math.round((pr.hold_amount || 0) * 100);
 
       let captureResult;
       let additionalPiId = null;
+      let deltaFailed = false;
+      let deltaError = '';
+      let deltaAmount = 0;
 
       if (totalCents <= holdCents) {
-        // Capture only the final amount (less than or equal to hold)
+        // Capture only the final invoice amount (partial capture releases remainder)
         captureResult = await stripe.paymentIntents.capture(pr.stripe_payment_intent_id, {
           amount_to_capture: totalCents,
         });
       } else {
-        // Capture full hold, then charge the delta separately
+        // D4/D5 — Capture full hold first, then attempt delta charge separately
         captureResult = await stripe.paymentIntents.capture(pr.stripe_payment_intent_id);
-        const deltaAmount = totalCents - holdCents;
-        const additionalPi = await stripe.paymentIntents.create({
-          amount: deltaAmount,
-          currency: 'usd',
-          customer: pr.stripe_customer_id,
-          payment_method: pr.stripe_payment_method_id,
-          off_session: true,
-          confirm: true,
-          description: `Dealer360 balance due — ${pr.year} ${pr.make} ${pr.model} VIN:${pr.vin}`,
-          metadata: { purchase_request_id: pr.id, type: 'dealer360_balance' },
-        });
-        additionalPiId = additionalPi.id;
+        deltaAmount = totalCents - holdCents;
+
+        try {
+          const additionalPi = await stripe.paymentIntents.create({
+            amount: deltaAmount,
+            currency: 'usd',
+            customer: pr.stripe_customer_id,
+            payment_method: pr.stripe_payment_method_id,
+            off_session: true,
+            confirm: true,
+            description: `Dealer360 balance due — ${pr.year} ${pr.make} ${pr.model} VIN:${pr.vin}`,
+            metadata: { purchase_request_id: pr.id, type: 'dealer360_balance' },
+          }, {
+            idempotencyKey: `dealer360_balance_due:${pr.id}`,
+          });
+          additionalPiId = additionalPi.id;
+        } catch (deltaErr) {
+          // D4 — Hold captured but delta failed — record limbo state, do NOT complete
+          deltaFailed = true;
+          deltaError = deltaErr.message || 'Unknown error';
+
+          await base44.asServiceRole.entities.DealerPurchaseRequest.update(purchase_request_id, {
+            hold_captured: true,
+            hold_status: 'captured',
+            status: 'payment_due',
+            balance_due: deltaAmount / 100,
+            payment_failure_reason: deltaError,
+            activity_log: [...(pr.activity_log || []), {
+              action: 'hold_captured_balance_due',
+              actor: user.email,
+              note: `Hold of $${(holdCents / 100).toFixed(2)} captured. Balance of $${(deltaAmount / 100).toFixed(2)} collection failed: ${deltaError}`,
+              at: now,
+            }],
+          });
+
+          await Promise.all([
+            base44.asServiceRole.entities.Notification.create({
+              user_email: pr.host_email,
+              title: `⚠️ Additional Payment Required — ${pr.year} ${pr.make} ${pr.model}`,
+              body: `Your initial authorization has been captured, but an additional payment of $${(deltaAmount / 100).toFixed(2)} is required to complete your vehicle purchase. Please contact support.`,
+              type: 'payment',
+            }),
+            base44.asServiceRole.entities.Notification.create({
+              user_email: 'admin',
+              title: `⚠️ Dealer360 Balance Collection Failed — ${pr.year} ${pr.make} ${pr.model}`,
+              body: `Hold captured for ${pr.host_email}'s purchase of ${pr.year} ${pr.make} ${pr.model} (VIN: ${pr.vin}), but the balance charge of $${(deltaAmount / 100).toFixed(2)} failed: ${deltaError}. Manual follow-up required.`,
+              type: 'payment',
+            }),
+          ]);
+
+          return Response.json({
+            ok: false,
+            error: 'Hold captured but additional payment failed. Host has been notified.',
+            code: 'DELTA_CHARGE_FAILED',
+            balance_due: deltaAmount / 100,
+          }, { status: 402 });
+        }
       }
 
-      // Create DealerWonVehicle record
+      // D5 — All payments succeeded — now safe to mark completed and create WonVehicle
       const wonVehicle = await base44.asServiceRole.entities.DealerWonVehicle.create({
         host_id: pr.host_id,
         host_email: pr.host_email,
@@ -173,7 +251,12 @@ Deno.serve(async (req) => {
         final_payment_captured_at: now,
         won_vehicle_id: wonVehicle.id,
         completed_at: now,
-        activity_log: [...(pr.activity_log || []), { action: 'payment_captured', actor: user.email, note: `Final $${pr.total_due} captured. Won vehicle created.`, at: now }],
+        activity_log: [...(pr.activity_log || []), {
+          action: 'payment_captured',
+          actor: user.email,
+          note: `Final $${pr.total_due.toFixed(2)} captured. Won vehicle created.`,
+          at: now,
+        }],
       });
 
       await base44.asServiceRole.entities.Notification.create({
