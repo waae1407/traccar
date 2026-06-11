@@ -10,7 +10,7 @@ import VehicleVisibilityControls from "./VehicleVisibilityControls";
 
 const emptyForm = {
   host_id: "", vin: "", plate: "", make: "", model: "", year: "", color: "",
-  purchase_price: "", city: "", state: "", status: "Available",
+  purchase_price: "", city: "", state: "", status: "Available", approval_status: "approved",
   mileage: "", last_service_date: "", weekly_rate: "", rent_to_own_eligible: false,
   pickup_address: "", pickup_hours: "", moovetrax_device_id: "", contactless_pickup: false,
   minimum_rental_days: 7, maximum_rental_days: "", rental_duration_type: "weekly",
