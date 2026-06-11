@@ -1,13 +1,42 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
-import { useAuth } from "@/lib/AuthContext";
-import DealerNetworkWorkspace from "@/components/dealer/DealerNetworkWorkspace";
+import { Link } from "react-router-dom";
+import { ArrowRightLeft, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
+/**
+ * HostDealerNetwork — Legacy route (/host/dealer-network)
+ *
+ * This route is deprecated. The legacy Dealer Network workspace used placeholder entities
+ * with no real Stripe holds or auction logic. All active acquisition and liquidation
+ * workflows have moved to Dealer360.
+ *
+ * This page is intentionally NOT removed so that any bookmarked or direct-linked URLs
+ * still land gracefully instead of a 404.
+ */
 export default function HostDealerNetwork() {
-  const { user } = useAuth();
-  const { data: hosts = [] } = useQuery({ queryKey: ["host-dealer-network-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user.email }), enabled: !!user?.email });
-  const host = hosts[0];
-  if (!host) return <div className="rounded-2xl bg-white border border-gray-100 p-5 text-gray-500">Host profile required.</div>;
-  return <DealerNetworkWorkspace scope="host" hostId={host.id} />;
+  return (
+    <div className="flex items-center justify-center min-h-[60vh] p-6">
+      <div className="max-w-md w-full rounded-2xl border border-border/50 bg-card/60 p-8 text-center space-y-5">
+        <div className="mx-auto h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+          <ArrowRightLeft className="h-7 w-7 text-primary" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold">Dealer Network Has Moved</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            The legacy Dealer Network workspace has been replaced by <strong className="text-foreground">Dealer360</strong> — 
+            the full vehicle acquisition and liquidation platform with real Stripe buying power holds, 
+            auction concierge, AI valuation, and public listings.
+          </p>
+        </div>
+        <Button asChild className="gradient-primary w-full">
+          <Link to="/host/dealer360">
+            Go to Dealer360 <ArrowRight className="h-4 w-4 ml-1.5" />
+          </Link>
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Historical records from the old Dealer Network are still accessible to admins if needed.
+        </p>
+      </div>
+    </div>
+  );
 }

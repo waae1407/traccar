@@ -136,8 +136,8 @@ export const masterMenuSections = [
     label: "Network",
     icon: Network,
     items: [
-      { id: "dealer-network", label: "Dealer Network", icon: Car, paths: { admin: "/admin/dealer-network", host: "/host/dealer-network" }, roles: ["admin", "host"], requiresDealer: true },
-      { id: "dealer360", label: "Dealer360 — Buy & Sell", icon: ArrowRightLeft, paths: { admin: "/admin/dealer360", host: "/host/dealer360" }, roles: ["admin", "host"] },
+      { id: "dealer-network", label: "Dealer Network (Legacy)", icon: Car, paths: { admin: "/admin/dealer-network" }, roles: ["admin"] },
+      { id: "dealer360", label: "Dealer360", icon: ArrowRightLeft, paths: { admin: "/admin/dealer360", host: "/host/dealer360" }, roles: ["admin", "host"] },
       { id: "referrals", label: "Referrals", icon: Gift, paths: { admin: "/referrals" }, roles: ["admin"] },
       { id: "installers", label: "Installers", icon: Wrench, paths: { admin: "/admin/installers" }, roles: ["admin"] },
     ],
