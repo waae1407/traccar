@@ -19,6 +19,7 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [sessionId, setSessionId] = useState(null);
   const [expiresAt, setExpiresAt] = useState(null);
+  const [viewerUrl, setViewerUrl] = useState(null);
   const [vin, setVin] = useState('');
   const [auctionLink, setAuctionLink] = useState('');
   const [vinCopied, setVinCopied] = useState(false);
@@ -92,10 +93,12 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
 
     setSessionId(data.session_id);
     setExpiresAt(data.expires_at);
+    setViewerUrl(data.viewer_session_url);
     setState('active');
 
-    // Open in new secure tab
-    window.open(data.viewer_session_url, '_blank', 'noopener,noreferrer');
+    if (data.login_warning) {
+      toast.warning(data.login_warning);
+    }
   }
 
   async function handleEndSession() {
@@ -107,7 +110,8 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
     setState('idle');
     setSessionId(null);
     setExpiresAt(null);
-  }
+    setViewerUrl(null);
+    }
 
   function handleCopyVin() {
     if (!vin.trim()) return;
@@ -175,7 +179,7 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
         </Button>
       )}
 
-      {state === 'active' && (
+      {state === 'active' && viewerUrl && (
         <div className="space-y-3">
           <div className="flex items-center justify-between rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-2.5">
             <div className="flex items-center gap-2 text-sm text-green-400">
@@ -183,13 +187,24 @@ export default function ACVViewerPanel({ onStartPurchaseRequest }) {
               <span>Viewer session active</span>
               <Badge className="text-xs bg-green-500/20 text-green-300">{minutesLeft}m remaining</Badge>
             </div>
-            <Button size="sm" variant="ghost" onClick={handleOpenViewer} className="text-xs text-cyan-400 hover:text-cyan-300">
-              <ExternalLink className="h-3 w-3 mr-1" />Reopen
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="ghost" onClick={() => window.open(viewerUrl, '_blank', 'noopener,noreferrer')} className="text-xs text-cyan-400 hover:text-cyan-300">
+                <ExternalLink className="h-3 w-3 mr-1" />Pop Out
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleEndSession} className="text-xs text-red-400 hover:text-red-300">
+                End Session
+              </Button>
+            </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleEndSession} className="text-xs">
-            End Session
-          </Button>
+          <div className="rounded-xl overflow-hidden border border-border/50" style={{ height: '600px' }}>
+            <iframe
+              src={viewerUrl}
+              title="ACV Auctions Viewer"
+              className="w-full h-full"
+              allow="same-origin"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            />
+          </div>
         </div>
       )}
 

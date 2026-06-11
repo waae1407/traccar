@@ -4,11 +4,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  * acvViewerSession
  *
  * Validates the requesting user is an approved host or admin,
- * checks ACV_VIEWER_ENABLED, logs the session, and returns only
- * the viewer_session_url. Credentials are NEVER returned.
+ * checks ACV_VIEWER_ENABLED, performs a backend login to ACV to get
+ * a pre-authenticated session URL, logs the session, and returns the URL.
+ * Credentials are NEVER returned to the frontend.
  *
  * Actions:
- *   start_session    — initiate a viewer session
+ *   start_session    — initiate a viewer session (backend login to ACV)
  *   end_session      — mark a session as ended
  *   ping_session     — update last_activity_at (idle timeout heartbeat)
  *   list_sessions    — admin: list active/recent sessions
@@ -19,6 +20,49 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;   // 15 minutes
 const MAX_SESSION_MS  = 60 * 60 * 1000;    // 60 minutes
+
+async function acvLogin() {
+  const loginUrl = Deno.env.get('ACV_LOGIN_URL') || 'https://app.acvauctions.com/api/login';
+  const username = Deno.env.get('ACV_USERNAME');
+  const password = Deno.env.get('ACV_PASSWORD');
+
+  if (!username || !password) {
+    throw new Error('ACV credentials not configured');
+  }
+
+  const response = await fetch(loginUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ email: username, password }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`ACV login failed (${response.status}): ${text.slice(0, 200)}`);
+  }
+
+  const data = await response.json().catch(() => null);
+
+  // Try to extract a session token / redirect URL from the response
+  // ACV may return a token, session_id, or redirect_url depending on their API
+  const token = data?.token || data?.access_token || data?.session_token || data?.data?.token;
+  const redirectUrl = data?.redirect_url || data?.url || data?.data?.redirect_url;
+  const startUrl = Deno.env.get('ACV_START_URL');
+
+  if (redirectUrl) return redirectUrl;
+  if (token && startUrl) {
+    // Append token as query param for embedding
+    const url = new URL(startUrl);
+    url.searchParams.set('token', token);
+    return url.toString();
+  }
+  if (token) {
+    return `https://app.acvauctions.com?token=${encodeURIComponent(token)}`;
+  }
+
+  // Fallback: return start URL as-is (ACV may use cookies set by the login response)
+  return startUrl || 'https://app.acvauctions.com';
+}
 
 Deno.serve(async (req) => {
   try {
@@ -74,10 +118,6 @@ Deno.serve(async (req) => {
       }
 
       if (action === 'cleanup_sessions') {
-        // Expire sessions where:
-        //   1. expires_at <= now (max duration exceeded)
-        //   2. last_activity_at <= now - 15min (idle timeout)
-        // Both for sessions still marked active
         const allActive = await base44.asServiceRole.entities.ACVViewerSession.filter({ status: 'active' });
         const now = Date.now();
         let expiredCount = 0;
@@ -119,7 +159,6 @@ Deno.serve(async (req) => {
       const session = sessions[0];
       if (!session) return Response.json({ error: 'Session not found' }, { status: 404 });
 
-      // Check if session should be expired
       const now = Date.now();
       const maxExpired = session.expires_at && new Date(session.expires_at).getTime() <= now;
       const lastActivity = session.last_activity_at || session.started_at;
@@ -137,7 +176,6 @@ Deno.serve(async (req) => {
         return Response.json({ active: false, code: idleExpired ? 'SESSION_IDLE_TIMEOUT' : 'SESSION_EXPIRED' });
       }
 
-      // Still valid — update last_activity_at
       await base44.asServiceRole.entities.ACVViewerSession.update(session_id, {
         last_activity_at: new Date().toISOString(),
       });
@@ -145,7 +183,6 @@ Deno.serve(async (req) => {
     }
 
     // ── START SESSION ────────────────────────────────────────────────────────
-    // Check viewer enabled via DB setting first, fallback to env secret
     const settingRows = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'acv_viewer_enabled' });
     const dbEnabled = settingRows.length > 0 ? settingRows[0].value_boolean : null;
     const envEnabled = Deno.env.get('ACV_VIEWER_ENABLED') === 'true';
@@ -164,9 +201,18 @@ Deno.serve(async (req) => {
       }
     }
 
-    const startUrl = Deno.env.get('ACV_START_URL');
-    if (!startUrl) {
-      return Response.json({ error: 'Viewer configuration incomplete. Contact support.', code: 'CONFIG_ERROR' }, { status: 503 });
+    // Backend login to ACV — get pre-authenticated URL
+    let viewerUrl;
+    let loginError = null;
+    try {
+      viewerUrl = await acvLogin();
+    } catch (err) {
+      loginError = err.message;
+      // Fallback to start URL without auth
+      viewerUrl = Deno.env.get('ACV_START_URL');
+      if (!viewerUrl) {
+        return Response.json({ error: `ACV login failed: ${loginError}`, code: 'LOGIN_FAILED' }, { status: 503 });
+      }
     }
 
     // Create session record
@@ -194,9 +240,10 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      viewer_session_url: startUrl,
+      viewer_session_url: viewerUrl,
       session_id: sessionRecord.id,
       expires_at: expiresAt.toISOString(),
+      login_warning: loginError ? `Auto-login failed: ${loginError}` : null,
     });
 
   } catch (error) {
