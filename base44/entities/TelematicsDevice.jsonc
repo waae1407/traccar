@@ -14,17 +14,29 @@
         "api",
         "traccar",
         "sms",
-        "hybrid"
+        "hybrid",
+        "contactless360"
       ],
       "default": "api"
     },
     "unique_id": {
+      "type": "string",
+      "description": "Primary unique identifier \u2014 for contactless360 devices this is the IMEI"
+    },
+    "device_unique_id": {
+      "type": "string",
+      "description": "Alias for unique_id used by GPS activation flow"
+    },
+    "imei": {
       "type": "string"
     },
     "device_imei": {
       "type": "string"
     },
     "sim_iccid": {
+      "type": "string"
+    },
+    "sim_provider": {
       "type": "string"
     },
     "provider_device_id": {
@@ -47,6 +59,50 @@
     },
     "host_id": {
       "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "activation_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "activated",
+        "partially_activated",
+        "failed",
+        "subscription_failed"
+      ],
+      "default": "not_started"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "trialing",
+        "past_due",
+        "cancelled",
+        "unpaid",
+        "paused",
+        "none"
+      ],
+      "default": "none"
+    },
+    "supports_starter_interrupt": {
+      "type": "boolean",
+      "default": false
+    },
+    "supports_contactless": {
+      "type": "boolean",
+      "default": false
+    },
+    "installation_type": {
+      "type": "string",
+      "enum": [
+        "self_installed",
+        "professional_installed",
+        "not_yet_installed"
+      ],
+      "default": "not_yet_installed"
     },
     "lifecycle_status": {
       "type": "string",
@@ -162,8 +218,7 @@
     },
     "host_starter_control_approval_locked": {
       "type": "boolean",
-      "default": false,
-      "description": "When true, host starter access for this device cannot be downgraded without explicit owner approval."
+      "default": false
     },
     "host_starter_control_approved_by": {
       "type": "string"

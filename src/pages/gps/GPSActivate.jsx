@@ -125,9 +125,10 @@ export default function GPSActivate() {
     setError(null);
 
     try {
-      // BLOCKER 4: Check for duplicate IMEI
-      const existingByUid = await base44.entities.TelematicsDevice.filter({ device_unique_id: form.imei });
-      if (existingByUid.length > 0) {
+      // BLOCKER 4: Check for duplicate IMEI (check both unique_id and imei fields)
+      const existingByUid = await base44.entities.TelematicsDevice.filter({ unique_id: form.imei });
+      const existingByImei = existingByUid.length === 0 ? await base44.entities.TelematicsDevice.filter({ imei: form.imei }) : existingByUid;
+      if (existingByImei.length > 0) {
         setError('This device is already activated. Each IMEI can only be registered once.');
         setLoading(false);
         return;
@@ -144,11 +145,13 @@ export default function GPSActivate() {
         return;
       }
 
-      // Build device record
+      // Build device record — unique_id is the required primary key (IMEI for contactless360)
       const deviceData = {
+        unique_id: form.imei,
         device_unique_id: form.imei,
         imei: form.imei,
         provider_key: 'contactless360',
+        provider_type: 'contactless360',
         online_status: 'offline',
         activation_status: 'activated',
         subscription_status: 'active',
@@ -156,6 +159,8 @@ export default function GPSActivate() {
         supports_contactless: true,
         sim_provider: form.sim_provider || '',
         installation_type: form.installation_status,
+        lifecycle_status: 'provisioned',
+        assigned_status: 'unassigned',
       };
 
       if (myHost && selectedVehicleId) {
