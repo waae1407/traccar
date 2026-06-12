@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { useAuth } from "@/lib/AuthContext";
+import AccountMenu from "@/components/shared/AccountMenu";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -77,6 +79,7 @@ function PaymentForm({ clientSecret, orderNumber, orderId, onSuccess, amount }) 
 }
 
 export default function GPSCheckout() {
+  const { user } = useAuth();
   const urlParams = new URLSearchParams(window.location.search);
   const defaultPkg = urlParams.get('pkg') || 'device_subscription';
 
@@ -150,9 +153,15 @@ export default function GPSCheckout() {
     <div className="min-h-screen bg-background text-foreground">
       <nav className="flex items-center justify-between px-6 py-4 border-b border-border">
         <Link to="/gps"><img src={LOGO} alt="Contactless360" className="h-8 object-contain" /></Link>
-        <Link to="/gps" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white">
-          <ArrowLeft className="w-4 h-4" /> Back
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link to="/gps" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Link>
+          {user
+            ? <AccountMenu role={user.role === "admin" ? "admin" : user.role === "host" ? "host" : "user"} accountPath="/customer/gps" compact />
+            : <Link to="/account"><Button variant="ghost" size="sm">Sign In</Button></Link>
+          }
+        </div>
       </nav>
 
       <div className="max-w-5xl mx-auto px-6 py-12 grid lg:grid-cols-5 gap-10">

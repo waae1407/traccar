@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, Star, ArrowRight, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from "@/lib/AuthContext";
+import AccountMenu from "@/components/shared/AccountMenu";
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
@@ -57,6 +59,7 @@ const packages = [
 ];
 
 export default function GPSLanding() {
+  const { user } = useAuth();
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* NAV */}
@@ -64,13 +67,17 @@ export default function GPSLanding() {
         <Link to="/">
           <img src={LOGO} alt="Contactless360" className="h-8 object-contain" />
         </Link>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           <Link to="/gps/activate">
             <Button variant="outline" size="sm">Activate Device</Button>
           </Link>
           <Link to="/gps/checkout">
             <Button size="sm" className="gradient-primary">Buy Device</Button>
           </Link>
+          {user
+            ? <AccountMenu role={user.role === "admin" ? "admin" : user.role === "host" ? "host" : "user"} accountPath="/customer/gps" extraItems={[{ label: "My GPS", icon: MapPin, path: "/customer/gps" }]} compact />
+            : <Link to="/account"><Button variant="ghost" size="sm">Sign In</Button></Link>
+          }
         </div>
       </nav>
 

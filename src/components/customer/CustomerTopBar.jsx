@@ -1,14 +1,24 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, ChevronDown, Bell, User, LogIn } from "lucide-react";
+import { MapPin, ChevronDown, Bell, User, LogIn, LogOut, Settings } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { getLogoHomeRoute } from "@/lib/logoHomeRoute";
+import { useAuth } from "@/lib/AuthContext";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
 
 export default function CustomerTopBar({ user, city, onCityChange }) {
   const navigate = useNavigate();
+  const { logout } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // Minimal query — only fetches one booking, only for customers
   const { data: activeBookings = [] } = useQuery({
@@ -51,12 +61,40 @@ export default function CustomerTopBar({ user, city, onCityChange }) {
             <Bell className="h-5 w-5 text-gray-500" />
           </button>
           {user ? (
-            <Link to="/account">
-              <div className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white focus:outline-none"
+                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+                aria-label="Account menu"
+              >
                 {user.full_name?.charAt(0) || "U"}
-              </div>
-            </Link>
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{user.full_name || "User"}</p>
+                    <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                  </div>
+                  <div className="py-1">
+                    <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <User className="h-4 w-4 text-gray-400" /> My Account
+                    </Link>
+                    <Link to="/my-bookings" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <Settings className="h-4 w-4 text-gray-400" /> My Bookings
+                    </Link>
+                  </div>
+                  <div className="border-t border-gray-100 py-1">
+                    <button
+                      onClick={() => { setMenuOpen(false); if (typeof logout === "function") logout(true); else base44.auth.logout("/"); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" /> Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <Link to="/account" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pink-600 text-white text-sm font-semibold hover:bg-pink-700 transition-colors">
               <LogIn className="h-3.5 w-3.5" />

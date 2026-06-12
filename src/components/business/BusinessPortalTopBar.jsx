@@ -3,6 +3,7 @@ import { Menu, Search, Bell, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "react-router-dom";
 import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
+import AccountMenu from "@/components/shared/AccountMenu";
 
 const pageMeta = {
   "/dashboard": { title: "Dashboard", subtitle: "Fleet overview & analytics" },
@@ -80,6 +81,8 @@ export default function BusinessPortalTopBar({ onMenuClick, role = "admin" }) {
           <Sparkles className="h-3.5 w-3.5" />
           <span>{role === "host" ? "Business Insights" : "AI Insights"}</span>
         </button>
+
+        <AccountMenu role={role} accountPath={role === "host" ? "/host/dashboard" : "/dashboard"} />
       </div>
 
       <QuickActionsDrawer open={qaOpen} onClose={() => setQaOpen(false)} role={role} />

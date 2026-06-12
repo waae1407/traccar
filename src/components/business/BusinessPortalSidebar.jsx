@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ChevronDown, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, X, LogOut, User } from "lucide-react";
 import { getLogoHomeRoute } from "@/lib/logoHomeRoute";
 import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
@@ -16,9 +16,9 @@ const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b12
 export default function BusinessPortalSidebar({ role = "admin", collapsed, setCollapsed, mobileOpen, setMobileOpen, showDealerNetwork = true }) {
   const location = useLocation();
   const { isSuperadmin } = useTenant();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const logoRoute = role === "admin" ? "/admin/operations-center" : "/host/dashboard";
-  const [openSections, setOpenSections] = React.useState({});
+  const [openSections, setOpenSections] = useState({});
   const isAdmin = role === "admin";
 
   const { data: pendingHosts = [] } = useQuery({
@@ -69,7 +69,7 @@ export default function BusinessPortalSidebar({ role = "admin", collapsed, setCo
 
   return (
     <>
-      <BusinessPortalMobileDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <BusinessPortalMobileDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} role={role} showDealerNetwork={showDealerNetwork} />
 
       <aside className={cn(
         "fixed top-0 left-0 h-full z-50 flex flex-col transition-all duration-300 ease-in-out",
@@ -167,6 +167,68 @@ export default function BusinessPortalSidebar({ role = "admin", collapsed, setCo
             </div>
           </div>
         )}
+
+        {/* User footer */}
+        <div className={cn("border-t border-white/[0.06] px-3 py-3", collapsed ? "flex flex-col items-center gap-2" : "space-y-2")}>
+          {collapsed ? (
+            <>
+              <div
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0 cursor-default"
+                title={user?.full_name || user?.email}
+                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+              >
+                {(user?.full_name?.charAt(0) || user?.email?.charAt(0) || "U").toUpperCase()}
+              </div>
+              <Link
+                to={role === "host" ? "/host/dashboard" : "/dashboard"}
+                onClick={() => setMobileOpen(false)}
+                title="My Account"
+                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-white/[0.08] text-white/40 hover:text-white/80 transition-colors"
+              >
+                <User className="h-3.5 w-3.5" />
+              </Link>
+              <button
+                onClick={() => { logout(true); }}
+                title="Sign Out"
+                className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2.5 px-1">
+                <div
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+                >
+                  {(user?.full_name?.charAt(0) || user?.email?.charAt(0) || "U").toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-white/80 truncate">{user?.full_name || "User"}</p>
+                  <p className="text-[10px] text-white/35 truncate">{user?.email}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Link
+                  to={role === "host" ? "/host/dashboard" : "/dashboard"}
+                  onClick={() => setMobileOpen(false)}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-medium text-white/50 hover:text-white/90 hover:bg-white/[0.06] transition-colors border border-white/[0.06]"
+                >
+                  <User className="h-3.5 w-3.5" />
+                  Account
+                </Link>
+                <button
+                  onClick={() => { logout(true); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-xl text-xs font-medium text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-colors border border-white/[0.06]"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Sign Out
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
         <div className="hidden lg:flex p-3 border-t border-white/[0.06]">
           <button
