@@ -4,7 +4,6 @@ import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Shield, MapPin, CheckCircle, Package, Zap, AlertCircle, ArrowRight } from 'lucide-react';
-import Contactless360Banner from "@/components/gps/Contactless360Banner";
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
@@ -46,9 +45,6 @@ export default function HostGPSStore() {
 
   return (
     <div className="p-6 space-y-8 max-w-5xl mx-auto">
-      {/* Promo Banner */}
-      <Contactless360Banner variant="promo" />
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

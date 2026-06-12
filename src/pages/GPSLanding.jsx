@@ -6,8 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from "@/lib/AuthContext";
 import AccountMenu from "@/components/shared/AccountMenu";
-import Contactless360Banner from "@/components/gps/Contactless360Banner";
-import FleetEligibilityModal from "@/components/gps/FleetEligibilityModal";
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
@@ -28,85 +26,39 @@ const audiences = [
   { icon: Users, title: "Fleet Operators", desc: "Manage large fleets with centralized tracking, alerts and reporting.", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
 ];
 
-// Authoritative feature bullets per package (used when DB product has no features array)
+// Map package_type to feature list display order
 const FEATURE_MAP = {
-  device_only: [
-    "GPS + 4G Hardware",
-    "Smart Immobilizer Capable",
-    "Remote Lock/Unlock Capable",
-    "Cigarette Smoke Sensor",
-    "Vehicle Finder / Horn Control",
-    "Geofence & Movement Alert Capable",
-    "Backup Lithium Battery",
-    "12-Month Warranty",
-  ],
-  device_subscription: [
-    "Everything in Device Only",
-    "Contactless360 Activation",
-    "Live GPS Dashboard",
-    "Remote Lock/Unlock",
-    "Smart Immobilizer Controls",
-    "Cigarette Smoke Alerts",
-    "Geofence & Movement Alerts",
-    "Trip History",
-    "Low Battery Alerts",
-    "Mobile Dashboard Access",
-    "24/7 Monitoring",
-  ],
-  host_contactless_kit: [
-    "Everything in Contactless360",
-    "Fleet Vehicle Assignment",
-    "Contactless Setup Checklist",
-    "Command Test",
-    "Rental Readiness Validation",
-    "Fleet Dashboard Connection",
-    "Priority Fleet Support",
-    "12-Month Warranty",
-  ],
+  device_only: ["GPS Hardware Device", "12-Month Warranty", "Standard Shipping Included", "Optional: Activate on uRideHub"],
+  device_subscription: ["GPS Hardware Device", "Live Tracking Dashboard", "Geofence & Movement Alerts", "Trip History", "Mobile App Access", "24/7 Monitoring", "12-Month Warranty"],
+  host_contactless_kit: ["GPS Device Included", "Activation Included", "Vehicle Assignment", "Contactless Setup Checklist", "Command Test", "Rental Readiness Validation", "Priority Support"],
 };
 
-const DESCRIPTION_MAP = {
-  device_only: "Premium GPS anti-theft hardware with built-in capability for tracking, smoke detection, smart immobilizer, remote entry, vehicle finder, alerts, and trip history. Activate anytime on uRideHub.",
-  device_subscription: "First full setup with hardware, activation, live monitoring, remote commands, alerts, and uRideHub dashboard access.",
-  host_contactless_kit: "Discounted expansion kit for approved uRide Fleet Partners adding another protected vehicle after their first Contactless360 device is already active.",
+const CTA_MAP = {
+  device_only: "Buy Device",
+  device_subscription: "Buy + Activate",
+  host_contactless_kit: "Order as Fleet Partner",
 };
 
-const TITLE_MAP = {
-  device_only: "Contactless360 Device Only",
-  device_subscription: "Contactless360 Device + Subscription",
-  host_contactless_kit: "Fleet Partner Expansion Kit",
-};
-
-function PackageCard({ product, user, onCheckEligibility }) {
-  const pkg = product.package_type;
-  const isFleetKit = pkg === 'host_contactless_kit';
-  const isDeviceSub = pkg === 'device_subscription';
+function PackageCard({ product, isApprovedHost }) {
+  const isFleetKit = product.package_type === 'host_contactless_kit';
   const showDiscount = isFleetKit && product.is_discount_active && product.sale_price > 0;
-  const displayPrice = showDiscount ? product.sale_price : (product.device_price || product.msrp_price);
+  const displayPrice = showDiscount ? product.sale_price : product.device_price;
   const msrp = product.msrp_price || product.device_price;
-  const bulletFeatures = product.features?.length ? product.features : (FEATURE_MAP[pkg] || []);
-  const description = DESCRIPTION_MAP[pkg] || product.description;
-  const title = TITLE_MAP[pkg] || product.name;
+  const features = product.features?.length ? product.features : (FEATURE_MAP[product.package_type] || []);
+  const cta = CTA_MAP[product.package_type] || 'Order Now';
+  const href = `/gps/checkout?pkg=${product.package_type}`;
 
   return (
-    <div className={`rounded-2xl border p-8 flex flex-col gap-5 relative ${isFleetKit ? 'border-yellow-500/60 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5' : isDeviceSub ? 'border-primary/40 bg-gradient-to-br from-primary/10 to-primary/5' : 'border-border bg-card/50'}`}>
+    <div className={`rounded-2xl border p-8 flex flex-col gap-5 relative ${isFleetKit ? 'border-yellow-500/60 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5' : 'border-border bg-card/50'}`}>
       {isFleetKit && (
         <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-bold text-xs px-4">
           Fleet Partner Exclusive
         </Badge>
       )}
-      {isDeviceSub && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white font-bold text-xs px-4">
-          Recommended for First Setup
-        </Badge>
-      )}
-
       <div>
-        <h3 className="text-lg font-syne font-bold text-white">{title}</h3>
-        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{description}</p>
+        <h3 className="text-lg font-syne font-bold text-white">{product.name}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
       </div>
-
-      {/* Pricing */}
       <div className="space-y-1">
         {showDiscount ? (
           <div className="flex items-baseline gap-3">
@@ -122,48 +74,44 @@ function PackageCard({ product, user, onCheckEligibility }) {
         {showDiscount && (
           <div className="flex items-center gap-2 mt-1">
             <Tag className="w-3.5 h-3.5 text-green-400" />
-            <span className="text-sm text-green-400 font-semibold">Save ${product.discount_amount} — {product.discount_label || 'Fleet Partner Launch Discount'}</span>
+            <span className="text-sm text-green-400 font-semibold">Save ${product.discount_amount} — {product.discount_label}</span>
           </div>
         )}
       </div>
-
-      {/* Feature bullets */}
       <ul className="space-y-2 flex-1">
-        {bulletFeatures.map(f => (
+        {features.map(f => (
           <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle className={`w-4 h-4 flex-shrink-0 ${isFleetKit ? 'text-yellow-400' : isDeviceSub ? 'text-primary' : 'text-muted-foreground'}`} />
+            <CheckCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
             {f}
           </li>
         ))}
       </ul>
-
-      {/* Footer note / eligibility note */}
-      {pkg === 'device_only' && (
-        <p className="text-xs text-muted-foreground border-t border-border pt-3 leading-relaxed">
-          Live dashboard, alerts, commands, and monitoring require Contactless360 activation.
-        </p>
-      )}
-      {isFleetKit && (
-        <p className="text-xs text-yellow-400/80 border-t border-yellow-500/20 pt-3 leading-relaxed">
-          Available only to approved Fleet Partners with at least one active vehicle and one active Contactless360 device.
-        </p>
-      )}
-
-      {/* CTA */}
       {isFleetKit ? (
-        <Button
-          className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold"
-          onClick={onCheckEligibility}
-        >
-          Check Eligibility <ArrowRight className="w-4 h-4" />
-        </Button>
+        <div className="space-y-3">
+          <p className="text-xs text-yellow-400/80 text-center">Available only to approved uRide Fleet Partners.</p>
+          {isApprovedHost ? (
+            <Link to={href}>
+              <Button className="w-full gradient-primary glow-sm">
+                {cta} <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          ) : (
+            <div className="space-y-2">
+              <Link to="/become-a-host">
+                <Button className="w-full" variant="outline">
+                  Become a Fleet Partner <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link to="/account">
+                <Button className="w-full" variant="ghost" size="sm">Log In as Fleet Partner</Button>
+              </Link>
+            </div>
+          )}
+        </div>
       ) : (
-        <Link to={`/gps/checkout?pkg=${pkg}`}>
-          <Button
-            className={`w-full ${isDeviceSub ? 'gradient-primary glow-sm' : ''}`}
-            variant={isDeviceSub ? 'default' : 'outline'}
-          >
-            {isDeviceSub ? 'Buy + Activate' : 'Buy Device'} <ArrowRight className="w-4 h-4" />
+        <Link to={href}>
+          <Button className="w-full" variant="outline">
+            {cta} <ArrowRight className="w-4 h-4" />
           </Button>
         </Link>
       )}
@@ -174,111 +122,26 @@ function PackageCard({ product, user, onCheckEligibility }) {
 export default function GPSLanding() {
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
-  const [eligibilityModal, setEligibilityModal] = useState({ open: false, reason: null });
-  const [checkingEligibility, setCheckingEligibility] = useState(false);
+  const [isApprovedHost, setIsApprovedHost] = useState(false);
 
   useEffect(() => {
     base44.entities.GPSProduct.filter({ is_active: true, is_public: true }, 'sort_order', 10)
       .then(p => setProducts(p))
       .catch(() => {});
-  }, [user]);
 
-  const sortedProducts = [...products].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-  const handleCheckEligibility = async () => {
-    if (!user) {
-      setEligibilityModal({ open: true, reason: 'NOT_LOGGED_IN' });
-      // Log denied
-      base44.entities.ActivityEvent.create({
-        event_type: 'fleet_partner_kit_ineligible',
-        actor_id: 'guest',
-        actor_email: '',
-        summary: 'Fleet Partner Kit eligibility denied: NOT_LOGGED_IN',
-        metadata: { reason: 'NOT_LOGGED_IN', source_page: 'gps_landing', package_type: 'host_contactless_kit', timestamp: new Date().toISOString() },
-        source: 'customer_app',
-        event_status: 'completed',
-      }).catch(() => {});
-      return;
-    }
-
-    setCheckingEligibility(true);
-    try {
-      const [hostsByEmail, hostsByUser] = await Promise.all([
+    if (user) {
+      Promise.all([
         base44.entities.Host.filter({ email: user.email }),
         base44.entities.Host.filter({ user_id: user.id }),
-      ]);
-      const host = hostsByEmail[0] || hostsByUser[0];
-
-      const logDenied = (reason, message, extra = {}) => {
-        base44.entities.ActivityEvent.create({
-          event_type: 'fleet_partner_kit_ineligible',
-          actor_id: user.id,
-          actor_email: user.email,
-          summary: `Fleet Partner Kit eligibility denied: ${reason}`,
-          metadata: { user_email: user.email, host_id: host?.id || '', reason, message, package_type: 'host_contactless_kit', source_page: 'gps_landing', timestamp: new Date().toISOString(), ...extra },
-          source: 'customer_app',
-          event_status: 'completed',
-        }).catch(() => {});
-      };
-
-      if (!host) {
-        logDenied('NOT_HOST', 'User is not a host');
-        setEligibilityModal({ open: true, reason: 'NOT_HOST' });
-        return;
-      }
-
-      if (host.status !== 'approved') {
-        logDenied('HOST_NOT_APPROVED', 'Host not approved');
-        setEligibilityModal({ open: true, reason: 'HOST_NOT_APPROVED' });
-        return;
-      }
-
-      const [vehicles, devices, gpsSubs] = await Promise.all([
-        base44.entities.Vehicle.filter({ host_id: host.id }),
-        base44.entities.TelematicsDevice.filter({ host_id: host.id }),
-        base44.entities.GPSSubscription.filter({ host_id: host.id }),
-      ]);
-
-      const activeVehicleCount = vehicles.filter(v => !['Retired', 'Out of Service'].includes(v.status)).length;
-      const activeTelematicsCount = devices.filter(d => ['activated', 'partially_activated'].includes(d.activation_status)).length;
-      const activeSubCount = gpsSubs.filter(s => ['active', 'trialing'].includes(s.subscription_status)).length;
-
-      if (activeVehicleCount < 1) {
-        logDenied('NO_ACTIVE_VEHICLE', 'No active vehicles', { active_vehicle_count: 0 });
-        setEligibilityModal({ open: true, reason: 'NO_ACTIVE_VEHICLE' });
-        return;
-      }
-
-      if (activeTelematicsCount < 1) {
-        logDenied('NO_ACTIVE_TELEMATICS_DEVICE', 'No active telematics device', { active_vehicle_count: activeVehicleCount, active_telematics_count: 0 });
-        setEligibilityModal({ open: true, reason: 'NO_ACTIVE_TELEMATICS_DEVICE' });
-        return;
-      }
-
-      if (activeSubCount < 1) {
-        logDenied('FIRST_DEVICE_SETUP_REQUIRED', 'No active GPS subscription', { active_vehicle_count: activeVehicleCount, active_telematics_count: activeTelematicsCount, active_gps_subscription_count: 0 });
-        setEligibilityModal({ open: true, reason: 'NO_ACTIVE_TELEMATICS_DEVICE' });
-        return;
-      }
-
-      // Eligible
-      base44.entities.ActivityEvent.create({
-        event_type: 'fleet_partner_kit_eligible',
-        actor_id: user.id,
-        actor_email: user.email,
-        summary: `Fleet Partner Kit eligibility confirmed for ${user.email}`,
-        metadata: { host_id: host.id, active_vehicle_count: activeVehicleCount, active_telematics_count: activeTelematicsCount, active_gps_subscription_count: activeSubCount, package_type: 'host_contactless_kit', source_page: 'gps_landing', timestamp: new Date().toISOString() },
-        source: 'customer_app',
-        event_status: 'completed',
+      ]).then(([byEmail, byUser]) => {
+        const host = byEmail[0] || byUser[0];
+        setIsApprovedHost(host?.status === 'approved');
       }).catch(() => {});
-
-      setEligibilityModal({ open: true, reason: 'ELIGIBLE' });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCheckingEligibility(false);
     }
-  };
+  }, [user]);
+
+  // Sort: device_only, device_subscription, host_contactless_kit
+  const sortedProducts = [...products].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -291,8 +154,8 @@ export default function GPSLanding() {
           <Link to="/gps/activate">
             <Button variant="outline" size="sm">Activate Device</Button>
           </Link>
-          <Link to="/gps/checkout?pkg=device_subscription">
-            <Button size="sm" className="gradient-primary">Buy + Activate</Button>
+          <Link to="/gps/checkout">
+            <Button size="sm" className="gradient-primary">Buy Device</Button>
           </Link>
           {user
             ? <AccountMenu role={user.role === "admin" ? "admin" : user.role === "host" ? "host" : "user"} accountPath="/customer/gps" extraItems={[{ label: "My GPS", icon: MapPin, path: "/customer/gps" }]} compact />
@@ -301,15 +164,10 @@ export default function GPSLanding() {
         </div>
       </nav>
 
-      {/* HERO BANNER */}
-      <section className="pt-16">
-        <Contactless360Banner variant="hero" />
-      </section>
-
       {/* HERO */}
-      <section className="relative pt-12 pb-0 overflow-hidden">
+      <section className="relative pt-24 pb-0 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-background to-primary/5 pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
+        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center min-h-[90vh]">
           <div className="space-y-6 z-10">
             <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs font-semibold tracking-wider">
               GPS • ANTI-THEFT • CONTACTLESS RENTAL READY
@@ -323,10 +181,10 @@ export default function GPSLanding() {
               Premium GPS protection for personal vehicles, rental fleets, dealers, and contactless rentals.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
-              <Link to="/gps/checkout?pkg=device_subscription">
+              <Link to="/gps/checkout">
                 <Button size="lg" className="gradient-primary glow-sm font-semibold">
                   <Package className="w-4 h-4" />
-                  Buy + Activate
+                  Buy Device
                 </Button>
               </Link>
               <Link to="/gps/activate">
@@ -395,21 +253,16 @@ export default function GPSLanding() {
         </div>
       </section>
 
-      {/* PACKAGES */}
+      {/* PACKAGES — DB-driven */}
       <section className="py-24 max-w-7xl mx-auto px-6">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-syne font-bold text-white mb-3">Choose Your Package</h2>
-          <p className="text-muted-foreground">Hardware, full activation, and fleet expansion kits available.</p>
+          <p className="text-muted-foreground">Hardware, tracking, and full host kits available.</p>
         </div>
         {sortedProducts.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {sortedProducts.map(p => (
-              <PackageCard
-                key={p.id}
-                product={p}
-                user={user}
-                onCheckEligibility={handleCheckEligibility}
-              />
+              <PackageCard key={p.id} product={p} isApprovedHost={isApprovedHost} />
             ))}
           </div>
         ) : (
@@ -426,8 +279,8 @@ export default function GPSLanding() {
           <h2 className="text-3xl font-syne font-bold text-white">Ready to protect your vehicle?</h2>
           <p className="text-muted-foreground">Join thousands of drivers using Contactless360 GPS protection.</p>
           <div className="flex justify-center gap-4 flex-wrap">
-            <Link to="/gps/checkout?pkg=device_subscription">
-              <Button size="lg" className="gradient-primary glow-sm">Buy + Activate</Button>
+            <Link to="/gps/checkout">
+              <Button size="lg" className="gradient-primary glow-sm">Order Now</Button>
             </Link>
             <Link to="/gps/activate">
               <Button size="lg" variant="outline">Activate Existing Device</Button>
@@ -440,13 +293,6 @@ export default function GPSLanding() {
       <footer className="py-8 text-center text-muted-foreground text-sm border-t border-border">
         <p>© 2026 Contactless360 by uRideHub. All rights reserved.</p>
       </footer>
-
-      {/* FLEET ELIGIBILITY MODAL */}
-      <FleetEligibilityModal
-        open={eligibilityModal.open}
-        reason={eligibilityModal.reason}
-        onClose={() => setEligibilityModal({ open: false, reason: null })}
-      />
     </div>
   );
 }

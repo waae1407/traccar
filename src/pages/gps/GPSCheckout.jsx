@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from "@/lib/AuthContext";
 import AccountMenu from "@/components/shared/AccountMenu";
-import Contactless360Banner from "@/components/gps/Contactless360Banner";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -378,7 +377,6 @@ export default function GPSCheckout() {
 
         {/* ORDER SUMMARY */}
         <div className="lg:col-span-2 space-y-5">
-          <Contactless360Banner variant="checkout" />
           <div className="rounded-2xl border border-border bg-card/60 p-6 space-y-4">
             <img src={PRODUCT_IMG} alt="Contactless360" className="w-full rounded-xl object-cover" />
             <div>

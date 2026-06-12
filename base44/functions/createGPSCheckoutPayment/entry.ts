@@ -27,87 +27,29 @@ Deno.serve(async (req) => {
     const products = await base44.asServiceRole.entities.GPSProduct.filter({ package_type, is_active: true });
     const product = products[0];
 
-    // 2. Access control: Fleet Partner Kit — full 6-check server-side enforcement
+    // 2. Access control: Fleet Partner Kit requires approved host
     if (package_type === 'host_contactless_kit') {
-      const deny = (reason, message) => {
-        // Log denied attempt
-        base44.asServiceRole.entities.ActivityEvent.create({
-          event_type: 'fleet_partner_kit_ineligible',
-          actor_id: user?.id || 'guest',
-          actor_email: user?.email || customer_email,
-          actor_role: 'guest',
-          target_entity: 'GPSOrder',
-          target_label: 'fleet_partner_kit',
-          summary: `Fleet Partner Kit denied: ${reason} — ${message}`,
-          metadata: {
-            user_email: user?.email || customer_email,
-            reason,
-            message,
-            package_type,
-            source_page: 'checkout',
-            timestamp: new Date().toISOString(),
-          },
-          source: 'system',
-          event_status: 'completed',
-        }).catch(() => {});
-        return Response.json({
-          error: message,
-          error_code: 'FLEET_PARTNER_KIT_NOT_ELIGIBLE',
-          reason,
-        }, { status: 403 });
-      };
-
-      // Check 1: authenticated
-      if (!user) return deny('NOT_LOGGED_IN', 'Please log in as an approved Fleet Partner to purchase this kit.');
-
-      // Check 2: host record exists
-      const [hostsByEmail, hostsByUser] = await Promise.all([
-        base44.asServiceRole.entities.Host.filter({ email: user.email }),
-        base44.asServiceRole.entities.Host.filter({ user_id: user.id }),
-      ]);
-      const fleetHost = hostsByEmail[0] || hostsByUser[0];
-      if (!fleetHost) return deny('NOT_HOST', 'This kit is only for approved uRide Fleet Partners. Please register as a host first.');
-
-      // Check 3: host approved
-      if (fleetHost.status !== 'approved') return deny('HOST_NOT_APPROVED', 'Your host account must be approved before purchasing the Fleet Partner Expansion Kit.');
-
-      // Check 4: active vehicle
-      const activeVehicles = await base44.asServiceRole.entities.Vehicle.filter({ host_id: fleetHost.id });
-      const activeVehicleCount = activeVehicles.filter(v => !['Retired', 'Out of Service'].includes(v.status)).length;
-      if (activeVehicleCount < 1) return deny('NO_ACTIVE_VEHICLE', 'You must have at least one active vehicle to use the Fleet Partner Expansion Kit.');
-
-      // Check 5: active telematics device
-      const activeDevices = await base44.asServiceRole.entities.TelematicsDevice.filter({ host_id: fleetHost.id });
-      const activeTelematicsCount = activeDevices.filter(d => ['activated', 'partially_activated'].includes(d.activation_status)).length;
-      if (activeTelematicsCount < 1) return deny('NO_ACTIVE_TELEMATICS_DEVICE', 'The Fleet Partner Expansion Kit requires at least one active Contactless360 device already installed. Please complete your first device setup first.');
-
-      // Check 6: active GPS subscription
-      const activeGPSSubs = await base44.asServiceRole.entities.GPSSubscription.filter({ host_id: fleetHost.id });
-      const activeSubCount = activeGPSSubs.filter(s => ['active', 'trialing'].includes(s.subscription_status)).length;
-      if (activeSubCount < 1) return deny('FIRST_DEVICE_SETUP_REQUIRED', 'The Fleet Partner Expansion Kit is only available after your first Contactless360 subscription is active.');
-
-      // Log eligible access
-      base44.asServiceRole.entities.ActivityEvent.create({
-        event_type: 'fleet_partner_kit_eligible',
-        actor_id: user.id,
-        actor_email: user.email,
-        actor_role: 'host',
-        target_entity: 'GPSOrder',
-        target_label: 'fleet_partner_kit',
-        host_id: fleetHost.id,
-        summary: `Fleet Partner Kit eligibility confirmed for ${user.email}`,
-        metadata: {
-          host_id: fleetHost.id,
-          active_vehicle_count: activeVehicleCount,
-          active_telematics_count: activeTelematicsCount,
-          active_gps_subscription_count: activeSubCount,
-          package_type,
-          source_page: 'checkout',
-          timestamp: new Date().toISOString(),
-        },
-        source: 'system',
-        event_status: 'completed',
-      }).catch(() => {});
+      const requiresApprovedHost = product ? product.requires_approved_host : true;
+      if (requiresApprovedHost) {
+        if (!user) {
+          return Response.json({
+            error: 'Fleet Partner Kit pricing is available only to approved uRide Fleet Partners. Please log in as an approved host.',
+            error_code: 'FLEET_PARTNER_REQUIRED',
+          }, { status: 403 });
+        }
+        // Check host status
+        const [hostsByEmail, hostsByUser] = await Promise.all([
+          base44.asServiceRole.entities.Host.filter({ email: user.email }),
+          base44.asServiceRole.entities.Host.filter({ user_id: user.id }),
+        ]);
+        const host = hostsByEmail[0] || hostsByUser[0];
+        if (!host || host.status !== 'approved') {
+          return Response.json({
+            error: 'Fleet Partner Kit pricing is available only to approved uRide Fleet Partners.',
+            error_code: 'FLEET_PARTNER_REQUIRED',
+          }, { status: 403 });
+        }
+      }
     }
 
     // 3. Resolve pricing from DB product

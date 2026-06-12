@@ -9,7 +9,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Package, Shield, Zap, RefreshCw, CheckCircle, AlertCircle, Edit, Truck } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import Contactless360Banner from "@/components/gps/Contactless360Banner";
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 
@@ -172,7 +171,6 @@ export default function AdminGPSStore() {
 
         {/* PRODUCTS TAB */}
         <TabsContent value="products" className="mt-4 space-y-3">
-          <Contactless360Banner variant="admin" />
           {products.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>No products configured yet.</p>
