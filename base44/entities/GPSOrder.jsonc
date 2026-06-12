@@ -51,8 +51,49 @@
       "type": "number",
       "default": 1
     },
+    "msrp_unit_price": {
+      "type": "number",
+      "default": 0,
+      "description": "Full retail price per unit"
+    },
+    "sale_unit_price": {
+      "type": "number",
+      "default": 0,
+      "description": "Discounted price per unit (equals msrp if no discount)"
+    },
     "unit_price": {
-      "type": "number"
+      "type": "number",
+      "description": "Actual charged price per unit (= sale_unit_price)"
+    },
+    "discount_amount_per_unit": {
+      "type": "number",
+      "default": 0
+    },
+    "total_discount_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "discount_amount_per_unit \u00d7 quantity"
+    },
+    "discount_label": {
+      "type": "string"
+    },
+    "price_source": {
+      "type": "string",
+      "enum": [
+        "db_product",
+        "fallback"
+      ],
+      "default": "db_product"
+    },
+    "fleet_partner_discount_applied": {
+      "type": "boolean",
+      "default": false
+    },
+    "fleet_partner_host_id": {
+      "type": "string"
+    },
+    "eligible_owner_type": {
+      "type": "string"
     },
     "subtotal": {
       "type": "number"
@@ -136,6 +177,29 @@
         "subscription_failed"
       ],
       "default": "not_started"
+    },
+    "refund_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "partial",
+        "full"
+      ],
+      "default": "none"
+    },
+    "refund_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "refund_reason": {
+      "type": "string"
+    },
+    "stripe_refund_id": {
+      "type": "string"
+    },
+    "refunded_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "admin_notes": {
       "type": "string"

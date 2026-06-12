@@ -23,55 +23,103 @@ Deno.serve(async (req) => {
 
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 
-    // 1. Load product server-side
+    // 1. Load product server-side (authoritative pricing source)
     const products = await base44.asServiceRole.entities.GPSProduct.filter({ package_type, is_active: true });
     const product = products[0];
 
-    let unitPrice, shippingAmount, activationFee, monthlySubPrice, productName;
+    // 2. Access control: Fleet Partner Kit requires approved host
+    if (package_type === 'host_contactless_kit') {
+      const requiresApprovedHost = product ? product.requires_approved_host : true;
+      if (requiresApprovedHost) {
+        if (!user) {
+          return Response.json({
+            error: 'Fleet Partner Kit pricing is available only to approved uRide Fleet Partners. Please log in as an approved host.',
+            error_code: 'FLEET_PARTNER_REQUIRED',
+          }, { status: 403 });
+        }
+        // Check host status
+        const [hostsByEmail, hostsByUser] = await Promise.all([
+          base44.asServiceRole.entities.Host.filter({ email: user.email }),
+          base44.asServiceRole.entities.Host.filter({ user_id: user.id }),
+        ]);
+        const host = hostsByEmail[0] || hostsByUser[0];
+        if (!host || host.status !== 'approved') {
+          return Response.json({
+            error: 'Fleet Partner Kit pricing is available only to approved uRide Fleet Partners.',
+            error_code: 'FLEET_PARTNER_REQUIRED',
+          }, { status: 403 });
+        }
+      }
+    }
+
+    // 3. Resolve pricing from DB product
+    let msrpUnitPrice, saleUnitPrice, unitPrice, discountPerUnit, discountLabel,
+        shippingAmount, activationFee, monthlySubPrice, productName,
+        isDiscountActive, eligibleOwnerType, priceSource, fleetPartnerDiscountApplied;
 
     if (product) {
-      unitPrice = product.device_price || 0;
+      priceSource = 'db_product';
+      isDiscountActive = product.is_discount_active && product.sale_price > 0;
+      msrpUnitPrice = product.msrp_price || product.device_price || 0;
+      saleUnitPrice = isDiscountActive ? product.sale_price : msrpUnitPrice;
+      unitPrice = saleUnitPrice;
+      discountPerUnit = isDiscountActive ? (product.discount_amount || (msrpUnitPrice - saleUnitPrice)) : 0;
+      discountLabel = isDiscountActive ? (product.discount_label || '') : '';
       shippingAmount = product.shipping_price || 0;
       activationFee = product.activation_fee || 0;
       monthlySubPrice = product.monthly_subscription_price || 0;
       productName = product.name || package_type;
+      eligibleOwnerType = product.eligible_owner_type || 'all';
+      fleetPartnerDiscountApplied = isDiscountActive && package_type === 'host_contactless_kit';
     } else {
-      // Fallback pricing if no product record exists yet
+      // Fallback — only used if no product record exists
+      priceSource = 'fallback';
       const FALLBACK = {
         device_only: { price: 149, shipping: 9.99, activation: 0, sub: 0 },
         device_subscription: { price: 149, shipping: 0, activation: 0, sub: 14.99 },
         host_contactless_kit: { price: 179, shipping: 0, activation: 0, sub: 14.99 },
       };
       const fb = FALLBACK[package_type] || FALLBACK.device_subscription;
+      msrpUnitPrice = fb.price;
+      saleUnitPrice = fb.price;
       unitPrice = fb.price;
+      discountPerUnit = 0;
+      discountLabel = '';
       shippingAmount = fb.shipping;
       activationFee = fb.activation;
       monthlySubPrice = fb.sub;
       productName = package_type.replace(/_/g, ' ');
+      eligibleOwnerType = 'all';
+      fleetPartnerDiscountApplied = false;
     }
 
     const qty = Math.max(1, Number(quantity));
+    const totalDiscountAmount = Math.round(discountPerUnit * qty * 100) / 100;
     const subtotal = Math.round(unitPrice * qty * 100) / 100;
     const totalAmount = Math.round((subtotal + shippingAmount + activationFee) * 100) / 100;
 
-    // Determine owner context
+    // 4. Determine owner context
     let hostId = null;
     let customerUserId = null;
     let orderOwnerType = 'guest';
+    let fleetPartnerHostId = '';
 
     if (user) {
       customerUserId = user.id;
       orderOwnerType = 'customer';
-      const hosts = await base44.asServiceRole.entities.Host.filter({ email: user.email });
-      const hostByUser = await base44.asServiceRole.entities.Host.filter({ user_id: user.id });
-      const host = hosts[0] || hostByUser[0];
+      const [hostsByEmail, hostsByUser] = await Promise.all([
+        base44.asServiceRole.entities.Host.filter({ email: user.email }),
+        base44.asServiceRole.entities.Host.filter({ user_id: user.id }),
+      ]);
+      const host = hostsByEmail[0] || hostsByUser[0];
       if (host) {
         hostId = host.id;
         orderOwnerType = 'host';
+        if (fleetPartnerDiscountApplied) fleetPartnerHostId = host.id;
       }
     }
 
-    // 2. Create GPSOrder (pending)
+    // 5. Create GPSOrder with full pricing breakdown
     const orderNum = `C360-${Date.now().toString(36).toUpperCase()}`;
     const order = await base44.asServiceRole.entities.GPSOrder.create({
       order_number: orderNum,
@@ -83,7 +131,16 @@ Deno.serve(async (req) => {
       product_id: product?.id || '',
       package_type,
       quantity: qty,
+      msrp_unit_price: msrpUnitPrice,
+      sale_unit_price: saleUnitPrice,
       unit_price: unitPrice,
+      discount_amount_per_unit: discountPerUnit,
+      total_discount_amount: totalDiscountAmount,
+      discount_label: discountLabel,
+      price_source: priceSource,
+      fleet_partner_discount_applied: fleetPartnerDiscountApplied,
+      fleet_partner_host_id: fleetPartnerHostId,
+      eligible_owner_type: eligibleOwnerType,
       subtotal,
       tax_amount: 0,
       shipping_amount: shippingAmount,
@@ -96,9 +153,11 @@ Deno.serve(async (req) => {
       host_id: hostId || '',
       order_owner_type: orderOwnerType,
       device_ids: [],
+      refund_status: 'none',
+      refund_amount: 0,
     });
 
-    // 3. Create or retrieve Stripe customer so the payment method is linked for future subscriptions
+    // 6. Create Stripe customer
     const stripeCustomer = await stripe.customers.create({
       email: customer_email.toLowerCase().trim(),
       name: customer_name,
@@ -110,13 +169,15 @@ Deno.serve(async (req) => {
       },
     });
 
-    // 4. Create Stripe PaymentIntent linked to the customer
+    // 7. Create Stripe PaymentIntent — amount is sale price, never MSRP
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(totalAmount * 100),
+      amount: Math.round(totalAmount * 100), // based on sale_price
       currency: 'usd',
       customer: stripeCustomer.id,
       receipt_email: customer_email,
-      description: `Contactless360 ${productName} x${qty}`,
+      description: fleetPartnerDiscountApplied
+        ? `Contactless360 ${productName} x${qty} — Fleet Partner Discount Applied`
+        : `Contactless360 ${productName} x${qty}`,
       setup_future_usage: monthlySubPrice > 0 ? 'off_session' : undefined,
       metadata: {
         billing_context: 'contactless_gps_order',
@@ -126,16 +187,24 @@ Deno.serve(async (req) => {
         customer_email,
         host_id: hostId || '',
         customer_user_id: customerUserId || '',
+        msrp_unit_price: String(msrpUnitPrice),
+        sale_unit_price: String(saleUnitPrice),
+        discount_amount_per_unit: String(discountPerUnit),
+        total_discount_amount: String(totalDiscountAmount),
+        discount_label: discountLabel,
+        fleet_partner_discount_applied: String(fleetPartnerDiscountApplied),
+        fleet_partner_host_id: fleetPartnerHostId,
+        eligible_owner_type: eligibleOwnerType,
       },
     });
 
-    // 5. Store Stripe intent ID + customer ID on order
+    // 8. Store Stripe IDs on order
     await base44.asServiceRole.entities.GPSOrder.update(order.id, {
       stripe_payment_intent_id: paymentIntent.id,
       stripe_customer_id: stripeCustomer.id,
     });
 
-    // 5. Audit log
+    // 9. Audit log
     await base44.asServiceRole.entities.ActivityEvent.create({
       event_type: 'payment.submitted',
       actor_id: customerUserId || 'guest',
@@ -145,8 +214,16 @@ Deno.serve(async (req) => {
       target_id: order.id,
       target_label: orderNum,
       host_id: hostId || '',
-      summary: `GPS order created: ${orderNum} — $${totalAmount} — ${package_type}`,
-      metadata: { order_id: order.id, package_type, total_amount: totalAmount, stripe_pi: paymentIntent.id },
+      summary: `GPS order created: ${orderNum} — charged $${totalAmount} (MSRP $${msrpUnitPrice * qty}, discount $${totalDiscountAmount}) — ${package_type}`,
+      metadata: {
+        order_id: order.id,
+        package_type,
+        msrp_total: msrpUnitPrice * qty,
+        total_discount_amount: totalDiscountAmount,
+        total_amount: totalAmount,
+        fleet_partner_discount_applied: fleetPartnerDiscountApplied,
+        stripe_pi: paymentIntent.id,
+      },
       source: 'customer_app',
       event_status: 'pending',
     }).catch(() => {});
@@ -155,6 +232,17 @@ Deno.serve(async (req) => {
       order_id: order.id,
       order_number: orderNum,
       client_secret: paymentIntent.client_secret,
+      // Pricing breakdown for frontend display
+      msrp_unit_price: msrpUnitPrice,
+      sale_unit_price: saleUnitPrice,
+      unit_price: unitPrice,
+      discount_amount_per_unit: discountPerUnit,
+      total_discount_amount: totalDiscountAmount,
+      discount_label: discountLabel,
+      fleet_partner_discount_applied: fleetPartnerDiscountApplied,
+      subtotal,
+      shipping_amount: shippingAmount,
+      tax_amount: 0,
       total_amount: totalAmount,
       monthly_subscription_price: monthlySubPrice,
       has_subscription: monthlySubPrice > 0,

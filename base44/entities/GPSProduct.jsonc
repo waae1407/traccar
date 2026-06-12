@@ -32,7 +32,55 @@
     },
     "device_price": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "description": "Effective charge price (sale_price if discount active, else msrp_price)"
+    },
+    "msrp_price": {
+      "type": "number",
+      "default": 0,
+      "description": "Full retail / list price"
+    },
+    "sale_price": {
+      "type": "number",
+      "default": 0,
+      "description": "Discounted sale price when is_discount_active=true"
+    },
+    "discount_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "msrp_price - sale_price"
+    },
+    "discount_label": {
+      "type": "string",
+      "description": "e.g. Fleet Partner Launch Discount"
+    },
+    "discount_starts_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "discount_ends_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_discount_active": {
+      "type": "boolean",
+      "default": false
+    },
+    "eligible_owner_type": {
+      "type": "string",
+      "enum": [
+        "all",
+        "host",
+        "customer",
+        "guest"
+      ],
+      "default": "all",
+      "description": "Who may purchase this product"
+    },
+    "requires_approved_host": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, purchaser must be a Host with status=approved"
     },
     "monthly_subscription_price": {
       "type": "number",
@@ -78,8 +126,7 @@
       "default": 12
     },
     "external_purchase_url": {
-      "type": "string",
-      "description": "Optional Amazon or external link"
+      "type": "string"
     },
     "sort_order": {
       "type": "number",

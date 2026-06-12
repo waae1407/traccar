@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, Star, ArrowRight, Package } from 'lucide-react';
+import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, Star, ArrowRight, Package, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { base44 } from '@/api/base44Client';
 import { useAuth } from "@/lib/AuthContext";
 import AccountMenu from "@/components/shared/AccountMenu";
 
@@ -25,41 +26,123 @@ const audiences = [
   { icon: Users, title: "Fleet Operators", desc: "Manage large fleets with centralized tracking, alerts and reporting.", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
 ];
 
-const packages = [
-  {
-    name: "Device Only",
-    price: "$149",
-    sub: null,
-    desc: "Hardware only — tracking app not included.",
-    features: ["GPS Hardware Device", "12-Month Warranty", "Standard Shipping Included", "Optional: Activate on uRideHub"],
-    cta: "Buy Device",
-    href: "/gps/checkout?pkg=device_only",
-    highlight: false,
-  },
-  {
-    name: "Device + Subscription",
-    price: "$149",
-    sub: "+ $14.99/mo",
-    desc: "Full GPS protection with live tracking service.",
-    features: ["GPS Hardware Device", "Live Tracking Dashboard", "Geofence & Movement Alerts", "Trip History", "Mobile App Access", "24/7 Monitoring", "12-Month Warranty"],
-    cta: "Buy + Activate",
-    href: "/gps/checkout?pkg=device_subscription",
-    highlight: true,
-  },
-  {
-    name: "Host Contactless Kit",
-    price: "$179",
-    sub: "+ $14.99/mo",
-    desc: "Everything a uRide host needs for contactless rentals.",
-    features: ["GPS Device", "Activation Included", "Vehicle Assignment", "Contactless Setup Checklist", "Command Test", "Rental Readiness Validation", "Priority Support"],
-    cta: "Order Host Kit",
-    href: "/gps/checkout?pkg=host_contactless_kit",
-    highlight: false,
-  },
-];
+// Map package_type to feature list display order
+const FEATURE_MAP = {
+  device_only: ["GPS Hardware Device", "12-Month Warranty", "Standard Shipping Included", "Optional: Activate on uRideHub"],
+  device_subscription: ["GPS Hardware Device", "Live Tracking Dashboard", "Geofence & Movement Alerts", "Trip History", "Mobile App Access", "24/7 Monitoring", "12-Month Warranty"],
+  host_contactless_kit: ["GPS Device Included", "Activation Included", "Vehicle Assignment", "Contactless Setup Checklist", "Command Test", "Rental Readiness Validation", "Priority Support"],
+};
+
+const CTA_MAP = {
+  device_only: "Buy Device",
+  device_subscription: "Buy + Activate",
+  host_contactless_kit: "Order as Fleet Partner",
+};
+
+function PackageCard({ product, isApprovedHost }) {
+  const isFleetKit = product.package_type === 'host_contactless_kit';
+  const showDiscount = isFleetKit && product.is_discount_active && product.sale_price > 0;
+  const displayPrice = showDiscount ? product.sale_price : product.device_price;
+  const msrp = product.msrp_price || product.device_price;
+  const features = product.features?.length ? product.features : (FEATURE_MAP[product.package_type] || []);
+  const cta = CTA_MAP[product.package_type] || 'Order Now';
+  const href = `/gps/checkout?pkg=${product.package_type}`;
+
+  return (
+    <div className={`rounded-2xl border p-8 flex flex-col gap-5 relative ${isFleetKit ? 'border-yellow-500/60 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5' : 'border-border bg-card/50'}`}>
+      {isFleetKit && (
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-bold text-xs px-4">
+          Fleet Partner Exclusive
+        </Badge>
+      )}
+      <div>
+        <h3 className="text-lg font-syne font-bold text-white">{product.name}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
+      </div>
+      <div className="space-y-1">
+        {showDiscount ? (
+          <div className="flex items-baseline gap-3">
+            <span className="text-4xl font-black text-white">${displayPrice}</span>
+            <span className="text-xl text-muted-foreground line-through">${msrp}</span>
+          </div>
+        ) : (
+          <span className="text-4xl font-black text-white">${displayPrice}</span>
+        )}
+        {product.monthly_subscription_price > 0 && (
+          <p className="text-sm text-muted-foreground">+ ${product.monthly_subscription_price}/mo</p>
+        )}
+        {showDiscount && (
+          <div className="flex items-center gap-2 mt-1">
+            <Tag className="w-3.5 h-3.5 text-green-400" />
+            <span className="text-sm text-green-400 font-semibold">Save ${product.discount_amount} — {product.discount_label}</span>
+          </div>
+        )}
+      </div>
+      <ul className="space-y-2 flex-1">
+        {features.map(f => (
+          <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+            {f}
+          </li>
+        ))}
+      </ul>
+      {isFleetKit ? (
+        <div className="space-y-3">
+          <p className="text-xs text-yellow-400/80 text-center">Available only to approved uRide Fleet Partners.</p>
+          {isApprovedHost ? (
+            <Link to={href}>
+              <Button className="w-full gradient-primary glow-sm">
+                {cta} <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          ) : (
+            <div className="space-y-2">
+              <Link to="/become-a-host">
+                <Button className="w-full" variant="outline">
+                  Become a Fleet Partner <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link to="/account">
+                <Button className="w-full" variant="ghost" size="sm">Log In as Fleet Partner</Button>
+              </Link>
+            </div>
+          )}
+        </div>
+      ) : (
+        <Link to={href}>
+          <Button className="w-full" variant="outline">
+            {cta} <ArrowRight className="w-4 h-4" />
+          </Button>
+        </Link>
+      )}
+    </div>
+  );
+}
 
 export default function GPSLanding() {
   const { user } = useAuth();
+  const [products, setProducts] = useState([]);
+  const [isApprovedHost, setIsApprovedHost] = useState(false);
+
+  useEffect(() => {
+    base44.entities.GPSProduct.filter({ is_active: true, is_public: true }, 'sort_order', 10)
+      .then(p => setProducts(p))
+      .catch(() => {});
+
+    if (user) {
+      Promise.all([
+        base44.entities.Host.filter({ email: user.email }),
+        base44.entities.Host.filter({ user_id: user.id }),
+      ]).then(([byEmail, byUser]) => {
+        const host = byEmail[0] || byUser[0];
+        setIsApprovedHost(host?.status === 'approved');
+      }).catch(() => {});
+    }
+  }, [user]);
+
+  // Sort: device_only, device_subscription, host_contactless_kit
+  const sortedProducts = [...products].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* NAV */}
@@ -127,11 +210,7 @@ export default function GPSLanding() {
           </div>
           <div className="relative flex items-center justify-center z-10">
             <div className="absolute inset-0 bg-yellow-500/10 rounded-full blur-3xl scale-75" />
-            <img
-              src={PRODUCT_IMG}
-              alt="Contactless360 GPS Device"
-              className="relative w-full max-w-2xl object-contain drop-shadow-2xl"
-            />
+            <img src={PRODUCT_IMG} alt="Contactless360 GPS Device" className="relative w-full max-w-2xl object-contain drop-shadow-2xl" />
           </div>
         </div>
       </section>
@@ -174,44 +253,23 @@ export default function GPSLanding() {
         </div>
       </section>
 
-      {/* PACKAGES */}
+      {/* PACKAGES — DB-driven */}
       <section className="py-24 max-w-7xl mx-auto px-6">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-syne font-bold text-white mb-3">Choose Your Package</h2>
           <p className="text-muted-foreground">Hardware, tracking, and full host kits available.</p>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {packages.map((pkg) => (
-            <div key={pkg.name} className={`rounded-2xl border p-8 flex flex-col gap-5 relative ${pkg.highlight ? 'border-yellow-500/60 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5' : 'border-border bg-card/50'}`}>
-              {pkg.highlight && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-bold text-xs px-4">
-                  Most Popular
-                </Badge>
-              )}
-              <div>
-                <h3 className="text-lg font-syne font-bold text-white">{pkg.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{pkg.desc}</p>
-              </div>
-              <div>
-                <span className="text-4xl font-black text-white">{pkg.price}</span>
-                {pkg.sub && <span className="text-sm text-muted-foreground ml-2">{pkg.sub}</span>}
-              </div>
-              <ul className="space-y-2 flex-1">
-                {pkg.features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CheckCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link to={pkg.href}>
-                <Button className={`w-full ${pkg.highlight ? 'gradient-primary glow-sm' : ''}`} variant={pkg.highlight ? 'default' : 'outline'}>
-                  {pkg.cta} <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-            </div>
-          ))}
-        </div>
+        {sortedProducts.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {sortedProducts.map(p => (
+              <PackageCard key={p.id} product={p} isApprovedHost={isApprovedHost} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-pulse">
+            {[1,2,3].map(i => <div key={i} className="rounded-2xl border border-border bg-card/50 h-96" />)}
+          </div>
+        )}
       </section>
 
       {/* CTA BANNER */}

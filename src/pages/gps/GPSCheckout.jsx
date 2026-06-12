@@ -8,18 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Package, ArrowLeft, Shield, CreditCard, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle, Package, ArrowLeft, Shield, Loader2, AlertCircle, Tag } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
-
-const PACKAGE_DISPLAY = {
-  device_only: { label: "Device Only", price: 149, sub: 0, shipping: 9.99, desc: "Hardware only. Activate anytime." },
-  device_subscription: { label: "Device + Subscription", price: 149, sub: 14.99, shipping: 0, desc: "Full tracking service included." },
-  host_contactless_kit: { label: "Host Contactless Kit", price: 179, sub: 14.99, shipping: 0, desc: "GPS + full contactless rental setup." },
-};
 
 let stripePromise = null;
 async function getStripe() {
@@ -30,7 +24,7 @@ async function getStripe() {
   return stripePromise;
 }
 
-function PaymentForm({ clientSecret, orderNumber, orderId, onSuccess, amount }) {
+function PaymentForm({ clientSecret, orderNumber, onSuccess, amount }) {
   const stripe = useStripe();
   const elements = useElements();
   const [paying, setPaying] = useState(false);
@@ -45,11 +39,7 @@ function PaymentForm({ clientSecret, orderNumber, orderId, onSuccess, amount }) 
       elements,
       redirect: 'if_required',
     });
-    if (stripeError) {
-      setError(stripeError.message);
-      setPaying(false);
-      return;
-    }
+    if (stripeError) { setError(stripeError.message); setPaying(false); return; }
     if (paymentIntent?.status === 'succeeded') {
       onSuccess();
     } else {
@@ -78,35 +68,140 @@ function PaymentForm({ clientSecret, orderNumber, orderId, onSuccess, amount }) 
   );
 }
 
+// Order summary panel — shows backend-returned pricing breakdown
+function OrderSummary({ product, orderData, form, pkg }) {
+  if (orderData) {
+    // Use backend-authoritative values
+    return (
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between text-muted-foreground">
+          <span>Device ({form.quantity}x)</span>
+          <div className="text-right">
+            {orderData.fleet_partner_discount_applied ? (
+              <div>
+                <span className="text-white">${(orderData.sale_unit_price * form.quantity).toFixed(2)}</span>
+                <span className="text-muted-foreground line-through ml-2 text-xs">${(orderData.msrp_unit_price * form.quantity).toFixed(2)}</span>
+              </div>
+            ) : (
+              <span className="text-white">${(orderData.unit_price * form.quantity).toFixed(2)}</span>
+            )}
+          </div>
+        </div>
+        {orderData.fleet_partner_discount_applied && (
+          <div className="flex justify-between text-green-400">
+            <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{orderData.discount_label || 'Fleet Partner Discount'}</span>
+            <span>−${orderData.total_discount_amount?.toFixed(2)}</span>
+          </div>
+        )}
+        {orderData.monthly_subscription_price > 0 && (
+          <div className="flex justify-between text-muted-foreground">
+            <span>Subscription</span><span className="text-white">${orderData.monthly_subscription_price}/mo</span>
+          </div>
+        )}
+        {orderData.shipping_amount > 0 && (
+          <div className="flex justify-between text-muted-foreground">
+            <span>Shipping</span><span className="text-white">${orderData.shipping_amount?.toFixed(2)}</span>
+          </div>
+        )}
+        <div className="border-t border-border pt-2 flex justify-between font-semibold text-white">
+          <span>Total Due</span><span>${orderData.total_amount?.toFixed(2)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Pre-submit estimate from product DB record
+  if (product) {
+    const isDiscount = product.is_discount_active && pkg === 'host_contactless_kit';
+    const unitPrice = isDiscount ? product.sale_price : (product.device_price || 0);
+    const subtotal = unitPrice * form.quantity;
+    const shipping = product.shipping_price || 0;
+    const total = subtotal + shipping;
+    return (
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between text-muted-foreground">
+          <span>Device ({form.quantity}x)</span>
+          <div className="text-right">
+            {isDiscount ? (
+              <div>
+                <span className="text-white">${subtotal.toFixed(2)}</span>
+                <span className="text-muted-foreground line-through ml-2 text-xs">${(product.msrp_price * form.quantity).toFixed(2)}</span>
+              </div>
+            ) : (
+              <span className="text-white">${subtotal.toFixed(2)}</span>
+            )}
+          </div>
+        </div>
+        {isDiscount && (
+          <div className="flex justify-between text-green-400">
+            <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{product.discount_label}</span>
+            <span>−${(product.discount_amount * form.quantity).toFixed(2)}</span>
+          </div>
+        )}
+        {product.monthly_subscription_price > 0 && (
+          <div className="flex justify-between text-muted-foreground">
+            <span>Subscription</span><span className="text-white">${product.monthly_subscription_price}/mo</span>
+          </div>
+        )}
+        {shipping > 0 && (
+          <div className="flex justify-between text-muted-foreground">
+            <span>Shipping</span><span className="text-white">${shipping.toFixed(2)}</span>
+          </div>
+        )}
+        <div className="border-t border-border pt-2 flex justify-between font-semibold text-white">
+          <span>Est. Total</span><span>${total.toFixed(2)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 export default function GPSCheckout() {
   const { user } = useAuth();
   const urlParams = new URLSearchParams(window.location.search);
   const defaultPkg = urlParams.get('pkg') || 'device_subscription';
 
   const [pkg, setPkg] = useState(defaultPkg);
+  const [products, setProducts] = useState([]);
   const [form, setForm] = useState({ name: '', email: '', phone: '', shipping_address: '', billing_address: '', vehicle_use_type: 'personal', quantity: 1 });
   const [sameBilling, setSameBilling] = useState(true);
-  const [step, setStep] = useState('form'); // form | payment | success
+  const [step, setStep] = useState('form');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [orderData, setOrderData] = useState(null); // { order_id, order_number, client_secret, total_amount }
+  const [orderData, setOrderData] = useState(null);
   const [stripeInstance, setStripeInstance] = useState(null);
+  const [isApprovedHost, setIsApprovedHost] = useState(null); // null = loading
 
-  const selected = PACKAGE_DISPLAY[pkg] || PACKAGE_DISPLAY.device_subscription;
-  const subtotal = selected.price * form.quantity;
-  const shipping = selected.shipping;
-  const total = subtotal + shipping;
+  const selectedProduct = products.find(p => p.package_type === pkg);
+  const isFleetKit = pkg === 'host_contactless_kit';
+  const fleetKitBlocked = isFleetKit && isApprovedHost === false;
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  // Pre-fill email if authenticated
   useEffect(() => {
-    base44.auth.me().then(u => { if (u?.email) set('email', u.email); if (u?.full_name) set('name', u.full_name); }).catch(() => {});
+    base44.entities.GPSProduct.filter({ is_active: true }, 'sort_order', 10)
+      .then(setProducts).catch(() => {});
     getStripe().then(setStripeInstance);
+
+    base44.auth.me().then(u => {
+      if (!u) { setIsApprovedHost(false); return; }
+      if (u.email) set('email', u.email);
+      if (u.full_name) set('name', u.full_name);
+      Promise.all([
+        base44.entities.Host.filter({ email: u.email }),
+        base44.entities.Host.filter({ user_id: u.id }),
+      ]).then(([byEmail, byUser]) => {
+        const host = byEmail[0] || byUser[0];
+        setIsApprovedHost(host?.status === 'approved');
+      }).catch(() => setIsApprovedHost(false));
+    }).catch(() => setIsApprovedHost(false));
   }, []);
 
   const handleOrderSubmit = async (e) => {
     e.preventDefault();
+    if (fleetKitBlocked) return;
     setLoading(true);
     setError(null);
     const res = await base44.functions.invoke('createGPSCheckoutPayment', {
@@ -120,7 +215,10 @@ export default function GPSCheckout() {
       vehicle_use_type: form.vehicle_use_type,
     });
     setLoading(false);
-    if (res.data?.error) { setError(res.data.error); return; }
+    if (res.data?.error) {
+      setError(res.data.error);
+      return;
+    }
     setOrderData(res.data);
     setStep('payment');
   };
@@ -137,6 +235,11 @@ export default function GPSCheckout() {
           <img src={LOGO} alt="Contactless360" className="h-10 mx-auto object-contain" />
           <h2 className="text-2xl font-syne font-bold text-white">Payment Confirmed!</h2>
           <p className="text-muted-foreground">Order <span className="text-white font-mono font-bold">{orderData?.order_number}</span> has been paid.</p>
+          {orderData?.fleet_partner_discount_applied && (
+            <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-300 text-sm flex items-center gap-2 justify-center">
+              <Tag className="w-4 h-4" /> Fleet Partner Discount of ${orderData.total_discount_amount?.toFixed(2)} applied!
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">Your device will ship within 1–2 business days. Activate it once delivered.</p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Link to={`/gps/activate?order=${orderData?.order_number}&email=${encodeURIComponent(form.email)}`}>
@@ -176,6 +279,26 @@ export default function GPSCheckout() {
             </div>
           )}
 
+          {/* Fleet Partner access gate */}
+          {isFleetKit && isApprovedHost === false && (
+            <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 space-y-3">
+              <div className="flex items-center gap-2 text-yellow-400 font-semibold text-sm">
+                <Shield className="w-4 h-4" /> Fleet Partner Kit — Restricted
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Fleet Partner Kit pricing is available only to approved uRide Fleet Partners.
+              </p>
+              <div className="flex gap-3 flex-wrap">
+                <Link to="/become-a-host">
+                  <Button size="sm" className="gradient-primary">Become a Fleet Partner</Button>
+                </Link>
+                <Link to="/account">
+                  <Button size="sm" variant="outline">Log In</Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
           {step === 'form' && (
             <form onSubmit={handleOrderSubmit} className="space-y-5">
               <div className="space-y-2">
@@ -185,7 +308,7 @@ export default function GPSCheckout() {
                   <SelectContent>
                     <SelectItem value="device_only">Device Only — $149</SelectItem>
                     <SelectItem value="device_subscription">Device + Subscription — $149 + $14.99/mo</SelectItem>
-                    <SelectItem value="host_contactless_kit">Host Contactless Kit — $179 + $14.99/mo</SelectItem>
+                    <SelectItem value="host_contactless_kit">Fleet Partner Kit — $130 + $14.99/mo (Approved Hosts Only)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -216,8 +339,16 @@ export default function GPSCheckout() {
                 </Select>
               </div>
               <div className="space-y-1"><Label>Quantity</Label><Input type="number" min={1} max={20} value={form.quantity} onChange={e => set('quantity', Number(e.target.value))} /></div>
-              <Button type="submit" size="lg" className="w-full gradient-primary glow-sm" disabled={loading}>
-                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating Order…</> : `Continue to Payment — $${total.toFixed(2)}`}
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full gradient-primary glow-sm"
+                disabled={loading || fleetKitBlocked || isApprovedHost === null}
+              >
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating Order…</> :
+                 fleetKitBlocked ? 'Fleet Partner Access Required' :
+                 isApprovedHost === null ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</> :
+                 'Continue to Payment'}
               </Button>
             </form>
           )}
@@ -228,10 +359,15 @@ export default function GPSCheckout() {
                 <CheckCircle className="w-4 h-4 text-green-400" />
                 <span className="text-sm text-green-300">Order <strong>{orderData.order_number}</strong> created. Complete payment to confirm.</span>
               </div>
+              {orderData.fleet_partner_discount_applied && (
+                <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center gap-2 mb-4">
+                  <Tag className="w-4 h-4 text-yellow-400" />
+                  <span className="text-sm text-yellow-300">Fleet Partner Discount: −${orderData.total_discount_amount?.toFixed(2)} applied!</span>
+                </div>
+              )}
               <PaymentForm
                 clientSecret={orderData.client_secret}
                 orderNumber={orderData.order_number}
-                orderId={orderData.order_id}
                 amount={orderData.total_amount}
                 onSuccess={handlePaymentSuccess}
               />
@@ -244,28 +380,17 @@ export default function GPSCheckout() {
           <div className="rounded-2xl border border-border bg-card/60 p-6 space-y-4">
             <img src={PRODUCT_IMG} alt="Contactless360" className="w-full rounded-xl object-cover" />
             <div>
-              <h3 className="font-syne font-bold text-white">{selected.label}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{selected.desc}</p>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Device ({form.quantity}x)</span>
-                <span className="text-white">${(selected.price * form.quantity).toFixed(2)}</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-syne font-bold text-white">
+                  {selectedProduct?.name || pkg.replace(/_/g, ' ')}
+                </h3>
+                {isFleetKit && selectedProduct?.is_discount_active && (
+                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">Fleet Partner Exclusive</Badge>
+                )}
               </div>
-              {selected.sub > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Subscription</span><span className="text-white">${selected.sub}/mo</span>
-                </div>
-              )}
-              {shipping > 0 && (
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Shipping</span><span className="text-white">${shipping.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="border-t border-border pt-2 flex justify-between font-semibold text-white">
-                <span>Total Due</span><span>${total.toFixed(2)}</span>
-              </div>
+              <p className="text-sm text-muted-foreground mt-1">{selectedProduct?.description || ''}</p>
             </div>
+            <OrderSummary product={selectedProduct} orderData={orderData} form={form} pkg={pkg} />
           </div>
           <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4 space-y-2">
             {["12-Month Warranty", "Plug & Play Installation", "24/7 GPS Monitoring", "4G LTE Connectivity"].map(f => (
