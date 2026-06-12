@@ -57,11 +57,22 @@ export async function uploadFile(file, { timeoutMs = UPLOAD_TIMEOUT_MS } = {}) {
     }, timeoutMs);
   });
 
+  // Known typed error codes we throw ourselves (UPLOAD_TIMEOUT, READ_TIMEOUT, etc.)
+  // Must be re-thrown directly — not re-classified by the Axios handler below.
+  const KNOWN_CODES = new Set([
+    "UPLOAD_TIMEOUT", "READ_TIMEOUT", "READ_ERROR",
+    "FILE_TOO_LARGE", "FILE_TOO_LARGE_SERVER", "UNSUPPORTED_FORMAT",
+    "NETWORK_ERROR", "SESSION_EXPIRED", "SERVER_ERROR", "STORAGE_FAILED",
+  ]);
+
   let res;
   try {
     res = await Promise.race([uploadPromise, timeoutPromise]);
   } catch (axiosErr) {
-    // Axios throws for non-2xx responses and network failures — type them properly
+    // If it's already one of our typed errors (e.g. UPLOAD_TIMEOUT from the race), re-throw as-is
+    if (KNOWN_CODES.has(axiosErr?.code)) throw axiosErr;
+
+    // Otherwise it's an Axios error — classify by HTTP status
     const httpStatus = axiosErr?.response?.status;
     const responseBody = axiosErr?.response?.data;
 
@@ -89,7 +100,7 @@ export async function uploadFile(file, { timeoutMs = UPLOAD_TIMEOUT_MS } = {}) {
       throw err;
     }
 
-    // 500/502/504 and anything else
+    // 500 / 502 / 504 and anything else
     const err = new Error(`Upload service error (HTTP ${httpStatus || "unknown"}). Please tap Retry.`);
     err.code = "SERVER_ERROR";
     err.httpStatus = httpStatus || null;
