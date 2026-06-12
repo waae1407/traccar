@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, ArrowRight, Package, Tag } from 'lucide-react';
+import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, ArrowRight, Package, Tag, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
@@ -83,27 +83,29 @@ async function checkFleetEligibility(user) {
   ]);
   const host = byEmail[0] || byUser[0];
 
-  if (!host) return { eligible: false, reason: 'NOT_HOST' };
-  if (host.status !== 'approved') return { eligible: false, reason: 'HOST_NOT_APPROVED', host_id: host.id };
+  if (!host) return { eligible: false, reason: 'NOT_HOST', host_status: '' };
+  if (host.status !== 'approved') return { eligible: false, reason: 'HOST_NOT_APPROVED', host_id: host.id, host_status: host.status };
 
   const [vehicles, devices] = await Promise.all([
     base44.entities.Vehicle.filter({ host_id: host.id, status: 'Available' }),
     base44.entities.TelematicsDevice.filter({ host_id: host.id, lifecycle_status: 'live_enabled' }),
   ]);
 
-  if (!vehicles.length) return { eligible: false, reason: 'NO_ACTIVE_VEHICLE', host_id: host.id };
-  if (!devices.length) return { eligible: false, reason: 'NO_ACTIVE_TELEMATICS_DEVICE', host_id: host.id, active_vehicle_count: vehicles.length };
+  if (!vehicles.length) return { eligible: false, reason: 'NO_ACTIVE_VEHICLE', host_id: host.id, host_status: host.status, active_vehicle_count: 0, active_telematics_count: 0 };
+  if (!devices.length) return { eligible: false, reason: 'NO_ACTIVE_TELEMATICS_DEVICE', host_id: host.id, host_status: host.status, active_vehicle_count: vehicles.length, active_telematics_count: 0 };
 
   return {
     eligible: true,
     reason: 'ELIGIBLE',
     host_id: host.id,
+    host_status: host.status,
     active_vehicle_count: vehicles.length,
     active_telematics_count: devices.length,
+    active_gps_subscription_count: 0,
   };
 }
 
-function PackageCard({ product, user, onFleetKitClick }) {
+function PackageCard({ product, user, onFleetKitClick, checking, lastEligibilityReason }) {
   const isFleetKit = product.package_type === 'host_contactless_kit';
   const isDeviceOnly = product.package_type === 'device_only';
   const showDiscount = isFleetKit && product.is_discount_active && product.sale_price > 0;
@@ -112,6 +114,10 @@ function PackageCard({ product, user, onFleetKitClick }) {
   const featureList = product.features?.length ? product.features : (FEATURE_MAP[product.package_type] || []);
   const description = product.description || DESCRIPTION_MAP[product.package_type] || '';
   const footerNote = FOOTER_NOTE_MAP[product.package_type];
+
+  // Eligibility badge for fleet kit card
+  const isEligible = isFleetKit && lastEligibilityReason === 'ELIGIBLE';
+  const isIneligible = isFleetKit && lastEligibilityReason && lastEligibilityReason !== 'ELIGIBLE';
 
   return (
     <div className={`rounded-2xl border p-8 flex flex-col gap-5 relative ${isFleetKit ? 'border-yellow-500/60 bg-gradient-to-br from-yellow-500/10 to-yellow-600/5' : 'border-border bg-card/50'}`}>
@@ -164,8 +170,22 @@ function PackageCard({ product, user, onFleetKitClick }) {
           <p className="text-xs text-yellow-400/80 text-center">
             Available only to approved Fleet Partners with at least one active vehicle and one active Contactless360 device.
           </p>
-          <Button className="w-full gradient-primary glow-sm" onClick={onFleetKitClick}>
-            Check Eligibility <ArrowRight className="w-4 h-4" />
+          {/* Eligibility status badge — shown after a check */}
+          {isEligible && (
+            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg py-1.5">
+              <CheckCircle className="w-3.5 h-3.5" /> Eligible
+            </div>
+          )}
+          {isIneligible && (
+            <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg py-1.5">
+              <Shield className="w-3.5 h-3.5" /> Eligibility Required
+            </div>
+          )}
+          <Button className="w-full gradient-primary glow-sm" onClick={onFleetKitClick} disabled={checking}>
+            {checking
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Checking eligibility…</>
+              : <>Check Eligibility <ArrowRight className="w-4 h-4" /></>
+            }
           </Button>
         </div>
       ) : (
@@ -186,6 +206,7 @@ export default function GPSLanding() {
   const [modalReason, setModalReason] = useState(null);
   const [eligibilityData, setEligibilityData] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [lastEligibilityReason, setLastEligibilityReason] = useState(null);
 
   useEffect(() => {
     base44.entities.GPSProduct.filter({ is_active: true, is_public: true }, 'sort_order', 10)
@@ -198,19 +219,23 @@ export default function GPSLanding() {
     const result = await checkFleetEligibility(user).catch(() => ({ eligible: false, reason: 'NOT_LOGGED_IN' }));
     setChecking(false);
 
-    // Log event
+    // Log eligibility check event
     base44.entities.ActivityEvent.create({
-      event_type: result.eligible ? 'fleet_partner_kit_eligible' : 'fleet_partner_kit_ineligible',
+      event_type: 'fleet_partner_kit_eligibility_checked',
       actor_email: user?.email || 'guest',
       actor_id: user?.id || 'guest',
       target_entity: 'GPSProduct',
-      summary: `Fleet Kit eligibility check: ${result.reason}`,
+      summary: `Fleet Kit eligibility check: ${result.reason} (eligible=${result.eligible})`,
       metadata: {
         user_email: user?.email || 'guest',
         host_id: result.host_id || '',
+        eligible: result.eligible,
         reason: result.reason,
+        host_status: result.host_status || '',
         active_vehicle_count: result.active_vehicle_count || 0,
         active_telematics_count: result.active_telematics_count || 0,
+        active_gps_subscription_count: result.active_gps_subscription_count || 0,
+        recommended_package: result.eligible ? null : 'device_subscription',
         package_type: 'host_contactless_kit',
         source_page: 'GPSLanding',
       },
@@ -219,6 +244,7 @@ export default function GPSLanding() {
     }).catch(() => {});
 
     setEligibilityData(result);
+    setLastEligibilityReason(result.reason);
     setModalReason(result.reason);
     setModalOpen(true);
   }, [user]);
@@ -336,6 +362,8 @@ export default function GPSLanding() {
                 product={p}
                 user={user}
                 onFleetKitClick={handleFleetKitClick}
+                checking={checking}
+                lastEligibilityReason={lastEligibilityReason}
               />
             ))}
           </div>
@@ -343,9 +371,6 @@ export default function GPSLanding() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-pulse">
             {[1, 2, 3].map(i => <div key={i} className="rounded-2xl border border-border bg-card/50 h-96" />)}
           </div>
-        )}
-        {checking && (
-          <div className="text-center mt-6 text-sm text-muted-foreground">Checking eligibility…</div>
         )}
       </section>
 

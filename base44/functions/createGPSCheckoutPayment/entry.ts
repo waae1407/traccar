@@ -29,18 +29,25 @@ Deno.serve(async (req) => {
 
     // 2. Fleet Partner Kit — full server-side eligibility gate
     if (package_type === 'host_contactless_kit') {
-      const deny = (reason, message) => {
-        // Log denied attempt
+      const deny = (reason, message, extra = {}) => {
+        // Log denied attempt with canonical event_type
         base44.asServiceRole.entities.ActivityEvent.create({
-          event_type: 'fleet_partner_kit_ineligible',
+          event_type: 'fleet_partner_kit_eligibility_checked',
           actor_email: user?.email || 'guest',
           actor_id: user?.id || 'guest',
           target_entity: 'GPSProduct',
-          summary: `Backend Fleet Kit eligibility denied: ${reason}`,
+          summary: `Fleet Kit eligibility denied at checkout: ${reason}`,
           metadata: {
             user_email: user?.email || 'guest',
+            eligible: false,
             reason,
             message,
+            host_id: extra.host_id || '',
+            host_status: extra.host_status || '',
+            active_vehicle_count: extra.active_vehicle_count || 0,
+            active_telematics_count: extra.active_telematics_count || 0,
+            active_gps_subscription_count: extra.active_gps_subscription_count || 0,
+            recommended_package: 'device_subscription',
             package_type,
             source_page: 'createGPSCheckoutPayment',
           },
@@ -59,28 +66,33 @@ Deno.serve(async (req) => {
       const host = byEmail[0] || byUser[0];
 
       if (!host) return deny('NOT_HOST', 'Fleet Partner Kit is only for approved uRide Fleet Partners.');
-      if (host.status !== 'approved') return deny('HOST_NOT_APPROVED', 'Your host account must be approved before purchasing the Fleet Partner Expansion Kit.');
+      if (host.status !== 'approved') return deny('HOST_NOT_APPROVED', 'Your host account must be approved before purchasing the Fleet Partner Expansion Kit.', { host_id: host.id, host_status: host.status });
 
       const [vehicles, devices] = await Promise.all([
         base44.asServiceRole.entities.Vehicle.filter({ host_id: host.id, status: 'Available' }),
         base44.asServiceRole.entities.TelematicsDevice.filter({ host_id: host.id, lifecycle_status: 'live_enabled' }),
       ]);
 
-      if (!vehicles.length) return deny('NO_ACTIVE_VEHICLE', 'The Fleet Partner Expansion Kit requires at least one active vehicle in your fleet.');
-      if (!devices.length) return deny('NO_ACTIVE_TELEMATICS_DEVICE', 'This looks like your first telematics installation. Please choose Contactless360 Device + Subscription to start.');
+      if (!vehicles.length) return deny('NO_ACTIVE_VEHICLE', 'The Fleet Partner Expansion Kit requires at least one active vehicle in your fleet.', { host_id: host.id, host_status: host.status });
+      if (!devices.length) return deny('NO_ACTIVE_TELEMATICS_DEVICE', 'This looks like your first telematics installation. Please choose Contactless360 Device + Subscription to start.', { host_id: host.id, host_status: host.status, active_vehicle_count: vehicles.length });
 
-      // Log eligible
+      // Log eligible checkout start with canonical event_type
       base44.asServiceRole.entities.ActivityEvent.create({
-        event_type: 'fleet_partner_kit_eligible',
+        event_type: 'fleet_partner_kit_checkout_started',
         actor_email: user.email,
         actor_id: user.id,
         target_entity: 'GPSProduct',
-        summary: `Backend Fleet Kit eligibility approved for host ${host.id}`,
+        summary: `Fleet Kit checkout started: host ${host.id} — eligible`,
         metadata: {
           user_email: user.email,
           host_id: host.id,
+          host_status: host.status,
+          eligible: true,
+          reason: 'ELIGIBLE',
           active_vehicle_count: vehicles.length,
           active_telematics_count: devices.length,
+          active_gps_subscription_count: 0,
+          recommended_package: null,
           package_type,
           source_page: 'createGPSCheckoutPayment',
         },

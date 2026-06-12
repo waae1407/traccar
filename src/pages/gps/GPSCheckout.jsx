@@ -225,7 +225,12 @@ export default function GPSCheckout() {
     });
     setLoading(false);
     if (res.data?.error) {
-      setError(res.data.error);
+      // If backend blocked on eligibility, show a user-friendly message with a redirect hint
+      if (res.data.error_code === 'FLEET_PARTNER_KIT_NOT_ELIGIBLE') {
+        setError(`Access denied: ${res.data.error} To continue, please choose the Contactless360 Device + Subscription package.`);
+      } else {
+        setError(res.data.error);
+      }
       return;
     }
     setOrderData(res.data);
