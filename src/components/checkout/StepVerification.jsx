@@ -66,7 +66,8 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
     proof_of_income_url: booking?.proof_of_income_url || "",
   });
   const [uploading, setUploading] = useState({});
-  const [verifyStatus, setVerifyStatus] = useState(null); // null | "checking" | "passed" | "failed"
+  const alreadyVerified = booking?.verification_status === "verified";
+  const [verifyStatus, setVerifyStatus] = useState(alreadyVerified ? "passed" : null); // null | "checking" | "passed" | "failed"
   const [verifyMessage, setVerifyMessage] = useState("");
   const isRTO = booking?.booking_type === "Rent-to-Own";
   const verifyingRef = React.useRef(false); // Prevent duplicate LLM calls
