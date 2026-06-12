@@ -54,10 +54,14 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Create subscription
+    // Create subscription — use default_incomplete so it succeeds even without default PM attached yet
+    // The webhook (invoice.payment_succeeded) will activate it once the payment method is confirmed
     const subscription = await stripe.subscriptions.create({
       customer: stripeCustomerId,
       items: [{ price: price.id }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      expand: ['latest_invoice.payment_intent'],
       metadata: {
         billing_context: 'gps_contactless_subscription',
         gps_order_id: order_id,
