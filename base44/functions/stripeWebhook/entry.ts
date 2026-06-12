@@ -99,6 +99,133 @@ function isHostSubscriptionContext(context) {
   return context === 'host_platform_subscription' || context === 'operator_subscription';
 }
 
+function isGPSOrderContext(context) {
+  return context === 'contactless_gps_order';
+}
+
+function isGPSSubscriptionContext(context) {
+  return context === 'gps_contactless_subscription';
+}
+
+async function handleGPSOrderPaid(base44, pi) {
+  const orderId = pi.metadata?.gps_order_id;
+  if (!orderId) return;
+  const now = new Date().toISOString();
+  const orders = await base44.asServiceRole.entities.GPSOrder.filter({ id: orderId });
+  const order = orders[0];
+  if (!order) return;
+  await base44.asServiceRole.entities.GPSOrder.update(orderId, {
+    payment_status: 'paid',
+    order_status: 'paid',
+    paid_at: now,
+    stripe_payment_intent_id: pi.id,
+  });
+  await base44.asServiceRole.entities.Notification.create({
+    user_email: order.customer_email,
+    title: '✅ GPS Order Payment Confirmed',
+    body: `Your Contactless360 GPS order (${order.order_number}) has been paid. Your device will ship within 1–2 business days.`,
+    type: 'system',
+  }).catch(() => {});
+  await logEvent(base44, {
+    event_type: 'payment.succeeded',
+    actor_id: 'stripe_webhook',
+    actor_email: 'stripe@stripe.com',
+    actor_role: 'stripe',
+    target_entity: 'GPSOrder',
+    target_id: orderId,
+    host_id: order.host_id || '',
+    summary: `GPS order payment confirmed: ${order.order_number} — $${(pi.amount / 100).toFixed(2)}`,
+    metadata: { payment_intent_id: pi.id, order_number: order.order_number, amount: pi.amount / 100 },
+    source: 'webhook',
+    event_status: 'success',
+  });
+}
+
+async function handleGPSOrderFailed(base44, pi) {
+  const orderId = pi.metadata?.gps_order_id;
+  if (!orderId) return;
+  const orders = await base44.asServiceRole.entities.GPSOrder.filter({ id: orderId });
+  const order = orders[0];
+  if (!order) return;
+  await base44.asServiceRole.entities.GPSOrder.update(orderId, {
+    payment_status: 'failed',
+    order_status: 'pending_payment',
+  });
+  await base44.asServiceRole.entities.Notification.create({
+    user_email: order.customer_email,
+    title: '⚠️ GPS Order Payment Failed',
+    body: `Payment for your Contactless360 GPS order (${order.order_number}) could not be processed. Please update your payment method and try again.`,
+    type: 'payment',
+  }).catch(() => {});
+  await logEvent(base44, {
+    event_type: 'payment.failed',
+    actor_id: 'stripe_webhook',
+    actor_email: 'stripe@stripe.com',
+    actor_role: 'stripe',
+    target_entity: 'GPSOrder',
+    target_id: orderId,
+    host_id: order.host_id || '',
+    summary: `GPS order payment failed: ${order.order_number}`,
+    metadata: { payment_intent_id: pi.id, reason: pi.last_payment_error?.message },
+    source: 'webhook',
+    event_status: 'error',
+  });
+}
+
+async function handleGPSSubscriptionUpdate(base44, { invoice, subscription, statusOverride, paymentStatus }) {
+  const meta = subscription?.metadata || invoice?.metadata || {};
+  const subscriptionId = subscription?.id || (typeof invoice?.subscription === 'string' ? invoice.subscription : invoice?.subscription?.id);
+  if (!subscriptionId) return;
+
+  const records = await base44.asServiceRole.entities.GPSSubscription.filter({ stripe_subscription_id: subscriptionId });
+  const existing = records[0];
+  if (!existing) return;
+
+  const newSubStatus = statusOverride || subscription?.status || existing.subscription_status;
+  const newPayStatus = paymentStatus || existing.payment_status;
+  const now = new Date().toISOString();
+
+  await base44.asServiceRole.entities.GPSSubscription.update(existing.id, {
+    subscription_status: newSubStatus,
+    payment_status: newPayStatus,
+    current_period_start: subscription?.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : existing.current_period_start,
+    current_period_end: subscription?.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : existing.current_period_end,
+    cancel_at_period_end: subscription?.cancel_at_period_end ?? existing.cancel_at_period_end,
+  });
+
+  // Flag device if past_due or cancelled
+  if (['past_due', 'unpaid', 'cancelled', 'canceled'].includes(newSubStatus) && existing.device_id) {
+    await base44.asServiceRole.entities.TelematicsDevice.update(existing.device_id, {
+      subscription_status: newSubStatus === 'cancelled' || newSubStatus === 'canceled' ? 'cancelled' : 'past_due',
+    }).catch(() => {});
+  }
+
+  // Notify customer on failure or cancellation
+  if (newPayStatus === 'failed' || ['past_due', 'cancelled', 'canceled'].includes(newSubStatus)) {
+    await base44.asServiceRole.entities.Notification.create({
+      user_email: existing.customer_email,
+      title: newSubStatus === 'cancelled' || newSubStatus === 'canceled' ? '🔴 GPS Subscription Cancelled' : '⚠️ GPS Subscription Payment Failed',
+      body: newSubStatus === 'cancelled' || newSubStatus === 'canceled'
+        ? 'Your Contactless360 GPS subscription has been cancelled. Device monitoring will stop.'
+        : 'Your GPS subscription payment failed. Please update your payment method to keep your device active.',
+      type: 'payment',
+    }).catch(() => {});
+  }
+
+  await logEvent(base44, {
+    event_type: 'payment.succeeded',
+    actor_id: 'stripe_webhook',
+    actor_email: 'stripe@stripe.com',
+    actor_role: 'stripe',
+    target_entity: 'GPSSubscription',
+    target_id: existing.id,
+    summary: `GPS subscription updated: ${subscriptionId} — ${newSubStatus} / ${newPayStatus}`,
+    metadata: { stripe_subscription_id: subscriptionId, subscription_status: newSubStatus, payment_status: newPayStatus },
+    source: 'webhook',
+    event_status: newPayStatus === 'paid' ? 'success' : 'warning',
+  });
+}
+
 function addDaysIso(date, days) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 }
@@ -280,6 +407,10 @@ Deno.serve(async (req) => {
           const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
           const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
           await updateOperatorSubscriptionFromStripe(base44, { subscription, session, statusOverride: subscription?.status || 'active', paymentStatus: subscription?.status === 'trialing' ? 'pending' : 'paid' });
+        } else if (isGPSOrderContext(session.metadata?.billing_context)) {
+          // GPS checkout session completed — mark order paid
+          const fakePI = { id: session.payment_intent || session.id, amount: session.amount_total || 0, metadata: session.metadata, currency: session.currency || 'usd' };
+          await handleGPSOrderPaid(base44, fakePI);
         }
         break;
       }
@@ -288,6 +419,8 @@ Deno.serve(async (req) => {
         const subscription = event.data.object;
         if (isHostSubscriptionContext(subscription.metadata?.billing_context)) {
           await updateOperatorSubscriptionFromStripe(base44, { subscription, statusOverride: subscription.status });
+        } else if (isGPSSubscriptionContext(subscription.metadata?.billing_context)) {
+          await handleGPSSubscriptionUpdate(base44, { subscription, statusOverride: subscription.status });
         }
         break;
       }
@@ -296,6 +429,8 @@ Deno.serve(async (req) => {
         const subscription = event.data.object;
         if (isHostSubscriptionContext(subscription.metadata?.billing_context)) {
           await updateOperatorSubscriptionFromStripe(base44, { subscription, statusOverride: 'canceled', paymentStatus: 'cancelled' });
+        } else if (isGPSSubscriptionContext(subscription.metadata?.billing_context)) {
+          await handleGPSSubscriptionUpdate(base44, { subscription, statusOverride: 'cancelled', paymentStatus: 'cancelled' });
         }
         break;
       }
@@ -303,12 +438,12 @@ Deno.serve(async (req) => {
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
         const billingContext = getBillingContext(invoice.metadata || {});
-        if (isHostSubscriptionContext(billingContext) || invoice.subscription) {
-          const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
-          const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
-          if (isHostSubscriptionContext(subscription?.metadata?.billing_context)) {
-            await updateOperatorSubscriptionFromStripe(base44, { subscription, invoice, statusOverride: subscription.status, paymentStatus: 'paid' });
-          }
+        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+        const subscription = subscriptionId ? await stripe.subscriptions.retrieve(subscriptionId) : null;
+        if (isHostSubscriptionContext(subscription?.metadata?.billing_context)) {
+          await updateOperatorSubscriptionFromStripe(base44, { subscription, invoice, statusOverride: subscription.status, paymentStatus: 'paid' });
+        } else if (isGPSSubscriptionContext(subscription?.metadata?.billing_context)) {
+          await handleGPSSubscriptionUpdate(base44, { subscription, invoice, statusOverride: 'active', paymentStatus: 'paid' });
         }
         break;
       }
@@ -316,6 +451,13 @@ Deno.serve(async (req) => {
       case 'payment_intent.succeeded': {
         const pi = event.data.object;
         const billingContext = getBillingContext(pi.metadata || {});
+
+        // GPS order payment
+        if (isGPSOrderContext(billingContext)) {
+          await handleGPSOrderPaid(base44, pi);
+          break;
+        }
+
         if (!['rental_marketplace_payment', 'fleetos_host_direct_payment', 'payment_recovery_customer_self_service'].includes(billingContext)) {
           console.log(`[Webhook] Recognized non-rental billing context ${billingContext}; no live subscription/dealer/GPS billing action taken.`);
           await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.succeeded context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
@@ -626,6 +768,13 @@ Deno.serve(async (req) => {
       case 'payment_intent.payment_failed': {
         const pi = event.data.object;
         const billingContext = getBillingContext(pi.metadata || {});
+
+        // GPS order failure
+        if (isGPSOrderContext(billingContext)) {
+          await handleGPSOrderFailed(base44, pi);
+          break;
+        }
+
         if (billingContext !== 'rental_marketplace_payment') {
           console.log(`[Webhook] Recognized non-rental failed payment context ${billingContext}; no rental failure action taken.`);
           await createPaymentAlert(base44, { alert_type: alertTypeForInvoiceFailure(billingContext), severity: 'critical', billing_context: billingContext, stripe_event_type: event.type, stripe_payment_intent_id: pi.id, renter_email: pi.metadata?.user_email || '', title: 'Non-rental payment failed', message: `A ${billingContext} payment failed. No automatic suspension or billing activation was performed.`, recommended_action: 'Review the billing issue and contact the operator if needed.', financial_impact_amount: (pi.amount || 0) / 100, currency: pi.currency || 'usd', requires_customer_action: false, source: 'stripe_webhook' });
@@ -678,6 +827,9 @@ Deno.serve(async (req) => {
         if (isHostSubscriptionContext(subscription?.metadata?.billing_context)) {
           billingContext = subscription.metadata.billing_context;
           await updateOperatorSubscriptionFromStripe(base44, { subscription, invoice, statusOverride: subscription.status || 'past_due', paymentStatus: 'failed' });
+        } else if (isGPSSubscriptionContext(subscription?.metadata?.billing_context)) {
+          billingContext = subscription.metadata.billing_context;
+          await handleGPSSubscriptionUpdate(base44, { subscription, invoice, statusOverride: 'past_due', paymentStatus: 'failed' });
         }
         await createPaymentAlert(base44, { alert_type: alertTypeForInvoiceFailure(billingContext), severity: 'critical', billing_context: billingContext, stripe_event_type: event.type, stripe_invoice_id: invoice.id, host_id: subscription?.metadata?.host_id || '', title: 'Invoice payment failed', message: `Invoice payment failed for ${billingContext}. No automatic suspension or subscription activation occurred.`, recommended_action: 'Review billing issue and contact the operator/customer as appropriate.', financial_impact_amount: (invoice.amount_due || 0) / 100, currency: invoice.currency || 'usd', requires_customer_action: false, source: 'stripe_webhook' });
         break;

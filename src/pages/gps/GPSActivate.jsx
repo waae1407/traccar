@@ -1,26 +1,23 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Zap, ArrowLeft, AlertCircle } from 'lucide-react';
+import { CheckCircle, Zap, ArrowLeft, AlertCircle, Loader2, CreditCard } from 'lucide-react';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 
 export default function GPSActivate() {
   const urlParams = new URLSearchParams(window.location.search);
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     order_number: urlParams.get('order') || '',
-    email: '',
+    email: urlParams.get('email') || '',
     imei: '',
-    vin: '',
-    year: '',
-    make: '',
-    model: '',
-    plate: '',
+    year: '', make: '', model: '', vin: '', plate: '',
     use_type: 'personal',
     sim_provider: '',
     installation_status: 'self_installed',
@@ -28,13 +25,23 @@ export default function GPSActivate() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
+  const [order, setOrder] = useState(null);
   const [hostVehicles, setHostVehicles] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [user, setUser] = useState(null);
   const [myHost, setMyHost] = useState(null);
   const [step, setStep] = useState(1);
+  const [activatedDevice, setActivatedDevice] = useState(null);
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  // Auto-fill email for authenticated users
+  useEffect(() => {
+    base44.auth.me().then(u => {
+      setUser(u);
+      if (u?.email && !form.email) set('email', u.email);
+    }).catch(() => {});
+  }, []);
 
   const lookupOrder = async () => {
     setLoading(true);
@@ -52,10 +59,50 @@ export default function GPSActivate() {
           setHostVehicles(vehicles);
         }
       }
-      const orders = await base44.entities.GPSOrder.filter({ order_number: form.order_number, customer_email: form.email });
-      if (!orders.length) { setError('Order not found. Please check your order number and email.'); setLoading(false); return; }
+
+      const orders = await base44.entities.GPSOrder.filter({ order_number: form.order_number });
+      if (!orders.length) {
+        setError('Order not found. Please check your order number.');
+        setLoading(false);
+        return;
+      }
+
+      const foundOrder = orders[0];
+
+      // Validate email match
+      if (foundOrder.customer_email?.toLowerCase().trim() !== form.email.toLowerCase().trim()) {
+        setError('Email does not match the order on file.');
+        setLoading(false);
+        return;
+      }
+
+      // BLOCKER 3: Require paid order
+      if (foundOrder.payment_status !== 'paid') {
+        setError('Payment has not been confirmed. Please complete payment before activating this device.');
+        setLoading(false);
+        return;
+      }
+
+      // BLOCKER 5: Check if already fully activated
+      const deviceIds = foundOrder.device_ids || [];
+      const qty = foundOrder.quantity || 1;
+      if (deviceIds.length >= qty) {
+        setError(`This order has already been fully activated (${qty} of ${qty} devices).`);
+        setLoading(false);
+        return;
+      }
+
+      if (['cancelled', 'refunded'].includes(foundOrder.order_status)) {
+        setError('This order is no longer active and cannot be used for activation.');
+        setLoading(false);
+        return;
+      }
+
+      setOrder(foundOrder);
       setStep(2);
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      setError(e.message);
+    }
     setLoading(false);
   };
 
@@ -63,11 +110,28 @@ export default function GPSActivate() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    try {
-      const orders = await base44.entities.GPSOrder.filter({ order_number: form.order_number });
-      const order = orders[0];
 
-      // Create TelematicsDevice record
+    try {
+      // BLOCKER 4: Check for duplicate IMEI
+      const existingByUid = await base44.entities.TelematicsDevice.filter({ device_unique_id: form.imei });
+      if (existingByUid.length > 0) {
+        setError('This device is already activated. Each IMEI can only be registered once.');
+        setLoading(false);
+        return;
+      }
+
+      // BLOCKER 5: Re-validate quantity limit before creating
+      const freshOrders = await base44.entities.GPSOrder.filter({ order_number: form.order_number });
+      const freshOrder = freshOrders[0];
+      const currentDeviceIds = freshOrder?.device_ids || [];
+      const qty = freshOrder?.quantity || 1;
+      if (currentDeviceIds.length >= qty) {
+        setError(`Activation limit reached. This order allows ${qty} device(s) and all have been activated.`);
+        setLoading(false);
+        return;
+      }
+
+      // Build device record
       const deviceData = {
         device_unique_id: form.imei,
         imei: form.imei,
@@ -77,29 +141,87 @@ export default function GPSActivate() {
         subscription_status: 'active',
         supports_starter_interrupt: true,
         supports_contactless: true,
-        sim_provider: form.sim_provider,
+        sim_provider: form.sim_provider || '',
+        installation_type: form.installation_status,
       };
 
       if (myHost && selectedVehicleId) {
         deviceData.host_id = myHost.id;
         deviceData.vehicle_id = selectedVehicleId;
-        // Update vehicle with device reference
-        await base44.entities.Vehicle.update(selectedVehicleId, { telematics_provider: 'other' });
+        await base44.entities.Vehicle.update(selectedVehicleId, { telematics_provider: 'other', telematics_device_id: form.imei });
+      } else if (!myHost && form.vin) {
+        deviceData.vin = form.vin;
       }
 
-      const device = await base44.entities.TelematicsDevice.create(deviceData).catch(() => null);
+      const device = await base44.entities.TelematicsDevice.create(deviceData);
+      setActivatedDevice(device);
 
-      // Update order
-      if (order) {
-        await base44.entities.GPSOrder.update(order.id, {
-          activation_status: 'activated',
-          order_status: 'active',
-          device_ids: [form.imei],
-        });
+      // Update order device_ids + activation_status
+      const newDeviceIds = [...currentDeviceIds, device.id];
+      const newActivationStatus = newDeviceIds.length >= qty ? 'activated' : 'partially_activated';
+      await base44.entities.GPSOrder.update(freshOrder.id, {
+        device_ids: newDeviceIds,
+        activation_status: newActivationStatus,
+        order_status: newActivationStatus === 'activated' ? 'active' : 'activation_pending',
+      });
+
+      // Audit log
+      await base44.entities.ActivityEvent.create({
+        event_type: 'gps.device_online',
+        actor_id: user?.id || 'guest',
+        actor_email: form.email,
+        actor_role: myHost ? 'host' : 'customer',
+        target_entity: 'TelematicsDevice',
+        target_id: device.id,
+        host_id: myHost?.id || '',
+        summary: `GPS device activated: IMEI ${form.imei} for order ${form.order_number}`,
+        metadata: { imei: form.imei, order_id: freshOrder.id, vehicle_id: selectedVehicleId || '', device_id: device.id },
+        source: myHost ? 'host_portal' : 'customer_app',
+        event_status: 'success',
+      }).catch(() => {});
+
+      // Notify
+      await base44.integrations.Core.SendEmail({
+        to: form.email,
+        subject: '✅ Your Contactless360 GPS Device is Activated',
+        body: `Your GPS device (IMEI: ${form.imei}) has been successfully activated for order ${form.order_number}. It may take up to 10 minutes to appear online.`,
+      }).catch(() => {});
+
+      // BLOCKER 6: Create subscription if needed
+      if (freshOrder.package_type !== 'device_only') {
+        const subRes = await base44.functions.invoke('createGPSSubscription', {
+          order_id: freshOrder.id,
+          device_id: device.id,
+          monthly_price: 14.99,
+          plan_name: 'Contactless360 GPS Monthly',
+          stripe_customer_id: freshOrder.stripe_customer_id || '',
+        }).catch(err => ({ data: { error: err.message, subscription_failed: true } }));
+
+        if (subRes?.data?.subscription_failed) {
+          // Mark activation incomplete
+          await base44.entities.GPSOrder.update(freshOrder.id, { activation_status: 'subscription_failed' });
+          setError('Subscription setup failed. Your device was registered but monitoring service could not be activated. Please contact support.');
+          setLoading(false);
+          return;
+        }
       }
 
       setSuccess(true);
-    } catch (e) { setError(e.message); }
+    } catch (e) {
+      setError(e.message);
+      // Audit blocked/failed activation
+      await base44.entities.ActivityEvent.create({
+        event_type: 'gps.command_failed',
+        actor_id: user?.id || 'guest',
+        actor_email: form.email,
+        actor_role: myHost ? 'host' : 'customer',
+        target_entity: 'GPSOrder',
+        summary: `GPS activation failed for order ${form.order_number}: ${e.message}`,
+        metadata: { imei: form.imei, error: e.message },
+        source: 'customer_app',
+        event_status: 'error',
+      }).catch(() => {});
+    }
     setLoading(false);
   };
 
@@ -129,9 +251,7 @@ export default function GPSActivate() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <nav className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <Link to="/gps">
-          <img src={LOGO} alt="Contactless360" className="h-8 object-contain" />
-        </Link>
+        <Link to="/gps"><img src={LOGO} alt="Contactless360" className="h-8 object-contain" /></Link>
         <Link to="/gps" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white">
           <ArrowLeft className="w-4 h-4" /> Back
         </Link>
@@ -145,8 +265,16 @@ export default function GPSActivate() {
         </div>
 
         {error && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-3 text-red-400 text-sm">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-400 text-sm">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <div>
+              {error}
+              {error.includes('complete payment') && (
+                <div className="mt-2">
+                  <Link to="/gps/checkout"><Button size="sm" className="gradient-primary"><CreditCard className="w-3 h-3" /> Complete Payment</Button></Link>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -162,7 +290,7 @@ export default function GPSActivate() {
               <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="your@email.com" />
             </div>
             <Button onClick={lookupOrder} className="w-full gradient-primary" disabled={loading || !form.order_number || !form.email}>
-              {loading ? 'Looking up…' : 'Verify Order'}
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</> : 'Verify Order'}
             </Button>
             <p className="text-xs text-center text-muted-foreground">
               No order yet? <Link to="/gps/checkout" className="text-yellow-400 hover:underline">Buy a device first</Link>
@@ -170,12 +298,15 @@ export default function GPSActivate() {
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && order && (
           <form onSubmit={handleActivate} className="space-y-5 glass rounded-2xl p-6">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-green-400">Order verified</span>
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/30">
+              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+              <div className="text-sm text-green-300">
+                Order <strong>{order.order_number}</strong> verified — {order.device_ids?.length || 0}/{order.quantity} device(s) activated
+              </div>
             </div>
+
             <h2 className="font-semibold text-white">Step 2: Device & Vehicle Info</h2>
 
             <div className="space-y-1">
@@ -246,7 +377,7 @@ export default function GPSActivate() {
 
             <Button type="submit" size="lg" className="w-full gradient-primary glow-sm" disabled={loading || !form.imei}>
               <Zap className="w-4 h-4" />
-              {loading ? 'Activating…' : 'Activate Device'}
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Activating…</> : 'Activate Device'}
             </Button>
           </form>
         )}

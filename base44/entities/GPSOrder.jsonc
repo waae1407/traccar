@@ -11,6 +11,16 @@
     "host_id": {
       "type": "string"
     },
+    "order_owner_type": {
+      "type": "string",
+      "enum": [
+        "host",
+        "customer",
+        "guest"
+      ],
+      "default": "guest",
+      "description": "Whether the order was placed by a host, authenticated customer, or guest"
+    },
     "customer_name": {
       "type": "string"
     },
@@ -82,6 +92,9 @@
     "stripe_payment_intent_id": {
       "type": "string"
     },
+    "stripe_customer_id": {
+      "type": "string"
+    },
     "order_status": {
       "type": "string",
       "enum": [
@@ -93,7 +106,9 @@
         "activation_pending",
         "active",
         "cancelled",
-        "refunded"
+        "refunded",
+        "payment_failed",
+        "subscription_failed"
       ],
       "default": "pending_payment"
     },
@@ -107,7 +122,8 @@
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "description": "Array of TelematicsDevice IDs activated against this order"
     },
     "activation_status": {
       "type": "string",
@@ -115,12 +131,18 @@
         "not_started",
         "in_progress",
         "activated",
-        "failed"
+        "partially_activated",
+        "failed",
+        "subscription_failed"
       ],
       "default": "not_started"
     },
     "admin_notes": {
       "type": "string"
+    },
+    "paid_at": {
+      "type": "string",
+      "format": "date-time"
     },
     "shipped_at": {
       "type": "string",
