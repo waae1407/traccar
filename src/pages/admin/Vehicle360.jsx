@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Wifi, WifiOff } from 'lucide-react';
+import GPSCtaCard from '@/components/gps/GPSCtaCard';
 import { format } from 'date-fns';
 
 function SBadge({ status }) {
@@ -100,7 +101,7 @@ export default function Vehicle360() {
                     {gps.lat && <p className="text-muted-foreground text-xs">{gps.lat.toFixed(4)}, {gps.lon.toFixed(4)}</p>}
                     {gps.starter_disabled && <Badge className="bg-red-500/20 text-red-400 text-xs">⚡ Starter Disabled</Badge>}
                   </div>
-                ) : <p className="text-muted-foreground text-xs">No telematics device assigned</p>}
+                ) : <GPSCtaCard vehicleId={v?.id} />}
               </CardContent>
             </Card>
             <Card className="bg-card border-border">

@@ -258,9 +258,22 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             <div className="flex items-center justify-between pt-1">
               <div>
                 <p className="text-sm text-white/60">Contactless Pickup</p>
-                <p className="text-[10px] text-white/30">Auto-approves after payment — requires MooveTrax device</p>
+                {!form.moovetrax_device_id && !form.telematics_device_id ? (
+                  <p className="text-[10px] text-yellow-400/80">⚠ Requires a GPS/telematics device — assign one above first</p>
+                ) : (
+                  <p className="text-[10px] text-white/30">Auto-approves after payment — requires active GPS device</p>
+                )}
               </div>
-              {toggle("contactless_pickup")}
+              {(!form.moovetrax_device_id && !form.telematics_device_id) ? (
+                <button
+                  type="button"
+                  disabled
+                  title="A GPS or telematics device must be assigned before enabling contactless pickup"
+                  className="relative h-5 w-9 rounded-full bg-white/10 opacity-40 cursor-not-allowed flex-shrink-0"
+                >
+                  <span className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white" />
+                </button>
+              ) : toggle("contactless_pickup")}
             </div>
           </div>
 

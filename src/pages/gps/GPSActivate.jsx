@@ -79,6 +79,19 @@ export default function GPSActivate() {
       // BLOCKER 3: Require paid order
       if (foundOrder.payment_status !== 'paid') {
         setError('Payment has not been confirmed. Please complete payment before activating this device.');
+        // Log blocked activation attempt
+        base44.entities.ActivityEvent.create({
+          event_type: 'gps.command_failed',
+          actor_id: u?.id || 'guest',
+          actor_email: form.email,
+          actor_role: 'customer',
+          target_entity: 'GPSOrder',
+          target_id: foundOrder.id,
+          summary: `GPS activation blocked — payment not confirmed for order ${form.order_number}`,
+          metadata: { order_number: form.order_number, payment_status: foundOrder.payment_status },
+          source: 'customer_app',
+          event_status: 'warning',
+        }).catch(() => {});
         setLoading(false);
         return;
       }
@@ -189,11 +202,13 @@ export default function GPSActivate() {
 
       // BLOCKER 6: Create subscription if needed
       if (freshOrder.package_type !== 'device_only') {
+        // Resolve monthly price from order unit_price chain or fallback
+        const monthlyPrice = freshOrder.monthly_subscription_price || 14.99;
         const subRes = await base44.functions.invoke('createGPSSubscription', {
           order_id: freshOrder.id,
           device_id: device.id,
-          monthly_price: 14.99,
-          plan_name: 'Contactless360 GPS Monthly',
+          monthly_price: monthlyPrice,
+          plan_name: freshOrder.package_type === 'host_contactless_kit' ? 'Contactless360 Host Kit Monthly' : 'Contactless360 GPS Monthly',
           stripe_customer_id: freshOrder.stripe_customer_id || '',
         }).catch(err => ({ data: { error: err.message, subscription_failed: true } }));
 

@@ -149,7 +149,7 @@ async function handleGPSOrderFailed(base44, pi) {
   if (!order) return;
   await base44.asServiceRole.entities.GPSOrder.update(orderId, {
     payment_status: 'failed',
-    order_status: 'pending_payment',
+    order_status: 'payment_failed',
   });
   await base44.asServiceRole.entities.Notification.create({
     user_email: order.customer_email,
@@ -213,7 +213,7 @@ async function handleGPSSubscriptionUpdate(base44, { invoice, subscription, stat
   }
 
   await logEvent(base44, {
-    event_type: 'payment.succeeded',
+    event_type: newPayStatus === 'failed' ? 'payment.failed' : ['cancelled', 'canceled'].includes(newSubStatus) ? 'booking.cancelled' : 'payment.succeeded',
     actor_id: 'stripe_webhook',
     actor_email: 'stripe@stripe.com',
     actor_role: 'stripe',
