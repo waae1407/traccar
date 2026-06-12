@@ -1,23 +1,111 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Upload, Check, AlertCircle, ShieldCheck, Loader2, XCircle } from "lucide-react";
+import { Upload, Check, AlertCircle, ShieldCheck, Loader2, XCircle, RefreshCw } from "lucide-react";
 import { uploadFile } from "@/utils/uploadFile";
 import usePersistentFormDraft from "@/hooks/usePersistentFormDraft";
 
-function UploadBox({ label, url, uploading, onChange, required }) {
+// Per-document upload status: idle | uploading | uploaded | failed | retrying
+function UploadBox({ label, url, status, error, onChange, onRetry, onClear, required }) {
+  const isUploading = status === "uploading" || status === "retrying";
+  const isFailed = status === "failed";
+  const isUploaded = status === "uploaded" || !!url;
+
   return (
-    <div className={`relative border-2 border-dashed rounded-2xl p-4 transition-colors ${url ? "border-green-300 bg-green-50" : "border-gray-200 bg-gray-50"}`}>
-      <input type="file" accept="image/*" capture="environment" className="absolute inset-0 opacity-0 cursor-pointer" onChange={onChange} />
+    <div className={`relative border-2 border-dashed rounded-2xl p-4 transition-colors ${
+      isUploaded ? "border-green-300 bg-green-50" :
+      isFailed ? "border-red-300 bg-red-50" :
+      isUploading ? "border-blue-200 bg-blue-50/50" :
+      "border-gray-200 bg-gray-50"
+    }`}>
+      {/* Clickable file input — disabled while uploading */}
+      {!isUploading && (
+        <input
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+          capture="environment"
+          className="absolute inset-0 opacity-0 cursor-pointer z-10"
+          onChange={onChange}
+        />
+      )}
+
       <div className="flex items-center gap-3">
-        <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${url ? "bg-green-100" : "bg-white border border-gray-200"}`}>
-          {url ? <Check className="h-5 w-5 text-green-600" /> : <Upload className="h-5 w-5 text-gray-400" />}
+        <div className={`h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+          isUploaded ? "bg-green-100" :
+          isFailed ? "bg-red-100" :
+          isUploading ? "bg-blue-100" :
+          "bg-white border border-gray-200"
+        }`}>
+          {isUploading ? (
+            <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+          ) : isUploaded ? (
+            <Check className="h-5 w-5 text-green-600" />
+          ) : isFailed ? (
+            <XCircle className="h-5 w-5 text-red-500" />
+          ) : (
+            <Upload className="h-5 w-5 text-gray-400" />
+          )}
         </div>
+
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-800 text-sm">{label} {required && <span className="text-pink-500">*</span>}</p>
-          <p className="text-xs text-gray-400 truncate">{uploading ? "Uploading…" : url ? "Uploaded ✓" : "Tap to upload or take photo"}</p>
+          <p className="font-semibold text-gray-800 text-sm">
+            {label} {required && <span className="text-pink-500">*</span>}
+          </p>
+          <p className={`text-xs truncate ${
+            isUploading ? "text-blue-500" :
+            isUploaded ? "text-green-600" :
+            isFailed ? "text-red-500" :
+            "text-gray-400"
+          }`}>
+            {status === "retrying" ? "Retrying upload…" :
+             isUploading ? "Uploading…" :
+             isUploaded ? "Uploaded ✓" :
+             isFailed ? "Upload failed" :
+             "Tap to upload or take photo"}
+          </p>
         </div>
+
+        {/* Retry / Clear buttons for failed */}
+        {isFailed && (
+          <div className="flex gap-1.5 z-20 relative">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRetry?.(); }}
+              className="px-2 py-1 rounded-lg bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1 hover:bg-red-200 transition-colors"
+            >
+              <RefreshCw className="h-3 w-3" /> Retry
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onClear?.(); }}
+              className="px-2 py-1 rounded-lg bg-gray-100 text-gray-500 text-xs font-semibold hover:bg-gray-200 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Clear uploaded file */}
+        {isUploaded && !isUploading && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onClear?.(); }}
+            className="z-20 relative px-2 py-1 rounded-lg bg-gray-100 text-gray-400 text-xs hover:bg-gray-200 transition-colors"
+          >
+            ✕
+          </button>
+        )}
       </div>
-      {url && (
+
+      {/* Error message */}
+      {isFailed && error && (
+        <div className="mt-2 flex items-start gap-1.5">
+          <AlertCircle className="h-3.5 w-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Image preview */}
+      {isUploaded && url && (
         <img src={url} alt="" className="mt-3 h-20 w-full object-cover rounded-xl" />
       )}
     </div>
@@ -58,9 +146,21 @@ const VerificationStatus = ({ status, message }) => {
   return null;
 };
 
+// Maps error codes to user-friendly messages
+function friendlyUploadError(err) {
+  const code = err?.code;
+  if (code === "FILE_TOO_LARGE") return err.message;
+  if (code === "UNSUPPORTED_FORMAT") return err.message;
+  if (code === "UPLOAD_TIMEOUT") return "Upload timed out. Please check your connection and tap Retry.";
+  if (code === "READ_TIMEOUT") return "Could not read the file. Please try again.";
+  if (code === "READ_ERROR") return "Could not open the file. Please try a different photo.";
+  if (code === "STORAGE_FAILED") return "Storage error. Please tap Retry.";
+  return "Upload failed. Please tap Retry. If this continues, contact support. (ERR-UPL-001)";
+}
+
+const UPLOAD_FIELDS = ["license_front_url", "license_back_url", "selfie_url", "proof_of_income_url"];
+
 export default function StepVerification({ booking, saveAndAdvance, updateMutation }) {
-  // Only enable draft persistence once we have a real booking ID to avoid writing to a key like
-  // "checkout_verification_draft:undefined" which gets cached and later overrides real booking data.
   const draftKey = booking?.id ? `checkout_verification_draft:${booking.id}` : null;
   const [draftUploads, setDraftUploads, clearVerificationDraft] = usePersistentFormDraft(
     draftKey || "__noop__",
@@ -69,52 +169,149 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
   );
 
   // Always prefer values saved on the booking record over the local draft.
-  // This ensures that if the user returns to this step after already uploading, the images are shown.
   const uploads = {
     license_front_url: booking?.license_front_url || draftUploads.license_front_url || "",
     license_back_url: booking?.license_back_url || draftUploads.license_back_url || "",
     selfie_url: booking?.selfie_url || draftUploads.selfie_url || "",
     proof_of_income_url: booking?.proof_of_income_url || draftUploads.proof_of_income_url || "",
   };
-  const setUploads = setDraftUploads;
 
-  const [uploading, setUploading] = useState({});
-  const [verifyStatus, setVerifyStatus] = useState(null); // null | "checking" | "passed" | "failed"
+  // Per-document statuses: idle | uploading | uploaded | failed | retrying
+  const initialStatuses = Object.fromEntries(
+    UPLOAD_FIELDS.map((f) => [f, uploads[f] ? "uploaded" : "idle"])
+  );
+  const [uploadStatuses, setUploadStatuses] = useState(initialStatuses);
+  const [uploadErrors, setUploadErrors] = useState({});
+
+  const [verifyStatus, setVerifyStatus] = useState(null);
   const [verifyMessage, setVerifyMessage] = useState("");
   const isRTO = booking?.booking_type === "Rent-to-Own";
-  const verifyingRef = React.useRef(false); // Prevent duplicate LLM calls
+  const verifyingRef = useRef(false);
 
-  // When booking loads (or changes), auto-set passed if already verified
+  // Auto-set passed if already verified on booking
   React.useEffect(() => {
     if (booking?.verification_status === "verified") {
       setVerifyStatus("passed");
     }
   }, [booking?.id, booking?.verification_status]);
 
-  const handleUpload = async (field, file) => {
+  // Sync upload statuses when booking data loads (e.g. returning to step)
+  React.useEffect(() => {
+    setUploadStatuses((prev) => {
+      const next = { ...prev };
+      UPLOAD_FIELDS.forEach((f) => {
+        if (uploads[f] && prev[f] === "idle") next[f] = "uploaded";
+      });
+      return next;
+    });
+  }, [booking?.id]); // eslint-disable-line
+
+  const setFieldStatus = (field, status) =>
+    setUploadStatuses((p) => ({ ...p, [field]: status }));
+  const setFieldError = (field, msg) =>
+    setUploadErrors((p) => ({ ...p, [field]: msg }));
+  const clearFieldError = (field) =>
+    setUploadErrors((p) => ({ ...p, [field]: "" }));
+
+  const doUpload = async (field, file) => {
     if (!file) return;
-    setUploading((p) => ({ ...p, [field]: true }));
-    // Reset verification if re-uploading
-    setVerifyStatus(null);
-    const { file_url } = await uploadFile(file);
-    setUploads((p) => ({ ...p, [field]: file_url }));
-    if (booking?.id) {
-      updateMutation.mutate({ id: booking.id, data: { [field]: file_url } });
+
+    setFieldStatus(field, "uploading");
+    clearFieldError(field);
+    setVerifyStatus(null); // reset verification when any file changes
+
+    try {
+      const { file_url } = await uploadFile(file);
+      setDraftUploads((p) => ({ ...p, [field]: file_url }));
+      if (booking?.id) {
+        updateMutation.mutate({ id: booking.id, data: { [field]: file_url } });
+      }
+      setFieldStatus(field, "uploaded");
+    } catch (err) {
+      console.error(`[StepVerification] upload failed for ${field}:`, err);
+      setFieldStatus(field, "failed");
+      setFieldError(field, friendlyUploadError(err));
+
+      // Log failure to ActivityEvent for admin/support visibility
+      base44.entities.ActivityEvent.create({
+        event_type: "upload_failed",
+        actor_id: booking?.user_id || "unknown",
+        actor_email: booking?.user_email || "unknown",
+        target_entity: "BookingRequest",
+        target_id: booking?.id || "unknown",
+        booking_request_id: booking?.id,
+        summary: `ID document upload failed — field: ${field}, error: ${err.code || "unknown"}: ${err.message}`,
+        metadata: {
+          field,
+          error_code: err.code || "UNKNOWN",
+          error_message: err.message,
+          file_name: file?.name,
+          file_size: file?.size,
+          file_type: file?.type,
+          step: "verification",
+          user_agent: navigator.userAgent,
+        },
+        source: "checkout",
+        event_status: "failed",
+      }).catch(() => {}); // fire and forget
     }
-    setUploading((p) => ({ ...p, [field]: false }));
   };
 
-  const allUploaded = uploads.license_front_url && uploads.license_back_url && uploads.selfie_url;
+  const handleFileChange = (field) => (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset the input value so re-selecting the same file triggers onChange
+    e.target.value = "";
+    doUpload(field, file);
+  };
+
+  const handleRetry = (field) => {
+    // Open file picker by clicking a hidden input
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/jpg,image/png,image/webp,application/pdf";
+    input.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        setFieldStatus(field, "retrying");
+        doUpload(field, file);
+      }
+    };
+    input.click();
+  };
+
+  const handleClear = (field) => {
+    setDraftUploads((p) => ({ ...p, [field]: "" }));
+    setFieldStatus(field, "idle");
+    clearFieldError(field);
+    setVerifyStatus(null);
+    if (booking?.id) {
+      updateMutation.mutate({ id: booking.id, data: { [field]: "" } });
+    }
+  };
+
+  const currentUploads = {
+    license_front_url: draftUploads.license_front_url || booking?.license_front_url || "",
+    license_back_url: draftUploads.license_back_url || booking?.license_back_url || "",
+    selfie_url: draftUploads.selfie_url || booking?.selfie_url || "",
+    proof_of_income_url: draftUploads.proof_of_income_url || booking?.proof_of_income_url || "",
+  };
+
+  const anyUploading = Object.values(uploadStatuses).some(
+    (s) => s === "uploading" || s === "retrying"
+  );
+  const anyFailed = Object.values(uploadStatuses).some((s) => s === "failed");
+  const allRequired = currentUploads.license_front_url &&
+    currentUploads.license_back_url &&
+    currentUploads.selfie_url;
+
+  const canVerify = allRequired && !anyUploading && !anyFailed && verifyStatus !== "checking";
 
   const runVerification = async () => {
-    // Prevent duplicate verification calls
-    if (verifyingRef.current) return;
+    if (verifyingRef.current || !canVerify) return;
     verifyingRef.current = true;
-    
     setVerifyStatus("checking");
     setVerifyMessage("");
-
-    const profileName = (booking?.customer_full_name || "").trim().toLowerCase();
 
     try {
       const result = await base44.integrations.Core.InvokeLLM({
@@ -145,7 +342,7 @@ Respond ONLY with valid JSON:
   "overall_pass": true/false,
   "rejection_reason": "<if overall_pass is false, explain which check failed and why in one sentence; otherwise empty string>"
 }`,
-        file_urls: [uploads.license_front_url, uploads.license_back_url, uploads.selfie_url],
+        file_urls: [currentUploads.license_front_url, currentUploads.license_back_url, currentUploads.selfie_url],
         response_json_schema: {
           type: "object",
           properties: {
@@ -162,7 +359,6 @@ Respond ONLY with valid JSON:
 
       if (result.overall_pass) {
         setVerifyStatus("passed");
-        // Save verified name from ID for downstream use
         if (booking?.id) {
           updateMutation.mutate({
             id: booking.id,
@@ -171,14 +367,17 @@ Respond ONLY with valid JSON:
         }
       } else {
         setVerifyStatus("failed");
-        setVerifyMessage(result.rejection_reason || "Could not verify identity. Please retake your selfie or re-upload a clearer ID.");
+        setVerifyMessage(
+          result.rejection_reason ||
+          "We could not verify this document. Please retake the photo in good lighting and try again."
+        );
         if (booking?.id) {
           updateMutation.mutate({ id: booking.id, data: { verification_status: "failed" } });
         }
       }
     } catch {
       setVerifyStatus("failed");
-      setVerifyMessage("Verification service is temporarily unavailable. Please try again.");
+      setVerifyMessage("Verification service is temporarily unavailable. Please try again in a moment.");
     } finally {
       verifyingRef.current = false;
     }
@@ -187,10 +386,17 @@ Respond ONLY with valid JSON:
   const handleContinue = () => {
     clearVerificationDraft();
     saveAndAdvance({
-      ...uploads,
+      ...currentUploads,
       verification_status: "verified",
     }, "terms");
   };
+
+  const fields = [
+    { key: "license_front_url", label: "Driver's License (Front)", required: true },
+    { key: "license_back_url", label: "Driver's License (Back)", required: true },
+    { key: "selfie_url", label: "Live Selfie", required: true },
+    ...(isRTO ? [{ key: "proof_of_income_url", label: "Proof of Income", required: false }] : []),
+  ];
 
   return (
     <div>
@@ -205,20 +411,41 @@ Respond ONLY with valid JSON:
       </div>
 
       <div className="space-y-3">
-        <UploadBox label="Driver's License (Front)" url={uploads.license_front_url} uploading={uploading.license_front_url}
-          required onChange={(e) => handleUpload("license_front_url", e.target.files[0])} />
-        <UploadBox label="Driver's License (Back)" url={uploads.license_back_url} uploading={uploading.license_back_url}
-          required onChange={(e) => handleUpload("license_back_url", e.target.files[0])} />
-        <UploadBox label="Live Selfie" url={uploads.selfie_url} uploading={uploading.selfie_url}
-          required onChange={(e) => handleUpload("selfie_url", e.target.files[0])} />
-        {isRTO && (
-          <UploadBox label="Proof of Income" url={uploads.proof_of_income_url} uploading={uploading.proof_of_income_url}
-            onChange={(e) => handleUpload("proof_of_income_url", e.target.files[0])} />
-        )}
+        {fields.map(({ key, label, required }) => (
+          <UploadBox
+            key={key}
+            label={label}
+            url={currentUploads[key]}
+            status={uploadStatuses[key]}
+            error={uploadErrors[key]}
+            required={required}
+            onChange={handleFileChange(key)}
+            onRetry={() => handleRetry(key)}
+            onClear={() => handleClear(key)}
+          />
+        ))}
       </div>
 
-      {/* AI verification check info */}
-      {allUploaded && verifyStatus === null && (
+      {/* Pending upload warning */}
+      {anyUploading && (
+        <div className="mt-4 p-3 rounded-xl bg-blue-50 border border-blue-100 flex gap-2">
+          <Loader2 className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5 animate-spin" />
+          <p className="text-xs text-blue-700">Upload in progress — please wait before verifying.</p>
+        </div>
+      )}
+
+      {/* Failed upload warning */}
+      {anyFailed && !anyUploading && (
+        <div className="mt-4 p-3 rounded-xl bg-red-50 border border-red-100 flex gap-2">
+          <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-red-700">
+            One or more uploads failed. Tap <strong>Retry</strong> on the failed item above, or tap <strong>✕</strong> to upload a different file.
+          </p>
+        </div>
+      )}
+
+      {/* AI verification info */}
+      {allRequired && !anyUploading && !anyFailed && verifyStatus === null && (
         <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-100 flex gap-2">
           <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-amber-700">We'll verify your name matches your ID and your selfie matches your ID photo before proceeding.</p>
@@ -237,15 +464,20 @@ Respond ONLY with valid JSON:
         <p className="text-xs text-blue-700">Your documents are encrypted and used only for rental verification. We do not store or share them beyond this purpose.</p>
       </div>
 
-      {/* Verify button or Continue button */}
+      {/* Verify / Continue button */}
       {verifyStatus !== "passed" ? (
         <button
-          disabled={!allUploaded || verifyStatus === "checking"}
+          disabled={!canVerify}
           onClick={runVerification}
           className="w-full mt-5 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+        >
           {verifyStatus === "checking" ? (
             <><Loader2 className="h-4 w-4 animate-spin" />Verifying…</>
+          ) : anyUploading ? (
+            <><Loader2 className="h-4 w-4 animate-spin" />Uploading…</>
+          ) : anyFailed ? (
+            "Fix upload errors above to continue"
           ) : verifyStatus === "failed" ? (
             "Retry Verification"
           ) : (
@@ -256,7 +488,8 @@ Respond ONLY with valid JSON:
         <button
           onClick={handleContinue}
           className="w-full mt-5 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98]"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+        >
           Continue →
         </button>
       )}

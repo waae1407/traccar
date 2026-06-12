@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { FileText, PenLine, ShieldCheck, KeyRound, CheckCircle2 } from "lucide-react";
@@ -113,7 +113,14 @@ export default function StepContract({ booking, vehicle, user, saveAndAdvance })
   const allInitialed = clauses.every((c) => initials[c.id].trim().length >= 1);
   const canSign = allInitialed && contractReviewed && signatureName.trim().length > 2;
 
+  const [signing, setSigning] = React.useState(false);
+  const [signError, setSignError] = React.useState(null);
+
   const handleSign = async () => {
+    if (signing) return;
+    setSigning(true);
+    setSignError(null);
+
     const signedAt = new Date().toISOString();
     const deviceInfo = navigator.userAgent || "unknown";
     let signatureEvidence = {
@@ -127,35 +134,42 @@ export default function StepContract({ booking, vehicle, user, saveAndAdvance })
       contract_signature_evidence_status: "partial"
     };
 
-    const evidenceResponse = await base44.functions.invoke("captureContractSignatureEvidence", { booking_request_id: booking.id });
-    signatureEvidence = { ...signatureEvidence, ...(evidenceResponse.data || {}) };
+    try {
+      const evidenceResponse = await Promise.race([
+        base44.functions.invoke("captureContractSignatureEvidence", { booking_request_id: booking.id }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000)),
+      ]);
+      signatureEvidence = { ...signatureEvidence, ...(evidenceResponse.data || {}) };
+    } catch {
+      // Non-fatal — partial evidence is acceptable
+    }
 
-    // Build per-clause initials record
     const initialsRecord = Object.fromEntries(
       clauses.map((c) => [
         c.id,
-        {
-          initials: initials[c.id],
-          signed_at: signedAt,
-          clause_version: contractVersion,
-        },
+        { initials: initials[c.id], signed_at: signedAt, clause_version: contractVersion },
       ])
     );
 
-    clearInitialsDraft();
-    clearSignatureDraft();
-    clearReviewedDraft();
-    saveAndAdvance({
-      signature_name: signatureName,
-      ...signatureEvidence,
-      signed_at: signedAt,
-      contract_html: contractHTML,
-      contract_type: contractType,
-      contract_version: contractVersion,
-      contract_status: "signed",
-      contract_initials: JSON.stringify(initialsRecord),
-      booking_status: "pending_payment",
-    }, "payment");
+    try {
+      clearInitialsDraft();
+      clearSignatureDraft();
+      clearReviewedDraft();
+      saveAndAdvance({
+        signature_name: signatureName,
+        ...signatureEvidence,
+        signed_at: signedAt,
+        contract_html: contractHTML,
+        contract_type: contractType,
+        contract_version: contractVersion,
+        contract_status: "signed",
+        contract_initials: JSON.stringify(initialsRecord),
+        booking_status: "pending_payment",
+      }, "payment");
+    } catch {
+      setSignError("Could not save your signature. Please try again.");
+      setSigning(false);
+    }
   };
 
   const completedCount = clauses.filter((c) => initials[c.id].trim().length >= 1).length;
@@ -257,21 +271,31 @@ export default function StepContract({ booking, vehicle, user, saveAndAdvance })
         </div>
       )}
 
+      {/* Sign error */}
+      {signError && (
+        <div className="mb-3 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600">
+          {signError}
+        </div>
+      )}
+
       {/* Submit */}
       <button
-        disabled={!canSign}
+        disabled={!canSign || signing}
         onClick={handleSign}
-        className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-40"
+        className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2"
         style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
       >
-        {!allInitialed
-          ? `Initial all ${clauses.length - completedCount} remaining clause${clauses.length - completedCount !== 1 ? "s" : ""} to continue`
-          : !contractReviewed
-          ? "Check the confirmation box above"
-          : !signatureName.trim()
-          ? "Enter your full name to sign"
-          : <span className="flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4" />Sign &amp; Proceed to Payment →</span>
-        }
+        {signing ? (
+          <><CheckCircle2 className="h-4 w-4 animate-pulse" />Saving signature…</>
+        ) : !allInitialed ? (
+          `Initial all ${clauses.length - completedCount} remaining clause${clauses.length - completedCount !== 1 ? "s" : ""} to continue`
+        ) : !contractReviewed ? (
+          "Check the confirmation box above"
+        ) : !signatureName.trim() ? (
+          "Enter your full name to sign"
+        ) : (
+          <span className="flex items-center justify-center gap-2"><CheckCircle2 className="h-4 w-4" />Sign &amp; Proceed to Payment →</span>
+        )}
       </button>
     </div>
   );
