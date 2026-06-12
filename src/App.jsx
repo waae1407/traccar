@@ -113,6 +113,12 @@ import HostTelematicsCenter from '@/pages/host/HostTelematicsCenter.jsx';
 import HostExpenseCenter from '@/pages/host/HostExpenseCenter.jsx';
 import HostMaintenanceCenter from '@/pages/host/HostMaintenanceCenter.jsx';
 import HostDealer360 from '@/pages/host/HostDealer360.jsx';
+import GPSLanding from '@/pages/GPSLanding.jsx';
+import GPSCheckout from '@/pages/gps/GPSCheckout.jsx';
+import GPSActivate from '@/pages/gps/GPSActivate.jsx';
+import CustomerGPS from '@/pages/customer/CustomerGPS.jsx';
+import HostGPSStore from '@/pages/host/HostGPSStore.jsx';
+import AdminGPSStore from '@/pages/admin/AdminGPSStore.jsx';
 import AdminDealer360 from '@/pages/admin/AdminDealer360.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
@@ -174,6 +180,11 @@ const AuthenticatedApp = () => {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
 
+      {/* ── GPS PUBLIC PAGES ── */}
+      <Route path="/gps" element={<GPSLanding />} />
+      <Route path="/gps/checkout" element={<GPSCheckout />} />
+      <Route path="/gps/activate" element={<GPSActivate />} />
+
       {/* ── PUBLIC PAGES (no login required, no layout) ── */}
       <Route path="/become-a-host" element={<BecomeAHost />} />
       <Route path="/operator-questionnaire" element={<SmartOperatorQuestionnaire />} />
@@ -222,6 +233,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/installers" element={<HostInstallers />} />
         <Route path="/host/vehicle-command-center" element={<VehicleCommandCenter mode="host" />} />
         <Route path="/host/telematics-command-test" element={<HostTelematicsCommandTest />} />
+        <Route path="/host/gps-store" element={<HostGPSStore />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
@@ -242,6 +254,7 @@ const AuthenticatedApp = () => {
       <Route element={<CustomerLayout />}>
         <Route path="/book-now" element={<BookNow />} />
         <Route path="/my-bookings" element={<MyBookings />} />
+        <Route path="/customer/gps" element={<CustomerGPS />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/support" element={<RenterAIChat />} />
@@ -309,6 +322,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/telematics-center" element={<TelematicsCenter />} />
         <Route path="/admin/compliance-center" element={<ComplianceCenter />} />
         <Route path="/admin/operations-center" element={<OperationsCenter />} />
+        <Route path="/admin/gps-store" element={<AdminGPSStore />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

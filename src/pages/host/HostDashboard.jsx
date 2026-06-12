@@ -13,6 +13,7 @@ import InstallerLocatorCTA from "@/components/installers/InstallerLocatorCTA";
 import HostSmartReadinessPanel from "@/components/host/HostSmartReadinessPanel";
 import QuickActionsCard from "@/components/shared/QuickActionsCard";
 import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
+import FleetProtectionWidget from "@/components/gps/FleetProtectionWidget";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -160,6 +161,7 @@ export default function HostDashboard() {
           <HostCoachingDashboard snapshots={hostSignalSnapshots} />
           <OperationalEvidenceNudges maintenanceLogs={maintenanceLogs} compliance={compliance} activeBookings={activeBookings} vehicles={vehicles} />
 
+          <FleetProtectionWidget hostId={host.id} />
           <TelematicsMap role="host" devices={gpsDevices} vehicles={vehicles} bookings={activeBookings} height={220} compact showFilters={false} refreshLabel="Refresh My Fleet" onRefresh={refetchGpsDevices} />
 
           <div className="grid grid-cols-2 gap-4">

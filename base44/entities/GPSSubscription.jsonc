@@ -1,0 +1,74 @@
+{
+  "name": "GPSSubscription",
+  "type": "object",
+  "properties": {
+    "customer_user_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "device_id": {
+      "type": "string"
+    },
+    "order_id": {
+      "type": "string"
+    },
+    "plan_name": {
+      "type": "string"
+    },
+    "monthly_price": {
+      "type": "number"
+    },
+    "stripe_subscription_id": {
+      "type": "string"
+    },
+    "stripe_customer_id": {
+      "type": "string"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "trialing",
+        "past_due",
+        "cancelled",
+        "unpaid",
+        "paused"
+      ],
+      "default": "active"
+    },
+    "current_period_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "current_period_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cancel_at_period_end": {
+      "type": "boolean",
+      "default": false
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "paid",
+        "failed",
+        "pending"
+      ],
+      "default": "paid"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_email",
+    "plan_name",
+    "monthly_price"
+  ]
+}

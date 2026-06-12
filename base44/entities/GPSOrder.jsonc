@@ -1,0 +1,139 @@
+{
+  "name": "GPSOrder",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string"
+    },
+    "customer_user_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "customer_phone": {
+      "type": "string"
+    },
+    "shipping_address": {
+      "type": "string"
+    },
+    "billing_address": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string"
+    },
+    "package_type": {
+      "type": "string",
+      "enum": [
+        "device_only",
+        "device_subscription",
+        "host_contactless_kit"
+      ]
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1
+    },
+    "unit_price": {
+      "type": "number"
+    },
+    "subtotal": {
+      "type": "number"
+    },
+    "tax_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "shipping_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "total_amount": {
+      "type": "number"
+    },
+    "vehicle_use_type": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "host_fleet",
+        "dealer",
+        "rental",
+        "other"
+      ],
+      "default": "personal"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "pending_payment",
+        "paid",
+        "failed",
+        "refunded"
+      ],
+      "default": "pending_payment"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "order_status": {
+      "type": "string",
+      "enum": [
+        "pending_payment",
+        "paid",
+        "processing",
+        "shipped",
+        "delivered",
+        "activation_pending",
+        "active",
+        "cancelled",
+        "refunded"
+      ],
+      "default": "pending_payment"
+    },
+    "tracking_number": {
+      "type": "string"
+    },
+    "carrier": {
+      "type": "string"
+    },
+    "device_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "activation_status": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "in_progress",
+        "activated",
+        "failed"
+      ],
+      "default": "not_started"
+    },
+    "admin_notes": {
+      "type": "string"
+    },
+    "shipped_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "delivered_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "customer_email",
+    "package_type",
+    "total_amount"
+  ]
+}

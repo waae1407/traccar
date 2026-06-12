@@ -145,6 +145,7 @@ export const masterMenuSections = [
     label: "Telematics",
     icon: Satellite,
     items: [
+      { id: "gps-store", label: "GPS Store", icon: Shield, paths: { admin: "/admin/gps-store", host: "/host/gps-store" }, roles: ["admin", "host"] },
       { id: "gps-monitor", label: "GPS / Telematics", icon: MapPin, paths: { host: "/host/telematics" }, roles: ["host"] },
       { id: "vehicle-command", label: "Vehicle Command Center", icon: Zap, paths: { admin: "/admin/vehicle-command-center", host: "/host/vehicle-command-center" }, roles: ["admin", "host"] },
       { id: "telematics-setup", label: "Telematics Setup", icon: Satellite, paths: { admin: "/admin/telematics" }, roles: ["admin"] },

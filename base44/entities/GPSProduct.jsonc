@@ -1,0 +1,93 @@
+{
+  "name": "GPSProduct",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "brand_name": {
+      "type": "string",
+      "default": "Contactless360"
+    },
+    "sku": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "package_type": {
+      "type": "string",
+      "enum": [
+        "device_only",
+        "device_subscription",
+        "host_contactless_kit"
+      ],
+      "default": "device_subscription"
+    },
+    "device_price": {
+      "type": "number",
+      "default": 0
+    },
+    "monthly_subscription_price": {
+      "type": "number",
+      "default": 0
+    },
+    "activation_fee": {
+      "type": "number",
+      "default": 0
+    },
+    "shipping_price": {
+      "type": "number",
+      "default": 0
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "inventory_count": {
+      "type": "number",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": true
+    },
+    "requires_installation": {
+      "type": "boolean",
+      "default": true
+    },
+    "supports_starter_interrupt": {
+      "type": "boolean",
+      "default": true
+    },
+    "supports_contactless": {
+      "type": "boolean",
+      "default": true
+    },
+    "warranty_months": {
+      "type": "number",
+      "default": 12
+    },
+    "external_purchase_url": {
+      "type": "string",
+      "description": "Optional Amazon or external link"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "name",
+    "package_type"
+  ]
+}
