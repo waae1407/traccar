@@ -269,6 +269,41 @@ Deno.serve(async (req) => {
     }
     await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ host_id, user_id: user.id, previous_mode: plan.selected_mode || plan.active_mode || '', new_mode: mode, reason: 'Host changed package and platform subscription checkout was started.', changed_by: user.email, changed_at: now, source: 'host_edit' });
 
+    // Dual-write: create/update unified SubscriptionItem for this host plan (checkout_started state)
+    try {
+      const freshSub = await findLatestSubscription(base44, host_id);
+      const idempKey = freshSub?.id ? `HostPlatformSubscription:${freshSub.id}` : null;
+      if (idempKey) {
+        let acctRecords = await base44.asServiceRole.entities.SubscriptionAccount.filter({ host_id }, '-updated_date', 1);
+        if (!acctRecords.length) {
+          const newAcct = await base44.asServiceRole.entities.SubscriptionAccount.create({
+            owner_type: 'host', owner_email: host.email, owner_name: host.business_name || host.full_name || '', owner_id: host.user_id || '', host_id,
+            customer_user_id: '', stripe_customer_id: stripeCustomerId, health_score: 100, health_status: 'healthy',
+            monthly_total: config.monthlyAmount, active_item_count: 0, past_due_item_count: 0, cancelled_item_count: 0,
+            status: 'no_payment_method', created_at: now, updated_at: now,
+          });
+          acctRecords = [newAcct];
+        }
+        const accountId = acctRecords[0].id;
+        const existingItems = await base44.asServiceRole.entities.SubscriptionItem.filter({ idempotency_key: idempKey }, '-updated_date', 1);
+        const itemPayload = {
+          subscription_account_id: accountId, item_type: 'host_platform', source_entity: 'HostPlatformSubscription',
+          source_entity_id: freshSub.id, idempotency_key: idempKey, owner_type: 'host', owner_id: host.user_id || host_id,
+          host_id, customer_user_id: user.id || '', item_name: `uRide ${config.label}`, stripe_subscription_id: '',
+          stripe_price_id: freshSub.stripe_price_id || '', monthly_amount: config.monthlyAmount, quantity: 1,
+          status: 'checkout_started', payment_status: 'pending', plan_code: mode,
+          metadata: { billing_route: config.billingRoute, operator_plan_id: plan.id }, updated_at: now,
+        };
+        if (existingItems[0]) {
+          await base44.asServiceRole.entities.SubscriptionItem.update(existingItems[0].id, itemPayload);
+        } else {
+          await base44.asServiceRole.entities.SubscriptionItem.create({ ...itemPayload, created_at: now });
+        }
+      }
+    } catch (dualWriteErr) {
+      console.error('[manageHostPlatformPlan] dual-write warning:', dualWriteErr.message);
+    }
+
     return Response.json({ ok: true, mode, status: 'checkout_started', url: session.url });
   } catch (error) {
     console.error('[ManageHostPlatformPlan] Error:', error.message);

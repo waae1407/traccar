@@ -157,7 +157,15 @@ export default function SubscriptionCommandCenter() {
               <CardContent className="text-sm space-y-2">
                 {["healthy","warning","critical","suspended"].map(s => {
                   const count = accounts.filter(a => a.health_status === s).length;
-                  return <div key={s} className="flex justify-between"><span className="text-muted-foreground capitalize">{s}</span><SBadge status={s} /></div>;
+                  return (
+                    <div key={s} className="flex justify-between items-center">
+                      <span className="text-muted-foreground capitalize">{s}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">{count}</span>
+                        <SBadge status={s} />
+                      </div>
+                    </div>
+                  );
                 })}
               </CardContent>
             </Card>

@@ -12,10 +12,6 @@ function accountKeyForHost(hostId) { return `host:${hostId}`; }
 function accountKeyForCustomer(email) { return `customer:${email}`; }
 
 async function upsertSubscriptionAccount(base44, { ownerType, ownerId, ownerEmail, ownerName, hostId, customerUserId, stripeCustomerId, dryRun }) {
-  const filter = hostId
-    ? { host_id: hostId }
-    : { customer_user_id: customerUserId || ownerEmail };
-
   const existing = ownerEmail
     ? (await base44.asServiceRole.entities.SubscriptionAccount.filter(
         hostId ? { host_id: hostId } : { owner_email: ownerEmail },
@@ -95,7 +91,9 @@ async function recalculateAccountHealth(base44, accountId, dryRun) {
   const activeItems = items.filter(i => ['active', 'trialing'].includes(i.status));
   const pastDueItems = items.filter(i => i.status === 'past_due');
   const cancelledItems = items.filter(i => i.status === 'cancelled');
-  const monthlyTotal = activeItems.reduce((s, i) => s + (i.monthly_amount || 0), 0);
+  // Include all non-cancelled items in MRR so checkout_started/incomplete states are visible
+  const billedItems = items.filter(i => !['cancelled', 'paused'].includes(i.status));
+  const monthlyTotal = billedItems.reduce((s, i) => s + (i.monthly_amount || 0), 0);
   const nextBilling = activeItems
     .filter(i => i.current_period_end)
     .sort((a, b) => new Date(a.current_period_end) - new Date(b.current_period_end))[0]?.current_period_end;

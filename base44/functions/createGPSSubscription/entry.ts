@@ -96,6 +96,68 @@ Deno.serve(async (req) => {
       stripe_customer_id: stripeCustomerId,
     });
 
+    // Dual-write: create/update unified SubscriptionItem
+    const now = new Date().toISOString();
+    const idempKey = `GPSSubscription:${sub.id}`;
+    const existingItems = await base44.asServiceRole.entities.SubscriptionItem.filter({ idempotency_key: idempKey }, '-updated_date', 1);
+    // Find or create SubscriptionAccount
+    let acctRecords = order.customer_user_id
+      ? await base44.asServiceRole.entities.SubscriptionAccount.filter({ customer_user_id: order.customer_user_id }, '-updated_date', 1)
+      : [];
+    if (!acctRecords.length) {
+      acctRecords = await base44.asServiceRole.entities.SubscriptionAccount.filter({ owner_email: order.customer_email }, '-updated_date', 1);
+    }
+    let accountId = acctRecords[0]?.id;
+    if (!accountId) {
+      const newAcct = await base44.asServiceRole.entities.SubscriptionAccount.create({
+        owner_type: order.host_id ? 'host' : 'customer',
+        owner_email: order.customer_email,
+        owner_name: order.customer_name || '',
+        owner_id: order.customer_user_id || '',
+        host_id: order.host_id || '',
+        customer_user_id: order.customer_user_id || '',
+        stripe_customer_id: stripeCustomerId,
+        health_score: 100,
+        health_status: 'healthy',
+        monthly_total: monthly_price,
+        active_item_count: 0,
+        past_due_item_count: 0,
+        cancelled_item_count: 0,
+        status: 'no_payment_method',
+        created_at: now,
+        updated_at: now,
+      });
+      accountId = newAcct.id;
+    }
+    const itemPayload = {
+      subscription_account_id: accountId,
+      item_type: 'contactless360_gps',
+      source_entity: 'GPSSubscription',
+      source_entity_id: sub.id,
+      idempotency_key: idempKey,
+      owner_type: order.host_id ? 'host' : 'customer',
+      owner_id: order.customer_user_id || '',
+      host_id: order.host_id || '',
+      customer_user_id: order.customer_user_id || '',
+      item_name: plan_name || 'Contactless360 GPS',
+      stripe_subscription_id: subscription.id,
+      monthly_amount: monthly_price,
+      quantity: 1,
+      status: subscription.status || 'incomplete',
+      payment_status: subscription.status === 'active' ? 'paid' : 'pending',
+      current_period_start: sub.current_period_start || null,
+      current_period_end: sub.current_period_end || null,
+      next_billing_date: sub.current_period_end || null,
+      device_id: device_id || '',
+      gps_order_id: order_id,
+      updated_at: now,
+    };
+    if (existingItems[0]) {
+      await base44.asServiceRole.entities.SubscriptionItem.update(existingItems[0].id, itemPayload);
+    } else {
+      await base44.asServiceRole.entities.SubscriptionItem.create({ ...itemPayload, created_at: now });
+    }
+
     // Notify
     await base44.asServiceRole.entities.Notification.create({
       user_email: order.customer_email,

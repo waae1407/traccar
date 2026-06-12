@@ -15,7 +15,9 @@ export async function recalcHealth(base44, accountId) {
   const pastDueItems = items.filter(i => i.status === 'past_due');
   const cancelledItems = items.filter(i => i.status === 'cancelled');
 
-  const monthlyTotal = activeItems.reduce((s, i) => s + (i.monthly_amount || 0), 0);
+  // Include all non-cancelled items in MRR (checkout_started, incomplete, past_due all have billed amounts)
+  const billedItems = items.filter(i => !['cancelled', 'paused'].includes(i.status));
+  const monthlyTotal = billedItems.reduce((s, i) => s + (i.monthly_amount || 0), 0);
   const nextBilling = activeItems
     .filter(i => i.current_period_end)
     .sort((a, b) => new Date(a.current_period_end) - new Date(b.current_period_end))[0]?.current_period_end;
@@ -52,6 +54,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me().catch(() => null);
+    if (!user || user.role !== 'admin') return Response.json({ error: 'Admin access required' }, { status: 403 });
     const { subscription_account_id } = await req.json();
     if (!subscription_account_id) return Response.json({ error: 'subscription_account_id required' }, { status: 400 });
 

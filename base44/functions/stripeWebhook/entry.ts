@@ -146,7 +146,8 @@ async function dualWriteSubscriptionItem(base44, { stripeSubscriptionId, status,
       const activeItems = allItems.filter(i => ['active', 'trialing'].includes(i.status));
       const pastDueItems = allItems.filter(i => i.status === 'past_due');
       const cancelledItems = allItems.filter(i => i.status === 'cancelled');
-      const monthlyTotal = activeItems.reduce((s, i) => s + (i.monthly_amount || 0), 0);
+      const billedItems = allItems.filter(i => !['cancelled', 'paused'].includes(i.status));
+      const monthlyTotal = billedItems.reduce((s, i) => s + (i.monthly_amount || 0), 0);
       let healthScore = 100; let healthStatus = 'healthy';
       if (pastDueItems.length === 1) { healthScore = 60; healthStatus = 'warning'; }
       if (pastDueItems.length > 1) { healthScore = 40; healthStatus = 'critical'; }
