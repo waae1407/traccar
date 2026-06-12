@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from "@/lib/AuthContext";
 import AccountMenu from "@/components/shared/AccountMenu";
+import Contactless360Banner from "@/components/gps/Contactless360Banner";
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
@@ -164,10 +165,15 @@ export default function GPSLanding() {
         </div>
       </nav>
 
+      {/* HERO BANNER */}
+      <section className="pt-16">
+        <Contactless360Banner variant="hero" />
+      </section>
+
       {/* HERO */}
-      <section className="relative pt-24 pb-0 overflow-hidden">
+      <section className="relative pt-12 pb-0 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-background to-primary/5 pointer-events-none" />
-        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center min-h-[90vh]">
+        <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6 z-10">
             <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs font-semibold tracking-wider">
               GPS • ANTI-THEFT • CONTACTLESS RENTAL READY

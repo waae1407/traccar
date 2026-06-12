@@ -14,6 +14,7 @@ import HostSmartReadinessPanel from "@/components/host/HostSmartReadinessPanel";
 import QuickActionsCard from "@/components/shared/QuickActionsCard";
 import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
 import FleetProtectionWidget from "@/components/gps/FleetProtectionWidget";
+import Contactless360Banner from "@/components/gps/Contactless360Banner";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -115,6 +116,8 @@ export default function HostDashboard() {
       </div>
 
       <PaymentOperationalAlertPanel scope="host" hostId={host.id} limit={3} />
+
+      <Contactless360Banner variant="dashboard" />
 
       <InstallerLocatorCTA
         source="host_dashboard"
