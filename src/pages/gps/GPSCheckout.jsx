@@ -172,11 +172,12 @@ export default function GPSCheckout() {
   const [error, setError] = useState(null);
   const [orderData, setOrderData] = useState(null);
   const [stripeInstance, setStripeInstance] = useState(null);
-  const [isApprovedHost, setIsApprovedHost] = useState(null); // null = loading
+  // Fleet kit eligibility: null=loading, 'ELIGIBLE'=ok, or a denial reason string
+  const [fleetEligibilityReason, setFleetEligibilityReason] = useState(null);
 
   const selectedProduct = products.find(p => p.package_type === pkg);
   const isFleetKit = pkg === 'host_contactless_kit';
-  const fleetKitBlocked = isFleetKit && isApprovedHost === false;
+  const fleetKitBlocked = isFleetKit && fleetEligibilityReason !== null && fleetEligibilityReason !== 'ELIGIBLE';
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -185,18 +186,26 @@ export default function GPSCheckout() {
       .then(setProducts).catch(() => {});
     getStripe().then(setStripeInstance);
 
-    base44.auth.me().then(u => {
-      if (!u) { setIsApprovedHost(false); return; }
+    base44.auth.me().then(async u => {
+      if (!u) { setFleetEligibilityReason('NOT_LOGGED_IN'); return; }
       if (u.email) set('email', u.email);
       if (u.full_name) set('name', u.full_name);
-      Promise.all([
+      // Check fleet eligibility
+      const [byEmail, byUser] = await Promise.all([
         base44.entities.Host.filter({ email: u.email }),
         base44.entities.Host.filter({ user_id: u.id }),
-      ]).then(([byEmail, byUser]) => {
-        const host = byEmail[0] || byUser[0];
-        setIsApprovedHost(host?.status === 'approved');
-      }).catch(() => setIsApprovedHost(false));
-    }).catch(() => setIsApprovedHost(false));
+      ]).catch(() => [[], []]);
+      const host = byEmail[0] || byUser[0];
+      if (!host) { setFleetEligibilityReason('NOT_HOST'); return; }
+      if (host.status !== 'approved') { setFleetEligibilityReason('HOST_NOT_APPROVED'); return; }
+      const [vehicles, devices] = await Promise.all([
+        base44.entities.Vehicle.filter({ host_id: host.id, status: 'Available' }),
+        base44.entities.TelematicsDevice.filter({ host_id: host.id, lifecycle_status: 'live_enabled' }),
+      ]).catch(() => [[], []]);
+      if (!vehicles.length) { setFleetEligibilityReason('NO_ACTIVE_VEHICLE'); return; }
+      if (!devices.length) { setFleetEligibilityReason('NO_ACTIVE_TELEMATICS_DEVICE'); return; }
+      setFleetEligibilityReason('ELIGIBLE');
+    }).catch(() => setFleetEligibilityReason('NOT_LOGGED_IN'));
   }, []);
 
   const handleOrderSubmit = async (e) => {
@@ -280,24 +289,32 @@ export default function GPSCheckout() {
           )}
 
           {/* Fleet Partner access gate */}
-          {isFleetKit && isApprovedHost === false && (
-            <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 space-y-3">
-              <div className="flex items-center gap-2 text-yellow-400 font-semibold text-sm">
-                <Shield className="w-4 h-4" /> Fleet Partner Kit — Restricted
+          {isFleetKit && fleetKitBlocked && (() => {
+            const MESSAGES = {
+              NOT_LOGGED_IN: 'Please log in as an approved Fleet Partner to access this pricing.',
+              NOT_HOST: 'This kit is only for approved uRide Fleet Partners.',
+              HOST_NOT_APPROVED: 'Your host account is still pending approval. Fleet Partner pricing is available once approved.',
+              NO_ACTIVE_VEHICLE: 'You need at least one active vehicle in your fleet to use this expansion kit.',
+              NO_ACTIVE_TELEMATICS_DEVICE: 'This looks like your first install. Please choose Contactless360 Device + Subscription instead.',
+            };
+            return (
+              <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 space-y-3">
+                <div className="flex items-center gap-2 text-yellow-400 font-semibold text-sm">
+                  <Shield className="w-4 h-4" /> Fleet Partner Expansion Kit — Restricted
+                </div>
+                <p className="text-sm text-muted-foreground">{MESSAGES[fleetEligibilityReason] || 'Fleet Partner Kit pricing is available only to approved uRide Fleet Partners.'}</p>
+                <div className="flex gap-3 flex-wrap">
+                  <Link to="/gps/checkout?pkg=device_subscription">
+                    <Button size="sm" className="gradient-primary">Buy First Device Setup</Button>
+                  </Link>
+                  {fleetEligibilityReason === 'NOT_LOGGED_IN'
+                    ? <Link to="/account"><Button size="sm" variant="outline">Log In</Button></Link>
+                    : <Link to="/become-a-host"><Button size="sm" variant="outline">Become a Fleet Partner</Button></Link>
+                  }
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Fleet Partner Kit pricing is available only to approved uRide Fleet Partners.
-              </p>
-              <div className="flex gap-3 flex-wrap">
-                <Link to="/become-a-host">
-                  <Button size="sm" className="gradient-primary">Become a Fleet Partner</Button>
-                </Link>
-                <Link to="/account">
-                  <Button size="sm" variant="outline">Log In</Button>
-                </Link>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {step === 'form' && (
             <form onSubmit={handleOrderSubmit} className="space-y-5">
@@ -343,11 +360,11 @@ export default function GPSCheckout() {
                 type="submit"
                 size="lg"
                 className="w-full gradient-primary glow-sm"
-                disabled={loading || fleetKitBlocked || isApprovedHost === null}
+                disabled={loading || fleetKitBlocked || (isFleetKit && fleetEligibilityReason === null)}
               >
                 {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating Order…</> :
                  fleetKitBlocked ? 'Fleet Partner Access Required' :
-                 isApprovedHost === null ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</> :
+                 (isFleetKit && fleetEligibilityReason === null) ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</> :
                  'Continue to Payment'}
               </Button>
             </form>

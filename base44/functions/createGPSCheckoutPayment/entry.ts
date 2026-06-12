@@ -23,33 +23,70 @@ Deno.serve(async (req) => {
 
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 
-    // 1. Load product server-side (authoritative pricing source)
+    // 1. Load product server-side
     const products = await base44.asServiceRole.entities.GPSProduct.filter({ package_type, is_active: true });
     const product = products[0];
 
-    // 2. Access control: Fleet Partner Kit requires approved host
+    // 2. Fleet Partner Kit — full server-side eligibility gate
     if (package_type === 'host_contactless_kit') {
-      const requiresApprovedHost = product ? product.requires_approved_host : true;
-      if (requiresApprovedHost) {
-        if (!user) {
-          return Response.json({
-            error: 'Fleet Partner Kit pricing is available only to approved uRide Fleet Partners. Please log in as an approved host.',
-            error_code: 'FLEET_PARTNER_REQUIRED',
-          }, { status: 403 });
-        }
-        // Check host status
-        const [hostsByEmail, hostsByUser] = await Promise.all([
-          base44.asServiceRole.entities.Host.filter({ email: user.email }),
-          base44.asServiceRole.entities.Host.filter({ user_id: user.id }),
-        ]);
-        const host = hostsByEmail[0] || hostsByUser[0];
-        if (!host || host.status !== 'approved') {
-          return Response.json({
-            error: 'Fleet Partner Kit pricing is available only to approved uRide Fleet Partners.',
-            error_code: 'FLEET_PARTNER_REQUIRED',
-          }, { status: 403 });
-        }
-      }
+      const deny = (reason, message) => {
+        // Log denied attempt
+        base44.asServiceRole.entities.ActivityEvent.create({
+          event_type: 'fleet_partner_kit_ineligible',
+          actor_email: user?.email || 'guest',
+          actor_id: user?.id || 'guest',
+          target_entity: 'GPSProduct',
+          summary: `Backend Fleet Kit eligibility denied: ${reason}`,
+          metadata: {
+            user_email: user?.email || 'guest',
+            reason,
+            message,
+            package_type,
+            source_page: 'createGPSCheckoutPayment',
+          },
+          source: 'backend',
+          event_status: 'blocked',
+        }).catch(() => {});
+        return Response.json({ error: message, error_code: 'FLEET_PARTNER_KIT_NOT_ELIGIBLE', reason }, { status: 403 });
+      };
+
+      if (!user) return deny('NOT_LOGGED_IN', 'Fleet Partner Kit pricing is available only to approved uRide Fleet Partners. Please log in.');
+
+      const [byEmail, byUser] = await Promise.all([
+        base44.asServiceRole.entities.Host.filter({ email: user.email }),
+        base44.asServiceRole.entities.Host.filter({ user_id: user.id }),
+      ]);
+      const host = byEmail[0] || byUser[0];
+
+      if (!host) return deny('NOT_HOST', 'Fleet Partner Kit is only for approved uRide Fleet Partners.');
+      if (host.status !== 'approved') return deny('HOST_NOT_APPROVED', 'Your host account must be approved before purchasing the Fleet Partner Expansion Kit.');
+
+      const [vehicles, devices] = await Promise.all([
+        base44.asServiceRole.entities.Vehicle.filter({ host_id: host.id, status: 'Available' }),
+        base44.asServiceRole.entities.TelematicsDevice.filter({ host_id: host.id, lifecycle_status: 'live_enabled' }),
+      ]);
+
+      if (!vehicles.length) return deny('NO_ACTIVE_VEHICLE', 'The Fleet Partner Expansion Kit requires at least one active vehicle in your fleet.');
+      if (!devices.length) return deny('NO_ACTIVE_TELEMATICS_DEVICE', 'This looks like your first telematics installation. Please choose Contactless360 Device + Subscription to start.');
+
+      // Log eligible
+      base44.asServiceRole.entities.ActivityEvent.create({
+        event_type: 'fleet_partner_kit_eligible',
+        actor_email: user.email,
+        actor_id: user.id,
+        target_entity: 'GPSProduct',
+        summary: `Backend Fleet Kit eligibility approved for host ${host.id}`,
+        metadata: {
+          user_email: user.email,
+          host_id: host.id,
+          active_vehicle_count: vehicles.length,
+          active_telematics_count: devices.length,
+          package_type,
+          source_page: 'createGPSCheckoutPayment',
+        },
+        source: 'backend',
+        event_status: 'success',
+      }).catch(() => {});
     }
 
     // 3. Resolve pricing from DB product
@@ -72,25 +109,25 @@ Deno.serve(async (req) => {
       eligibleOwnerType = product.eligible_owner_type || 'all';
       fleetPartnerDiscountApplied = isDiscountActive && package_type === 'host_contactless_kit';
     } else {
-      // Fallback — only used if no product record exists
+      // Fallback
       priceSource = 'fallback';
       const FALLBACK = {
         device_only: { price: 149, shipping: 9.99, activation: 0, sub: 0 },
         device_subscription: { price: 149, shipping: 0, activation: 0, sub: 14.99 },
-        host_contactless_kit: { price: 179, shipping: 0, activation: 0, sub: 14.99 },
+        host_contactless_kit: { price: 130, shipping: 0, activation: 0, sub: 14.99 },
       };
       const fb = FALLBACK[package_type] || FALLBACK.device_subscription;
-      msrpUnitPrice = fb.price;
+      msrpUnitPrice = package_type === 'host_contactless_kit' ? 179 : fb.price;
       saleUnitPrice = fb.price;
       unitPrice = fb.price;
-      discountPerUnit = 0;
-      discountLabel = '';
+      discountPerUnit = package_type === 'host_contactless_kit' ? 49 : 0;
+      discountLabel = package_type === 'host_contactless_kit' ? 'Fleet Partner Launch Discount' : '';
       shippingAmount = fb.shipping;
       activationFee = fb.activation;
       monthlySubPrice = fb.sub;
       productName = package_type.replace(/_/g, ' ');
-      eligibleOwnerType = 'all';
-      fleetPartnerDiscountApplied = false;
+      eligibleOwnerType = package_type === 'host_contactless_kit' ? 'host' : 'all';
+      fleetPartnerDiscountApplied = package_type === 'host_contactless_kit';
     }
 
     const qty = Math.max(1, Number(quantity));
@@ -98,7 +135,7 @@ Deno.serve(async (req) => {
     const subtotal = Math.round(unitPrice * qty * 100) / 100;
     const totalAmount = Math.round((subtotal + shippingAmount + activationFee) * 100) / 100;
 
-    // 4. Determine owner context
+    // 4. Owner context
     let hostId = null;
     let customerUserId = null;
     let orderOwnerType = 'guest';
@@ -107,11 +144,11 @@ Deno.serve(async (req) => {
     if (user) {
       customerUserId = user.id;
       orderOwnerType = 'customer';
-      const [hostsByEmail, hostsByUser] = await Promise.all([
+      const [byEmail, byUser] = await Promise.all([
         base44.asServiceRole.entities.Host.filter({ email: user.email }),
         base44.asServiceRole.entities.Host.filter({ user_id: user.id }),
       ]);
-      const host = hostsByEmail[0] || hostsByUser[0];
+      const host = byEmail[0] || byUser[0];
       if (host) {
         hostId = host.id;
         orderOwnerType = 'host';
@@ -119,7 +156,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5. Create GPSOrder with full pricing breakdown
+    // 5. Create GPSOrder
     const orderNum = `C360-${Date.now().toString(36).toUpperCase()}`;
     const order = await base44.asServiceRole.entities.GPSOrder.create({
       order_number: orderNum,
@@ -157,7 +194,7 @@ Deno.serve(async (req) => {
       refund_amount: 0,
     });
 
-    // 6. Create Stripe customer
+    // 6. Stripe customer
     const stripeCustomer = await stripe.customers.create({
       email: customer_email.toLowerCase().trim(),
       name: customer_name,
@@ -169,9 +206,9 @@ Deno.serve(async (req) => {
       },
     });
 
-    // 7. Create Stripe PaymentIntent — amount is sale price, never MSRP
+    // 7. Stripe PaymentIntent — charged at sale_price
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(totalAmount * 100), // based on sale_price
+      amount: Math.round(totalAmount * 100),
       currency: 'usd',
       customer: stripeCustomer.id,
       receipt_email: customer_email,
@@ -198,7 +235,7 @@ Deno.serve(async (req) => {
       },
     });
 
-    // 8. Store Stripe IDs on order
+    // 8. Store Stripe IDs
     await base44.asServiceRole.entities.GPSOrder.update(order.id, {
       stripe_payment_intent_id: paymentIntent.id,
       stripe_customer_id: stripeCustomer.id,
@@ -232,7 +269,6 @@ Deno.serve(async (req) => {
       order_id: order.id,
       order_number: orderNum,
       client_secret: paymentIntent.client_secret,
-      // Pricing breakdown for frontend display
       msrp_unit_price: msrpUnitPrice,
       sale_unit_price: saleUnitPrice,
       unit_price: unitPrice,
