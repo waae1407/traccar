@@ -1,0 +1,92 @@
+{
+  "name": "SubscriptionAlert",
+  "type": "object",
+  "properties": {
+    "subscription_account_id": {
+      "type": "string"
+    },
+    "subscription_item_id": {
+      "type": "string"
+    },
+    "owner_type": {
+      "type": "string",
+      "enum": [
+        "host",
+        "customer",
+        "guest"
+      ],
+      "default": "host"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_user_id": {
+      "type": "string"
+    },
+    "owner_email": {
+      "type": "string"
+    },
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "payment_failed",
+        "past_due",
+        "no_payment_method",
+        "subscription_cancelled",
+        "trial_ending",
+        "gps_active_unpaid",
+        "platform_plan_unpaid",
+        "card_expiring"
+      ],
+      "default": "payment_failed"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ],
+      "default": "warning"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "acknowledged",
+        "resolved",
+        "dismissed"
+      ],
+      "default": "open"
+    },
+    "amount_at_risk": {
+      "type": "number",
+      "default": 0
+    },
+    "message": {
+      "type": "string"
+    },
+    "recommended_action": {
+      "type": "string"
+    },
+    "stripe_subscription_id": {
+      "type": "string"
+    },
+    "stripe_invoice_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "alert_type",
+    "severity",
+    "message"
+  ]
+}

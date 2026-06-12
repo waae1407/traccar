@@ -107,6 +107,114 @@ function isGPSSubscriptionContext(context) {
   return context === 'gps_contactless_subscription';
 }
 
+// ── Unified Subscription Dual-Write Helpers ──────────────────────────────────
+
+function billingContextToItemType(context) {
+  if (isHostSubscriptionContext(context)) return 'host_platform';
+  if (isGPSSubscriptionContext(context)) return 'contactless360_gps';
+  return null;
+}
+
+async function dualWriteSubscriptionItem(base44, { stripeSubscriptionId, status, paymentStatus, periodStart, periodEnd, metadata = {} }) {
+  // Find the SubscriptionItem by stripe_subscription_id
+  const items = await base44.asServiceRole.entities.SubscriptionItem.filter(
+    { stripe_subscription_id: stripeSubscriptionId }, '-updated_date', 1
+  );
+  if (!items[0]) return; // Not yet migrated — skip dual-write silently
+
+  const item = items[0];
+  const now = new Date().toISOString();
+  await base44.asServiceRole.entities.SubscriptionItem.update(item.id, {
+    status: status || item.status,
+    payment_status: paymentStatus || item.payment_status,
+    current_period_start: periodStart || item.current_period_start,
+    current_period_end: periodEnd || item.current_period_end,
+    next_billing_date: periodEnd || item.next_billing_date,
+    updated_at: now,
+  });
+
+  // Recalculate account health
+  if (item.subscription_account_id) {
+    const accounts = await base44.asServiceRole.entities.SubscriptionAccount.filter(
+      { id: item.subscription_account_id }, '-updated_date', 1
+    );
+    const acct = accounts[0];
+    if (acct) {
+      const allItems = await base44.asServiceRole.entities.SubscriptionItem.filter(
+        { subscription_account_id: acct.id }, '-updated_date', 50
+      );
+      const activeItems = allItems.filter(i => ['active', 'trialing'].includes(i.status));
+      const pastDueItems = allItems.filter(i => i.status === 'past_due');
+      const cancelledItems = allItems.filter(i => i.status === 'cancelled');
+      const monthlyTotal = activeItems.reduce((s, i) => s + (i.monthly_amount || 0), 0);
+      let healthScore = 100; let healthStatus = 'healthy';
+      if (pastDueItems.length === 1) { healthScore = 60; healthStatus = 'warning'; }
+      if (pastDueItems.length > 1) { healthScore = 40; healthStatus = 'critical'; }
+      if (activeItems.some(i => i.payment_status === 'failed')) { healthScore = 20; healthStatus = 'critical'; }
+      if (!activeItems.length && cancelledItems.length > 0) { healthScore = 0; healthStatus = 'suspended'; }
+      const acctStatus = pastDueItems.length > 0 ? 'past_due' : activeItems.some(i => i.status === 'trialing') ? 'trialing' : activeItems.length > 0 ? 'active' : cancelledItems.length > 0 ? 'cancelled' : 'no_payment_method';
+      const lastPaymentAt = paymentStatus === 'paid' ? now : acct.last_payment_at;
+      const lastFailedAt = paymentStatus === 'failed' ? now : acct.last_failed_payment_at;
+      await base44.asServiceRole.entities.SubscriptionAccount.update(acct.id, {
+        monthly_total: Math.round(monthlyTotal * 100) / 100,
+        active_item_count: activeItems.length,
+        past_due_item_count: pastDueItems.length,
+        cancelled_item_count: cancelledItems.length,
+        health_score: healthScore,
+        health_status: healthStatus,
+        status: acctStatus,
+        last_payment_at: lastPaymentAt || acct.last_payment_at,
+        last_failed_payment_at: lastFailedAt || acct.last_failed_payment_at,
+        updated_at: now,
+      });
+    }
+  }
+}
+
+async function dualWriteSubscriptionAlert(base44, { stripeSubscriptionId, alertType, severity, message, recommendedAction, amountAtRisk = 0, stripeInvoiceId = '' }) {
+  const items = await base44.asServiceRole.entities.SubscriptionItem.filter(
+    { stripe_subscription_id: stripeSubscriptionId }, '-updated_date', 1
+  );
+  if (!items[0]) return;
+  const item = items[0];
+  const now = new Date().toISOString();
+  // Dedup: check if open alert of same type already exists
+  const existing = await base44.asServiceRole.entities.SubscriptionAlert.filter(
+    { subscription_item_id: item.id, alert_type: alertType, status: 'open' }, '-created_at', 1
+  );
+  if (existing[0]) return; // already open
+  await base44.asServiceRole.entities.SubscriptionAlert.create({
+    subscription_account_id: item.subscription_account_id || '',
+    subscription_item_id: item.id,
+    owner_type: item.owner_type || 'host',
+    host_id: item.host_id || '',
+    customer_user_id: item.customer_user_id || '',
+    alert_type: alertType,
+    severity,
+    status: 'open',
+    amount_at_risk: amountAtRisk,
+    message,
+    recommended_action: recommendedAction || '',
+    stripe_subscription_id: stripeSubscriptionId,
+    stripe_invoice_id: stripeInvoiceId,
+    created_at: now,
+  });
+}
+
+async function resolveSubscriptionAlerts(base44, stripeSubscriptionId) {
+  const items = await base44.asServiceRole.entities.SubscriptionItem.filter(
+    { stripe_subscription_id: stripeSubscriptionId }, '-updated_date', 1
+  );
+  if (!items[0]) return;
+  const openAlerts = await base44.asServiceRole.entities.SubscriptionAlert.filter(
+    { subscription_item_id: items[0].id, status: 'open' }, '-created_at', 20
+  );
+  const now = new Date().toISOString();
+  for (const alert of openAlerts) {
+    await base44.asServiceRole.entities.SubscriptionAlert.update(alert.id, { status: 'resolved', resolved_at: now });
+  }
+}
+
 async function handleGPSOrderPaid(base44, pi) {
   const orderId = pi.metadata?.gps_order_id;
   if (!orderId) return;
@@ -427,6 +535,7 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
         if (isHostSubscriptionContext(subscription.metadata?.billing_context)) {
@@ -434,6 +543,14 @@ Deno.serve(async (req) => {
         } else if (isGPSSubscriptionContext(subscription.metadata?.billing_context)) {
           await handleGPSSubscriptionUpdate(base44, { subscription, statusOverride: subscription.status });
         }
+        // Dual-write to unified SubscriptionItem
+        await dualWriteSubscriptionItem(base44, {
+          stripeSubscriptionId: subscription.id,
+          status: subscription.status,
+          paymentStatus: subscription.status === 'active' ? 'paid' : subscription.status === 'trialing' ? 'paid' : subscription.status === 'past_due' ? 'past_due' : undefined,
+          periodStart: subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : undefined,
+          periodEnd: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : undefined,
+        }).catch(e => console.error('[DualWrite subscription.updated]', e.message));
         break;
       }
 
@@ -444,6 +561,9 @@ Deno.serve(async (req) => {
         } else if (isGPSSubscriptionContext(subscription.metadata?.billing_context)) {
           await handleGPSSubscriptionUpdate(base44, { subscription, statusOverride: 'cancelled', paymentStatus: 'cancelled' });
         }
+        // Dual-write cancellation
+        await dualWriteSubscriptionItem(base44, { stripeSubscriptionId: subscription.id, status: 'cancelled', paymentStatus: 'cancelled' }).catch(e => console.error('[DualWrite subscription.deleted]', e.message));
+        await dualWriteSubscriptionAlert(base44, { stripeSubscriptionId: subscription.id, alertType: 'subscription_cancelled', severity: 'warning', message: `Subscription ${subscription.id} was cancelled.`, recommendedAction: 'Contact customer to reactivate.' }).catch(() => {});
         break;
       }
 
@@ -456,6 +576,17 @@ Deno.serve(async (req) => {
           await updateOperatorSubscriptionFromStripe(base44, { subscription, invoice, statusOverride: subscription.status, paymentStatus: 'paid' });
         } else if (isGPSSubscriptionContext(subscription?.metadata?.billing_context)) {
           await handleGPSSubscriptionUpdate(base44, { subscription, invoice, statusOverride: 'active', paymentStatus: 'paid' });
+        }
+        // Dual-write: mark item active + paid, resolve alerts
+        if (subscriptionId) {
+          await dualWriteSubscriptionItem(base44, {
+            stripeSubscriptionId: subscriptionId,
+            status: subscription?.status || 'active',
+            paymentStatus: 'paid',
+            periodStart: subscription?.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : undefined,
+            periodEnd: subscription?.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : undefined,
+          }).catch(e => console.error('[DualWrite invoice.payment_succeeded]', e.message));
+          await resolveSubscriptionAlerts(base44, subscriptionId).catch(() => {});
         }
         break;
       }
@@ -844,6 +975,13 @@ Deno.serve(async (req) => {
           await handleGPSSubscriptionUpdate(base44, { subscription, invoice, statusOverride: 'past_due', paymentStatus: 'failed' });
         }
         await createPaymentAlert(base44, { alert_type: alertTypeForInvoiceFailure(billingContext), severity: 'critical', billing_context: billingContext, stripe_event_type: event.type, stripe_invoice_id: invoice.id, host_id: subscription?.metadata?.host_id || '', title: 'Invoice payment failed', message: `Invoice payment failed for ${billingContext}. No automatic suspension or subscription activation occurred.`, recommended_action: 'Review billing issue and contact the operator/customer as appropriate.', financial_impact_amount: (invoice.amount_due || 0) / 100, currency: invoice.currency || 'usd', requires_customer_action: false, source: 'stripe_webhook' });
+        // Dual-write: mark item past_due + create SubscriptionAlert
+        if (subscriptionId) {
+          await dualWriteSubscriptionItem(base44, { stripeSubscriptionId: subscriptionId, status: 'past_due', paymentStatus: 'failed' }).catch(e => console.error('[DualWrite invoice.payment_failed]', e.message));
+          const itemType = billingContextToItemType(subscription?.metadata?.billing_context || billingContext);
+          const alertType = itemType === 'contactless360_gps' ? 'gps_active_unpaid' : 'platform_plan_unpaid';
+          await dualWriteSubscriptionAlert(base44, { stripeSubscriptionId: subscriptionId, alertType, severity: 'critical', message: `Invoice payment failed — $${((invoice.amount_due||0)/100).toFixed(2)} past due.`, recommendedAction: 'Update payment method to restore service.', amountAtRisk: (invoice.amount_due || 0) / 100, stripeInvoiceId: invoice.id }).catch(() => {});
+        }
         break;
       }
 

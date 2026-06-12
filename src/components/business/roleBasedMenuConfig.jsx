@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
   Wrench, BarChart3, Building2, Gift, Home, Wallet, Zap,
   Shield, MapPin, ClipboardList, Activity, MessageSquare, Star, Camera,
-  ShieldAlert, Satellite, Settings, Network, ArrowRightLeft,
+  ShieldAlert, Satellite, Settings, Network, ArrowRightLeft, CreditCard,
 } from "lucide-react";
 
 export const BUSINESS_PORTAL_ROLES = {
@@ -41,6 +41,7 @@ export const masterMenuSections = [
     items: [
       { id: "operations-center", label: "Operations Center", icon: Activity, paths: { admin: "/admin/operations-center" }, roles: ["admin"] },
       { id: "financial-center", label: "Financial Center", icon: DollarSign, paths: { admin: "/admin/financial-center" }, roles: ["admin"] },
+      { id: "subscription-center", label: "Subscription Center", icon: CreditCard, paths: { admin: "/admin/subscription-center" }, roles: ["admin"] },
       { id: "telematics-center", label: "Telematics Center", icon: Satellite, paths: { admin: "/admin/telematics-center" }, roles: ["admin"] },
       { id: "compliance-center", label: "Compliance Center", icon: Shield, paths: { admin: "/admin/compliance-center" }, roles: ["admin"] },
     ],
@@ -70,6 +71,7 @@ export const masterMenuSections = [
     items: [
       { id: "host-operations-center", label: "Operations Center", icon: Activity, paths: { host: "/host/operations-center" }, roles: ["host"] },
       { id: "host-financial-center", label: "Financial Center", icon: DollarSign, paths: { host: "/host/financial-center" }, roles: ["host"] },
+      { id: "host-subscriptions", label: "Subscriptions", icon: CreditCard, paths: { host: "/host/subscriptions" }, roles: ["host"] },
       { id: "host-telematics-center", label: "Telematics Center", icon: Satellite, paths: { host: "/host/telematics-center" }, roles: ["host"] },
       { id: "host-compliance-center", label: "Compliance Center", icon: Shield, paths: { host: "/host/compliance-center" }, roles: ["host"] },
     ],

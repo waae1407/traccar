@@ -120,6 +120,9 @@ import CustomerGPS from '@/pages/customer/CustomerGPS.jsx';
 import HostGPSStore from '@/pages/host/HostGPSStore.jsx';
 import AdminGPSStore from '@/pages/admin/AdminGPSStore.jsx';
 import AdminDealer360 from '@/pages/admin/AdminDealer360.jsx';
+import SubscriptionCommandCenter from '@/pages/admin/SubscriptionCommandCenter.jsx';
+import HostSubscriptions from '@/pages/host/HostSubscriptions.jsx';
+import CustomerSubscriptions from '@/pages/customer/CustomerSubscriptions.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
 import HostTelematicsCommandTest from '@/pages/host/HostTelematicsCommandTest.jsx';
@@ -234,6 +237,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/vehicle-command-center" element={<VehicleCommandCenter mode="host" />} />
         <Route path="/host/telematics-command-test" element={<HostTelematicsCommandTest />} />
         <Route path="/host/gps-store" element={<HostGPSStore />} />
+        <Route path="/host/subscriptions" element={<HostSubscriptions />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
@@ -255,6 +259,7 @@ const AuthenticatedApp = () => {
         <Route path="/book-now" element={<BookNow />} />
         <Route path="/my-bookings" element={<MyBookings />} />
         <Route path="/customer/gps" element={<CustomerGPS />} />
+        <Route path="/customer/subscriptions" element={<CustomerSubscriptions />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/support" element={<RenterAIChat />} />
@@ -323,6 +328,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/compliance-center" element={<ComplianceCenter />} />
         <Route path="/admin/operations-center" element={<OperationsCenter />} />
         <Route path="/admin/gps-store" element={<AdminGPSStore />} />
+        <Route path="/admin/subscription-center" element={<SubscriptionCommandCenter />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

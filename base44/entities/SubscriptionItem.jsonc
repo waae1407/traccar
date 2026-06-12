@@ -1,0 +1,136 @@
+{
+  "name": "SubscriptionItem",
+  "type": "object",
+  "properties": {
+    "subscription_account_id": {
+      "type": "string"
+    },
+    "owner_type": {
+      "type": "string",
+      "enum": [
+        "host",
+        "customer",
+        "guest"
+      ],
+      "default": "guest"
+    },
+    "owner_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_user_id": {
+      "type": "string"
+    },
+    "item_type": {
+      "type": "string",
+      "enum": [
+        "host_platform",
+        "contactless360_gps",
+        "dealer360",
+        "gps_data",
+        "premium_telematics",
+        "ai_tools",
+        "compliance_package"
+      ],
+      "default": "host_platform"
+    },
+    "item_name": {
+      "type": "string"
+    },
+    "source_entity": {
+      "type": "string",
+      "enum": [
+        "HostPlatformSubscription",
+        "GPSSubscription"
+      ],
+      "description": "Legacy entity this item was migrated from"
+    },
+    "source_entity_id": {
+      "type": "string"
+    },
+    "stripe_subscription_id": {
+      "type": "string"
+    },
+    "stripe_subscription_item_id": {
+      "type": "string"
+    },
+    "stripe_price_id": {
+      "type": "string"
+    },
+    "monthly_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "quantity": {
+      "type": "number",
+      "default": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "trialing",
+        "past_due",
+        "cancelled",
+        "paused",
+        "incomplete"
+      ],
+      "default": "active"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "paid",
+        "failed",
+        "past_due",
+        "cancelled"
+      ],
+      "default": "paid"
+    },
+    "next_billing_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "current_period_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "current_period_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "device_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "gps_order_id": {
+      "type": "string"
+    },
+    "plan_code": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "source_entity:source_entity_id"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "item_type",
+    "monthly_amount"
+  ]
+}

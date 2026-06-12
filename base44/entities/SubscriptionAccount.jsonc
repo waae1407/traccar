@@ -1,0 +1,105 @@
+{
+  "name": "SubscriptionAccount",
+  "type": "object",
+  "properties": {
+    "owner_type": {
+      "type": "string",
+      "enum": [
+        "host",
+        "customer",
+        "guest"
+      ],
+      "default": "guest"
+    },
+    "owner_id": {
+      "type": "string"
+    },
+    "owner_email": {
+      "type": "string"
+    },
+    "owner_name": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_user_id": {
+      "type": "string"
+    },
+    "stripe_customer_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "trialing",
+        "past_due",
+        "suspended",
+        "cancelled",
+        "no_payment_method"
+      ],
+      "default": "no_payment_method"
+    },
+    "monthly_total": {
+      "type": "number",
+      "default": 0
+    },
+    "active_item_count": {
+      "type": "number",
+      "default": 0
+    },
+    "past_due_item_count": {
+      "type": "number",
+      "default": 0
+    },
+    "cancelled_item_count": {
+      "type": "number",
+      "default": 0
+    },
+    "next_billing_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "payment_method_last4": {
+      "type": "string"
+    },
+    "payment_method_brand": {
+      "type": "string"
+    },
+    "health_score": {
+      "type": "number",
+      "default": 100
+    },
+    "health_status": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "warning",
+        "critical",
+        "suspended"
+      ],
+      "default": "healthy"
+    },
+    "last_payment_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_failed_payment_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "owner_type",
+    "owner_email"
+  ]
+}

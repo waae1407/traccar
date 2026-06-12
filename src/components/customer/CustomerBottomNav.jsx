@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Car, Home, MessageSquare, Search, User } from "lucide-react";
+import { Bell, Car, Home, MessageSquare, Search, User, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -34,7 +34,7 @@ export default function CustomerBottomNav() {
       : { label: "Home", icon: Home, path: "/" },
     { label: "Book Now", icon: Search, path: "/book-now" },
     { label: "Messages", icon: MessageSquare, path: "/messages" },
-    { label: "Notifications", icon: Bell, path: "/activity" },
+    { label: "Subscriptions", icon: CreditCard, path: "/customer/subscriptions" },
     { label: "Account", icon: User, path: "/account" },
   ];
 
