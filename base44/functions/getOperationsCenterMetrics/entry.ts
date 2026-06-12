@@ -63,11 +63,17 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Batch 3: Alerts + comms (capped small — FIX #6)
+    // Batch 3: Alerts + comms (capped small — FIX #6) — scoped by host when not admin
     const [paymentAlerts, operationalAlerts, communications] = await Promise.all([
-      base44.asServiceRole.entities.PaymentOperationalAlert.filter({ status: 'new' }, '-created_date', 100),
-      base44.asServiceRole.entities.OperationalAlert.filter({ status: 'new' }, '-created_date', 100),
-      base44.asServiceRole.entities.CommunicationThread.list('-last_message_at', 100),
+      scopedHostId
+        ? base44.asServiceRole.entities.PaymentOperationalAlert.filter({ host_id: scopedHostId, status: 'new' }, '-created_date', 100)
+        : base44.asServiceRole.entities.PaymentOperationalAlert.filter({ status: 'new' }, '-created_date', 100),
+      scopedHostId
+        ? base44.asServiceRole.entities.OperationalAlert.filter({ host_id: scopedHostId }, '-created_date', 100)
+        : base44.asServiceRole.entities.OperationalAlert.filter({ status: 'new' }, '-created_date', 100),
+      scopedHostId
+        ? base44.asServiceRole.entities.CommunicationThread.filter({ host_id: scopedHostId }, '-last_message_at', 100)
+        : base44.asServiceRole.entities.CommunicationThread.list('-last_message_at', 100),
     ]);
 
     const now = new Date();
