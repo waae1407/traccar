@@ -40,8 +40,11 @@ Deno.serve(async (req) => {
       if (byEmail.length > 0) {
         bookings = byEmail;
       } else {
-        // Fall back to name search with bounded list
-        const allBookings = await base44.asServiceRole.entities.BookingRequest.list('-created_date', 500);
+        // Fall back to name search — pre-scope to host if not admin to avoid loading all records
+        const fallbackQuery = scopedHostId ? { host_id: scopedHostId } : {};
+        const allBookings = scopedHostId
+          ? await base44.asServiceRole.entities.BookingRequest.filter(fallbackQuery, '-created_date', 500)
+          : await base44.asServiceRole.entities.BookingRequest.list('-created_date', 500);
         bookings = allBookings.filter(b =>
           (b.customer_full_name || '').toLowerCase().includes(s) ||
           (b.user_email || '').toLowerCase().includes(s) ||
