@@ -114,11 +114,23 @@ async function handleGPSOrderPaid(base44, pi) {
   const orders = await base44.asServiceRole.entities.GPSOrder.filter({ id: orderId });
   const order = orders[0];
   if (!order) return;
+  // Persist Stripe customer ID + payment method from the PaymentIntent so subscription can reuse them
+  const stripeCustomerId = (typeof pi.customer === 'string' ? pi.customer : pi.customer?.id) || order.stripe_customer_id || '';
+  const stripePaymentMethodId = (typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method?.id) || '';
+  // Attach the payment method as default for the customer so subscriptions can charge it
+  if (stripeCustomerId && stripePaymentMethodId) {
+    try {
+      await stripe.paymentMethods.attach(stripePaymentMethodId, { customer: stripeCustomerId });
+      await stripe.customers.update(stripeCustomerId, { invoice_settings: { default_payment_method: stripePaymentMethodId } });
+    } catch (_) { /* already attached is fine */ }
+  }
   await base44.asServiceRole.entities.GPSOrder.update(orderId, {
     payment_status: 'paid',
     order_status: 'paid',
     paid_at: now,
     stripe_payment_intent_id: pi.id,
+    stripe_customer_id: stripeCustomerId,
+    stripe_payment_method_id: stripePaymentMethodId,
   });
   await base44.asServiceRole.entities.Notification.create({
     user_email: order.customer_email,

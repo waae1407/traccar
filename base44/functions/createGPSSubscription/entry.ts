@@ -34,6 +34,14 @@ Deno.serve(async (req) => {
       });
       stripeCustomerId = customer.id;
     }
+    // Attach and set default payment method if available (from the original checkout PI)
+    const paymentMethodId = order.stripe_payment_method_id || '';
+    if (paymentMethodId && stripeCustomerId) {
+      try {
+        await stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomerId });
+        await stripe.customers.update(stripeCustomerId, { invoice_settings: { default_payment_method: paymentMethodId } });
+      } catch (_) { /* already attached is fine */ }
+    }
 
     // Create Stripe price on the fly (inline)
     const price = await stripe.prices.create({

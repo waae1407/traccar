@@ -98,12 +98,26 @@ Deno.serve(async (req) => {
       device_ids: [],
     });
 
-    // 3. Create Stripe PaymentIntent
+    // 3. Create or retrieve Stripe customer so the payment method is linked for future subscriptions
+    const stripeCustomer = await stripe.customers.create({
+      email: customer_email.toLowerCase().trim(),
+      name: customer_name,
+      metadata: {
+        host_id: hostId || '',
+        customer_user_id: customerUserId || '',
+        gps_order_id: order.id,
+        order_number: orderNum,
+      },
+    });
+
+    // 4. Create Stripe PaymentIntent linked to the customer
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(totalAmount * 100),
       currency: 'usd',
+      customer: stripeCustomer.id,
       receipt_email: customer_email,
       description: `Contactless360 ${productName} x${qty}`,
+      setup_future_usage: monthlySubPrice > 0 ? 'off_session' : undefined,
       metadata: {
         billing_context: 'contactless_gps_order',
         gps_order_id: order.id,
@@ -115,9 +129,10 @@ Deno.serve(async (req) => {
       },
     });
 
-    // 4. Store Stripe intent ID on order
+    // 5. Store Stripe intent ID + customer ID on order
     await base44.asServiceRole.entities.GPSOrder.update(order.id, {
       stripe_payment_intent_id: paymentIntent.id,
+      stripe_customer_id: stripeCustomer.id,
     });
 
     // 5. Audit log
