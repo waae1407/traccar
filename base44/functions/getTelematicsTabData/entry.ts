@@ -250,11 +250,11 @@ Deno.serve(async (req) => {
     // ── ALERTS TAB ───────────────────────────────────────────────
     if (tab === 'alerts') {
       const limit = fetchLimit + offset;
-      const alertsRaw = await base44.asServiceRole.entities.OperationalAlert.filter(
-        { domain: 'telematics' }, '-created_date', limit
-      );
+      const alertsRaw = scopedHostId
+        ? await base44.asServiceRole.entities.OperationalAlert.filter({ host_id: scopedHostId }, '-created_date', limit)
+        : await base44.asServiceRole.entities.OperationalAlert.filter({ domain: 'telematics' }, '-created_date', limit);
 
-      let filtered = alertsRaw;
+      let filtered = alertsRaw.filter(a => !scopedHostId || a.domain === 'telematics' || a.host_id === scopedHostId);
       if (effectiveDateFrom) filtered = filtered.filter(a => !a.created_date || a.created_date >= effectiveDateFrom);
 
       const page_slice = filtered.slice(offset, offset + effectivePageSize);

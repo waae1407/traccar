@@ -4,10 +4,22 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const isAdmin = user.role === 'admin';
     const body = await req.json().catch(() => ({}));
-    const { host_id: filterHostId } = body;
+    let { host_id: filterHostId } = body;
+
+    // Resolve host scope for non-admin
+    if (!isAdmin) {
+      const [hosts, hostByUser] = await Promise.all([
+        base44.asServiceRole.entities.Host.filter({ email: user.email }),
+        base44.asServiceRole.entities.Host.filter({ user_id: user.id }),
+      ]);
+      const myHost = hosts[0] || hostByUser[0];
+      if (!myHost) return Response.json({ error: 'Host not found' }, { status: 403 });
+      filterHostId = myHost.id; // Always scope to own host — cannot be overridden
+    }
 
     // Default date range: last 30 days
     let { date_from, date_to } = body;
@@ -47,9 +59,15 @@ Deno.serve(async (req) => {
 
     // Batch 3: Disputes, receivables, and hosts for name resolution
     const [disputes, receivables, alerts] = await Promise.all([
-      base44.asServiceRole.entities.Dispute.list('-created_date', 200),
-      base44.asServiceRole.entities.HostReceivable.list('-created_date', 500),
-      base44.asServiceRole.entities.PaymentOperationalAlert.list('-created_date', 200),
+      filterHostId
+        ? base44.asServiceRole.entities.Dispute.filter({ host_id: filterHostId }, '-created_date', 200)
+        : base44.asServiceRole.entities.Dispute.list('-created_date', 200),
+      filterHostId
+        ? base44.asServiceRole.entities.HostReceivable.filter({ host_id: filterHostId }, '-created_date', 500)
+        : base44.asServiceRole.entities.HostReceivable.list('-created_date', 500),
+      filterHostId
+        ? base44.asServiceRole.entities.PaymentOperationalAlert.filter({ host_id: filterHostId }, '-created_date', 200)
+        : base44.asServiceRole.entities.PaymentOperationalAlert.list('-created_date', 200),
     ]);
 
     const scopedLogs = paymentLogs.filter(p => inRange(p.paid_at || p.created_date));
@@ -229,6 +247,7 @@ Deno.serve(async (req) => {
         'VehicleExpense entity is legacy and excluded',
         'calculateHostEarnings is legacy and excluded',
       ],
+      scope: isAdmin ? 'admin' : 'host',
       generated_at: new Date().toISOString(),
     });
   } catch (error) {

@@ -102,6 +102,16 @@ import HostVerificationDocs from '@/pages/host/HostVerificationDocs';
 import HostPaymentHistory from '@/pages/host/HostPaymentHistory';
 import HostReturnReviews from '@/pages/host/HostReturnReviews.jsx';
 import HostDealerNetwork from '@/pages/host/HostDealerNetwork.jsx';
+import HostCustomer360 from '@/pages/host/HostCustomer360.jsx';
+import HostBooking360 from '@/pages/host/HostBooking360.jsx';
+import HostVehicle360 from '@/pages/host/HostVehicle360.jsx';
+import HostMyBusiness360 from '@/pages/host/HostMyBusiness360.jsx';
+import HostFinancialCenter from '@/pages/host/HostFinancialCenter.jsx';
+import HostOperationsCenter from '@/pages/host/HostOperationsCenter.jsx';
+import HostComplianceCenter from '@/pages/host/HostComplianceCenter.jsx';
+import HostTelematicsCenter from '@/pages/host/HostTelematicsCenter.jsx';
+import HostExpenseCenter from '@/pages/host/HostExpenseCenter.jsx';
+import HostMaintenanceCenter from '@/pages/host/HostMaintenanceCenter.jsx';
 import HostDealer360 from '@/pages/host/HostDealer360.jsx';
 import AdminDealer360 from '@/pages/admin/AdminDealer360.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
@@ -198,6 +208,16 @@ const AuthenticatedApp = () => {
         <Route path="/host/payment-alerts" element={<HostPaymentAlerts />} />
         <Route path="/host/dealer-network" element={<HostDealerNetwork />} />
         <Route path="/host/dealer360" element={<HostDealer360 />} />
+        <Route path="/host/customer-360" element={<HostCustomer360 />} />
+        <Route path="/host/booking-360" element={<HostBooking360 />} />
+        <Route path="/host/vehicle-360" element={<HostVehicle360 />} />
+        <Route path="/host/host-360" element={<HostMyBusiness360 />} />
+        <Route path="/host/financial-center" element={<HostFinancialCenter />} />
+        <Route path="/host/operations-center" element={<HostOperationsCenter />} />
+        <Route path="/host/compliance-center" element={<HostComplianceCenter />} />
+        <Route path="/host/telematics-center" element={<HostTelematicsCenter />} />
+        <Route path="/host/expense-center" element={<HostExpenseCenter />} />
+        <Route path="/host/maintenance-center" element={<HostMaintenanceCenter />} />
         <Route path="/host/telematics" element={<HostTelematicsDashboard />} />
         <Route path="/host/installers" element={<HostInstallers />} />
         <Route path="/host/vehicle-command-center" element={<VehicleCommandCenter mode="host" />} />

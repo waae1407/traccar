@@ -63,6 +63,35 @@ export const masterMenuSections = [
       { id: "maintenance-center", label: "Maintenance Center", icon: Wrench, paths: { admin: "/admin/maintenance-center" }, roles: ["admin"] },
     ],
   },
+  // ── HOST COMMAND CENTERS ───────────────────────────────────────────────────
+  {
+    label: "Command Center",
+    icon: LayoutDashboard,
+    items: [
+      { id: "host-operations-center", label: "Operations Center", icon: Activity, paths: { host: "/host/operations-center" }, roles: ["host"] },
+      { id: "host-financial-center", label: "Financial Center", icon: DollarSign, paths: { host: "/host/financial-center" }, roles: ["host"] },
+      { id: "host-telematics-center", label: "Telematics Center", icon: Satellite, paths: { host: "/host/telematics-center" }, roles: ["host"] },
+      { id: "host-compliance-center", label: "Compliance Center", icon: Shield, paths: { host: "/host/compliance-center" }, roles: ["host"] },
+    ],
+  },
+  {
+    label: "360 Views",
+    icon: BarChart3,
+    items: [
+      { id: "host-customer-360", label: "Customer 360", icon: Users, paths: { host: "/host/customer-360" }, roles: ["host"] },
+      { id: "host-booking-360", label: "Booking 360", icon: CalendarDays, paths: { host: "/host/booking-360" }, roles: ["host"] },
+      { id: "host-vehicle-360", label: "Vehicle 360", icon: Car, paths: { host: "/host/vehicle-360" }, roles: ["host"] },
+      { id: "host-host-360", label: "My Business 360", icon: Home, paths: { host: "/host/host-360" }, roles: ["host"] },
+    ],
+  },
+  {
+    label: "Smart Centers",
+    icon: Wrench,
+    items: [
+      { id: "host-expense-center", label: "Expense Center", icon: DollarSign, paths: { host: "/host/expense-center" }, roles: ["host"] },
+      { id: "host-maintenance-center", label: "Maintenance Center", icon: Wrench, paths: { host: "/host/maintenance-center" }, roles: ["host"] },
+    ],
+  },
   // ── ADMIN ACCOUNTS ─────────────────────────────────────────────────────────
   {
     label: "Accounts",
