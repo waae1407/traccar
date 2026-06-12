@@ -59,18 +59,37 @@ const VerificationStatus = ({ status, message }) => {
 };
 
 export default function StepVerification({ booking, saveAndAdvance, updateMutation }) {
-  const [uploads, setUploads, clearVerificationDraft] = usePersistentFormDraft(`checkout_verification_draft:${booking?.id}`, {
-    license_front_url: booking?.license_front_url || "",
-    license_back_url: booking?.license_back_url || "",
-    selfie_url: booking?.selfie_url || "",
-    proof_of_income_url: booking?.proof_of_income_url || "",
-  });
+  // Only enable draft persistence once we have a real booking ID to avoid writing to a key like
+  // "checkout_verification_draft:undefined" which gets cached and later overrides real booking data.
+  const draftKey = booking?.id ? `checkout_verification_draft:${booking.id}` : null;
+  const [draftUploads, setDraftUploads, clearVerificationDraft] = usePersistentFormDraft(
+    draftKey || "__noop__",
+    { license_front_url: "", license_back_url: "", selfie_url: "", proof_of_income_url: "" },
+    { enabled: !!booking?.id }
+  );
+
+  // Always prefer values saved on the booking record over the local draft.
+  // This ensures that if the user returns to this step after already uploading, the images are shown.
+  const uploads = {
+    license_front_url: booking?.license_front_url || draftUploads.license_front_url || "",
+    license_back_url: booking?.license_back_url || draftUploads.license_back_url || "",
+    selfie_url: booking?.selfie_url || draftUploads.selfie_url || "",
+    proof_of_income_url: booking?.proof_of_income_url || draftUploads.proof_of_income_url || "",
+  };
+  const setUploads = setDraftUploads;
+
   const [uploading, setUploading] = useState({});
-  const alreadyVerified = booking?.verification_status === "verified";
-  const [verifyStatus, setVerifyStatus] = useState(alreadyVerified ? "passed" : null); // null | "checking" | "passed" | "failed"
+  const [verifyStatus, setVerifyStatus] = useState(null); // null | "checking" | "passed" | "failed"
   const [verifyMessage, setVerifyMessage] = useState("");
   const isRTO = booking?.booking_type === "Rent-to-Own";
   const verifyingRef = React.useRef(false); // Prevent duplicate LLM calls
+
+  // When booking loads (or changes), auto-set passed if already verified
+  React.useEffect(() => {
+    if (booking?.verification_status === "verified") {
+      setVerifyStatus("passed");
+    }
+  }, [booking?.id, booking?.verification_status]);
 
   const handleUpload = async (field, file) => {
     if (!file) return;
