@@ -20,7 +20,11 @@ Deno.serve(async (req) => {
 
   const ext = fileName ? fileName.split('.').pop().toLowerCase() : 'bin';
   const key = `uploads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const contentType = fileType || 'application/octet-stream';
+  // Normalize HEIC/HEIF — R2 accepts them as octet-stream; browser may omit type
+  let contentType = fileType || 'application/octet-stream';
+  if (contentType === 'image/heic' || contentType === 'image/heif') {
+    contentType = 'application/octet-stream'; // R2 stores; LLM vision still reads it via URL
+  }
 
   const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
   const url = `${endpoint}/${bucketName}/${key}`;

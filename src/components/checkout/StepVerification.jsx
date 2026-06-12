@@ -21,8 +21,7 @@ function UploadBox({ label, url, status, error, onChange, onRetry, onClear, requ
       {!isUploading && (
         <input
           type="file"
-          accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
-          capture="environment"
+          accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,application/pdf"
           className="absolute inset-0 opacity-0 cursor-pointer z-10"
           onChange={onChange}
         />
@@ -150,12 +149,16 @@ const VerificationStatus = ({ status, message }) => {
 function friendlyUploadError(err) {
   const code = err?.code;
   if (code === "FILE_TOO_LARGE") return err.message;
+  if (code === "FILE_TOO_LARGE_SERVER") return err.message;
   if (code === "UNSUPPORTED_FORMAT") return err.message;
   if (code === "UPLOAD_TIMEOUT") return "Upload timed out. Please check your connection and tap Retry.";
+  if (code === "NETWORK_ERROR") return "No internet connection. Please check your network and tap Retry.";
+  if (code === "SESSION_EXPIRED") return "Your session expired. Please refresh the page and try again.";
+  if (code === "SERVER_ERROR") return `Upload service error. Please tap Retry. If this continues, contact support.`;
   if (code === "READ_TIMEOUT") return "Could not read the file. Please try again.";
   if (code === "READ_ERROR") return "Could not open the file. Please try a different photo.";
   if (code === "STORAGE_FAILED") return "Storage error. Please tap Retry.";
-  return "Upload failed. Please tap Retry. If this continues, contact support. (ERR-UPL-001)";
+  return `Upload failed. Please tap Retry. If this continues, contact support. (ERR-UPL-001)`;
 }
 
 const UPLOAD_FIELDS = ["license_front_url", "license_back_url", "selfie_url", "proof_of_income_url"];
@@ -247,7 +250,9 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
           error_message: err.message,
           file_name: file?.name,
           file_size: file?.size,
-          file_type: file?.type,
+          file_type: file?.type || "(empty — browser did not report MIME type)",
+          http_status: err.httpStatus ?? null,
+          response_body: err.responseBody ? JSON.stringify(err.responseBody).slice(0, 500) : null,
           step: "verification",
           user_agent: navigator.userAgent,
         },
@@ -269,7 +274,7 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
     // Open file picker by clicking a hidden input
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/jpeg,image/jpg,image/png,image/webp,application/pdf";
+    input.accept = "image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,application/pdf";
     input.onchange = (e) => {
       const file = e.target.files?.[0];
       if (file) {
