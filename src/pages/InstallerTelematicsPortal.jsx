@@ -154,6 +154,23 @@ function FieldLabel({ children }) {
   return <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400">{children}</p>;
 }
 
+const WIRING_DIAGRAM_URL = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e9b6202d9_9BC92AC8-0378-4BFD-A602-63508FF6D79E.png";
+
+function WiringDiagramCard() {
+  return (
+    <LuxuryCard className="border-slate-100">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-white text-sm">🔌</div>
+        <div>
+          <h3 className="text-base font-black text-slate-950">Wiring Diagram</h3>
+          <p className="text-xs font-bold text-slate-400">Reference wire colors before connecting</p>
+        </div>
+      </div>
+      <img src={WIRING_DIAGRAM_URL} alt="Device Wiring Diagram" className="w-full rounded-2xl border border-slate-100 object-contain bg-white" />
+    </LuxuryCard>
+  );
+}
+
 function DeviceStep({ form, update, capabilities, deviceVerified, onScanDevice, scanMessage }) {
   const recognized = capabilities.data?.ok;
   const device = capabilities.data?.device;
@@ -184,6 +201,8 @@ function DeviceStep({ form, update, capabilities, deviceVerified, onScanDevice, 
           </div>
         </div>
       </LuxuryCard>
+
+      <WiringDiagramCard />
 
       {recognized && (
         <LuxuryCard className="bg-gradient-to-br from-white via-white to-pink-50/70">
@@ -242,6 +261,8 @@ function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound,
           <p className="text-xs font-bold text-slate-500">VIN is verified automatically once 17 characters are entered.</p>
         </div>
       </LuxuryCard>
+
+      <WiringDiagramCard />
 
       {vehicleMatched && (
         <LuxuryCard className="border-emerald-100 bg-gradient-to-br from-white to-emerald-50/80">
