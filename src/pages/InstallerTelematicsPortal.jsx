@@ -16,6 +16,7 @@ import {
   Car,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock,
   ImagePlus,
@@ -157,16 +158,20 @@ function FieldLabel({ children }) {
 const WIRING_DIAGRAM_URL = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e9b6202d9_9BC92AC8-0378-4BFD-A602-63508FF6D79E.png";
 
 function WiringDiagramCard() {
+  const [expanded, setExpanded] = useState(false);
   return (
     <LuxuryCard className="border-slate-100">
-      <div className="mb-3 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-white text-sm">🔌</div>
-        <div>
-          <h3 className="text-base font-black text-slate-950">Wiring Diagram</h3>
-          <p className="text-xs font-bold text-slate-400">Reference wire colors before connecting</p>
+      <button type="button" onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between gap-3 hover:opacity-70 transition-opacity">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-950 text-white text-sm">🔌</div>
+          <div className="text-left">
+            <h3 className="text-base font-black text-slate-950">Wiring Diagram</h3>
+            <p className="text-xs font-bold text-slate-400">Reference wire colors before connecting</p>
+          </div>
         </div>
-      </div>
-      <img src={WIRING_DIAGRAM_URL} alt="Device Wiring Diagram" className="w-full rounded-2xl border border-slate-100 object-contain bg-white" />
+        <ChevronDown className={`h-5 w-5 text-slate-400 transition-transform flex-shrink-0 ${expanded ? "rotate-180" : ""}`} />
+      </button>
+      {expanded && <img src={WIRING_DIAGRAM_URL} alt="Device Wiring Diagram" className="mt-4 w-full rounded-2xl border border-slate-100 object-contain bg-white" />}
     </LuxuryCard>
   );
 }
