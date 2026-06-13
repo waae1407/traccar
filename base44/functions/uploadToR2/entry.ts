@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: `R2 upload failed: ${errText}` }, { status: 500 });
   }
 
-  const file_url = `${publicUrl}/${key}`;
+  const file_url = `${publicUrl.replace(/\/$/, '')}/${key}`;
   console.log('[R2 Upload] Success:', file_url);
   return Response.json({ file_url });
 });
