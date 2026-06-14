@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { ArrowRight, Building2, Store } from "lucide-react";
+import { ArrowRight, Building2, Store, AlertCircle, ExternalLink } from "lucide-react";
 import PlanChoiceCard from "@/components/host/onboarding/PlanChoiceCard";
 import StorefrontSuccessPanel from "@/components/host/onboarding/StorefrontSuccessPanel";
 import PostSignupChecklist from "@/components/host/onboarding/PostSignupChecklist";
@@ -54,7 +54,9 @@ export default function BecomeAHost() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [existingStorefront, setExistingStorefront] = useState(null); // { host, brand, redirectPath }
   const resumeAttemptedRef = useRef(false);
+  const existingCheckRef = useRef(false);
 
   const clearOnboardingState = () => {
     sessionStorage.removeItem(DRAFT_KEY);
@@ -66,6 +68,31 @@ export default function BecomeAHost() {
   const routeToSuccess = (hostId) => {
     navigate(`/host/onboarding-success?host_id=${hostId}`, { replace: true });
   };
+
+  // Guard: detect any existing approved host + live storefront on mount
+  useEffect(() => {
+    if (!user?.email || existingCheckRef.current) return;
+    existingCheckRef.current = true;
+
+    const checkExisting = async () => {
+      const hosts = await base44.entities.Host.filter({ email: user.email });
+      const approvedHost = hosts?.find((h) => h.status === "approved");
+      if (!approvedHost) return;
+
+      const brands = await base44.entities.HostBrandSettings.filter({ host_id: approvedHost.id });
+      const liveBrand = brands?.find((b) => b.published_status === "live");
+      if (!liveBrand) return;
+
+      setExistingStorefront({
+        host: approvedHost,
+        brand: liveBrand,
+        storefrontUrl: `${window.location.origin}/host/${liveBrand.business_slug}`,
+        dashboardPath: "/host/dashboard",
+      });
+    };
+
+    checkExisting().catch(() => {}); // silent — don't block onboarding on error
+  }, [user?.email]);
 
   useEffect(() => {
     if (!user?.email || resumeAttemptedRef.current) return;
@@ -167,6 +194,51 @@ export default function BecomeAHost() {
           <StorefrontSuccessPanel result={result} />
           <PostSignupChecklist mode={result.selected_mode} />
         </main>
+      </div>
+    );
+  }
+
+  if (existingStorefront) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" style={{ fontFamily: "var(--font-inter)" }}>
+        <div className="max-w-md w-full bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
+          <div className="p-6 sm:p-8">
+            <div className="h-14 w-14 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center mb-5">
+              <AlertCircle className="h-7 w-7 text-amber-500" />
+            </div>
+            <h1 className="text-2xl font-black text-gray-950" style={{ fontFamily: "var(--font-syne)" }}>
+              You already have a live storefront
+            </h1>
+            <p className="text-gray-500 text-sm mt-2">
+              Your account <strong>{existingStorefront.host.email}</strong> is already linked to an active rental business:
+            </p>
+            <div className="mt-4 rounded-2xl bg-pink-50 border border-pink-100 p-4">
+              <p className="text-xs font-black text-pink-600 uppercase tracking-wider">Your Business</p>
+              <p className="font-black text-gray-900 mt-1">{existingStorefront.brand.business_display_name || existingStorefront.host.business_name}</p>
+              <p className="font-mono text-xs text-gray-500 mt-1 break-all">{existingStorefront.storefrontUrl}</p>
+            </div>
+            <p className="text-xs text-gray-400 mt-4">
+              Each account can only have one storefront. To manage your business, go to your dashboard. To create a separate storefront, use a different email account.
+            </p>
+          </div>
+          <div className="border-t border-gray-100 grid grid-cols-2">
+            <a
+              href={existingStorefront.storefrontUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-2 py-4 text-sm font-bold text-gray-500 hover:bg-gray-50 transition-colors border-r border-gray-100"
+            >
+              <ExternalLink className="h-4 w-4" /> View Store
+            </a>
+            <Link
+              to={existingStorefront.dashboardPath}
+              className="flex items-center justify-center gap-2 py-4 text-sm font-black text-white transition-colors"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+            >
+              Go to Dashboard <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
