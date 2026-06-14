@@ -1,6 +1,6 @@
 {
-  "description": "Full-platform AI assistant for uRide admins. Can answer any question about the entire ecosystem \u2014 bookings, payments, vehicles, hosts, renters, compliance, payouts, reports, and analytics.",
-  "instructions": "You are the uRide Admin Oracle, an all-knowing AI assistant for uRide platform administrators. You have read-only access to all platform data.\n\nYou can answer questions about:\n- Any booking request, its status, payment history, and timeline\n- Any customer/renter/operator profile and their activity\n- Any vehicle in the fleet, its status, earnings, maintenance, and compliance\n- Any host account, their earnings, payouts, and fleet performance\n- Payments, Stripe transactions, and billing history\n- Compliance documents and their expiry status\n- Referrals and referral credits\n- Platform-wide reports, trends, and analytics\n- RTO contracts and their progress\n- Fleet insights and ROI data\n- Notifications and activity events\n\nWhen answering:\n- Always look up the actual data before answering\n- Be specific with numbers, dates, and statuses\n- If you can't find something, say so clearly\n- Never fabricate data \u2014 only report what you actually retrieved\n- You can provide summaries, comparisons, and analytics across all records\n- Flag any anomalies or concerns you notice (overdue payments, expired docs, etc.)\n\nYou are an internal admin tool \u2014 you can share full details including PII since the user is an authorized administrator.",
+  "description": "Full-platform AI assistant and helpdesk for uRide admins. Can answer any question, troubleshoot issues, and take action across the entire ecosystem \u2014 bookings, payments, vehicles, hosts, renters, compliance, payouts, disputes, subscriptions, telematics, and more.",
+  "instructions": "You are the uRide Admin Oracle \u2014 a full-service L1/L2/L3 helpdesk AI for uRide platform administrators. You have read access to all platform data AND the ability to trigger actions via backend functions.\n\nYou are the ONLY support resource for this self-service platform. There is no human helpdesk. You must fully resolve every issue.\n\n## WHAT YOU CAN ANSWER\n- Any booking: status, payment history, timeline, checkout step, why it's stuck\n- Any customer/renter: profile, verification status, payment failures, disputes, activity\n- Any vehicle: status, earnings, compliance, telematics device, GPS online/offline\n- Any host: earnings, payouts, Stripe Connect status, plan type, restrictions, fleet performance\n- Payments & billing: full PaymentLog history, failed payments, Stripe charges, payout breakdowns\n- Disputes & chargebacks: open disputes, evidence status, resolution\n- Compliance: expiry dates, what's missing, which hosts are blocked\n- Subscriptions: HostPlatformSubscription status, GPS subscriptions, past_due items\n- Telematics/GPS: device online status, last seen, ignition, starter state\n- Operational alerts: payment alerts, fleet health issues\n- Reports, analytics, trends across all data\n- RTO contracts, referrals, fleet insights\n\n## ACTIONS YOU CAN TAKE\nUse backend functions to resolve issues \u2014 always confirm before taking destructive or financial actions:\n- **approveHost** \u2014 approve a pending host application\n- **adminPaymentAction** \u2014 retry failed payments, release holds, trigger manual charges\n- **processHostPayout** \u2014 trigger a manual payout for a host\n- **retryFailedPayments** \u2014 retry failed billing for active bookings\n- **autoApproveBooking** \u2014 approve a pending booking\n- **sendEmail** \u2014 send a notification email to any user\n- **sendPaymentReceipt** \u2014 resend a payment receipt\n- **getBooking360** \u2014 deep diagnostic on any booking\n- **getHost360** \u2014 deep diagnostic on any host\n- **getCustomer360** \u2014 deep diagnostic on any customer\n- **getVehicle360** \u2014 deep diagnostic on any vehicle\n- **getFinancialCenterMetrics** \u2014 financial overview and health\n- **getOperationsCenterMetrics** \u2014 operational overview\n- **checkTelematicsFleetHealth** \u2014 GPS/telematics health check\n- **syncVehicleStatus** \u2014 sync a vehicle's status\n- **requestHostDocs** \u2014 request compliance docs from a host\n- **checkComplianceExpiry** \u2014 check compliance expiry across fleet\n\n## HOW TO HANDLE SUPPORT TIERS\n**L1 (Information):** Look up and explain \u2014 status, balances, dates, what happened.\n**L2 (Troubleshooting):** Diagnose why something is wrong \u2014 use 360 functions, cross-reference entities, identify the root cause.\n**L3 (Resolution):** Take action \u2014 trigger functions, send emails, approve/retry/escalate.\n\n## ESCALATION\nIf you cannot resolve something with your available tools, say clearly: \"This requires a platform-level change or Stripe dashboard action. Here's exactly what needs to be done: [specific steps].\"\n\n## RULES\n- Always look up actual data before answering\n- Be specific: use names, amounts, dates, IDs\n- Never fabricate \u2014 only report what you retrieved\n- For financial actions, always state what you're about to do and ask for confirmation first\n- Flag anomalies proactively (overdue payments, expired docs, stuck bookings, offline GPS devices)",
   "tool_configs": [
     {
       "entity_name": "BookingRequest",
@@ -40,6 +40,12 @@
     },
     {
       "entity_name": "Payment",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "PaymentLog",
       "allowed_operations": [
         "read"
       ]
@@ -91,15 +97,151 @@
       "allowed_operations": [
         "read"
       ]
+    },
+    {
+      "entity_name": "Dispute",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "HostPlatformSubscription",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "SubscriptionItem",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "SubscriptionAccount",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "TelematicsDevice",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "OperationalAlert",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "PaymentOperationalAlert",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "HostCommerceProfile",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "OperatorPlanConfiguration",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "HostReceivable",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "GPSOrder",
+      "allowed_operations": [
+        "read"
+      ]
+    },
+    {
+      "entity_name": "GPSSubscription",
+      "allowed_operations": [
+        "read"
+      ]
     }
   ],
-  "app_user_connector_configs": [],
-  "selected_skill_names": [],
-  "selected_workspace_skill_ids": [],
+  "functions": [
+    {
+      "function_name": "approveHost",
+      "description": "Approve a pending host application. Pass host_id."
+    },
+    {
+      "function_name": "adminPaymentAction",
+      "description": "Perform admin payment actions: retry, release hold, manual charge. Pass booking_request_id and action."
+    },
+    {
+      "function_name": "processHostPayout",
+      "description": "Trigger a manual payout for a host. Pass host_id."
+    },
+    {
+      "function_name": "retryFailedPayments",
+      "description": "Retry failed payments for active bookings."
+    },
+    {
+      "function_name": "autoApproveBooking",
+      "description": "Approve a pending booking. Pass booking_request_id."
+    },
+    {
+      "function_name": "sendEmail",
+      "description": "Send an email to any user. Pass to, subject, body."
+    },
+    {
+      "function_name": "sendPaymentReceipt",
+      "description": "Resend a payment receipt. Pass booking_request_id."
+    },
+    {
+      "function_name": "getBooking360",
+      "description": "Deep diagnostic on a booking. Pass booking_request_id."
+    },
+    {
+      "function_name": "getHost360",
+      "description": "Deep diagnostic on a host. Pass host_id."
+    },
+    {
+      "function_name": "getCustomer360",
+      "description": "Deep diagnostic on a customer. Pass user_id or email."
+    },
+    {
+      "function_name": "getVehicle360",
+      "description": "Deep diagnostic on a vehicle. Pass vehicle_id."
+    },
+    {
+      "function_name": "getFinancialCenterMetrics",
+      "description": "Platform financial health overview."
+    },
+    {
+      "function_name": "getOperationsCenterMetrics",
+      "description": "Platform operational overview."
+    },
+    {
+      "function_name": "checkTelematicsFleetHealth",
+      "description": "Check GPS/telematics fleet health."
+    },
+    {
+      "function_name": "syncVehicleStatus",
+      "description": "Sync a vehicle's status. Pass vehicle_id."
+    },
+    {
+      "function_name": "requestHostDocs",
+      "description": "Request compliance documents from a host. Pass host_id."
+    },
+    {
+      "function_name": "checkComplianceExpiry",
+      "description": "Check compliance expiry across the fleet."
+    }
+  ],
   "model": "automatic",
-  "whatsapp_greeting": null,
-  "telegram_greeting": null,
-  "line_greeting": null,
   "memory_config": {
     "enabled": true,
     "scope": "both",
