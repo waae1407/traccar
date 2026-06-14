@@ -29,8 +29,8 @@ const PLAN_CONFIG = {
   fleetos_professional: {
     recommended_mode: 'fleetos_professional',
     selected_mode: 'fleetos_professional',
-    active_mode: 'none',
-    status: 'pending_payment',
+    active_mode: 'fleetos_professional',
+    status: 'setup_pending',
     marketplace_enabled: false,
     marketplace_fee_rate: 0,
     monthly_subscription_amount: 29.99,
@@ -41,16 +41,19 @@ const PLAN_CONFIG = {
     stripe_connect_optional: true,
     platform_billing_route: 'subscription',
     customer_payment_routing: 'host_external',
-    payment_required: true,
-    billing_activation_pending: true,
-    last_payment_status: 'pending',
-    activation_source: 'subscription_payment'
+    payment_required: false,
+    billing_activation_pending: false,
+    subscription_required_later: true,
+    subscription_activation_stage: 'post_onboarding',
+    last_payment_status: 'not_required',
+    activation_source: 'self_service',
+    onboarding_complete: true
   },
   hybrid_growth: {
     recommended_mode: 'hybrid_growth',
     selected_mode: 'hybrid_growth',
-    active_mode: 'none',
-    status: 'pending_payment',
+    active_mode: 'hybrid_growth',
+    status: 'setup_pending',
     marketplace_enabled: true,
     marketplace_fee_rate: 0.04,
     monthly_subscription_amount: 29.99,
@@ -61,10 +64,13 @@ const PLAN_CONFIG = {
     stripe_connect_optional: true,
     platform_billing_route: 'subscription_plus_marketplace',
     customer_payment_routing: 'uride_checkout',
-    payment_required: true,
-    billing_activation_pending: true,
-    last_payment_status: 'pending',
-    activation_source: 'subscription_payment'
+    payment_required: false,
+    billing_activation_pending: false,
+    subscription_required_later: true,
+    subscription_activation_stage: 'post_onboarding',
+    last_payment_status: 'not_required',
+    activation_source: 'self_service',
+    onboarding_complete: true
   }
 };
 
@@ -102,11 +108,8 @@ function initials(name) {
   return (parts[0]?.[0] || 'S') + (parts[1]?.[0] || parts[0]?.[1] || '');
 }
 
-function subscriptionConfig(mode) {
-  if (mode === 'fleetos_professional') return { productName: 'FleetOS Professional', lookupKey: 'uride_fleetos_professional_monthly_usd', monthlyAmount: 29.99, billingRoute: 'subscription' };
-  if (mode === 'hybrid_growth') return { productName: 'Hybrid Growth', lookupKey: 'uride_hybrid_growth_monthly_usd', monthlyAmount: 29.99, billingRoute: 'subscription_plus_marketplace' };
-  return null;
-}
+// Subscription activation is deferred to post-onboarding (Business Operations).
+// No Stripe checkout is created during onboarding for any plan.
 
 async function getOrCreateStripePrice(config, mode) {
   const existing = await stripe.prices.list({ lookup_keys: [config.lookupKey], active: true, limit: 1 });
@@ -359,59 +362,9 @@ Deno.serve(async (req) => {
     });
 
     const origin = req.headers.get('origin') || 'https://uridehub.com';
-    let subscriptionCheckoutUrl = '';
-    const subConfig = subscriptionConfig(mode);
 
-    if (subConfig) {
-      const existingSubscriptions = await base44.asServiceRole.entities.HostPlatformSubscription.filter({ host_id: host.id }, '-updated_date', 1);
-      const existingSubscription = existingSubscriptions?.[0];
-      const stripeCustomerId = existingSubscription?.stripe_customer_id || await stripe.customers.create({
-        email: host.email,
-        name: host.business_name || host.full_name || host.email,
-        metadata: { host_id: host.id, user_id: user.id || '', billing_context: HOST_SUBSCRIPTION_CONTEXT, customer_role: 'host_subscription' }
-      }).then((customer) => customer.id);
-      const stripePrice = await getOrCreateStripePrice(subConfig, mode);
-      const subscriptionMetadata = { billing_context: HOST_SUBSCRIPTION_CONTEXT, host_id: host.id, user_id: user.id || '', operator_plan_id: plan.id, plan_mode: mode, trial_days: String(TRIAL_DAYS) };
-      const session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        customer: stripeCustomerId,
-        payment_method_types: ['card'],
-        payment_method_collection: 'always',
-        line_items: [{ quantity: 1, price: stripePrice.id }],
-        subscription_data: {
-          trial_period_days: TRIAL_DAYS,
-          metadata: subscriptionMetadata
-        },
-        metadata: subscriptionMetadata,
-        success_url: `${origin}/host/onboarding-success?host_id=${host.id}&trial_started=1`,
-        cancel_url: `${origin}/become-a-host?subscription_cancel=1`
-      });
-      subscriptionCheckoutUrl = session.url;
-
-      const subscriptionPayload = {
-        host_id: host.id,
-        user_id: user.id,
-        operator_plan_id: plan.id,
-        plan_mode: mode,
-        billing_route: subConfig.billingRoute,
-        status: 'checkout_started',
-        subscription_status: 'checkout_started',
-        trial_active: false,
-        trial_days: TRIAL_DAYS,
-        monthly_amount: subConfig.monthlyAmount,
-        currency: 'usd',
-        stripe_customer_id: stripeCustomerId,
-        stripe_checkout_session_id: session.id,
-        stripe_product_id: typeof stripePrice.product === 'string' ? stripePrice.product : stripePrice.product?.id || '',
-        stripe_price_id: stripePrice.id,
-        last_payment_status: 'pending',
-        source: 'self_service',
-        last_updated_at: now,
-        audit_log: [...(existingSubscription?.audit_log || []), { action: 'trial_checkout_started', status: 'checkout_started', changed_by: user.email, changed_at: now, note: `14-day free trial checkout opened for ${subConfig.productName}.` }]
-      };
-      if (existingSubscription?.id) await base44.asServiceRole.entities.HostPlatformSubscription.update(existingSubscription.id, subscriptionPayload);
-      else await base44.asServiceRole.entities.HostPlatformSubscription.create(subscriptionPayload);
-    }
+    // Subscription activation is deferred — host goes straight to success screen for ALL plans.
+    // They can activate FleetOS/Hybrid billing from Business Operations whenever they are ready.
 
     return Response.json({
       ok: true,
@@ -424,8 +377,7 @@ Deno.serve(async (req) => {
       business_slug: slug,
       storefront_path: `/host/${slug}`,
       storefront_url: `${origin}/host/${slug}`,
-      subscription_checkout_url: subscriptionCheckoutUrl,
-      url: subscriptionCheckoutUrl
+      billing_recommended: ['fleetos_professional', 'hybrid_growth'].includes(mode)
     });
   } catch (error) {
     console.error('[InstantHostOnboarding] Error:', error.message);

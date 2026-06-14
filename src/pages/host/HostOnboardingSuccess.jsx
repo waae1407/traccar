@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, Copy, ExternalLink, Share2, LayoutDashboard, Car } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, Share2, LayoutDashboard, Car, Info } from "lucide-react";
+import PostSignupChecklist from "@/components/host/onboarding/PostSignupChecklist";
 
 export default function HostOnboardingSuccess() {
   const [copied, setCopied] = useState(false);
@@ -35,6 +36,7 @@ export default function HostOnboardingSuccess() {
   const plan = data?.plan;
   const subscription = data?.subscription;
   const isPaidPlan = ["fleetos_professional", "hybrid_growth"].includes(plan?.selected_mode || plan?.active_mode);
+  const planMode = plan?.selected_mode || plan?.active_mode || "marketplace_partner";
   const trialEndDate = subscription?.trial_end_date || subscription?.current_period_end;
   const storefrontPath = brand?.business_slug ? `/host/${brand.business_slug}` : "/host/brand";
   const storefrontUrl = brand?.business_slug ? `${window.location.origin}/host/${brand.business_slug}` : "";
@@ -82,6 +84,9 @@ export default function HostOnboardingSuccess() {
           <p className="text-white/75 text-lg mt-3">
             Your store is live. Add your first vehicle to start accepting bookings.
           </p>
+          {isPaidPlan && !trialEndDate && (
+            <p className="text-emerald-300 font-semibold mt-2 text-sm">✓ Advanced tools selected. Activate billing anytime from Business Operations.</p>
+          )}
           {isPaidPlan && trialEndDate && <p className="text-white/90 font-bold mt-2">Trial ends on: {new Date(trialEndDate).toLocaleDateString()}</p>}
 
           <div className="mt-6 rounded-2xl bg-white/10 border border-white/10 p-4">
@@ -105,15 +110,9 @@ export default function HostOnboardingSuccess() {
         <Card className="bg-white border-gray-100 shadow-sm">
           <CardContent className="p-5 space-y-4 text-sm">
             {isPaidPlan && (
-              <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4">
-                <p className="font-black text-emerald-900 mb-2">You can now:</p>
-                <div className="grid sm:grid-cols-2 gap-2 text-emerald-800 font-semibold">
-                  <p>✓ Add vehicles</p>
-                  <p>✓ Connect Stripe</p>
-                  <p>✓ Configure GPS</p>
-                  <p>✓ Customize your storefront</p>
-                  <p>✓ Accept bookings</p>
-                </div>
+              <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4 flex gap-3">
+                <Info className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p className="text-blue-800 text-sm">You selected advanced tools. <strong>No payment is needed now.</strong> When you're ready, activate billing from <Link to="/host/business-operations" className="underline font-bold">Business Operations</Link>.</p>
               </div>
             )}
             <div className="grid sm:grid-cols-3 gap-3">
@@ -132,6 +131,8 @@ export default function HostOnboardingSuccess() {
             </div>
           </CardContent>
         </Card>
+
+        <PostSignupChecklist mode={planMode} />
 
         <div className="grid sm:grid-cols-2 gap-3">
           <Button asChild className="rounded-2xl h-12 font-black">

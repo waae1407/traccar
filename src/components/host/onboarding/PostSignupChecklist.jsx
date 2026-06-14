@@ -1,25 +1,33 @@
 import React from "react";
-import { Car, DollarSign, CreditCard, FileText, ArrowRight } from "lucide-react";
+import { Car, DollarSign, CreditCard, FileText, ArrowRight, Shield, Satellite, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const checklistByMode = {
   marketplace_partner: [
-    [Car, "Add your first vehicle", "/host/vehicles"],
-    [DollarSign, "Add pricing", "/host/vehicles"],
-    [CreditCard, "Connect Stripe, if needed", "/host/business-operations"],
-    [FileText, "Customize storefront", "/host/brand"],
-  ],
-  hybrid_growth: [
-    [Car, "Add your first vehicle", "/host/vehicles"],
-    [DollarSign, "Add pricing", "/host/vehicles"],
-    [CreditCard, "Connect Stripe, if needed", "/host/business-operations"],
-    [FileText, "Customize storefront", "/host/brand"],
+    [Car, "Add your first vehicle", "/host/vehicles/setup"],
+    [DollarSign, "Set vehicle pricing", "/host/vehicles"],
+    [FileText, "Customize your storefront", "/host/brand"],
+    [CreditCard, "Connect Stripe payouts", "/host/payouts"],
+    [Shield, "Upload insurance & registration docs", "/host/compliance"],
+    [Satellite, "Add GPS / Contactless360 when ready", "/host/gps-store"],
   ],
   fleetos_professional: [
-    [Car, "Add your first vehicle", "/host/vehicles"],
-    [DollarSign, "Add pricing", "/host/vehicles"],
-    [CreditCard, "Connect Stripe, if needed", "/host/business-operations"],
-    [FileText, "Customize storefront", "/host/brand"],
+    [Car, "Add your first vehicle", "/host/vehicles/setup"],
+    [DollarSign, "Set vehicle pricing", "/host/vehicles"],
+    [FileText, "Customize your storefront", "/host/brand"],
+    [CreditCard, "Connect Stripe payouts", "/host/payouts"],
+    [Shield, "Upload insurance & registration docs", "/host/compliance"],
+    [Satellite, "Add GPS / Contactless360 when ready", "/host/gps-store"],
+    [Zap, "Activate FleetOS billing when ready", "/host/business-operations"],
+  ],
+  hybrid_growth: [
+    [Car, "Add your first vehicle", "/host/vehicles/setup"],
+    [DollarSign, "Set vehicle pricing", "/host/vehicles"],
+    [FileText, "Customize your storefront", "/host/brand"],
+    [CreditCard, "Connect Stripe payouts", "/host/payouts"],
+    [Shield, "Upload insurance & registration docs", "/host/compliance"],
+    [Satellite, "Add GPS / Contactless360 when ready", "/host/gps-store"],
+    [Zap, "Activate Hybrid Growth billing when ready", "/host/business-operations"],
   ],
 };
 
