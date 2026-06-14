@@ -169,83 +169,92 @@
       "allowed_operations": [
         "read"
       ]
-    }
-  ],
-  "functions": [
+    },
     {
       "function_name": "approveHost",
-      "description": "Approve a pending host application. Pass host_id."
+      "description": "Approve a pending host application"
     },
     {
       "function_name": "adminPaymentAction",
-      "description": "Perform admin payment actions: retry, release hold, manual charge. Pass booking_request_id and action."
+      "description": "Perform admin payment actions: retry, release hold, manual charge"
     },
     {
       "function_name": "processHostPayout",
-      "description": "Trigger a manual payout for a host. Pass host_id."
+      "description": "Trigger a manual payout for a host"
     },
     {
       "function_name": "retryFailedPayments",
-      "description": "Retry failed payments for active bookings."
+      "description": "Retry failed payments across active bookings"
     },
     {
       "function_name": "autoApproveBooking",
-      "description": "Approve a pending booking. Pass booking_request_id."
+      "description": "Approve a pending booking"
     },
     {
       "function_name": "sendEmail",
-      "description": "Send an email to any user. Pass to, subject, body."
+      "description": "Send a notification email to any user"
     },
     {
       "function_name": "sendPaymentReceipt",
-      "description": "Resend a payment receipt. Pass booking_request_id."
+      "description": "Resend a payment receipt to a customer"
     },
     {
       "function_name": "getBooking360",
-      "description": "Deep diagnostic on a booking. Pass booking_request_id."
+      "description": "Deep diagnostic on any booking"
     },
     {
       "function_name": "getHost360",
-      "description": "Deep diagnostic on a host. Pass host_id."
+      "description": "Deep diagnostic on any host"
     },
     {
       "function_name": "getCustomer360",
-      "description": "Deep diagnostic on a customer. Pass user_id or email."
+      "description": "Deep diagnostic on any customer"
     },
     {
       "function_name": "getVehicle360",
-      "description": "Deep diagnostic on a vehicle. Pass vehicle_id."
+      "description": "Deep diagnostic on any vehicle"
     },
     {
       "function_name": "getFinancialCenterMetrics",
-      "description": "Platform financial health overview."
+      "description": "Platform financial health overview"
     },
     {
       "function_name": "getOperationsCenterMetrics",
-      "description": "Platform operational overview."
+      "description": "Platform operational overview"
     },
     {
       "function_name": "checkTelematicsFleetHealth",
-      "description": "Check GPS/telematics fleet health."
+      "description": "Check GPS/telematics fleet health"
     },
     {
       "function_name": "syncVehicleStatus",
-      "description": "Sync a vehicle's status. Pass vehicle_id."
+      "description": "Sync a vehicle status"
     },
     {
       "function_name": "requestHostDocs",
-      "description": "Request compliance documents from a host. Pass host_id."
+      "description": "Request compliance documents from a host"
     },
     {
       "function_name": "checkComplianceExpiry",
-      "description": "Check compliance expiry across the fleet."
+      "description": "Check compliance expiry across the fleet"
     }
   ],
+  "context_files": [],
+  "app_user_connector_configs": [],
+  "selected_skill_names": [],
+  "selected_workspace_skill_ids": [],
   "model": "automatic",
+  "whatsapp_greeting": null,
+  "telegram_greeting": null,
+  "line_greeting": null,
   "memory_config": {
     "enabled": true,
     "scope": "both",
+    "include_other_conversation_context": false,
     "instructions": null
+  },
+  "voice_config": {
+    "voice_id": null
   },
   "name": "admin_oracle"
 }
