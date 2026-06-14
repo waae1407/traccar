@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
     const customerId = await getOrCreateCustomer(base44, stripeOptions, user, booking_request_id);
     const isRecovery = payment_flow === 'recovery';
-    const paymentIntent = await stripe.paymentIntents.create({
+    const piPayload = {
       amount: amount_cents,
       currency: 'usd',
       customer: customerId,
@@ -112,7 +112,10 @@ Deno.serve(async (req) => {
         commission_rate: String(commerce.commission_rate || 0)
       },
       payment_method_types: ['card']
-    }, stripeOptions);
+    };
+    const paymentIntent = stripeOptions.stripeAccount
+      ? await stripe.paymentIntents.create(piPayload, stripeOptions)
+      : await stripe.paymentIntents.create(piPayload);
 
     await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
       stripe_payment_intent_id: paymentIntent.id,
