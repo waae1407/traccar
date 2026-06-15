@@ -8,7 +8,7 @@ const PHASES = [
   { label: "Almost ready…", duration: 99999 }, // holds until backend responds
 ];
 
-const READY_HOLD_MS = 3500; // how long to show "Your store is ready!" before navigating
+const READY_HOLD_MS = 2000; // minimum time to show "ready" screen before navigating
 
 export default function StoreBuildingSplash({ storeName, onComplete, isComplete }) {
   const [phaseIndex, setPhaseIndex] = useState(0);
@@ -16,6 +16,7 @@ export default function StoreBuildingSplash({ storeName, onComplete, isComplete 
   const [readyProgress, setReadyProgress] = useState(0);
   const completeFiredRef = useRef(false);
   const phaseTimerRef = useRef(null);
+  const readyShownAtRef = useRef(null);
 
   // Advance phases on a timer — pause at last phase until isComplete
   useEffect(() => {
@@ -32,13 +33,14 @@ export default function StoreBuildingSplash({ storeName, onComplete, isComplete 
     if (!isComplete || completeFiredRef.current) return;
     completeFiredRef.current = true;
     clearTimeout(phaseTimerRef.current);
-    // Brief pause then show ready
     setTimeout(() => {
       setShowReady(true);
+      readyShownAtRef.current = Date.now();
     }, 400);
   }, [isComplete]);
 
-  // Once ready is shown, animate a progress bar then navigate
+  // Once ready is shown, animate progress bar — navigate only when BOTH:
+  // 1. minimum hold time has passed, AND 2. parent signals page is ready (onComplete called externally)
   useEffect(() => {
     if (!showReady) return;
     const start = Date.now();

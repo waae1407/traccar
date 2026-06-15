@@ -146,9 +146,23 @@ export default function BecomeAHost() {
     setError("");
     const res = await base44.functions.invoke("instantHostOnboarding", payload);
     clearOnboardingState();
-    setPendingResult(res.data);
+    const result = res.data;
+    setPendingResult(result);
+
+    // Pre-fetch the success page data so it's ready when we navigate
+    try {
+      if (result?.host_id) {
+        await Promise.all([
+          base44.entities.HostBrandSettings.filter({ host_id: result.host_id }),
+          base44.entities.OperatorPlanConfiguration.filter({ host_id: result.host_id }),
+        ]);
+      }
+    } catch (_) {
+      // non-fatal — success page has its own fallback fetch
+    }
+
     setBuildComplete(true);
-    checkAppState?.(); // fire-and-forget
+    checkAppState?.(); // fire-and-forget role refresh
     // NOTE: do NOT setLoading(false) here — splash stays visible until onComplete fires
   };
 
