@@ -124,6 +124,18 @@ export default function HostBusinessOperations() {
     }
   });
 
+  // Handle Stripe subscription return (after "Start Free Trial" checkout)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const subReturn = params.get("platform_subscription_return");
+    if (subReturn && host?.id) {
+      window.history.replaceState({}, "", window.location.pathname);
+      qc.invalidateQueries({ queryKey: ["operator-plan"] });
+      qc.invalidateQueries({ queryKey: ["host-platform-subscription", host?.id] });
+      qc.invalidateQueries({ queryKey: ["host-commerce-profile", host?.id] });
+    }
+  }, [host?.id]); // eslint-disable-line
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const returned = params.get("uride_payments_return");

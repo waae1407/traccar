@@ -9,7 +9,7 @@ const HOST_SUBSCRIPTION_CONTEXT = 'host_platform_subscription';
 const PLAN_CONFIG = {
   marketplace_partner: { label: 'Marketplace Partner', monthlyAmount: 0, billingRoute: 'commission', marketplaceFeeRate: 0.08 },
   fleetos_professional: { label: 'FleetOS Professional', monthlyAmount: 29.99, billingRoute: 'subscription', marketplaceFeeRate: 0, productName: 'FleetOS Professional', lookupKey: 'uride_fleetos_professional_monthly_usd' },
-  hybrid_growth: { label: 'Hybrid Growth', monthlyAmount: 29.99, billingRoute: 'subscription_plus_marketplace', marketplaceFeeRate: 0.04, productName: 'Hybrid Growth', lookupKey: 'uride_hybrid_growth_monthly_usd' }
+  hybrid_growth: { label: 'Hybrid Growth', monthlyAmount: 29.99, billingRoute: 'subscription_plus_marketplace', marketplaceFeeRate: 0.05, productName: 'Hybrid Growth', lookupKey: 'uride_hybrid_growth_monthly_usd' }
 };
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
@@ -44,7 +44,7 @@ function commercePayload(host, mode) {
     booking_enabled: true,
     online_payments_enabled: isFleetOS ? stripeReady : true,
     payment_processor: isFleetOS ? (stripeReady ? 'host_stripe' : 'reservation_only') : 'uride_stripe',
-    commission_rate: isFleetOS ? 0 : isHybrid ? 0.04 : 0.08,
+    commission_rate: isFleetOS ? 0 : isHybrid ? 0.05 : 0.08,
     subscription_rate: isFleetOS || isHybrid ? 29.99 : 0,
     stripe_account_id: host.stripe_account_id || '',
     host_checkout_enabled: isFleetOS && stripeReady,
