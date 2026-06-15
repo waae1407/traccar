@@ -7,6 +7,7 @@ import PlanChoiceCard from "@/components/host/onboarding/PlanChoiceCard";
 import StorefrontSuccessPanel from "@/components/host/onboarding/StorefrontSuccessPanel";
 import PostSignupChecklist from "@/components/host/onboarding/PostSignupChecklist";
 import SelectedSetupSummaryCard from "@/components/host/onboarding/SelectedSetupSummaryCard";
+import StoreBuildingSplash from "@/components/host/onboarding/StoreBuildingSplash";
 import { clearPendingAction, clearTaskDraft, EXPIRATION_MS, prepareAuthResume, savePendingAction, saveTaskDraft } from "@/lib/sessionContinuity";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -52,6 +53,8 @@ export default function BecomeAHost() {
   const [selectedMode, setSelectedMode] = useState("marketplace_partner");
   const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [buildComplete, setBuildComplete] = useState(false);
+  const [pendingResult, setPendingResult] = useState(null);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [existingStorefront, setExistingStorefront] = useState(null); // { host, brand, redirectPath }
@@ -144,10 +147,17 @@ export default function BecomeAHost() {
     setError("");
     const res = await base44.functions.invoke("instantHostOnboarding", payload);
     clearOnboardingState();
-    await checkAppState?.();
-    setResult(res.data);
-    setLoading(false);
-    navigate(`/host/onboarding-success?host_id=${res.data.host_id}`, { replace: true, state: { onboardingResult: res.data } });
+    setPendingResult(res.data);
+    setBuildComplete(true);
+    // checkAppState runs in background — don't await it
+    checkAppState?.();
+  };
+
+  const handleSplashComplete = () => {
+    navigate(`/host/onboarding-success?host_id=${pendingResult.host_id}`, {
+      replace: true,
+      state: { onboardingResult: pendingResult },
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -183,6 +193,7 @@ export default function BecomeAHost() {
     } catch (err) {
       setError(err?.response?.data?.error || err.message || "Could not create your store.");
       setLoading(false);
+      setBuildComplete(false);
     }
   };
 
@@ -240,6 +251,16 @@ export default function BecomeAHost() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <StoreBuildingSplash
+        storeName={storeName}
+        isComplete={buildComplete}
+        onComplete={handleSplashComplete}
+      />
     );
   }
 
