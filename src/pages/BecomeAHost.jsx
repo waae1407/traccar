@@ -72,8 +72,19 @@ export default function BecomeAHost() {
   };
 
   // Guard: detect any existing approved host + live storefront on mount
+  // Skip if there's a pending draft — the resume effect will handle navigation
   useEffect(() => {
     if (!user?.email || existingCheckRef.current) return;
+
+    const hasPendingDraft = (() => {
+      const raw = sessionStorage.getItem(DRAFT_KEY) || localStorage.getItem(DRAFT_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      return parsed?.intended_action === "create_store" && !!parsed?.store_name;
+    })();
+
+    if (hasPendingDraft) return; // resume effect will handle redirect
+
     existingCheckRef.current = true;
 
     const checkExisting = async () => {
@@ -85,7 +96,6 @@ export default function BecomeAHost() {
       const liveBrand = brands?.find((b) => b.published_status === "live");
       if (!liveBrand) return;
 
-      // Clear any stale drafts so they don't re-trigger onboarding
       clearOnboardingState();
 
       setExistingStorefront({
