@@ -333,22 +333,23 @@ Deno.serve(async (req) => {
       ['rent_to_own', 'Rent-To-Own'],
       ['commercial_fleet', 'Commercial Fleet']
     ];
-    const templatesToCreate = templateDefaults.filter(([template_type]) => !existingTemplateTypes.has(template_type));
-    await Promise.all(templatesToCreate.map(([template_type, name]) =>
-      base44.asServiceRole.entities.ContractTemplate.create({
-        host_id: host.id,
-        template_type,
-        name,
-        status: 'active',
-        deposit: 0,
-        late_fees: 'Late fees may apply according to the host payment policy.',
-        mileage_rules: 'Mileage limits and overage fees are set by the host.',
-        insurance_requirements: 'Customer must maintain valid insurance and comply with all rental requirements.',
-        smoking_fees: 'Smoking is prohibited and cleaning fees may apply.',
-        return_policies: 'Vehicle must be returned on time, clean, fueled, and in the same condition.',
-        version: 'v1'
-      })
-    ));
+    for (const [template_type, name] of templateDefaults) {
+      if (!existingTemplateTypes.has(template_type)) {
+        await base44.asServiceRole.entities.ContractTemplate.create({
+          host_id: host.id,
+          template_type,
+          name,
+          status: 'active',
+          deposit: 0,
+          late_fees: 'Late fees may apply according to the host payment policy.',
+          mileage_rules: 'Mileage limits and overage fees are set by the host.',
+          insurance_requirements: 'Customer must maintain valid insurance and comply with all rental requirements.',
+          smoking_fees: 'Smoking is prohibited and cleaning fees may apply.',
+          return_policies: 'Vehicle must be returned on time, clean, fueled, and in the same condition.',
+          version: 'v1'
+        });
+      }
+    }
 
     await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ 
       host_id: host.id,

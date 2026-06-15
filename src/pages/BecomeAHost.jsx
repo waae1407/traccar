@@ -7,7 +7,6 @@ import PlanChoiceCard from "@/components/host/onboarding/PlanChoiceCard";
 import StorefrontSuccessPanel from "@/components/host/onboarding/StorefrontSuccessPanel";
 import PostSignupChecklist from "@/components/host/onboarding/PostSignupChecklist";
 import SelectedSetupSummaryCard from "@/components/host/onboarding/SelectedSetupSummaryCard";
-import StoreBuildingSplash from "@/components/host/onboarding/StoreBuildingSplash";
 import { clearPendingAction, clearTaskDraft, EXPIRATION_MS, prepareAuthResume, savePendingAction, saveTaskDraft } from "@/lib/sessionContinuity";
 
 const LOGO_ICON = "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg";
@@ -53,9 +52,8 @@ export default function BecomeAHost() {
   const [selectedMode, setSelectedMode] = useState("marketplace_partner");
   const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [buildComplete, setBuildComplete] = useState(false);
-  const [pendingResult, setPendingResult] = useState(null);
   const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
   const [existingStorefront, setExistingStorefront] = useState(null); // { host, brand, redirectPath }
   const resumeAttemptedRef = useRef(false);
   const existingCheckRef = useRef(false);
@@ -72,19 +70,8 @@ export default function BecomeAHost() {
   };
 
   // Guard: detect any existing approved host + live storefront on mount
-  // Skip if there's a pending draft — the resume effect will handle navigation
   useEffect(() => {
-    if (!user?.email || existingCheckRef.current || loading) return;
-
-    const hasPendingDraft = (() => {
-      const raw = sessionStorage.getItem(DRAFT_KEY) || localStorage.getItem(DRAFT_KEY);
-      if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      return parsed?.intended_action === "create_store" && !!parsed?.store_name;
-    })();
-
-    if (hasPendingDraft) return; // resume effect will handle redirect
-
+    if (!user?.email || existingCheckRef.current) return;
     existingCheckRef.current = true;
 
     const checkExisting = async () => {
@@ -96,8 +83,6 @@ export default function BecomeAHost() {
       const liveBrand = brands?.find((b) => b.published_status === "live");
       if (!liveBrand) return;
 
-      clearOnboardingState();
-
       setExistingStorefront({
         host: approvedHost,
         brand: liveBrand,
@@ -107,7 +92,7 @@ export default function BecomeAHost() {
     };
 
     checkExisting().catch(() => {}); // silent — don't block onboarding on error
-  }, [user?.email, loading]);
+  }, [user?.email]);
 
   useEffect(() => {
     if (!user?.email || resumeAttemptedRef.current) return;
@@ -116,24 +101,17 @@ export default function BecomeAHost() {
     if (!rawPending) return;
 
     const pending = JSON.parse(rawPending);
-    if (pending?.intended_action !== "create_store" || !pending?.store_name) {
-      clearOnboardingState();
-      return;
-    }
+    if (pending?.intended_action !== "create_store" || !pending?.store_name) return;
 
     resumeAttemptedRef.current = true;
-
-    // Clear draft IMMEDIATELY — before any async work — so re-visits don't loop
-    clearOnboardingState();
-
     const resumeOnboarding = async () => {
-      // Always check for existing live storefront first — if exists, just redirect
       const existingHosts = await base44.entities.Host.filter({ email: user.email });
       const approvedHost = existingHosts?.find((host) => host.status === "approved");
       if (approvedHost?.id) {
         const storefronts = await base44.entities.HostBrandSettings.filter({ host_id: approvedHost.id });
         const liveStorefront = storefronts?.find((storefront) => storefront.published_status === "live");
         if (liveStorefront?.id) {
+          clearOnboardingState();
           await checkAppState?.();
           routeToSuccess(approvedHost.id);
           return;
@@ -166,31 +144,10 @@ export default function BecomeAHost() {
     setError("");
     const res = await base44.functions.invoke("instantHostOnboarding", payload);
     clearOnboardingState();
-    const result = res.data;
-    setPendingResult(result);
-
-    // Pre-fetch the success page data so it's ready when we navigate
-    try {
-      if (result?.host_id) {
-        await Promise.all([
-          base44.entities.HostBrandSettings.filter({ host_id: result.host_id }),
-          base44.entities.OperatorPlanConfiguration.filter({ host_id: result.host_id }),
-        ]);
-      }
-    } catch (_) {
-      // non-fatal — success page has its own fallback fetch
-    }
-
-    setBuildComplete(true);
-    checkAppState?.(); // fire-and-forget role refresh
-    // NOTE: do NOT setLoading(false) here — splash stays visible until onComplete fires
-  };
-
-  const handleSplashComplete = () => {
-    navigate(`/host/onboarding-success?host_id=${pendingResult.host_id}`, {
-      replace: true,
-      state: { onboardingResult: pendingResult },
-    });
+    await checkAppState?.();
+    setResult(res.data);
+    setLoading(false);
+    navigate(`/host/onboarding-success?host_id=${res.data.host_id}`, { replace: true, state: { onboardingResult: res.data } });
   };
 
   const handleSubmit = async (e) => {
@@ -224,14 +181,24 @@ export default function BecomeAHost() {
     try {
       await createStore(payload);
     } catch (err) {
-      setError(err?.response?.data?.error || err.message || "Could not create your store. Please try again.");
+      setError(err?.response?.data?.error || err.message || "Could not create your store.");
       setLoading(false);
-      setBuildComplete(false);
-      setPendingResult(null);
     }
   };
 
-  if (existingStorefront && !loading) {
+  if (result) {
+    return (
+      <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
+        <Header />
+        <main className="max-w-2xl mx-auto px-5 py-6 space-y-5">
+          <StorefrontSuccessPanel result={result} />
+          <PostSignupChecklist mode={result.selected_mode} />
+        </main>
+      </div>
+    );
+  }
+
+  if (existingStorefront) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" style={{ fontFamily: "var(--font-inter)" }}>
         <div className="max-w-md w-full bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
@@ -273,17 +240,6 @@ export default function BecomeAHost() {
           </div>
         </div>
       </div>
-    );
-  }
-
-  // Show splash for entire duration — from submit through completion animation
-  if (loading) {
-    return (
-      <StoreBuildingSplash
-        storeName={storeName || "Your Store"}
-        isComplete={buildComplete}
-        onComplete={handleSplashComplete}
-      />
     );
   }
 

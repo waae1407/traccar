@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,10 @@ import PostSignupChecklist from "@/components/host/onboarding/PostSignupChecklis
 
 export default function HostOnboardingSuccess() {
   const [copied, setCopied] = useState(false);
-  const location = useLocation();
   const hostId = new URLSearchParams(window.location.search).get("host_id");
-  const locationResult = location.state?.onboardingResult;
 
   const { data, isLoading } = useQuery({
     queryKey: ["host-onboarding-success", hostId],
-    enabled: !locationResult, // skip DB fetch if we already have the result
     queryFn: async () => {
       const user = await base44.auth.me();
       const hosts = hostId
@@ -34,20 +31,15 @@ export default function HostOnboardingSuccess() {
     },
   });
 
-  // Use location state (instant, no DB fetch) or fall back to queried data
-  const resolvedSlug = locationResult?.business_slug || data?.brand?.business_slug;
-  const resolvedStoreName = locationResult?.store_name || data?.host?.business_name;
-  const resolvedPlanMode = locationResult?.selected_mode || data?.plan?.selected_mode || data?.plan?.active_mode || "marketplace_partner";
-
-  const brand = data?.brand || (locationResult ? { business_slug: locationResult.business_slug, business_display_name: locationResult.store_name, published_status: "live" } : null);
-  const host = data?.host || (locationResult ? { id: locationResult.host_id, status: "approved", business_name: locationResult.store_name } : null);
-  const plan = data?.plan || (locationResult ? { selected_mode: locationResult.selected_mode } : null);
+  const brand = data?.brand;
+  const host = data?.host;
+  const plan = data?.plan;
   const subscription = data?.subscription;
-  const isPaidPlan = ["fleetos_professional", "hybrid_growth"].includes(resolvedPlanMode);
-  const planMode = resolvedPlanMode;
+  const isPaidPlan = ["fleetos_professional", "hybrid_growth"].includes(plan?.selected_mode || plan?.active_mode);
+  const planMode = plan?.selected_mode || plan?.active_mode || "marketplace_partner";
   const trialEndDate = subscription?.trial_end_date || subscription?.current_period_end;
-  const storefrontPath = resolvedSlug ? `/host/${resolvedSlug}` : "/host/brand";
-  const storefrontUrl = resolvedSlug ? `${window.location.origin}/host/${resolvedSlug}` : "";
+  const storefrontPath = brand?.business_slug ? `/host/${brand.business_slug}` : "/host/brand";
+  const storefrontUrl = brand?.business_slug ? `${window.location.origin}/host/${brand.business_slug}` : "";
 
   const copyLink = async () => {
     if (!storefrontUrl) return;
@@ -62,7 +54,7 @@ export default function HostOnboardingSuccess() {
     else await copyLink();
   };
 
-  if (isLoading && !locationResult) {
+  if (isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">Loading your storefront…</div>;
   }
 
