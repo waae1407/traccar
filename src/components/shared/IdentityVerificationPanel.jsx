@@ -1,7 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { uploadFile } from '@/utils/uploadFile';
-import { AlertCircle, Check, Loader2, ShieldCheck, Upload, XCircle } from 'lucide-react';
+import { AlertCircle, Check, Loader2, Phone, ShieldCheck, Upload, User, XCircle } from 'lucide-react';
+
+const inputCls = "w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-pink-400";
 
 function UploadBox({ label, url, uploading, onChange }) {
   return (
@@ -39,38 +41,60 @@ export default function IdentityVerificationPanel({ subjectType = 'host', subjec
   const [verifyMessage, setVerifyMessage] = useState(subject?.verification_notes || '');
   const verifyingRef = useRef(false);
 
+  // Legal name + phone — collected here so AI can do proper name match
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState(subject?.phone || '');
+  const [savingInfo, setSavingInfo] = useState(false);
+
   if (subject?.verification_status === 'verified') {
     return <VerificationStatus status="passed" />;
   }
 
   const handleUpload = async (field, file) => {
     if (!file) return;
-    setUploading((previous) => ({ ...previous, [field]: true }));
+    setUploading((p) => ({ ...p, [field]: true }));
     setVerifyStatus(null);
     const { file_url } = await uploadFile(file);
-    setUploads((previous) => ({ ...previous, [field]: file_url }));
+    setUploads((p) => ({ ...p, [field]: file_url }));
     if (subjectType === 'host' && subject?.id) {
-      const hostField = field === 'id_front_url' ? 'id_front_url' : field === 'id_back_url' ? 'id_back_url' : 'selfie_url';
-      await base44.entities.Host.update(subject.id, { [hostField]: file_url, verification_status: 'docs_submitted' });
+      await base44.entities.Host.update(subject.id, { [field]: file_url, verification_status: 'docs_submitted' });
     }
-    setUploading((previous) => ({ ...previous, [field]: false }));
+    setUploading((p) => ({ ...p, [field]: false }));
   };
 
+  const legalNameEntered = firstName.trim() && lastName.trim();
   const allUploaded = uploads.id_front_url && uploads.id_back_url && uploads.selfie_url;
+  const canVerify = allUploaded && legalNameEntered && phone.trim();
 
   const runVerification = async () => {
-    if (verifyingRef.current) return;
+    if (verifyingRef.current || !canVerify) return;
     verifyingRef.current = true;
     setVerifyStatus('checking');
     setVerifyMessage('');
 
+    const fullLegalName = [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
+
+    // Save legal name + phone to host before running AI
+    if (subjectType === 'host' && subject?.id) {
+      setSavingInfo(true);
+      await base44.entities.Host.update(subject.id, {
+        full_name: fullLegalName,
+        phone: phone.trim(),
+      }).catch(() => {});
+      setSavingInfo(false);
+    }
+
     try {
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an identity verification AI for a vehicle rental platform.\n\nReview these three images: front of government ID, back of government ID, and live selfie.\n\nYour ONLY job is to confirm that the person in the live selfie appears to be the same person shown in the photo on the government ID. Do NOT check names, addresses, or any other text fields.\n\nReturn only JSON with face_match (boolean), overall_pass (boolean — set to the same value as face_match), and rejection_reason (empty string if passed, one sentence if failed explaining the selfie does not match the ID photo).`,
+        prompt: `You are an identity verification AI for a vehicle rental platform.\n\nThe host's legal name on file is: "${fullLegalName}".\n\nReview these three images: front of government ID, back of government ID, and live selfie.\n\nCheck TWO things:\n1. NAME MATCH: Does the full name printed on the government ID match "${fullLegalName}"? First and last name must match (middle name optional, minor spacing differences OK).\n2. FACE MATCH: Does the person in the live selfie appear to be the same person in the ID photo?\n\nBoth must pass for overall_pass to be true.\n\nReturn only JSON with name_on_id (string), name_match (boolean), face_match (boolean), overall_pass (boolean), and rejection_reason (empty string if passed, one clear sentence if failed).`,
         file_urls: [uploads.id_front_url, uploads.id_back_url, uploads.selfie_url],
         response_json_schema: {
           type: 'object',
           properties: {
+            name_on_id: { type: 'string' },
+            name_match: { type: 'boolean' },
             face_match: { type: 'boolean' },
             overall_pass: { type: 'boolean' },
             rejection_reason: { type: 'string' },
@@ -81,14 +105,16 @@ export default function IdentityVerificationPanel({ subjectType = 'host', subjec
       if (result.overall_pass) {
         setVerifyStatus('passed');
         if (subjectType === 'host' && subject?.id) {
-          await base44.entities.Host.update(subject.id, { verification_status: 'verified', verification_notes: 'Identity Verified on File' });
+          await base44.entities.Host.update(subject.id, { verification_status: 'verified', verification_notes: 'Identity verified — name and face match confirmed.' });
         }
         onVerified?.();
       } else {
-        const message = result.rejection_reason || 'Could not verify identity. Please retake your selfie or upload clearer ID images.';
+        const message = result.rejection_reason || 'Could not verify identity. Please ensure your name matches your ID exactly and retake your selfie in good lighting.';
         setVerifyStatus('failed');
         setVerifyMessage(message);
-        if (subjectType === 'host' && subject?.id) await base44.entities.Host.update(subject.id, { verification_status: 'failed', verification_notes: message });
+        if (subjectType === 'host' && subject?.id) {
+          await base44.entities.Host.update(subject.id, { verification_status: 'failed', verification_notes: message });
+        }
       }
     } catch {
       setVerifyStatus('failed');
@@ -101,17 +127,59 @@ export default function IdentityVerificationPanel({ subjectType = 'host', subjec
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-50"><ShieldCheck className="h-6 w-6 text-blue-600" /></div>
-        <div><h2 className="text-xl font-bold text-gray-900">Verify Identity</h2><p className="text-sm text-gray-400">Required once for your host account.</p></div>
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-50">
+          <ShieldCheck className="h-6 w-6 text-blue-600" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Verify Identity</h2>
+          <p className="text-sm text-gray-400">Required once for your host account.</p>
+        </div>
       </div>
+
+      {/* Legal name + phone */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-4 space-y-3 shadow-sm">
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+          <User className="h-3.5 w-3.5" /> Legal Name — exactly as it appears on your ID
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <input className={inputCls} placeholder="First name *" value={firstName} onChange={e => setFirstName(e.target.value)} />
+          <input className={inputCls} placeholder="Middle name" value={middleName} onChange={e => setMiddleName(e.target.value)} />
+        </div>
+        <input className={inputCls} placeholder="Last name *" value={lastName} onChange={e => setLastName(e.target.value)} />
+        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 pt-1">
+          <Phone className="h-3.5 w-3.5" /> Contact Phone Number
+        </p>
+        <input className={inputCls} placeholder="Phone number *" type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+        {!legalNameEntered && (
+          <p className="text-xs text-amber-600 font-semibold">⚠ Enter your legal name exactly as it appears on your government ID before uploading.</p>
+        )}
+      </div>
+
+      {/* ID + selfie uploads */}
       <div className="space-y-3">
-        <UploadBox label="Government ID Front" url={uploads.id_front_url} uploading={uploading.id_front_url} onChange={(event) => handleUpload('id_front_url', event.target.files[0])} />
-        <UploadBox label="Government ID Back" url={uploads.id_back_url} uploading={uploading.id_back_url} onChange={(event) => handleUpload('id_back_url', event.target.files[0])} />
-        <UploadBox label="Live Selfie" url={uploads.selfie_url} uploading={uploading.selfie_url} onChange={(event) => handleUpload('selfie_url', event.target.files[0])} />
+        <UploadBox label="Government ID Front" url={uploads.id_front_url} uploading={uploading.id_front_url} onChange={(e) => handleUpload('id_front_url', e.target.files[0])} />
+        <UploadBox label="Government ID Back" url={uploads.id_back_url} uploading={uploading.id_back_url} onChange={(e) => handleUpload('id_back_url', e.target.files[0])} />
+        <UploadBox label="Live Selfie" url={uploads.selfie_url} uploading={uploading.selfie_url} onChange={(e) => handleUpload('selfie_url', e.target.files[0])} />
       </div>
-      {allUploaded && verifyStatus === null && <div className="flex gap-2 rounded-xl border border-amber-100 bg-amber-50 p-3"><AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" /><p className="text-xs text-amber-700">We’ll verify your name matches your ID and your selfie matches your ID photo.</p></div>}
+
+      {canVerify && verifyStatus === null && (
+        <div className="flex gap-2 rounded-xl border border-amber-100 bg-amber-50 p-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+          <p className="text-xs text-amber-700">We'll verify your name matches your ID and your selfie matches your ID photo.</p>
+        </div>
+      )}
+
       {verifyStatus && <VerificationStatus status={verifyStatus} message={verifyMessage} />}
-      <button type="button" disabled={!allUploaded || verifyStatus === 'checking'} onClick={runVerification} className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-40" style={{ background: 'linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))' }}>{verifyStatus === 'checking' ? 'Verifying…' : verifyStatus === 'failed' ? 'Retry Verification' : 'Verify Identity'}</button>
+
+      <button
+        type="button"
+        disabled={!canVerify || verifyStatus === 'checking' || savingInfo}
+        onClick={runVerification}
+        className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-40"
+        style={{ background: 'linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))' }}
+      >
+        {savingInfo ? 'Saving…' : verifyStatus === 'checking' ? 'Verifying…' : verifyStatus === 'failed' ? 'Retry Verification' : 'Verify Identity'}
+      </button>
     </div>
   );
 }
