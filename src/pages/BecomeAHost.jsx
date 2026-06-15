@@ -56,7 +56,6 @@ export default function BecomeAHost() {
   const [buildComplete, setBuildComplete] = useState(false);
   const [pendingResult, setPendingResult] = useState(null);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
   const [existingStorefront, setExistingStorefront] = useState(null); // { host, brand, redirectPath }
   const resumeAttemptedRef = useRef(false);
   const existingCheckRef = useRef(false);
@@ -149,8 +148,8 @@ export default function BecomeAHost() {
     clearOnboardingState();
     setPendingResult(res.data);
     setBuildComplete(true);
-    // checkAppState runs in background — don't await it
-    checkAppState?.();
+    checkAppState?.(); // fire-and-forget
+    // NOTE: do NOT setLoading(false) here — splash stays visible until onComplete fires
   };
 
   const handleSplashComplete = () => {
@@ -191,23 +190,12 @@ export default function BecomeAHost() {
     try {
       await createStore(payload);
     } catch (err) {
-      setError(err?.response?.data?.error || err.message || "Could not create your store.");
+      setError(err?.response?.data?.error || err.message || "Could not create your store. Please try again.");
       setLoading(false);
       setBuildComplete(false);
+      setPendingResult(null);
     }
   };
-
-  if (result) {
-    return (
-      <div className="min-h-screen bg-gray-50" style={{ fontFamily: "var(--font-inter)" }}>
-        <Header />
-        <main className="max-w-2xl mx-auto px-5 py-6 space-y-5">
-          <StorefrontSuccessPanel result={result} />
-          <PostSignupChecklist mode={result.selected_mode} />
-        </main>
-      </div>
-    );
-  }
 
   if (existingStorefront) {
     return (
@@ -254,10 +242,11 @@ export default function BecomeAHost() {
     );
   }
 
+  // Show splash for entire duration — from submit through completion animation
   if (loading) {
     return (
       <StoreBuildingSplash
-        storeName={storeName}
+        storeName={storeName || "Your Store"}
         isComplete={buildComplete}
         onComplete={handleSplashComplete}
       />
