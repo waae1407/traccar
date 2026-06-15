@@ -74,7 +74,7 @@ export default function BecomeAHost() {
   // Guard: detect any existing approved host + live storefront on mount
   // Skip if there's a pending draft — the resume effect will handle navigation
   useEffect(() => {
-    if (!user?.email || existingCheckRef.current) return;
+    if (!user?.email || existingCheckRef.current || loading) return;
 
     const hasPendingDraft = (() => {
       const raw = sessionStorage.getItem(DRAFT_KEY) || localStorage.getItem(DRAFT_KEY);
@@ -107,7 +107,7 @@ export default function BecomeAHost() {
     };
 
     checkExisting().catch(() => {}); // silent — don't block onboarding on error
-  }, [user?.email]);
+  }, [user?.email, loading]);
 
   useEffect(() => {
     if (!user?.email || resumeAttemptedRef.current) return;
@@ -231,7 +231,7 @@ export default function BecomeAHost() {
     }
   };
 
-  if (existingStorefront) {
+  if (existingStorefront && !loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" style={{ fontFamily: "var(--font-inter)" }}>
         <div className="max-w-md w-full bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
