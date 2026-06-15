@@ -329,21 +329,17 @@ You are given three images:
 3. A live selfie taken by the applicant right now
 
 The applicant's name on file is: "${booking?.customer_full_name || "Unknown"}"
-The applicant's address on file is: "${booking?.customer_address || "Unknown"}"
 
 Perform these checks:
 A) NAME MATCH: Extract the full name printed on the front of the ID card. Compare it to the applicant's name on file ("${booking?.customer_full_name || ""}"). They must match (minor spacing/middle name differences are OK, but first and last name must match).
-B) ADDRESS MATCH: Extract the address printed on the driver's license (front or back). Compare it to the applicant's address on file ("${booking?.customer_address || ""}"). They must match on street number, street name, and city at minimum (minor formatting differences, abbreviations like St vs Street, or missing zip code are OK). If the address on file is blank or "Unknown", set address_match to true by default.
-C) FACE MATCH: Compare the photo on the ID card to the live selfie. Determine if they appear to be the same person. Account for different lighting, angles, age differences up to 10 years. If the selfie and ID photo clearly show different people, it fails.
+B) FACE MATCH: Compare the photo on the ID card to the live selfie. Determine if they appear to be the same person. Account for different lighting, angles, age differences up to 10 years. If the selfie and ID photo clearly show different people, it fails.
 
-All three checks must pass for overall_pass to be true.
+Both checks must pass for overall_pass to be true.
 
 Respond ONLY with valid JSON:
 {
   "name_on_id": "<extracted full name from ID>",
-  "address_on_id": "<extracted address from ID>",
   "name_match": true/false,
-  "address_match": true/false,
   "face_match": true/false,
   "overall_pass": true/false,
   "rejection_reason": "<if overall_pass is false, explain which check failed and why in one sentence; otherwise empty string>"
@@ -353,9 +349,7 @@ Respond ONLY with valid JSON:
           type: "object",
           properties: {
             name_on_id: { type: "string" },
-            address_on_id: { type: "string" },
             name_match: { type: "boolean" },
-            address_match: { type: "boolean" },
             face_match: { type: "boolean" },
             overall_pass: { type: "boolean" },
             rejection_reason: { type: "string" },
