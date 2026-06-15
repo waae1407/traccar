@@ -119,6 +119,10 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
       setVinError("Please assign this vehicle to a host before saving.");
       return;
     }
+    if (!form.color) {
+      setVinError("Please select a vehicle color. It is required to generate a photo-realistic image.");
+      return;
+    }
 
     onSave({
       ...form,
@@ -187,7 +191,19 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <FormField label="Color"><input className={inputClass} value={form.color} onChange={(e) => set("color", e.target.value)} /></FormField>
+            <FormField label="Color" required>
+              <Select value={form.color || ""} onValueChange={(v) => set("color", v)} required>
+                <SelectTrigger className="h-9 rounded-xl bg-white/[0.06] border-white/[0.1] text-white focus:ring-0">
+                  <SelectValue placeholder="Select color" />
+                </SelectTrigger>
+                <SelectContent className="bg-[hsl(222,28%,12%)] border-white/10 text-white">
+                  {["Black","White","Silver","Gray","Red","Blue","Navy Blue","Dark Blue","Green","Dark Green","Yellow","Orange","Brown","Tan","Beige","Gold","Burgundy","Maroon","Purple","Charcoal","Champagne","Bronze"].map((c) => (
+                    <SelectItem key={c} value={c} className="focus:bg-white/10 focus:text-white">{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-white/30 mt-1">Required for AI vehicle photo generation</p>
+            </FormField>
             <FormField label="City"><input className={inputClass} value={form.city} onChange={(e) => set("city", e.target.value)} /></FormField>
             <FormField label="State"><input className={inputClass} value={form.state} onChange={(e) => set("state", e.target.value)} placeholder="CA, TX..." maxLength="2" /></FormField>
           </div>

@@ -12,9 +12,9 @@ Deno.serve(async (req) => {
       return Response.json({ ok: true });
     }
 
-    // Need year, make, model to generate
-    if (!data?.year || !data?.make || !data?.model) {
-      console.log(`[VehicleImage] Vehicle ${data?.id} missing year/make/model, skipping`);
+    // Need year, make, model, color to generate
+    if (!data?.year || !data?.make || !data?.model || !data?.color) {
+      console.log(`[VehicleImage] Vehicle ${data?.id} missing year/make/model/color, skipping`);
       return Response.json({ ok: true });
     }
 
