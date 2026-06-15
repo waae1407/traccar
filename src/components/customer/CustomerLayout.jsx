@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import CustomerBottomNav from "./CustomerBottomNav";
 import CustomerTopBar from "./CustomerTopBar";
 import { useAuth } from "@/lib/AuthContext";
+import FloatingAIAssistant from "@/components/shared/FloatingAIAssistant";
 
 export default function CustomerLayout() {
   const { user } = useAuth();
@@ -20,6 +21,11 @@ export default function CustomerLayout() {
       <div className="md:hidden">
         <CustomerBottomNav />
       </div>
+      <FloatingAIAssistant
+        agentName="renter_assistant"
+        displayName="Personal Assistant"
+        role="customer"
+      />
     </div>
   );
 }

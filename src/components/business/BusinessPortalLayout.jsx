@@ -9,6 +9,7 @@ import BusinessPortalTopBar from "@/components/business/BusinessPortalTopBar";
 import HostAlarmAttentionBanner from "@/components/host/HostAlarmAttentionBanner";
 import HostSubscriptionBanner from "@/components/host/HostSubscriptionBanner";
 import ComplianceEnforcementBanner from "@/components/shared/ComplianceEnforcementBanner";
+import FloatingAIAssistant from "@/components/shared/FloatingAIAssistant";
 
 export default function BusinessPortalLayout({ role = "admin" }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -71,6 +72,11 @@ export default function BusinessPortalLayout({ role = "admin" }) {
           ) : <Outlet />}
         </main>
       </div>
+      <FloatingAIAssistant
+        agentName={isHost ? "host_assistant" : "admin_oracle"}
+        displayName={isHost ? "Personal Assistant" : "Oracle"}
+        role={isHost ? "host" : "admin"}
+      />
     </div>
   );
 }
