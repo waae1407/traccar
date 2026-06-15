@@ -64,20 +64,13 @@ export default function IdentityVerificationPanel({ subjectType = 'host', subjec
     setVerifyStatus('checking');
     setVerifyMessage('');
 
-    const legalName = subject?.full_name || subject?.customer_full_name || '';
-    const address = subject?.customer_address || subject?.address || '';
-
     try {
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an identity verification AI for a vehicle rental platform.\n\nSubject type: ${subjectType}.\nLegal name on file: "${legalName || 'Unknown'}".\nAddress on file: "${address || 'Unknown'}".\n\nReview these three images: front of government ID, back of government ID, and live selfie. Check that the name on the ID matches the legal name on file and that the selfie appears to match the ID photo. If address is available, compare street number, street name, and city. If address is missing, do not fail solely because address is unavailable.\n\nReturn only JSON with name_on_id, address_on_id, name_match, address_match, face_match, overall_pass, and rejection_reason.`,
+        prompt: `You are an identity verification AI for a vehicle rental platform.\n\nReview these three images: front of government ID, back of government ID, and live selfie.\n\nYour ONLY job is to confirm that the person in the live selfie appears to be the same person shown in the photo on the government ID. Do NOT check names, addresses, or any other text fields.\n\nReturn only JSON with face_match (boolean), overall_pass (boolean — set to the same value as face_match), and rejection_reason (empty string if passed, one sentence if failed explaining the selfie does not match the ID photo).`,
         file_urls: [uploads.id_front_url, uploads.id_back_url, uploads.selfie_url],
         response_json_schema: {
           type: 'object',
           properties: {
-            name_on_id: { type: 'string' },
-            address_on_id: { type: 'string' },
-            name_match: { type: 'boolean' },
-            address_match: { type: 'boolean' },
             face_match: { type: 'boolean' },
             overall_pass: { type: 'boolean' },
             rejection_reason: { type: 'string' },
