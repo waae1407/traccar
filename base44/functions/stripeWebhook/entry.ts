@@ -444,13 +444,35 @@ async function updateOperatorSubscriptionFromStripe(base44, { subscription, sess
 
   if (hostId) {
     const commerceProfiles = await base44.asServiceRole.entities.HostCommerceProfile.filter({ host_id: hostId }, '-updated_date', 1);
-    if (commerceProfiles?.[0]?.id) {
+    const hosts = await base44.asServiceRole.entities.Host.filter({ id: hostId }, '-updated_date', 1);
+    const host = hosts[0];
+    if (commerceProfiles?.[0]?.id && host) {
       const disabled = ['canceled', 'cancelled', 'incomplete_expired', 'expired'].includes(status);
-      await base44.asServiceRole.entities.HostCommerceProfile.update(commerceProfiles[0].id, {
-        booking_enabled: !disabled,
-        marketplace_visibility: !disabled && mode !== 'fleetos_professional',
-        marketplace_enabled: mode !== 'fleetos_professional'
-      });
+      if (!disabled) {
+        // Full commerce profile sync on activation/trial — fixes plan_type mismatch
+        const isFleetOS = mode === 'fleetos_professional';
+        const isHybrid = mode === 'hybrid_growth';
+        const stripeReady = !!host.stripe_onboarding_complete && !!host.stripe_account_id;
+        await base44.asServiceRole.entities.HostCommerceProfile.update(commerceProfiles[0].id, {
+          plan_type: mode,
+          marketplace_enabled: !isFleetOS,
+          marketplace_visibility: !isFleetOS,
+          booking_enabled: true,
+          online_payments_enabled: isFleetOS ? stripeReady : true,
+          payment_processor: isFleetOS ? (stripeReady ? 'host_stripe' : 'reservation_only') : 'uride_stripe',
+          commission_rate: isFleetOS ? 0 : isHybrid ? 0.05 : 0.08,
+          subscription_rate: isFleetOS || isHybrid ? 29.99 : 0,
+          host_checkout_enabled: isFleetOS && stripeReady,
+          contract_owner: isFleetOS ? 'host' : 'uride',
+          payment_owner: isFleetOS ? 'host' : 'uride',
+        });
+      } else {
+        await base44.asServiceRole.entities.HostCommerceProfile.update(commerceProfiles[0].id, {
+          booking_enabled: false,
+          marketplace_visibility: false,
+          marketplace_enabled: false,
+        });
+      }
     }
   }
 }

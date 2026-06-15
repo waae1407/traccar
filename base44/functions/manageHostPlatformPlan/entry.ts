@@ -262,11 +262,8 @@ Deno.serve(async (req) => {
       audit_log: [...(existingSubscription?.audit_log || []), { action: 'checkout_started', status: 'checkout_started', changed_by: user.email, changed_at: now, note: `Stripe subscription checkout opened for ${config.label}.` }]
     });
 
-    if (previousMode === 'fleetos_professional' && mode === 'hybrid_growth') {
-      await upsertCommerceProfile(base44, host, 'fleetos_professional');
-    } else if (mode !== 'hybrid_growth') {
-      await upsertCommerceProfile(base44, host, mode);
-    }
+    // Always sync commerce profile to the newly selected mode, even during checkout_started state
+    await upsertCommerceProfile(base44, host, mode);
     await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ host_id, user_id: user.id, previous_mode: plan.selected_mode || plan.active_mode || '', new_mode: mode, reason: 'Host changed package and platform subscription checkout was started.', changed_by: user.email, changed_at: now, source: 'host_edit' });
 
     // Dual-write: create/update unified SubscriptionItem for this host plan (checkout_started state)
