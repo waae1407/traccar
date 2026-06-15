@@ -11,7 +11,7 @@ const RADIUS_OPTIONS = [10, 25, 50, 100, 250];
 
 function calcEndDate(startDate, type) {
   if (!startDate) return null;
-  const d = new Date(startDate);
+  const d = new Date(startDate + "T12:00:00");
   if (type === "Weekly") return format(addWeeks(d, 1), "yyyy-MM-dd");
   if (type === "Monthly") return format(addWeeks(d, 4), "yyyy-MM-dd");
   if (type === "Rent-to-Own") return format(addWeeks(d, 52), "yyyy-MM-dd");
