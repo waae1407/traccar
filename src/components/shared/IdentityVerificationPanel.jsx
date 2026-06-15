@@ -39,6 +39,9 @@ export default function IdentityVerificationPanel({ subjectType = 'host', subjec
   const [uploading, setUploading] = useState({});
   const [verifyStatus, setVerifyStatus] = useState(subject?.verification_status === 'verified' ? 'passed' : null);
   const [verifyMessage, setVerifyMessage] = useState(subject?.verification_notes || '');
+  const [failCount, setFailCount] = useState(0);
+  const [manualRequested, setManualRequested] = useState(subject?.verification_status === 'docs_submitted' && subject?.verification_notes?.includes('manual'));
+
   const verifyingRef = useRef(false);
 
   // Legal name + phone — collected here so AI can do proper name match
@@ -67,6 +70,17 @@ export default function IdentityVerificationPanel({ subjectType = 'host', subjec
   const legalNameEntered = firstName.trim() && lastName.trim();
   const allUploaded = uploads.id_front_url && uploads.id_back_url && uploads.selfie_url;
   const canVerify = allUploaded && legalNameEntered && phone.trim();
+
+  const handleManualReview = async () => {
+    if (subjectType === 'host' && subject?.id) {
+      await base44.entities.Host.update(subject.id, {
+        verification_status: 'docs_submitted',
+        verification_notes: 'Manual review requested — AI verification failed twice. Admin review required.',
+        admin_viewed: false,
+      });
+    }
+    setManualRequested(true);
+  };
 
   const runVerification = async () => {
     if (verifyingRef.current || !canVerify) return;
@@ -137,6 +151,7 @@ Return only JSON: name_on_id (string), name_match (boolean), face_match (boolean
         const message = result.rejection_reason || 'Could not verify identity. Please ensure your name matches your ID exactly and retake your selfie in good lighting.';
         setVerifyStatus('failed');
         setVerifyMessage(message);
+        setFailCount(prev => prev + 1);
         if (subjectType === 'host' && subject?.id) {
           await base44.entities.Host.update(subject.id, { verification_status: 'failed', verification_notes: message });
         }
@@ -196,15 +211,40 @@ Return only JSON: name_on_id (string), name_match (boolean), face_match (boolean
 
       {verifyStatus && <VerificationStatus status={verifyStatus} message={verifyMessage} />}
 
-      <button
-        type="button"
-        disabled={!canVerify || verifyStatus === 'checking' || savingInfo}
-        onClick={runVerification}
-        className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-40"
-        style={{ background: 'linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))' }}
-      >
-        {savingInfo ? 'Saving…' : verifyStatus === 'checking' ? 'Verifying…' : verifyStatus === 'failed' ? 'Retry Verification' : 'Verify Identity'}
-      </button>
+      {manualRequested ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+          <ShieldCheck className="h-5 w-5 flex-shrink-0 text-blue-500 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-blue-800">Manual Review Requested</p>
+            <p className="mt-0.5 text-xs text-blue-600">Our team has been notified and will review your documents within 1–2 business days. You'll be contacted once approved.</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            disabled={!canVerify || verifyStatus === 'checking' || savingInfo}
+            onClick={runVerification}
+            className="w-full rounded-xl py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))' }}
+          >
+            {savingInfo ? 'Saving…' : verifyStatus === 'checking' ? 'Verifying…' : verifyStatus === 'failed' ? 'Retry Verification' : 'Verify Identity'}
+          </button>
+
+          {failCount >= 2 && verifyStatus === 'failed' && (
+            <div className="space-y-2">
+              <p className="text-center text-xs text-gray-500">Having trouble? Request a manual review instead.</p>
+              <button
+                type="button"
+                onClick={handleManualReview}
+                className="w-full rounded-xl border border-blue-200 bg-blue-50 py-3 text-sm font-bold text-blue-700 transition-all hover:bg-blue-100 active:scale-[0.98]"
+              >
+                Request Manual Review
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -188,6 +188,8 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
 
   const [verifyStatus, setVerifyStatus] = useState(null);
   const [verifyMessage, setVerifyMessage] = useState("");
+  const [failCount, setFailCount] = useState(0);
+  const [manualRequested, setManualRequested] = useState(false);
   const isRTO = booking?.booking_type === "Rent-to-Own";
   const verifyingRef = useRef(false);
 
@@ -384,6 +386,7 @@ Respond ONLY with valid JSON:
           result.rejection_reason ||
           "We could not verify this document. Please retake the photo in good lighting and try again."
         );
+        setFailCount(prev => prev + 1);
         if (booking?.id) {
           updateMutation.mutate({ id: booking.id, data: { verification_status: "failed" } });
         }
@@ -394,6 +397,19 @@ Respond ONLY with valid JSON:
     } finally {
       verifyingRef.current = false;
     }
+  };
+
+  const handleManualReview = () => {
+    if (booking?.id) {
+      updateMutation.mutate({
+        id: booking.id,
+        data: {
+          verification_status: "manual_review",
+          admin_attention_priority: "high",
+        },
+      });
+    }
+    setManualRequested(true);
   };
 
   const handleContinue = () => {
@@ -478,25 +494,48 @@ Respond ONLY with valid JSON:
       </div>
 
       {/* Verify / Continue button */}
-      {verifyStatus !== "passed" ? (
-        <button
-          disabled={!canVerify}
-          onClick={runVerification}
-          className="w-full mt-5 py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2"
-          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
-        >
-          {verifyStatus === "checking" ? (
-            <><Loader2 className="h-4 w-4 animate-spin" />Verifying…</>
-          ) : anyUploading ? (
-            <><Loader2 className="h-4 w-4 animate-spin" />Uploading…</>
-          ) : anyFailed ? (
-            "Fix upload errors above to continue"
-          ) : verifyStatus === "failed" ? (
-            "Retry Verification"
-          ) : (
-            "Verify My Identity"
+      {manualRequested ? (
+        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+          <Check className="h-5 w-5 flex-shrink-0 text-blue-500 mt-0.5" />
+          <div>
+            <p className="font-semibold text-blue-800 text-sm">Manual Review Requested</p>
+            <p className="text-xs text-blue-600 mt-0.5">Our team will review your documents within 1–2 business days and reach out to confirm your identity before your rental is activated.</p>
+          </div>
+        </div>
+      ) : verifyStatus !== "passed" ? (
+        <div className="mt-5 space-y-2">
+          <button
+            disabled={!canVerify}
+            onClick={runVerification}
+            className="w-full py-3.5 rounded-xl font-bold text-sm text-white transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+          >
+            {verifyStatus === "checking" ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />Verifying…</>
+            ) : anyUploading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />Uploading…</>
+            ) : anyFailed ? (
+              "Fix upload errors above to continue"
+            ) : verifyStatus === "failed" ? (
+              "Retry Verification"
+            ) : (
+              "Verify My Identity"
+            )}
+          </button>
+
+          {failCount >= 2 && verifyStatus === "failed" && (
+            <div className="space-y-1.5">
+              <p className="text-center text-xs text-gray-500">Still having trouble? Request a human review instead.</p>
+              <button
+                type="button"
+                onClick={handleManualReview}
+                className="w-full py-3 rounded-xl border border-blue-200 bg-blue-50 font-bold text-sm text-blue-700 transition-all hover:bg-blue-100 active:scale-[0.98]"
+              >
+                Request Manual Review
+              </button>
+            </div>
           )}
-        </button>
+        </div>
       ) : (
         <button
           onClick={handleContinue}
