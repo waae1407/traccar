@@ -106,13 +106,18 @@ export default function BecomeAHost() {
     if (!rawPending) return;
 
     const pending = JSON.parse(rawPending);
-    if (pending?.intended_action !== "create_store" || !pending?.store_name) return;
+    if (pending?.intended_action !== "create_store" || !pending?.store_name) {
+      clearOnboardingState();
+      return;
+    }
 
     resumeAttemptedRef.current = true;
-    const resumeOnboarding = async () => {
-      // Clear draft FIRST before doing anything — prevents re-run loops
-      clearOnboardingState();
 
+    // Clear draft IMMEDIATELY — before any async work — so re-visits don't loop
+    clearOnboardingState();
+
+    const resumeOnboarding = async () => {
+      // Always check for existing live storefront first — if exists, just redirect
       const existingHosts = await base44.entities.Host.filter({ email: user.email });
       const approvedHost = existingHosts?.find((host) => host.status === "approved");
       if (approvedHost?.id) {
