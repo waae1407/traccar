@@ -54,9 +54,21 @@ export default function BecomeAHost() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
-  const [existingStorefront, setExistingStorefront] = useState(null); // { host, brand, redirectPath }
+  const [existingStorefront, setExistingStorefront] = useState(null);
+  const [checkingExistingStorefront, setCheckingExistingStorefront] = useState(false);
+  const [resumingOnboarding, setResumingOnboarding] = useState(false);
+  const [resumingStoreName, setResumingStoreName] = useState("");
   const resumeAttemptedRef = useRef(false);
   const existingCheckRef = useRef(false);
+  const createStoreInFlightRef = useRef(false);
+
+  // Synchronously detect if a draft exists so we can block the form immediately
+  const hasDraft = (() => {
+    const raw = sessionStorage.getItem(DRAFT_KEY) || localStorage.getItem(DRAFT_KEY);
+    if (!raw) return false;
+    try { const p = JSON.parse(raw); return p?.intended_action === "create_store" && !!p?.store_name; }
+    catch { return false; }
+  })();
 
   const clearOnboardingState = () => {
     sessionStorage.removeItem(DRAFT_KEY);
@@ -73,14 +85,16 @@ export default function BecomeAHost() {
   useEffect(() => {
     if (!user?.email || existingCheckRef.current) return;
     existingCheckRef.current = true;
+    setCheckingExistingStorefront(true);
 
     const checkExisting = async () => {
       const hosts = await base44.entities.Host.filter({ email: user.email });
       const approvedHost = hosts?.find((h) => h.status === "approved");
-      if (!approvedHost) return;
+      if (!approvedHost) { setCheckingExistingStorefront(false); return; }
 
       const brands = await base44.entities.HostBrandSettings.filter({ host_id: approvedHost.id });
       const liveBrand = brands?.find((b) => b.published_status === "live");
+      setCheckingExistingStorefront(false);
       if (!liveBrand) return;
 
       setExistingStorefront({
@@ -91,7 +105,7 @@ export default function BecomeAHost() {
       });
     };
 
-    checkExisting().catch(() => {}); // silent — don't block onboarding on error
+    checkExisting().catch(() => { setCheckingExistingStorefront(false); });
   }, [user?.email]);
 
   useEffect(() => {
@@ -100,11 +114,17 @@ export default function BecomeAHost() {
     const rawPending = sessionStorage.getItem(DRAFT_KEY) || localStorage.getItem(DRAFT_KEY);
     if (!rawPending) return;
 
-    const pending = JSON.parse(rawPending);
+    let pending;
+    try { pending = JSON.parse(rawPending); } catch { return; }
     if (pending?.intended_action !== "create_store" || !pending?.store_name) return;
 
+    // Set flags synchronously BEFORE any await so the form never renders
     resumeAttemptedRef.current = true;
+    setResumingOnboarding(true);
+    setResumingStoreName(pending.store_name);
+
     const resumeOnboarding = async () => {
+      // Duplicate protection: check if host+storefront already exist
       const existingHosts = await base44.entities.Host.filter({ email: user.email });
       const approvedHost = existingHosts?.find((host) => host.status === "approved");
       if (approvedHost?.id) {
@@ -130,9 +150,13 @@ export default function BecomeAHost() {
     };
 
     resumeOnboarding().catch((err) => {
-      setError(err?.response?.data?.error || err.message || "Could not create your store. Please try again.");
+      setResumingOnboarding(false);
+      setError("We could not finish creating your storefront automatically. Please review your setup and try again.");
       setLoading(false);
       resumeAttemptedRef.current = false;
+      // Restore draft values so user can retry manually
+      setStoreName(pending.store_name);
+      setSelectedMode(pending.selected_plan || pending.selected_mode || "marketplace_partner");
     });
   }, [user?.email]); // eslint-disable-line
 
@@ -140,6 +164,8 @@ export default function BecomeAHost() {
   const previewSlug = useMemo(() => slugify(storeName), [storeName]);
 
   const createStore = async (payload) => {
+    if (createStoreInFlightRef.current) return;
+    createStoreInFlightRef.current = true;
     setLoading(true);
     setError("");
     const res = await base44.functions.invoke("instantHostOnboarding", payload);
@@ -147,6 +173,8 @@ export default function BecomeAHost() {
     await checkAppState?.();
     setResult(res.data);
     setLoading(false);
+    setResumingOnboarding(false);
+    createStoreInFlightRef.current = false;
     navigate(`/host/onboarding-success?host_id=${res.data.host_id}`, { replace: true, state: { onboardingResult: res.data } });
   };
 
@@ -185,6 +213,21 @@ export default function BecomeAHost() {
       setLoading(false);
     }
   };
+
+  // Render priority 1: if user is logged in and we know a draft exists, block immediately
+  if (user && hasDraft && !resumeAttemptedRef.current) {
+    return <ResumingScreen storeName={sessionStorage.getItem(DRAFT_KEY) || localStorage.getItem(DRAFT_KEY)} />;
+  }
+
+  // Render priority 2: checking for existing storefront
+  if (checkingExistingStorefront) {
+    return <ResumingScreen />;
+  }
+
+  // Render priority 3: actively resuming onboarding
+  if (resumingOnboarding) {
+    return <ResumingScreen storeName={resumingStoreName} />;
+  }
 
   if (result) {
     return (
@@ -303,6 +346,34 @@ export default function BecomeAHost() {
           </aside>
         </div>
       </main>
+    </div>
+  );
+}
+
+function ResumingScreen({ storeName }) {
+  const name = (() => {
+    if (storeName && typeof storeName === "string" && storeName.startsWith("{")) {
+      try { return JSON.parse(storeName)?.store_name || ""; } catch { return ""; }
+    }
+    return storeName || "";
+  })();
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" style={{ fontFamily: "var(--font-inter)" }}>
+      <div className="max-w-sm w-full text-center space-y-5">
+        <div className="mx-auto h-16 w-16 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+          <Store className="h-8 w-8 text-white" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-gray-950" style={{ fontFamily: "var(--font-syne)" }}>
+            {name ? `Creating your ${name} storefront…` : "Creating your storefront…"}
+          </h2>
+          <p className="text-gray-500 text-sm mt-2">This will only take a moment. Please don't close this page.</p>
+        </div>
+        <div className="flex justify-center">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-pink-500 rounded-full animate-spin" />
+        </div>
+      </div>
     </div>
   );
 }
