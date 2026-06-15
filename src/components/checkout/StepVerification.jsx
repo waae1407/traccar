@@ -321,7 +321,7 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
 
     try {
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an identity verification AI for a vehicle rental company.
+        prompt: `You are an expert identity verification AI for a vehicle rental company. You have deep experience recognizing the same person across varied photos.
 
 You are given three images:
 1. The FRONT of a government-issued driver's license or ID card
@@ -330,11 +330,24 @@ You are given three images:
 
 The applicant's name on file is: "${booking?.customer_full_name || "Unknown"}"
 
-Perform these checks:
-A) NAME MATCH: Extract the full name printed on the front of the ID card. Compare it to the applicant's name on file ("${booking?.customer_full_name || ""}"). They must match (minor spacing/middle name differences are OK, but first and last name must match).
-B) FACE MATCH: Compare the photo on the ID card to the live selfie. Determine if they appear to be the same person. Account for different lighting, angles, age differences up to 10 years. If the selfie and ID photo clearly show different people, it fails.
+IMPORTANT IMAGE HANDLING RULES:
+- Photos may be rotated 90° or 180°. Mentally correct for rotation before comparing.
+- The selfie may be taken at an angle, lying down, or in low light — this is normal and should not cause failure on its own.
+- The ID photo may be small, dark, or lower resolution — focus on bone structure, not image quality.
 
-Both checks must pass for overall_pass to be true.
+FACE MATCH GUIDANCE — compare underlying facial structure, not surface appearance:
+- Hairstyle, hair length, hair color, and texture can change drastically and should NOT be a rejection reason.
+- Makeup, facial hair, weight changes, and lighting differences are expected and should not cause failure.
+- Focus on: eye shape and spacing, nose shape, jawline, brow shape, cheekbones, and overall facial geometry.
+- The ID photo may be years old. Allow for natural aging differences.
+- If facial structure is consistent and there is no clear evidence of different people, lean toward a PASS.
+- Only fail face_match if you have strong, clear evidence the faces belong to different individuals.
+
+CHECKS:
+A) NAME MATCH: Extract the full name on the ID. Compare to "${booking?.customer_full_name || ""}". First and last name must match (middle name optional, minor spacing/order differences OK).
+B) FACE MATCH: Using the guidance above, does the selfie show the same person as the ID photo?
+
+Both must pass for overall_pass to be true.
 
 Respond ONLY with valid JSON:
 {
@@ -342,7 +355,7 @@ Respond ONLY with valid JSON:
   "name_match": true/false,
   "face_match": true/false,
   "overall_pass": true/false,
-  "rejection_reason": "<if overall_pass is false, explain which check failed and why in one sentence; otherwise empty string>"
+  "rejection_reason": "<if overall_pass is false, explain specifically what structural feature differed; otherwise empty string>"
 }`,
         file_urls: [currentUploads.license_front_url, currentUploads.license_back_url, currentUploads.selfie_url],
         response_json_schema: {

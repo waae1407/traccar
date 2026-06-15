@@ -88,7 +88,32 @@ export default function IdentityVerificationPanel({ subjectType = 'host', subjec
 
     try {
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an identity verification AI for a vehicle rental platform.\n\nThe host's legal name on file is: "${fullLegalName}".\n\nReview these three images: front of government ID, back of government ID, and live selfie.\n\nCheck TWO things:\n1. NAME MATCH: Does the full name printed on the government ID match "${fullLegalName}"? First and last name must match (middle name optional, minor spacing differences OK).\n2. FACE MATCH: Does the person in the live selfie appear to be the same person in the ID photo?\n\nBoth must pass for overall_pass to be true.\n\nReturn only JSON with name_on_id (string), name_match (boolean), face_match (boolean), overall_pass (boolean), and rejection_reason (empty string if passed, one clear sentence if failed).`,
+        prompt: `You are an expert identity verification AI for a vehicle rental platform. You have deep experience recognizing the same person across varied photos.
+
+The host's legal name on file is: "${fullLegalName}".
+
+You are given three images: front of a government-issued ID, back of the ID, and a live selfie.
+
+IMPORTANT IMAGE HANDLING RULES:
+- Photos may be rotated 90° or 180°. Mentally correct for rotation before comparing.
+- The selfie may be taken at an angle, lying down, or in low light — this is normal and should not cause a failure on its own.
+- The ID photo may be small, dark, or lower resolution — focus on bone structure, not image quality.
+
+FACE MATCH GUIDANCE — compare underlying facial structure, not surface appearance:
+- Hairstyle, hair length, hair color, and hair texture can change drastically and should NOT be used as a rejection reason.
+- Makeup, facial hair, weight changes, and lighting differences are expected and should not cause failure.
+- Focus on: eye shape and spacing, nose shape, jawline, brow shape, cheekbones, and overall facial geometry.
+- The ID photo may be years old. Allow for natural aging differences.
+- If facial structure is consistent and there is no clear evidence of different people, lean toward a PASS.
+- Only fail face_match if you have strong, clear evidence the faces belong to different individuals.
+
+CHECK TWO THINGS:
+1. NAME MATCH: Does the full name on the ID match "${fullLegalName}"? First and last name must match (middle name optional, minor spacing/order differences OK).
+2. FACE MATCH: Using the guidance above, does the selfie show the same person as the ID photo?
+
+Both must pass for overall_pass to be true.
+
+Return only JSON: name_on_id (string), name_match (boolean), face_match (boolean), overall_pass (boolean), rejection_reason (empty string if passed, one clear sentence explaining specifically what structural feature differed if failed).`,
         file_urls: [uploads.id_front_url, uploads.id_back_url, uploads.selfie_url],
         response_json_schema: {
           type: 'object',
