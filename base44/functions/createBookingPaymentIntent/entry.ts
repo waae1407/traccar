@@ -43,11 +43,14 @@ async function getOrCreateCustomer(base44, stripeOptions, user, bookingId) {
     }
   }
 
-  const customer = await stripe.customers.create({
+  const customerPayload = {
     email: user.email,
     name: user.full_name || 'Customer',
     metadata: { user_id: user.id, booking_request_id: bookingId || 'none' }
-  }, stripeOptions);
+  };
+  const customer = stripeOptions.stripeAccount
+    ? await stripe.customers.create(customerPayload, stripeOptions)
+    : await stripe.customers.create(customerPayload);
 
   if (!stripeOptions.stripeAccount) await base44.auth.updateMe({ stripe_customer_id: customer.id });
   return customer.id;
