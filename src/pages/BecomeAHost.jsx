@@ -85,6 +85,9 @@ export default function BecomeAHost() {
       const liveBrand = brands?.find((b) => b.published_status === "live");
       if (!liveBrand) return;
 
+      // Clear any stale drafts so they don't re-trigger onboarding
+      clearOnboardingState();
+
       setExistingStorefront({
         host: approvedHost,
         brand: liveBrand,
@@ -107,13 +110,15 @@ export default function BecomeAHost() {
 
     resumeAttemptedRef.current = true;
     const resumeOnboarding = async () => {
+      // Clear draft FIRST before doing anything — prevents re-run loops
+      clearOnboardingState();
+
       const existingHosts = await base44.entities.Host.filter({ email: user.email });
       const approvedHost = existingHosts?.find((host) => host.status === "approved");
       if (approvedHost?.id) {
         const storefronts = await base44.entities.HostBrandSettings.filter({ host_id: approvedHost.id });
         const liveStorefront = storefronts?.find((storefront) => storefront.published_status === "live");
         if (liveStorefront?.id) {
-          clearOnboardingState();
           await checkAppState?.();
           routeToSuccess(approvedHost.id);
           return;
