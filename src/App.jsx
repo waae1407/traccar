@@ -123,6 +123,7 @@ import AdminDealer360 from '@/pages/admin/AdminDealer360.jsx';
 import SubscriptionCommandCenter from '@/pages/admin/SubscriptionCommandCenter.jsx';
 import AdminNotificationCenter from '@/pages/admin/AdminNotificationCenter.jsx';
 import AdminNotificationPreferences from '@/pages/admin/AdminNotificationPreferences.jsx';
+import AdminTelematicsReconciliation from '@/pages/admin/AdminTelematicsReconciliation.jsx';
 import HostSubscriptions from '@/pages/host/HostSubscriptions.jsx';
 import HostNotifications from '@/pages/host/HostNotifications.jsx';
 import CustomerNotifications from '@/pages/customer/CustomerNotifications.jsx';
@@ -337,6 +338,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/subscription-center" element={<SubscriptionCommandCenter />} />
         <Route path="/admin/notification-center" element={<AdminNotificationCenter />} />
         <Route path="/admin/notification-preferences" element={<AdminNotificationPreferences />} />
+        <Route path="/admin/telematics-reconciliation" element={<AdminTelematicsReconciliation />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

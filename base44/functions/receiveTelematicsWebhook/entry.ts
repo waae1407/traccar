@@ -604,32 +604,49 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Command ACK processing is isolated in its own try/catch.
+    // A webhook parser exception here must NOT mark the command as failed —
+    // the device already acknowledged (e.g. 0x8009 reply packet was received by Traccar).
+    // ACK processing is isolated — a parse error here must NOT downgrade an already-ACKed command.
     if (['command_delivered', 'command_ack', 'command_executed', 'command_failed'].includes(eventType)) {
-      const commandId = body.command_id || body.commandId || '';
-      const idempotencyKey = body.idempotency_key || body.idempotencyKey || '';
-      const providerCommandId = body.provider_command_id || body.providerCommandId || '';
-      const commandType = body.command_type || body.commandType || body.command || '';
-      const matches = commandId
-        ? await base44.asServiceRole.entities.TelematicsCommand.filter({ id: commandId })
-        : idempotencyKey
-          ? await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey })
-          : providerCommandId
-            ? await base44.asServiceRole.entities.TelematicsCommand.filter({ provider_command_id: String(providerCommandId) })
-            : device && commandType
-              ? (await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id, command_type: commandType })).sort((a, b) => new Date(b.created_date || b.created_at || 0) - new Date(a.created_date || a.created_at || 0))
-              : [];
-      const command = matches[0];
-      if (command) {
-        const createdAt = new Date(command.created_at || command.created_date || now).getTime();
-        const sentAt = new Date(command.sent_at || command.created_at || command.created_date || now).getTime();
-        const update = eventType === 'command_delivered'
-          ? { status: 'delivered', queue_status: 'delivered', confirmation_status: 'delivered', delivered_at: now, delivery_latency_ms: Date.now() - sentAt, acknowledgement_source: 'webhook', provider_response: body }
-          : eventType === 'command_ack'
-            ? { status: 'acknowledged', queue_status: 'acknowledged', confirmation_status: 'acknowledged', acknowledged_at: now, device_acknowledged_at: now, delivery_latency_ms: Date.now() - sentAt, acknowledgement_source: 'webhook', provider_response: body }
-            : eventType === 'command_executed'
-              ? { status: 'executed', queue_status: 'executed', confirmation_status: 'executed', acknowledged_at: command.acknowledged_at || now, device_acknowledged_at: command.device_acknowledged_at || now, executed_at: now, confirmed_at: now, execution_latency_ms: Date.now() - createdAt, acknowledgement_source: 'webhook', provider_response: body }
-              : { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failed_at: now, failure_reason: body.reason || 'Provider command failed', acknowledgement_source: 'webhook', provider_response: body };
-        await base44.asServiceRole.entities.TelematicsCommand.update(command.id, update);
+      try {
+        const commandId = body.command_id || body.commandId || '';
+        const idempotencyKey = body.idempotency_key || body.idempotencyKey || '';
+        const providerCommandId = body.provider_command_id || body.providerCommandId || '';
+        const commandType = body.command_type || body.commandType || body.command || '';
+        const matches = commandId
+          ? await base44.asServiceRole.entities.TelematicsCommand.filter({ id: commandId })
+          : idempotencyKey
+            ? await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey })
+            : providerCommandId
+              ? await base44.asServiceRole.entities.TelematicsCommand.filter({ provider_command_id: String(providerCommandId) })
+              : device && commandType
+                ? (await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id, command_type: commandType })).sort((a, b) => new Date(b.created_date || b.created_at || 0) - new Date(a.created_date || a.created_at || 0))
+                : [];
+        const command = matches[0];
+        if (command) {
+          const createdAt = new Date(command.created_at || command.created_date || now).getTime();
+          const sentAt = new Date(command.sent_at || command.created_at || command.created_date || now).getTime();
+          // Only mark as failed if the eventType is explicitly command_failed AND the command
+          // was not already in a terminal success state (delivered/acknowledged/executed).
+          // This prevents webhook parser errors from downgrading a successfully-ACKed command.
+          const alreadySucceeded = ['delivered', 'acknowledged', 'executed'].includes(command.confirmation_status || '');
+          const update = eventType === 'command_delivered'
+            ? { status: 'delivered', queue_status: 'delivered', confirmation_status: 'delivered', delivered_at: now, delivery_latency_ms: Date.now() - sentAt, acknowledgement_source: 'webhook', provider_response: body }
+            : eventType === 'command_ack'
+              ? { status: 'acknowledged', queue_status: 'acknowledged', confirmation_status: 'acknowledged', acknowledged_at: now, device_acknowledged_at: now, delivery_latency_ms: Date.now() - sentAt, acknowledgement_source: 'webhook', provider_response: body }
+              : eventType === 'command_executed'
+                ? { status: 'executed', queue_status: 'executed', confirmation_status: 'executed', acknowledged_at: command.acknowledged_at || now, device_acknowledged_at: command.device_acknowledged_at || now, executed_at: now, confirmed_at: now, execution_latency_ms: Date.now() - createdAt, acknowledgement_source: 'webhook', provider_response: body }
+                : alreadySucceeded
+                  ? null  // Do not downgrade a command that already succeeded
+                  : { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failed_at: now, failure_reason: body.reason || 'Provider command failed', acknowledgement_source: 'webhook', provider_response: body };
+          if (update) await base44.asServiceRole.entities.TelematicsCommand.update(command.id, update);
+        }
+      } catch (ackError) {
+        // Log the ACK processing error but do not fail the webhook response.
+        // The device already sent the acknowledgement — preserving that fact is more important
+        // than surfacing a secondary parse error.
+        console.error('[receiveTelematicsWebhook] command ACK processing error (non-fatal):', ackError.message);
       }
     }
 

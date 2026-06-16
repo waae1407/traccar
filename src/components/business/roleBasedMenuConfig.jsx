@@ -153,6 +153,7 @@ export const masterMenuSections = [
       { id: "vehicle-command", label: "Vehicle Command Center", icon: Zap, paths: { admin: "/admin/vehicle-command-center", host: "/host/vehicle-command-center" }, roles: ["admin", "host"] },
       { id: "telematics-setup", label: "Telematics Setup", icon: Satellite, paths: { admin: "/admin/telematics" }, roles: ["admin"] },
       { id: "command-verification", label: "Command Verification", icon: Zap, paths: { admin: "/admin/telematics-command-test", host: "/host/telematics-command-test" }, roles: ["admin", "host"] },
+      { id: "telematics-reconciliation", label: "Device Reconciliation", icon: Activity, paths: { admin: "/admin/telematics-reconciliation" }, roles: ["admin"] },
       { id: "installer-portal", label: "Installer Portal", icon: Wrench, paths: { admin: "/installer/telematics" }, roles: ["admin"] },
     ],
   },

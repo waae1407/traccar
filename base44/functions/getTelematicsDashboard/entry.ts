@@ -1,9 +1,56 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
-// TELEMATICS CENTER — DASHBOARD SUMMARY ONLY
-// Target: <1 second, <150 KB payload
-// Does NOT load command history, event history, or full device details.
-// Returns KPIs + minimal device status list only.
+// TELEMATICS DASHBOARD — Traccar is source of truth for device status
+// Online/offline/stale is computed from Traccar lastUpdate timestamps, not Base44 fields.
+
+function joinUrl(baseUrl, path) { return `${baseUrl.replace(/\/+$/, '')}${path}`; }
+function envValue(name) { return String(Deno.env.toObject()[name] || '').trim(); }
+
+async function fetchTraccarDevices() {
+  const baseUrl = envValue('TRACCAR_BASE_URL');
+  const username = envValue('TRACCAR_USERNAME');
+  const password = envValue('TRACCAR_PASSWORD');
+  if (!baseUrl || !username || !password) return null;
+  try {
+    const res = await fetch(joinUrl(baseUrl, '/api/devices'), {
+      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), Accept: 'application/json' },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTraccarPositions(deviceIds) {
+  const baseUrl = envValue('TRACCAR_BASE_URL');
+  const username = envValue('TRACCAR_USERNAME');
+  const password = envValue('TRACCAR_PASSWORD');
+  if (!baseUrl || !username || !password || !deviceIds.length) return [];
+  try {
+    // Fetch latest position for all devices
+    const res = await fetch(joinUrl(baseUrl, '/api/positions'), {
+      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), Accept: 'application/json' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+// Determine online status from Traccar lastUpdate timestamp
+function traccarOnlineStatus(lastUpdate) {
+  if (!lastUpdate) return 'unknown';
+  const ageMs = Date.now() - new Date(lastUpdate).getTime();
+  if (ageMs < 30 * 60 * 1000) return 'online';         // < 30 min
+  if (ageMs < 24 * 60 * 60 * 1000) return 'stale';     // < 24 h
+  return 'offline';
+}
 
 Deno.serve(async (req) => {
   try {
@@ -26,30 +73,58 @@ Deno.serve(async (req) => {
       scopedHostId = myHost.id;
     }
 
-    const now = new Date();
-    const staleCutoff = new Date(now.getTime() - 30 * 60 * 1000);
-    const today = now.toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
 
-    // Single batch: just devices (100 limit for dashboard — enough for KPIs)
-    // For KPI counts we only need status fields, not full enrichment
-    const devices = scopedHostId
-      ? await base44.asServiceRole.entities.TelematicsDevice.filter({ host_id: scopedHostId }, '-updated_date', 500)
-      : await base44.asServiceRole.entities.TelematicsDevice.list('-updated_date', 500);
+    // Fetch Base44 devices and Traccar devices in parallel
+    const [base44Devices, traccarDevices] = await Promise.all([
+      scopedHostId
+        ? base44.asServiceRole.entities.TelematicsDevice.filter({ host_id: scopedHostId }, '-updated_date', 500)
+        : base44.asServiceRole.entities.TelematicsDevice.list('-updated_date', 500),
+      fetchTraccarDevices(),
+    ]);
 
-    // KPI counts from device list only (no commands/events loaded)
-    const totalDevices = devices.length;
-    const onlineCount = devices.filter(d => d.online_status === 'online').length;
-    const offlineCount = devices.filter(d => d.online_status === 'offline').length;
-    const staleCount = devices.filter(d => {
-      if (d.online_status === 'online') return false;
-      if (!d.last_seen_at) return true;
-      return new Date(d.last_seen_at) < staleCutoff;
-    }).length;
-    const starterDisabledCount = devices.filter(d => d.starter_disabled).length;
-    const liveEnabledCount = devices.filter(d => d.lifecycle_status === 'live_enabled').length;
+    // Build Traccar lookup by numeric device ID and by uniqueId
+    const traccarById = new Map();
+    const traccarByUniqueId = new Map();
+    if (traccarDevices) {
+      for (const td of traccarDevices) {
+        traccarById.set(String(td.id), td);
+        traccarByUniqueId.set(String(td.uniqueId || '').trim().toUpperCase(), td);
+      }
+    }
 
-    // Parallel: lightweight counts for commands/installs/alerts today
-    // Use small limits — we only need totals for the KPI bar
+    // Fetch latest positions from Traccar for heartbeat age
+    let traccarPositionMap = new Map(); // traccar device id -> position
+    if (traccarDevices && traccarDevices.length) {
+      const positions = await fetchTraccarPositions(traccarDevices.map(d => d.id));
+      for (const pos of positions) {
+        traccarPositionMap.set(String(pos.deviceId), pos);
+      }
+    }
+
+    // Enrich each Base44 device with Traccar live status
+    let onlineCount = 0, offlineCount = 0, staleCount = 0, unknownCount = 0;
+    const enrichedDevices = base44Devices.map(d => {
+      const traccarDeviceId = String(d.traccar_device_id || '');
+      const uniqueIdKey = String(d.unique_id || '').trim().toUpperCase();
+      const td = traccarById.get(traccarDeviceId) || traccarByUniqueId.get(uniqueIdKey);
+      const pos = td ? traccarPositionMap.get(String(td.id)) : null;
+      const lastUpdate = pos?.fixTime || pos?.deviceTime || pos?.serverTime || td?.lastUpdate;
+      const traccarStatus = traccarDevices ? traccarOnlineStatus(lastUpdate) : null;
+      const status = traccarStatus || d.online_status || 'unknown';
+      if (status === 'online') onlineCount++;
+      else if (status === 'offline') offlineCount++;
+      else if (status === 'stale') staleCount++;
+      else unknownCount++;
+      return { id: d.id, unique_id: d.unique_id, vehicle_id: d.vehicle_id, online_status: status, last_heartbeat_at: lastUpdate || d.last_seen_at, traccar_synced: !!td, provider_key: d.provider_key, starter_disabled: d.starter_disabled, lifecycle_status: d.lifecycle_status };
+    });
+
+    const totalDevices = base44Devices.length;
+    const starterDisabledCount = base44Devices.filter(d => d.starter_disabled).length;
+    const liveEnabledCount = base44Devices.filter(d => d.lifecycle_status === 'live_enabled').length;
+    const traccarSyncedCount = enrichedDevices.filter(d => d.traccar_synced).length;
+
+    // Parallel: lightweight counts
     const [recentCommands, pendingInstalls, activeAlarms, recentAlerts] = await Promise.all([
       base44.asServiceRole.entities.TelematicsCommand.list('-created_date', 50),
       base44.asServiceRole.entities.TelematicsInstallRecord.filter({ qa_status: 'pending' }, '-created_date', 100),
@@ -57,45 +132,30 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.OperationalAlert.filter({ domain: 'telematics' }, '-created_date', 50),
     ]);
 
-    // Scope commands to this host's devices if needed
-    const deviceIds = new Set(devices.map(d => d.id));
-    const scopedVehicleIds = new Set(devices.map(d => d.vehicle_id).filter(Boolean));
+    const deviceIds = new Set(base44Devices.map(d => d.id));
+    const scopedVehicleIds = new Set(base44Devices.map(d => d.vehicle_id).filter(Boolean));
     const scopedCommands = scopedHostId
-      ? recentCommands.filter(c =>
-          deviceIds.has(c.telematics_device_id) ||
-          deviceIds.has(c.device_id) ||
-          (c.vehicle_id && scopedVehicleIds.has(c.vehicle_id))
-        )
+      ? recentCommands.filter(c => deviceIds.has(c.telematics_device_id) || deviceIds.has(c.device_id) || (c.vehicle_id && scopedVehicleIds.has(c.vehicle_id)))
       : recentCommands;
 
-    const commandFailedCount = scopedCommands.filter(c =>
-      ['failed', 'expired', 'blocked'].includes(c.queue_status || c.status)
+    // Separate command send failures from webhook/ack processing failures
+    const commandSentFailedCount = scopedCommands.filter(c =>
+      ['failed', 'expired', 'blocked'].includes(c.queue_status || c.status) &&
+      !['delivered', 'acknowledged', 'executed'].includes(c.confirmation_status || '')
     ).length;
-    const commandTodayCount = scopedCommands.filter(c =>
-      c.created_at && c.created_at.startsWith(today)
-    ).length;
-    const installerCount = await base44.asServiceRole.entities.PreferredInstallerLead.list('-created_date', 1)
-      .then(r => r.length > 0 ? null : 0).catch(() => 0);
+    const commandTodayCount = scopedCommands.filter(c => c.created_at && c.created_at.startsWith(today)).length;
 
-    // Minimal offline device list (just id, unique_id, vehicle_id, last_seen_at)
-    const offlineDeviceSummary = devices
-      .filter(d => d.online_status === 'offline' || (!d.last_seen_at && d.install_status !== 'not_started'))
-      .slice(0, 20)
-      .map(d => ({
-        id: d.id,
-        unique_id: d.unique_id,
-        vehicle_id: d.vehicle_id,
-        online_status: d.online_status,
-        last_seen_at: d.last_seen_at,
-        starter_disabled: d.starter_disabled,
-        provider_key: d.provider_key,
-      }));
+    const offlineDeviceSummary = enrichedDevices
+      .filter(d => ['offline', 'stale', 'unknown'].includes(d.online_status))
+      .slice(0, 20);
 
     const warnings = [];
     if (offlineCount > 0) warnings.push(`${offlineCount} device(s) offline`);
-    if (staleCount > 0) warnings.push(`${staleCount} device(s) have stale heartbeat`);
-    if (commandFailedCount > 0) warnings.push(`${commandFailedCount} recent command(s) failed`);
+    if (staleCount > 0) warnings.push(`${staleCount} device(s) have stale heartbeat (30min–24h)`);
+    if (commandSentFailedCount > 0) warnings.push(`${commandSentFailedCount} command(s) failed to send`);
     if (starterDisabledCount > 0) warnings.push(`${starterDisabledCount} vehicle(s) with starter disabled`);
+    if (!traccarDevices) warnings.push('Traccar unreachable — status from Base44 cache');
+    if (traccarDevices && traccarSyncedCount < totalDevices) warnings.push(`${totalDevices - traccarSyncedCount} Base44 device(s) not found in Traccar`);
     if (totalDevices >= 500) warnings.push('Device list capped at 500 — use Devices tab for full list');
 
     return Response.json({
@@ -104,19 +164,24 @@ Deno.serve(async (req) => {
         online_count: onlineCount,
         offline_count: offlineCount,
         stale_count: staleCount,
+        unknown_count: unknownCount,
         starter_disabled_count: starterDisabledCount,
         live_enabled_count: liveEnabledCount,
-        command_failed_count: commandFailedCount,
+        command_failed_count: commandSentFailedCount,
         commands_today: commandTodayCount,
         installs_pending_qa: pendingInstalls.length,
         active_alarms: activeAlarms.length,
         open_alerts_count: recentAlerts.length,
+        traccar_device_count: traccarDevices ? traccarDevices.length : null,
+        traccar_synced_count: traccarSyncedCount,
       },
       offline_device_summary: offlineDeviceSummary,
       active_alarms: activeAlarms.slice(0, 5),
       warnings,
+      traccar_available: !!traccarDevices,
       scope: isAdmin && !scopedHostId ? 'admin' : 'host',
       generated_at: new Date().toISOString(),
+      status_source: traccarDevices ? 'traccar_live' : 'base44_cache',
     });
   } catch (error) {
     console.error('[getTelematicsDashboard]', error.message);
