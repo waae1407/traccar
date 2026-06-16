@@ -238,6 +238,33 @@ Deno.serve(async (req) => {
             });
             results.offline_transitions++;
             console.log(`[GPSMonitor] ⚠️ OFFLINE (new): ${vehicle.make} ${vehicle.model} ${vehicle.plate} device=${deviceId}`);
+
+            // Check how long offline — fire 24h and 72h escalation alerts
+            const offlineHours = lastUpdate ? (Date.now() - new Date(lastUpdate).getTime()) / (1000 * 60 * 60) : null;
+            const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking?.host_id || vehicle.host_id || '' });
+            const host = hosts[0];
+            if (host) {
+              if (!offlineHours || offlineHours >= 24) {
+                await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+                  event_type: 'gps_offline_24h',
+                  vehicle: { id: vehicle.id, year: vehicle.year, make: vehicle.make, model: vehicle.model, plate: vehicle.plate },
+                  booking: booking ? { id: booking.id, user_email: booking.user_email, customer_full_name: booking.customer_full_name, host_id: booking.host_id } : null,
+                  host: { id: host.id, email: host.email, full_name: host.full_name, phone: host.phone },
+                  device_id: deviceId,
+                  last_update: lastUpdate?.toISOString() || null,
+                }).catch(e => console.error('[GPSMonitor] 24h alert failed:', e.message));
+              }
+              if (offlineHours && offlineHours >= 72) {
+                await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+                  event_type: 'gps_offline_72h',
+                  vehicle: { id: vehicle.id, year: vehicle.year, make: vehicle.make, model: vehicle.model },
+                  booking: booking ? { id: booking.id, user_email: booking.user_email, customer_full_name: booking.customer_full_name } : null,
+                  host: { id: host.id, email: host.email, full_name: host.full_name },
+                  device_id: deviceId,
+                  last_update: lastUpdate?.toISOString() || null,
+                }).catch(e => console.error('[GPSMonitor] 72h admin alert failed:', e.message));
+              }
+            }
           } else {
             console.log(`[GPSMonitor] ⚠️ offline (known): ${vehicle.make} ${vehicle.model} device=${deviceId}`);
           }

@@ -495,14 +495,19 @@ Deno.serve(async (req) => {
             source: 'automation',
           });
 
-          // Send receipt notification
-          await base44.asServiceRole.entities.Notification.create({
-            user_email: booking.user_email,
-            title: `Week ${weekNum} Payment Received`,
-            body: `$${amount.toFixed(2)} has been charged for your ${booking.vehicle_name} rental (includes $${stripeFee.toFixed(2)} processing fee). Next charge: ${nextBillingDate}.`,
-            type: "payment",
-            booking_request_id: booking.id,
-          });
+          // Send weekly receipt (email + in-app with dedup)
+          await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+            event_type: 'weekly_payment_receipt',
+            booking: {
+              id: booking.id,
+              user_email: booking.user_email,
+              customer_full_name: booking.customer_full_name,
+              vehicle_name: booking.vehicle_name,
+              next_billing_date: nextBillingDate,
+            },
+            amount: amount.toFixed(2),
+            week_number: weekNum,
+          }).catch(e => console.error('[WeeklyBilling] receipt notification failed:', e.message));
 
           // Send 24hr pre-charge warning for NEXT week
           await schedulePreChargeWarning(base44, booking, nextBillingDate, amount, weekNum + 1);

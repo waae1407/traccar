@@ -229,13 +229,19 @@ Deno.serve(async (req) => {
     const existingEvents = await base44.asServiceRole.entities.ActivityEvent.filter({ booking_id: booking.id }, '-created_date', 20).catch(() => []);
     const alreadyNotified = existingEvents.some(e => e.event_type === 'booking.auto_approved');
     if (!alreadyNotified) {
-      await base44.asServiceRole.entities.Notification.create({
-        user_email: booking.user_email,
-        title: shouldActivate ? 'Your rental is active' : 'Booking Approved',
-        body: shouldActivate ? `Your ${booking.vehicle_name} is approved and active. Pickup details are now available.` : `Your ${booking.vehicle_name} booking is approved. Pickup details are now available.`,
-        type: 'booking',
-        booking_request_id: booking.id
-      }).catch(() => {});
+      // Fire critical notification (SMS + Email + In-App with dedup)
+      await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+        event_type: 'booking_approved',
+        booking: {
+          id: booking.id,
+          user_email: booking.user_email,
+          customer_full_name: booking.customer_full_name,
+          customer_phone: booking.customer_phone,
+          vehicle_name: booking.vehicle_name,
+          booking_type: booking.booking_type,
+          start_date: booking.start_date,
+        },
+      }).catch(e => console.error('[autoApproveBooking] sendCriticalNotification failed:', e.message));
       await base44.asServiceRole.entities.ActivityEvent.create({
         event_type: 'booking.auto_approved',
         actor_id: 'auto_approval_system',

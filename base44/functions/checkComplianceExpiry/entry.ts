@@ -72,6 +72,15 @@ Deno.serve(async (req) => {
               await base44.asServiceRole.entities.Vehicle.update(doc.vehicle_id, { status: 'Compliance Hold' });
               suspendedVehicles.push(doc.vehicle_id);
 
+              // Fire critical notification to host (SMS + Email + In-App with dedup)
+              await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+                event_type: 'compliance_expired_host',
+                host: { id: host.id, email: host.email, full_name: host.full_name, phone: host.phone },
+                vehicle: { id: vehicle.id, year: vehicle.year, make: vehicle.make, model: vehicle.model, display_name: doc.vehicle_name },
+                doc_type: doc.doc_type,
+                expiry_date: doc.expiry_date,
+              }).catch(e => console.error('[ComplianceCheck] host notification failed:', e.message));
+
               // Log compliance expiry ActivityEvent
               await base44.asServiceRole.entities.ActivityEvent.create({
                 event_type: 'compliance.expired',
@@ -95,6 +104,20 @@ Deno.serve(async (req) => {
                 ['active', 'confirmed', 'approved'].includes(b.booking_status)
               );
               for (const affectedBooking of affectedBookings) {
+                // Notify active customer their rental vehicle is on compliance hold
+                await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+                  event_type: 'compliance_hold_active_booking',
+                  booking: {
+                    id: affectedBooking.id,
+                    user_email: affectedBooking.user_email,
+                    customer_full_name: affectedBooking.customer_full_name,
+                    customer_phone: affectedBooking.customer_phone,
+                    vehicle_name: doc.vehicle_name,
+                  },
+                  vehicle: { id: vehicle.id, year: vehicle.year, make: vehicle.make, model: vehicle.model, display_name: doc.vehicle_name },
+                  doc_type: doc.doc_type,
+                }).catch(e => console.error('[ComplianceCheck] customer compliance notification failed:', e.message));
+
                 await base44.asServiceRole.entities.ActivityEvent.create({
                   event_type: 'compliance.booking_blocked',
                   actor_id: 'compliance_automation',

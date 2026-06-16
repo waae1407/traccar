@@ -2,59 +2,9 @@
   "name": "Notification",
   "type": "object",
   "properties": {
-    "company_id": {
-      "type": "string"
-    },
-    "user_id": {
-      "type": "string"
-    },
     "user_email": {
-      "type": "string"
-    },
-    "recipient_user_id": {
-      "type": "string"
-    },
-    "recipient_email": {
-      "type": "string"
-    },
-    "recipient_role": {
       "type": "string",
-      "enum": [
-        "admin",
-        "host",
-        "customer",
-        "installer",
-        "system"
-      ]
-    },
-    "domain": {
-      "type": "string",
-      "enum": [
-        "payments",
-        "telematics",
-        "fleet",
-        "hosts",
-        "customers",
-        "installers",
-        "dealer_network",
-        "reputation",
-        "compliance",
-        "communications",
-        "system"
-      ],
-      "default": "system"
-    },
-    "severity": {
-      "type": "string",
-      "enum": [
-        "critical",
-        "high",
-        "medium",
-        "low",
-        "info",
-        "warning"
-      ],
-      "default": "info"
+      "description": "Recipient email address \u2014 data isolation key"
     },
     "title": {
       "type": "string"
@@ -62,28 +12,44 @@
     "body": {
       "type": "string"
     },
-    "message": {
-      "type": "string"
-    },
     "type": {
       "type": "string",
       "enum": [
         "booking",
         "payment",
-        "verification",
-        "contract",
-        "system",
         "alert",
-        "security",
-        "telematics",
-        "compliance",
-        "communication",
-        "dealer_network",
-        "reputation"
+        "system",
+        "success"
       ],
       "default": "system"
     },
-    "read_status": {
+    "category": {
+      "type": "string",
+      "enum": [
+        "bookings",
+        "payments",
+        "payouts",
+        "gps",
+        "compliance",
+        "maintenance",
+        "subscriptions",
+        "verification",
+        "contracts",
+        "refunds",
+        "system"
+      ],
+      "description": "Category for filtering in notification center"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "warning",
+        "info"
+      ],
+      "description": "Severity level for sorting and display"
+    },
+    "is_read": {
       "type": "boolean",
       "default": false
     },
@@ -91,53 +57,30 @@
       "type": "string",
       "format": "date-time"
     },
-    "dismissed_at": {
+    "is_archived": {
+      "type": "boolean",
+      "default": false
+    },
+    "archived_at": {
       "type": "string",
       "format": "date-time"
     },
-    "action_link": {
+    "booking_request_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
       "type": "string"
     },
     "action_url": {
-      "type": "string"
-    },
-    "source_entity_type": {
-      "type": "string"
-    },
-    "source_entity_id": {
-      "type": "string"
-    },
-    "delivery_channels": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "enum": [
-          "in_app",
-          "email",
-          "sms",
-          "push"
-        ]
-      },
-      "default": [
-        "in_app"
-      ]
-    },
-    "delivery_status": {
       "type": "string",
-      "enum": [
-        "pending",
-        "sent",
-        "delivered",
-        "failed",
-        "dismissed"
-      ],
-      "default": "pending"
-    },
-    "booking_request_id": {
-      "type": "string"
+      "description": "Deep link URL for CTA button in notification center"
     }
   },
   "required": [
+    "user_email",
     "title"
   ]
 }

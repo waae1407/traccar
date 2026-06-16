@@ -1110,6 +1110,7 @@ Deno.serve(async (req) => {
         const account = event.data.object;
         if (account.metadata?.host_id) {
           const onboardingComplete = account.details_submitted && account.charges_enabled && account.payouts_enabled;
+          const isRestricted = account.requirements?.disabled_reason || (!account.charges_enabled && account.details_submitted);
           const hosts = await base44.asServiceRole.entities.Host.filter({ id: account.metadata.host_id });
           if (hosts[0] && onboardingComplete && !hosts[0].stripe_onboarding_complete) {
             await base44.asServiceRole.entities.Host.update(account.metadata.host_id, {
@@ -1134,6 +1135,15 @@ Deno.serve(async (req) => {
               source: 'webhook',
             });
             console.log(`[Webhook] Host ${account.metadata.host_id} Stripe onboarding complete`);
+          }
+          // Detect Stripe account restriction — fire critical notification
+          if (hosts[0] && isRestricted) {
+            await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+              event_type: 'stripe_account_restricted',
+              host: { id: hosts[0].id, email: hosts[0].email, full_name: hosts[0].full_name, phone: hosts[0].phone },
+              stripe_account_id: account.id,
+              restriction_reason: account.requirements?.disabled_reason || null,
+            }).catch(e => console.error('[Webhook] stripe_account_restricted notification failed:', e.message));
           }
         }
         break;
@@ -1241,6 +1251,29 @@ Deno.serve(async (req) => {
 
         if (booking?.host_id) {
           await createPaymentAlert(base44, { alert_type: 'chargeback_opened', severity: 'critical', billing_context: 'chargeback', booking_id: booking.id, host_id: booking.host_id, customer_id: booking.user_id || '', vehicle_id: booking.vehicle_id || '', renter_email: booking.user_email || '', stripe_event_type: event.type, stripe_dispute_id: stripeDisputeId, stripe_payment_intent_id: paymentIntentId || '', related_entity_type: 'Dispute', related_entity_id: disputeRecord.id, title: 'Chargeback liability recorded', message: `Chargeback opened after payment. Pending payouts were held and any paid host payout created a receivable for future payout offset.`, recommended_action: 'Review dispute evidence and host receivable recovery before releasing future payouts.', financial_impact_amount: (dispute.amount || 0) / 100, currency: dispute.currency || 'usd', requires_admin_action: true, requires_host_action: true, source: 'stripe_webhook' });
+
+          // Notify host of chargeback (SMS + Email + In-App with dedup)
+          const cbHosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
+          const cbHost = cbHosts[0];
+          if (cbHost) {
+            await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+              event_type: 'chargeback_opened',
+              dispute: { id: disputeRecord.id, stripe_dispute_amount: (dispute.amount / 100).toFixed(2), due_by: disputeRecord.due_by },
+              host: { id: cbHost.id, email: cbHost.email, full_name: cbHost.full_name, phone: cbHost.phone },
+              booking: { id: booking.id, vehicle_name: booking.vehicle_name },
+            }).catch(e => console.error('[Webhook] chargeback_opened host notification failed:', e.message));
+
+            // Notify host of payout hold if applicable
+            const heldPayouts = await base44.asServiceRole.entities.HostPayout.filter({ booking_request_id: booking.id, status: 'held' });
+            if (heldPayouts[0]) {
+              await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+                event_type: 'payout_held',
+                host: { id: cbHost.id, email: cbHost.email, full_name: cbHost.full_name, phone: cbHost.phone },
+                payout: { id: heldPayouts[0].id, net_host_payout: heldPayouts[0].net_host_payout },
+                dispute: { id: disputeRecord.id },
+              }).catch(e => console.error('[Webhook] payout_held host notification failed:', e.message));
+            }
+          }
         }
 
         await logEvent(base44, {

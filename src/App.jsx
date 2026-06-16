@@ -122,6 +122,8 @@ import AdminGPSStore from '@/pages/admin/AdminGPSStore.jsx';
 import AdminDealer360 from '@/pages/admin/AdminDealer360.jsx';
 import SubscriptionCommandCenter from '@/pages/admin/SubscriptionCommandCenter.jsx';
 import HostSubscriptions from '@/pages/host/HostSubscriptions.jsx';
+import HostNotifications from '@/pages/host/HostNotifications.jsx';
+import CustomerNotifications from '@/pages/customer/CustomerNotifications.jsx';
 import CustomerSubscriptions from '@/pages/customer/CustomerSubscriptions.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
@@ -238,6 +240,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/telematics-command-test" element={<HostTelematicsCommandTest />} />
         <Route path="/host/gps-store" element={<HostGPSStore />} />
         <Route path="/host/subscriptions" element={<HostSubscriptions />} />
+        <Route path="/host/notifications" element={<HostNotifications />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}
@@ -265,6 +268,7 @@ const AuthenticatedApp = () => {
         <Route path="/support" element={<RenterAIChat />} />
         <Route path="/vehicle-command-center" element={<CustomerMyVehicle />} />
         <Route path="/messages" element={<CustomerCommunications />} />
+        <Route path="/notifications" element={<CustomerNotifications />} />
       </Route>
 
       {/* ── CHECKOUT (standalone, no customer layout chrome) ── */}

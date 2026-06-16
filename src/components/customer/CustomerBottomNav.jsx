@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Car, Home, MessageSquare, Search, User, CreditCard } from "lucide-react";
+import { Bell, Car, Home, MessageSquare, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -27,6 +27,15 @@ export default function CustomerBottomNav() {
     staleTime: 30_000,
   });
 
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["customer-bottom-nav-notifications", user?.email],
+    queryFn: () => base44.entities.Notification.filter({ user_email: user?.email }, "-created_date", 50),
+    enabled: !!user?.email,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+
+  const unreadCount = notifications.filter(n => !n.is_read && !n.is_archived).length;
   const activeRental = hasActiveRental(bookings);
   const tabs = [
     activeRental
@@ -34,7 +43,7 @@ export default function CustomerBottomNav() {
       : { label: "Home", icon: Home, path: "/" },
     { label: "Book Now", icon: Search, path: "/book-now" },
     { label: "Messages", icon: MessageSquare, path: "/messages" },
-    { label: "Subscriptions", icon: CreditCard, path: "/customer/subscriptions" },
+    { label: "Alerts", icon: Bell, path: "/notifications" },
     { label: "Account", icon: User, path: "/account" },
   ];
 
@@ -46,8 +55,11 @@ export default function CustomerBottomNav() {
           return (
             <Link key={tab.path} to={tab.path} className={cn("relative flex min-w-[58px] flex-col items-center gap-1 rounded-2xl px-1 py-2 transition-all", isActive ? "text-pink-600" : "text-gray-400 hover:text-gray-600")}>
               {isActive && <span className="absolute top-1 inset-x-2 h-0.5 rounded-full" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }} />}
-              <div className={cn("flex h-8 w-8 items-center justify-center rounded-xl transition-all", isActive ? "bg-pink-50" : "")}>
+              <div className={cn("relative flex h-8 w-8 items-center justify-center rounded-xl transition-all", isActive ? "bg-pink-50" : "")}>
                 <tab.icon className={cn("h-[18px] w-[18px]", isActive ? "text-pink-600" : "text-gray-400")} strokeWidth={isActive ? 2.5 : 1.8} />
+                {tab.path === "/notifications" && unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-pink-600 text-white text-[9px] font-black flex items-center justify-center leading-none">{unreadCount > 9 ? "9+" : unreadCount}</span>
+                )}
               </div>
               <span className={cn("text-[9px] font-bold leading-none tracking-tight", isActive ? "text-pink-600" : "text-gray-400")}>{tab.label}</span>
             </Link>
