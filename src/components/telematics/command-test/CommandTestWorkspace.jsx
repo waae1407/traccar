@@ -6,6 +6,7 @@ import DeviceSummaryCard from '@/components/telematics/command-test/DeviceSummar
 import CommandButtonGrid from '@/components/telematics/command-test/CommandButtonGrid';
 import CommandHistoryPanel from '@/components/telematics/command-test/CommandHistoryPanel';
 import RawCommandInput from '@/components/telematics/command-test/RawCommandInput';
+import RebootDeviceCard from '@/components/telematics/command-test/RebootDeviceCard';
 
 export default function CommandTestWorkspace({ showHeader = true, mode = 'admin' }) {
   const queryClient = useQueryClient();
@@ -100,6 +101,7 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
         <>
           <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} />
           <RawCommandInput device={lookupData.device} onCommandSent={() => history.refetch()} />
+          <RebootDeviceCard prefillDeviceId={lookupData.device?.unique_id || ''} />
           <CommandHistoryPanel commands={history.data} onRefresh={history.refetch} loading={history.isFetching} />
         </>
       )}
