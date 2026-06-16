@@ -367,20 +367,26 @@ async function handleGPSOffline72h(base44, { vehicle, booking, host, device_id, 
   const alertKey = `gps_offline_72h:${device_id}:${today}`;
   if (await checkDedup(base44, alertKey)) return { admin_alert: 'deduped' };
 
-  // Create admin operational alert
+  // Create admin operational alert directly via service role (no user auth context in this flow)
   try {
-    await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', {
+    await base44.asServiceRole.entities.PaymentOperationalAlert.create({
       alert_type: 'gps_offline_72h',
       severity: 'critical',
+      status: 'new',
       billing_context: 'gps_fleet',
       vehicle_id: vehicle.id,
       host_id: host?.id || '',
       booking_id: booking?.id || '',
+      related_entity_type: 'Vehicle',
+      related_entity_id: vehicle.id,
       title: `GPS Offline 72h+ — ${vehicleName}`,
       message: `GPS device ${device_id} on ${vehicleName} has been offline for 72+ hours. Active rental: ${booking ? (booking.customer_full_name || booking.user_email) : 'none'}.`,
       recommended_action: 'Verify vehicle location. Check with host. Consider escalating if active rental is affected.',
       financial_impact_amount: 0,
       currency: 'usd',
+      requires_admin_action: true,
+      requires_host_action: !!host?.id,
+      requires_customer_action: false,
       source: 'gps_monitor',
     });
   } catch (e) {
@@ -580,21 +586,26 @@ async function handleStripeAccountRestricted(base44, { host, stripe_account_id, 
     results.sms = smsResult.ok ? 'sent' : `failed:${smsResult.error}`;
   } else { results.sms = host.phone ? 'deduped' : 'no_phone'; }
 
-  // Admin alert
+  // Admin alert — direct service role write (no user auth context in webhook flow)
   const adminAlertKey = `stripe_restricted:${host.id}:admin_alert:${today}`;
   if (!await checkDedup(base44, adminAlertKey)) {
     try {
-      await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', {
+      await base44.asServiceRole.entities.PaymentOperationalAlert.create({
         alert_type: 'stripe_account_restricted',
         severity: 'critical',
+        status: 'new',
         billing_context: 'payout',
         host_id: host.id,
+        related_entity_type: 'Host',
+        related_entity_id: host.id,
         title: `Stripe Account Restricted — ${host.full_name}`,
         message: `Host ${host.email} Stripe account (${stripe_account_id}) has been restricted. Payouts are paused.`,
         recommended_action: 'Contact host and review Stripe dashboard. All pending payouts are blocked.',
         financial_impact_amount: 0,
         currency: 'usd',
         requires_admin_action: true,
+        requires_host_action: true,
+        requires_customer_action: false,
         source: 'stripe_webhook',
       });
       results.admin_alert = 'sent';
