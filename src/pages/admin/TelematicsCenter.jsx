@@ -386,10 +386,12 @@ export default function TelematicsCenter() {
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard label="Total Devices" value={kpis?.total_devices} />
+        <MetricCard label="Total in Base44" value={kpis?.total_devices} />
+        <MetricCard label="In Traccar" value={kpis?.traccar_device_count ?? '—'} color="text-blue-400" sub="Traccar inventory" />
         <MetricCard label="Online" value={kpis?.online_count} color="text-green-400" />
         <MetricCard label="Offline" value={kpis?.offline_count} color={kpis?.offline_count > 0 ? 'text-red-400' : ''} />
-        <MetricCard label="Stale Heartbeat" value={kpis?.stale_count} color={kpis?.stale_count > 0 ? 'text-yellow-400' : ''} />
+        <MetricCard label="Stale Heartbeat" value={kpis?.stale_count} color={kpis?.stale_count > 0 ? 'text-yellow-400' : ''} sub="30min–24h" />
+        <MetricCard label="Not in Traccar" value={kpis?.not_in_traccar_count ?? 0} color={kpis?.not_in_traccar_count > 0 ? 'text-orange-400' : ''} sub="Base44 only" />
         <MetricCard label="Starter Disabled" value={kpis?.starter_disabled_count} color={kpis?.starter_disabled_count > 0 ? 'text-red-400' : ''} />
         <MetricCard label="Actions Failed" value={kpis?.command_failed_count} color={kpis?.command_failed_count > 0 ? 'text-red-400' : ''} sub="last 50 actions" />
         <MetricCard label="Active Alarms" value={kpis?.active_alarms} color={kpis?.active_alarms > 0 ? 'text-orange-400' : ''} />

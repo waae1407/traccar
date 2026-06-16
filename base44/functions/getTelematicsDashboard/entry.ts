@@ -105,20 +105,37 @@ Deno.serve(async (req) => {
       traccarPositionMap.set(String(pos.deviceId), pos);
     }
 
-    // Enrich each Base44 device with Traccar live status
-    let onlineCount = 0, offlineCount = 0, staleCount = 0, unknownCount = 0;
+    // Enrich each Base44 device with Traccar live status.
+    // CRITICAL: if Traccar is reachable but a device has NO match in Traccar,
+    // its status is "not_in_traccar" — NOT stale. Only devices Traccar knows about
+    // get online/offline/stale status from Traccar's own status field + timestamps.
+    let onlineCount = 0, offlineCount = 0, staleCount = 0, unknownCount = 0, notInTraccarCount = 0;
     const enrichedDevices = base44Devices.map(d => {
       const traccarDeviceId = String(d.traccar_device_id || '');
       const uniqueIdKey = String(d.unique_id || '').trim().toUpperCase();
       const td = traccarById.get(traccarDeviceId) || traccarByUniqueId.get(uniqueIdKey);
-      const pos = td ? traccarPositionMap.get(String(td.id)) : null;
-      const lastUpdate = pos?.fixTime || pos?.deviceTime || pos?.serverTime || td?.lastUpdate;
-      const traccarStatus = traccarDevices ? traccarOnlineStatus(td, pos) : null;
-      const status = traccarStatus || d.online_status || 'unknown';
+
+      let status;
+      let lastUpdate = null;
+
+      if (!traccarDevices) {
+        // Traccar unreachable — fall back to Base44 cache
+        status = d.online_status || 'unknown';
+      } else if (!td) {
+        // Device exists in Base44 but NOT in Traccar — don't count as stale/offline
+        status = 'not_in_traccar';
+        notInTraccarCount++;
+      } else {
+        const pos = traccarPositionMap.get(String(td.id));
+        lastUpdate = pos?.fixTime || pos?.deviceTime || pos?.serverTime || td?.lastUpdate;
+        status = traccarOnlineStatus(td, pos);
+      }
+
       if (status === 'online') onlineCount++;
       else if (status === 'offline') offlineCount++;
       else if (status === 'stale') staleCount++;
-      else unknownCount++;
+      else if (status !== 'not_in_traccar') unknownCount++;
+
       return {
         id: d.id,
         unique_id: d.unique_id,
@@ -168,7 +185,7 @@ Deno.serve(async (req) => {
     if (commandSentFailedCount > 0) warnings.push(`${commandSentFailedCount} command(s) failed to send`);
     if (starterDisabledCount > 0) warnings.push(`${starterDisabledCount} vehicle(s) with starter disabled`);
     if (!traccarDevices) warnings.push('Traccar unreachable — status from Base44 cache');
-    if (traccarDevices && traccarSyncedCount < totalDevices) warnings.push(`${totalDevices - traccarSyncedCount} Base44 device(s) not found in Traccar`);
+    if (notInTraccarCount > 0) warnings.push(`${notInTraccarCount} Base44 device(s) not provisioned in Traccar`);
     if (totalDevices >= 500) warnings.push('Device list capped at 500 — use Devices tab for full list');
 
     return Response.json({
@@ -178,6 +195,7 @@ Deno.serve(async (req) => {
         offline_count: offlineCount,
         stale_count: staleCount,
         unknown_count: unknownCount,
+        not_in_traccar_count: notInTraccarCount,
         starter_disabled_count: starterDisabledCount,
         live_enabled_count: liveEnabledCount,
         command_failed_count: commandSentFailedCount,
