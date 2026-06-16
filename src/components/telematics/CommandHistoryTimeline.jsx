@@ -29,16 +29,22 @@ export default function CommandHistoryTimeline({ commands = [], vehiclesById = {
         const device = devicesById[command.telematics_device_id];
         return (
           <div key={command.id} className="rounded-2xl border border-border bg-card/70 p-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-bold text-sm">{commandLabel(normalizeCommandName(command.command_type))}</p>
-                <p className="text-xs text-muted-foreground">
-                  {command.requested_by || "system"} · {command.requested_role || "—"} · {fmt(command.sent_at || command.created_at || command.created_date)}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-foreground">{commandLabel(normalizeCommandName(command.command_type))}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {command.requested_by || "system"} · {command.requested_role || "—"}
                 </p>
-                {!compact && <p className="text-xs text-muted-foreground mt-1">Vehicle: {vehicle?.display_name || vehicle?.vin || (command.vehicle_id ? `…${command.vehicle_id.slice(-6)}` : "—")} · Device: {device?.unique_id || command.device_unique_id || (command.telematics_device_id ? `…${command.telematics_device_id.slice(-6)}` : "—")}</p>}
+                <p className="text-xs text-muted-foreground">{fmt(command.sent_at || command.created_at || command.created_date)}</p>
+                {!compact && (
+                  <div className="mt-1 space-y-0.5">
+                    <p className="text-xs text-muted-foreground">VIN: <span className="font-mono">{vehicle?.vin || (command.vehicle_id ? `…${command.vehicle_id.slice(-6)}` : "—")}</span></p>
+                    <p className="text-xs text-muted-foreground">Device: <span className="font-mono">{device?.unique_id || command.device_unique_id || (command.telematics_device_id ? `…${command.telematics_device_id.slice(-6)}` : "—")}</span></p>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-              <Badge variant="outline">{formatCommandStatus(status)}</Badge>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge variant="outline">{formatCommandStatus(status)}</Badge>
                 <Button size="sm" variant="outline" onClick={() => setExpanded(isExpanded ? null : command.id)}>{isExpanded ? "Hide" : "Details"}</Button>
               </div>
             </div>

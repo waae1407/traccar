@@ -95,7 +95,7 @@ export default function VehicleCommandCenter({ mode = "admin" }) {
         </section>
         <VehicleCommandControls mode={mode} vehicle={selectedVehicle} device={selectedDevice} provider={selectedProvider} booking={selectedBooking} hostOwnsVehicle={hostOwnsVehicle} allowStarter={allowStarter} onCommand={refreshAfterCommand} />
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="rounded-[1.75rem] border-slate-200 bg-white shadow-sm"><CardContent className="p-4"><h3 className="mb-4 text-lg font-black text-slate-950">Command History</h3><CommandHistoryTimeline commands={commands} vehiclesById={{ [selectedVehicle.id]: selectedVehicle }} devicesById={selectedDevice ? { [selectedDevice.id]: selectedDevice } : {}} compact={mode === "customer"} /></CardContent></Card>
+          <Card className="rounded-[1.75rem] border-border bg-card shadow-sm"><CardContent className="p-4"><h3 className="mb-4 text-lg font-black text-foreground">Command History</h3><CommandHistoryTimeline commands={commands} vehiclesById={{ [selectedVehicle.id]: selectedVehicle }} devicesById={selectedDevice ? { [selectedDevice.id]: selectedDevice } : {}} compact={mode === "customer"} /></CardContent></Card>
           <SafetyAlertsPanel safetyEvents={safetyEvents} alerts={alerts} />
         </div>
         <DeviceHealthPanel mode={mode} device={selectedDevice} position={positions[0]} />

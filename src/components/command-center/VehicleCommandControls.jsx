@@ -59,8 +59,8 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
       <ControlSection title="Remote Controls" subtitle="Readiness-filtered commands routed through sendTelematicsCommand." commands={visible("remote")} loading={loading} onSend={send} />
       <ControlSection title="Security Controls" subtitle={mode === "customer" ? "Starter controls are never exposed to renters." : "Starter controls require reason and confirmation."} commands={visible("security")} loading={loading} onSend={send} />
       {last && (
-        <div className={`rounded-2xl border p-3 text-sm lg:col-span-2 ${last.status === "failed" ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
-          <span className="font-black">{last.command.replaceAll("_", " ")}</span> · {last.status}{last.message ? ` — ${last.message}` : ""}
+        <div className={`rounded-2xl border p-3 text-sm lg:col-span-2 ${last.status === "failed" ? "border-red-500/30 bg-red-500/10 text-red-400" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"}`}>
+          <span className="font-black capitalize">{last.command.replaceAll("_", " ")}</span> · {last.status}{last.message ? ` — ${last.message}` : ""}
         </div>
       )}
     </div>
@@ -69,11 +69,11 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
 function ControlSection({ title, subtitle, commands, loading, onSend }) {
   return (
-    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-black text-slate-950">{title}</h3>
-          <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+          <h3 className="text-lg font-black text-foreground">{title}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
         </div>
         <Badge variant="outline" className="rounded-full">{commands.length} ready</Badge>
       </div>
@@ -82,13 +82,13 @@ function ControlSection({ title, subtitle, commands, loading, onSend }) {
           const Icon = command.icon;
           const busy = loading === command.key;
           return (
-            <Button key={command.key} variant="outline" disabled={!!loading} onClick={() => onSend(command.key, command.starter)} className="h-20 flex-col rounded-2xl border-slate-200 bg-slate-50 text-slate-900 hover:bg-white">
-              {busy ? <Loader2 className="h-5 w-5 animate-spin text-pink-600" /> : <Icon className="h-5 w-5 text-pink-600" />}
+            <Button key={command.key} variant="outline" disabled={!!loading} onClick={() => onSend(command.key, command.starter)} className="h-20 flex-col rounded-2xl border-border bg-secondary text-foreground hover:bg-secondary/80">
+              {busy ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Icon className="h-5 w-5 text-primary" />}
               <span className="text-xs font-black">{command.label}</span>
             </Button>
           );
         })}
-        {commands.length === 0 && <div className="col-span-full rounded-2xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-500"><AlertTriangle className="mx-auto mb-2 h-5 w-5" />No ready commands.</div>}
+        {commands.length === 0 && <div className="col-span-full rounded-2xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground"><AlertTriangle className="mx-auto mb-2 h-5 w-5" />No ready commands.</div>}
       </div>
     </div>
   );
