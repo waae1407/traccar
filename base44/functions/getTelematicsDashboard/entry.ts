@@ -24,13 +24,12 @@ async function fetchTraccarDevices() {
   }
 }
 
-async function fetchTraccarPositions(deviceIds) {
+async function fetchTraccarPositions() {
   const baseUrl = envValue('TRACCAR_BASE_URL');
   const username = envValue('TRACCAR_USERNAME');
   const password = envValue('TRACCAR_PASSWORD');
-  if (!baseUrl || !username || !password || !deviceIds.length) return [];
+  if (!baseUrl || !username || !password) return [];
   try {
-    // Fetch latest position for all devices
     const res = await fetch(joinUrl(baseUrl, '/api/positions'), {
       headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), Accept: 'application/json' },
       signal: AbortSignal.timeout(8000),
@@ -44,11 +43,19 @@ async function fetchTraccarPositions(deviceIds) {
 }
 
 // Determine online status from Traccar lastUpdate timestamp
-function traccarOnlineStatus(lastUpdate) {
+// Traccar "status" field: "online" | "unknown" | "offline"
+// We also use lastUpdate age as fallback
+function traccarOnlineStatus(td, pos) {
+  // Prefer Traccar's own status field if present
+  if (td?.status === 'online') return 'online';
+  if (td?.status === 'offline') return 'offline';
+
+  // Fall back to timestamp age
+  const lastUpdate = pos?.fixTime || pos?.deviceTime || pos?.serverTime || td?.lastUpdate;
   if (!lastUpdate) return 'unknown';
   const ageMs = Date.now() - new Date(lastUpdate).getTime();
-  if (ageMs < 30 * 60 * 1000) return 'online';         // < 30 min
-  if (ageMs < 24 * 60 * 60 * 1000) return 'stale';     // < 24 h
+  if (ageMs < 30 * 60 * 1000) return 'online';          // < 30 min
+  if (ageMs < 24 * 60 * 60 * 1000) return 'stale';      // 30 min – 24 h
   return 'offline';
 }
 
@@ -75,31 +82,27 @@ Deno.serve(async (req) => {
 
     const today = new Date().toISOString().split('T')[0];
 
-    // Fetch Base44 devices and Traccar devices in parallel
-    const [base44Devices, traccarDevices] = await Promise.all([
+    // Fetch Base44 devices and Traccar devices+positions in parallel
+    const [base44Devices, traccarDevices, traccarPositions] = await Promise.all([
       scopedHostId
         ? base44.asServiceRole.entities.TelematicsDevice.filter({ host_id: scopedHostId }, '-updated_date', 500)
         : base44.asServiceRole.entities.TelematicsDevice.list('-updated_date', 500),
       fetchTraccarDevices(),
+      fetchTraccarPositions(),
     ]);
 
-    // Build Traccar lookup by numeric device ID and by uniqueId
+    // Build Traccar lookup maps
     const traccarById = new Map();
     const traccarByUniqueId = new Map();
+    const traccarPositionMap = new Map(); // traccar numeric id -> position
     if (traccarDevices) {
       for (const td of traccarDevices) {
         traccarById.set(String(td.id), td);
         traccarByUniqueId.set(String(td.uniqueId || '').trim().toUpperCase(), td);
       }
     }
-
-    // Fetch latest positions from Traccar for heartbeat age
-    let traccarPositionMap = new Map(); // traccar device id -> position
-    if (traccarDevices && traccarDevices.length) {
-      const positions = await fetchTraccarPositions(traccarDevices.map(d => d.id));
-      for (const pos of positions) {
-        traccarPositionMap.set(String(pos.deviceId), pos);
-      }
+    for (const pos of traccarPositions) {
+      traccarPositionMap.set(String(pos.deviceId), pos);
     }
 
     // Enrich each Base44 device with Traccar live status
@@ -110,13 +113,24 @@ Deno.serve(async (req) => {
       const td = traccarById.get(traccarDeviceId) || traccarByUniqueId.get(uniqueIdKey);
       const pos = td ? traccarPositionMap.get(String(td.id)) : null;
       const lastUpdate = pos?.fixTime || pos?.deviceTime || pos?.serverTime || td?.lastUpdate;
-      const traccarStatus = traccarDevices ? traccarOnlineStatus(lastUpdate) : null;
+      const traccarStatus = traccarDevices ? traccarOnlineStatus(td, pos) : null;
       const status = traccarStatus || d.online_status || 'unknown';
       if (status === 'online') onlineCount++;
       else if (status === 'offline') offlineCount++;
       else if (status === 'stale') staleCount++;
       else unknownCount++;
-      return { id: d.id, unique_id: d.unique_id, vehicle_id: d.vehicle_id, online_status: status, last_heartbeat_at: lastUpdate || d.last_seen_at, traccar_synced: !!td, provider_key: d.provider_key, starter_disabled: d.starter_disabled, lifecycle_status: d.lifecycle_status };
+      return {
+        id: d.id,
+        unique_id: d.unique_id,
+        vehicle_id: d.vehicle_id,
+        online_status: status,
+        traccar_native_status: td?.status || null,
+        last_heartbeat_at: lastUpdate || d.last_seen_at,
+        traccar_synced: !!td,
+        provider_key: d.provider_key,
+        starter_disabled: d.starter_disabled,
+        lifecycle_status: d.lifecycle_status,
+      };
     });
 
     const totalDevices = base44Devices.length;
@@ -138,7 +152,6 @@ Deno.serve(async (req) => {
       ? recentCommands.filter(c => deviceIds.has(c.telematics_device_id) || deviceIds.has(c.device_id) || (c.vehicle_id && scopedVehicleIds.has(c.vehicle_id)))
       : recentCommands;
 
-    // Separate command send failures from webhook/ack processing failures
     const commandSentFailedCount = scopedCommands.filter(c =>
       ['failed', 'expired', 'blocked'].includes(c.queue_status || c.status) &&
       !['delivered', 'acknowledged', 'executed'].includes(c.confirmation_status || '')
