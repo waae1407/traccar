@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter', 'status'];
+const COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter', 'status', 'raw'];
 const COMMAND_ALIASES = { location: 'locate', find_my_car: 'alarm_pulse', panic: 'alarm_pulse', kill: 'disable_starter', unkill: 'restore_starter' };
 const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'alarm_pulse'];
 const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'status'];
@@ -466,6 +466,53 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Starter commands are blocked on active rentals unless explicit admin override is provided.' }, { status: 403 });
     }
     if (!adminTraccarLiveTest && !adminDeviceCommandTest && !provider.is_active && provider.provider_key !== 'moovetrax') return Response.json({ error: 'Telematics provider is not active.' }, { status: 400 });
+    // Raw command: bypass capability checks, send directly
+    if (commandType === 'raw') {
+      const rawPayload = String(body.raw_command || '').trim();
+      if (!rawPayload) return Response.json({ error: 'raw_command body is required for raw command type.' }, { status: 400 });
+      if (user.role !== 'admin') return Response.json({ error: 'Raw commands are admin-only.' }, { status: 403 });
+
+      let rawResult;
+      if (device.provider_key === 'traccar_noran_mt20' || device.traccar_device_id) {
+        const baseUrl = envValue('TRACCAR_BASE_URL');
+        const username = envValue('TRACCAR_USERNAME');
+        const password = envValue('TRACCAR_PASSWORD');
+        if (!baseUrl || !username || !password) return Response.json({ error: 'Traccar credentials not configured.' }, { status: 500 });
+        const traccarDeviceId = Number(device.traccar_device_id);
+        if (!Number.isFinite(traccarDeviceId)) return Response.json({ error: 'Device has no valid Traccar device ID.' }, { status: 400 });
+        const hexPayload = asciiToHex(rawPayload);
+        const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: hexPayload } };
+        const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
+          method: 'POST',
+          headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(traccarPayload)
+        });
+        const text = await res.text();
+        let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        if (!res.ok) return Response.json({ error: `Traccar rejected command (${res.status}): ${typeof data?.raw === 'string' ? data.raw : JSON.stringify(data)}` }, { status: 502 });
+        rawResult = { ok: true, provider: 'traccar', ascii_command: rawPayload, hex_payload: hexPayload, traccar_device_id: traccarDeviceId, response: data };
+      } else if (device.provider_key === 'moovetrax') {
+        const partnerApiKey = Deno.env.get('MOOVETRAX_PARTNER_API_KEY') || '';
+        const deviceKey = sanitizeIdentifier(device.moovetrax_device_id || device.provider_device_id || device.unique_id);
+        const params = new URLSearchParams({ key: deviceKey, cmd: rawPayload, ...(partnerApiKey && { partner_api_key: partnerApiKey }) });
+        const res = await fetch(`https://www.moovetrax.com/api/raw?${params.toString()}`);
+        const text = await res.text();
+        let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        rawResult = { ok: res.ok, provider: 'moovetrax', ascii_command: rawPayload, response: data };
+      } else {
+        rawResult = { ok: false, dry_run: true, provider: device.provider_key || 'unknown', ascii_command: rawPayload, note: 'Provider does not support raw passthrough. Logged only.' };
+      }
+
+      await base44.asServiceRole.entities.ActivityEvent.create({
+        event_type: 'gps.command_sent', actor_id: user.id || '', actor_email: user.email, actor_role: 'admin',
+        target_entity: 'TelematicsDevice', target_id: device.id, vehicle_id: vehicle?.id || device.vehicle_id || '',
+        summary: `Raw command sent to ${device.unique_id || device.id}: ${rawPayload}`,
+        metadata: { raw_command: rawPayload, result: rawResult }, source: 'admin_panel', event_status: rawResult.ok ? 'success' : 'warning'
+      }).catch(() => {});
+
+      return Response.json({ ok: rawResult.ok, command_type: 'raw', result: rawResult });
+    }
+
     if (capability && provider[capability] === false) return Response.json({ error: 'Provider does not support this command.' }, { status: 400 });
     if (provider.execution_mode === 'production' && !provider.allow_live_commands) return Response.json({ error: 'Live commands are disabled for this provider.' }, { status: 400 });
     const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
