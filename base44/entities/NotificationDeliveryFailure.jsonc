@@ -1,0 +1,79 @@
+{
+  "name": "NotificationDeliveryFailure",
+  "type": "object",
+  "properties": {
+    "notification_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "email",
+        "sms",
+        "inapp"
+      ]
+    },
+    "provider": {
+      "type": "string"
+    },
+    "recipient": {
+      "type": "string"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "failure_code": {
+      "type": "string"
+    },
+    "first_failed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0
+    },
+    "last_retry_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "next_retry_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved": {
+      "type": "boolean",
+      "default": false
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_event": {
+      "type": "string"
+    },
+    "source_entity_type": {
+      "type": "string"
+    },
+    "source_entity_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "channel",
+    "provider",
+    "recipient"
+  ]
+}

@@ -76,7 +76,7 @@ function emailTemplate(headline, bodyContent) {
 </div>`;
 }
 
-async function logDelivery(base44, { event_type, idempotency_key, recipient_email, recipient_phone, channel, provider, provider_message_id, provider_status, failure_reason, source_event, source_entity_type, source_entity_id, host_id, booking_id, vehicle_id, metadata }) {
+async function logDelivery(base44, { event_type, idempotency_key, recipient_email, recipient_phone, channel, provider, provider_message_id, provider_status, failure_reason, source_event, source_entity_type, source_entity_id, host_id, booking_id, vehicle_id, metadata, payload }) {
   try {
     await base44.asServiceRole.entities.ActivityEvent.create({
       event_type,
@@ -107,6 +107,62 @@ async function logDelivery(base44, { event_type, idempotency_key, recipient_emai
       source: 'notification_system',
       event_status: provider_status === 'sent' ? 'success' : 'error',
     });
+
+    // If failed, create a DeliveryFailure record for the retry engine
+    if (provider_status === 'failed' && channel !== 'inapp') {
+      const now = new Date().toISOString();
+      // Compute next retry: attempt 0 → 5 min
+      const nextRetry = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      await base44.asServiceRole.entities.NotificationDeliveryFailure.create({
+        event_type: event_type || source_event || '',
+        channel,
+        provider,
+        recipient: recipient_email || recipient_phone || '',
+        failure_reason: failure_reason || 'Unknown',
+        first_failed_at: now,
+        retry_count: 0,
+        next_retry_at: nextRetry,
+        resolved: false,
+        source_event: source_event || '',
+        source_entity_type: source_entity_type || '',
+        source_entity_id: source_entity_id || '',
+        host_id: host_id || '',
+        booking_id: booking_id || '',
+        payload: payload || null,
+      }).catch(() => {});
+
+      // Log SMS cost for successful sends
+      if (channel === 'sms' && provider_message_id) {
+        await base44.asServiceRole.entities.NotificationCost.create({
+          twilio_sid: provider_message_id,
+          channel: 'sms',
+          segment_count: 1,
+          estimated_cost_usd: 0.0079,
+          recipient: recipient_phone || recipient_email || '',
+          event_type: source_event || event_type || '',
+          category: metadata?.category || source_event || '',
+          host_id: host_id || '',
+          user_email: recipient_email || '',
+          sent_at: now,
+        }).catch(() => {});
+      }
+    }
+
+    // Log SMS cost for successful sends
+    if (provider_status === 'sent' && channel === 'sms' && provider_message_id) {
+      await base44.asServiceRole.entities.NotificationCost.create({
+        twilio_sid: provider_message_id,
+        channel: 'sms',
+        segment_count: 1,
+        estimated_cost_usd: 0.0079,
+        recipient: recipient_phone || recipient_email || '',
+        event_type: source_event || event_type || '',
+        category: metadata?.category || source_event || '',
+        host_id: host_id || '',
+        user_email: recipient_email || '',
+        sent_at: new Date().toISOString(),
+      }).catch(() => {});
+    }
   } catch (e) {
     console.error('[sendCriticalNotification] logDelivery failed:', e.message);
   }

@@ -1,0 +1,58 @@
+{
+  "name": "NotificationDeadLetter",
+  "type": "object",
+  "properties": {
+    "source_event": {
+      "type": "string"
+    },
+    "source_entity_type": {
+      "type": "string"
+    },
+    "source_entity_id": {
+      "type": "string"
+    },
+    "recipient": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "email",
+        "sms",
+        "inapp"
+      ]
+    },
+    "provider": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0
+    },
+    "archived": {
+      "type": "boolean",
+      "default": false
+    },
+    "archived_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "booking_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_event",
+    "recipient",
+    "channel"
+  ]
+}

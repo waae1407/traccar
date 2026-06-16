@@ -1,0 +1,39 @@
+{
+  "name": "NotificationPreference",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "user_role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "host",
+        "customer"
+      ]
+    },
+    "category": {
+      "type": "string"
+    },
+    "sms_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "email_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "in_app_enabled": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "user_email",
+    "category"
+  ]
+}

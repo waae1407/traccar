@@ -180,6 +180,8 @@ export const masterMenuSections = [
     icon: Settings,
     items: [
       { id: "companies", label: "Companies", icon: Building2, paths: { admin: "/companies" }, roles: ["admin"], superadminOnly: true },
+      { id: "notification-center", label: "Notification Center", icon: Bell, paths: { admin: "/admin/notification-center" }, roles: ["admin"] },
+      { id: "notification-preferences", label: "Notification Preferences", icon: Bell, paths: { admin: "/admin/notification-preferences" }, roles: ["admin"] },
       { id: "ai-oracle", label: "AI Oracle", icon: Zap, paths: { admin: "/admin/ai-chat" }, roles: ["admin"] },
       { id: "brand-builder", label: "Brand Builder", icon: Settings, paths: { host: "/host/brand" }, roles: ["host"] },
       { id: "business-operations", label: "Business Operations", icon: Settings, paths: { host: "/host/business-operations" }, roles: ["host"] },

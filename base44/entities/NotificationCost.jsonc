@@ -1,0 +1,48 @@
+{
+  "name": "NotificationCost",
+  "type": "object",
+  "properties": {
+    "twilio_sid": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "sms",
+        "email"
+      ]
+    },
+    "segment_count": {
+      "type": "number",
+      "default": 1
+    },
+    "estimated_cost_usd": {
+      "type": "number",
+      "default": 0
+    },
+    "recipient": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "channel",
+    "recipient",
+    "event_type"
+  ]
+}
