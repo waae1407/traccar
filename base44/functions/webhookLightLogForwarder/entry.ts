@@ -618,13 +618,11 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   const command = await findMatchingCommand(base44, device, timestamp, parsed);
   if (!command) return { command_matched: false, reason: 'No pending command matched this MT20 reply.' };
 
-  // CRITICAL: Heartbeat should never reach here (filtered by isCommandReply)
   if (parsed.packet_type === '0x000f') {
     console.warn(`[webhookLightLogForwarder] BUG: Heartbeat (0x000f) should not reach processCommandResponse — it should only refresh UDP session`);
     return { command_matched: false, reason: 'Heartbeat packets do not complete commands' };
   }
 
-  // No-downgrade guard: never regress a command that already succeeded
   const alreadySucceeded = ['delivered', 'acknowledged', 'executed'].includes(command.confirmation_status || '');
 
   const evaluation = parsed.ack_only
@@ -633,16 +631,13 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   const pass = evaluation.result === 'pass';
   const ackOnly = parsed.ack_only === true;
 
-  // Proof log: command response processing
   if (command.command_type === 'locate' && ['0x0008', '0x0032'].includes(parsed.packet_type)) {
     console.log(`[LOCATE_COMMAND_COMPLETE] command_id=${command.id} unique_id=${device.unique_id} packet_type=${parsed.packet_type} position_received=true locate_marked_executed=true evaluation_result=${evaluation.result}`);
   }
 
-  // Pull confidence metadata attached by findMatchingCommand
   const ackMatchConfidence = command._ack_match_confidence || 'low';
   const ackMatchReason = command._ack_match_reason || 'Matched by time window.';
 
-  // Build enriched 0x8009 response fields
   const mt20Ack8009 = parsed.packet_type === '0x8009' ? {
     raw_packet_hex: parsed.raw_packet_hex,
     bEnable: parsed.bEnable,
@@ -661,10 +656,8 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
     received_at: timestamp
   } : null;
 
-  // If already in a terminal success state, do not downgrade to failed
   if (alreadySucceeded && !pass && !ackOnly) {
     console.warn(`[webhookLightLogForwarder] Skipping downgrade of already-succeeded command ${command.id} (current: ${command.confirmation_status}).`);
-    // Still store the ACK data on provider_response for audit purposes
     await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
       provider_response: {
         ...(command.provider_response || {}),
@@ -700,7 +693,10 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
       mt20_ack_8009: mt20Ack8009,
       mt20_reply_evaluation: evaluation
     },
-    failure_reason: pass || ackOnly ? '' : evaluation.reason
+    failure_reason: pass || ackOnly ? '' : evaluation.reason,
+    // Store ACK raw hex for validation
+    ack_raw_hex: parsed.packet_type === '0x8009' ? parsed.raw_packet_hex : null,
+    ack_received_at: timestamp
   };
   if (pass) {
     updateData.executed_at = timestamp;
@@ -832,15 +828,21 @@ function calcFreshUntil(timestamp) {
 
 async function updateDeviceUdpSession(base44, device, parsed, timestamp) {
   if (!device?.id) return;
-  const packetType = parsed?.packet_type; // e.g. '0x0000', '0x0008', '0x0032', '0x0003', '0x8009'
+  const packetType = parsed?.packet_type;
   const packetTypeNum = packetType ? parseInt(packetType, 16) : null;
   const inboundType = packetTypeNum !== null && SESSION_INBOUND_PACKET_MAP[packetTypeNum]
     ? SESSION_INBOUND_PACKET_MAP[packetTypeNum]
     : 'unknown';
 
-  // Also treat bare handshake (0x0000 / login) if detected
   const isKnownSession = inboundType !== 'unknown';
   if (!isKnownSession) return;
+
+  const freshUntil = calcFreshUntil(timestamp);
+  
+  // Extract source IP:port from body (Traccar log forwarder should include this)
+  const sourceIp = String(body.source_ip || body.sourceIp || '').trim() || null;
+  const sourcePort = sourceIp && sourceIp.includes(':') ? sourceIp.split(':').pop() : null;
+  const sourceIpOnly = sourceIp && sourceIp.includes(':') ? sourceIp.split(':')[0] : sourceIp;
 
   const freshUntil = calcFreshUntil(timestamp);
   await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
@@ -849,11 +851,19 @@ async function updateDeviceUdpSession(base44, device, parsed, timestamp) {
     last_inbound_source: parsed.source || 'forwarded_log',
     last_inbound_raw_hex: (parsed.raw_packet_hex || '').slice(0, 20),
     udp_session_fresh_until: freshUntil,
-    udp_session_status: 'fresh'
+    udp_session_status: 'fresh',
+    // Store heartbeat routing metadata for command release validation
+    last_heartbeat_source_ip: inboundType === 'heartbeat' ? sourceIpOnly : null,
+    last_heartbeat_source_port: inboundType === 'heartbeat' ? sourcePort : null,
+    last_heartbeat_received_at: inboundType === 'heartbeat' ? timestamp : null
   }).catch((err) => console.warn('[udpSession] update failed:', err.message));
   
-  // Proof log: UDP session updated (heartbeat or other inbound)
-  console.log(`[UDP_SESSION_UPDATED] unique_id=${device.unique_id || device.id} inbound_type=${inboundType} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
+  // Proof log: UDP session updated with routing info
+  if (inboundType === 'heartbeat') {
+    console.log(`[UDP_SESSION_HEARTBEAT] unique_id=${device.unique_id || device.id} source_ip=${sourceIpOnly} source_port=${sourcePort} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
+  } else {
+    console.log(`[UDP_SESSION_UPDATED] unique_id=${device.unique_id || device.id} inbound_type=${inboundType} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
+  }
 }
 
 function isStarterCommand(commandType) {
@@ -891,7 +901,6 @@ async function dispatchPendingCommandViaTraccar(base44, command, device) {
 async function autoDispatchPendingCommands(base44, device, timestamp) {
   if (!device?.id) return 0;
 
-  // Check production scope — do not auto-dispatch starter commands unless explicitly scoped
   const productionEnabled = device.production_commands_enabled === true;
   const starterAllowed = device.production_command_scope === 'all_supported_commands';
 
@@ -901,7 +910,7 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
     queue_status: UDP_PENDING_STATUS
   }).catch(() => []);
 
-  // Expire any pending commands older than 5 minutes (belt-and-suspenders alongside scheduled timeout)
+  // Expire old commands
   for (const cmd of pendingCommands) {
     const createdAt = cmd.created_at || cmd.created_date || '';
     if (createdAt < cutoffTime) {
@@ -914,12 +923,11 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
     }
   }
 
-  // Filter: must be within last 5 minutes, respect starter scope
+  // Filter eligible commands
   const eligible = pendingCommands.filter((cmd) => {
     const createdAt = cmd.created_at || cmd.created_date || '';
     if (createdAt < cutoffTime) return false;
     if (isStarterCommand(cmd.command_type)) {
-      // Starter commands: only auto-dispatch if production scope allows AND admin confirmation already exists
       if (!productionEnabled || !starterAllowed) return false;
       const payload = cmd.request_payload || {};
       if (payload.starter_confirmation !== true && payload.confirm_starter_command !== true) return false;
@@ -927,13 +935,13 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
     return true;
   });
 
-  if (eligible.length === 0) return;
+  if (eligible.length === 0) return 0;
 
   // Sort oldest first, send only one
   eligible.sort((a, b) => new Date(a.created_at || a.created_date || 0) - new Date(b.created_at || b.created_date || 0));
   const command = eligible[0];
 
-  // Enforce 3-second spacing: check if any command was sent in the last 3 seconds
+  // Enforce 3-second spacing
   const recentlySent = await base44.asServiceRole.entities.TelematicsCommand.filter(
     { telematics_device_id: device.id },
     '-created_date', 10
@@ -947,10 +955,16 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
 
   if (tooRecent) {
     console.warn('[autoDispatch] 3s spacing enforced, skipping dispatch for command', command.id);
-    return;
+    return 0;
   }
 
   const now = new Date().toISOString();
+  const nowMs_int = Date.now();
+  
+  // Calculate heartbeat age at release
+  const heartbeatReceivedAt = device.last_heartbeat_received_at || device.last_inbound_packet_at;
+  const heartbeatAgeMs = heartbeatReceivedAt ? (nowMs_int - new Date(heartbeatReceivedAt).getTime()) : null;
+
   try {
     await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
       queue_status: 'queued_after_fresh_session',
@@ -960,6 +974,9 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
     });
 
     const dispatchResult = await dispatchPendingCommandViaTraccar(base44, command, device);
+
+    // Extract Traccar response command ID if available
+    const traccarCommandId = dispatchResult.traccar_response?.id || dispatchResult.traccar_response?.commandId || null;
 
     await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
       queue_status: 'sent',
@@ -971,7 +988,19 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
       status_message: 'Sent to Traccar',
       traccar_api_response: dispatchResult.traccar_response || dispatchResult,
       transmission_format: 'mt20_wrapped_hex',
-      provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: 'fresh_udp_session' }
+      provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: 'fresh_udp_session' },
+      // Validation metadata for heartbeat-gated release
+      heartbeat_source_ip: device.last_heartbeat_source_ip || null,
+      heartbeat_source_port: device.last_heartbeat_source_port || null,
+      heartbeat_received_at: heartbeatReceivedAt || null,
+      command_released_at: now,
+      heartbeat_age_ms_at_release: heartbeatAgeMs,
+      release_reason: 'fresh_mt20_heartbeat',
+      traccar_api_sent_at: now,
+      tcpdump_expected_target: device.last_heartbeat_source_ip && device.last_heartbeat_source_port
+        ? `${device.last_heartbeat_source_ip}:${device.last_heartbeat_source_port}`
+        : `${device.last_heartbeat_source_ip || 'unknown'}:5053`,
+      traccar_command_id: traccarCommandId
     });
 
     await base44.asServiceRole.entities.TelematicsEvent.create({
@@ -984,12 +1013,18 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
         auto_dispatched: true,
         pending_command_id: command.id,
         triggered_by: 'fresh_udp_session_webhook',
-        dispatch_result: dispatchResult
+        dispatch_result: dispatchResult,
+        heartbeat_routing: {
+          source_ip: device.last_heartbeat_source_ip,
+          source_port: device.last_heartbeat_source_port,
+          received_at: heartbeatReceivedAt,
+          age_ms_at_release: heartbeatAgeMs
+        }
       },
       created_at: now
     }).catch(() => {});
 
-    console.log(`[autoDispatch] Command ${command.command_type} (${command.id}) dispatched after fresh UDP session for device ${device.unique_id}`);
+    console.log(`[autoDispatch] Command ${command.command_type} (${command.id}) dispatched - heartbeat_age=${heartbeatAgeMs}ms source=${device.last_heartbeat_source_ip || 'unknown'}:${device.last_heartbeat_source_port || 'unknown'}`);
     return 1;
   } catch (err) {
     console.warn('[autoDispatch] Failed to dispatch pending command:', err.message);
