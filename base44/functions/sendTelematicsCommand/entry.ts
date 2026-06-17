@@ -552,9 +552,9 @@ Deno.serve(async (req) => {
     const UDP_FRESH_WINDOW_MS = 60 * 1000; // 60s — heartbeat forwarder confirmed
     const UDP_FRESH_WINDOW_SECONDS_GATE = 60;
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
-    // Only bypass gate for alarm sessions (time-critical) or explicit override flag
-    // Admin tests MUST go through gate to validate real production path
-    const bypassGate = (body.alarm_session_id && isNoranLive) || body.bypass_udp_gate === true;
+    // CRITICAL: Admin tests MUST go through gate to validate real production path
+    // Only bypass for: (1) alarm sessions (time-critical), (2) explicit force_send_even_if_stale flag
+    const bypassGate = (body.alarm_session_id && isNoranLive) || body.force_send_even_if_stale === true;
     let udpSessionBlocked = false;
     let udpGateReason = '';
     const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
@@ -568,7 +568,11 @@ Deno.serve(async (req) => {
       udp_session_age_seconds: ageSeconds,
       udp_session_fresh: bypassGate ? null : isFresh,
       gate_bypassed: bypassGate,
-      gate_bypass_reason: bypassGate ? (body.alarm_session_id ? 'alarm_session' : 'explicit_bypass_flag') : null,
+      gate_bypass_reason: bypassGate ? (body.alarm_session_id ? 'alarm_session' : (body.force_send_even_if_stale ? 'force_send_even_if_stale' : 'explicit_bypass_flag')) : null,
+      force_send_even_if_stale: body.force_send_even_if_stale === true,
+      forced_by_admin: (adminDeviceCommandTest || adminTraccarLiveTest) && body.force_send_even_if_stale === true,
+      force_reason: body.force_send_even_if_stale ? (body.force_reason || 'Admin forced send despite stale UDP session') : null,
+      warning: bypassGate && !body.alarm_session_id ? 'Command sent despite stale UDP session' : null,
       traccar_device_id: device.traccar_device_id || null
     };
     if (!bypassGate) {
@@ -604,7 +608,7 @@ Deno.serve(async (req) => {
       udp_packet_observed: false,
       device_ack_received_at: null,
       sent_to_traccar_at: null,
-      request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', legacy_command_alias: rawCommandType !== commandType ? rawCommandType : '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, command_traffic_class: trafficClass, rate_limit_actor_key: rateLimitActorKey, admin_starter_override: body.admin_starter_override === true, starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'), udp_diagnostics: udpDiagnostics }
+      request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', legacy_command_alias: rawCommandType !== commandType ? rawCommandType : '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, command_traffic_class: trafficClass, rate_limit_actor_key: rateLimitActorKey, admin_starter_override: body.admin_starter_override === true, starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'), force_send_even_if_stale: body.force_send_even_if_stale === true, force_reason: body.force_reason || '', udp_diagnostics: udpDiagnostics }
     });
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });
@@ -613,7 +617,8 @@ Deno.serve(async (req) => {
 
     // ── Proof log: gate decision ──
     const bypassNote = bypassGate ? ` bypass_reason=${udpDiagnostics.gate_bypass_reason}` : '';
-    const adminNote = (adminDeviceCommandTest || adminTraccarLiveTest) ? ' ADMIN_TEST_NO_BYPASS' : '';
+    const forceNote = body.force_send_even_if_stale ? ' FORCE_SEND_FLAG=true' : '';
+    const adminNote = (adminDeviceCommandTest || adminTraccarLiveTest) ? ` ADMIN_TEST${forceNote ? ' FORCE_SEND' : '_NO_BYPASS'}` : '';
     console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=60s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}${bypassNote}${adminNote}`);
 
     // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 0x0032 position).
