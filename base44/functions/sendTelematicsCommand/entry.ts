@@ -570,14 +570,65 @@ Deno.serve(async (req) => {
     // Only applies to Noran MT20 live production commands.
         const isNoranUdp = device.provider_key === 'traccar_noran_mt20' && device.production_commands_enabled === true;
     const useHeartbeatDelay = isNoranUdp && !STARTER_COMMANDS.includes(commandType);
-    const initialStatus = useHeartbeatDelay ? 'pending_waiting_for_heartbeat' : 'queued';
 
     if (useHeartbeatDelay) {
-      // Use heartbeat-delay strategy, do not send immediately
+      // Use heartbeat-delay strategy for Noran UDP devices
       const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
-        // ... (all command fields, status = pending_waiting_for_heartbeat)
+        company_id: vehicle?.company_id || device.company_id || provider.company_id || '',
+        telematics_device_id: device.id,
+        provider_key: device.provider_key,
+        vehicle_id: vehicle?.id || device.vehicle_id || '',
+        host_id: vehicle?.host_id || device.host_id || '',
+        booking_id: booking?.id || body.booking_id || '',
+        renter_id: booking?.user_id || '',
+        command_type: commandType,
+        alarm_session_id: body.alarm_session_id || '',
+        pulse_number: Number(body.pulse_number || 0) || undefined,
+        device_unique_id: device.unique_id || '',
+        traccar_device_id: device.traccar_device_id || '',
+        production_command: liveNoranProduction || liveNoranInstallerTest,
+        status: 'pending_waiting_for_heartbeat',
+        queue_status: 'pending_waiting_for_heartbeat',
+        confirmation_status: 'pending',
+        retry_count: 0,
+        max_retries: 0,
+        expires_at: expiresAt,
+        confirmation_required: STARTER_COMMANDS.includes(commandType),
+        confirmation_source: 'provider',
+        idempotency_key: idempotencyKey,
+        requested_by: user.email,
+        requested_role: user.role || 'user',
+        ip_address: getClientIp(req),
+        user_agent: req.headers.get('user-agent') || '',
+        created_at: now.toISOString(),
+        request_payload: {
+          vehicle_id: vehicle?.id || device.vehicle_id || '',
+          booking_id: booking?.id || body.booking_id || '',
+          legacy_command_alias: rawCommandType !== commandType ? rawCommandType : '',
+          admin_traccar_live_test: adminTraccarLiveTest,
+          admin_device_command_test: adminDeviceCommandTest,
+          installer_install_test: installerInstallTest,
+          command_traffic_class: trafficClass,
+          rate_limit_actor_key: rateLimitActorKey,
+          admin_starter_override: body.admin_starter_override === true,
+          starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true,
+          unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false,
+          unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true,
+          reason: body.reason || '',
+          source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'),
+          heartbeat_delay_strategy: true,
+          configured_delay_seconds: device.post_heartbeat_release_delay_seconds || 0
+        }
       });
-      return Response.json({ ok: true, command_id: commandAudit.id, queue_status: 'pending_waiting_for_heartbeat', message: 'Command queued, waiting for heartbeat' });
+      return Response.json({
+        ok: true,
+        command_id: commandAudit.id,
+        command_type: commandType,
+        queue_status: 'pending_waiting_for_heartbeat',
+        status_message: 'Waiting for device heartbeat',
+        configured_delay_seconds: device.post_heartbeat_release_delay_seconds || 0,
+        message: 'Command queued. Will be released after next heartbeat + configured delay.'
+      });
     }
 
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
