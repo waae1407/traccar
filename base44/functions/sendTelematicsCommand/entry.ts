@@ -10,6 +10,21 @@ const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 const HIGH_RISK_COMMANDS = ['lock', 'unlock', 'horn', 'lights', 'horn_lights', 'disable_starter', 'restore_starter', 'raw'];
 const LOW_RISK_COMMANDS = ['locate', 'status'];
 const HEARTBEAT_FRESHNESS_MS = {
+  high_risk: 10 * 1000,
+  low_risk: 30 * 1000,
+  hard_stale: 60 * 1000
+};
+
+function getCommandRiskLevel(commandType) {
+  if (HIGH_RISK_COMMANDS.includes(commandType)) return 'high_risk';
+  if (LOW_RISK_COMMANDS.includes(commandType)) return 'low_risk';
+  return 'high_risk'; // Default to high-risk for unknown commands
+}
+
+// ── MT20 Heartbeat Freshness Gates by Command Risk Level ──
+const HIGH_RISK_COMMANDS = ['lock', 'unlock', 'horn', 'lights', 'horn_lights', 'disable_starter', 'restore_starter', 'raw'];
+const LOW_RISK_COMMANDS = ['locate', 'status'];
+const HEARTBEAT_FRESHNESS_MS = {
   high_risk: 10 * 1000,   // 10 seconds for vehicle control
   low_risk: 30 * 1000,    // 30 seconds for locate/status
   hard_stale: 60 * 1000   // 60 seconds absolute max
@@ -569,6 +584,8 @@ Deno.serve(async (req) => {
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
     const commandRiskLevel = getCommandRiskLevel(commandType);
     const maxAgeMs = HEARTBEAT_FRESHNESS_MS[commandRiskLevel];
+    const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
+    const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
     const isHardStale = lastInboundMs ? (Date.now() - lastInboundMs) > HEARTBEAT_FRESHNESS_MS.hard_stale : true;
     
     // CRITICAL: Admin tests MUST go through gate to validate real production path
@@ -584,7 +601,9 @@ Deno.serve(async (req) => {
       command_requested_at: now.toISOString(),
       last_inbound_packet_at: device.last_inbound_packet_at || null,
       last_inbound_packet_type: device.last_inbound_packet_type || null,
-      udp_fresh_window_seconds: UDP_FRESH_WINDOW_SECONDS_GATE,
+      udp_session_age_ms: ageMs,
+      command_risk_level: commandRiskLevel,
+      max_age_ms_for_risk: maxAgeMs,
       udp_session_age_seconds: ageSeconds,
       udp_session_fresh: bypassGate ? null : isFresh,
       gate_bypassed: bypassGate,

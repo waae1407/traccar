@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       const ackAge = ackAt ? (now.getTime() - ackAt.getTime()) / 60000 : 0;
 
       // Pending-waiting-for-fresh-session timeout: 5 minutes with no inbound heartbeat
-      if (status === 'pending_waiting_for_fresh_session') {
+      if (status === 'waiting_for_fresh_heartbeat') {
         const createdAt = command.created_at ? new Date(command.created_at) : null;
         const pendingAge = createdAt ? (now.getTime() - createdAt.getTime()) / 60000 : 0;
         if (pendingAge > 5) {
