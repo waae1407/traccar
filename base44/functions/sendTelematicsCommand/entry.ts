@@ -552,8 +552,9 @@ Deno.serve(async (req) => {
     const UDP_FRESH_WINDOW_MS = 60 * 1000; // 60s — heartbeat forwarder confirmed
     const UDP_FRESH_WINDOW_SECONDS_GATE = 60;
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
-    // Admin device tests bypass UDP gate for instant feedback (admins are actively waiting)
-    const bypassGate = !isNoranLive || body.alarm_session_id || installerInstallTest || adminTraccarLiveTest || adminDeviceCommandTest || body.bypass_udp_gate === true;
+    // Only bypass gate for alarm sessions (time-critical) or explicit override flag
+    // Admin tests MUST go through gate to validate real production path
+    const bypassGate = (body.alarm_session_id && isNoranLive) || body.bypass_udp_gate === true;
     let udpSessionBlocked = false;
     let udpGateReason = '';
     const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
@@ -567,7 +568,7 @@ Deno.serve(async (req) => {
       udp_session_age_seconds: ageSeconds,
       udp_session_fresh: bypassGate ? null : isFresh,
       gate_bypassed: bypassGate,
-      gate_bypass_reason: bypassGate ? (adminDeviceCommandTest ? 'admin_device_test' : (body.alarm_session_id ? 'alarm_session' : (installerInstallTest ? 'installer_test' : (adminTraccarLiveTest ? 'admin_traccar_test' : 'not_noran_live')))) : null,
+      gate_bypass_reason: bypassGate ? (body.alarm_session_id ? 'alarm_session' : 'explicit_bypass_flag') : null,
       traccar_device_id: device.traccar_device_id || null
     };
     if (!bypassGate) {
@@ -612,7 +613,8 @@ Deno.serve(async (req) => {
 
     // ── Proof log: gate decision ──
     const bypassNote = bypassGate ? ` bypass_reason=${udpDiagnostics.gate_bypass_reason}` : '';
-    console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=60s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}${bypassNote}`);
+    const adminNote = (adminDeviceCommandTest || adminTraccarLiveTest) ? ' ADMIN_TEST_NO_BYPASS' : '';
+    console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=60s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}${bypassNote}${adminNote}`);
 
     // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 0x0032 position).
     // Auto-dispatch fires on the next inbound packet in webhookLightLogForwarder.
