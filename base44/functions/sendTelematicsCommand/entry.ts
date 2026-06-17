@@ -545,7 +545,7 @@ Deno.serve(async (req) => {
     let udpSessionBlocked = false;
     let udpGateReason = '';
     if (!bypassGate) {
-      const UDP_FRESH_WINDOW_MS = 90 * 1000; // 90s — matches device heartbeat interval (~60s) with 1.5x buffer
+      const UDP_FRESH_WINDOW_MS = 150 * 1000; // 150s — device sends 0x0032 every 60-130s; TCP keepalives not forwarded via webhook
       const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
       const ageSeconds = lastInboundMs ? (Date.now() - lastInboundMs) / 1000 : null;
       // Recompute freshness live from last_inbound_packet_at + window (not from stored udp_session_fresh_until)
@@ -553,7 +553,7 @@ Deno.serve(async (req) => {
       if (!isFresh) {
         udpSessionBlocked = true;
         udpGateReason = ageSeconds !== null
-          ? `stale_udp_session (last inbound ${Math.round(ageSeconds)}s ago, fresh window is 90s)`
+          ? `stale_udp_session (last inbound ${Math.round(ageSeconds)}s ago, fresh window is 150s)`
           : 'stale_udp_session (no inbound packet on record)';
       }
     }

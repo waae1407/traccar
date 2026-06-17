@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     if (!device) {
       report.sections.base44_device = { found: false, error: 'No TelematicsDevice record found with this unique_id' };
     } else {
-      const UDP_FRESH_WINDOW_MS = 90 * 1000; // Must match sendTelematicsCommand
+      const UDP_FRESH_WINDOW_MS = 150 * 1000; // Must match sendTelematicsCommand — device sends 0x0032 every 60-130s
       const lastInboundMs  = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
       const ageSeconds     = lastInboundMs ? Math.round((now - lastInboundMs) / 1000) : null;
       // Recompute live — don't trust stored udp_session_fresh_until (may be from old 20s window)
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
           production_gate: device.production_commands_enabled === true ? 'PASS' : 'BLOCK — production_commands_enabled is not true',
           traccar_id_gate: device.traccar_device_id ? 'PASS' : 'BLOCK — no traccar_device_id on record',
           lifecycle_gate: ['suspended', 'retired'].includes(device.lifecycle_status) ? 'BLOCK — device lifecycle is ' + device.lifecycle_status : 'PASS',
-          udp_session_gate: isFresh ? 'PASS — session fresh' : `BLOCK — session stale (${ageSeconds ?? 'no data'}s since last inbound, fresh window is 90s)`,
+          udp_session_gate: isFresh ? 'PASS — session fresh' : `BLOCK — session stale (${ageSeconds ?? 'no data'}s since last inbound, fresh window is 150s)`,
         }
       };
     }

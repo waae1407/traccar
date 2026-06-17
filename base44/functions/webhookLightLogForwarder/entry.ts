@@ -25,7 +25,7 @@ const MT20_ALARM_TYPES = {
   9: 'power_alarm'
 };
 // ── UDP Session Freshness Constants ──
-const UDP_FRESH_WINDOW_SECONDS = 90;
+const UDP_FRESH_WINDOW_SECONDS = 150; // Device sends 0x0032 position every ~60-130s; TCP keepalives are not forwarded
 const UDP_PENDING_COMMAND_MAX_AGE_MINUTES = 5;
 const UDP_MIN_COMMAND_SPACING_MS = 3000;
 const UDP_PENDING_STATUS = 'pending_waiting_for_fresh_session';
