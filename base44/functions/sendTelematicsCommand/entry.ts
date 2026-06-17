@@ -6,20 +6,10 @@ const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'alarm_pulse'];
 const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'status'];
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 
-// ── MT20 Heartbeat Freshness Gates by Command Risk Level ──
-const HIGH_RISK_COMMANDS = ['lock', 'unlock', 'horn', 'lights', 'horn_lights', 'disable_starter', 'restore_starter', 'raw'];
-const LOW_RISK_COMMANDS = ['locate', 'status'];
-const HEARTBEAT_FRESHNESS_MS = {
-  high_risk: 10 * 1000,
-  low_risk: 30 * 1000,
-  hard_stale: 60 * 1000
-};
-
-function getCommandRiskLevel(commandType) {
-  if (HIGH_RISK_COMMANDS.includes(commandType)) return 'high_risk';
-  if (LOW_RISK_COMMANDS.includes(commandType)) return 'low_risk';
-  return 'high_risk'; // Default to high-risk for unknown commands
-}
+// ── HEARTBEAT-DELAY ONLY RULE ──
+// All Noran MT20 UDP commands wait for next heartbeat, then apply configured delay, then send to Traccar.
+// No freshness gates, no retry logic, no immediate sends.
+const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90;
 
 
 
@@ -559,26 +549,22 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const nowMs = Date.now();
-    const expiresAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
+    const expiresAt = new Date(now.getTime() + NORAN_HEARTBEAT_EXPIRY_SECONDS * 1000).toISOString();
+    
+    // ── SIMPLE DUPLICATE PROTECTION (15 seconds) ──
     const idempotencyKey = makeIdempotencyKey(user.email, device.id, commandType, { alarmSessionId: body.alarm_session_id || '', pulseNumber: body.pulse_number || 0 });
-    const duplicate = (await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey }))[0];
-    if (duplicate && !['failed', 'expired', 'blocked', 'pending_waiting_for_fresh_session'].includes(duplicate.queue_status || duplicate.status)) return Response.json({ error: 'Duplicate command prevented.', idempotency_key: idempotencyKey }, { status: 409 });
+    const recentCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id, command_type: commandType }, '-created_date', 5);
+    const duplicateActive = recentCommands.some(cmd => {
+      const created = new Date(cmd.created_date || cmd.created_at || 0).getTime();
+      const ageSeconds = (nowMs - created) / 1000;
+      return ageSeconds < 15 && ['pending_waiting_for_next_heartbeat', 'sent_to_traccar', 'waiting_for_delay'].includes(cmd.queue_status || cmd.status);
+    });
+    if (duplicateActive) return Response.json({ error: 'Duplicate command blocked. Wait 15 seconds before sending same command type.', retry_after_seconds: 15 }, { status: 429 });
 
-    // ── MT20 UDP Session Freshness Gate (Risk-Based) ──
-    // High-risk commands (lock/unlock/starter/horn/lights): 10s max heartbeat age
-    // Low-risk commands (locate/status): 30s max heartbeat age
-    // Hard stale: >60s never send live
-    // Only applies to Noran MT20 live production commands.
-        const isNoranUdp = device.provider_key === 'traccar_noran_mt20' && device.production_commands_enabled === true;
-    const useHeartbeatDelay = isNoranUdp && !STARTER_COMMANDS.includes(commandType);
-
-    if (useHeartbeatDelay) {
-      // Check if heartbeat already exists
-      const lastHeartbeatAt = device.last_heartbeat_received_at || device.last_inbound_packet_at;
-      const heartbeatExists = !!lastHeartbeatAt;
-      const heartbeatAgeMs = heartbeatExists ? (nowMs - new Date(lastHeartbeatAt).getTime()) : Infinity;
-      const heartbeatAgeSeconds = heartbeatAgeMs !== Infinity ? Math.floor(heartbeatAgeMs / 1000) : null;
-      
+    // ── HEARTBEAT-DELAY ONLY RULE FOR NORAN MT20 UDP ──
+    const isNoranUdp = device.provider_key === 'traccar_noran_mt20' && device.production_commands_enabled === true;
+    
+    if (isNoranUdp) {
       // Pre-build the command payload BEFORE queuing (critical for auto-dispatch)
       const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
       const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
@@ -588,6 +574,7 @@ Deno.serve(async (req) => {
       const hexPayload = preBuiltCommand?.hex_payload || null;
       const asciiPayload = preBuiltCommand?.ascii_payload || null;
       const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
+      const configuredDelay = device.post_heartbeat_release_delay_seconds || 0;
 
       const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '',
@@ -603,8 +590,8 @@ Deno.serve(async (req) => {
         device_unique_id: device.unique_id || '',
         traccar_device_id: device.traccar_device_id || '',
         production_command: liveNoranProduction || liveNoranInstallerTest,
-        status: 'pending_waiting_for_heartbeat',
-        queue_status: 'pending_waiting_for_heartbeat',
+        status: 'pending_waiting_for_next_heartbeat',
+        queue_status: 'pending_waiting_for_next_heartbeat',
         confirmation_status: 'pending',
         retry_count: 0,
         max_retries: 0,
@@ -638,233 +625,40 @@ Deno.serve(async (req) => {
           unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true,
           reason: body.reason || '',
           source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'),
-          heartbeat_delay_strategy: true,
-          configured_delay_seconds: device.post_heartbeat_release_delay_seconds || 0,
-          heartbeat_exists: heartbeatExists,
-          heartbeat_age_seconds: heartbeatAgeSeconds
+          release_strategy: 'heartbeat_delay_only',
+          configured_delay_seconds: configuredDelay
         }
       });
+      
       return Response.json({
         ok: true,
         command_id: commandAudit.id,
         command_type: commandType,
-        queue_status: 'pending_waiting_for_heartbeat',
-        status_message: heartbeatExists ? 'Waiting for next heartbeat (last one too old)' : 'Waiting for device heartbeat',
-        configured_delay_seconds: device.post_heartbeat_release_delay_seconds || 0,
-        has_payload: !!hexPayload,
-        heartbeat_exists: heartbeatExists,
-        heartbeat_age_seconds: heartbeatAgeSeconds,
-        message: heartbeatExists 
-          ? `Last heartbeat ${heartbeatAgeSeconds}s ago. Waiting for fresh heartbeat to trigger release.`
-          : 'No heartbeat on record. Will release after next heartbeat + configured delay.'
+        queue_status: 'pending_waiting_for_next_heartbeat',
+        status_message: 'Waiting for next device heartbeat',
+        configured_delay_seconds: configuredDelay,
+        expires_in_seconds: NORAN_HEARTBEAT_EXPIRY_SECONDS,
+        message: `Command queued. Waiting for next device heartbeat. Will wait ${configuredDelay}s after heartbeat before sending.`
       });
     }
 
-    const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
-    const commandRiskLevel = getCommandRiskLevel(commandType);
-    const maxAgeMs = HEARTBEAT_FRESHNESS_MS[commandRiskLevel];
-    const lastInboundAt = device.last_heartbeat_received_at || device.last_inbound_packet_at || device.udp_last_seen_at || null;
-    const lastInboundMs = lastInboundAt ? new Date(lastInboundAt).getTime() : 0;
-    const heartbeatAgeMs = lastInboundMs ? nowMs - lastInboundMs : Infinity;
-    const heartbeatAgeSeconds = Math.floor(heartbeatAgeMs / 1000);
-    const isHardStale = heartbeatAgeMs > HEARTBEAT_FRESHNESS_MS.hard_stale;
-    
-    // CRITICAL: Admin tests MUST go through gate to validate real production path
-    // Only bypass for: (1) alarm sessions (time-critical), (2) explicit force_send_even_if_stale flag
-    const bypassGate = (body.alarm_session_id && isNoranLive) || body.force_send_even_if_stale === true;
-    let udpSessionBlocked = false;
-    let udpGateReason = '';
-    const ageSeconds = heartbeatAgeSeconds;
-    const ageMs = heartbeatAgeMs;
-    const isFresh = heartbeatAgeMs <= maxAgeMs;
-    const udpDiagnostics = {
-      command_requested_at: now.toISOString(),
-      last_inbound_packet_at: device.last_inbound_packet_at || null,
-      last_inbound_packet_type: device.last_inbound_packet_type || null,
-      udp_session_age_ms: ageMs,
-      command_risk_level: commandRiskLevel,
-      max_age_ms_for_risk: maxAgeMs,
-      udp_session_age_seconds: ageSeconds,
-      udp_session_fresh: bypassGate ? null : isFresh,
-      gate_bypassed: bypassGate,
-      gate_bypass_reason: bypassGate ? (body.alarm_session_id ? 'alarm_session' : (body.force_send_even_if_stale ? 'force_send_even_if_stale' : 'explicit_bypass_flag')) : null,
-      force_send_even_if_stale: body.force_send_even_if_stale === true,
-      forced_by_admin: (adminDeviceCommandTest || adminTraccarLiveTest) && body.force_send_even_if_stale === true,
-      force_reason: body.force_send_even_if_stale ? (body.force_reason || 'Admin forced send despite stale UDP session') : null,
-      warning: bypassGate && !body.alarm_session_id ? 'Command sent despite stale UDP session' : null,
-      traccar_device_id: device.traccar_device_id || null
-    };
-    if (!bypassGate) {
-      if (isHardStale) {
-        udpSessionBlocked = true;
-        udpGateReason = ageSeconds !== null
-          ? `hard_stale (last inbound ${ageSeconds}s ago, max is 60s)`
-          : 'hard_stale (no inbound packet on record)';
-        udpDiagnostics.blocked_reason = udpGateReason;
-        udpDiagnostics.gate_decision = 'BLOCK_HARD_STALE';
-      } else if (!isFresh) {
-        // Queue for high-risk commands when heartbeat age exceeds risk window
-        udpSessionBlocked = true;
-        udpGateReason = ageSeconds !== null
-          ? `waiting_for_fresh_heartbeat (${commandRiskLevel} command, heartbeat ${ageSeconds}s ago, max is ${Math.floor(maxAgeMs/1000)}s)`
-          : `waiting_for_fresh_heartbeat (${commandRiskLevel} command, no heartbeat on record)`;
-        udpDiagnostics.blocked_reason = udpGateReason;
-        udpDiagnostics.gate_decision = 'QUEUE_WAITING_FOR_HEARTBEAT';
-      } else {
-        udpDiagnostics.gate_decision = 'PASS';
-      }
-    } else {
-      udpDiagnostics.gate_decision = 'BYPASS';
-    }
-
-    const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
-      company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
-      vehicle_id: vehicle?.id || device.vehicle_id || '', host_id: vehicle?.host_id || device.host_id || '', booking_id: booking?.id || body.booking_id || '', renter_id: booking?.user_id || '',
-      command_type: commandType, alarm_session_id: body.alarm_session_id || '', pulse_number: Number(body.pulse_number || 0) || undefined, device_unique_id: device.unique_id || '', traccar_device_id: device.traccar_device_id || '', production_command: liveNoranProduction || liveNoranInstallerTest,
-      status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
-      confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
-      requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
-      created_at: now.toISOString(),
-      // ── UDP diagnostics stored at creation time ──
-      command_requested_at: now.toISOString(),
-      last_inbound_packet_at: udpDiagnostics.last_inbound_packet_at,
-      last_inbound_packet_type: udpDiagnostics.last_inbound_packet_type,
-      udp_session_age_seconds: udpDiagnostics.udp_session_age_seconds ?? null,
-      udp_session_fresh: udpDiagnostics.udp_session_fresh ?? null,
-      blocked_reason: udpDiagnostics.blocked_reason || null,
-      udp_packet_observed: false,
-      device_ack_received_at: null,
-      sent_to_traccar_at: null,
-      request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', legacy_command_alias: rawCommandType !== commandType ? rawCommandType : '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, command_traffic_class: trafficClass, rate_limit_actor_key: rateLimitActorKey, admin_starter_override: body.admin_starter_override === true, starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'), force_send_even_if_stale: body.force_send_even_if_stale === true, force_reason: body.force_reason || '', udp_diagnostics: udpDiagnostics }
-    });
-    if (isExpired(expiresAt)) {
-      await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });
-      return Response.json({ error: 'Command expired before send.' }, { status: 400 });
-    }
-
-    // ── Proof log: gate decision ──
-    const bypassNote = bypassGate ? ` bypass_reason=${udpDiagnostics.gate_bypass_reason}` : '';
-    const forceNote = body.force_send_even_if_stale ? ' FORCE_SEND_FLAG=true' : '';
-    const adminNote = (adminDeviceCommandTest || adminTraccarLiveTest) ? ` ADMIN_TEST${forceNote ? ' FORCE_SEND' : '_NO_BYPASS'}` : '';
-    console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=60s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}${bypassNote}${adminNote}`);
-
-    // Pre-build hex payload BEFORE queuing (critical for auto-dispatch when session is stale)
-    const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
-    const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
-      ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template).catch(() => null)
-      : (template ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction }) : await fallbackAdapter(provider, device, commandType));
-    
-    const hexPayload = preBuiltCommand?.hex_payload || null;
-    const asciiPayload = preBuiltCommand?.ascii_payload || null;
-    const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
-
-    if (udpSessionBlocked && !useHeartbeatDelay) {
-      // Determine if this is hard stale (block) or waiting for heartbeat (queue)
-      const isHardStaleBlock = udpDiagnostics.gate_decision === 'BLOCK_HARD_STALE';
-      const queueStatus = isHardStaleBlock ? 'blocked' : 'waiting_for_fresh_heartbeat';
-      
-      await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
-        status: queueStatus,
-        queue_status: queueStatus,
-        confirmation_status: 'pending',
-        failure_reason: udpGateReason,
-        udp_gate_blocked_at: now.toISOString(),
-        udp_gate_reason: udpGateReason,
-        blocked_reason: udpGateReason,
-        // CRITICAL: Store pre-built payload for auto-dispatch
-        hex_payload: hexPayload,
-        ascii_payload: asciiPayload,
-        sData_hex: sDataHex,
-        wrapped_payload: hexPayload,
-        transmission_format: hexPayload ? 'mt20_wrapped_hex' : 'unknown',
-        // Store validation metadata
-        heartbeat_source_ip: device.last_heartbeat_source_ip || null,
-        heartbeat_source_port: device.last_heartbeat_source_port || null,
-        heartbeat_received_at: device.last_heartbeat_received_at || device.last_inbound_packet_at || null,
-        command_requested_at: now.toISOString(),
-        heartbeat_age_seconds_at_request: ageSeconds,
-        heartbeat_age_ms_at_request: ageMs,
-        latest_heartbeat_at: device.last_heartbeat_received_at || device.last_inbound_packet_at || null,
-        queue_status_reason: udpGateReason,
-        risk_level: commandRiskLevel
-      });
-      
-      const responseMsg = isHardStaleBlock
-        ? 'Command blocked: heartbeat too old (>60s). Device must send fresh heartbeat first.'
-        : `Command queued: waiting for fresh heartbeat (${commandRiskLevel} commands need ${Math.floor(maxAgeMs/1000)}s window). Will auto-send on next 0x000f heartbeat.`;
-      
-      return Response.json({
-        ok: false,
-        command_id: commandAudit.id,
-        command_type: commandType,
-        queue_status: queueStatus,
-        status_message: isHardStaleBlock ? 'Blocked - heartbeat too old' : 'Waiting for fresh heartbeat',
-        udp_session_blocked: true,
-        udp_gate_reason: udpGateReason,
-        message: responseMsg,
-        last_inbound_packet_at: device.last_inbound_packet_at || null,
-        heartbeat_age_seconds: ageSeconds,
-        risk_level: commandRiskLevel,
-        udp_diagnostics: udpDiagnostics
-      });
-    }
-
+    // Non-Noran commands: send immediately (legacy path)
     await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'sending', queue_status: 'sending', confirmation_status: 'pending' });
     try {
       const sentAt = new Date().toISOString();
-      const sentAtMs = Date.now();
       const providerCommandId = preBuiltCommand.response?.id || preBuiltCommand.response?.commandId || preBuiltCommand.response?.command_id || '';
-      
-      // Calculate heartbeat age at release for commands that were queued
-      const heartbeatAgeAtRelease = commandAudit.heartbeat_received_at 
-        ? (sentAtMs - new Date(commandAudit.heartbeat_received_at).getTime())
-        : null;
       
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
         status: 'sent', queue_status: 'sent', confirmation_status: 'sent', sent_at: sentAt,
-        sent_to_traccar_at: sentAt,
         traccar_api_response: preBuiltCommand.response || {},
-        status_message: preBuiltCommand.dry_run ? 'Dry run — not sent to Traccar' : 'Sent to Traccar',
         provider_command_id: String(providerCommandId || ''), provider_command_name: preBuiltCommand.provider_command_name,
-        ascii_payload: asciiPayload,
-        hex_payload: hexPayload,
-        wrapped_payload: hexPayload || '',
-        sData_hex: sDataHex,
+        ascii_payload: asciiPayload, hex_payload: hexPayload, wrapped_payload: hexPayload || '', sData_hex: sDataHex,
         transmission_format: hexPayload ? 'mt20_wrapped_hex' : preBuiltCommand.dry_run ? 'dry_run' : 'provider_api',
-        actual_transmitted_payload: preBuiltCommand.response?.traccar_payload || { traccar_payloads: preBuiltCommand.response?.responses?.map((item) => item.traccar_payload).filter(Boolean) || [] },
-        production_command: !!preBuiltCommand.production_command,
-        acknowledgement_source: 'provider_api_response', provider_response: preBuiltCommand.response || {},
-        // Release validation metadata
-        heartbeat_age_ms_at_release: heartbeatAgeAtRelease,
-        command_released_at: sentAt,
-        release_reason: 'fresh_mt20_heartbeat',
-        route_validation_source: 'mt20_heartbeat',
-        traccar_api_sent_at: sentAt
+        production_command: !!preBuiltCommand.production_command, provider_response: preBuiltCommand.response || {}
       });
-      await base44.asServiceRole.entities.TelematicsEvent.create({
-        company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
-        vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_sent`, source: 'command', raw_payload: { provider_api_success: true, provider_execution_confirmed: false, response: preBuiltCommand.response || {} }, created_at: sentAt
-      });
-      if (commandType === 'unlock') {
-        const activeAlarms = await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ vehicle_id: vehicle?.id || device.vehicle_id || '', status: 'active' });
-        for (const session of activeAlarms) {
-          await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'cancelled', ended_at: sentAt, cancel_reason: 'unlock_command_succeeded' });
-        }
-      }
-      if (adminDeviceCommandTest) {
-        await base44.asServiceRole.entities.ActivityEvent.create({
-          event_type: 'gps.command_sent', actor_id: user.id || '', actor_email: user.email, actor_role: 'admin', target_entity: 'TelematicsDevice', target_id: device.id, vehicle_id: vehicle?.id || device.vehicle_id || '', summary: `Admin test command ${commandType} sent to ${device.unique_id || device.id}`, metadata: { command_id: commandAudit.id, dry_run: !!preBuiltCommand.dry_run }, source: 'admin_panel', event_status: 'success'
-        });
-      }
-      return Response.json({ ok: true, command_id: commandAudit.id, command_type: commandType, queue_status: 'sent', dry_run: !!preBuiltCommand.dry_run, production_command: !!preBuiltCommand.production_command, pending_acknowledgement: true, result: preBuiltCommand.response || {} });
+      return Response.json({ ok: true, command_id: commandAudit.id, command_type: commandType, queue_status: 'sent', dry_run: !!preBuiltCommand.dry_run, production_command: !!preBuiltCommand.production_command, result: preBuiltCommand.response || {} });
     } catch (error) {
-      await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: error.message, failed_at: new Date().toISOString(), sent_at: new Date().toISOString() });
-      await base44.asServiceRole.entities.TelematicsEvent.create({ company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key, vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_failed`, source: 'command', raw_payload: { error: error.message }, created_at: new Date().toISOString() });
-      if (adminDeviceCommandTest) {
-        await base44.asServiceRole.entities.ActivityEvent.create({
-          event_type: 'gps.command_failed', actor_id: user.id || '', actor_email: user.email, actor_role: 'admin', target_entity: 'TelematicsDevice', target_id: device.id, vehicle_id: vehicle?.id || device.vehicle_id || '', summary: `Admin test command ${commandType} failed for ${device.unique_id || device.id}`, metadata: { command_id: commandAudit.id, error: error.message }, source: 'admin_panel', event_status: 'error'
-        });
-      }
+      await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: error.message, failed_at: new Date().toISOString() });
       return Response.json({ error: error.message, command_id: commandAudit.id, command_failed: true }, { status: 500 });
     }
   } catch (error) {

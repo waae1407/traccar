@@ -24,15 +24,10 @@ const MT20_ALARM_TYPES = {
   4: 'shock_alarm',
   9: 'power_alarm'
 };
-// ── UDP Session Freshness Constants ──
-// 60s send-now window: device heartbeats are ~30s, so 60s = 2 missed cycles before gating.
-// Heartbeat forwarding is now deployed — 60s is safe and tighter than the old 90s.
-// If stale, park as pending_waiting_for_fresh_session and auto-send on next inbound.
-// 5-minute pending timeout: if no inbound arrives within 5 min, mark failed_no_fresh_session.
-const UDP_FRESH_WINDOW_SECONDS = 60;
-const UDP_PENDING_COMMAND_MAX_AGE_MINUTES = 5;
+// ── HEARTBEAT-DELAY ONLY CONSTANTS ──
+const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90;
 const UDP_MIN_COMMAND_SPACING_MS = 3000;
-const UDP_PENDING_STATUS = 'pending_waiting_for_heartbeat';
+const UDP_PENDING_STATUS = 'pending_waiting_for_next_heartbeat';
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 
 // Maps packet type codes to their session inbound type label.
@@ -831,41 +826,25 @@ async function createScopedAlarmNotification(base44, payload) {
   }).catch(() => null);
 }
 
-// ── UDP Session Freshness Helpers ──
-
-function calcFreshUntil(timestamp) {
-  return new Date(new Date(timestamp).getTime() + UDP_FRESH_WINDOW_SECONDS * 1000).toISOString();
-}
-
+// ── Heartbeat Session Tracking ──
 async function updateDeviceUdpSession(base44, device, parsed, timestamp, body) {
   if (!device?.id) return;
-  
   const packetType = parsed?.packet_type;
   const packetTypeNum = packetType ? parseInt(packetType, 16) : null;
-  const inboundType = packetTypeNum !== null && SESSION_INBOUND_PACKET_MAP[packetTypeNum]
-    ? SESSION_INBOUND_PACKET_MAP[packetTypeNum]
-    : 'unknown';
+  const inboundType = packetTypeNum !== null && SESSION_INBOUND_PACKET_MAP[packetTypeNum] ? SESSION_INBOUND_PACKET_MAP[packetTypeNum] : 'unknown';
+  if (inboundType === 'unknown') return;
 
-  const isKnownSession = inboundType !== 'unknown';
-  if (!isKnownSession) return;
-
-  // Extract source IP:port from body (Traccar log forwarder should include this)
   const sourceIpRaw = String(body?.source_ip || body?.sourceIp || '').trim() || null;
   const sourcePort = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':').pop() : null;
   const sourceIpOnly = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':')[0] : sourceIpRaw;
 
-  const freshUntil = calcFreshUntil(timestamp);
-  
   const updatePayload = {
     last_inbound_packet_at: timestamp,
     last_inbound_packet_type: inboundType,
     last_inbound_source: parsed.source || 'forwarded_log',
-    last_inbound_raw_hex: (parsed.raw_packet_hex || '').slice(0, 20),
-    udp_session_fresh_until: freshUntil,
-    udp_session_status: 'fresh'
+    last_inbound_raw_hex: (parsed.raw_packet_hex || '').slice(0, 20)
   };
 
-  // Store heartbeat routing metadata for command release validation
   if (inboundType === 'heartbeat') {
     updatePayload.last_heartbeat_source_ip = sourceIpOnly || null;
     updatePayload.last_heartbeat_source_port = sourcePort || null;
@@ -874,14 +853,11 @@ async function updateDeviceUdpSession(base44, device, parsed, timestamp, body) {
 
   try {
     await base44.asServiceRole.entities.TelematicsDevice.update(device.id, updatePayload);
-    // Proof log: UDP session updated with routing info
     if (inboundType === 'heartbeat') {
-      console.log(`[UDP_SESSION_HEARTBEAT] unique_id=${device.unique_id || device.id} source_ip=${sourceIpOnly || 'unknown'} source_port=${sourcePort || 'unknown'} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil} last_heartbeat_received_at=${timestamp}`);
-    } else {
-      console.log(`[UDP_SESSION_UPDATED] unique_id=${device.unique_id || device.id} inbound_type=${inboundType} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
+      console.log(`[HEARTBEAT_RECEIVED] unique_id=${device.unique_id || device.id} packet_type=0x000f last_heartbeat_at=${timestamp}`);
     }
   } catch (err) {
-    console.error('[udpSession] update FAILED:', err.message, 'device_id:', device.id, 'payload:', JSON.stringify(updatePayload));
+    console.error('[heartbeatUpdate] FAILED:', err.message);
   }
 }
 
@@ -920,105 +896,98 @@ async function dispatchPendingCommandViaTraccar(base44, command, device) {
 async function autoDispatchPendingCommands(base44, device, timestamp) {
   if (!device?.id) return 0;
 
-  const productionEnabled = device.production_commands_enabled === true;
-  const starterAllowed = device.production_command_scope === 'all_supported_commands';
+  const now = new Date();
+  const nowMs = Date.now();
+  const expiryCutoff = new Date(nowMs - NORAN_HEARTBEAT_EXPIRY_SECONDS * 1000).toISOString();
+  const configuredDelay = device.post_heartbeat_release_delay_seconds || 0;
 
-  const cutoffTime = new Date(Date.now() - UDP_PENDING_COMMAND_MAX_AGE_MINUTES * 60 * 1000).toISOString();
+  // Find oldest pending command
   const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
     telematics_device_id: device.id,
     queue_status: UDP_PENDING_STATUS
-  }).catch(() => []);
+  }, '-created_date', 10).catch(() => []);
 
-  // Expire old commands
+  // Expire old commands (>90s without heartbeat)
   for (const cmd of pendingCommands) {
     const createdAt = cmd.created_at || cmd.created_date || '';
-    if (createdAt < cutoffTime) {
+    if (createdAt && createdAt < expiryCutoff) {
       await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
-        status: 'failed_no_fresh_session', queue_status: 'failed_no_fresh_session',
-        confirmation_status: 'failed', failed_at: new Date().toISOString(),
-        failure_reason: 'Timed out waiting for fresh device heartbeat (5 min)',
-        status_message: 'Timed out waiting for heartbeat'
+        status: 'expired_no_heartbeat', queue_status: 'expired_no_heartbeat',
+        confirmation_status: 'expired', failed_at: now.toISOString(),
+        failure_reason: 'No heartbeat received within 90 seconds',
+        status_message: 'Expired - no heartbeat'
       }).catch(() => {});
     }
   }
 
-  // Filter eligible commands
-  const eligible = pendingCommands.filter((cmd) => {
+  // Find eligible command (not starter-locked without approval)
+  const eligible = pendingCommands.find((cmd) => {
     const createdAt = cmd.created_at || cmd.created_date || '';
-    if (createdAt < cutoffTime) return false;
+    if (!createdAt || createdAt < expiryCutoff) return false;
     if (isStarterCommand(cmd.command_type)) {
-      if (!productionEnabled || !starterAllowed) return false;
       const payload = cmd.request_payload || {};
-      if (payload.starter_confirmation !== true && payload.confirm_starter_command !== true) return false;
+      return (payload.starter_confirmation === true || payload.confirm_starter_command === true);
     }
     return true;
   });
 
-  if (eligible.length === 0) return 0;
-
-  // Sort oldest first, send only one
-  eligible.sort((a, b) => new Date(a.created_at || a.created_date || 0) - new Date(b.created_at || b.created_date || 0));
-  const command = eligible[0];
+  if (!eligible) return 0;
 
   // Enforce 3-second spacing
   const recentlySent = await base44.asServiceRole.entities.TelematicsCommand.filter(
     { telematics_device_id: device.id },
     '-created_date', 10
   ).catch(() => []);
-  const nowMs = Date.now();
   const tooRecent = recentlySent.some((cmd) => {
-    if (cmd.id === command.id) return false;
+    if (cmd.id === eligible.id) return false;
     const sentMs = new Date(cmd.sent_at || cmd.created_at || cmd.created_date || 0).getTime();
-    return (nowMs - sentMs) < UDP_MIN_COMMAND_SPACING_MS && ['sent', 'queued_after_fresh_session', 'sending'].includes(cmd.queue_status || cmd.status || '');
+    return (nowMs - sentMs) < UDP_MIN_COMMAND_SPACING_MS && ['sent', 'waiting_for_delay', 'sent_to_traccar'].includes(cmd.queue_status || cmd.status || '');
   });
 
-  if (tooRecent) {
-    console.warn('[autoDispatch] 3s spacing enforced, skipping dispatch for command', command.id);
-    return 0;
+  if (tooRecent) return 0;
+
+  // HEARTBEAT-DELAY RULE: Check if delay period has passed
+  const heartbeatAt = device.last_heartbeat_received_at;
+  if (!heartbeatAt) return 0; // No heartbeat yet, keep waiting
+
+  const heartbeatMs = new Date(heartbeatAt).getTime();
+  const delayCompleteAt = heartbeatMs + (configuredDelay * 1000);
+  
+  if (nowMs < delayCompleteAt) {
+    // Still waiting for delay period
+    const secondsRemaining = Math.ceil((delayCompleteAt - nowMs) / 1000);
+    await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
+      queue_status: 'waiting_for_delay',
+      status: 'waiting_for_delay',
+      status_message: `Heartbeat received, waiting ${configuredDelay}s before sending`,
+      heartbeat_matched_at: heartbeatAt,
+      configured_delay_seconds: configuredDelay,
+      seconds_until_release: secondsRemaining
+    }).catch(() => {});
+    return 0; // Not ready yet
   }
 
-  const now = new Date().toISOString();
-  const nowMs_int = Date.now();
-  
-  // Calculate heartbeat age at release
-  const heartbeatReceivedAt = device.last_heartbeat_received_at || device.last_inbound_packet_at;
-  const heartbeatAgeMs = heartbeatReceivedAt ? (nowMs_int - new Date(heartbeatReceivedAt).getTime()) : null;
-
+  // Delay complete - send to Traccar
   try {
-    await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
-      queue_status: 'queued_after_fresh_session',
-      status: 'queued_after_fresh_session',
-      udp_gate_resolved_at: now,
-      udp_gate_reason: 'fresh_session_received'
-    });
-
-    const dispatchResult = await dispatchPendingCommandViaTraccar(base44, command, device);
-
-    // Extract Traccar response command ID if available
+    const dispatchResult = await dispatchPendingCommandViaTraccar(base44, eligible, device);
     const traccarCommandId = dispatchResult.traccar_response?.id || dispatchResult.traccar_response?.commandId || null;
+    const actualDelayMs = nowMs - heartbeatMs;
 
-    await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
-      queue_status: 'sent',
-      status: 'sent',
+    await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
+      queue_status: 'sent_to_traccar',
+      status: 'sent_to_traccar',
       confirmation_status: 'sent',
-      sent_at: now,
-      sent_to_traccar_at: now,
-      udp_packet_observed: true,
+      sent_at: now.toISOString(),
+      sent_to_traccar_at: now.toISOString(),
       status_message: 'Sent to Traccar',
       traccar_api_response: dispatchResult.traccar_response || dispatchResult,
       transmission_format: 'mt20_wrapped_hex',
-      provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: 'fresh_udp_session' },
-      // Validation metadata for heartbeat-gated release
-      heartbeat_source_ip: device.last_heartbeat_source_ip || null,
-      heartbeat_source_port: device.last_heartbeat_source_port || null,
-      heartbeat_received_at: heartbeatReceivedAt || null,
-      command_released_at: now,
-      heartbeat_age_ms_at_release: heartbeatAgeMs,
-      release_reason: 'fresh_mt20_heartbeat',
-      traccar_api_sent_at: now,
-      tcpdump_expected_target: device.last_heartbeat_source_ip && device.last_heartbeat_source_port
-        ? `${device.last_heartbeat_source_ip}:${device.last_heartbeat_source_port}`
-        : `${device.last_heartbeat_source_ip || 'unknown'}:5053`,
+      provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: 'heartbeat_delay_release' },
+      heartbeat_matched_at: heartbeatAt,
+      command_released_at: now.toISOString(),
+      actual_heartbeat_to_release_delay_seconds: actualDelayMs / 1000,
+      configured_delay_seconds: configuredDelay,
+      release_strategy: 'heartbeat_delay_only',
       traccar_command_id: traccarCommandId
     });
 
@@ -1026,32 +995,28 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
       telematics_device_id: device.id,
       provider_key: PROVIDER_KEY,
       vehicle_id: device.vehicle_id || '',
-      event_type: `command_${command.command_type}_sent`,
+      event_type: `command_${eligible.command_type}_sent`,
       source: 'webhook',
       raw_payload: {
         auto_dispatched: true,
-        pending_command_id: command.id,
-        triggered_by: 'fresh_udp_session_webhook',
+        pending_command_id: eligible.id,
+        triggered_by: 'heartbeat_delay_release',
         dispatch_result: dispatchResult,
-        heartbeat_routing: {
-          source_ip: device.last_heartbeat_source_ip,
-          source_port: device.last_heartbeat_source_port,
-          received_at: heartbeatReceivedAt,
-          age_ms_at_release: heartbeatAgeMs
-        }
+        configured_delay_seconds: configuredDelay,
+        actual_delay_seconds: actualDelayMs / 1000
       },
-      created_at: now
+      created_at: now.toISOString()
     }).catch(() => {});
 
-    console.log(`[autoDispatch] Command ${command.command_type} (${command.id}) dispatched - heartbeat_age=${heartbeatAgeMs}ms source=${device.last_heartbeat_source_ip || 'unknown'}:${device.last_heartbeat_source_port || 'unknown'}`);
+    console.log(`[HEARTBEAT_DELAY_RELEASE] device=${device.unique_id} command=${eligible.command_type} configured_delay=${configuredDelay}s actual_delay=${(actualDelayMs/1000).toFixed(1)}s sent_to_traccar=true`);
     return 1;
   } catch (err) {
-    console.warn('[autoDispatch] Failed to dispatch pending command:', err.message);
-    await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+    console.warn('[heartbeatDelayRelease] Failed:', err.message);
+    await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
       queue_status: 'failed',
       status: 'failed',
-      failure_reason: `Auto-dispatch after fresh session failed: ${err.message}`,
-      failed_at: now
+      failure_reason: `Heartbeat-delay release failed: ${err.message}`,
+      failed_at: now.toISOString()
     }).catch(() => {});
   }
   return 0;
@@ -1275,19 +1240,14 @@ Deno.serve(async (req) => {
       }).catch((error) => console.warn('Device update skipped:', error.message));
     }
 
-    // ── UDP Session freshness update (all meaningful inbound packet types) ──
+    // ── Update heartbeat session tracking ──
     await updateDeviceUdpSession(base44, device, parsed, timestamp, body);
 
-    // ── Auto-dispatch any commands pending a fresh UDP session ──
-    // CRITICAL: Heartbeat (0x000f) triggers auto-dispatch but does NOT complete locate commands
-    // Position packets (0x0032) both refresh UDP session AND complete locate commands
-    if (device) {
-      const pendingCount = (await autoDispatchPendingCommands(base44, device, timestamp)) || 0;
-      // Proof log: heartbeat triggers auto-dispatch
-      if (isHeartbeatPacket(parsed)) {
-        console.log(`[MT20_HEARTBEAT_AUTO_DISPATCH] unique_id=${device.unique_id || device.id} heartbeat_received=true packet_type=0x000f auto_dispatch_checked=true pending_commands_dispatched=${pendingCount} udp_session_refreshed=true`);
-      } else if (parsed.packet_type === '0x0032') {
-        console.log(`[MT20_POSITION_DISPATCH] unique_id=${device.unique_id || device.id} position_received=true packet_type=0x0032 auto_dispatch_checked=true pending_commands_dispatched=${pendingCount} udp_session_refreshed=true locate_can_complete=true`);
+    // ── HEARTBEAT-DELAY RELEASE: Check if pending commands should be released ──
+    if (device && isHeartbeatPacket(parsed)) {
+      const dispatched = (await autoDispatchPendingCommands(base44, device, timestamp)) || 0;
+      if (dispatched > 0) {
+        console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} commands_dispatched=${dispatched}`);
       }
     }
 
@@ -1309,14 +1269,14 @@ Deno.serve(async (req) => {
       voltage: parsed.voltage,
       packet_type: parsed.packet_type,
       packet_type_name: (() => {
-        if (parsed.packet_type === '0x000f') return 'heartbeat (UDP refresh only)';
+        if (parsed.packet_type === '0x000f') return 'heartbeat (triggers command release)';
         if (parsed.packet_type === '0x0032') return 'position (can complete locate)';
         if (parsed.packet_type === '0x0008') return 'position (can complete locate)';
         if (parsed.packet_type === '0x8009') return 'command ACK (can complete any command)';
         if (parsed.packet_type === '0x0038') return 'query response';
         return parsed.packet_type;
       })(),
-      udp_session_refreshed: parsed.packet_type !== '0x000f' || true, // All inbound packets refresh UDP
+      heartbeat_received: isHeartbeatPacket(parsed),
       can_complete_locate: ['0x0032', '0x0008'].includes(parsed.packet_type),
       source: parsed.source,
       alarm_processing,
