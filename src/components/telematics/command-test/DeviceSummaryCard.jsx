@@ -18,10 +18,12 @@ export default function DeviceSummaryCard({ data }) {
   const [delayValue, setDelayValue] = React.useState(data?.device?.post_heartbeat_release_delay_seconds || 0);
 
   const delayMutation = useMutation({
-    mutationFn: (newDelay) => base44.asServiceRole.entities.TelematicsDevice.update(device?.id, { post_heartbeat_release_delay_seconds: newDelay }),
+    mutationFn: (newDelay) => base44.entities.TelematicsDevice.update(device?.id, { post_heartbeat_release_delay_seconds: newDelay }),
     onSuccess: () => {
       toast.success('Release delay updated');
       queryClient.invalidateQueries({ queryKey: ['admin-command-test-history', device?.id] });
+      // Force refresh of device data
+      setTimeout(() => window.location.reload(), 500);
     },
     onError: (error) => {
       toast.error('Failed to update delay', { description: error.message });
