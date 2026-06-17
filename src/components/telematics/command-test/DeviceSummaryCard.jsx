@@ -15,10 +15,10 @@ export default function DeviceSummaryCard({ data }) {
   const device = data?.device;
   const provider = data?.provider;
   const vehicle = data?.vehicle;
-  const [delayValue, setDelayValue] = React.useState(device.post_heartbeat_release_delay_seconds || 0);
+  const [delayValue, setDelayValue] = React.useState(data?.device?.post_heartbeat_release_delay_seconds || 0);
 
   const delayMutation = useMutation({
-    mutationFn: (newDelay) => base44.asServiceRole.entities.TelematicsDevice.update(device.id, { post_heartbeat_release_delay_seconds: newDelay }),
+    mutationFn: (newDelay) => base44.asServiceRole.entities.TelematicsDevice.update(device?.id, { post_heartbeat_release_delay_seconds: newDelay }),
     onSuccess: () => {
       toast.success('Release delay updated');
       queryClient.invalidateQueries({ queryKey: ['admin-command-test-history', device?.id] });
@@ -27,6 +27,8 @@ export default function DeviceSummaryCard({ data }) {
       toast.error('Failed to update delay', { description: error.message });
     },
   });
+
+  if (!device) return <div className="text-sm text-muted-foreground">No device selected</div>;
 
   const handleDelayChange = (e) => {
     const value = parseInt(e.target.value, 10);
