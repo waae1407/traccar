@@ -908,6 +908,56 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
     queue_status: ['pending_waiting_for_next_heartbeat', 'waiting_for_delay']
   }, '-created_date', 10).catch(() => []);
 
+  // MONITORING: Check for stuck commands (waiting_for_delay longer than configured delay + 10s buffer)
+  for (const cmd of pendingCommands) {
+    if (cmd.queue_status === 'waiting_for_delay' && cmd.heartbeat_received_at) {
+      const heartbeatMs = new Date(cmd.heartbeat_received_at).getTime();
+      const cmdConfiguredDelay = cmd.request_payload?.configured_delay_seconds ?? configuredDelay;
+      const delayCompleteAt = heartbeatMs + (cmdConfiguredDelay * 1000);
+      const secondsOverdue = Math.floor((nowMs - delayCompleteAt) / 1000);
+      
+      if (secondsOverdue > 10 && !cmd.sent_to_traccar_at) {
+        // Command is stuck - flag it and create alert
+        await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
+          stuck_waiting_for_delay: true,
+          stuck_seconds: secondsOverdue,
+          last_stuck_check_at: now.toISOString()
+        }).catch(() => {});
+        
+        // Create operational alert (deduplicated by 5-minute buckets)
+        const bucket = Math.floor(nowMs / (5 * 60 * 1000));
+        const dedupeKey = `stuck_command:${cmd.id}:${bucket}`;
+        const existingAlert = (await base44.asServiceRole.entities.OperationalAlert.filter({ dedupe_key: dedupeKey }))[0];
+        
+        if (!existingAlert) {
+          await base44.asServiceRole.entities.OperationalAlert.create({
+            alert_type: 'command_failed',
+            severity: 'warning',
+            status: 'new',
+            title: 'Command stuck in waiting_for_delay',
+            message: `Command ${cmd.id} (${cmd.command_type}) for device ${device.unique_id} has been stuck for ${secondsOverdue}s after delay period completed.`,
+            recommended_action: 'Review command and device heartbeat status. Consider manual release or re-send.',
+            assigned_role: 'admin',
+            source_entity_type: 'TelematicsCommand',
+            source_entity_id: cmd.id,
+            domain: 'telematics',
+            action_url: '/admin/telematics-command-test',
+            provider_key: PROVIDER_KEY,
+            telematics_device_id: device.id,
+            vehicle_id: device.vehicle_id || '',
+            dedupe_key: dedupeKey,
+            metadata: {
+              command_type: cmd.command_type,
+              configured_delay: cmdConfiguredDelay,
+              seconds_overdue: secondsOverdue,
+              heartbeat_received_at: cmd.heartbeat_received_at
+            }
+          }).catch(() => {});
+        }
+      }
+    }
+  }
+
   // Expire old commands (>90s without heartbeat)
   for (const cmd of pendingCommands) {
     const createdAt = cmd.created_at || cmd.created_date || '';
