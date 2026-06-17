@@ -544,12 +544,13 @@ Deno.serve(async (req) => {
     if (duplicate && !['failed', 'expired', 'blocked', 'pending_waiting_for_fresh_session'].includes(duplicate.queue_status || duplicate.status)) return Response.json({ error: 'Duplicate command prevented.', idempotency_key: idempotencyKey }, { status: 409 });
 
     // ── MT20 UDP Session Freshness Gate ──
-    // Fresh = last inbound packet < 90s ago → send immediately via Traccar.
-    // Device heartbeats are ~30s; 90s covers 3 missed cycles before gating.
-    // Stale = older than 90s → park as pending_waiting_for_fresh_session; auto-send on next inbound.
+    // Fresh = last inbound packet < 60s ago → send immediately via Traccar.
+    // Device heartbeats are ~30s; 60s = 2 missed cycles max before gating.
+    // Heartbeat forwarding is now deployed — 60s is safe and tighter than the old 90s.
+    // Stale = older than 60s → park as pending_waiting_for_fresh_session; auto-send on next inbound.
     // Only applies to Noran MT20 live production commands.
-    const UDP_FRESH_WINDOW_MS = 90 * 1000; // 90s — device heartbeat is ~30s
-    const UDP_FRESH_WINDOW_SECONDS_GATE = 90;
+    const UDP_FRESH_WINDOW_MS = 60 * 1000; // 60s — heartbeat forwarder confirmed
+    const UDP_FRESH_WINDOW_SECONDS_GATE = 60;
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
     const bypassGate = !isNoranLive || body.alarm_session_id || installerInstallTest || adminTraccarLiveTest || body.bypass_udp_gate === true;
     let udpSessionBlocked = false;
@@ -608,7 +609,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Proof log: gate decision ──
-    console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=90s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}`);
+    console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=60s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}`);
 
     // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 0x0032 position).
     // Auto-dispatch fires on the next inbound packet in webhookLightLogForwarder.

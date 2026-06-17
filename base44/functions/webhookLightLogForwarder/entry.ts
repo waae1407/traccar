@@ -25,10 +25,11 @@ const MT20_ALARM_TYPES = {
   9: 'power_alarm'
 };
 // ── UDP Session Freshness Constants ──
-// 90s send-now window: device heartbeats are ~30s, so 90s = 3 missed cycles before gating.
+// 60s send-now window: device heartbeats are ~30s, so 60s = 2 missed cycles before gating.
+// Heartbeat forwarding is now deployed — 60s is safe and tighter than the old 90s.
 // If stale, park as pending_waiting_for_fresh_session and auto-send on next inbound.
 // 5-minute pending timeout: if no inbound arrives within 5 min, mark failed_no_fresh_session.
-const UDP_FRESH_WINDOW_SECONDS = 90;
+const UDP_FRESH_WINDOW_SECONDS = 60;
 const UDP_PENDING_COMMAND_MAX_AGE_MINUTES = 5;
 const UDP_MIN_COMMAND_SPACING_MS = 3000;
 const UDP_PENDING_STATUS = 'pending_waiting_for_fresh_session';
