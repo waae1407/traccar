@@ -552,7 +552,8 @@ Deno.serve(async (req) => {
     const UDP_FRESH_WINDOW_MS = 60 * 1000; // 60s — heartbeat forwarder confirmed
     const UDP_FRESH_WINDOW_SECONDS_GATE = 60;
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
-    const bypassGate = !isNoranLive || body.alarm_session_id || installerInstallTest || adminTraccarLiveTest || body.bypass_udp_gate === true;
+    // Admin device tests bypass UDP gate for instant feedback (admins are actively waiting)
+    const bypassGate = !isNoranLive || body.alarm_session_id || installerInstallTest || adminTraccarLiveTest || adminDeviceCommandTest || body.bypass_udp_gate === true;
     let udpSessionBlocked = false;
     let udpGateReason = '';
     const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
@@ -566,6 +567,7 @@ Deno.serve(async (req) => {
       udp_session_age_seconds: ageSeconds,
       udp_session_fresh: bypassGate ? null : isFresh,
       gate_bypassed: bypassGate,
+      gate_bypass_reason: bypassGate ? (adminDeviceCommandTest ? 'admin_device_test' : (body.alarm_session_id ? 'alarm_session' : (installerInstallTest ? 'installer_test' : (adminTraccarLiveTest ? 'admin_traccar_test' : 'not_noran_live')))) : null,
       traccar_device_id: device.traccar_device_id || null
     };
     if (!bypassGate) {
@@ -609,7 +611,8 @@ Deno.serve(async (req) => {
     }
 
     // ── Proof log: gate decision ──
-    console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=60s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}`);
+    const bypassNote = bypassGate ? ` bypass_reason=${udpDiagnostics.gate_bypass_reason}` : '';
+    console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=60s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}${bypassNote}`);
 
     // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 0x0032 position).
     // Auto-dispatch fires on the next inbound packet in webhookLightLogForwarder.
