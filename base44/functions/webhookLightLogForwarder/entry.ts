@@ -902,10 +902,10 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
   // CRITICAL: Use ?? not || to preserve 0
   const configuredDelay = device.post_heartbeat_release_delay_seconds ?? 0;
 
-  // Find oldest pending command
+  // Find oldest pending command - includes BOTH pending and waiting_for_delay statuses
   const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
     telematics_device_id: device.id,
-    queue_status: UDP_PENDING_STATUS
+    queue_status: ['pending_waiting_for_next_heartbeat', 'waiting_for_delay']
   }, '-created_date', 10).catch(() => []);
 
   // Expire old commands (>90s without heartbeat)
@@ -947,13 +947,33 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
 
   if (tooRecent) return 0;
 
-  // HEARTBEAT-DELAY RULE: Use heartbeatTimestamp parameter (NOT stale device object)
-  const hbMs = new Date(heartbeatTimestamp).getTime();
+  // HEARTBEAT-DELAY RULE: Handle both pending and waiting_for_delay commands
+  const isWaitingForDelay = eligible.queue_status === 'waiting_for_delay';
+  
+  // For waiting_for_delay commands, use stored heartbeat_received_at (do NOT reset timer)
+  // For pending commands, use the new heartbeatTimestamp
+  const hbMs = isWaitingForDelay 
+    ? (eligible.heartbeat_received_at ? new Date(eligible.heartbeat_received_at).getTime() : new Date(heartbeatTimestamp).getTime())
+    : new Date(heartbeatTimestamp).getTime();
   
   // CRITICAL: If delay is 0, release immediately without waiting_for_delay state
   if (configuredDelay === 0) {
     // Immediate release - skip waiting_for_delay
+  } else if (isWaitingForDelay) {
+    // Command already in waiting_for_delay - check if delay period complete
+    const delayCompleteAt = hbMs + (configuredDelay * 1000);
+    if (nowMs < delayCompleteAt) {
+      // Still waiting - update seconds remaining for monitoring
+      const secondsRemaining = Math.ceil((delayCompleteAt - nowMs) / 1000);
+      await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
+        seconds_until_release: secondsRemaining,
+        last_heartbeat_check_at: heartbeatTimestamp
+      }).catch(() => {});
+      return 0; // Not ready yet
+    }
+    // Delay complete - will release below
   } else {
+    // New pending command - first heartbeat received
     const delayCompleteAt = hbMs + (configuredDelay * 1000);
     if (nowMs < delayCompleteAt) {
       // Still waiting for delay period - populate audit fields
@@ -965,7 +985,8 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
         heartbeat_received_at: heartbeatTimestamp,
         heartbeat_matched_at: new Date().toISOString(),
         configured_delay_seconds: configuredDelay,
-        seconds_until_release: secondsRemaining
+        seconds_until_release: secondsRemaining,
+        delay_complete_at: new Date(delayCompleteAt).toISOString()
       }).catch(() => {});
       return 0; // Not ready yet
     }
@@ -976,6 +997,7 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
     const dispatchResult = await dispatchPendingCommandViaTraccar(base44, eligible, device);
     const traccarCommandId = dispatchResult.traccar_response?.id || dispatchResult.traccar_response?.commandId || null;
     const actualDelayMs = nowMs - hbMs;
+    const releaseTriggeredBy = isWaitingForDelay ? 'webhook_waiting_for_delay' : 'webhook_immediate';
 
     await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
       queue_status: 'sent_to_traccar',
@@ -986,14 +1008,15 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
       status_message: configuredDelay === 0 ? 'Released immediately on heartbeat (0s delay)' : `Sent to Traccar after ${configuredDelay}s delay`,
       traccar_api_response: dispatchResult.traccar_response || dispatchResult,
       transmission_format: 'mt20_wrapped_hex',
-      provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: 'heartbeat_delay_release' },
-      heartbeat_received_at: heartbeatTimestamp,
-      heartbeat_matched_at: new Date().toISOString(),
+      provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: releaseTriggeredBy },
+      heartbeat_received_at: eligible.heartbeat_received_at || heartbeatTimestamp,
+      heartbeat_matched_at: eligible.heartbeat_matched_at || new Date().toISOString(),
       command_released_at: now.toISOString(),
       actual_heartbeat_to_release_delay_seconds: actualDelayMs / 1000,
       configured_delay_seconds: configuredDelay,
       delay_source: 'TelematicsDevice.post_heartbeat_release_delay_seconds',
       release_strategy: 'heartbeat_delay_only',
+      release_triggered_by: releaseTriggeredBy,
       traccar_command_id: traccarCommandId
     });
 

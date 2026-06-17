@@ -58,11 +58,24 @@ Deno.serve(async (req) => {
     const nowIso = now.toISOString();
     const nowMs = now.getTime();
 
-  // Find all Noran commands waiting for heartbeat (BACKUP ONLY - webhook handles primary release)
+  // Find all Noran commands waiting for heartbeat or delay (BACKUP ONLY - webhook handles primary release)
+  // CRITICAL: Must check BOTH statuses - webhook may have updated to waiting_for_delay but not released
   const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
     provider_key: PROVIDER_KEY,
     queue_status: 'pending_waiting_for_next_heartbeat'
   }, '-created_date', 50);
+  
+  const waitingForDelayCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
+    provider_key: PROVIDER_KEY,
+    queue_status: 'waiting_for_delay'
+  }, '-created_date', 50);
+  
+  // Combine and deduplicate by command ID
+  const allCommands = [...pendingCommands];
+  const pendingIds = new Set(allCommands.map(c => c.id));
+  for (const cmd of waitingForDelayCommands) {
+    if (!pendingIds.has(cmd.id)) allCommands.push(cmd);
+  }
 
     if (pendingCommands.length === 0) {
       return Response.json({ ok: true, processed: 0, waiting: 0, released: 0, expired: 0, message: 'No commands pending heartbeat' });
@@ -70,7 +83,7 @@ Deno.serve(async (req) => {
 
     const results = { processed: 0, waiting: 0, released: 0, expired: 0, details: [] };
 
-    for (const command of pendingCommands) {
+    for (const command of allCommands) {
       try {
         const requestedAt = new Date(command.requested_at || command.created_at || command.created_date || now).getTime();
         const elapsedSeconds = Math.floor((nowMs - requestedAt) / 1000);
@@ -100,10 +113,17 @@ Deno.serve(async (req) => {
         }
 
         const configuredDelay = device.post_heartbeat_release_delay_seconds ?? 0;
-        const lastHeartbeatAt = device.last_heartbeat_received_at || device.last_inbound_packet_at;
+        const isWaitingForDelay = command.queue_status === 'waiting_for_delay';
         
-        // Check if heartbeat matched
-        const heartbeatMatchedAt = command.heartbeat_matched_at || (lastHeartbeatAt ? new Date(lastHeartbeatAt).getTime() : null);
+        // For waiting_for_delay commands, use stored heartbeat_received_at (do NOT reset timer)
+        // For pending commands, use device's last heartbeat
+        let heartbeatMatchedAt = null;
+        if (isWaitingForDelay && command.heartbeat_received_at) {
+          heartbeatMatchedAt = new Date(command.heartbeat_received_at).getTime();
+        } else {
+          const lastHeartbeatAt = device.last_heartbeat_received_at || device.last_inbound_packet_at;
+          heartbeatMatchedAt = command.heartbeat_matched_at || (lastHeartbeatAt ? new Date(lastHeartbeatAt).getTime() : null);
+        }
         
         if (!heartbeatMatchedAt) {
           results.waiting++;
