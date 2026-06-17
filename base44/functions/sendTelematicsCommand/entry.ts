@@ -311,6 +311,9 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
   const responses = [];
   for (const built of builtCommands) {
     const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: built.hex } };
+    // ── Proof log: about to POST to Traccar ──
+    console.log(`[MT20_SEND] POST /api/commands/send traccar_device_id=${traccarDeviceId} unique_id=${device.unique_id} command=${commandType} ascii="${built.ascii}" hex_length=${built.hex.length / 2}bytes hex_prefix=${built.hex.slice(0, 12)}`);
+    const sentAt = new Date().toISOString();
     const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
       method: 'POST',
       headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -319,8 +322,10 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    // ── Proof log: Traccar response ──
+    console.log(`[MT20_RESP] status=${res.status} sent_to_traccar_at=${sentAt} response=${text.slice(0, 200)}`);
     if (!res.ok) throw new Error(`Traccar production command failed (${res.status}): ${typeof data?.raw === 'string' ? data.raw : JSON.stringify(data)}`);
-    responses.push({ ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes });
+    responses.push({ ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes, sent_to_traccar_at: sentAt });
   }
   const first = builtCommands[0];
   return { provider_command_name: template?.provider_command_name || 'custom', ascii_payload: first.ascii, hex_payload: first.hex, production_command: true, response: { responses, noran_command_count: builtCommands.length, unlock_disarms_alarm: unlockOptions.unlockDisarmsAlarm, unlock_double_pulse_enabled: unlockOptions.unlockDoublePulse, device_identifier_source: 'TelematicsDevice.unique_id' } };
@@ -539,34 +544,42 @@ Deno.serve(async (req) => {
     if (duplicate && !['failed', 'expired', 'blocked', 'pending_waiting_for_fresh_session'].includes(duplicate.queue_status || duplicate.status)) return Response.json({ error: 'Duplicate command prevented.', idempotency_key: idempotencyKey }, { status: 409 });
 
     // ── MT20 UDP Session Freshness Gate ──
-    // Fresh = last inbound packet < 10s ago → send immediately via Traccar.
-    // Stale = older than 10s → park as pending_waiting_for_fresh_session; auto-send on next inbound.
+    // Fresh = last inbound packet < 90s ago → send immediately via Traccar.
+    // Device heartbeats are ~30s; 90s covers 3 missed cycles before gating.
+    // Stale = older than 90s → park as pending_waiting_for_fresh_session; auto-send on next inbound.
     // Only applies to Noran MT20 live production commands.
+    const UDP_FRESH_WINDOW_MS = 90 * 1000; // 90s — device heartbeat is ~30s
+    const UDP_FRESH_WINDOW_SECONDS_GATE = 90;
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
     const bypassGate = !isNoranLive || body.alarm_session_id || installerInstallTest || adminTraccarLiveTest || body.bypass_udp_gate === true;
     let udpSessionBlocked = false;
     let udpGateReason = '';
+    const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
+    const ageSeconds = lastInboundMs ? Math.round((Date.now() - lastInboundMs) / 1000) : null;
+    const isFresh = lastInboundMs ? (Date.now() - lastInboundMs) <= UDP_FRESH_WINDOW_MS : false;
     const udpDiagnostics = {
       command_requested_at: now.toISOString(),
       last_inbound_packet_at: device.last_inbound_packet_at || null,
       last_inbound_packet_type: device.last_inbound_packet_type || null,
-      udp_fresh_window_seconds: 10,
-      gate_bypassed: bypassGate
+      udp_fresh_window_seconds: UDP_FRESH_WINDOW_SECONDS_GATE,
+      udp_session_age_seconds: ageSeconds,
+      udp_session_fresh: bypassGate ? null : isFresh,
+      gate_bypassed: bypassGate,
+      traccar_device_id: device.traccar_device_id || null
     };
     if (!bypassGate) {
-      const UDP_FRESH_WINDOW_MS = 10 * 1000; // 10s send-now window
-      const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
-      const ageSeconds = lastInboundMs ? (Date.now() - lastInboundMs) / 1000 : null;
-      const isFresh = lastInboundMs ? (Date.now() - lastInboundMs) <= UDP_FRESH_WINDOW_MS : false;
-      udpDiagnostics.udp_session_age_seconds = ageSeconds !== null ? Math.round(ageSeconds) : null;
-      udpDiagnostics.udp_session_fresh = isFresh;
       if (!isFresh) {
         udpSessionBlocked = true;
         udpGateReason = ageSeconds !== null
-          ? `stale_udp_session (last inbound ${Math.round(ageSeconds)}s ago, fresh window is 10s)`
+          ? `stale_udp_session (last inbound ${ageSeconds}s ago, fresh window is 90s)`
           : 'stale_udp_session (no inbound packet on record)';
         udpDiagnostics.blocked_reason = udpGateReason;
+        udpDiagnostics.gate_decision = 'BLOCK';
+      } else {
+        udpDiagnostics.gate_decision = 'PASS';
       }
+    } else {
+      udpDiagnostics.gate_decision = 'BYPASS';
     }
 
     const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
@@ -594,7 +607,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Command expired before send.' }, { status: 400 });
     }
 
-    // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 28003200).
+    // ── Proof log: gate decision ──
+    console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=90s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}`);
+
+    // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 0x0032 position).
     // Auto-dispatch fires on the next inbound packet in webhookLightLogForwarder.
     // If no heartbeat arrives within 5 minutes, processTelematicsCommandTimeouts marks failed_no_fresh_session.
     if (udpSessionBlocked) {
@@ -615,7 +631,7 @@ Deno.serve(async (req) => {
         status_message: 'Waiting for fresh device heartbeat',
         udp_session_blocked: true,
         udp_gate_reason: udpGateReason,
-        message: 'UDP session stale. Command queued — will auto-send on next 0f000000 or 28003200 inbound packet. Times out after 5 minutes.',
+        message: 'UDP session stale. Command queued — will auto-send on next 0f000000 heartbeat or 0x0032 position packet. Times out after 5 minutes.',
         last_inbound_packet_at: device.last_inbound_packet_at || null,
         udp_diagnostics: udpDiagnostics
       });
