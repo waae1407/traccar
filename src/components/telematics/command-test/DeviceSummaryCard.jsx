@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import UDPSessionStatusBadge from '@/components/telematics/command-test/UDPSessionStatusBadge';
 
 function vehicleName(vehicle) {
   if (!vehicle) return 'Not linked';
@@ -47,6 +48,7 @@ export default function DeviceSummaryCard({ data }) {
           <div className="flex flex-wrap gap-2">
             <Badge className={execution?.dry_run ? 'bg-yellow-500 text-black' : 'bg-emerald-500 text-white'}>{execution?.dry_run ? 'Simulation Mode' : 'Live Actions'}</Badge>
             <Badge className="bg-white/10 text-white">Telematics Network</Badge>
+            <UDPSessionStatusBadge device={device} compact />
           </div>
         </button>
 
@@ -58,6 +60,8 @@ export default function DeviceSummaryCard({ data }) {
                 <p className="text-sm font-semibold">Vehicle device is currently offline. Actions may wait, need review, or require reconnection.</p>
               </div>
             )}
+
+            <UDPSessionStatusBadge device={device} />
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <Info label="Service Network" value="Telematics Network" />

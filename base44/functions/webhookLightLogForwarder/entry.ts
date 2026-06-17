@@ -24,8 +24,25 @@ const MT20_ALARM_TYPES = {
   4: 'shock_alarm',
   9: 'power_alarm'
 };
-const IGNORED_PACKET_TYPES = new Set([0x0000]);
+// ── UDP Session Freshness Constants ──
+const UDP_FRESH_WINDOW_SECONDS = 20;
+const UDP_PENDING_COMMAND_MAX_AGE_MINUTES = 5;
+const UDP_MIN_COMMAND_SPACING_MS = 3000;
+const UDP_PENDING_STATUS = 'pending_waiting_for_fresh_session';
+const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
+
+// Maps packet type codes to their session inbound type label
+const SESSION_INBOUND_PACKET_MAP = {
+  0x0000: 'handshake',   // login/handshake
+  0x0008: 'position',   // position upload
+  0x0032: 'position',   // new position upload
+  0x0003: 'alarm',      // alarm upload
+  0x8009: 'command_response' // command response
+};
+
+const IGNORED_PACKET_TYPES = new Set([]);
 const MEANINGFUL_PACKET_TYPES = new Map([
+  [0x0000, 'mt20_handshake'],
   [0x0003, 'mt20_alarm_upload'],
   [0x0008, 'mt20_position_upload'],
   [0x0032, 'mt20_new_position_upload'],
@@ -740,6 +757,163 @@ async function createScopedAlarmNotification(base44, payload) {
   }).catch(() => null);
 }
 
+// ── UDP Session Freshness Helpers ──
+
+function calcFreshUntil(timestamp) {
+  return new Date(new Date(timestamp).getTime() + UDP_FRESH_WINDOW_SECONDS * 1000).toISOString();
+}
+
+async function updateDeviceUdpSession(base44, device, parsed, timestamp) {
+  if (!device?.id) return;
+  const packetType = parsed?.packet_type; // e.g. '0x0000', '0x0008', '0x0032', '0x0003', '0x8009'
+  const packetTypeNum = packetType ? parseInt(packetType, 16) : null;
+  const inboundType = packetTypeNum !== null && SESSION_INBOUND_PACKET_MAP[packetTypeNum]
+    ? SESSION_INBOUND_PACKET_MAP[packetTypeNum]
+    : 'unknown';
+
+  // Also treat bare handshake (0x0000 / login) if detected
+  const isKnownSession = inboundType !== 'unknown';
+  if (!isKnownSession) return;
+
+  const freshUntil = calcFreshUntil(timestamp);
+  await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+    last_inbound_packet_at: timestamp,
+    last_inbound_packet_type: inboundType,
+    last_inbound_source: parsed.source || 'forwarded_log',
+    last_inbound_raw_hex: (parsed.raw_packet_hex || '').slice(0, 20),
+    udp_session_fresh_until: freshUntil,
+    udp_session_status: 'fresh'
+  }).catch((err) => console.warn('[udpSession] update failed:', err.message));
+}
+
+function isStarterCommand(commandType) {
+  return STARTER_COMMANDS.includes(commandType);
+}
+
+async function dispatchPendingCommandViaTraccar(base44, command, device) {
+  const baseUrl = String(Deno.env.get('TRACCAR_BASE_URL') || '').trim();
+  const username = String(Deno.env.get('TRACCAR_USERNAME') || '').trim();
+  const password = String(Deno.env.get('TRACCAR_PASSWORD') || '').trim();
+  if (!baseUrl || !username || !password) throw new Error('Traccar credentials not configured for auto-dispatch.');
+
+  const traccarDeviceId = Number(device.traccar_device_id);
+  if (!Number.isFinite(traccarDeviceId)) throw new Error('Device has no valid Traccar device ID for auto-dispatch.');
+
+  const hexPayload = command.hex_payload || command.wrapped_payload;
+  if (!hexPayload) throw new Error('Pending command has no hex_payload to dispatch.');
+
+  const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: hexPayload } };
+  const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/commands/send`, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Basic ' + btoa(`${username}:${password}`),
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    },
+    body: JSON.stringify(traccarPayload)
+  });
+  const text = await res.text();
+  let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+  if (!res.ok) throw new Error(`Traccar dispatch failed (${res.status}): ${text}`);
+  return { traccar_payload: traccarPayload, traccar_response: data };
+}
+
+async function autoDispatchPendingCommands(base44, device, timestamp) {
+  if (!device?.id) return;
+
+  // Check production scope — do not auto-dispatch starter commands unless explicitly scoped
+  const productionEnabled = device.production_commands_enabled === true;
+  const starterAllowed = device.production_command_scope === 'all_supported_commands';
+
+  const cutoffTime = new Date(Date.now() - UDP_PENDING_COMMAND_MAX_AGE_MINUTES * 60 * 1000).toISOString();
+  const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
+    telematics_device_id: device.id,
+    queue_status: UDP_PENDING_STATUS
+  }).catch(() => []);
+
+  // Filter: must be within last 5 minutes, respect starter scope
+  const eligible = pendingCommands.filter((cmd) => {
+    const createdAt = cmd.created_at || cmd.created_date || '';
+    if (createdAt < cutoffTime) return false;
+    if (isStarterCommand(cmd.command_type)) {
+      // Starter commands: only auto-dispatch if production scope allows AND admin confirmation already exists
+      if (!productionEnabled || !starterAllowed) return false;
+      const payload = cmd.request_payload || {};
+      if (payload.starter_confirmation !== true && payload.confirm_starter_command !== true) return false;
+    }
+    return true;
+  });
+
+  if (eligible.length === 0) return;
+
+  // Sort oldest first, send only one
+  eligible.sort((a, b) => new Date(a.created_at || a.created_date || 0) - new Date(b.created_at || b.created_date || 0));
+  const command = eligible[0];
+
+  // Enforce 3-second spacing: check if any command was sent in the last 3 seconds
+  const recentlySent = await base44.asServiceRole.entities.TelematicsCommand.filter(
+    { telematics_device_id: device.id },
+    '-created_date', 10
+  ).catch(() => []);
+  const nowMs = Date.now();
+  const tooRecent = recentlySent.some((cmd) => {
+    if (cmd.id === command.id) return false;
+    const sentMs = new Date(cmd.sent_at || cmd.created_at || cmd.created_date || 0).getTime();
+    return (nowMs - sentMs) < UDP_MIN_COMMAND_SPACING_MS && ['sent', 'queued_after_fresh_session', 'sending'].includes(cmd.queue_status || cmd.status || '');
+  });
+
+  if (tooRecent) {
+    console.warn('[autoDispatch] 3s spacing enforced, skipping dispatch for command', command.id);
+    return;
+  }
+
+  const now = new Date().toISOString();
+  try {
+    await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+      queue_status: 'queued_after_fresh_session',
+      status: 'queued_after_fresh_session',
+      udp_gate_resolved_at: now,
+      udp_gate_reason: 'fresh_session_received'
+    });
+
+    const dispatchResult = await dispatchPendingCommandViaTraccar(base44, command, device);
+
+    await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+      queue_status: 'sent',
+      status: 'sent',
+      confirmation_status: 'sent',
+      sent_at: now,
+      transmission_format: 'mt20_wrapped_hex',
+      provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: 'fresh_udp_session' }
+    });
+
+    await base44.asServiceRole.entities.TelematicsEvent.create({
+      telematics_device_id: device.id,
+      provider_key: PROVIDER_KEY,
+      vehicle_id: device.vehicle_id || '',
+      event_type: `command_${command.command_type}_sent`,
+      source: 'webhook',
+      raw_payload: {
+        auto_dispatched: true,
+        pending_command_id: command.id,
+        triggered_by: 'fresh_udp_session_webhook',
+        dispatch_result: dispatchResult
+      },
+      created_at: now
+    }).catch(() => {});
+
+    console.log(`[autoDispatch] Command ${command.command_type} (${command.id}) dispatched after fresh UDP session for device ${device.unique_id}`);
+  } catch (err) {
+    console.warn('[autoDispatch] Failed to dispatch pending command:', err.message);
+    await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+      queue_status: 'failed',
+      status: 'failed',
+      failure_reason: `Auto-dispatch after fresh session failed: ${err.message}`,
+      failed_at: now
+    }).catch(() => {});
+  }
+}
+
 async function processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp }) {
   if (!ALARM_EVENT_TYPES.has(parsed?.event_type) || !device?.id) return null;
 
@@ -956,6 +1130,14 @@ Deno.serve(async (req) => {
         ...(typeof parsed.status_bits?.accOn === 'boolean' ? { ignition_status: parsed.status_bits.accOn ? 'on' : 'off' } : {}),
         last_seen_at: timestamp
       }).catch((error) => console.warn('Device update skipped:', error.message));
+    }
+
+    // ── UDP Session freshness update (all meaningful inbound packet types) ──
+    await updateDeviceUdpSession(base44, device, parsed, timestamp);
+
+    // ── Auto-dispatch any commands pending a fresh UDP session ──
+    if (device) {
+      await autoDispatchPendingCommands(base44, device, timestamp);
     }
 
     const alarm_processing = await processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp });

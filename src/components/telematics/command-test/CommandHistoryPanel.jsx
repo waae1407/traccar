@@ -39,7 +39,18 @@ export default function CommandHistoryPanel({ commands, onRefresh, loading }) {
                   {(commands || []).map((command) => (
                     <TableRow key={command.id} className="border-white/10">
                       <TableCell className="font-semibold text-white">{commandLabel(command.command_type)}</TableCell>
-                      <TableCell><Badge className={command.queue_status === 'failed' || command.queue_status === 'expired' ? 'bg-red-500 text-white' : 'bg-emerald-500/15 text-emerald-300'}>{statusLabel(command.queue_status || command.status)}</Badge></TableCell>
+                      <TableCell>
+                        <Badge className={
+                          (command.queue_status === 'failed' || command.queue_status === 'expired') ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                          command.queue_status === 'pending_waiting_for_fresh_session' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                          command.queue_status === 'queued_after_fresh_session' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                          'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
+                        }>
+                          {command.queue_status === 'pending_waiting_for_fresh_session' ? '⏳ Waiting for heartbeat' :
+                           command.queue_status === 'queued_after_fresh_session' ? '📡 Queued after heartbeat' :
+                           statusLabel(command.queue_status || command.status)}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-white/60">{formatDate(command.sent_at || command.created_at || command.created_date)}</TableCell>
                       <TableCell><NoranReplyCell command={command} /></TableCell>
                       <TableCell className="text-red-300">{businessText(command.failure_reason)}</TableCell>

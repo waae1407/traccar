@@ -536,7 +536,26 @@ Deno.serve(async (req) => {
     const expiresAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
     const idempotencyKey = makeIdempotencyKey(user.email, device.id, commandType, { alarmSessionId: body.alarm_session_id || '', pulseNumber: body.pulse_number || 0 });
     const duplicate = (await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey }))[0];
-    if (duplicate && !['failed', 'expired', 'blocked'].includes(duplicate.queue_status || duplicate.status)) return Response.json({ error: 'Duplicate command prevented.', idempotency_key: idempotencyKey }, { status: 409 });
+    if (duplicate && !['failed', 'expired', 'blocked', 'pending_waiting_for_fresh_session'].includes(duplicate.queue_status || duplicate.status)) return Response.json({ error: 'Duplicate command prevented.', idempotency_key: idempotencyKey }, { status: 409 });
+
+    // ── MT20 UDP Session Freshness Gate ──
+    // Only apply to Noran MT20 live production commands. Bypass for dry-run, alarm automation, and installer tests.
+    const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
+    const bypassGate = !isNoranLive || body.alarm_session_id || installerInstallTest || adminTraccarLiveTest || body.bypass_udp_gate === true;
+    let udpSessionBlocked = false;
+    let udpGateReason = '';
+    if (!bypassGate) {
+      const freshUntilMs = device.udp_session_fresh_until ? new Date(device.udp_session_fresh_until).getTime() : null;
+      const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
+      const ageSeconds = lastInboundMs ? (Date.now() - lastInboundMs) / 1000 : null;
+      const isFresh = freshUntilMs ? Date.now() <= freshUntilMs : false;
+      if (!isFresh) {
+        udpSessionBlocked = true;
+        udpGateReason = ageSeconds !== null
+          ? `stale_udp_session (last inbound ${Math.round(ageSeconds)}s ago, fresh window is 20s)`
+          : 'stale_udp_session (no inbound packet on record)';
+      }
+    }
 
     const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
       company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
@@ -550,6 +569,29 @@ Deno.serve(async (req) => {
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });
       return Response.json({ error: 'Command expired before send.' }, { status: 400 });
+    }
+
+    // If UDP session is stale, park command and wait for fresh heartbeat
+    if (udpSessionBlocked) {
+      await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
+        status: 'pending_waiting_for_fresh_session',
+        queue_status: 'pending_waiting_for_fresh_session',
+        confirmation_status: 'pending',
+        failure_reason: udpGateReason,
+        udp_gate_blocked_at: now.toISOString(),
+        udp_gate_reason: udpGateReason
+      });
+      return Response.json({
+        ok: false,
+        command_id: commandAudit.id,
+        command_type: commandType,
+        queue_status: 'pending_waiting_for_fresh_session',
+        udp_session_blocked: true,
+        udp_gate_reason: udpGateReason,
+        message: 'Waiting for fresh device heartbeat before sending command. Command will auto-send after next inbound packet.',
+        last_inbound_packet_at: device.last_inbound_packet_at || null,
+        udp_session_fresh_until: device.udp_session_fresh_until || null
+      });
     }
 
     await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'sending', queue_status: 'sending', confirmation_status: 'pending' });

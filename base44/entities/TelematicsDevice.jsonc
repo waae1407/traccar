@@ -333,6 +333,45 @@
     "created_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "last_inbound_packet_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the most recent inbound packet received by Traccar from this device (handshake, position, alarm, or command response). Used for UDP session freshness gating."
+    },
+    "last_inbound_packet_type": {
+      "type": "string",
+      "enum": [
+        "handshake",
+        "position",
+        "alarm",
+        "command_response",
+        "unknown"
+      ],
+      "description": "Type of the most recent inbound packet that updated the UDP session."
+    },
+    "last_inbound_source": {
+      "type": "string",
+      "description": "Source identifier of the forwarder log that triggered the session update."
+    },
+    "last_inbound_raw_hex": {
+      "type": "string",
+      "description": "Raw hex prefix of the last inbound packet for diagnostic use only. Not used for command routing."
+    },
+    "udp_session_fresh_until": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Calculated expiry time: last_inbound_packet_at + 20 seconds. Commands are gated against this timestamp."
+    },
+    "udp_session_status": {
+      "type": "string",
+      "enum": [
+        "fresh",
+        "stale",
+        "unknown"
+      ],
+      "default": "unknown",
+      "description": "Freshness state of the Traccar UDP session. fresh = last inbound <= 20s ago. Stale = older. Unknown = no data."
     }
   },
   "required": [

@@ -56,6 +56,18 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
     return unsubscribe;
   }, [lookupData?.session?.id]);
 
+  // Subscribe to live TelematicsDevice updates for UDP session freshness badge
+  useEffect(() => {
+    if (!lookupData?.device?.id) return undefined;
+    const unsubscribe = base44.entities.TelematicsDevice.subscribe((event) => {
+      const updated = event?.data;
+      if (updated?.id === lookupData.device.id) {
+        setLookupData((prev) => prev ? ({ ...prev, device: updated }) : prev);
+      }
+    });
+    return unsubscribe;
+  }, [lookupData?.device?.id]);
+
   const sendCommand = async (commandType, isStarter) => {
     const reason = isHostMode && isStarter ? window.prompt('Reason for starter command') : '';
     if (isHostMode && isStarter && (!reason || reason.trim().length < 5 || !window.confirm('Confirm this high-risk starter command?'))) return;
