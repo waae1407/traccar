@@ -15,9 +15,13 @@ import ExpandableSection from "@/components/shared/ExpandableSection";
 export default function AdminTelematicsCenter() {
   const qc = useQueryClient();
   const [scoreFilter, setScoreFilter] = useState("all");
-  const { data: devices = [], refetch: refetchDevices } = useQuery({ queryKey: ["telematics-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-updated_date", 500) });
-  const { data: providers = [] } = useQuery({ queryKey: ["telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100) });
-  const { data: vehicles = [] } = useQuery({ queryKey: ["telematics-setup-vehicles"], queryFn: () => base44.entities.Vehicle.list("-updated_date", 500) });
+  const { data: devices = [], isLoading: devicesLoading, error: devicesError, refetch: refetchDevices } = useQuery({ queryKey: ["telematics-devices"], queryFn: () => base44.entities.TelematicsDevice.list("-updated_date", 500) });
+  const { data: providers = [], isLoading: providersLoading } = useQuery({ queryKey: ["telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100) });
+  const { data: vehicles = [], isLoading: vehiclesLoading } = useQuery({ queryKey: ["telematics-setup-vehicles"], queryFn: () => base44.entities.Vehicle.list("-updated_date", 500) });
+  
+  if (devicesLoading || providersLoading || vehiclesLoading) return <div className="p-6 text-center text-muted-foreground">Loading telematics data...</div>;
+  if (devicesError) return <div className="p-6 text-red-500">Error loading devices: {devicesError.message}</div>;
+  
   const stats = getTelematicsDeviceStats(devices);
   const filteredDevices = scoreFilter === "online" ? devices.filter(d => d.online_status === "online") : scoreFilter === "offline" ? devices.filter(d => d.online_status === "offline") : scoreFilter === "unknown" ? devices.filter(d => !["online", "offline"].includes(d.online_status)) : scoreFilter === "unassigned" ? devices.filter(d => !d.vehicle_id && d.assigned_status !== "assigned") : devices;
   const filteredProviders = scoreFilter === "providers" ? providers : providers;
