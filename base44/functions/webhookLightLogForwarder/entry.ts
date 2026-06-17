@@ -193,11 +193,43 @@ function parseMt20CommandResponse8009(body) {
     const packetType = readUInt16LE(bytes, i + 2);
     if (packetType !== 0x8009) continue;
 
+    // bEnable status byte is at offset +10 from packet start (after length+commandId+position fields)
     const bEnable = bytes[i + 10];
     const status_bits = decodeStatusBits(bEnable);
-    const cErrorCode = readTrailingSignedByte(bytes.slice(i));
     const lockState = status_bits.unlocked ? 'unlocked' : 'locked';
     const starterState = status_bits.starterKilled ? 'disabled' : 'restored';
+    const accState = status_bits.accOn ? 'on' : 'off';
+
+    // Trailing bytes: [...deviceId..., GSM, smoke, cErrorCode, 0x0D, 0x0A]
+    const sliced = bytes.slice(i);
+    const cErrorCode = readTrailingSignedByte(sliced);
+    // GSM and smoke are 3rd and 2nd from last non-terminator bytes
+    let gsm = null;
+    let smoke = null;
+    let vbat = null;
+    // Walk back from end past 0x0D/0x0A terminators
+    let tail = sliced.length - 1;
+    while (tail >= 0 && [0x00, 0x0d, 0x0a].includes(sliced[tail])) tail--;
+    // tail = cErrorCode position
+    if (tail >= 2) {
+      smoke = sliced[tail - 1];
+      gsm   = sliced[tail - 2];
+    }
+    // VBAT is at fixed offset +5 from packet start (same position as nBAT in position packets)
+    const vbatRaw = bytes[i + 5];
+    if (Number.isFinite(vbatRaw) && vbatRaw > 0 && vbatRaw <= 250) {
+      vbat = vbatRaw / 10;
+    }
+
+    // cErrorCode semantic
+    let cErrorCode_status = 'unknown';
+    if (Number.isFinite(cErrorCode)) {
+      if (cErrorCode > 0) cErrorCode_status = 'ok';
+      else if (cErrorCode < 0) cErrorCode_status = 'failed';
+      else cErrorCode_status = 'unknown'; // 0 = ambiguous
+    }
+
+    const device_unique_id = extractDeviceId(sliced, {}) || extractDeviceId(sliced, body) || String(body.unique_id || body.device_unique_id || '').trim();
 
     return {
       message_type: 'mt20_command_response_8009',
@@ -211,9 +243,23 @@ function parseMt20CommandResponse8009(body) {
       status_bits,
       lock_state: lockState,
       starter_state: starterState,
+      acc_state: accState,
+      vbat,
+      gsm,
+      smoke,
       cErrorCode,
-      device_unique_id: extractDeviceId(bytes.slice(i), {}) || extractDeviceId(bytes.slice(i), body) || String(body.unique_id || body.device_unique_id || '').trim(),
-      device_updates: { online_status: 'online' }
+      cErrorCode_status,
+      device_unique_id,
+      device_updates: {
+        online_status: 'online',
+        ...(Number.isFinite(vbat) ? {
+          battery_voltage: vbat,
+          power_voltage: vbat,
+          external_voltage: vbat,
+          voltage: vbat,
+          voltage_source: 'forwarded_log_mt20_8009_VBAT'
+        } : {})
+      }
     };
   }
 
@@ -375,24 +421,98 @@ function isReplyCompatibleWithCommand(command, parsed) {
   return false;
 }
 
+// Use 0x8009 bEnable status bits to infer which command type this ACK most likely corresponds to.
+// Returns the most likely command_type string, or null if ambiguous.
+function inferCommandTypeFromStatusBits(parsed) {
+  if (parsed?.packet_type !== '0x8009' || !parsed.status_bits) return null;
+  const { unlocked, starterKilled } = parsed.status_bits;
+  if (starterKilled === true) return 'disable_starter';
+  if (starterKilled === false && parsed.cErrorCode_status === 'ok') return 'restore_starter';
+  if (unlocked === true) return 'unlock';
+  if (unlocked === false && parsed.cErrorCode_status === 'ok') return 'lock';
+  return null;
+}
+
+// Score how well a command matches the decoded ACK status bits.
+// Higher = better match. Used to break ties when multiple commands are pending.
+function scoreCommandMatch(command, parsed, replyTime) {
+  const sentTime = new Date(command.sent_at || command.created_at || command.created_date || 0).getTime();
+  const ageSec = (replyTime - sentTime) / 1000;
+  // Must be sent BEFORE the ACK arrived
+  if (ageSec < 0) return -1;
+
+  let score = 0;
+  const inferredType = inferCommandTypeFromStatusBits(parsed);
+
+  // Strong bonus if status bits align with command type
+  if (inferredType && inferredType === command.command_type) score += 100;
+
+  // Prefer commands sent closest to (but before) the ACK
+  score += Math.max(0, 60 - ageSec); // up to +60 for recency
+
+  return score;
+}
+
+// Classify match confidence based on how the match was determined.
+function classifyMatchConfidence(bestCandidate, allCandidates, parsed) {
+  const inferredType = inferCommandTypeFromStatusBits(parsed);
+  const statusBitsAgree = inferredType && inferredType === bestCandidate.command_type;
+  const uniqueMatch = allCandidates.length === 1;
+
+  if (uniqueMatch && statusBitsAgree) return { confidence: 'high', reason: 'Only one pending command; status bits confirm command type.' };
+  if (uniqueMatch) return { confidence: 'medium', reason: 'Only one pending command in window; status bits ambiguous.' };
+  if (statusBitsAgree) return { confidence: 'medium', reason: `Multiple commands pending; status bits infer command type as "${inferredType}".` };
+  return { confidence: 'low', reason: `Multiple commands pending (${allCandidates.length}); status bits ambiguous — matched by closest sent_at before ACK.` };
+}
+
 async function findMatchingCommand(base44, device, timestamp, parsed) {
   if (!device?.id) return null;
   const replyTime = new Date(timestamp).getTime();
   const commands = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id });
-  const candidates = commands
-    .filter((command) => {
-      const status = command.queue_status || command.status;
-      if (!['queued', 'sending', 'sent', 'delivered', 'pending'].includes(status)) return false;
-      if (command.provider_key !== PROVIDER_KEY) return false;
-      if (!isReplyCompatibleWithCommand(command, parsed)) return false;
-      const sentTime = new Date(command.sent_at || command.created_at || command.created_date || 0).getTime();
-      if (!Number.isFinite(sentTime)) return false;
-      const ageMinutes = Math.abs(replyTime - sentTime) / 60000;
-      const matchWindowMinutes = parsed.ack_only ? RAW_ACK_MATCH_WINDOW_MINUTES : COMMAND_REPLY_WINDOW_MINUTES;
-      return ageMinutes <= matchWindowMinutes;
-    })
-    .sort((a, b) => new Date(b.sent_at || b.created_at || b.created_date || 0).getTime() - new Date(a.sent_at || a.created_at || a.created_date || 0).getTime());
-  return candidates.length === 1 ? candidates[0] : null;
+  const matchWindowMinutes = parsed.ack_only ? RAW_ACK_MATCH_WINDOW_MINUTES : COMMAND_REPLY_WINDOW_MINUTES;
+
+  const candidates = commands.filter((command) => {
+    const status = command.queue_status || command.status;
+    if (!['queued', 'sending', 'sent', 'delivered', 'pending'].includes(status)) return false;
+    if (command.provider_key !== PROVIDER_KEY) return false;
+    if (!isReplyCompatibleWithCommand(command, parsed)) return false;
+    const sentTime = new Date(command.sent_at || command.created_at || command.created_date || 0).getTime();
+    if (!Number.isFinite(sentTime)) return false;
+    // Command must have been sent BEFORE the ACK, within the match window
+    const ageSec = (replyTime - sentTime) / 1000;
+    if (ageSec < 0) return false; // ignore commands sent after ACK timestamp
+    const ageMinutes = ageSec / 60;
+    return ageMinutes <= matchWindowMinutes;
+  });
+
+  if (candidates.length === 0) return null;
+
+  // Score all candidates — prefer closest sent_at + status bit alignment
+  const scored = candidates
+    .map((cmd) => ({ cmd, score: scoreCommandMatch(cmd, parsed, replyTime) }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0) return null;
+
+  const best = scored[0].cmd;
+
+  // If multiple candidates tie and none have status-bit alignment, do not match (ambiguous)
+  if (candidates.length > 1) {
+    const inferredType = inferCommandTypeFromStatusBits(parsed);
+    const statusBitsAgree = inferredType && inferredType === best.command_type;
+    if (!statusBitsAgree && scored.length > 1 && Math.abs(scored[0].score - scored[1].score) < 5) {
+      // Too ambiguous — log but do not match
+      console.warn(`[webhookLightLogForwarder] ACK ambiguous: ${candidates.length} candidates within ${matchWindowMinutes}min, scores too close. Skipping match.`);
+      return null;
+    }
+  }
+
+  const { confidence, reason } = classifyMatchConfidence(best, candidates, parsed);
+  // Attach confidence metadata directly to best for use in processCommandResponse
+  best._ack_match_confidence = confidence;
+  best._ack_match_reason = reason;
+  return best;
 }
 
 async function updateCommandTestSession(base44, command, evaluation, parsed, timestamp) {
@@ -433,20 +553,67 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   const command = await findMatchingCommand(base44, device, timestamp, parsed);
   if (!command) return { command_matched: false, reason: 'No pending command matched this MT20 reply.' };
 
+  // No-downgrade guard: never regress a command that already succeeded
+  const alreadySucceeded = ['delivered', 'acknowledged', 'executed'].includes(command.confirmation_status || '');
+
   const evaluation = parsed.ack_only
     ? { result: 'acknowledged', reason: 'Raw MT20 command ACK detected from Traccar log forwarder.' }
     : evaluateCommandReply(command, parsed);
   const pass = evaluation.result === 'pass';
   const ackOnly = parsed.ack_only === true;
+
+  // Pull confidence metadata attached by findMatchingCommand
+  const ackMatchConfidence = command._ack_match_confidence || 'low';
+  const ackMatchReason = command._ack_match_reason || 'Matched by time window.';
+
+  // Build enriched 0x8009 response fields
+  const mt20Ack8009 = parsed.packet_type === '0x8009' ? {
+    raw_packet_hex: parsed.raw_packet_hex,
+    bEnable: parsed.bEnable,
+    status_bits: parsed.status_bits,
+    lock_state: parsed.lock_state,
+    starter_state: parsed.starter_state,
+    acc_state: parsed.acc_state,
+    vbat: parsed.vbat,
+    gsm: parsed.gsm,
+    smoke: parsed.smoke,
+    cErrorCode: parsed.cErrorCode,
+    cErrorCode_status: parsed.cErrorCode_status,
+    device_unique_id: parsed.device_unique_id,
+    ack_match_confidence: ackMatchConfidence,
+    ack_match_reason: ackMatchReason,
+    received_at: timestamp
+  } : null;
+
+  // If already in a terminal success state, do not downgrade to failed
+  if (alreadySucceeded && !pass && !ackOnly) {
+    console.warn(`[webhookLightLogForwarder] Skipping downgrade of already-succeeded command ${command.id} (current: ${command.confirmation_status}).`);
+    // Still store the ACK data on provider_response for audit purposes
+    await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+      provider_response: {
+        ...(command.provider_response || {}),
+        mt20_forwarded_reply: parsed,
+        mt20_ack_8009: mt20Ack8009,
+        mt20_reply_evaluation: evaluation,
+        downgrade_prevented: true
+      }
+    }).catch(() => {});
+    return { command_matched: true, command_id: command.id, command_type: command.command_type, result: 'no_downgrade', reason: 'Command already succeeded; downgrade prevented.', ack_match_confidence: ackMatchConfidence };
+  }
+
+  const newStatus = ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed');
   const updateData = {
-    status: ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed'),
-    queue_status: ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed'),
-    confirmation_status: ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed'),
+    status: newStatus,
+    queue_status: newStatus,
+    confirmation_status: newStatus,
     acknowledged_at: timestamp,
     device_acknowledged_at: timestamp,
+    ack_match_confidence: ackMatchConfidence,
+    ack_match_reason: ackMatchReason,
     provider_response: {
       ...(command.provider_response || {}),
       mt20_forwarded_reply: parsed,
+      mt20_ack_8009: mt20Ack8009,
       mt20_reply_evaluation: evaluation
     },
     failure_reason: pass || ackOnly ? '' : evaluation.reason
@@ -472,7 +639,7 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
     created_at: timestamp
   }).catch((error) => console.warn('Command response event log skipped:', error.message));
 
-  return { command_matched: true, command_id: command.id, command_type: command.command_type, result: evaluation.result, reason: evaluation.reason, session_updated: !!session };
+  return { command_matched: true, command_id: command.id, command_type: command.command_type, result: evaluation.result, reason: evaluation.reason, ack_match_confidence: ackMatchConfidence, ack_match_reason: ackMatchReason, session_updated: !!session };
 }
 
 function isActivePaidRental(booking) {
