@@ -660,21 +660,21 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'sending', queue_status: 'sending', confirmation_status: 'pending' });
     try {
       const sentAt = new Date().toISOString();
-      const providerCommandId = routed.response?.id || routed.response?.commandId || routed.response?.command_id || '';
+      const providerCommandId = preBuiltCommand.response?.id || preBuiltCommand.response?.commandId || preBuiltCommand.response?.command_id || '';
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
         status: 'sent', queue_status: 'sent', confirmation_status: 'sent', sent_at: sentAt,
         sent_to_traccar_at: sentAt,
-        traccar_api_response: routed.response || {},
-        status_message: routed.dry_run ? 'Dry run — not sent to Traccar' : 'Sent to Traccar',
-        provider_command_id: String(providerCommandId || ''), provider_command_name: routed.provider_command_name,
+        traccar_api_response: preBuiltCommand.response || {},
+        status_message: preBuiltCommand.dry_run ? 'Dry run — not sent to Traccar' : 'Sent to Traccar',
+        provider_command_id: String(providerCommandId || ''), provider_command_name: preBuiltCommand.provider_command_name,
         ascii_payload: asciiPayload,
         hex_payload: hexPayload,
         wrapped_payload: hexPayload || '',
         sData_hex: sDataHex,
-        transmission_format: hexPayload ? 'mt20_wrapped_hex' : routed.dry_run ? 'dry_run' : 'provider_api',
-        actual_transmitted_payload: routed.response?.traccar_payload || { traccar_payloads: routed.response?.responses?.map((item) => item.traccar_payload).filter(Boolean) || [] },
-        production_command: !!routed.production_command,
-        acknowledgement_source: 'provider_api_response', provider_response: routed.response || {}
+        transmission_format: hexPayload ? 'mt20_wrapped_hex' : preBuiltCommand.dry_run ? 'dry_run' : 'provider_api',
+        actual_transmitted_payload: preBuiltCommand.response?.traccar_payload || { traccar_payloads: preBuiltCommand.response?.responses?.map((item) => item.traccar_payload).filter(Boolean) || [] },
+        production_command: !!preBuiltCommand.production_command,
+        acknowledgement_source: 'provider_api_response', provider_response: preBuiltCommand.response || {}
       });
       await base44.asServiceRole.entities.TelematicsEvent.create({
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
@@ -688,10 +688,10 @@ Deno.serve(async (req) => {
       }
       if (adminDeviceCommandTest) {
         await base44.asServiceRole.entities.ActivityEvent.create({
-          event_type: 'gps.command_sent', actor_id: user.id || '', actor_email: user.email, actor_role: 'admin', target_entity: 'TelematicsDevice', target_id: device.id, vehicle_id: vehicle?.id || device.vehicle_id || '', summary: `Admin test command ${commandType} sent to ${device.unique_id || device.id}`, metadata: { command_id: commandAudit.id, dry_run: !!routed.dry_run }, source: 'admin_panel', event_status: 'success'
+          event_type: 'gps.command_sent', actor_id: user.id || '', actor_email: user.email, actor_role: 'admin', target_entity: 'TelematicsDevice', target_id: device.id, vehicle_id: vehicle?.id || device.vehicle_id || '', summary: `Admin test command ${commandType} sent to ${device.unique_id || device.id}`, metadata: { command_id: commandAudit.id, dry_run: !!preBuiltCommand.dry_run }, source: 'admin_panel', event_status: 'success'
         });
       }
-      return Response.json({ ok: true, command_id: commandAudit.id, command_type: commandType, queue_status: 'sent', dry_run: !!routed.dry_run, production_command: !!routed.production_command, pending_acknowledgement: true, result: routed.response || {} });
+      return Response.json({ ok: true, command_id: commandAudit.id, command_type: commandType, queue_status: 'sent', dry_run: !!preBuiltCommand.dry_run, production_command: !!preBuiltCommand.production_command, pending_acknowledgement: true, result: preBuiltCommand.response || {} });
     } catch (error) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: error.message, failed_at: new Date().toISOString(), sent_at: new Date().toISOString() });
       await base44.asServiceRole.entities.TelematicsEvent.create({ company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key, vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_failed`, source: 'command', raw_payload: { error: error.message }, created_at: new Date().toISOString() });
