@@ -1,52 +1,89 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+// Diagnostic test suite — sends the full MT20-wrapped 68-byte command format
+// to validate that Traccar correctly routes commands to the device via UDP.
+// Admin-only. Uses same command builder as production sendTelematicsCommand.
+
 const COMMAND_SEQUENCE = [
-  { command_type: 'locate', action: null },
-  { command_type: 'status', action: null },
-  { command_type: 'lock', action: '3,1' },
-  { command_type: 'unlock', action: '4,1' },
-  { command_type: 'horn_lights', action: '2,3' },
-  { command_type: 'disable_starter', action: '1,1' },
-  { command_type: 'restore_starter', action: '1,0' }
+  { command_type: 'locate',          ascii_suffix: null,       action_code: '000', action_args: null },
+  { command_type: 'status',          ascii_suffix: null,       action_code: '000', action_args: null },
+  { command_type: 'lock',            ascii_suffix: '3,1',      action_code: '007', action_args: '3,1' },
+  { command_type: 'unlock',          ascii_suffix: '4,1',      action_code: '007', action_args: '4,1' },
+  { command_type: 'horn_lights',     ascii_suffix: '2,3',      action_code: '007', action_args: '2,3' },
+  { command_type: 'disable_starter', ascii_suffix: '1,1',      action_code: '007', action_args: '1,1' },
+  { command_type: 'restore_starter', ascii_suffix: '1,0',      action_code: '007', action_args: '1,0' }
 ];
 
-function cleanDeviceId(value) {
+// ── MT20 wrapper constants (identical to sendTelematicsCommand production path) ──
+const MT20_S_MARK_HEX   = '0D0A2A4B5700';
+const MT20_PKT_LEN_HEX  = '4400';
+const MT20_CMD_HEX      = '0200';
+const MT20_GIS_IP_HEX   = '741E649C'; // default — matches sendTelematicsCommand
+const MT20_PORT_HEX     = '5B9A';
+const MT20_S_END_HEX    = '0D0A';
+const MT20_SDATA_BYTES  = 50;
+const MT20_TOTAL_BYTES  = 68;
+
+function sanitizeDeviceId(value) {
   return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9_:-]/g, '').slice(0, 80);
 }
 
+function bytesToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
 function asciiToHex(input = '') {
-  return Array.from(input).map((char) => char.charCodeAt(0).toString(16).padStart(2, '0')).join('').toUpperCase();
+  return bytesToHex(new TextEncoder().encode(input));
+}
+
+function normalizeFixedHex(value, fallback, expectedBytes, name) {
+  const hex = String(value || fallback || '').replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+  if (hex.length !== expectedBytes * 2) throw new Error(`${name} must be exactly ${expectedBytes} bytes.`);
+  return hex;
 }
 
 function currentHhmmss() {
   const now = new Date();
-  return [now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()].map((n) => String(n).padStart(2, '0')).join('');
+  return [now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()]
+    .map((n) => String(n).padStart(2, '0')).join('');
 }
 
-function buildCommand(uniqueId, action) {
+// Build ASCII payload per MT20 protocol spec
+function buildAsciiPayload(uniqueId, actionCode, actionArgs) {
   const hhmmss = currentHhmmss();
-  const ascii = action ? `*KW,${uniqueId},007,${hhmmss},${action}#` : `*KW,${uniqueId},000,${hhmmss}#`;
-  return { ascii, hex: asciiToHex(ascii) };
+  const cleanId = sanitizeDeviceId(uniqueId);
+  return actionArgs
+    ? `*KW,${cleanId},${actionCode},${hhmmss},${actionArgs}#`
+    : `*KW,${cleanId},${actionCode},${hhmmss}#`;
+}
+
+// Wrap ASCII into full 68-byte MT20 control packet (identical to sendTelematicsCommand)
+function buildMt20WrappedCommand(asciiCommand) {
+  const envObj = Deno.env.toObject();
+  const gisIpHex = normalizeFixedHex(envObj.MT20_GIS_IP_HEX, MT20_GIS_IP_HEX, 4, 'MT20_GIS_IP_HEX');
+  const portHex  = normalizeFixedHex(envObj.MT20_APP_PORT_HEX, MT20_PORT_HEX, 2, 'MT20_APP_PORT_HEX');
+  const sDataBytes = new TextEncoder().encode(asciiCommand);
+  if (sDataBytes.length > MT20_SDATA_BYTES) throw new Error(`MT20 ASCII command exceeds ${MT20_SDATA_BYTES} bytes: ${asciiCommand}`);
+  const paddedSData = new Uint8Array(MT20_SDATA_BYTES);
+  paddedSData.set(sDataBytes);
+  const sDataHex = bytesToHex(paddedSData);
+  const fullHex = `${MT20_S_MARK_HEX}${MT20_PKT_LEN_HEX}${MT20_CMD_HEX}${gisIpHex}${portHex}${sDataHex}${MT20_S_END_HEX}`;
+  const totalBytes = fullHex.length / 2;
+  if (totalBytes !== MT20_TOTAL_BYTES) throw new Error(`MT20 packet must be ${MT20_TOTAL_BYTES} bytes, got ${totalBytes}.`);
+  if (!fullHex.startsWith(MT20_S_MARK_HEX)) throw new Error('MT20 packet has invalid sMark.');
+  if (!fullHex.endsWith(MT20_S_END_HEX)) throw new Error('MT20 packet has invalid sEnd.');
+  return { asciiCommand, sDataHex, fullHex, totalBytes };
 }
 
 function joinUrl(baseUrl, path) {
   return `${baseUrl.replace(/\/+$/, '')}${path}`;
 }
 
-function parseJson(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { raw: text };
-  }
-}
-
 async function traccarFetch(path, options = {}) {
-  const baseUrl = String(Deno.env.get('TRACCAR_BASE_URL') || '').trim();
-  const username = String(Deno.env.get('TRACCAR_USERNAME') || '').trim();
-  const password = String(Deno.env.get('TRACCAR_PASSWORD') || '').trim();
+  const baseUrl   = String(Deno.env.get('TRACCAR_BASE_URL') || '').trim();
+  const username  = String(Deno.env.get('TRACCAR_USERNAME') || '').trim();
+  const password  = String(Deno.env.get('TRACCAR_PASSWORD') || '').trim();
   if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
-
   const response = await fetch(joinUrl(baseUrl, path), {
     ...options,
     headers: {
@@ -57,7 +94,7 @@ async function traccarFetch(path, options = {}) {
     }
   });
   const text = await response.text();
-  const data = parseJson(text);
+  let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
   if (!response.ok) throw new Error(`Traccar API failed (${response.status}): ${text || response.statusText}`);
   return data;
 }
@@ -65,8 +102,8 @@ async function traccarFetch(path, options = {}) {
 async function findTraccarDevice(uniqueId) {
   const devices = await traccarFetch('/api/devices', { method: 'GET' });
   const list = Array.isArray(devices) ? devices : [];
-  return list.find((device) => String(device.uniqueId || '').toUpperCase() === uniqueId)
-    || list.find((device) => String(device.name || '').toUpperCase() === uniqueId)
+  return list.find((d) => String(d.uniqueId || '').toUpperCase() === uniqueId)
+    || list.find((d) => String(d.name || '').toUpperCase() === uniqueId)
     || null;
 }
 
@@ -92,22 +129,23 @@ async function upsertLocalDevice(base44, uniqueId, traccarDevice) {
   return await base44.asServiceRole.entities.TelematicsDevice.create(payload);
 }
 
-async function recordCommand(base44, user, localDevice, command, built, result, status, failureReason = '') {
+async function recordCommand(base44, user, localDevice, commandType, built, traccarDeviceId, result, status, failureReason = '') {
   const now = new Date().toISOString();
   const commandRecord = await base44.asServiceRole.entities.TelematicsCommand.create({
     telematics_device_id: localDevice.id,
     provider_key: 'traccar_noran_mt20',
     vehicle_id: localDevice.vehicle_id || '',
     host_id: localDevice.host_id || '',
-    command_type: command.command_type,
+    command_type: commandType,
     provider_command_name: 'custom',
-    ascii_payload: built.ascii,
-    hex_payload: built.hex,
-    request_payload: { traccar_device_id: localDevice.traccar_device_id, suite_run: true },
+    ascii_payload: built.asciiCommand,
+    hex_payload: built.fullHex,
+    transmission_format: 'mt20_wrapped_hex',
+    request_payload: { traccar_device_id: traccarDeviceId, suite_run: true, format: 'mt20_wrapped_68byte' },
     status,
     queue_status: status,
     confirmation_status: status === 'sent' ? 'sent' : 'failed',
-    confirmation_required: ['disable_starter', 'restore_starter'].includes(command.command_type),
+    confirmation_required: ['disable_starter', 'restore_starter'].includes(commandType),
     provider_response: result || {},
     requested_by: user.email,
     requested_role: user.role || 'admin',
@@ -120,9 +158,18 @@ async function recordCommand(base44, user, localDevice, command, built, result, 
     telematics_device_id: localDevice.id,
     provider_key: 'traccar_noran_mt20',
     vehicle_id: localDevice.vehicle_id || '',
-    event_type: `command_${command.command_type}_${status}`,
+    event_type: `command_${commandType}_${status}`,
     source: 'command',
-    raw_payload: { suite_run: true, command_id: commandRecord.id, response: result || {}, failure_reason: failureReason },
+    raw_payload: {
+      suite_run: true,
+      command_id: commandRecord.id,
+      ascii_payload: built.asciiCommand,
+      hex_payload: built.fullHex,
+      mt20_total_bytes: built.totalBytes,
+      format: 'mt20_wrapped_68byte',
+      response: result || {},
+      failure_reason: failureReason
+    },
     created_at: now
   });
   return commandRecord;
@@ -135,31 +182,62 @@ Deno.serve(async (req) => {
     if (user?.role !== 'admin') return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
 
     const body = await req.json();
-    const uniqueId = cleanDeviceId(body.device_id || body.unique_id);
+    const dryRun = body.dry_run === true;
+    const uniqueId = sanitizeDeviceId(body.device_id || body.unique_id);
     if (!uniqueId) return Response.json({ error: 'device_id is required' }, { status: 400 });
 
     const traccarDevice = await findTraccarDevice(uniqueId);
     if (!traccarDevice?.id) return Response.json({ error: `Device ${uniqueId} was not found in Traccar.` }, { status: 404 });
 
     const localDevice = await upsertLocalDevice(base44, uniqueId, traccarDevice);
+    const traccarDeviceId = Number(traccarDevice.id);
+    if (!Number.isFinite(traccarDeviceId)) return Response.json({ error: 'Invalid Traccar numeric device ID.' }, { status: 400 });
+
     const results = [];
 
-    for (const command of COMMAND_SEQUENCE) {
-      const built = buildCommand(uniqueId, command.action);
+    for (const cmd of COMMAND_SEQUENCE) {
+      const ascii = buildAsciiPayload(uniqueId, cmd.action_code, cmd.action_args);
+      let built;
       try {
-        const result = await traccarFetch('/api/commands/send', {
-          method: 'POST',
-          body: JSON.stringify({ deviceId: Number(traccarDevice.id), type: 'custom', attributes: { data: built.hex } })
+        built = buildMt20WrappedCommand(ascii);
+      } catch (buildError) {
+        results.push({ command_type: cmd.command_type, status: 'build_failed', ascii_payload: ascii, error: buildError.message });
+        continue;
+      }
+
+      const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: built.fullHex } };
+
+      if (dryRun) {
+        results.push({
+          command_type: cmd.command_type,
+          status: 'dry_run',
+          ascii_payload: built.asciiCommand,
+          hex_payload: built.fullHex,
+          mt20_total_bytes: built.totalBytes,
+          traccar_payload: traccarPayload,
+          format: 'mt20_wrapped_68byte'
         });
-        await recordCommand(base44, user, localDevice, command, built, result, 'sent');
-        results.push({ command_type: command.command_type, status: 'sent', ascii_payload: built.ascii, hex_payload: built.hex, result });
+        continue;
+      }
+
+      try {
+        const result = await traccarFetch('/api/commands/send', { method: 'POST', body: JSON.stringify(traccarPayload) });
+        await recordCommand(base44, user, localDevice, cmd.command_type, built, String(traccarDevice.id), result, 'sent');
+        results.push({ command_type: cmd.command_type, status: 'sent', ascii_payload: built.asciiCommand, hex_payload: built.fullHex, mt20_total_bytes: built.totalBytes, result });
       } catch (error) {
-        await recordCommand(base44, user, localDevice, command, built, null, 'failed', error.message);
-        results.push({ command_type: command.command_type, status: 'failed', ascii_payload: built.ascii, hex_payload: built.hex, error: error.message });
+        await recordCommand(base44, user, localDevice, cmd.command_type, built, String(traccarDevice.id), null, 'failed', error.message);
+        results.push({ command_type: cmd.command_type, status: 'failed', ascii_payload: built.asciiCommand, hex_payload: built.fullHex, error: error.message });
       }
     }
 
-    return Response.json({ ok: true, device_id: uniqueId, traccar_device_id: String(traccarDevice.id), commands: results });
+    return Response.json({
+      ok: true,
+      dry_run: dryRun,
+      device_id: uniqueId,
+      traccar_device_id: String(traccarDevice.id),
+      format: 'mt20_wrapped_68byte',
+      commands: results
+    });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
