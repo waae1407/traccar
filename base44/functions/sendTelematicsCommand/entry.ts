@@ -572,7 +572,16 @@ Deno.serve(async (req) => {
     const useHeartbeatDelay = isNoranUdp && !STARTER_COMMANDS.includes(commandType);
 
     if (useHeartbeatDelay) {
-      // Use heartbeat-delay strategy for Noran UDP devices
+      // Pre-build the command payload BEFORE queuing (critical for auto-dispatch)
+      const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
+      const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
+        ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template).catch(() => null)
+        : (template ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction }) : await fallbackAdapter(provider, device, commandType));
+      
+      const hexPayload = preBuiltCommand?.hex_payload || null;
+      const asciiPayload = preBuiltCommand?.ascii_payload || null;
+      const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
+
       const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '',
         telematics_device_id: device.id,
@@ -601,6 +610,12 @@ Deno.serve(async (req) => {
         ip_address: getClientIp(req),
         user_agent: req.headers.get('user-agent') || '',
         created_at: now.toISOString(),
+        // CRITICAL: Store pre-built payload for auto-dispatch
+        hex_payload: hexPayload,
+        ascii_payload: asciiPayload,
+        sData_hex: sDataHex,
+        wrapped_payload: hexPayload,
+        transmission_format: hexPayload ? 'mt20_wrapped_hex' : 'unknown',
         request_payload: {
           vehicle_id: vehicle?.id || device.vehicle_id || '',
           booking_id: booking?.id || body.booking_id || '',
@@ -627,6 +642,7 @@ Deno.serve(async (req) => {
         queue_status: 'pending_waiting_for_heartbeat',
         status_message: 'Waiting for device heartbeat',
         configured_delay_seconds: device.post_heartbeat_release_delay_seconds || 0,
+        has_payload: !!hexPayload,
         message: 'Command queued. Will be released after next heartbeat + configured delay.'
       });
     }
