@@ -58,11 +58,11 @@ Deno.serve(async (req) => {
     const nowIso = now.toISOString();
     const nowMs = now.getTime();
 
-    // Find all Noran commands waiting for heartbeat
-    const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
-      provider_key: PROVIDER_KEY,
-      queue_status: 'pending_waiting_for_heartbeat'
-    });
+  // Find all Noran commands waiting for heartbeat (BACKUP ONLY - webhook handles primary release)
+  const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
+    provider_key: PROVIDER_KEY,
+    queue_status: 'pending_waiting_for_next_heartbeat'
+  }, '-created_date', 50);
 
     if (pendingCommands.length === 0) {
       return Response.json({ ok: true, processed: 0, waiting: 0, released: 0, expired: 0, message: 'No commands pending heartbeat' });
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
         const heartbeatMatchedMs = typeof heartbeatMatchedAt === 'string' ? new Date(heartbeatMatchedAt).getTime() : heartbeatMatchedAt;
         const msSinceHeartbeat = nowMs - heartbeatMatchedMs;
         const secondsSinceHeartbeat = Math.floor(msSinceHeartbeat / 1000);
-        const delayMs = (configuredDelay || 0) * 1000;
+        const delayMs = (configuredDelay ?? 0) * 1000;
 
         if (msSinceHeartbeat < delayMs) {
           const remainingSeconds = Math.ceil((delayMs - msSinceHeartbeat) / 1000);

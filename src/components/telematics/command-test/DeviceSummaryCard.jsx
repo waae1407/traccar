@@ -15,7 +15,7 @@ export default function DeviceSummaryCard({ data }) {
   const device = data?.device;
   const provider = data?.provider;
   const vehicle = data?.vehicle;
-  const [delayValue, setDelayValue] = React.useState(data?.device?.post_heartbeat_release_delay_seconds || 0);
+  const [delayValue, setDelayValue] = React.useState(data?.device?.post_heartbeat_release_delay_seconds ?? 0);
 
   const delayMutation = useMutation({
     mutationFn: (newDelay) => base44.entities.TelematicsDevice.update(device?.id, { post_heartbeat_release_delay_seconds: newDelay }),
@@ -107,7 +107,10 @@ export default function DeviceSummaryCard({ data }) {
                   min="0" 
                   max="30" 
                   value={delayValue}
-                  onChange={(e) => setDelayValue(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setDelayValue(isNaN(val) ? 0 : val);
+                  }}
                   onBlur={handleDelayChange}
                   className="max-w-xs"
                   disabled={delayMutation.isPending}

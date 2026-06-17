@@ -627,8 +627,9 @@ Deno.serve(async (req) => {
           reason: body.reason || '',
           source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'),
           release_strategy: 'heartbeat_delay_only',
-          configured_delay_seconds: configuredDelay,
           // AUDIT FIELDS FOR DELAY ZERO HANDLING
+          configured_delay_seconds: configuredDelay,
+          configured_post_heartbeat_release_delay_seconds: configuredDelay,
           device_delay_value_at_command_creation: device.post_heartbeat_release_delay_seconds ?? 0,
           ui_delay_value_submitted: device.post_heartbeat_release_delay_seconds ?? 0,
           delay_source: 'TelematicsDevice.post_heartbeat_release_delay_seconds',
