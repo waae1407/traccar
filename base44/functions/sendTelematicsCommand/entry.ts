@@ -614,6 +614,16 @@ Deno.serve(async (req) => {
     // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 0x0032 position).
     // Auto-dispatch fires on the next inbound packet in webhookLightLogForwarder.
     // If no heartbeat arrives within 5 minutes, processTelematicsCommandTimeouts marks failed_no_fresh_session.
+    // Pre-build hex payload BEFORE queuing (critical for auto-dispatch when session is stale)
+    const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
+    const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
+      ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template).catch(() => null)
+      : (template ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction }) : await fallbackAdapter(provider, device, commandType));
+    
+    const hexPayload = preBuiltCommand?.hex_payload || null;
+    const asciiPayload = preBuiltCommand?.ascii_payload || null;
+    const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
+
     if (udpSessionBlocked) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
         status: 'pending_waiting_for_fresh_session',
@@ -622,7 +632,13 @@ Deno.serve(async (req) => {
         failure_reason: udpGateReason,
         udp_gate_blocked_at: now.toISOString(),
         udp_gate_reason: udpGateReason,
-        blocked_reason: udpGateReason
+        blocked_reason: udpGateReason,
+        // CRITICAL: Store pre-built payload for auto-dispatch
+        hex_payload: hexPayload,
+        ascii_payload: asciiPayload,
+        sData_hex: sDataHex,
+        wrapped_payload: hexPayload,
+        transmission_format: hexPayload ? 'mt20_wrapped_hex' : 'unknown'
       });
       return Response.json({
         ok: false,
@@ -640,14 +656,6 @@ Deno.serve(async (req) => {
 
     await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'sending', queue_status: 'sending', confirmation_status: 'pending' });
     try {
-      const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
-      const routed = adminTraccarLiveTest
-        ? await sendTraccarSingleDeviceLiveTest(commandType, device)
-        : (liveNoranProduction || liveNoranInstallerTest)
-          ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template)
-          : template
-            ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction })
-            : await fallbackAdapter(provider, device, commandType);
       const sentAt = new Date().toISOString();
       const providerCommandId = routed.response?.id || routed.response?.commandId || routed.response?.command_id || '';
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
@@ -656,11 +664,11 @@ Deno.serve(async (req) => {
         traccar_api_response: routed.response || {},
         status_message: routed.dry_run ? 'Dry run — not sent to Traccar' : 'Sent to Traccar',
         provider_command_id: String(providerCommandId || ''), provider_command_name: routed.provider_command_name,
-        ascii_payload: routed.ascii_payload,
-        hex_payload: routed.hex_payload,
-        wrapped_payload: routed.hex_payload || '',
-        sData_hex: routed.response?.sData_hex || routed.response?.responses?.[0]?.sData_hex || '',
-        transmission_format: routed.hex_payload ? 'mt20_wrapped_hex' : routed.dry_run ? 'dry_run' : 'provider_api',
+        ascii_payload: asciiPayload,
+        hex_payload: hexPayload,
+        wrapped_payload: hexPayload || '',
+        sData_hex: sDataHex,
+        transmission_format: hexPayload ? 'mt20_wrapped_hex' : routed.dry_run ? 'dry_run' : 'provider_api',
         actual_transmitted_payload: routed.response?.traccar_payload || { traccar_payloads: routed.response?.responses?.map((item) => item.traccar_payload).filter(Boolean) || [] },
         production_command: !!routed.production_command,
         acknowledgement_source: 'provider_api_response', provider_response: routed.response || {}
