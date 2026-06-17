@@ -678,7 +678,7 @@ Deno.serve(async (req) => {
       });
       await base44.asServiceRole.entities.TelematicsEvent.create({
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
-        vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_sent`, source: 'command', raw_payload: { provider_api_success: true, provider_execution_confirmed: false, response: routed.response || {} }, created_at: sentAt
+        vehicle_id: vehicle?.id || device.vehicle_id || '', event_type: `command_${commandType}_sent`, source: 'command', raw_payload: { provider_api_success: true, provider_execution_confirmed: false, response: preBuiltCommand.response || {} }, created_at: sentAt
       });
       if (commandType === 'unlock') {
         const activeAlarms = await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ vehicle_id: vehicle?.id || device.vehicle_id || '', status: 'active' });
