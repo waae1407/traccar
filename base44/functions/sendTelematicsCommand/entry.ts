@@ -21,20 +21,7 @@ function getCommandRiskLevel(commandType) {
   return 'high_risk'; // Default to high-risk for unknown commands
 }
 
-// ── MT20 Heartbeat Freshness Gates by Command Risk Level ──
-const HIGH_RISK_COMMANDS = ['lock', 'unlock', 'horn', 'lights', 'horn_lights', 'disable_starter', 'restore_starter', 'raw'];
-const LOW_RISK_COMMANDS = ['locate', 'status'];
-const HEARTBEAT_FRESHNESS_MS = {
-  high_risk: 10 * 1000,   // 10 seconds for vehicle control
-  low_risk: 30 * 1000,    // 30 seconds for locate/status
-  hard_stale: 60 * 1000   // 60 seconds absolute max
-};
 
-function getCommandRiskLevel(commandType) {
-  if (HIGH_RISK_COMMANDS.includes(commandType)) return 'high_risk';
-  if (LOW_RISK_COMMANDS.includes(commandType)) return 'low_risk';
-  return 'high_risk';
-}
 
 
 const TRACCAR_TEST_UNIQUE_ID = 'NR09G00002';
@@ -584,19 +571,21 @@ Deno.serve(async (req) => {
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
     const commandRiskLevel = getCommandRiskLevel(commandType);
     const maxAgeMs = HEARTBEAT_FRESHNESS_MS[commandRiskLevel];
-    const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
-    const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
-    const isHardStale = lastInboundMs ? (Date.now() - lastInboundMs) > HEARTBEAT_FRESHNESS_MS.hard_stale : true;
+    const nowMs = Date.now();
+    const lastInboundAt = device.last_heartbeat_received_at || device.last_inbound_packet_at || device.udp_last_seen_at || null;
+    const lastInboundMs = lastInboundAt ? new Date(lastInboundAt).getTime() : 0;
+    const heartbeatAgeMs = lastInboundMs ? nowMs - lastInboundMs : Infinity;
+    const heartbeatAgeSeconds = Math.floor(heartbeatAgeMs / 1000);
+    const isHardStale = heartbeatAgeMs > HEARTBEAT_FRESHNESS_MS.hard_stale;
     
     // CRITICAL: Admin tests MUST go through gate to validate real production path
     // Only bypass for: (1) alarm sessions (time-critical), (2) explicit force_send_even_if_stale flag
     const bypassGate = (body.alarm_session_id && isNoranLive) || body.force_send_even_if_stale === true;
     let udpSessionBlocked = false;
     let udpGateReason = '';
-    const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
-    const ageSeconds = lastInboundMs ? Math.round((Date.now() - lastInboundMs) / 1000) : null;
-    const ageMs = lastInboundMs ? (Date.now() - lastInboundMs) : null;
-    const isFresh = lastInboundMs ? (Date.now() - lastInboundMs) <= maxAgeMs : false;
+    const ageSeconds = heartbeatAgeSeconds;
+    const ageMs = heartbeatAgeMs;
+    const isFresh = heartbeatAgeMs <= maxAgeMs;
     const udpDiagnostics = {
       command_requested_at: now.toISOString(),
       last_inbound_packet_at: device.last_inbound_packet_at || null,
