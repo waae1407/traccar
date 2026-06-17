@@ -1,0 +1,111 @@
+{
+  "name": "TelematicsCommandAttempt",
+  "type": "object",
+  "properties": {
+    "company_id": {
+      "type": "string"
+    },
+    "command_id": {
+      "type": "string",
+      "description": "Parent TelematicsCommand ID"
+    },
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "device_unique_id": {
+      "type": "string"
+    },
+    "traccar_device_id": {
+      "type": "string"
+    },
+    "command_type": {
+      "type": "string"
+    },
+    "attempt_number": {
+      "type": "number",
+      "description": "1-12 retry attempt number"
+    },
+    "attempted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "seconds_after_request": {
+      "type": "number",
+      "description": "Seconds since parent command was requested"
+    },
+    "seconds_after_last_heartbeat": {
+      "type": "number",
+      "description": "Seconds since last heartbeat before this attempt"
+    },
+    "last_heartbeat_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "traccar_api_called": {
+      "type": "boolean",
+      "default": false
+    },
+    "traccar_api_status": {
+      "type": "number",
+      "description": "HTTP status from Traccar API"
+    },
+    "traccar_response": {
+      "type": "object"
+    },
+    "ascii_payload": {
+      "type": "string"
+    },
+    "hex_payload": {
+      "type": "string"
+    },
+    "sent_to_traccar_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ack_received": {
+      "type": "boolean",
+      "default": false
+    },
+    "ack_received_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ack_delay_ms": {
+      "type": "number",
+      "description": "Milliseconds between attempt and ACK"
+    },
+    "raw_ack_hex": {
+      "type": "string"
+    },
+    "ack_match_confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "ack_match_reason": {
+      "type": "string"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "provider_key": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "command_id",
+    "device_unique_id",
+    "command_type",
+    "attempt_number",
+    "attempted_at"
+  ]
+}
