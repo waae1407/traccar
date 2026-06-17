@@ -526,10 +526,13 @@ async function findMatchingCommand(base44, device, timestamp, parsed) {
 
   const candidates = commands.filter((command) => {
     const status = command.queue_status || command.status;
-    if (!['queued', 'sending', 'sent', 'delivered', 'pending'].includes(status)) return false;
+    // CRITICAL: Include sent_to_traccar and related statuses - commands are no longer "pending" after being sent
+    const eligibleStatuses = ['queued', 'sending', 'sent', 'delivered', 'pending', 'pending_waiting_for_next_heartbeat', 'waiting_for_delay', 'sent_to_traccar', 'command_sent', 'released', 'executing', 'pending_ack', 'pending_device_ack', 'pending_position', 'pending_device_response'];
+    if (!eligibleStatuses.includes(status)) return false;
     if (command.provider_key !== PROVIDER_KEY) return false;
     if (!isReplyCompatibleWithCommand(command, parsed)) return false;
-    const sentTime = new Date(command.sent_at || command.created_at || command.created_date || 0).getTime();
+    // Use sent_to_traccar_at if available, otherwise sent_at, otherwise created_at
+    const sentTime = new Date(command.sent_to_traccar_at || command.sent_at || command.created_at || command.created_date || 0).getTime();
     if (!Number.isFinite(sentTime)) return false;
     // Command must have been sent BEFORE the ACK, within the match window
     const ageSec = (replyTime - sentTime) / 1000;
@@ -666,14 +669,16 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   }
 
   const newStatus = ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed');
+  const newQueueStatus = ackOnly ? 'acknowledged' : (pass ? 'completed' : 'failed');
   const statusMessageMap = {
     acknowledged: 'Acknowledged by device',
-    executed: 'Acknowledged by device',
+    executed: 'Command executed successfully',
+    completed: 'Command completed successfully',
     failed: 'No ACK received — device replied with failure'
   };
   const updateData = {
     status: newStatus,
-    queue_status: newStatus,
+    queue_status: newQueueStatus,
     confirmation_status: newStatus,
     acknowledged_at: timestamp,
     device_acknowledged_at: timestamp,
@@ -693,6 +698,12 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
     ack_raw_hex: parsed.packet_type === '0x8009' ? parsed.raw_packet_hex : null,
     ack_received_at: timestamp
   };
+  
+  // For locate commands completed by position response
+  if (pass && command.command_type === 'locate' && ['0x0008', '0x0032'].includes(parsed.packet_type)) {
+    updateData.executed_at = timestamp;
+    updateData.confirmed_at = timestamp;
+  }
   
   // Add release validation metadata if this command was heartbeat-gated
   if (command.heartbeat_source_ip || command.heartbeat_received_at) {
@@ -902,10 +913,10 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
   // CRITICAL: Use ?? not || to preserve 0
   const configuredDelay = device.post_heartbeat_release_delay_seconds ?? 0;
 
-  // Find oldest pending command - includes BOTH pending and waiting_for_delay statuses
+  // Find oldest pending command - includes ALL heartbeat-waiting statuses
   const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
     telematics_device_id: device.id,
-    queue_status: ['pending_waiting_for_next_heartbeat', 'waiting_for_delay']
+    queue_status: ['pending_waiting_for_next_heartbeat', 'waiting_for_delay', 'queued', 'pending']
   }, '-created_date', 10).catch(() => []);
 
   // MONITORING: Check for stuck commands (waiting_for_delay longer than configured delay + 10s buffer)
