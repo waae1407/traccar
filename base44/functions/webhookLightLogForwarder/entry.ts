@@ -840,13 +840,6 @@ function calcFreshUntil(timestamp) {
 async function updateDeviceUdpSession(base44, device, parsed, timestamp, body) {
   if (!device?.id) return;
   
-  const lastHeartbeatAt = device.last_heartbeat_received_at || device.last_inbound_packet_at;
-  const heartbeatMatchedAt = lastHeartbeatAt ? new Date(lastHeartbeatAt).getTime() : null;
-
-  await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
-    heartbeat_matched_at: new Date(heartbeatMatchedAt).toISOString()
-  });
-
   const packetType = parsed?.packet_type;
   const packetTypeNum = packetType ? parseInt(packetType, 16) : null;
   const inboundType = packetTypeNum !== null && SESSION_INBOUND_PACKET_MAP[packetTypeNum]
