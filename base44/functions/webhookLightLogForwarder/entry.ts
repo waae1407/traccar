@@ -893,8 +893,8 @@ async function dispatchPendingCommandViaTraccar(base44, command, device) {
   return { traccar_payload: traccarPayload, traccar_response: data };
 }
 
-async function autoDispatchPendingCommands(base44, device, timestamp) {
-  if (!device?.id) return 0;
+async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
+  if (!device?.id || !heartbeatTimestamp) return 0;
 
   const now = new Date();
   const nowMs = Date.now();
@@ -946,11 +946,8 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
 
   if (tooRecent) return 0;
 
-  // HEARTBEAT-DELAY RULE: Check if delay period has passed
-  const heartbeatAt = device.last_heartbeat_received_at;
-  if (!heartbeatAt) return 0; // No heartbeat yet, keep waiting
-
-  const heartbeatMs = new Date(heartbeatAt).getTime();
+  // HEARTBEAT-DELAY RULE: Use heartbeatTimestamp parameter (NOT stale device object)
+  const heartbeatMs = new Date(heartbeatTimestamp).getTime();
   const delayCompleteAt = heartbeatMs + (configuredDelay * 1000);
   
   if (nowMs < delayCompleteAt) {
@@ -960,7 +957,7 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
       queue_status: 'waiting_for_delay',
       status: 'waiting_for_delay',
       status_message: `Heartbeat received, waiting ${configuredDelay}s before sending`,
-      heartbeat_matched_at: heartbeatAt,
+      heartbeat_matched_at: heartbeatTimestamp,
       configured_delay_seconds: configuredDelay,
       seconds_until_release: secondsRemaining
     }).catch(() => {});
@@ -983,7 +980,8 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
       traccar_api_response: dispatchResult.traccar_response || dispatchResult,
       transmission_format: 'mt20_wrapped_hex',
       provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: 'heartbeat_delay_release' },
-      heartbeat_matched_at: heartbeatAt,
+      heartbeat_matched_at: heartbeatTimestamp,
+      heartbeat_received_at: heartbeatTimestamp,
       command_released_at: now.toISOString(),
       actual_heartbeat_to_release_delay_seconds: actualDelayMs / 1000,
       configured_delay_seconds: configuredDelay,
