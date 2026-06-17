@@ -572,6 +572,12 @@ Deno.serve(async (req) => {
     const useHeartbeatDelay = isNoranUdp && !STARTER_COMMANDS.includes(commandType);
 
     if (useHeartbeatDelay) {
+      // Check if heartbeat already exists
+      const lastHeartbeatAt = device.last_heartbeat_received_at || device.last_inbound_packet_at;
+      const heartbeatExists = !!lastHeartbeatAt;
+      const heartbeatAgeMs = heartbeatExists ? (nowMs - new Date(lastHeartbeatAt).getTime()) : Infinity;
+      const heartbeatAgeSeconds = heartbeatAgeMs !== Infinity ? Math.floor(heartbeatAgeMs / 1000) : null;
+      
       // Pre-build the command payload BEFORE queuing (critical for auto-dispatch)
       const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
       const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
@@ -632,7 +638,9 @@ Deno.serve(async (req) => {
           reason: body.reason || '',
           source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'),
           heartbeat_delay_strategy: true,
-          configured_delay_seconds: device.post_heartbeat_release_delay_seconds || 0
+          configured_delay_seconds: device.post_heartbeat_release_delay_seconds || 0,
+          heartbeat_exists: heartbeatExists,
+          heartbeat_age_seconds: heartbeatAgeSeconds
         }
       });
       return Response.json({
@@ -640,10 +648,14 @@ Deno.serve(async (req) => {
         command_id: commandAudit.id,
         command_type: commandType,
         queue_status: 'pending_waiting_for_heartbeat',
-        status_message: 'Waiting for device heartbeat',
+        status_message: heartbeatExists ? 'Waiting for next heartbeat (last one too old)' : 'Waiting for device heartbeat',
         configured_delay_seconds: device.post_heartbeat_release_delay_seconds || 0,
         has_payload: !!hexPayload,
-        message: 'Command queued. Will be released after next heartbeat + configured delay.'
+        heartbeat_exists: heartbeatExists,
+        heartbeat_age_seconds: heartbeatAgeSeconds,
+        message: heartbeatExists 
+          ? `Last heartbeat ${heartbeatAgeSeconds}s ago. Waiting for fresh heartbeat to trigger release.`
+          : 'No heartbeat on record. Will release after next heartbeat + configured delay.'
       });
     }
 
