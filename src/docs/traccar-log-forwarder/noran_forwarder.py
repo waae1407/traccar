@@ -149,13 +149,20 @@ def build_payload(
     source_ip: str,
     log_timestamp: str,
 ) -> dict:
+    """
+    Build webhook payload for heartbeat/position forwarding.
+    
+    CRITICAL: source_ip carries the NAT-mapped public IP:port that Traccar sees.
+    This is essential for UDP command routing — Traccar uses this IP:port to reach
+    the device through NAT. Without fresh source_ip, commands fail (stale UDP session).
+    """
     return {
         "provider_key":       PROVIDER_KEY,
         "packet_type":        packet_type,
         "raw_packet_hex":     hex_data,
         "device_unique_id":   unique_id,
         "unique_id":          unique_id,
-        "source_ip":          source_ip,
+        "source_ip":          source_ip,  # NAT-mapped IP:port from Traccar log
         "log_timestamp":      log_timestamp,
         "timestamp":          log_timestamp,
         "source":             "traccar_log_forwarder",
@@ -238,9 +245,13 @@ def process_line(line: str) -> bool:
 
     ok = forward_payload(payload)
     if ok:
-        logging.info(
-            f"[forwarder] forwarded {packet_type} {unique_id or '(no id)'} "
-            f"prefix={prefix} src={source_ip} ts={log_timestamp}"
+        # CRITICAL: Heartbeats refresh NAT mapping — log source_ip for debugging
+        is_heartbeat = packet_type == "heartbeat"
+        log_level = logging.INFO if not is_heartbeat else logging.INFO
+        logging.log(
+            log_level,
+            f"[forwarder] {'HEARTBEAT' if is_heartbeat else packet_type} {unique_id or '(no id)'} "
+            f"prefix={prefix} src={source_ip} ts={log_timestamp} {'[NAT_REFRESH]' if is_heartbeat else ''}"
         )
     else:
         logging.error(
