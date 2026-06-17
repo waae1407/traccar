@@ -15,15 +15,16 @@ export default function DeviceSummaryCard({ data }) {
   const device = data?.device;
   const provider = data?.provider;
   const vehicle = data?.vehicle;
-  const [delayValue, setDelayValue] = React.useState(data?.device?.post_heartbeat_release_delay_seconds ?? 0);
+  const [delayValue, setDelayValue] = React.useState('');
 
   const delayMutation = useMutation({
     mutationFn: (newDelay) => base44.entities.TelematicsDevice.update(device?.id, { post_heartbeat_release_delay_seconds: newDelay }),
-    onSuccess: async () => {
-      toast.success('Release delay updated');
+    onSuccess: async (data) => {
+      const savedValue = data?.data?.delay_seconds ?? 'unknown';
+      toast.success(`Delay set to ${savedValue}s`);
       // Verify the value was actually saved
       const updatedDevice = await base44.entities.TelematicsDevice.get(device?.id);
-      console.log('[DELAY_UPDATE] Saved value:', updatedDevice?.post_heartbeat_release_delay_seconds, 'UI submitted:', delayValue);
+      console.log('[DELAY_UPDATE] Source: UI field input', 'Saved value:', updatedDevice?.post_heartbeat_release_delay_seconds);
       queryClient.invalidateQueries({ queryKey: ['admin-command-test-history', device?.id] });
       // Force refresh to show actual persisted value
       setTimeout(() => window.location.reload(), 800);
@@ -47,11 +48,12 @@ export default function DeviceSummaryCard({ data }) {
   };
 
   const handleSaveDelay = () => {
-    if (isNaN(delayValue) || delayValue < 0 || delayValue > 30) {
-      toast.error('Invalid delay', { description: 'Must be 0-30 seconds.' });
+    const numericValue = parseInt(delayValue, 10);
+    if (delayValue === '' || isNaN(numericValue) || numericValue < 0 || numericValue > 30) {
+      toast.error('Invalid delay', { description: 'Please enter a number between 0-30 seconds.' });
       return;
     }
-    delayMutation.mutate(delayValue);
+    delayMutation.mutate(numericValue);
   };
 
   if (!device) return null;
@@ -107,11 +109,8 @@ export default function DeviceSummaryCard({ data }) {
                   min="0" 
                   max="30" 
                   value={delayValue}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    setDelayValue(isNaN(val) ? 0 : val);
-                  }}
-                  onBlur={handleDelayChange}
+                  onChange={(e) => setDelayValue(e.target.value)}
+                  placeholder="Enter delay (0-30)"
                   className="max-w-xs"
                   disabled={delayMutation.isPending}
                 />
@@ -119,13 +118,13 @@ export default function DeviceSummaryCard({ data }) {
                   variant="outline" 
                   size="icon"
                   onClick={handleSaveDelay}
-                  disabled={delayMutation.isPending}
+                  disabled={delayMutation.isPending || delayValue === ''}
                 >
                   {delayMutation.isPending ? <Activity className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Use 0 to release immediately after heartbeat. Test different delays to find optimal timing.
+                Enter delay in seconds. Use 0 for immediate release after heartbeat.
               </p>
             </div>
           </div>
