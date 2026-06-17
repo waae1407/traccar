@@ -8,12 +8,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { Satellite, Wifi, WifiOff, Activity, Clock, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
 
 export default function DeviceSummaryCard({ data }) {
   const queryClient = useQueryClient();
   const device = data?.device;
   const provider = data?.provider;
   const vehicle = data?.vehicle;
+  const [delayValue, setDelayValue] = React.useState(device.post_heartbeat_release_delay_seconds || 0);
 
   const delayMutation = useMutation({
     mutationFn: (newDelay) => base44.asServiceRole.entities.TelematicsDevice.update(device.id, { post_heartbeat_release_delay_seconds: newDelay }),
@@ -32,7 +34,16 @@ export default function DeviceSummaryCard({ data }) {
       toast.error('Invalid delay', { description: 'Must be 0-30 seconds.' });
       return;
     }
+    setDelayValue(value);
     delayMutation.mutate(value);
+  };
+
+  const handleSaveDelay = () => {
+    if (isNaN(delayValue) || delayValue < 0 || delayValue > 30) {
+      toast.error('Invalid delay', { description: 'Must be 0-30 seconds.' });
+      return;
+    }
+    delayMutation.mutate(delayValue);
   };
 
   if (!device) return null;
@@ -87,7 +98,8 @@ export default function DeviceSummaryCard({ data }) {
                   type="number" 
                   min="0" 
                   max="30" 
-                  defaultValue={device.post_heartbeat_release_delay_seconds || 0}
+                  value={delayValue}
+                  onChange={(e) => setDelayValue(parseInt(e.target.value, 10) || 0)}
                   onBlur={handleDelayChange}
                   className="max-w-xs"
                   disabled={delayMutation.isPending}
@@ -95,7 +107,7 @@ export default function DeviceSummaryCard({ data }) {
                 <Button 
                   variant="outline" 
                   size="icon"
-                  onClick={() => handleDelayChange({ target: { value: device.post_heartbeat_release_delay_seconds || 0 } })}
+                  onClick={handleSaveDelay}
                   disabled={delayMutation.isPending}
                 >
                   {delayMutation.isPending ? <Activity className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
