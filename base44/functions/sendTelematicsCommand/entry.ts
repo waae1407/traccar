@@ -574,7 +574,8 @@ Deno.serve(async (req) => {
       const hexPayload = preBuiltCommand?.hex_payload || null;
       const asciiPayload = preBuiltCommand?.ascii_payload || null;
       const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
-      const configuredDelay = device.post_heartbeat_release_delay_seconds || 0;
+      // CRITICAL: Use ?? not || to preserve 0 as valid value
+      const configuredDelay = device.post_heartbeat_release_delay_seconds ?? 0;
 
       const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '',
@@ -626,7 +627,12 @@ Deno.serve(async (req) => {
           reason: body.reason || '',
           source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'),
           release_strategy: 'heartbeat_delay_only',
-          configured_delay_seconds: configuredDelay
+          configured_delay_seconds: configuredDelay,
+          // AUDIT FIELDS FOR DELAY ZERO HANDLING
+          device_delay_value_at_command_creation: device.post_heartbeat_release_delay_seconds ?? 0,
+          ui_delay_value_submitted: device.post_heartbeat_release_delay_seconds ?? 0,
+          delay_source: 'TelematicsDevice.post_heartbeat_release_delay_seconds',
+          delay_snapshot_at: new Date().toISOString()
         }
       });
       
