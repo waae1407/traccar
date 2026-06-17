@@ -949,21 +949,26 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
 
   // HEARTBEAT-DELAY RULE: Use heartbeatTimestamp parameter (NOT stale device object)
   const hbMs = new Date(heartbeatTimestamp).getTime();
-  const delayCompleteAt = hbMs + (configuredDelay * 1000);
   
-  if (nowMs < delayCompleteAt) {
-    // Still waiting for delay period - populate audit fields
-    const secondsRemaining = Math.ceil((delayCompleteAt - nowMs) / 1000);
-    await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
-      queue_status: 'waiting_for_delay',
-      status: 'waiting_for_delay',
-      status_message: `Heartbeat received, waiting ${configuredDelay}s before sending`,
-      heartbeat_received_at: heartbeatTimestamp,
-      heartbeat_matched_at: new Date().toISOString(),
-      configured_delay_seconds: configuredDelay,
-      seconds_until_release: secondsRemaining
-    }).catch(() => {});
-    return 0; // Not ready yet
+  // CRITICAL: If delay is 0, release immediately without waiting_for_delay state
+  if (configuredDelay === 0) {
+    // Immediate release - skip waiting_for_delay
+  } else {
+    const delayCompleteAt = hbMs + (configuredDelay * 1000);
+    if (nowMs < delayCompleteAt) {
+      // Still waiting for delay period - populate audit fields
+      const secondsRemaining = Math.ceil((delayCompleteAt - nowMs) / 1000);
+      await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
+        queue_status: 'waiting_for_delay',
+        status: 'waiting_for_delay',
+        status_message: `Heartbeat received, waiting ${configuredDelay}s before sending`,
+        heartbeat_received_at: heartbeatTimestamp,
+        heartbeat_matched_at: new Date().toISOString(),
+        configured_delay_seconds: configuredDelay,
+        seconds_until_release: secondsRemaining
+      }).catch(() => {});
+      return 0; // Not ready yet
+    }
   }
 
   // Delay complete - send to Traccar

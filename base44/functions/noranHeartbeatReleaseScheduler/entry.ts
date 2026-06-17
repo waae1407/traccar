@@ -113,21 +113,27 @@ Deno.serve(async (req) => {
 
         // Heartbeat matched - check if delay period passed
         const heartbeatMatchedMs = typeof heartbeatMatchedAt === 'string' ? new Date(heartbeatMatchedAt).getTime() : heartbeatMatchedAt;
-        const msSinceHeartbeat = nowMs - heartbeatMatchedMs;
-        const secondsSinceHeartbeat = Math.floor(msSinceHeartbeat / 1000);
-        const delayMs = (configuredDelay ?? 0) * 1000;
+        
+        // CRITICAL: If delay is 0, skip waiting and release immediately
+        if (configuredDelay === 0) {
+          // Immediate release - no waiting
+        } else {
+          const msSinceHeartbeat = nowMs - heartbeatMatchedMs;
+          const secondsSinceHeartbeat = Math.floor(msSinceHeartbeat / 1000);
+          const delayMs = configuredDelay * 1000;
 
-        if (msSinceHeartbeat < delayMs) {
-          const remainingSeconds = Math.ceil((delayMs - msSinceHeartbeat) / 1000);
-          results.waiting++;
-          results.details.push({ 
-            command_id: command.id, 
-            action: 'waiting_for_delay', 
-            configured_delay: configuredDelay,
-            seconds_since_heartbeat: secondsSinceHeartbeat,
-            remaining_seconds: remainingSeconds
-          });
-          continue;
+          if (msSinceHeartbeat < delayMs) {
+            const remainingSeconds = Math.ceil((delayMs - msSinceHeartbeat) / 1000);
+            results.waiting++;
+            results.details.push({ 
+              command_id: command.id, 
+              action: 'waiting_for_delay', 
+              configured_delay: configuredDelay,
+              seconds_since_heartbeat: secondsSinceHeartbeat,
+              remaining_seconds: remainingSeconds
+            });
+            continue;
+          }
         }
 
         // Safety: block starter commands
@@ -159,7 +165,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const actualDelaySeconds = secondsSinceHeartbeat;
+        const actualDelaySeconds = configuredDelay === 0 ? 0 : Math.floor((nowMs - heartbeatMatchedMs) / 1000);
 
         await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
           status: 'sent', queue_status: 'sent', confirmation_status: 'sent', sent_at: nowIso,
@@ -191,7 +197,7 @@ Deno.serve(async (req) => {
           actual_delay_seconds: actualDelaySeconds
         });
 
-        console.log(`[NORAN_HEARTBEAT_RELEASE] command=${command.command_type} device=${device.unique_id} configured_delay=${configuredDelay}s actual_delay=${actualDelaySeconds}s`);
+        console.log(`[NORAN_HEARTBEAT_RELEASE] command=${command.command_type} device=${device.unique_id} configured_delay=${configuredDelay}s actual_delay=${actualDelaySeconds}s immediate_release=${configuredDelay === 0}`);
 
       } catch (error) {
         console.error('[NORAN_HEARTBEAT_RELEASE] Error:', command.id, error.message);
