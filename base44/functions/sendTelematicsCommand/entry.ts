@@ -558,6 +558,7 @@ Deno.serve(async (req) => {
     if (rateLimit.limited) return Response.json({ error: 'Command rate limit exceeded. Please wait before retrying.', retry_after_seconds: rateLimit.retry_after_seconds, traffic_class: rateLimit.traffic_class }, { status: 429 });
 
     const now = new Date();
+    const nowMs = Date.now();
     const expiresAt = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
     const idempotencyKey = makeIdempotencyKey(user.email, device.id, commandType, { alarmSessionId: body.alarm_session_id || '', pulseNumber: body.pulse_number || 0 });
     const duplicate = (await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey }))[0];
@@ -662,7 +663,6 @@ Deno.serve(async (req) => {
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
     const commandRiskLevel = getCommandRiskLevel(commandType);
     const maxAgeMs = HEARTBEAT_FRESHNESS_MS[commandRiskLevel];
-    const nowMs = Date.now();
     const lastInboundAt = device.last_heartbeat_received_at || device.last_inbound_packet_at || device.udp_last_seen_at || null;
     const lastInboundMs = lastInboundAt ? new Date(lastInboundAt).getTime() : 0;
     const heartbeatAgeMs = lastInboundMs ? nowMs - lastInboundMs : Infinity;
