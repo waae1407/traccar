@@ -32,7 +32,7 @@ const MT20_ALARM_TYPES = {
 const UDP_FRESH_WINDOW_SECONDS = 60;
 const UDP_PENDING_COMMAND_MAX_AGE_MINUTES = 5;
 const UDP_MIN_COMMAND_SPACING_MS = 3000;
-const UDP_PENDING_STATUS = 'waiting_for_fresh_heartbeat';
+const UDP_PENDING_STATUS = 'pending_waiting_for_heartbeat';
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 
 // Maps packet type codes to their session inbound type label.
