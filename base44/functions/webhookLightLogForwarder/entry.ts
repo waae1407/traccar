@@ -350,21 +350,26 @@ function parseMeaningfulMt20Packet(body) {
   const bytes = hexToBytes(rawHex);
   if (!bytes) return null;
 
-  // ── Special case: MT20 heartbeat (0x000f) ──
+  // ── Special case: MT20 heartbeat (0x000f) — mirrors 0x0032 position path ──
   // Heartbeat packets are NOT length-prefixed. Format: [0f, 00, 00, 00, <device_id_ascii...>]
   // Bytes[0]|Bytes[1]<<8 = 0x000f.  The standard i+2 scanner would misread this as 0x0000.
   // Detect it directly by checking the raw 4-byte prefix before the loop.
+  // Test vectors: 0f0000004e52303947353139303200 → NR09G51902
   if (bytes.length >= 4 && bytes[0] === 0x0f && bytes[1] === 0x00 && bytes[2] === 0x00 && bytes[3] === 0x00) {
-    return {
+    const device_unique_id = extractDeviceId(bytes.slice(4), {}) || extractDeviceId(bytes.slice(4), body);
+    const parsed = {
       message_type: 'mt20_heartbeat',
       event_type: 'mt20_heartbeat_forwarded_log',
       source: 'forwarded_log_0x000f',
       raw_packet_hex: cleanHex(rawHex),
       packet_type: '0x000f',
       packet_offset: 0,
-      device_unique_id: extractDeviceId(bytes.slice(4), {}) || extractDeviceId(bytes.slice(4), body),
+      device_unique_id,
       device_updates: { online_status: 'online' }
     };
+    // Proof log: heartbeat parsed
+    console.log(`[MT20_HEARTBEAT_PARSED] unique_id=${device_unique_id} packet_type=heartbeat command_id=0x0000 raw_hex_prefix=${(parsed.raw_packet_hex || '').slice(0, 20)} should_update_udp_session=true`);
+    return parsed;
   }
 
   // ── Standard length-prefixed packets: [len_lo, len_hi, type_lo, type_hi, ...] ──
@@ -817,6 +822,9 @@ async function updateDeviceUdpSession(base44, device, parsed, timestamp) {
     udp_session_fresh_until: freshUntil,
     udp_session_status: 'fresh'
   }).catch((err) => console.warn('[udpSession] update failed:', err.message));
+  
+  // Proof log: UDP session updated (heartbeat or other inbound)
+  console.log(`[UDP_SESSION_UPDATED] unique_id=${device.unique_id || device.id} inbound_type=${inboundType} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
 }
 
 function isStarterCommand(commandType) {
@@ -852,7 +860,7 @@ async function dispatchPendingCommandViaTraccar(base44, command, device) {
 }
 
 async function autoDispatchPendingCommands(base44, device, timestamp) {
-  if (!device?.id) return;
+  if (!device?.id) return 0;
 
   // Check production scope — do not auto-dispatch starter commands unless explicitly scoped
   const productionEnabled = device.production_commands_enabled === true;
@@ -953,6 +961,7 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
     }).catch(() => {});
 
     console.log(`[autoDispatch] Command ${command.command_type} (${command.id}) dispatched after fresh UDP session for device ${device.unique_id}`);
+    return 1;
   } catch (err) {
     console.warn('[autoDispatch] Failed to dispatch pending command:', err.message);
     await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
@@ -962,6 +971,7 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
       failed_at: now
     }).catch(() => {});
   }
+  return 0;
 }
 
 async function processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp }) {
@@ -1187,7 +1197,11 @@ Deno.serve(async (req) => {
 
     // ── Auto-dispatch any commands pending a fresh UDP session ──
     if (device) {
-      await autoDispatchPendingCommands(base44, device, timestamp);
+      const pendingCount = (await autoDispatchPendingCommands(base44, device, timestamp)) || 0;
+      // Proof log: auto-dispatch checked
+      if (parsed.packet_type === '0x000f' || parsed.packet_type === '0x0000') {
+        console.log(`[MT20_HEARTBEAT_DISPATCH] unique_id=${device.unique_id || device.id} auto_dispatch_checked=true pending_commands_dispatched=${pendingCount}`);
+      }
     }
 
     const alarm_processing = await processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp });
