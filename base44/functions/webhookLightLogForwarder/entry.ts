@@ -879,13 +879,16 @@ async function updateDeviceUdpSession(base44, device, parsed, timestamp, body) {
     updatePayload.last_heartbeat_received_at = timestamp;
   }
 
-  await base44.asServiceRole.entities.TelematicsDevice.update(device.id, updatePayload).catch((err) => console.warn('[udpSession] update failed:', err.message));
-  
-  // Proof log: UDP session updated with routing info
-  if (inboundType === 'heartbeat') {
-    console.log(`[UDP_SESSION_HEARTBEAT] unique_id=${device.unique_id || device.id} source_ip=${sourceIpOnly || 'unknown'} source_port=${sourcePort || 'unknown'} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
-  } else {
-    console.log(`[UDP_SESSION_UPDATED] unique_id=${device.unique_id || device.id} inbound_type=${inboundType} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
+  try {
+    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, updatePayload);
+    // Proof log: UDP session updated with routing info
+    if (inboundType === 'heartbeat') {
+      console.log(`[UDP_SESSION_HEARTBEAT] unique_id=${device.unique_id || device.id} source_ip=${sourceIpOnly || 'unknown'} source_port=${sourcePort || 'unknown'} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil} last_heartbeat_received_at=${timestamp}`);
+    } else {
+      console.log(`[UDP_SESSION_UPDATED] unique_id=${device.unique_id || device.id} inbound_type=${inboundType} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
+    }
+  } catch (err) {
+    console.error('[udpSession] update FAILED:', err.message, 'device_id:', device.id, 'payload:', JSON.stringify(updatePayload));
   }
 }
 
