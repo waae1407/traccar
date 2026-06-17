@@ -37,11 +37,11 @@ const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 // Maps packet type codes to their session inbound type label.
 // 0x000f = MT20 heartbeat/keepalive — refreshes UDP NAT port, must trigger session update.
 const SESSION_INBOUND_PACKET_MAP = {
-  0x000f: 'handshake',   // MT20 heartbeat/keepalive — primary UDP NAT refresh packet
-  0x0000: 'handshake',   // login/handshake
-  0x0008: 'position',   // position upload
-  0x0032: 'position',   // new position upload
-  0x0003: 'alarm',      // alarm upload
+  0x000f: 'heartbeat',       // MT20 heartbeat/keepalive — primary UDP NAT refresh packet
+  0x0000: 'handshake',       // login/handshake
+  0x0008: 'position',        // position upload
+  0x0032: 'position',        // new position upload
+  0x0003: 'alarm',           // alarm upload
   0x8009: 'command_response' // command response
 };
 
@@ -349,6 +349,24 @@ function parseMeaningfulMt20Packet(body) {
   const bytes = hexToBytes(rawHex);
   if (!bytes) return null;
 
+  // ── Special case: MT20 heartbeat (0x000f) ──
+  // Heartbeat packets are NOT length-prefixed. Format: [0f, 00, 00, 00, <device_id_ascii...>]
+  // Bytes[0]|Bytes[1]<<8 = 0x000f.  The standard i+2 scanner would misread this as 0x0000.
+  // Detect it directly by checking the raw 4-byte prefix before the loop.
+  if (bytes.length >= 4 && bytes[0] === 0x0f && bytes[1] === 0x00 && bytes[2] === 0x00 && bytes[3] === 0x00) {
+    return {
+      message_type: 'mt20_heartbeat',
+      event_type: 'mt20_heartbeat_forwarded_log',
+      source: 'forwarded_log_0x000f',
+      raw_packet_hex: cleanHex(rawHex),
+      packet_type: '0x000f',
+      packet_offset: 0,
+      device_unique_id: extractDeviceId(bytes.slice(4), {}) || extractDeviceId(bytes.slice(4), body),
+      device_updates: { online_status: 'online' }
+    };
+  }
+
+  // ── Standard length-prefixed packets: [len_lo, len_hi, type_lo, type_hi, ...] ──
   for (let i = 0; i < bytes.length - 4; i++) {
     const packetType = readUInt16LE(bytes, i + 2);
     if (packetType === null || IGNORED_PACKET_TYPES.has(packetType)) continue;

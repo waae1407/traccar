@@ -1,0 +1,27 @@
+[Unit]
+Description=Noran MT20 Traccar Log Forwarder for Base44
+Documentation=https://github.com/your-org/uride
+After=network.target traccar.service
+Wants=traccar.service
+
+[Service]
+Type=simple
+User=traccar
+Group=traccar
+EnvironmentFile=/etc/default/noran-forwarder
+ExecStart=/usr/bin/python3 /opt/traccar/noran_forwarder.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=noran-forwarder
+
+# Safety limits
+MemoryMax=64M
+CPUQuota=10%
+
+# Allow read access to Traccar log directory
+ReadOnlyPaths=/opt/traccar/logs
+
+[Install]
+WantedBy=multi-user.target
