@@ -1,86 +1,109 @@
-import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import UDPSessionStatusBadge from '@/components/telematics/command-test/UDPSessionStatusBadge';
-
-function vehicleName(vehicle) {
-  if (!vehicle) return 'Not linked';
-  return [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || vehicle.id;
-}
-
-function Info({ label, value }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <p className="text-[10px] font-black uppercase tracking-widest text-white/35">{label}</p>
-      <p className="mt-1 break-words text-sm font-bold text-white">{value || '—'}</p>
-    </div>
-  );
-}
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { base44 } from '@/api/base44Client';
+import { toast } from 'sonner';
+import { Satellite, Wifi, WifiOff, Activity, Clock, CheckCircle } from 'lucide-react';
 
 export default function DeviceSummaryCard({ data }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const device = data?.device;
+  const provider = data?.provider;
+  const vehicle = data?.vehicle;
 
-  if (!data?.device) return null;
-  const { device, provider, vehicle, host, supported_commands = [], execution } = data;
-  const offline = device.online_status === 'offline';
-  const isOnline = device.online_status === 'online';
-  const statusLabel = isOnline ? 'Online' : 'Offline';
-  const ToggleIcon = isOpen ? ChevronDown : ChevronRight;
+  const delayMutation = useMutation({
+    mutationFn: (newDelay) => base44.asServiceRole.entities.TelematicsDevice.update(device.id, { post_heartbeat_release_delay_seconds: newDelay }),
+    onSuccess: () => {
+      toast.success('Release delay updated');
+      queryClient.invalidateQueries({ queryKey: ['admin-command-test-history', device?.id] });
+    },
+    onError: (error) => {
+      toast.error('Failed to update delay', { description: error.message });
+    },
+  });
+
+  const handleDelayChange = (e) => {
+    const value = parseInt(e.target.value, 10);
+    if (isNaN(value) || value < 0 || value > 30) {
+      toast.error('Invalid delay', { description: 'Must be 0-30 seconds.' });
+      return;
+    }
+    delayMutation.mutate(value);
+  };
+
+  if (!device) return null;
 
   return (
-    <Card className="glass border-white/10">
-      <CardContent className="space-y-5 p-5">
-        <button type="button" onClick={() => setIsOpen((value) => !value)} className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-          <div className="flex w-full items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Selected Vehicle Device</p>
-              <div className="mt-2 flex items-center gap-2">
-                <h2 className="text-2xl font-black text-white">{device.unique_id || device.id}</h2>
-                <ToggleIcon className="h-5 w-5 text-white/60" />
-              </div>
-              <p className="mt-1 text-xs font-semibold text-white/45">Tap to {isOpen ? 'hide' : 'see'} verification details</p>
-            </div>
-            <div className={isOnline ? 'flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-full border border-emerald-300/50 bg-emerald-500/20 text-xs font-black text-emerald-200 shadow-[0_0_22px_rgba(16,185,129,0.35)]' : 'flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-full border border-red-300/50 bg-red-500/20 text-xs font-black text-red-200 shadow-[0_0_22px_rgba(239,68,68,0.35)]'}>
-              {statusLabel}
+    <Card>
+      <CardHeader>
+        <CardTitle>Device Summary</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <div>
+            <p className="text-xs text-muted-foreground">Device ID</p>
+            <p className="font-mono text-sm">{device.unique_id}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Provider</p>
+            <p className="text-sm">{provider?.provider_name || device.provider_key}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Status</p>
+            <div className="flex items-center gap-2">
+              {device.online_status === 'online' ? <Wifi className="h-4 w-4 text-green-500" /> : device.online_status === 'offline' ? <WifiOff className="h-4 w-4 text-red-500" /> : <Activity className="h-4 w-4 text-yellow-500" />}
+              <Badge>{device.online_status}</Badge>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge className={execution?.dry_run ? 'bg-yellow-500 text-black' : 'bg-emerald-500 text-white'}>{execution?.dry_run ? 'Simulation Mode' : 'Live Actions'}</Badge>
-            <Badge className="bg-white/10 text-white">Telematics Network</Badge>
-            <UDPSessionStatusBadge device={device} compact />
+          <div>
+            <p className="text-xs text-muted-foreground">Last Heartbeat</p>
+            <p className="text-sm">{device.last_heartbeat_received_at ? new Date(device.last_heartbeat_received_at).toLocaleString() : 'N/A'}</p>
           </div>
-        </button>
+        </div>
 
-        {isOpen && (
-          <div className="space-y-5">
-            {offline && (
-              <div className="flex gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 text-yellow-200">
-                <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                <p className="text-sm font-semibold">Vehicle device is currently offline. Actions may wait, need review, or require reconnection.</p>
-              </div>
-            )}
+        {vehicle && (
+          <div className="border-t pt-3">
+            <p className="text-xs text-muted-foreground mb-1">Assigned Vehicle</p>
+            <p className="text-sm font-medium">{vehicle.display_name || `${vehicle.year} ${vehicle.make} ${vehicle.model}`}</p>
+            <p className="text-xs text-muted-foreground">{vehicle.vin}</p>
+          </div>
+        )}
 
-            <UDPSessionStatusBadge device={device} />
-
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <Info label="Service Network" value="Telematics Network" />
-              <Info label="Model" value={device.model} />
-              <Info label="Vehicle" value={vehicleName(vehicle)} />
-              <Info label="Host" value={host?.business_name || host?.full_name || host?.email || 'Not linked'} />
-              <Info label="Online Status" value={device.online_status || 'unknown'} />
-              <Info label="Last Seen" value={device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : '—'} />
+        {device.provider_key === 'traccar_noran_mt20' && device.production_commands_enabled && (
+          <div className="border-t pt-3 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="h-4 w-4 text-primary" />
+              <p className="text-sm font-semibold">Heartbeat Command Release</p>
             </div>
-
-            <div>
-              <p className="mb-2 text-xs font-black uppercase tracking-widest text-white/35">Supported Capabilities</p>
-              <div className="flex flex-wrap gap-2">
-                {supported_commands.length ? supported_commands.map((command) => (
-                  <Badge key={command.key} className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-                    <CheckCircle2 className="mr-1 h-3 w-3" /> {command.label}
-                  </Badge>
-                )) : <Badge className="bg-white/10 text-white/60">No supported actions found</Badge>}
+            <div className="space-y-2">
+              <Label htmlFor="heartbeat-delay">Post-heartbeat release delay (seconds)</Label>
+              <div className="flex gap-2">
+                <Input 
+                  id="heartbeat-delay" 
+                  type="number" 
+                  min="0" 
+                  max="30" 
+                  defaultValue={device.post_heartbeat_release_delay_seconds || 0}
+                  onBlur={handleDelayChange}
+                  className="max-w-xs"
+                  disabled={delayMutation.isPending}
+                />
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => handleDelayChange({ target: { value: device.post_heartbeat_release_delay_seconds || 0 } })}
+                  disabled={delayMutation.isPending}
+                >
+                  {delayMutation.isPending ? <Activity className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                </Button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Use 0 to release immediately after heartbeat. Test different delays to find optimal timing.
+              </p>
             </div>
           </div>
         )}
