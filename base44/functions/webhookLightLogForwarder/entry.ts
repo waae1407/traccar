@@ -698,6 +698,17 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
     ack_raw_hex: parsed.packet_type === '0x8009' ? parsed.raw_packet_hex : null,
     ack_received_at: timestamp
   };
+  
+  // Add release validation metadata if this command was heartbeat-gated
+  if (command.heartbeat_source_ip || command.heartbeat_received_at) {
+    updateData.heartbeat_source_ip = command.heartbeat_source_ip;
+    updateData.heartbeat_source_port = command.heartbeat_source_port;
+    updateData.heartbeat_received_at = command.heartbeat_received_at;
+    updateData.command_released_at = command.command_released_at || timestamp;
+    updateData.release_reason = command.release_reason || 'fresh_mt20_heartbeat';
+    updateData.traccar_api_sent_at = command.traccar_api_sent_at || timestamp;
+    updateData.tcpdump_expected_target = command.tcpdump_expected_target || null;
+  }
   if (pass) {
     updateData.executed_at = timestamp;
     updateData.confirmed_at = timestamp;
@@ -826,7 +837,7 @@ function calcFreshUntil(timestamp) {
   return new Date(new Date(timestamp).getTime() + UDP_FRESH_WINDOW_SECONDS * 1000).toISOString();
 }
 
-async function updateDeviceUdpSession(base44, device, parsed, timestamp) {
+async function updateDeviceUdpSession(base44, device, parsed, timestamp, body) {
   if (!device?.id) return;
   const packetType = parsed?.packet_type;
   const packetTypeNum = packetType ? parseInt(packetType, 16) : null;
@@ -837,30 +848,34 @@ async function updateDeviceUdpSession(base44, device, parsed, timestamp) {
   const isKnownSession = inboundType !== 'unknown';
   if (!isKnownSession) return;
 
-  const freshUntil = calcFreshUntil(timestamp);
-  
   // Extract source IP:port from body (Traccar log forwarder should include this)
-  const sourceIp = String(body.source_ip || body.sourceIp || '').trim() || null;
-  const sourcePort = sourceIp && sourceIp.includes(':') ? sourceIp.split(':').pop() : null;
-  const sourceIpOnly = sourceIp && sourceIp.includes(':') ? sourceIp.split(':')[0] : sourceIp;
+  const sourceIpRaw = String(body?.source_ip || body?.sourceIp || '').trim() || null;
+  const sourcePort = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':').pop() : null;
+  const sourceIpOnly = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':')[0] : sourceIpRaw;
 
   const freshUntil = calcFreshUntil(timestamp);
-  await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+  
+  const updatePayload = {
     last_inbound_packet_at: timestamp,
     last_inbound_packet_type: inboundType,
     last_inbound_source: parsed.source || 'forwarded_log',
     last_inbound_raw_hex: (parsed.raw_packet_hex || '').slice(0, 20),
     udp_session_fresh_until: freshUntil,
-    udp_session_status: 'fresh',
-    // Store heartbeat routing metadata for command release validation
-    last_heartbeat_source_ip: inboundType === 'heartbeat' ? sourceIpOnly : null,
-    last_heartbeat_source_port: inboundType === 'heartbeat' ? sourcePort : null,
-    last_heartbeat_received_at: inboundType === 'heartbeat' ? timestamp : null
-  }).catch((err) => console.warn('[udpSession] update failed:', err.message));
+    udp_session_status: 'fresh'
+  };
+
+  // Store heartbeat routing metadata for command release validation
+  if (inboundType === 'heartbeat') {
+    updatePayload.last_heartbeat_source_ip = sourceIpOnly || null;
+    updatePayload.last_heartbeat_source_port = sourcePort || null;
+    updatePayload.last_heartbeat_received_at = timestamp;
+  }
+
+  await base44.asServiceRole.entities.TelematicsDevice.update(device.id, updatePayload).catch((err) => console.warn('[udpSession] update failed:', err.message));
   
   // Proof log: UDP session updated with routing info
   if (inboundType === 'heartbeat') {
-    console.log(`[UDP_SESSION_HEARTBEAT] unique_id=${device.unique_id || device.id} source_ip=${sourceIpOnly} source_port=${sourcePort} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
+    console.log(`[UDP_SESSION_HEARTBEAT] unique_id=${device.unique_id || device.id} source_ip=${sourceIpOnly || 'unknown'} source_port=${sourcePort || 'unknown'} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
   } else {
     console.log(`[UDP_SESSION_UPDATED] unique_id=${device.unique_id || device.id} inbound_type=${inboundType} packet_type=${packetType} last_inbound_packet_at=${timestamp} udp_session_fresh_until=${freshUntil}`);
   }
@@ -1257,7 +1272,7 @@ Deno.serve(async (req) => {
     }
 
     // ── UDP Session freshness update (all meaningful inbound packet types) ──
-    await updateDeviceUdpSession(base44, device, parsed, timestamp);
+    await updateDeviceUdpSession(base44, device, parsed, timestamp, body);
 
     // ── Auto-dispatch any commands pending a fresh UDP session ──
     // CRITICAL: Heartbeat (0x000f) triggers auto-dispatch but does NOT complete locate commands

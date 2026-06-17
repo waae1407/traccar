@@ -5,6 +5,23 @@ const COMMAND_ALIASES = { location: 'locate', find_my_car: 'alarm_pulse', panic:
 const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'alarm_pulse'];
 const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'status'];
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
+
+// ── MT20 Heartbeat Freshness Gates by Command Risk Level ──
+const HIGH_RISK_COMMANDS = ['lock', 'unlock', 'horn', 'lights', 'horn_lights', 'disable_starter', 'restore_starter', 'raw'];
+const LOW_RISK_COMMANDS = ['locate', 'status'];
+const HEARTBEAT_FRESHNESS_MS = {
+  high_risk: 10 * 1000,   // 10 seconds for vehicle control
+  low_risk: 30 * 1000,    // 30 seconds for locate/status
+  hard_stale: 60 * 1000   // 60 seconds absolute max
+};
+
+function getCommandRiskLevel(commandType) {
+  if (HIGH_RISK_COMMANDS.includes(commandType)) return 'high_risk';
+  if (LOW_RISK_COMMANDS.includes(commandType)) return 'low_risk';
+  return 'high_risk';
+}
+
+
 const TRACCAR_TEST_UNIQUE_ID = 'NR09G00002';
 const TRACCAR_TEST_DEVICE_ID = '5';
 const TRACCAR_TEST_COMMANDS = ['locate', 'lock', 'unlock', 'horn_lights', 'alarm_pulse'];
@@ -544,15 +561,16 @@ Deno.serve(async (req) => {
     const duplicate = (await base44.asServiceRole.entities.TelematicsCommand.filter({ idempotency_key: idempotencyKey }))[0];
     if (duplicate && !['failed', 'expired', 'blocked', 'pending_waiting_for_fresh_session'].includes(duplicate.queue_status || duplicate.status)) return Response.json({ error: 'Duplicate command prevented.', idempotency_key: idempotencyKey }, { status: 409 });
 
-    // ── MT20 UDP Session Freshness Gate ──
-    // Fresh = last inbound packet < 60s ago → send immediately via Traccar.
-    // Device heartbeats are ~30s; 60s = 2 missed cycles max before gating.
-    // Heartbeat forwarding is now deployed — 60s is safe and tighter than the old 90s.
-    // Stale = older than 60s → park as pending_waiting_for_fresh_session; auto-send on next inbound.
+    // ── MT20 UDP Session Freshness Gate (Risk-Based) ──
+    // High-risk commands (lock/unlock/starter/horn/lights): 10s max heartbeat age
+    // Low-risk commands (locate/status): 30s max heartbeat age
+    // Hard stale: >60s never send live
     // Only applies to Noran MT20 live production commands.
-    const UDP_FRESH_WINDOW_MS = 60 * 1000; // 60s — heartbeat forwarder confirmed
-    const UDP_FRESH_WINDOW_SECONDS_GATE = 60;
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
+    const commandRiskLevel = getCommandRiskLevel(commandType);
+    const maxAgeMs = HEARTBEAT_FRESHNESS_MS[commandRiskLevel];
+    const isHardStale = lastInboundMs ? (Date.now() - lastInboundMs) > HEARTBEAT_FRESHNESS_MS.hard_stale : true;
+    
     // CRITICAL: Admin tests MUST go through gate to validate real production path
     // Only bypass for: (1) alarm sessions (time-critical), (2) explicit force_send_even_if_stale flag
     const bypassGate = (body.alarm_session_id && isNoranLive) || body.force_send_even_if_stale === true;
@@ -560,7 +578,8 @@ Deno.serve(async (req) => {
     let udpGateReason = '';
     const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
     const ageSeconds = lastInboundMs ? Math.round((Date.now() - lastInboundMs) / 1000) : null;
-    const isFresh = lastInboundMs ? (Date.now() - lastInboundMs) <= UDP_FRESH_WINDOW_MS : false;
+    const ageMs = lastInboundMs ? (Date.now() - lastInboundMs) : null;
+    const isFresh = lastInboundMs ? (Date.now() - lastInboundMs) <= maxAgeMs : false;
     const udpDiagnostics = {
       command_requested_at: now.toISOString(),
       last_inbound_packet_at: device.last_inbound_packet_at || null,
@@ -577,13 +596,21 @@ Deno.serve(async (req) => {
       traccar_device_id: device.traccar_device_id || null
     };
     if (!bypassGate) {
-      if (!isFresh) {
+      if (isHardStale) {
         udpSessionBlocked = true;
         udpGateReason = ageSeconds !== null
-          ? `stale_udp_session (last inbound ${ageSeconds}s ago, fresh window is 90s)`
-          : 'stale_udp_session (no inbound packet on record)';
+          ? `hard_stale (last inbound ${ageSeconds}s ago, max is 60s)`
+          : 'hard_stale (no inbound packet on record)';
         udpDiagnostics.blocked_reason = udpGateReason;
-        udpDiagnostics.gate_decision = 'BLOCK';
+        udpDiagnostics.gate_decision = 'BLOCK_HARD_STALE';
+      } else if (!isFresh) {
+        // Queue for high-risk commands when heartbeat age exceeds risk window
+        udpSessionBlocked = true;
+        udpGateReason = ageSeconds !== null
+          ? `waiting_for_fresh_heartbeat (${commandRiskLevel} command, heartbeat ${ageSeconds}s ago, max is ${Math.floor(maxAgeMs/1000)}s)`
+          : `waiting_for_fresh_heartbeat (${commandRiskLevel} command, no heartbeat on record)`;
+        udpDiagnostics.blocked_reason = udpGateReason;
+        udpDiagnostics.gate_decision = 'QUEUE_WAITING_FOR_HEARTBEAT';
       } else {
         udpDiagnostics.gate_decision = 'PASS';
       }
@@ -622,9 +649,6 @@ Deno.serve(async (req) => {
     const adminNote = (adminDeviceCommandTest || adminTraccarLiveTest) ? ` ADMIN_TEST${forceNote ? ' FORCE_SEND' : '_NO_BYPASS'}` : '';
     console.log(`[MT20_GATE] device=${device.unique_id} traccar_device_id=${device.traccar_device_id} command=${commandType} gate=${udpDiagnostics.gate_decision} age=${ageSeconds ?? 'null'}s fresh_window=60s last_inbound=${device.last_inbound_packet_at || 'none'} packet_type=${device.last_inbound_packet_type || 'none'}${bypassNote}${adminNote}`);
 
-    // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 0x0032 position).
-    // Auto-dispatch fires on the next inbound packet in webhookLightLogForwarder.
-    // If no heartbeat arrives within 5 minutes, processTelematicsCommandTimeouts marks failed_no_fresh_session.
     // Pre-build hex payload BEFORE queuing (critical for auto-dispatch when session is stale)
     const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
     const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
@@ -636,9 +660,13 @@ Deno.serve(async (req) => {
     const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
 
     if (udpSessionBlocked) {
+      // Determine if this is hard stale (block) or waiting for heartbeat (queue)
+      const isHardStaleBlock = udpDiagnostics.gate_decision === 'BLOCK_HARD_STALE';
+      const queueStatus = isHardStaleBlock ? 'blocked' : 'waiting_for_fresh_heartbeat';
+      
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
-        status: 'pending_waiting_for_fresh_session',
-        queue_status: 'pending_waiting_for_fresh_session',
+        status: queueStatus,
+        queue_status: queueStatus,
         confirmation_status: 'pending',
         failure_reason: udpGateReason,
         udp_gate_blocked_at: now.toISOString(),
@@ -649,18 +677,35 @@ Deno.serve(async (req) => {
         ascii_payload: asciiPayload,
         sData_hex: sDataHex,
         wrapped_payload: hexPayload,
-        transmission_format: hexPayload ? 'mt20_wrapped_hex' : 'unknown'
+        transmission_format: hexPayload ? 'mt20_wrapped_hex' : 'unknown',
+        // Store validation metadata
+        heartbeat_source_ip: device.last_heartbeat_source_ip || null,
+        heartbeat_source_port: device.last_heartbeat_source_port || null,
+        heartbeat_received_at: device.last_heartbeat_received_at || device.last_inbound_packet_at || null,
+        command_requested_at: now.toISOString(),
+        heartbeat_age_seconds_at_request: ageSeconds,
+        heartbeat_age_ms_at_request: ageMs,
+        latest_heartbeat_at: device.last_heartbeat_received_at || device.last_inbound_packet_at || null,
+        queue_status_reason: udpGateReason,
+        risk_level: commandRiskLevel
       });
+      
+      const responseMsg = isHardStaleBlock
+        ? 'Command blocked: heartbeat too old (>60s). Device must send fresh heartbeat first.'
+        : `Command queued: waiting for fresh heartbeat (${commandRiskLevel} commands need ${Math.floor(maxAgeMs/1000)}s window). Will auto-send on next 0x000f heartbeat.`;
+      
       return Response.json({
         ok: false,
         command_id: commandAudit.id,
         command_type: commandType,
-        queue_status: 'pending_waiting_for_fresh_session',
-        status_message: 'Waiting for fresh device heartbeat',
+        queue_status: queueStatus,
+        status_message: isHardStaleBlock ? 'Blocked - heartbeat too old' : 'Waiting for fresh heartbeat',
         udp_session_blocked: true,
         udp_gate_reason: udpGateReason,
-        message: 'UDP session stale. Command queued — will auto-send on next 0f000000 heartbeat or 0x0032 position packet. Times out after 5 minutes.',
+        message: responseMsg,
         last_inbound_packet_at: device.last_inbound_packet_at || null,
+        heartbeat_age_seconds: ageSeconds,
+        risk_level: commandRiskLevel,
         udp_diagnostics: udpDiagnostics
       });
     }
@@ -668,7 +713,14 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'sending', queue_status: 'sending', confirmation_status: 'pending' });
     try {
       const sentAt = new Date().toISOString();
+      const sentAtMs = Date.now();
       const providerCommandId = preBuiltCommand.response?.id || preBuiltCommand.response?.commandId || preBuiltCommand.response?.command_id || '';
+      
+      // Calculate heartbeat age at release for commands that were queued
+      const heartbeatAgeAtRelease = commandAudit.heartbeat_received_at 
+        ? (sentAtMs - new Date(commandAudit.heartbeat_received_at).getTime())
+        : null;
+      
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
         status: 'sent', queue_status: 'sent', confirmation_status: 'sent', sent_at: sentAt,
         sent_to_traccar_at: sentAt,
@@ -682,7 +734,13 @@ Deno.serve(async (req) => {
         transmission_format: hexPayload ? 'mt20_wrapped_hex' : preBuiltCommand.dry_run ? 'dry_run' : 'provider_api',
         actual_transmitted_payload: preBuiltCommand.response?.traccar_payload || { traccar_payloads: preBuiltCommand.response?.responses?.map((item) => item.traccar_payload).filter(Boolean) || [] },
         production_command: !!preBuiltCommand.production_command,
-        acknowledgement_source: 'provider_api_response', provider_response: preBuiltCommand.response || {}
+        acknowledgement_source: 'provider_api_response', provider_response: preBuiltCommand.response || {},
+        // Release validation metadata
+        heartbeat_age_ms_at_release: heartbeatAgeAtRelease,
+        command_released_at: sentAt,
+        release_reason: 'fresh_mt20_heartbeat',
+        route_validation_source: 'mt20_heartbeat',
+        traccar_api_sent_at: sentAt
       });
       await base44.asServiceRole.entities.TelematicsEvent.create({
         company_id: vehicle?.company_id || device.company_id || provider.company_id || '', telematics_device_id: device.id, provider_key: device.provider_key,
