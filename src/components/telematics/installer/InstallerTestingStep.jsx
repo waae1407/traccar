@@ -76,7 +76,7 @@ export default function InstallerTestingStep({ form, update, capabilities, comma
                 <Button type="button" variant="outline" disabled={!sent} onClick={() => update(id, 'fail')} className={`h-11 rounded-xl px-3 text-sm font-black ${value === 'fail' ? 'border-red-500 bg-red-500 text-white' : 'bg-white text-slate-700'}`}>Fail</Button>
               </div>
               {state === 'Waiting' && <div className="mt-2 rounded-xl bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700">{businessText(commandState[command]?.error || 'Waiting before the next command.')}</div>}
-              {failed && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><span>{businessText(commandState[command]?.error || getInstallerTip(id))}</span><Button type="button" size="sm" variant="ghost" onClick={() => onHelp(id)} className="h-7 text-red-700"><MessageCircle className="h-4 w-4" /> Help</Button></div>}
+              {state === 'Failed' && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700"><span>{businessText(commandState[command]?.error || getInstallerTip(id))}</span><Button type="button" size="sm" variant="ghost" onClick={() => onHelp(id)} className="h-7 text-red-700"><MessageCircle className="h-4 w-4" /> Help</Button></div>}
             </div>
            );
         })}
