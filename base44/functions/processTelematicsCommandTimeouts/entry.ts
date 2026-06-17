@@ -71,6 +71,29 @@ Deno.serve(async (req) => {
       const sentAge = sentAt ? (now.getTime() - sentAt.getTime()) / 60000 : 0;
       const ackAge = ackAt ? (now.getTime() - ackAt.getTime()) / 60000 : 0;
 
+      // Pending-waiting-for-fresh-session timeout: 5 minutes with no inbound heartbeat
+      if (status === 'pending_waiting_for_fresh_session') {
+        const createdAt = command.created_at ? new Date(command.created_at) : null;
+        const pendingAge = createdAt ? (now.getTime() - createdAt.getTime()) / 60000 : 0;
+        if (pendingAge > 5) {
+          const failureReason = 'Timed out waiting for fresh device heartbeat (5 min)';
+          await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+            status: 'failed_no_fresh_session', queue_status: 'failed_no_fresh_session',
+            confirmation_status: 'failed', failed_at: nowIso, failure_reason: failureReason,
+            udp_packet_observed: false
+          });
+          await base44.asServiceRole.entities.TelematicsEvent.create({
+            company_id: command.company_id || '', telematics_device_id: command.telematics_device_id || '',
+            provider_key: command.provider_key, vehicle_id: command.vehicle_id || '',
+            event_type: 'command_failed_no_fresh_session', source: 'system',
+            raw_payload: { command_id: command.id, failure_reason: failureReason }, created_at: nowIso
+          });
+          if (await markCommandTestTimeout(base44, command, nowIso)) testSessionsUpdated++;
+          expired++;
+        }
+        continue;
+      }
+
       if (['sent', 'delivered'].includes(status) && sentAge > SENT_TIMEOUT_MINUTES) {
         const failureReason = 'Device acknowledgement timeout';
         await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {

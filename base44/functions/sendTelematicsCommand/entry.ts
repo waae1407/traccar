@@ -539,22 +539,33 @@ Deno.serve(async (req) => {
     if (duplicate && !['failed', 'expired', 'blocked', 'pending_waiting_for_fresh_session'].includes(duplicate.queue_status || duplicate.status)) return Response.json({ error: 'Duplicate command prevented.', idempotency_key: idempotencyKey }, { status: 409 });
 
     // ── MT20 UDP Session Freshness Gate ──
-    // Only apply to Noran MT20 live production commands. Bypass for dry-run, alarm automation, and installer tests.
+    // Fresh = last inbound packet < 10s ago → send immediately via Traccar.
+    // Stale = older than 10s → park as pending_waiting_for_fresh_session; auto-send on next inbound.
+    // Only applies to Noran MT20 live production commands.
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
     const bypassGate = !isNoranLive || body.alarm_session_id || installerInstallTest || adminTraccarLiveTest || body.bypass_udp_gate === true;
     let udpSessionBlocked = false;
     let udpGateReason = '';
+    const udpDiagnostics = {
+      command_requested_at: now.toISOString(),
+      last_inbound_packet_at: device.last_inbound_packet_at || null,
+      last_inbound_packet_type: device.last_inbound_packet_type || null,
+      udp_fresh_window_seconds: 10,
+      gate_bypassed: bypassGate
+    };
     if (!bypassGate) {
-      const UDP_FRESH_WINDOW_MS = 150 * 1000; // 150s — device sends 0x0032 every 60-130s; TCP keepalives not forwarded via webhook
+      const UDP_FRESH_WINDOW_MS = 10 * 1000; // 10s send-now window
       const lastInboundMs = device.last_inbound_packet_at ? new Date(device.last_inbound_packet_at).getTime() : null;
       const ageSeconds = lastInboundMs ? (Date.now() - lastInboundMs) / 1000 : null;
-      // Recompute freshness live from last_inbound_packet_at + window (not from stored udp_session_fresh_until)
       const isFresh = lastInboundMs ? (Date.now() - lastInboundMs) <= UDP_FRESH_WINDOW_MS : false;
+      udpDiagnostics.udp_session_age_seconds = ageSeconds !== null ? Math.round(ageSeconds) : null;
+      udpDiagnostics.udp_session_fresh = isFresh;
       if (!isFresh) {
         udpSessionBlocked = true;
         udpGateReason = ageSeconds !== null
-          ? `stale_udp_session (last inbound ${Math.round(ageSeconds)}s ago, fresh window is 150s)`
+          ? `stale_udp_session (last inbound ${Math.round(ageSeconds)}s ago, fresh window is 10s)`
           : 'stale_udp_session (no inbound packet on record)';
+        udpDiagnostics.blocked_reason = udpGateReason;
       }
     }
 
@@ -565,14 +576,27 @@ Deno.serve(async (req) => {
       status: 'queued', queue_status: 'queued', retry_count: 0, max_retries: 0, expires_at: expiresAt,
       confirmation_required: STARTER_COMMANDS.includes(commandType), confirmation_source: 'provider', idempotency_key: idempotencyKey,
       requested_by: user.email, requested_role: user.role || 'user', ip_address: getClientIp(req), user_agent: req.headers.get('user-agent') || '',
-      created_at: now.toISOString(), request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', legacy_command_alias: rawCommandType !== commandType ? rawCommandType : '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, command_traffic_class: trafficClass, rate_limit_actor_key: rateLimitActorKey, admin_starter_override: body.admin_starter_override === true, starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control') }
+      created_at: now.toISOString(),
+      // ── UDP diagnostics stored at creation time ──
+      command_requested_at: now.toISOString(),
+      last_inbound_packet_at: udpDiagnostics.last_inbound_packet_at,
+      last_inbound_packet_type: udpDiagnostics.last_inbound_packet_type,
+      udp_session_age_seconds: udpDiagnostics.udp_session_age_seconds ?? null,
+      udp_session_fresh: udpDiagnostics.udp_session_fresh ?? null,
+      blocked_reason: udpDiagnostics.blocked_reason || null,
+      udp_packet_observed: false,
+      device_ack_received_at: null,
+      sent_to_traccar_at: null,
+      request_payload: { vehicle_id: vehicle?.id || device.vehicle_id || '', booking_id: booking?.id || body.booking_id || '', legacy_command_alias: rawCommandType !== commandType ? rawCommandType : '', admin_traccar_live_test: adminTraccarLiveTest, admin_device_command_test: adminDeviceCommandTest, installer_install_test: installerInstallTest, command_traffic_class: trafficClass, rate_limit_actor_key: rateLimitActorKey, admin_starter_override: body.admin_starter_override === true, starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true, unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false, unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true, reason: body.reason || '', source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'), udp_diagnostics: udpDiagnostics }
     });
     if (isExpired(expiresAt)) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'blocked', queue_status: 'expired', failure_reason: 'Command expired before send.' });
       return Response.json({ error: 'Command expired before send.' }, { status: 400 });
     }
 
-    // If UDP session is stale, park command and wait for fresh heartbeat
+    // If UDP session is stale, park command and wait for fresh heartbeat (0f000000 or 28003200).
+    // Auto-dispatch fires on the next inbound packet in webhookLightLogForwarder.
+    // If no heartbeat arrives within 5 minutes, processTelematicsCommandTimeouts marks failed_no_fresh_session.
     if (udpSessionBlocked) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
         status: 'pending_waiting_for_fresh_session',
@@ -580,18 +604,20 @@ Deno.serve(async (req) => {
         confirmation_status: 'pending',
         failure_reason: udpGateReason,
         udp_gate_blocked_at: now.toISOString(),
-        udp_gate_reason: udpGateReason
+        udp_gate_reason: udpGateReason,
+        blocked_reason: udpGateReason
       });
       return Response.json({
         ok: false,
         command_id: commandAudit.id,
         command_type: commandType,
         queue_status: 'pending_waiting_for_fresh_session',
+        status_message: 'Waiting for fresh device heartbeat',
         udp_session_blocked: true,
         udp_gate_reason: udpGateReason,
-        message: 'Waiting for fresh device heartbeat before sending command. Command will auto-send after next inbound packet.',
+        message: 'UDP session stale. Command queued — will auto-send on next 0f000000 or 28003200 inbound packet. Times out after 5 minutes.',
         last_inbound_packet_at: device.last_inbound_packet_at || null,
-        udp_session_fresh_until: device.udp_session_fresh_until || null
+        udp_diagnostics: udpDiagnostics
       });
     }
 
@@ -609,6 +635,9 @@ Deno.serve(async (req) => {
       const providerCommandId = routed.response?.id || routed.response?.commandId || routed.response?.command_id || '';
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
         status: 'sent', queue_status: 'sent', confirmation_status: 'sent', sent_at: sentAt,
+        sent_to_traccar_at: sentAt,
+        traccar_api_response: routed.response || {},
+        status_message: routed.dry_run ? 'Dry run — not sent to Traccar' : 'Sent to Traccar',
         provider_command_id: String(providerCommandId || ''), provider_command_name: routed.provider_command_name,
         ascii_payload: routed.ascii_payload,
         hex_payload: routed.hex_payload,

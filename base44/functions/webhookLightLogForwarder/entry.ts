@@ -25,14 +25,19 @@ const MT20_ALARM_TYPES = {
   9: 'power_alarm'
 };
 // ── UDP Session Freshness Constants ──
-const UDP_FRESH_WINDOW_SECONDS = 150; // Device sends 0x0032 position every ~60-130s; TCP keepalives are not forwarded
+// 10s send-now window: if last inbound < 10s ago, send immediately.
+// If stale, park as pending_waiting_for_fresh_session and auto-send on next inbound.
+// 5-minute pending timeout: if no inbound arrives within 5 min, mark failed_no_fresh_session.
+const UDP_FRESH_WINDOW_SECONDS = 10;
 const UDP_PENDING_COMMAND_MAX_AGE_MINUTES = 5;
 const UDP_MIN_COMMAND_SPACING_MS = 3000;
 const UDP_PENDING_STATUS = 'pending_waiting_for_fresh_session';
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 
-// Maps packet type codes to their session inbound type label
+// Maps packet type codes to their session inbound type label.
+// 0x000f = MT20 heartbeat/keepalive — refreshes UDP NAT port, must trigger session update.
 const SESSION_INBOUND_PACKET_MAP = {
+  0x000f: 'handshake',   // MT20 heartbeat/keepalive — primary UDP NAT refresh packet
   0x0000: 'handshake',   // login/handshake
   0x0008: 'position',   // position upload
   0x0032: 'position',   // new position upload
@@ -42,6 +47,7 @@ const SESSION_INBOUND_PACKET_MAP = {
 
 const IGNORED_PACKET_TYPES = new Set([]);
 const MEANINGFUL_PACKET_TYPES = new Map([
+  [0x000f, 'mt20_heartbeat'],      // heartbeat/keepalive — 0f000000 in tcpdump
   [0x0000, 'mt20_handshake'],
   [0x0003, 'mt20_alarm_upload'],
   [0x0008, 'mt20_position_upload'],
@@ -619,12 +625,20 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   }
 
   const newStatus = ackOnly ? 'acknowledged' : (pass ? 'executed' : 'failed');
+  const statusMessageMap = {
+    acknowledged: 'Acknowledged by device',
+    executed: 'Acknowledged by device',
+    failed: 'No ACK received — device replied with failure'
+  };
   const updateData = {
     status: newStatus,
     queue_status: newStatus,
     confirmation_status: newStatus,
     acknowledged_at: timestamp,
     device_acknowledged_at: timestamp,
+    device_ack_received_at: timestamp,
+    udp_packet_observed: true,
+    status_message: statusMessageMap[newStatus] || newStatus,
     ack_match_confidence: ackMatchConfidence,
     ack_match_reason: ackMatchReason,
     provider_response: {
@@ -831,6 +845,19 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
     queue_status: UDP_PENDING_STATUS
   }).catch(() => []);
 
+  // Expire any pending commands older than 5 minutes (belt-and-suspenders alongside scheduled timeout)
+  for (const cmd of pendingCommands) {
+    const createdAt = cmd.created_at || cmd.created_date || '';
+    if (createdAt < cutoffTime) {
+      await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
+        status: 'failed_no_fresh_session', queue_status: 'failed_no_fresh_session',
+        confirmation_status: 'failed', failed_at: new Date().toISOString(),
+        failure_reason: 'Timed out waiting for fresh device heartbeat (5 min)',
+        status_message: 'Timed out waiting for heartbeat'
+      }).catch(() => {});
+    }
+  }
+
   // Filter: must be within last 5 minutes, respect starter scope
   const eligible = pendingCommands.filter((cmd) => {
     const createdAt = cmd.created_at || cmd.created_date || '';
@@ -883,6 +910,10 @@ async function autoDispatchPendingCommands(base44, device, timestamp) {
       status: 'sent',
       confirmation_status: 'sent',
       sent_at: now,
+      sent_to_traccar_at: now,
+      udp_packet_observed: true,
+      status_message: 'Sent to Traccar',
+      traccar_api_response: dispatchResult.traccar_response || dispatchResult,
       transmission_format: 'mt20_wrapped_hex',
       provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: 'fresh_udp_session' }
     });
