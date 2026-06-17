@@ -189,9 +189,14 @@ Deno.serve(async (req) => {
     const traccarDevice = await findTraccarDevice(uniqueId);
     if (!traccarDevice?.id) return Response.json({ error: `Device ${uniqueId} was not found in Traccar.` }, { status: 404 });
 
+    console.log(`[sendTraccarCommandSuite] DEVICE FOUND | unique_id=${uniqueId} | traccar_id=${traccarDevice.id} | status=${traccarDevice.status} | lastUpdate=${traccarDevice.lastUpdate} | positionId=${traccarDevice.positionId}`);
+
     const localDevice = await upsertLocalDevice(base44, uniqueId, traccarDevice);
     const traccarDeviceId = Number(traccarDevice.id);
     if (!Number.isFinite(traccarDeviceId)) return Response.json({ error: 'Invalid Traccar numeric device ID.' }, { status: 400 });
+
+    console.log(`[sendTraccarCommandSuite] STARTING SUITE | dry_run=${dryRun} | traccar_device_id=${traccarDeviceId} | base44_device_id=${localDevice.id} | commands=${COMMAND_SEQUENCE.map(c => c.command_type).join(',')}`);
+
 
     const results = [];
 
@@ -220,13 +225,51 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      const submitTimestamp = new Date().toISOString();
+      console.log(`[sendTraccarCommandSuite] SUBMIT ${cmd.command_type} | traccar_device_id=${traccarDeviceId} | ascii="${built.asciiCommand}" | hex_bytes=${built.totalBytes} | payload=${JSON.stringify(traccarPayload)}`);
+
       try {
         const result = await traccarFetch('/api/commands/send', { method: 'POST', body: JSON.stringify(traccarPayload) });
+        const receiveTimestamp = new Date().toISOString();
+        console.log(`[sendTraccarCommandSuite] ACCEPTED ${cmd.command_type} | traccar_device_id=${traccarDeviceId} | traccar_response=${JSON.stringify(result)} | submit_at=${submitTimestamp} | receive_at=${receiveTimestamp}`);
+
+        // Immediately query Traccar command queue to confirm it was created
+        let queuedCommand = null;
+        try {
+          const queuedList = await traccarFetch(`/api/commands?deviceId=${traccarDeviceId}`, { method: 'GET' });
+          queuedCommand = Array.isArray(queuedList) ? queuedList : [];
+          console.log(`[sendTraccarCommandSuite] QUEUE CHECK ${cmd.command_type} | device=${traccarDeviceId} | queued_count=${queuedCommand.length} | queued=${JSON.stringify(queuedCommand)}`);
+        } catch (queueErr) {
+          console.warn(`[sendTraccarCommandSuite] QUEUE CHECK FAILED ${cmd.command_type} | ${queueErr.message}`);
+        }
+
         await recordCommand(base44, user, localDevice, cmd.command_type, built, String(traccarDevice.id), result, 'sent');
-        results.push({ command_type: cmd.command_type, status: 'sent', ascii_payload: built.asciiCommand, hex_payload: built.fullHex, mt20_total_bytes: built.totalBytes, result });
+        results.push({
+          command_type: cmd.command_type,
+          status: 'sent',
+          ascii_payload: built.asciiCommand,
+          hex_payload: built.fullHex,
+          mt20_total_bytes: built.totalBytes,
+          traccar_device_id: traccarDeviceId,
+          submit_timestamp: submitTimestamp,
+          receive_timestamp: receiveTimestamp,
+          traccar_response: result,
+          traccar_queue_after_send: queuedCommand
+        });
       } catch (error) {
+        const failTimestamp = new Date().toISOString();
+        console.error(`[sendTraccarCommandSuite] REJECTED ${cmd.command_type} | traccar_device_id=${traccarDeviceId} | error=${error.message} | payload=${JSON.stringify(traccarPayload)} | at=${failTimestamp}`);
         await recordCommand(base44, user, localDevice, cmd.command_type, built, String(traccarDevice.id), null, 'failed', error.message);
-        results.push({ command_type: cmd.command_type, status: 'failed', ascii_payload: built.asciiCommand, hex_payload: built.fullHex, error: error.message });
+        results.push({
+          command_type: cmd.command_type,
+          status: 'failed',
+          ascii_payload: built.asciiCommand,
+          hex_payload: built.fullHex,
+          traccar_device_id: traccarDeviceId,
+          traccar_payload_submitted: traccarPayload,
+          submit_timestamp: submitTimestamp,
+          error: error.message
+        });
       }
     }
 
