@@ -337,7 +337,7 @@
     "last_inbound_packet_at": {
       "type": "string",
       "format": "date-time",
-      "description": "Timestamp of the most recent inbound packet received by Traccar from this device (handshake, position, alarm, or command response). Used for UDP session freshness gating."
+      "description": "Timestamp of the most recent inbound packet received by Traccar from this device"
     },
     "last_inbound_packet_type": {
       "type": "string",
@@ -346,22 +346,23 @@
         "position",
         "alarm",
         "command_response",
+        "heartbeat",
         "unknown"
       ],
-      "description": "Type of the most recent inbound packet that updated the UDP session."
+      "description": "Type of the most recent inbound packet"
     },
     "last_inbound_source": {
       "type": "string",
-      "description": "Source identifier of the forwarder log that triggered the session update."
+      "description": "Source identifier of the forwarder log"
     },
     "last_inbound_raw_hex": {
       "type": "string",
-      "description": "Raw hex prefix of the last inbound packet for diagnostic use only. Not used for command routing."
+      "description": "Raw hex prefix of the last inbound packet"
     },
     "udp_session_fresh_until": {
       "type": "string",
       "format": "date-time",
-      "description": "Calculated expiry time: last_inbound_packet_at + 20 seconds. Commands are gated against this timestamp."
+      "description": "Calculated expiry time for UDP session"
     },
     "udp_session_status": {
       "type": "string",
@@ -371,7 +372,27 @@
         "unknown"
       ],
       "default": "unknown",
-      "description": "Freshness state of the Traccar UDP session. fresh = last inbound <= 20s ago. Stale = older. Unknown = no data."
+      "description": "Freshness state of the Traccar UDP session"
+    },
+    "post_heartbeat_release_delay_seconds": {
+      "type": "number",
+      "default": 0,
+      "description": "Delay in seconds before releasing queued command after heartbeat (0-30). Use 0 for immediate release.",
+      "minimum": 0,
+      "maximum": 30
+    },
+    "last_heartbeat_received_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of last MT20 heartbeat (0x000f) packet"
+    },
+    "last_heartbeat_source_ip": {
+      "type": "string",
+      "description": "Source IP from last heartbeat packet"
+    },
+    "last_heartbeat_source_port": {
+      "type": "string",
+      "description": "Source port from last heartbeat packet"
     }
   },
   "required": [

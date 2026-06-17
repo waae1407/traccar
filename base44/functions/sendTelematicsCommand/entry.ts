@@ -568,6 +568,18 @@ Deno.serve(async (req) => {
     // Low-risk commands (locate/status): 30s max heartbeat age
     // Hard stale: >60s never send live
     // Only applies to Noran MT20 live production commands.
+        const isNoranUdp = device.provider_key === 'traccar_noran_mt20' && device.production_commands_enabled === true;
+    const useHeartbeatDelay = isNoranUdp && !STARTER_COMMANDS.includes(commandType);
+    const initialStatus = useHeartbeatDelay ? 'pending_waiting_for_heartbeat' : 'queued';
+
+    if (useHeartbeatDelay) {
+      // Use heartbeat-delay strategy, do not send immediately
+      const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
+        // ... (all command fields, status = pending_waiting_for_heartbeat)
+      });
+      return Response.json({ ok: true, command_id: commandAudit.id, queue_status: 'pending_waiting_for_heartbeat', message: 'Command queued, waiting for heartbeat' });
+    }
+
     const isNoranLive = (liveNoranProduction || liveNoranInstallerTest) && device.provider_key === 'traccar_noran_mt20';
     const commandRiskLevel = getCommandRiskLevel(commandType);
     const maxAgeMs = HEARTBEAT_FRESHNESS_MS[commandRiskLevel];
@@ -667,7 +679,7 @@ Deno.serve(async (req) => {
     const asciiPayload = preBuiltCommand?.ascii_payload || null;
     const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
 
-    if (udpSessionBlocked) {
+    if (udpSessionBlocked && !useHeartbeatDelay) {
       // Determine if this is hard stale (block) or waiting for heartbeat (queue)
       const isHardStaleBlock = udpDiagnostics.gate_decision === 'BLOCK_HARD_STALE';
       const queueStatus = isHardStaleBlock ? 'blocked' : 'waiting_for_fresh_heartbeat';

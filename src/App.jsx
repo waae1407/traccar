@@ -55,6 +55,7 @@ import AdminGPSMonitor from '@/pages/admin/AdminGPSMonitor';
 import AdminTelematicsCenter from '@/pages/admin/AdminTelematicsCenter.jsx';
 import AdminTraccarReadiness from '@/pages/admin/AdminTraccarReadiness.jsx';
 import AdminTelematicsOperationsCenter from '@/pages/admin/AdminTelematicsOperationsCenter.jsx';
+import NoranRetryLab from '@/pages/admin/NoranRetryLab.jsx';
 import AdminTelematicsCommandTest from '@/pages/admin/AdminTelematicsCommandTest.jsx';
 import VehicleCommandCenter from '@/pages/VehicleCommandCenter.jsx';
 import CustomerMyVehicle from '@/pages/customer/MyVehicle.jsx';
@@ -312,6 +313,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/vehicle-command-center" element={<VehicleCommandCenter mode="admin" />} />
         <Route path="/admin/telematics-command-test" element={<AdminTelematicsCommandTest />} />
         <Route path="/admin/telematics-operations" element={<AdminTelematicsOperationsCenter />} />
+        <Route path="/admin/noran-reliability-lab" element={<NoranRetryLab />} />
         <Route path="/admin/telematics-rollout" element={<TelematicsRolloutDashboard />} />
         <Route path="/admin/traccar-readiness" element={<AdminTraccarReadiness />} />
         <Route path="/admin/operations" element={<AdminOperationsCenter />} />
