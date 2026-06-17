@@ -80,6 +80,36 @@ function buildNoranMT20Command(commandType, deviceId, template, options = {}) {
 }
 function envValue(name) { return String(Deno.env.toObject()[name] || '').trim(); }
 function joinUrl(baseUrl, path) { return `${baseUrl.replace(/\/+$/, '')}${path}`; }
+
+// ── Traccar Device Freshness Check ──
+async function fetchTraccarDeviceFreshness(traccarDeviceId) {
+  const baseUrl = envValue('TRACCAR_BASE_URL');
+  const username = envValue('TRACCAR_USERNAME');
+  const password = envValue('TRACCAR_PASSWORD');
+  if (!baseUrl || !username || !password) return null;
+  try {
+    const res = await fetch(joinUrl(baseUrl, `/api/devices/${traccarDeviceId}`), {
+      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), Accept: 'application/json' }
+    });
+    if (!res.ok) return null;
+    const device = await res.json();
+    const lastUpdateMs = device.lastUpdate ? new Date(device.lastUpdate).getTime() : null;
+    const nowMs = Date.now();
+    const ageSeconds = lastUpdateMs ? Math.round((nowMs - lastUpdateMs) / 1000) : null;
+    const is_fresh = ageSeconds !== null && ageSeconds <= 60;
+    return {
+      id: device.id,
+      uniqueId: device.uniqueId,
+      status: device.status,
+      lastUpdate: device.lastUpdate,
+      lastUpdate_age_seconds: ageSeconds,
+      is_fresh
+    };
+  } catch {
+    return null;
+  }
+}
+
 function isTraccarSingleDeviceLiveTest(provider, device, commandType) {
   return provider.provider_key === 'traccar_noran_mt20'
     && device.unique_id === TRACCAR_TEST_UNIQUE_ID
@@ -306,6 +336,23 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
   if (!baseUrl || !username || !password) throw new Error('Traccar credentials are not configured.');
   const traccarDeviceId = Number(device.traccar_device_id);
   if (!Number.isFinite(traccarDeviceId)) throw new Error('Invalid Traccar numeric device ID.');
+
+  // ── PRE-COMMAND FRESHNESS GUARD ──
+  // Query Traccar immediately before sending to ensure session is fresh
+  const traccarFreshness = await fetchTraccarDeviceFreshness(traccarDeviceId);
+  const freshnessValidated = traccarFreshness !== null;
+  const freshnessStatus = traccarFreshness ? traccarFreshness.status : 'unknown';
+  const freshnessAge = traccarFreshness ? traccarFreshness.lastUpdate_age_seconds : null;
+  const freshnessIsFresh = traccarFreshness ? traccarFreshness.is_fresh : false;
+  const freshnessUniqueId = traccarFreshness ? traccarFreshness.uniqueId : null;
+
+  // Debug log: command route validation
+  console.log(`[MT20_ROUTE_VALIDATE] traccar_device_id=${traccarDeviceId} unique_id=${device.unique_id} traccar_uniqueId=${freshnessUniqueId} traccar_status=${freshnessStatus} traccar_lastUpdate_age=${freshnessAge ?? 'null'}s freshness_valid=${freshnessValidated} freshness_fresh=${freshnessIsFresh}`);
+
+  // Block if Traccar session is stale (>60s)
+  if (traccarFreshness && !traccarFreshness.is_fresh) {
+    return { provider_command_name: 'custom', ascii_payload: '', hex_payload: '', dry_run: false, freshness_blocked: true, freshness_age_seconds: freshnessAge, error: `Traccar device session stale — last update ${freshnessAge}s ago. Wait for next heartbeat.` };
+  }
   const unlockOptions = getNoranUnlockOptions(commandType, device, { provider_key: device.provider_key });
   const builtCommands = buildNoranCommandBatch(commandType, device.unique_id, template?.ascii_template, { wrapMt20: true, ...unlockOptions });
   const responses = [];
@@ -630,6 +677,29 @@ Deno.serve(async (req) => {
       ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template).catch(() => null)
       : (template ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction }) : await fallbackAdapter(provider, device, commandType));
     
+    // Check if Traccar freshness guard blocked the command
+    if (preBuiltCommand?.freshness_blocked) {
+      await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
+        status: 'blocked',
+        queue_status: 'blocked',
+        confirmation_status: 'blocked',
+        failure_reason: preBuiltCommand.error,
+        blocked_reason: preBuiltCommand.error,
+        traccar_session_stale: true,
+        traccar_session_age_seconds: preBuiltCommand.freshness_age_seconds
+      });
+      return Response.json({
+        ok: false,
+        command_id: commandAudit.id,
+        command_type: commandType,
+        queue_status: 'blocked',
+        status_message: 'Traccar session stale',
+        traccar_session_stale: true,
+        traccar_session_age_seconds: preBuiltCommand.freshness_age_seconds,
+        message: preBuiltCommand.error
+      });
+    }
+
     const hexPayload = preBuiltCommand?.hex_payload || null;
     const asciiPayload = preBuiltCommand?.ascii_payload || null;
     const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
