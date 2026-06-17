@@ -434,8 +434,15 @@ function normalizeTimestamp(value) {
 }
 
 function evaluateCommandReply(command, parsed) {
+  // CRITICAL: Only position packets (0x0008/0x0032) complete locate commands
+  // Heartbeat (0x000f) is NOT a command reply — filtered out by isCommandReply()
   if (['0x0008', '0x0032'].includes(parsed.packet_type)) {
-    return { result: 'pass', reason: 'Device position reply received after locate/status command.' };
+    // Locate/status commands are completed by position replies
+    if (['locate', 'status'].includes(command.command_type)) {
+      return { result: 'pass', reason: `Device ${parsed.packet_type} position reply received after ${command.command_type} command.` };
+    }
+    // Other commands (lock, unlock, etc.) need 0x8009 ACK with status bits
+    return { result: 'acknowledged', reason: `Device ${parsed.packet_type} position received but ${command.command_type} requires 0x8009 ACK.` };
   }
   if (parsed.packet_type === '0x0038') {
     return { result: 'pass', reason: 'Device query/status reply received after command.' };
@@ -463,7 +470,11 @@ function evaluateCommandReply(command, parsed) {
 
 function isReplyCompatibleWithCommand(command, parsed) {
   const commandType = command?.command_type;
+  // CRITICAL: Heartbeat (0x000f) is NEVER compatible with any command
+  if (parsed?.packet_type === '0x000f') return false;
+  // Command ACK (0x8009) compatible with all commands
   if (parsed?.packet_type === '0x8009') return ['locate', 'status', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter'].includes(commandType);
+  // Position (0x0008/0x0032) and query (0x0038) only complete locate/status
   if (['0x0008', '0x0032', '0x0038'].includes(parsed?.packet_type)) return ['locate', 'status'].includes(commandType);
   return false;
 }
@@ -593,12 +604,25 @@ async function updateCommandTestSession(base44, command, evaluation, parsed, tim
 }
 
 function isCommandReply(parsed) {
+  // CRITICAL: Heartbeat (0x000f) is NOT a command reply — it only refreshes UDP session
+  // Command replies are: position (0x0008/0x0032), query response (0x0038), command ACK (0x8009)
   return ['0x0008', '0x0032', '0x0038', '0x8009'].includes(parsed?.packet_type);
+}
+
+function isHeartbeatPacket(parsed) {
+  // Heartbeat (0x000f) only refreshes UDP session, does NOT complete commands
+  return parsed?.packet_type === '0x000f';
 }
 
 async function processCommandResponse(base44, device, parsed, timestamp) {
   const command = await findMatchingCommand(base44, device, timestamp, parsed);
   if (!command) return { command_matched: false, reason: 'No pending command matched this MT20 reply.' };
+
+  // CRITICAL: Heartbeat should never reach here (filtered by isCommandReply)
+  if (parsed.packet_type === '0x000f') {
+    console.warn(`[webhookLightLogForwarder] BUG: Heartbeat (0x000f) should not reach processCommandResponse — it should only refresh UDP session`);
+    return { command_matched: false, reason: 'Heartbeat packets do not complete commands' };
+  }
 
   // No-downgrade guard: never regress a command that already succeeded
   const alreadySucceeded = ['delivered', 'acknowledged', 'executed'].includes(command.confirmation_status || '');
@@ -608,6 +632,11 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
     : evaluateCommandReply(command, parsed);
   const pass = evaluation.result === 'pass';
   const ackOnly = parsed.ack_only === true;
+
+  // Proof log: command response processing
+  if (command.command_type === 'locate' && ['0x0008', '0x0032'].includes(parsed.packet_type)) {
+    console.log(`[LOCATE_COMMAND_COMPLETE] command_id=${command.id} unique_id=${device.unique_id} packet_type=${parsed.packet_type} position_received=true locate_marked_executed=true evaluation_result=${evaluation.result}`);
+  }
 
   // Pull confidence metadata attached by findMatchingCommand
   const ackMatchConfidence = command._ack_match_confidence || 'low';
@@ -1196,19 +1225,26 @@ Deno.serve(async (req) => {
     await updateDeviceUdpSession(base44, device, parsed, timestamp);
 
     // ── Auto-dispatch any commands pending a fresh UDP session ──
+    // CRITICAL: Heartbeat (0x000f) triggers auto-dispatch but does NOT complete locate commands
+    // Position packets (0x0032) both refresh UDP session AND complete locate commands
     if (device) {
       const pendingCount = (await autoDispatchPendingCommands(base44, device, timestamp)) || 0;
-      // Proof log: auto-dispatch checked
-      if (parsed.packet_type === '0x000f' || parsed.packet_type === '0x0000') {
-        console.log(`[MT20_HEARTBEAT_DISPATCH] unique_id=${device.unique_id || device.id} auto_dispatch_checked=true pending_commands_dispatched=${pendingCount}`);
+      // Proof log: heartbeat triggers auto-dispatch
+      if (isHeartbeatPacket(parsed)) {
+        console.log(`[MT20_HEARTBEAT_AUTO_DISPATCH] unique_id=${device.unique_id || device.id} heartbeat_received=true packet_type=0x000f auto_dispatch_checked=true pending_commands_dispatched=${pendingCount} udp_session_refreshed=true`);
+      } else if (parsed.packet_type === '0x0032') {
+        console.log(`[MT20_POSITION_DISPATCH] unique_id=${device.unique_id || device.id} position_received=true packet_type=0x0032 auto_dispatch_checked=true pending_commands_dispatched=${pendingCount} udp_session_refreshed=true locate_can_complete=true`);
       }
     }
 
     const alarm_processing = await processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp });
 
+    // CRITICAL: Heartbeat (0x000f) does NOT complete commands — only position (0x0032) and command ACKs (0x8009) do
     const command_processing = isCommandReply(parsed)
       ? await processCommandResponse(base44, device, parsed, timestamp)
-      : null;
+      : isHeartbeatPacket(parsed)
+        ? { heartbeat_only: true, message: 'Heartbeat refreshed UDP session only — does not complete locate commands' }
+        : null;
 
     return Response.json({
       ok: true,
@@ -1218,6 +1254,16 @@ Deno.serve(async (req) => {
       device_id: device?.id || '',
       voltage: parsed.voltage,
       packet_type: parsed.packet_type,
+      packet_type_name: (() => {
+        if (parsed.packet_type === '0x000f') return 'heartbeat (UDP refresh only)';
+        if (parsed.packet_type === '0x0032') return 'position (can complete locate)';
+        if (parsed.packet_type === '0x0008') return 'position (can complete locate)';
+        if (parsed.packet_type === '0x8009') return 'command ACK (can complete any command)';
+        if (parsed.packet_type === '0x0038') return 'query response';
+        return parsed.packet_type;
+      })(),
+      udp_session_refreshed: parsed.packet_type !== '0x000f' || true, // All inbound packets refresh UDP
+      can_complete_locate: ['0x0032', '0x0008'].includes(parsed.packet_type),
       source: parsed.source,
       alarm_processing,
       command_processing
