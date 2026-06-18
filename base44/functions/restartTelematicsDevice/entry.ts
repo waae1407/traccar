@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
 
     if (localDevice) {
+      const traccarCommandId = result?.id || result?.commandId || null;
       await base44.asServiceRole.entities.TelematicsCommand.create({
         telematics_device_id: localDevice.id,
         provider_key: 'traccar_noran_mt20',
@@ -152,13 +153,21 @@ Deno.serve(async (req) => {
         provider_command_name: 'custom',
         ascii_payload: built.asciiCommand,
         hex_payload: built.fullHex,
-        transmission_format: 'mt20_wrapped_68byte',
+        transmission_format: 'mt20_wrapped_hex',
         request_payload: { traccar_device_id: String(traccarDevice.id), restart: true, format: 'mt20_wrapped_68byte' },
-        status: 'sent',
-        queue_status: 'sent',
+        status: 'sent_to_traccar',
+        queue_status: 'sent_to_traccar',
         confirmation_status: 'sent',
         confirmation_required: false,
         provider_response: result || {},
+        traccar_command_id: traccarCommandId ? String(traccarCommandId) : null,
+        provider_command_id: traccarCommandId ? String(traccarCommandId) : null,
+        traccar_api_response: result || {},
+        traccar_api_called_at: now,
+        sent_to_traccar_at: now,
+        command_released_at: now,
+        source_function: 'restartTelematicsDevice',
+        payload_length_bytes: built.totalBytes,
         requested_by: user.email,
         requested_role: user.role || 'admin',
         failure_reason: '',

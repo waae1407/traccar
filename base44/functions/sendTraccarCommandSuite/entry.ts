@@ -131,6 +131,7 @@ async function upsertLocalDevice(base44, uniqueId, traccarDevice) {
 
 async function recordCommand(base44, user, localDevice, commandType, built, traccarDeviceId, result, status, failureReason = '') {
   const now = new Date().toISOString();
+  const traccarCommandId = result?.id || result?.commandId || null;
   const commandRecord = await base44.asServiceRole.entities.TelematicsCommand.create({
     telematics_device_id: localDevice.id,
     provider_key: 'traccar_noran_mt20',
@@ -142,11 +143,19 @@ async function recordCommand(base44, user, localDevice, commandType, built, trac
     hex_payload: built.fullHex,
     transmission_format: 'mt20_wrapped_hex',
     request_payload: { traccar_device_id: traccarDeviceId, suite_run: true, format: 'mt20_wrapped_68byte' },
-    status,
-    queue_status: status,
+    status: status === 'sent' ? 'sent_to_traccar' : status,
+    queue_status: status === 'sent' ? 'sent_to_traccar' : status,
     confirmation_status: status === 'sent' ? 'sent' : 'failed',
     confirmation_required: ['disable_starter', 'restore_starter'].includes(commandType),
     provider_response: result || {},
+    traccar_command_id: traccarCommandId ? String(traccarCommandId) : null,
+    provider_command_id: traccarCommandId ? String(traccarCommandId) : null,
+    traccar_api_response: result || {},
+    traccar_api_called_at: now,
+    sent_to_traccar_at: now,
+    command_released_at: now,
+    source_function: 'sendTraccarCommandSuite',
+    payload_length_bytes: built.totalBytes,
     requested_by: user.email,
     requested_role: user.role || 'admin',
     failure_reason: failureReason,

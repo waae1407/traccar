@@ -656,12 +656,26 @@ Deno.serve(async (req) => {
       const providerCommandId = preBuiltCommand.response?.id || preBuiltCommand.response?.commandId || preBuiltCommand.response?.command_id || '';
       
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, {
-        status: 'sent', queue_status: 'sent', confirmation_status: 'sent', sent_at: sentAt,
+        status: 'sent_to_traccar',
+        queue_status: 'sent_to_traccar',
+        confirmation_status: 'sent',
+        sent_at: sentAt,
+        sent_to_traccar_at: sentAt,
+        command_released_at: sentAt,
         traccar_api_response: preBuiltCommand.response || {},
-        provider_command_id: String(providerCommandId || ''), provider_command_name: preBuiltCommand.provider_command_name,
-        ascii_payload: asciiPayload, hex_payload: hexPayload, wrapped_payload: hexPayload || '', sData_hex: sDataHex,
+        traccar_api_called_at: sentAt,
+        traccar_command_id: providerCommandId ? String(providerCommandId) : null,
+        provider_command_id: providerCommandId ? String(providerCommandId) : null,
+        provider_command_name: preBuiltCommand.provider_command_name,
+        ascii_payload: asciiPayload,
+        hex_payload: hexPayload,
+        wrapped_payload: hexPayload || '',
+        sData_hex: sDataHex,
         transmission_format: hexPayload ? 'mt20_wrapped_hex' : preBuiltCommand.dry_run ? 'dry_run' : 'provider_api',
-        production_command: !!preBuiltCommand.production_command, provider_response: preBuiltCommand.response || {}
+        production_command: !!preBuiltCommand.production_command,
+        provider_response: preBuiltCommand.response || {},
+        source_function: 'sendTelematicsCommand',
+        payload_length_bytes: hexPayload ? hexPayload.length / 2 : 0
       });
       return Response.json({ ok: true, command_id: commandAudit.id, command_type: commandType, queue_status: 'sent', dry_run: !!preBuiltCommand.dry_run, production_command: !!preBuiltCommand.production_command, result: preBuiltCommand.response || {} });
     } catch (error) {
