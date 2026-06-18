@@ -18,11 +18,16 @@ const COMMAND_SEQUENCE = [
 const MT20_S_MARK_HEX   = '0D0A2A4B5700';
 const MT20_PKT_LEN_HEX  = '4400';
 const MT20_CMD_HEX      = '0200';
-const MT20_GIS_IP_HEX   = '741E649C'; // default — matches sendTelematicsCommand
+const MT20_GIS_IP_HEX   = '741E649C';
 const MT20_PORT_HEX     = '5B9A';
 const MT20_S_END_HEX    = '0D0A';
 const MT20_SDATA_BYTES  = 50;
 const MT20_TOTAL_BYTES  = 68;
+
+// ── HEARTBEAT FRESHNESS GATE ──
+const MAX_HEARTBEAT_AGE_MS = 10000;
+const HEARTBEAT_POLL_INTERVAL_MS = 500;
+const HEARTBEAT_POLL_TIMEOUT_MS = 30000;
 
 function sanitizeDeviceId(value) {
   return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9_:-]/g, '').slice(0, 80);
@@ -47,42 +52,6 @@ function currentHhmmss() {
   return [now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()]
     .map((n) => String(n).padStart(2, '0')).join('');
 }
-
-// Build ASCII payload per MT20 protocol spec
-function buildAsciiPayload(uniqueId, actionCode, actionArgs) {
-  const hhmmss = currentHhmmss();
-  const cleanId = sanitizeDeviceId(uniqueId);
-  return actionArgs
-    ? `*KW,${cleanId},${actionCode},${hhmmss},${actionArgs}#`
-    : `*KW,${cleanId},${actionCode},${hhmmss}#`;
-}
-
-// Wrap ASCII into full 68-byte MT20 control packet (identical to sendTelematicsCommand)
-function buildMt20WrappedCommand(asciiCommand) {
-  const envObj = Deno.env.toObject();
-  const gisIpHex = normalizeFixedHex(envObj.MT20_GIS_IP_HEX, MT20_GIS_IP_HEX, 4, 'MT20_GIS_IP_HEX');
-  const portHex  = normalizeFixedHex(envObj.MT20_APP_PORT_HEX, MT20_PORT_HEX, 2, 'MT20_APP_PORT_HEX');
-  const sDataBytes = new TextEncoder().encode(asciiCommand);
-  if (sDataBytes.length > MT20_SDATA_BYTES) throw new Error(`MT20 ASCII command exceeds ${MT20_SDATA_BYTES} bytes: ${asciiCommand}`);
-  const paddedSData = new Uint8Array(MT20_SDATA_BYTES);
-  paddedSData.set(sDataBytes);
-  const sDataHex = bytesToHex(paddedSData);
-  const fullHex = `${MT20_S_MARK_HEX}${MT20_PKT_LEN_HEX}${MT20_CMD_HEX}${gisIpHex}${portHex}${sDataHex}${MT20_S_END_HEX}`;
-  const totalBytes = fullHex.length / 2;
-  if (totalBytes !== MT20_TOTAL_BYTES) throw new Error(`MT20 packet must be ${MT20_TOTAL_BYTES} bytes, got ${totalBytes}.`);
-  if (!fullHex.startsWith(MT20_S_MARK_HEX)) throw new Error('MT20 packet has invalid sMark.');
-  if (!fullHex.endsWith(MT20_S_END_HEX)) throw new Error('MT20 packet has invalid sEnd.');
-  return { asciiCommand, sDataHex, fullHex, totalBytes };
-}
-
-function joinUrl(baseUrl, path) {
-  return `${baseUrl.replace(/\/+$/, '')}${path}`;
-}
-
-// ── HEARTBEAT FRESHNESS GATE ──
-const MAX_HEARTBEAT_AGE_MS = 10000;
-const HEARTBEAT_POLL_INTERVAL_MS = 500;
-const HEARTBEAT_POLL_TIMEOUT_MS = 30000;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -110,6 +79,35 @@ async function ensureFreshHeartbeat(base44, uniqueId) {
   }
 
   return { fresh: false, age_ms: ageMs, waited: true, wait_ms: HEARTBEAT_POLL_TIMEOUT_MS, reason: 'timeout_no_heartbeat' };
+}
+
+function buildAsciiPayload(uniqueId, actionCode, actionArgs) {
+  const hhmmss = currentHhmmss();
+  const cleanId = sanitizeDeviceId(uniqueId);
+  return actionArgs
+    ? `*KW,${cleanId},${actionCode},${hhmmss},${actionArgs}#`
+    : `*KW,${cleanId},${actionCode},${hhmmss}#`;
+}
+
+function buildMt20WrappedCommand(asciiCommand) {
+  const envObj = Deno.env.toObject();
+  const gisIpHex = normalizeFixedHex(envObj.MT20_GIS_IP_HEX, MT20_GIS_IP_HEX, 4, 'MT20_GIS_IP_HEX');
+  const portHex  = normalizeFixedHex(envObj.MT20_APP_PORT_HEX, MT20_PORT_HEX, 2, 'MT20_APP_PORT_HEX');
+  const sDataBytes = new TextEncoder().encode(asciiCommand);
+  if (sDataBytes.length > MT20_SDATA_BYTES) throw new Error(`MT20 ASCII command exceeds ${MT20_SDATA_BYTES} bytes: ${asciiCommand}`);
+  const paddedSData = new Uint8Array(MT20_SDATA_BYTES);
+  paddedSData.set(sDataBytes);
+  const sDataHex = bytesToHex(paddedSData);
+  const fullHex = `${MT20_S_MARK_HEX}${MT20_PKT_LEN_HEX}${MT20_CMD_HEX}${gisIpHex}${portHex}${sDataHex}${MT20_S_END_HEX}`;
+  const totalBytes = fullHex.length / 2;
+  if (totalBytes !== MT20_TOTAL_BYTES) throw new Error(`MT20 packet must be ${MT20_TOTAL_BYTES} bytes, got ${totalBytes}.`);
+  if (!fullHex.startsWith(MT20_S_MARK_HEX)) throw new Error('MT20 packet has invalid sMark.');
+  if (!fullHex.endsWith(MT20_S_END_HEX)) throw new Error('MT20 packet has invalid sEnd.');
+  return { asciiCommand, sDataHex, fullHex, totalBytes };
+}
+
+function joinUrl(baseUrl, path) {
+  return `${baseUrl.replace(/\/+$/, '')}${path}`;
 }
 
 async function traccarFetch(path, options = {}) {
@@ -237,13 +235,11 @@ Deno.serve(async (req) => {
     const traccarDeviceId = Number(traccarDevice.id);
     if (!Number.isFinite(traccarDeviceId)) return Response.json({ error: 'Invalid Traccar numeric device ID.' }, { status: 400 });
 
-    console.log(`[sendTraccarCommandSuite] STARTING SUITE | dry_run=${dryRun} | traccar_device_id=${traccarDeviceId} | base44_device_id=${localDevice.id} | commands=${COMMAND_SEQUENCE.map(c => c.command_type).join(',')}`);
-
-
-    // ── Heartbeat freshness check before sending suite ──
+    // ── HEARTBEAT FRESHNESS CHECK ──
+    // Skip for dry-run mode
     if (!dryRun) {
       const freshness = await ensureFreshHeartbeat(base44, uniqueId);
-      console.log(`[SUITE_HEARTBEAT_FRESHNESS] device=${uniqueId} fresh=${freshness.fresh} age_ms=${freshness.age_ms} waited=${freshness.waited} wait_ms=${freshness.wait_ms || 0}`);
+      console.log(`[sendTraccarCommandSuite_HEARTBEAT_FRESHNESS] device=${uniqueId} fresh=${freshness.fresh} age_ms=${freshness.age_ms} waited=${freshness.waited} wait_ms=${freshness.wait_ms || 0}`);
 
       if (!freshness.fresh) {
         return Response.json({
@@ -256,6 +252,9 @@ Deno.serve(async (req) => {
         }, { status: 503 });
       }
     }
+
+    console.log(`[sendTraccarCommandSuite] STARTING SUITE | dry_run=${dryRun} | traccar_device_id=${traccarDeviceId} | base44_device_id=${localDevice.id} | commands=${COMMAND_SEQUENCE.map(c => c.command_type).join(',')}`);
+
 
     const results = [];
 
