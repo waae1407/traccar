@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
         const elapsedSeconds = Math.floor((nowMs - requestedAt) / 1000);
 
         // Check expiration (90 seconds without heartbeat)
-        if (elapsedSeconds > HEARTBEAT_EXPIRATION_SECONDS) {
+        // CRITICAL: Do not expire if heartbeat_received_at exists (heartbeat arrived but release failed)
+        if (elapsedSeconds > HEARTBEAT_EXPIRATION_SECONDS && !command.heartbeat_received_at) {
           await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
             status: 'expired_no_heartbeat',
             queue_status: 'expired_no_heartbeat',
@@ -61,6 +62,14 @@ Deno.serve(async (req) => {
           results.expired++;
           results.details.push({ command_id: command.id, action: 'expired', elapsed_seconds: elapsedSeconds });
           continue;
+        }
+        
+        // Mark commands that expired due to dispatch bug (heartbeat arrived but not released)
+        if (elapsedSeconds > HEARTBEAT_EXPIRATION_SECONDS && command.heartbeat_received_at) {
+          await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+            failure_reason: 'expired_due_to_dispatch_bug - heartbeat arrived but command not released'
+          });
+          results.details.push({ command_id: command.id, action: 'marked_dispatch_bug', heartbeat_received_at: command.heartbeat_received_at });
         }
 
         // Get device - CRITICAL: Verify device exists and matches command

@@ -903,14 +903,17 @@ function isStarterCommand(commandType) {
 // All production releases now use releaseNoranQueuedCommandToTraccar helper
 // This function is kept for reference only and should not be called
 
-async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, heartbeatEventId) {
+async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, heartbeatEventId, heartbeatUniqueId) {
   // ── HARD DEBUG: Entry point ──
-  console.log(`[AUTO_DISPATCH_ENTRY] device_unique_id=${device.unique_id || 'UNKNOWN'} internal_device_id=${device.id} heartbeat_event_id=${heartbeatEventId || 'N/A'} heartbeat_received_at=${heartbeatTimestamp}`);
+  console.log(`[AUTO_DISPATCH_ENTRY] device_unique_id=${device.unique_id || 'UNKNOWN'} internal_device_id=${device.id} heartbeat_event_id=${heartbeatEventId || 'N/A'} heartbeat_received_at=${heartbeatTimestamp} heartbeat_unique_id=${heartbeatUniqueId || device.unique_id}`);
   
   if (!device?.id || !heartbeatTimestamp) {
     console.log(`[AUTO_DISPATCH_SKIP] device_id=${device?.id || 'MISSING'} heartbeatTimestamp=${heartbeatTimestamp || 'MISSING'}`);
     return { released: 0, evaluated: [], waiting: [], skipped: [], pending: 0 };
   }
+  
+  // Use provided heartbeatUniqueId or fall back to device.unique_id
+  const heartbeatUid = heartbeatUniqueId || device.unique_id;
 
   const now = new Date();
   const nowMs = Date.now();
@@ -927,7 +930,6 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
 
   // Find ALL pending commands for this device - check BOTH queue_status AND status fields
   const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
-    telematics_device_id: device.id,
     provider_key: PROVIDER_KEY
   }, '-created_date', 50).catch((err) => {
     console.error(`[AUTO_DISPATCH_QUERY_FAILED] device_id=${device.id} error=${err.message}`);
@@ -939,11 +941,12 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
   const filteredCommands = pendingCommands.filter(cmd => {
     const statusField = cmd.queue_status || cmd.status;
     const hasCorrectStatus = ['pending_waiting_for_next_heartbeat', 'waiting_for_delay'].includes(statusField);
-    const hasCorrectDevice = cmd.telematics_device_id === device.id || cmd.device_unique_id === device.unique_id;
+    // Match by device_unique_id OR telematics_device_id
+    const hasCorrectDevice = cmd.device_unique_id === heartbeatUid || cmd.telematics_device_id === device.id;
     return hasCorrectStatus && hasCorrectDevice;
   });
 
-  console.log(`[AUTO_DISPATCH_FOUND] total_queried=${pendingCommands.length} filtered_pending=${filteredCommands.length}`);
+  console.log(`[AUTO_DISPATCH_FOUND] total_queried=${pendingCommands.length} filtered_pending=${filteredCommands.length} heartbeat_unique_id=${heartbeatUid}`);
 
   const result = { released: 0, evaluated: [], waiting: [], skipped: [], pending: filteredCommands.length };
 
@@ -1009,10 +1012,13 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
     
     // Update command with heartbeat match info if pending (first heartbeat for this command)
     if (!isWaitingForDelay) {
-      console.log(`[AUTO_DISPATCH_FIRST_HEARTBEAT] command_id=${cmd.id} heartbeatTimestamp=${heartbeatTimestamp} configuredDelay=${configuredDelay}s delayCompleteAt=${delayCompleteIso}`);
+      console.log(`[AUTO_DISPATCH_FIRST_HEARTBEAT] command_id=${cmd.id} heartbeatTimestamp=${heartbeatTimestamp} configuredDelay=${configuredDelay}s delayCompleteAt=${delayCompleteIso} matched_heartbeat_device_unique_id=${heartbeatUid}`);
       await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
         heartbeat_received_at: heartbeatTimestamp,
+        heartbeat_raw_log_at: heartbeatTimestamp,
         heartbeat_matched_at: nowIso,
+        matched_heartbeat_device_unique_id: heartbeatUid,
+        matched_heartbeat_event_id: heartbeatEventId,
         configured_delay_seconds: configuredDelay,
         delay_complete_at: delayCompleteIso
       }).catch((err) => {
@@ -1039,7 +1045,7 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
     }
 
     // ── CRITICAL: Hard device match guard before release ──
-    const heartbeatDeviceUniqueId = device.unique_id;
+    const heartbeatDeviceUniqueId = heartbeatUid;
     const commandDeviceUniqueId = cmd.device_unique_id;
     if (heartbeatDeviceUniqueId !== commandDeviceUniqueId) {
       console.error(`[CROSS_DEVICE_RELEASE_BLOCKED] heartbeat_device=${heartbeatDeviceUniqueId} command_device=${commandDeviceUniqueId} command_id=${cmd.id} reason=heartbeat_from_different_device`);
@@ -1064,6 +1070,11 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
       result.skipped.push({ command_id: cmd.id, reason: 'cross_device_release_blocked', heartbeat_device: heartbeatDeviceUniqueId, command_device: commandDeviceUniqueId });
       continue;
     }
+    
+    // Mark device match verified before release
+    await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
+      release_device_match_verified: true
+    }).catch(() => {});
 
     // Delay complete - attempt release through centralized helper
     const secondsAfterDelayComplete = (nowMs - delayCompleteAt) / 1000;
@@ -1328,23 +1339,18 @@ Deno.serve(async (req) => {
 
     // ── HEARTBEAT-DELAY RELEASE: Check if pending commands should be released ──
     if (device && isHeartbeatPacket(parsed)) {
-      const evalResult = await autoDispatchPendingCommands(base44, device, timestamp, event?.id);
+      const heartbeatUniqueId = parsed.device_unique_id || device.unique_id;
       
-      // Log heartbeat command evaluation with full details
-      console.log(`[HEARTBEAT_COMMAND_EVAL] unique_id=${device.unique_id || device.id} packet_type=0x000f heartbeat_at=${timestamp} heartbeat_event_id=${event?.id || 'N/A'}`);
-      console.log(`  pending_command_count=${evalResult.pending || 0}`);
-      console.log(`  waiting_command_count=${evalResult.waiting?.length || 0}`);
-      console.log(`  evaluated_command_ids=${evalResult.evaluated?.map(c => c.command_id).join(',') || 'none'}`);
-      console.log(`  released_command_count=${evalResult.released || 0}`);
-      console.log(`  released_command_ids=${evalResult.released_ids?.join(',') || 'none'}`);
-      console.log(`  skipped_command_count=${evalResult.skipped?.length || 0}`);
-      console.log(`  skipped_command_ids=${evalResult.skipped?.map(s => s.command_id).join(',') || 'none'}`);
-      console.log(`  delay_seconds=${device.post_heartbeat_release_delay_seconds ?? 0}`);
+      // ── MT20_HEARTBEAT_DISPATCH_START ──
+      console.log(`[MT20_HEARTBEAT_DISPATCH_START] heartbeat_unique_id=${heartbeatUniqueId} heartbeat_event_id=${event?.id || 'N/A'} device_id=${device.id} device_unique_id=${device.unique_id} heartbeat_timestamp=${timestamp} configured_delay=${device.post_heartbeat_release_delay_seconds ?? 0}s`);
+      
+      const evalResult = await autoDispatchPendingCommands(base44, device, timestamp, event?.id, heartbeatUniqueId);
+      
+      // ── MT20_HEARTBEAT_DISPATCH_RESULT ──
+      console.log(`[MT20_HEARTBEAT_DISPATCH_RESULT] heartbeat_unique_id=${heartbeatUniqueId} heartbeat_event_id=${event?.id} device_id=${device.id} pending_commands_found_count=${evalResult.pending || 0} waiting_for_delay_found_count=${evalResult.waiting?.length || 0} commands_eligible_count=${evalResult.evaluated?.length || 0} commands_released_count=${evalResult.released || 0} dispatch_skip_reason=${evalResult.released === 0 && evalResult.pending === 0 ? 'no_pending_commands' : evalResult.released === 0 ? 'release_failed' : 'none'}`);
       
       if (evalResult.released > 0) {
-        console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} released=${evalResult.released} delay=${device.post_heartbeat_release_delay_seconds ?? 0}s`);
-      } else if ((evalResult.pending || 0) === 0) {
-        console.log(`[HEARTBEAT_NO_PENDING] unique_id=${device.unique_id || device.id} pending_command_count=0`);
+        console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} released=${evalResult.released} released_ids=${evalResult.released_ids?.join(',') || 'N/A'}`);
       }
     }
 
