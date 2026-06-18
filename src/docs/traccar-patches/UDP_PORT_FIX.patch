@@ -1,0 +1,174 @@
+# Traccar UDP Session Port Refresh Patch
+# Issue: Commands sent to stale cached port (e.g., 1664) instead of latest heartbeat port (e.g., 44483)
+
+## FILE 1: src/main/java/org/traccar/BaseProtocolDecoder.java
+
+### CHANGE 1: Make Session.remoteAddress mutable and add setter
+
+**Location:** Session class definition (around line 80-120)
+
+**Find:**
+```java
+private static class Session {
+    private final Channel channel;
+    private final SocketAddress remoteAddress;
+    private final long createTime;
+    
+    public Session(Channel channel, SocketAddress remoteAddress) {
+        this.channel = channel;
+        this.remoteAddress = remoteAddress;
+        this.createTime = System.currentTimeMillis();
+    }
+    
+    public SocketAddress getRemoteAddress() {
+        return remoteAddress;
+    }
+```
+
+**Replace with:**
+```java
+private static class Session {
+    private final Channel channel;
+    private SocketAddress remoteAddress; // ✅ REMOVED 'final' to make it mutable
+    private final long createTime;
+    
+    public Session(Channel channel, SocketAddress remoteAddress) {
+        this.channel = channel;
+        this.remoteAddress = remoteAddress;
+        this.createTime = System.currentTimeMillis();
+    }
+    
+    // ✅ ADD THIS METHOD:
+    public void setRemoteAddress(SocketAddress remoteAddress) {
+        this.remoteAddress = remoteAddress;
+    }
+    
+    public SocketAddress getRemoteAddress() {
+        return remoteAddress;
+    }
+```
+
+---
+
+### CHANGE 2: Update session port from every incoming packet
+
+**Location:** decode() method (around line 150-200)
+
+**Find:**
+```java
+@Override
+protected Object decode(Channel channel, SocketAddress remoteAddress, Object msg) throws Exception {
+    // ... existing code ...
+    
+    Session session = sessions.get(channel.getId());
+    if (session != null) {
+        // ... existing session logic ...
+    }
+    
+    return null;
+}
+```
+
+**Replace with:**
+```java
+@Override
+protected Object decode(Channel channel, SocketAddress remoteAddress, Object msg) throws Exception {
+    // ... existing code ...
+    
+    Session session = sessions.get(channel.getId());
+    if (session != null) {
+        // ✅ CRITICAL FIX: Update session destination port from EVERY incoming packet
+        if (remoteAddress instanceof InetSocketAddress) {
+            session.setRemoteAddress(remoteAddress);
+        }
+        // ... existing session logic ...
+    }
+    
+    return null;
+}
+```
+
+---
+
+## FILE 2: src/main/java/org/traccar/protocol/NoranProtocolDecoder.java
+
+### CHANGE: Validate GPS coordinates before using (prevent "longitude out of range" error)
+
+**Location:** decodeLastPacket() method (around line 103)
+
+**Find:**
+```java
+if (buf.readableBytes() >= 57) {
+    newFormat = true;
+    Position position = new Position(getProtocolName());
+    double lon = buffer.readFloat();
+    double lat = buffer.readFloat();
+    position.setLongitude(lon);
+    position.setLatitude(lat);
+    // ... rest of code ...
+}
+```
+
+**Replace with:**
+```java
+if (buf.readableBytes() >= 57) {
+    newFormat = true;
+    Position position = new Position(getProtocolName());
+    
+    // ✅ READ COORDINATES FIRST
+    float lonRaw = buffer.readFloat();
+    float latRaw = buffer.readFloat();
+    
+    // ✅ VALIDATE: Skip position creation if coordinates are invalid (ACK-only packet)
+    if (Math.abs(lonRaw) > 180.0 || Math.abs(latRaw) > 90.0) {
+        return null; // This is an ACK packet without valid GPS data
+    }
+    
+    position.setLongitude(lonRaw);
+    position.setLatitude(latRaw);
+    // ... rest of code ...
+}
+```
+
+---
+
+## BUILD & DEPLOY
+
+```bash
+# 1. Clone repository
+git clone https://github.com/traccar/traccar.git
+cd traccar
+
+# 2. Apply the patches above
+
+# 3. Build
+./gradlew clean build
+
+# 4. Deploy (Linux)
+sudo systemctl stop traccar
+sudo cp build/libs/tracker-server.jar /opt/traccar/tracker-server.jar
+sudo systemctl start traccar
+
+# 5. Deploy (Windows)
+# Stop Traccar service
+# Copy build\libs\tracker-server.jar to C:\Program Files\Traccar\
+# Start Traccar service
+```
+
+---
+
+## VERIFICATION
+
+**Check logs after sending a command:**
+
+✅ **SUCCESS:**
+```
+[U12345678: noran > 185.166.245.60:44483] 0d0a2a4b57...
+# Port 44483 matches the latest heartbeat port
+```
+
+❌ **FAILED:**
+```
+[U12345678: noran > 185.166.245.60:1664] 0d0a2a4b57...
+# Port 1664 is stale - patch not applied correctly
+``
