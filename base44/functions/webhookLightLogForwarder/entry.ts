@@ -1355,25 +1355,12 @@ Deno.serve(async (req) => {
       console.error('[webhookLightLogForwarder] Session update error:', err.message);
     }
 
-    // ── HEARTBEAT-DELAY RELEASE: Check if pending commands should be released ──
+    // ── HEARTBEAT: Device session refresh only (no command release) ──
+    // Command release via heartbeat-delay gate has been removed.
+    // Commands are now sent immediately via Traccar API.
     if (device && isHeartbeatPacket(parsed)) {
-      const heartbeatUniqueId = parsed.device_unique_id || device.unique_id;
-      
-      try {
-        // ── MT20_HEARTBEAT_DISPATCH_START ──
-        console.log(`[MT20_HEARTBEAT_DISPATCH_START] heartbeat_unique_id=${heartbeatUniqueId} heartbeat_event_id=${event?.id || 'N/A'} device_id=${device.id} device_unique_id=${device.unique_id} heartbeat_timestamp=${timestamp} configured_delay=${device.post_heartbeat_release_delay_seconds ?? 0}s`);
-        
-        const evalResult = await autoDispatchPendingCommands(base44, device, timestamp, event?.id, heartbeatUniqueId);
-        
-        // ── MT20_HEARTBEAT_DISPATCH_RESULT ──
-        console.log(`[MT20_HEARTBEAT_DISPATCH_RESULT] heartbeat_unique_id=${heartbeatUniqueId} heartbeat_event_id=${event?.id} device_id=${device.id} pending_commands_found_count=${evalResult.pending || 0} waiting_for_delay_found_count=${evalResult.waiting?.length || 0} commands_eligible_count=${evalResult.evaluated?.length || 0} commands_released_count=${evalResult.released || 0} dispatch_skip_reason=${evalResult.released === 0 && evalResult.pending === 0 ? 'no_pending_commands' : evalResult.released === 0 ? 'release_failed' : 'none'}`);
-        
-        if (evalResult.released > 0) {
-          console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} released=${evalResult.released} released_ids=${evalResult.released_ids?.join(',') || 'N/A'}`);
-        }
-      } catch (dispatchError) {
-        console.error('[webhookLightLogForwarder] Dispatch error:', dispatchError.message);
-      }
+      console.log(`[HEARTBEAT_SESSION_REFRESH] unique_id=${device.unique_id || device.id} packet_type=${parsed.packet_type} timestamp=${timestamp}`);
+      // Heartbeat only updates device session state - no command dispatch
     }
 
     // ── Alarm processing with error guard ──

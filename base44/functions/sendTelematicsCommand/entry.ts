@@ -6,10 +6,11 @@ const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'alarm_pulse'];
 const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'status'];
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 
-// ── HEARTBEAT-DELAY ONLY RULE ──
-// All Noran MT20 UDP commands wait for next heartbeat, then apply configured delay, then send to Traccar.
-// No freshness gates, no retry logic, no immediate sends.
-const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90;
+// ── IMMEDIATE COMMAND DISPATCH ──
+// Noran MT20 UDP commands are sent immediately via Traccar API.
+// Traccar handles UDP/session delivery and ACK processing.
+// No heartbeat gate, no delay release.
+const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90; // kept for historical command expiry only
 
 
 
@@ -561,74 +562,55 @@ Deno.serve(async (req) => {
     });
     if (duplicateActive) return Response.json({ error: 'Duplicate command blocked. Wait 15 seconds before sending same command type.', retry_after_seconds: 15 }, { status: 429 });
 
-    // ── HEARTBEAT-DELAY ONLY RULE FOR NORAN MT20 UDP ──
-    const isNoranUdp = device.provider_key === 'traccar_noran_mt20' && device.production_commands_enabled === true;
+    // ── IMMEDIATE DISPATCH FOR ALL COMMANDS (including Noran MT20) ──
+    const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
+    const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
+      ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template).catch(() => null)
+      : (template ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction }) : await fallbackAdapter(provider, device, commandType));
     
-    if (isNoranUdp) {
-      // For Noran UDP, only create the command. Release is handled by webhook/scheduler.
-      const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
-      const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
-        ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template).catch(() => null)
-        : (template ? await renderTemplateExecution(template, provider, device, commandType, { liveNoranProduction }) : await fallbackAdapter(provider, device, commandType));
-      
-      const hexPayload = preBuiltCommand?.hex_payload || null;
-      const asciiPayload = preBuiltCommand?.ascii_payload || null;
-      const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
-      const configuredDelay = device.post_heartbeat_release_delay_seconds ?? 0;
+    const hexPayload = preBuiltCommand?.hex_payload || null;
+    const asciiPayload = preBuiltCommand?.ascii_payload || null;
+    const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
 
-      const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
-        company_id: vehicle?.company_id || device.company_id || provider.company_id || '',
-        telematics_device_id: device.id,
-        provider_key: device.provider_key,
+    const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
+      company_id: vehicle?.company_id || device.company_id || provider.company_id || '',
+      telematics_device_id: device.id,
+      provider_key: device.provider_key,
+      vehicle_id: vehicle?.id || device.vehicle_id || '',
+      host_id: vehicle?.host_id || device.host_id || '',
+      booking_id: booking?.id || body.booking_id || '',
+      renter_id: booking?.user_id || '',
+      command_type: commandType,
+      device_unique_id: device.unique_id || '',
+      traccar_device_id: device.traccar_device_id || '',
+      production_command: liveNoranProduction || liveNoranInstallerTest,
+      status: 'sending',
+      queue_status: 'sending',
+      confirmation_status: 'pending',
+      expires_at: expiresAt,
+      confirmation_required: STARTER_COMMANDS.includes(commandType),
+      confirmation_source: 'provider',
+      idempotency_key: idempotencyKey,
+      requested_by: user.email,
+      requested_role: user.role || 'user',
+      created_at: now.toISOString(),
+      hex_payload: hexPayload,
+      ascii_payload: asciiPayload,
+      sData_hex: sDataHex,
+      wrapped_payload: hexPayload,
+      transmission_format: hexPayload ? 'mt20_wrapped_hex' : 'unknown',
+      release_strategy: 'immediate_traccar_api',
+      release_triggered_by: 'command_request',
+      request_payload: {
         vehicle_id: vehicle?.id || device.vehicle_id || '',
-        host_id: vehicle?.host_id || device.host_id || '',
-        booking_id: booking?.id || body.booking_id || '',
-        renter_id: booking?.user_id || '',
-        command_type: commandType,
-        device_unique_id: device.unique_id || '',
-        traccar_device_id: device.traccar_device_id || '',
-        production_command: liveNoranProduction || liveNoranInstallerTest,
-        status: 'pending_waiting_for_next_heartbeat',
-        queue_status: 'pending_waiting_for_next_heartbeat',
-        confirmation_status: 'pending',
-        expires_at: expiresAt,
-        confirmation_required: STARTER_COMMANDS.includes(commandType),
-        confirmation_source: 'provider',
-        idempotency_key: idempotencyKey,
-        requested_by: user.email,
-        requested_role: user.role || 'user',
-        created_at: now.toISOString(),
-        hex_payload: hexPayload,
-        ascii_payload: asciiPayload,
-        sData_hex: sDataHex,
-        wrapped_payload: hexPayload,
-        transmission_format: hexPayload ? 'mt20_wrapped_hex' : 'unknown',
-        configured_delay_seconds: configuredDelay,
-        release_lock_token: null,
-        release_attempt_count: 0,
-        request_payload: {
-          vehicle_id: vehicle?.id || device.vehicle_id || '',
-          command_traffic_class: trafficClass,
-          starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true,
-          reason: body.reason || '',
-          source: body.source || 'user_control'
-        }
-      });
-      
-      return Response.json({
-        ok: true,
-        command_id: commandAudit.id,
-        command_type: commandType,
-        queue_status: 'pending_waiting_for_next_heartbeat',
-        status_message: 'Waiting for next device heartbeat',
-        configured_delay_seconds: configuredDelay,
-        expires_in_seconds: NORAN_HEARTBEAT_EXPIRY_SECONDS,
-        message: `Command queued. Will wait for heartbeat + ${configuredDelay}s.`
-      });
-    }
+        command_traffic_class: trafficClass,
+        starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true,
+        reason: body.reason || '',
+        source: body.source || 'user_control'
+      }
+    });
 
-    // Non-Noran commands: send immediately (legacy path)
-    await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'sending', queue_status: 'sending', confirmation_status: 'pending' });
+    // Send immediately via Traccar API
     try {
       const sentAt = new Date().toISOString();
       const providerCommandId = preBuiltCommand.response?.id || preBuiltCommand.response?.commandId || preBuiltCommand.response?.command_id || '';
@@ -653,9 +635,20 @@ Deno.serve(async (req) => {
         production_command: !!preBuiltCommand.production_command,
         provider_response: preBuiltCommand.response || {},
         source_function: 'sendTelematicsCommand',
-        payload_length_bytes: hexPayload ? hexPayload.length / 2 : 0
+        payload_length_bytes: hexPayload ? hexPayload.length / 2 : 0,
+        release_strategy: 'immediate_traccar_api',
+        release_triggered_by: 'command_request'
       });
-      return Response.json({ ok: true, command_id: commandAudit.id, command_type: commandType, queue_status: 'sent', dry_run: !!preBuiltCommand.dry_run, production_command: !!preBuiltCommand.production_command, result: preBuiltCommand.response || {} });
+      return Response.json({ 
+        ok: true, 
+        command_id: commandAudit.id, 
+        command_type: commandType, 
+        queue_status: 'sent_to_traccar',
+        release_strategy: 'immediate_traccar_api',
+        dry_run: !!preBuiltCommand.dry_run, 
+        production_command: !!preBuiltCommand.production_command, 
+        result: preBuiltCommand.response || {} 
+      });
     } catch (error) {
       await base44.asServiceRole.entities.TelematicsCommand.update(commandAudit.id, { status: 'failed', queue_status: 'failed', confirmation_status: 'failed', failure_reason: error.message, failed_at: new Date().toISOString() });
       return Response.json({ error: error.message, command_id: commandAudit.id, command_failed: true }, { status: 500 });
