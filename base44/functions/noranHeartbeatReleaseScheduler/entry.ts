@@ -186,11 +186,19 @@ Deno.serve(async (req) => {
         }
 
         const actualDelaySeconds = configuredDelay === 0 ? 0 : Math.floor((nowMs - heartbeatMatchedMs) / 1000);
+        const traccarCommandId = sendResult.traccar_response?.id || sendResult.traccar_response?.commandId || null;
 
         await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
-          status: 'sent', queue_status: 'sent', confirmation_status: 'sent', sent_at: nowIso,
+          status: 'sent_to_traccar',
+          queue_status: 'sent_to_traccar',
+          confirmation_status: 'sent',
+          sent_at: nowIso,
           sent_to_traccar_at: sendResult.sent_to_traccar_at,
+          command_released_at: nowIso,
           traccar_api_response: sendResult.traccar_response,
+          traccar_api_called_at: nowIso,
+          traccar_command_id: traccarCommandId ? String(traccarCommandId) : null,
+          provider_command_id: traccarCommandId ? String(traccarCommandId) : null,
           transmission_format: 'mt20_wrapped_hex',
           provider_response: sendResult.traccar_response,
           released_after_heartbeat: true,
@@ -200,7 +208,11 @@ Deno.serve(async (req) => {
           actual_heartbeat_to_release_delay_seconds: actualDelaySeconds,
           heartbeat_source_ip: device.last_heartbeat_source_ip,
           heartbeat_source_port: device.last_heartbeat_source_port,
-          release_strategy: 'heartbeat_delay'
+          release_strategy: 'heartbeat_delay',
+          source_function: 'noranHeartbeatReleaseScheduler',
+          ascii_payload: command.ascii_payload,
+          hex_payload: command.hex_payload,
+          payload_length_bytes: command.hex_payload ? command.hex_payload.length / 2 : 0
         });
 
         await base44.asServiceRole.entities.TelematicsEvent.create({

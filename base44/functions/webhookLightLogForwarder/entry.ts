@@ -524,19 +524,36 @@ async function findMatchingCommand(base44, device, timestamp, parsed) {
   const commands = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id });
   const matchWindowMinutes = parsed.ack_only ? RAW_ACK_MATCH_WINDOW_MINUTES : COMMAND_REPLY_WINDOW_MINUTES;
 
+  // PRIMARY MATCH: By provider_command_id or traccar_command_id (if reliable and non-zero)
+  const traccarResponseId = parsed.traccar_response_id || null;
+  if (traccarResponseId && String(traccarResponseId) !== '0') {
+    const exactMatch = commands.find(cmd => 
+      (String(cmd.provider_command_id) === String(traccarResponseId) || 
+       String(cmd.traccar_command_id) === String(traccarResponseId)) &&
+      cmd.provider_key === PROVIDER_KEY &&
+      isReplyCompatibleWithCommand(cmd, parsed)
+    );
+    if (exactMatch) {
+      console.log(`[ACK_MATCH_PRIMARY] command_id=${exactMatch.id} matched_by=provider_command_id traccar_id=${traccarResponseId}`);
+      exactMatch._ack_match_confidence = 'high';
+      exactMatch._ack_match_reason = 'Matched by Traccar command ID';
+      return exactMatch;
+    }
+  }
+
+  // FALLBACK MATCH: By device + time window + status
   const candidates = commands.filter((command) => {
     const status = command.queue_status || command.status;
-    // CRITICAL: Include sent_to_traccar and related statuses - commands are no longer "pending" after being sent
     const eligibleStatuses = ['queued', 'sending', 'sent', 'delivered', 'pending', 'pending_waiting_for_next_heartbeat', 'waiting_for_delay', 'sent_to_traccar', 'command_sent', 'released', 'executing', 'pending_ack', 'pending_device_ack', 'pending_position', 'pending_device_response'];
     if (!eligibleStatuses.includes(status)) return false;
     if (command.provider_key !== PROVIDER_KEY) return false;
     if (!isReplyCompatibleWithCommand(command, parsed)) return false;
-    // Use sent_to_traccar_at if available, otherwise sent_at, otherwise created_at
+    // Use sent_to_traccar_at for time matching
     const sentTime = new Date(command.sent_to_traccar_at || command.sent_at || command.created_at || command.created_date || 0).getTime();
     if (!Number.isFinite(sentTime)) return false;
-    // Command must have been sent BEFORE the ACK, within the match window
+    // Command must have been sent BEFORE the ACK arrived, within the match window
     const ageSec = (replyTime - sentTime) / 1000;
-    if (ageSec < 0) return false; // ignore commands sent after ACK timestamp
+    if (ageSec < 0) return false;
     const ageMinutes = ageSec / 60;
     return ageMinutes <= matchWindowMinutes;
   });
@@ -703,6 +720,16 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   if (pass && command.command_type === 'locate' && ['0x0008', '0x0032'].includes(parsed.packet_type)) {
     updateData.executed_at = timestamp;
     updateData.confirmed_at = timestamp;
+    updateData.completed_at = timestamp;
+    updateData.completion_packet_hex = parsed.raw_packet_hex;
+    updateData.completion_match_confidence = ackMatchConfidence;
+    updateData.completion_match_reason = ackMatchReason;
+  }
+  
+  // For locate commands that need position packet (not just ACK)
+  if (command.command_type === 'locate' && ['0x0008', '0x0032'].includes(parsed.packet_type)) {
+    updateData.status = 'completed';
+    updateData.queue_status = 'completed';
   }
   
   // Add release validation metadata if this command was heartbeat-gated
@@ -1066,19 +1093,25 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
       confirmation_status: 'sent',
       sent_at: now.toISOString(),
       sent_to_traccar_at: now.toISOString(),
+      command_released_at: now.toISOString(),
       status_message: configuredDelay === 0 ? 'Released immediately on heartbeat (0s delay)' : `Sent to Traccar after ${configuredDelay}s delay`,
       traccar_api_response: dispatchResult.traccar_response || dispatchResult,
+      traccar_api_called_at: now.toISOString(),
+      traccar_command_id: traccarCommandId ? String(traccarCommandId) : null,
+      provider_command_id: traccarCommandId ? String(traccarCommandId) : null,
       transmission_format: 'mt20_wrapped_hex',
       provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: releaseTriggeredBy },
       heartbeat_received_at: eligible.heartbeat_received_at || heartbeatTimestamp,
       heartbeat_matched_at: eligible.heartbeat_matched_at || new Date().toISOString(),
-      command_released_at: now.toISOString(),
       actual_heartbeat_to_release_delay_seconds: actualDelayMs / 1000,
       configured_delay_seconds: configuredDelay,
       delay_source: 'TelematicsDevice.post_heartbeat_release_delay_seconds',
       release_strategy: 'heartbeat_delay_only',
       release_triggered_by: releaseTriggeredBy,
-      traccar_command_id: traccarCommandId
+      source_function: 'webhookLightLogForwarder.autoDispatchPendingCommands',
+      ascii_payload: eligible.ascii_payload,
+      hex_payload: eligible.hex_payload,
+      payload_length_bytes: eligible.hex_payload ? eligible.hex_payload.length / 2 : 0
     });
 
     await base44.asServiceRole.entities.TelematicsEvent.create({
