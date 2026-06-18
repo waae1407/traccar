@@ -71,6 +71,40 @@ function joinUrl(baseUrl, path) {
   return `${baseUrl.replace(/\/+$/, '')}${path}`;
 }
 
+// ── HEARTBEAT FRESHNESS GATE ──
+// Commands sent >10s after heartbeat fail due to UDP NAT timeout.
+const MAX_HEARTBEAT_AGE_MS = 10000;
+const HEARTBEAT_POLL_INTERVAL_MS = 500;
+const HEARTBEAT_POLL_TIMEOUT_MS = 30000;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function ensureFreshHeartbeat(base44, uniqueId) {
+  const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: uniqueId });
+  const device = devices[0];
+  if (!device) return { fresh: false, reason: 'device_not_found', age_ms: null };
+
+  const lastHb = new Date(device.last_heartbeat_received_at || 0).getTime();
+  const ageMs = Date.now() - lastHb;
+
+  if (ageMs <= MAX_HEARTBEAT_AGE_MS) {
+    return { fresh: true, age_ms: ageMs, waited: false };
+  }
+
+  const startTime = Date.now();
+  while (Date.now() - startTime < HEARTBEAT_POLL_TIMEOUT_MS) {
+    await sleep(HEARTBEAT_POLL_INTERVAL_MS);
+    const refreshed = (await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: uniqueId }))[0];
+    if (!refreshed) return { fresh: false, reason: 'device_not_found', age_ms: null, waited: true, wait_ms: Date.now() - startTime };
+    const newHb = new Date(refreshed.last_heartbeat_received_at || 0).getTime();
+    if (newHb > lastHb) {
+      return { fresh: true, age_ms: Date.now() - newHb, waited: true, wait_ms: Date.now() - startTime };
+    }
+  }
+
+  return { fresh: false, age_ms: ageMs, waited: true, wait_ms: HEARTBEAT_POLL_TIMEOUT_MS, reason: 'timeout_no_heartbeat' };
+}
+
 async function traccarFetch(path, options = {}) {
   const baseUrl  = String(Deno.env.get('TRACCAR_BASE_URL') || '').trim();
   const username = String(Deno.env.get('TRACCAR_USERNAME') || '').trim();
@@ -132,6 +166,21 @@ Deno.serve(async (req) => {
         traccar_payload: traccarPayload,
         note: 'Dry-run only. No command was sent. Confirm ASCII payload before running live.'
       });
+    }
+
+    // ── Heartbeat freshness check before sending ──
+    const freshness = await ensureFreshHeartbeat(base44, uniqueId);
+    console.log(`[RESTART_HEARTBEAT_FRESHNESS] device=${uniqueId} fresh=${freshness.fresh} age_ms=${freshness.age_ms} waited=${freshness.waited} wait_ms=${freshness.wait_ms || 0}`);
+
+    if (!freshness.fresh) {
+      return Response.json({
+        error: 'Device heartbeat stale — UDP session expired. Restart command not sent.',
+        unique_id: uniqueId,
+        heartbeat_age_seconds: Math.round((freshness.age_ms || 0) / 1000),
+        max_age_seconds: MAX_HEARTBEAT_AGE_MS / 1000,
+        waited_seconds: Math.round((freshness.wait_ms || 0) / 1000),
+        suggestion: 'Try again — system will wait for next heartbeat automatically.'
+      }, { status: 503 });
     }
 
     // Send via Traccar API — Traccar manages the UDP session
