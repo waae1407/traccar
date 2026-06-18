@@ -922,19 +922,25 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
   // ── HARD DEBUG: Query filters ──
   console.log(`[AUTO_DISPATCH_QUERY] telematics_device_id=${device.id} queue_status=['pending_waiting_for_next_heartbeat','waiting_for_delay'] expiryCutoff=${expiryCutoff}`);
 
+  // ── CRITICAL DEVICE MATCH GUARD: Only process commands for THIS exact device ──
+  console.log(`[AUTO_DISPATCH_DEVICE_GUARD] heartbeat_device_unique_id=${device.unique_id} heartbeat_device_id=${device.id}`);
+
   // Find ALL pending commands for this device - check BOTH queue_status AND status fields
   const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
     telematics_device_id: device.id,
     provider_key: PROVIDER_KEY
   }, '-created_date', 50).catch((err) => {
-    console.error(`[AUTO_DISPATCH_QUERY_FAILED] error=${err.message}`);
+    console.error(`[AUTO_DISPATCH_QUERY_FAILED] device_id=${device.id} error=${err.message}`);
     return [];
   });
 
   // Filter in-memory to catch commands that may have status in either field
+  // ── CRITICAL: Also verify device_unique_id matches to prevent cross-device release ──
   const filteredCommands = pendingCommands.filter(cmd => {
     const statusField = cmd.queue_status || cmd.status;
-    return ['pending_waiting_for_next_heartbeat', 'waiting_for_delay'].includes(statusField);
+    const hasCorrectStatus = ['pending_waiting_for_next_heartbeat', 'waiting_for_delay'].includes(statusField);
+    const hasCorrectDevice = cmd.telematics_device_id === device.id || cmd.device_unique_id === device.unique_id;
+    return hasCorrectStatus && hasCorrectDevice;
   });
 
   console.log(`[AUTO_DISPATCH_FOUND] total_queried=${pendingCommands.length} filtered_pending=${filteredCommands.length}`);
@@ -955,14 +961,23 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
     const expiryForCommand = new Date(createdAtMs + NORAN_HEARTBEAT_EXPIRY_SECONDS * 1000).toISOString();
     
     // ── HARD DEBUG: Per-command state ──
-    console.log(`[AUTO_DISPATCH_EVAL] command_id=${cmd.id} command_type=${cmd.command_type} queue_status=${cmd.queue_status} status=${cmd.status} device_unique_id=${cmd.device_unique_id} telematics_device_id=${cmd.telematics_device_id} created_at=${createdAt} heartbeat_received_at=${cmd.heartbeat_received_at || 'NULL'} configured_delay=${cmd.configured_delay_seconds ?? configuredDelay}s`);
+    const cmdDeviceMatch = cmd.telematics_device_id === device.id || cmd.device_unique_id === device.unique_id;
+    console.log(`[AUTO_DISPATCH_EVAL] command_id=${cmd.id} command_type=${cmd.command_type} queue_status=${cmd.queue_status} status=${cmd.status} device_unique_id=${cmd.device_unique_id} telematics_device_id=${cmd.telematics_device_id} heartbeat_device_unique_id=${device.unique_id} device_match=${cmdDeviceMatch} created_at=${createdAt} heartbeat_received_at=${cmd.heartbeat_received_at || 'NULL'} configured_delay=${cmd.configured_delay_seconds ?? configuredDelay}s`);
+
+    // ── CRITICAL: Skip if device doesn't match (cross-device heartbeat) ──
+    if (!cmdDeviceMatch) {
+      console.log(`[AUTO_DISPATCH_SKIP_DEVICE_MISMATCH] command_id=${cmd.id} command_device=${cmd.device_unique_id || cmd.telematics_device_id} heartbeat_device=${device.unique_id} reason=heartbeat_from_different_device`);
+      result.skipped.push({ command_id: cmd.id, reason: 'device_mismatch', command_device: cmd.device_unique_id, heartbeat_device: device.unique_id });
+      continue;
+    }
 
     // Skip expired commands - but ONLY if no heartbeat was received after command creation
     // CRITICAL FIX: Check if heartbeat arrived AFTER command creation before expiring
     const heartbeatArrivedAfterCreation = cmd.heartbeat_received_at && new Date(cmd.heartbeat_received_at).getTime() > createdAtMs;
     
     if (createdAt && createdAt < expiryCutoff && !heartbeatArrivedAfterCreation) {
-      console.log(`[AUTO_DISPATCH_SKIP_EXPIRED] command_id=${cmd.id} reason=expired_no_heartbeat_after_${NORAN_HEARTBEAT_EXPIRY_SECONDS}s created_at=${createdAt} expiryCutoff=${expiryCutoff} heartbeat_received_at=${cmd.heartbeat_received_at || 'NULL'} heartbeatArrivedAfterCreation=${heartbeatArrivedAfterCreation}`);
+      const secondsSinceCreation = (nowMs - createdAtMs) / 1000;
+      console.log(`[AUTO_DISPATCH_SKIP_EXPIRED] command_id=${cmd.id} reason=expired_no_heartbeat_after_${NORAN_HEARTBEAT_EXPIRY_SECONDS}s created_at=${createdAt} expiryCutoff=${expiryCutoff} heartbeat_received_at=${cmd.heartbeat_received_at || 'NULL'} heartbeatArrivedAfterCreation=${heartbeatArrivedAfterCreation} secondsSinceCreation=${secondsSinceCreation.toFixed(1)}`);
       await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
         status: 'expired_no_heartbeat', queue_status: 'expired_no_heartbeat',
         confirmation_status: 'expired', failed_at: nowIso,
@@ -1024,33 +1039,35 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
     }
 
     // Delay complete - attempt release through centralized helper
-    console.log(`[AUTO_DISPATCH_READY_FOR_RELEASE] command_id=${cmd.id} delayCompleteAt=${delayCompleteIso} now=${nowIso} configuredDelay=${configuredDelay}s calling_release_helper=true`);
-    result.evaluated.push({ command_id: cmd.id, ready_for_release: true, delay_complete_at: delayCompleteIso });
+    const secondsAfterDelayComplete = (nowMs - delayCompleteAt) / 1000;
+    console.log(`[AUTO_DISPATCH_READY_FOR_RELEASE] command_id=${cmd.id} delayCompleteAt=${delayCompleteIso} now=${nowIso} configuredDelay=${configuredDelay}s secondsAfterDelayComplete=${secondsAfterDelayComplete.toFixed(1)}s calling_release_helper=true matched_heartbeat_device_unique_id=${device.unique_id} matched_heartbeat_event_id=${heartbeatEventId || 'N/A'}`);
+    result.evaluated.push({ command_id: cmd.id, ready_for_release: true, delay_complete_at: delayCompleteIso, matched_heartbeat_device: device.unique_id });
     
     try {
       // Import and call centralized release helper
       const { releaseNoranQueuedCommandToTraccar } = await import('file:///app/src/functions/releaseNoranQueuedCommandToTraccar.js');
-      console.log(`[AUTO_DISPATCH_CALLING_RELEASE] command_id=${cmd.id} source=webhookLightLogForwarder triggeredBy=heartbeat_delay_release`);
+      console.log(`[AUTO_DISPATCH_CALLING_RELEASE] command_id=${cmd.id} source=webhookLightLogForwarder triggeredBy=heartbeat_delay_release matched_heartbeat_event_id=${heartbeatEventId || 'N/A'} expected_release_at=${delayCompleteIso}`);
       const releaseResult = await releaseNoranQueuedCommandToTraccar(base44, cmd.id, {
         source: 'webhookLightLogForwarder',
         triggeredBy: 'heartbeat_delay_release',
-        reason: `Delay complete (configured=${configuredDelay}s)`,
+        reason: `Delay complete (configured=${configuredDelay}s) - matched_heartbeat=${heartbeatEventId || device.unique_id}`,
         heartbeatMatchedAt,
         expectedReleaseAt: delayCompleteIso
       });
       
       if (releaseResult.released) {
+        const actualReleaseAt = new Date().toISOString();
         result.released++;
-        console.log(`[AUTO_DISPATCH_RELEASE_SUCCESS] command_id=${cmd.id} traccar_command_id=${releaseResult.traccar_command_id} delay=${releaseResult.actual_delay_seconds}s released=true`);
+        console.log(`[AUTO_DISPATCH_RELEASE_SUCCESS] command_id=${cmd.id} traccar_command_id=${releaseResult.traccar_command_id} delay=${releaseResult.actual_delay_seconds}s released=true matched_heartbeat_event_id=${heartbeatEventId || 'N/A'} expected_release_at=${delayCompleteIso} actual_release_at=${actualReleaseAt}`);
         result.released_ids = result.released_ids || [];
         result.released_ids.push(cmd.id);
       } else {
-        console.log(`[AUTO_DISPATCH_RELEASE_FAILED] command_id=${cmd.id} reason=${releaseResult.reason || releaseResult.error || 'UNKNOWN'}`);
-        result.skipped.push({ command_id: cmd.id, reason: 'release_failed', error: releaseResult.reason || releaseResult.error });
+        console.log(`[AUTO_DISPATCH_RELEASE_FAILED] command_id=${cmd.id} reason=${releaseResult.reason || releaseResult.error || 'UNKNOWN'} matched_heartbeat_event_id=${heartbeatEventId || 'N/A'}`);
+        result.skipped.push({ command_id: cmd.id, reason: 'release_failed', error: releaseResult.reason || releaseResult.error, matched_heartbeat_event_id: heartbeatEventId });
       }
     } catch (error) {
-      console.error(`[AUTO_DISPATCH_RELEASE_ERROR] command_id=${cmd.id} error=${error.message} stack=${error.stack || 'N/A'}`);
-      result.skipped.push({ command_id: cmd.id, reason: 'release_error', error: error.message });
+      console.error(`[AUTO_DISPATCH_RELEASE_ERROR] command_id=${cmd.id} error=${error.message} stack=${error.stack || 'N/A'} matched_heartbeat_event_id=${heartbeatEventId || 'N/A'}`);
+      result.skipped.push({ command_id: cmd.id, reason: 'release_error', error: error.message, matched_heartbeat_event_id: heartbeatEventId });
     }
   }
 
