@@ -1265,7 +1265,21 @@ Deno.serve(async (req) => {
 
     const base44 = createWebhookClient(req);
     const now = new Date().toISOString();
-    const parsed = parseForwardedMessage(body);
+    
+    // ── NO-CRASH GUARD: Wrap all parsing/processing in try-catch ──
+    let parsed;
+    try {
+      parsed = parseForwardedMessage(body);
+    } catch (parseError) {
+      console.error('[webhookLightLogForwarder] Parser error:', parseError.message, 'raw_hex:', rawHexFromBody(body)?.slice(0, 40));
+      return Response.json({ 
+        ok: false, 
+        error_logged: true, 
+        error_type: 'parse_error', 
+        error_message: parseError.message,
+        raw_hex_prefix: rawHexFromBody(body)?.slice(0, 20)
+      });
+    }
     if (!parsed) {
       const rawHex = rawHexFromBody(body);
       await base44.asServiceRole.entities.TelematicsEvent.create({
@@ -1335,33 +1349,53 @@ Deno.serve(async (req) => {
     }
 
     // ── Update heartbeat session tracking ──
-    await updateDeviceUdpSession(base44, device, parsed, timestamp, body);
+    try {
+      await updateDeviceUdpSession(base44, device, parsed, timestamp, body);
+    } catch (err) {
+      console.error('[webhookLightLogForwarder] Session update error:', err.message);
+    }
 
     // ── HEARTBEAT-DELAY RELEASE: Check if pending commands should be released ──
     if (device && isHeartbeatPacket(parsed)) {
       const heartbeatUniqueId = parsed.device_unique_id || device.unique_id;
       
-      // ── MT20_HEARTBEAT_DISPATCH_START ──
-      console.log(`[MT20_HEARTBEAT_DISPATCH_START] heartbeat_unique_id=${heartbeatUniqueId} heartbeat_event_id=${event?.id || 'N/A'} device_id=${device.id} device_unique_id=${device.unique_id} heartbeat_timestamp=${timestamp} configured_delay=${device.post_heartbeat_release_delay_seconds ?? 0}s`);
-      
-      const evalResult = await autoDispatchPendingCommands(base44, device, timestamp, event?.id, heartbeatUniqueId);
-      
-      // ── MT20_HEARTBEAT_DISPATCH_RESULT ──
-      console.log(`[MT20_HEARTBEAT_DISPATCH_RESULT] heartbeat_unique_id=${heartbeatUniqueId} heartbeat_event_id=${event?.id} device_id=${device.id} pending_commands_found_count=${evalResult.pending || 0} waiting_for_delay_found_count=${evalResult.waiting?.length || 0} commands_eligible_count=${evalResult.evaluated?.length || 0} commands_released_count=${evalResult.released || 0} dispatch_skip_reason=${evalResult.released === 0 && evalResult.pending === 0 ? 'no_pending_commands' : evalResult.released === 0 ? 'release_failed' : 'none'}`);
-      
-      if (evalResult.released > 0) {
-        console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} released=${evalResult.released} released_ids=${evalResult.released_ids?.join(',') || 'N/A'}`);
+      try {
+        // ── MT20_HEARTBEAT_DISPATCH_START ──
+        console.log(`[MT20_HEARTBEAT_DISPATCH_START] heartbeat_unique_id=${heartbeatUniqueId} heartbeat_event_id=${event?.id || 'N/A'} device_id=${device.id} device_unique_id=${device.unique_id} heartbeat_timestamp=${timestamp} configured_delay=${device.post_heartbeat_release_delay_seconds ?? 0}s`);
+        
+        const evalResult = await autoDispatchPendingCommands(base44, device, timestamp, event?.id, heartbeatUniqueId);
+        
+        // ── MT20_HEARTBEAT_DISPATCH_RESULT ──
+        console.log(`[MT20_HEARTBEAT_DISPATCH_RESULT] heartbeat_unique_id=${heartbeatUniqueId} heartbeat_event_id=${event?.id} device_id=${device.id} pending_commands_found_count=${evalResult.pending || 0} waiting_for_delay_found_count=${evalResult.waiting?.length || 0} commands_eligible_count=${evalResult.evaluated?.length || 0} commands_released_count=${evalResult.released || 0} dispatch_skip_reason=${evalResult.released === 0 && evalResult.pending === 0 ? 'no_pending_commands' : evalResult.released === 0 ? 'release_failed' : 'none'}`);
+        
+        if (evalResult.released > 0) {
+          console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} released=${evalResult.released} released_ids=${evalResult.released_ids?.join(',') || 'N/A'}`);
+        }
+      } catch (dispatchError) {
+        console.error('[webhookLightLogForwarder] Dispatch error:', dispatchError.message);
       }
     }
 
-    const alarm_processing = await processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp });
+    // ── Alarm processing with error guard ──
+    let alarm_processing = null;
+    try {
+      alarm_processing = await processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp });
+    } catch (alarmError) {
+      console.error('[webhookLightLogForwarder] Alarm processing error:', alarmError.message);
+    }
 
-    // CRITICAL: Heartbeat (0x000f) does NOT complete commands — only position (0x0032) and command ACKs (0x8009) do
-    const command_processing = isCommandReply(parsed)
-      ? await processCommandResponse(base44, device, parsed, timestamp)
-      : isHeartbeatPacket(parsed)
-        ? { heartbeat_only: true, message: 'Heartbeat refreshed UDP session only — does not complete locate commands' }
-        : null;
+    // ── Command response processing with error guard ──
+    let command_processing = null;
+    try {
+      command_processing = isCommandReply(parsed)
+        ? await processCommandResponse(base44, device, parsed, timestamp)
+        : isHeartbeatPacket(parsed)
+          ? { heartbeat_only: true, message: 'Heartbeat refreshed UDP session only — does not complete locate commands' }
+          : null;
+    } catch (cmdError) {
+      console.error('[webhookLightLogForwarder] Command processing error:', cmdError.message);
+      command_processing = { error: true, message: cmdError.message };
+    }
 
     return Response.json({
       ok: true,
@@ -1386,6 +1420,13 @@ Deno.serve(async (req) => {
       command_processing
     });
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    // ── FINAL CATCH-ALL: Never return 500 — always log and return 200 with error_logged ──
+    console.error('[webhookLightLogForwarder] CRITICAL ERROR:', error.message, error.stack);
+    return Response.json({ 
+      ok: false, 
+      error_logged: true, 
+      error_type: 'unhandled', 
+      error_message: error.message 
+    });
   }
 });
