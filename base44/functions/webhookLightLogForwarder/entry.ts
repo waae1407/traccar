@@ -638,7 +638,7 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
     return { command_matched: false, reason: 'Heartbeat packets do not complete commands' };
   }
 
-  const alreadySucceeded = ['delivered', 'acknowledged', 'executed'].includes(command.confirmation_status || '');
+  const alreadySucceeded = ['delivered', 'acknowledged', 'executed', 'completed'].includes(command.confirmation_status || '');
 
   const evaluation = parsed.ack_only
     ? { result: 'acknowledged', reason: 'Raw MT20 command ACK detected from Traccar log forwarder.' }
@@ -718,18 +718,14 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
   
   // For locate commands completed by position response
   if (pass && command.command_type === 'locate' && ['0x0008', '0x0032'].includes(parsed.packet_type)) {
+    updateData.status = 'completed';
+    updateData.queue_status = 'completed';
     updateData.executed_at = timestamp;
     updateData.confirmed_at = timestamp;
     updateData.completed_at = timestamp;
     updateData.completion_packet_hex = parsed.raw_packet_hex;
     updateData.completion_match_confidence = ackMatchConfidence;
     updateData.completion_match_reason = ackMatchReason;
-  }
-  
-  // For locate commands that need position packet (not just ACK)
-  if (command.command_type === 'locate' && ['0x0008', '0x0032'].includes(parsed.packet_type)) {
-    updateData.status = 'completed';
-    updateData.queue_status = 'completed';
   }
   
   // Add release validation metadata if this command was heartbeat-gated
@@ -903,256 +899,113 @@ function isStarterCommand(commandType) {
   return STARTER_COMMANDS.includes(commandType);
 }
 
-async function dispatchPendingCommandViaTraccar(base44, command, device) {
-  const baseUrl = String(Deno.env.get('TRACCAR_BASE_URL') || '').trim();
-  const username = String(Deno.env.get('TRACCAR_USERNAME') || '').trim();
-  const password = String(Deno.env.get('TRACCAR_PASSWORD') || '').trim();
-  if (!baseUrl || !username || !password) throw new Error('Traccar credentials not configured for auto-dispatch.');
-
-  const traccarDeviceId = Number(device.traccar_device_id);
-  if (!Number.isFinite(traccarDeviceId)) throw new Error('Device has no valid Traccar device ID for auto-dispatch.');
-
-  const hexPayload = command.hex_payload || command.wrapped_payload;
-  if (!hexPayload) throw new Error('Pending command has no hex_payload to dispatch.');
-
-  const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: hexPayload } };
-  const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/commands/send`, {
-    method: 'POST',
-    headers: {
-      Authorization: 'Basic ' + btoa(`${username}:${password}`),
-      'Content-Type': 'application/json',
-      Accept: 'application/json'
-    },
-    body: JSON.stringify(traccarPayload)
-  });
-  const text = await res.text();
-  let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
-  if (!res.ok) throw new Error(`Traccar dispatch failed (${res.status}): ${text}`);
-  return { traccar_payload: traccarPayload, traccar_response: data };
-}
+// ── DEPRECATED: dispatchPendingCommandViaTraccar removed ──
+// All production releases now use releaseNoranQueuedCommandToTraccar helper
+// This function is kept for reference only and should not be called
 
 async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
-  if (!device?.id || !heartbeatTimestamp) return 0;
+  if (!device?.id || !heartbeatTimestamp) return { released: 0, evaluated: [], waiting: [], skipped: [] };
 
   const now = new Date();
   const nowMs = Date.now();
+  const nowIso = now.toISOString();
   const expiryCutoff = new Date(nowMs - NORAN_HEARTBEAT_EXPIRY_SECONDS * 1000).toISOString();
   // CRITICAL: Use ?? not || to preserve 0
   const configuredDelay = device.post_heartbeat_release_delay_seconds ?? 0;
 
-  // Find oldest pending command - includes ALL heartbeat-waiting statuses
+  // Find ALL pending commands for this device
   const pendingCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({
     telematics_device_id: device.id,
-    queue_status: ['pending_waiting_for_next_heartbeat', 'waiting_for_delay', 'queued', 'pending']
-  }, '-created_date', 10).catch(() => []);
+    queue_status: ['pending_waiting_for_next_heartbeat', 'waiting_for_delay']
+  }, '-created_date', 20).catch(() => []);
 
-  // MONITORING: Check for stuck commands (waiting_for_delay longer than configured delay + 10s buffer)
-  for (const cmd of pendingCommands) {
-    if (cmd.queue_status === 'waiting_for_delay' && cmd.heartbeat_received_at) {
-      const heartbeatMs = new Date(cmd.heartbeat_received_at).getTime();
-      const cmdConfiguredDelay = cmd.request_payload?.configured_delay_seconds ?? configuredDelay;
-      const delayCompleteAt = heartbeatMs + (cmdConfiguredDelay * 1000);
-      const secondsOverdue = Math.floor((nowMs - delayCompleteAt) / 1000);
-      
-      if (secondsOverdue > 10 && !cmd.sent_to_traccar_at) {
-        // Command is stuck - flag it and create alert
-        await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
-          stuck_waiting_for_delay: true,
-          stuck_seconds: secondsOverdue,
-          last_stuck_check_at: now.toISOString()
-        }).catch(() => {});
-        
-        // Create operational alert (deduplicated by 5-minute buckets)
-        const bucket = Math.floor(nowMs / (5 * 60 * 1000));
-        const dedupeKey = `stuck_command:${cmd.id}:${bucket}`;
-        const existingAlert = (await base44.asServiceRole.entities.OperationalAlert.filter({ dedupe_key: dedupeKey }))[0];
-        
-        if (!existingAlert) {
-          await base44.asServiceRole.entities.OperationalAlert.create({
-            alert_type: 'command_failed',
-            severity: 'warning',
-            status: 'new',
-            title: 'Command stuck in waiting_for_delay',
-            message: `Command ${cmd.id} (${cmd.command_type}) for device ${device.unique_id} has been stuck for ${secondsOverdue}s after delay period completed.`,
-            recommended_action: 'Review command and device heartbeat status. Consider manual release or re-send.',
-            assigned_role: 'admin',
-            source_entity_type: 'TelematicsCommand',
-            source_entity_id: cmd.id,
-            domain: 'telematics',
-            action_url: '/admin/telematics-command-test',
-            provider_key: PROVIDER_KEY,
-            telematics_device_id: device.id,
-            vehicle_id: device.vehicle_id || '',
-            dedupe_key: dedupeKey,
-            metadata: {
-              command_type: cmd.command_type,
-              configured_delay: cmdConfiguredDelay,
-              seconds_overdue: secondsOverdue,
-              heartbeat_received_at: cmd.heartbeat_received_at
-            }
-          }).catch(() => {});
-        }
-      }
-    }
-  }
+  const result = { released: 0, evaluated: [], waiting: [], skipped: [] };
 
-  // Expire old commands (>90s without heartbeat)
+  // Process each command
   for (const cmd of pendingCommands) {
     const createdAt = cmd.created_at || cmd.created_date || '';
+    
+    // Skip expired commands
     if (createdAt && createdAt < expiryCutoff) {
       await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
         status: 'expired_no_heartbeat', queue_status: 'expired_no_heartbeat',
-        confirmation_status: 'expired', failed_at: now.toISOString(),
-        failure_reason: 'No heartbeat received within 90 seconds',
-        status_message: 'Expired - no heartbeat'
+        confirmation_status: 'expired', failed_at: nowIso,
+        failure_reason: 'No heartbeat received within 90 seconds'
       }).catch(() => {});
+      result.skipped.push({ command_id: cmd.id, reason: 'expired' });
+      continue;
     }
-  }
 
-  // Find eligible command (not starter-locked without approval)
-  const eligible = pendingCommands.find((cmd) => {
-    const createdAt = cmd.created_at || cmd.created_date || '';
-    if (!createdAt || createdAt < expiryCutoff) return false;
+    // Skip starter commands without approval
     if (isStarterCommand(cmd.command_type)) {
       const payload = cmd.request_payload || {};
-      return (payload.starter_confirmation === true || payload.confirm_starter_command === true);
+      if (!(payload.starter_confirmation === true || payload.confirm_starter_command === true)) {
+        result.skipped.push({ command_id: cmd.id, reason: 'starter_not_approved' });
+        continue;
+      }
     }
-    return true;
-  });
 
-  if (!eligible) return 0;
-
-  // Enforce 3-second spacing
-  const recentlySent = await base44.asServiceRole.entities.TelematicsCommand.filter(
-    { telematics_device_id: device.id },
-    '-created_date', 10
-  ).catch(() => []);
-  const tooRecent = recentlySent.some((cmd) => {
-    if (cmd.id === eligible.id) return false;
-    const sentMs = new Date(cmd.sent_at || cmd.created_at || cmd.created_date || 0).getTime();
-    return (nowMs - sentMs) < UDP_MIN_COMMAND_SPACING_MS && ['sent', 'waiting_for_delay', 'sent_to_traccar'].includes(cmd.queue_status || cmd.status || '');
-  });
-
-  if (tooRecent) return 0;
-
-  // HEARTBEAT-DELAY RULE: Handle both pending and waiting_for_delay commands
-  const isWaitingForDelay = eligible.queue_status === 'waiting_for_delay';
-  
-  // For waiting_for_delay commands, use stored heartbeat_received_at (do NOT reset timer)
-  // For pending commands, use the new heartbeatTimestamp
-  const hbMs = isWaitingForDelay 
-    ? (eligible.heartbeat_received_at ? new Date(eligible.heartbeat_received_at).getTime() : new Date(heartbeatTimestamp).getTime())
-    : new Date(heartbeatTimestamp).getTime();
-  
-  // CRITICAL: If delay is 0, release immediately without waiting_for_delay state
-  if (configuredDelay === 0) {
-    // Immediate release - skip waiting_for_delay
-  } else if (isWaitingForDelay) {
-    // Command already in waiting_for_delay - check if delay period complete
-    const delayCompleteAt = hbMs + (configuredDelay * 1000);
-    if (nowMs < delayCompleteAt) {
-      // Still waiting - update seconds remaining for monitoring
-      const secondsRemaining = Math.ceil((delayCompleteAt - nowMs) / 1000);
-      await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
-        seconds_until_release: secondsRemaining,
-        last_heartbeat_check_at: heartbeatTimestamp
-      }).catch(() => {});
-      return 0; // Not ready yet
-    }
-    // Delay complete - will release below
-  } else {
-    // New pending command - first heartbeat received
-    const delayCompleteAt = hbMs + (configuredDelay * 1000);
-    if (nowMs < delayCompleteAt) {
-      // Still waiting for delay period - populate audit fields
-      const secondsRemaining = Math.ceil((delayCompleteAt - nowMs) / 1000);
-      await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
-        queue_status: 'waiting_for_delay',
-        status: 'waiting_for_delay',
-        status_message: `Heartbeat received, waiting ${configuredDelay}s before sending`,
+    // Determine heartbeat match time
+    const isWaitingForDelay = cmd.queue_status === 'waiting_for_delay';
+    const heartbeatMatchedAt = isWaitingForDelay && cmd.heartbeat_received_at
+      ? cmd.heartbeat_received_at
+      : heartbeatTimestamp;
+    
+    const heartbeatMatchedMs = new Date(heartbeatMatchedAt).getTime();
+    const delayCompleteAt = heartbeatMatchedMs + (configuredDelay * 1000);
+    
+    // Update command with heartbeat match info if pending
+    if (!isWaitingForDelay) {
+      await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
         heartbeat_received_at: heartbeatTimestamp,
-        heartbeat_matched_at: new Date().toISOString(),
+        heartbeat_matched_at: nowIso,
         configured_delay_seconds: configuredDelay,
-        seconds_until_release: secondsRemaining,
         delay_complete_at: new Date(delayCompleteAt).toISOString()
       }).catch(() => {});
-      return 0; // Not ready yet
+    }
+
+    // Check if delay period complete
+    if (nowMs < delayCompleteAt) {
+      // Not ready yet - update to waiting_for_delay if still pending
+      if (!isWaitingForDelay) {
+        const secondsRemaining = Math.ceil((delayCompleteAt - nowMs) / 1000);
+        await base44.asServiceRole.entities.TelematicsCommand.update(cmd.id, {
+          queue_status: 'waiting_for_delay',
+          status: 'waiting_for_delay',
+          seconds_until_release: secondsRemaining
+        }).catch(() => {});
+      }
+      result.waiting.push({ command_id: cmd.id, seconds_remaining: Math.ceil((delayCompleteAt - nowMs) / 1000) });
+      continue;
+    }
+
+    // Delay complete - attempt release through centralized helper
+    result.evaluated.push({ command_id: cmd.id, ready_for_release: true });
+    
+    try {
+      // Import and call centralized release helper
+      const { releaseNoranQueuedCommandToTraccar } = await import('file:///app/src/functions/releaseNoranQueuedCommandToTraccar.js');
+      const releaseResult = await releaseNoranQueuedCommandToTraccar(base44, cmd.id, {
+        source: 'webhookLightLogForwarder',
+        triggeredBy: 'heartbeat_delay_release',
+        reason: `Delay complete (configured=${configuredDelay}s)`,
+        heartbeatMatchedAt,
+        expectedReleaseAt: new Date(delayCompleteAt).toISOString()
+      });
+      
+      if (releaseResult.released) {
+        result.released++;
+        console.log(`[WEBHOOK_RELEASE_SUCCESS] command_id=${cmd.id} traccar_command_id=${releaseResult.traccar_command_id} delay=${releaseResult.actual_delay_seconds}s`);
+      } else {
+        result.skipped.push({ command_id: cmd.id, reason: 'release_failed', error: releaseResult.error });
+      }
+    } catch (error) {
+      console.error('[WEBHOOK_RELEASE_ERROR] command_id=' + cmd.id, error.message);
+      result.skipped.push({ command_id: cmd.id, reason: 'release_error', error: error.message });
     }
   }
 
-  // Delay complete - send to Traccar
-  try {
-    const dispatchResult = await dispatchPendingCommandViaTraccar(base44, eligible, device);
-    const traccarCommandId = dispatchResult.traccar_response?.id || dispatchResult.traccar_response?.commandId || null;
-    const actualDelayMs = nowMs - hbMs;
-    const releaseTriggeredBy = isWaitingForDelay ? 'webhook_waiting_for_delay' : 'webhook_immediate';
-
-    // CRITICAL: Update command with Traccar response ID for ACK matching
-    const updatePayload = {
-      queue_status: 'sent_to_traccar',
-      status: 'sent_to_traccar',
-      confirmation_status: 'sent',
-      sent_at: now.toISOString(),
-      sent_to_traccar_at: now.toISOString(),
-      command_released_at: now.toISOString(),
-      status_message: configuredDelay === 0 ? 'Released immediately on heartbeat (0s delay)' : `Sent to Traccar after ${configuredDelay}s delay`,
-      traccar_api_response: dispatchResult.traccar_response || dispatchResult,
-      traccar_api_called_at: now.toISOString(),
-      traccar_command_id: traccarCommandId ? String(traccarCommandId) : null,
-      provider_command_id: traccarCommandId ? String(traccarCommandId) : null,
-      transmission_format: 'mt20_wrapped_hex',
-      provider_response: { ...dispatchResult, auto_dispatched: true, triggered_by: releaseTriggeredBy },
-      heartbeat_received_at: eligible.heartbeat_received_at || heartbeatTimestamp,
-      heartbeat_matched_at: eligible.heartbeat_matched_at || new Date().toISOString(),
-      actual_heartbeat_to_release_delay_seconds: actualDelayMs / 1000,
-      configured_delay_seconds: configuredDelay,
-      delay_source: 'TelematicsDevice.post_heartbeat_release_delay_seconds',
-      release_strategy: 'heartbeat_delay_only',
-      release_triggered_by: releaseTriggeredBy,
-      source_function: 'webhookLightLogForwarder.autoDispatchPendingCommands',
-      ascii_payload: eligible.ascii_payload,
-      hex_payload: eligible.hex_payload,
-      payload_length_bytes: eligible.hex_payload ? eligible.hex_payload.length / 2 : 0
-    };
-    
-    // DEBUG: Log update attempt
-    console.log(`[WEBHOOK_UPDATE] command_id=${eligible.id} traccar_command_id=${traccarCommandId} status=sent_to_traccar`);
-    
-    await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, updatePayload);
-    
-    // VERIFY update succeeded
-    const updatedCmd = await base44.asServiceRole.entities.TelematicsCommand.get(eligible.id);
-    console.log(`[WEBHOOK_VERIFY] command_id=${eligible.id} sent_to_traccar_at=${updatedCmd.sent_to_traccar_at ? 'SET ✓' : 'NOT SET ❌'} traccar_command_id=${updatedCmd.traccar_command_id || 'NOT SET'}`);
-
-    await base44.asServiceRole.entities.TelematicsEvent.create({
-      telematics_device_id: device.id,
-      provider_key: PROVIDER_KEY,
-      vehicle_id: device.vehicle_id || '',
-      event_type: `command_${eligible.command_type}_sent`,
-      source: 'webhook',
-      raw_payload: {
-        auto_dispatched: true,
-        pending_command_id: eligible.id,
-        triggered_by: 'heartbeat_delay_release',
-        dispatch_result: dispatchResult,
-        configured_delay_seconds: configuredDelay,
-        actual_delay_seconds: actualDelayMs / 1000
-      },
-      created_at: now.toISOString()
-    }).catch(() => {});
-
-    console.log(`[HEARTBEAT_DELAY_RELEASE] device=${device.unique_id} command=${eligible.command_type} configured_delay=${configuredDelay}s actual_delay=${(actualDelayMs/1000).toFixed(1)}s sent_to_traccar=true`);
-    return 1;
-  } catch (err) {
-    console.warn('[heartbeatDelayRelease] Failed:', err.message);
-    await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
-      queue_status: 'failed',
-      status: 'failed',
-      failure_reason: `Heartbeat-delay release failed: ${err.message}`,
-      failed_at: now.toISOString()
-    }).catch(() => {});
-  }
-  return 0;
+  return result;
 }
 
 async function processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp }) {
@@ -1378,25 +1231,22 @@ Deno.serve(async (req) => {
 
     // ── HEARTBEAT-DELAY RELEASE: Check if pending commands should be released ──
     if (device && isHeartbeatPacket(parsed)) {
-      // Get pending command count before dispatch
-      const pendingBefore = await base44.asServiceRole.entities.TelematicsCommand.filter({
-        telematics_device_id: device.id,
-        queue_status: ['pending_waiting_for_next_heartbeat', 'waiting_for_delay', 'queued', 'pending']
-      }).catch(() => []);
+      const evalResult = await autoDispatchPendingCommands(base44, device, timestamp);
       
-      const dispatched = (await autoDispatchPendingCommands(base44, device, timestamp)) || 0;
-      
-      // Log heartbeat command evaluation
+      // Log heartbeat command evaluation with full details
       console.log(`[HEARTBEAT_COMMAND_EVAL] unique_id=${device.unique_id || device.id} packet_type=0x000f heartbeat_at=${timestamp}`);
-      console.log(`  pending_command_count=${pendingBefore.length}`);
-      console.log(`  evaluated_command_ids=${pendingBefore.map(c => c.id).join(',') || 'none'}`);
-      console.log(`  released_command_count=${dispatched}`);
-      console.log(`  waiting_command_count=${pendingBefore.length - dispatched}`);
+      console.log(`  pending_command_count=${evalResult.pending}`);
+      console.log(`  waiting_command_count=${evalResult.waiting.length}`);
+      console.log(`  evaluated_command_ids=${evalResult.evaluated.map(c => c.command_id).join(',') || 'none'}`);
+      console.log(`  released_command_count=${evalResult.released}`);
+      console.log(`  released_command_ids=${evalResult.released_ids.join(',') || 'none'}`);
+      console.log(`  skipped_command_count=${evalResult.skipped.length}`);
+      console.log(`  skipped_command_ids=${evalResult.skipped.map(s => s.command_id).join(',') || 'none'}`);
       console.log(`  delay_seconds=${device.post_heartbeat_release_delay_seconds ?? 0}`);
       
-      if (dispatched > 0) {
-        console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} commands_dispatched=${dispatched} delay=${device.post_heartbeat_release_delay_seconds ?? 0}s`);
-      } else if (pendingBefore.length === 0) {
+      if (evalResult.released > 0) {
+        console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} released=${evalResult.released} delay=${device.post_heartbeat_release_delay_seconds ?? 0}s`);
+      } else if (evalResult.pending === 0) {
         console.log(`[HEARTBEAT_NO_PENDING] unique_id=${device.unique_id || device.id} pending_command_count=0`);
       }
     }

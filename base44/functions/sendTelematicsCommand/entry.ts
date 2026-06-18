@@ -565,7 +565,7 @@ Deno.serve(async (req) => {
     const isNoranUdp = device.provider_key === 'traccar_noran_mt20' && device.production_commands_enabled === true;
     
     if (isNoranUdp) {
-      // Pre-build the command payload BEFORE queuing (critical for auto-dispatch)
+      // For Noran UDP, only create the command. Release is handled by webhook/scheduler.
       const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
       const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
         ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template).catch(() => null)
@@ -574,7 +574,6 @@ Deno.serve(async (req) => {
       const hexPayload = preBuiltCommand?.hex_payload || null;
       const asciiPayload = preBuiltCommand?.ascii_payload || null;
       const sDataHex = preBuiltCommand?.response?.sData_hex || preBuiltCommand?.response?.responses?.[0]?.sData_hex || null;
-      // CRITICAL: Use ?? not || to preserve 0 as valid value
       const configuredDelay = device.post_heartbeat_release_delay_seconds ?? 0;
 
       const commandAudit = await base44.asServiceRole.entities.TelematicsCommand.create({
@@ -586,54 +585,33 @@ Deno.serve(async (req) => {
         booking_id: booking?.id || body.booking_id || '',
         renter_id: booking?.user_id || '',
         command_type: commandType,
-        alarm_session_id: body.alarm_session_id || '',
-        pulse_number: Number(body.pulse_number || 0) || undefined,
         device_unique_id: device.unique_id || '',
         traccar_device_id: device.traccar_device_id || '',
         production_command: liveNoranProduction || liveNoranInstallerTest,
         status: 'pending_waiting_for_next_heartbeat',
         queue_status: 'pending_waiting_for_next_heartbeat',
         confirmation_status: 'pending',
-        retry_count: 0,
-        max_retries: 0,
         expires_at: expiresAt,
         confirmation_required: STARTER_COMMANDS.includes(commandType),
         confirmation_source: 'provider',
         idempotency_key: idempotencyKey,
         requested_by: user.email,
         requested_role: user.role || 'user',
-        ip_address: getClientIp(req),
-        user_agent: req.headers.get('user-agent') || '',
         created_at: now.toISOString(),
-        // CRITICAL: Store pre-built payload for auto-dispatch
         hex_payload: hexPayload,
         ascii_payload: asciiPayload,
         sData_hex: sDataHex,
         wrapped_payload: hexPayload,
         transmission_format: hexPayload ? 'mt20_wrapped_hex' : 'unknown',
+        configured_delay_seconds: configuredDelay,
+        release_lock_token: null,
+        release_attempt_count: 0,
         request_payload: {
           vehicle_id: vehicle?.id || device.vehicle_id || '',
-          booking_id: booking?.id || body.booking_id || '',
-          legacy_command_alias: rawCommandType !== commandType ? rawCommandType : '',
-          admin_traccar_live_test: adminTraccarLiveTest,
-          admin_device_command_test: adminDeviceCommandTest,
-          installer_install_test: installerInstallTest,
           command_traffic_class: trafficClass,
-          rate_limit_actor_key: rateLimitActorKey,
-          admin_starter_override: body.admin_starter_override === true,
           starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true,
-          unlock_disarms_alarm: commandType === 'unlock' && device.unlock_disarms_alarm !== false,
-          unlock_double_pulse_enabled: commandType === 'unlock' && !adminDeviceCommandTest && device.unlock_double_pulse_enabled === true,
           reason: body.reason || '',
-          source: body.source || (installerInstallTest ? 'installer_workflow' : adminDeviceCommandTest ? 'admin_test' : 'user_control'),
-          release_strategy: 'heartbeat_delay_only',
-          // AUDIT FIELDS FOR DELAY ZERO HANDLING
-          configured_delay_seconds: configuredDelay,
-          configured_post_heartbeat_release_delay_seconds: configuredDelay,
-          device_delay_value_at_command_creation: device.post_heartbeat_release_delay_seconds ?? 0,
-          ui_delay_value_submitted: device.post_heartbeat_release_delay_seconds ?? 0,
-          delay_source: 'TelematicsDevice.post_heartbeat_release_delay_seconds',
-          delay_snapshot_at: new Date().toISOString()
+          source: body.source || 'user_control'
         }
       });
       
@@ -645,7 +623,7 @@ Deno.serve(async (req) => {
         status_message: 'Waiting for next device heartbeat',
         configured_delay_seconds: configuredDelay,
         expires_in_seconds: NORAN_HEARTBEAT_EXPIRY_SECONDS,
-        message: `Command queued. Waiting for next device heartbeat. Will wait ${configuredDelay}s after heartbeat before sending.`
+        message: `Command queued. Will wait for heartbeat + ${configuredDelay}s.`
       });
     }
 
