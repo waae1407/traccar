@@ -1378,9 +1378,26 @@ Deno.serve(async (req) => {
 
     // ── HEARTBEAT-DELAY RELEASE: Check if pending commands should be released ──
     if (device && isHeartbeatPacket(parsed)) {
+      // Get pending command count before dispatch
+      const pendingBefore = await base44.asServiceRole.entities.TelematicsCommand.filter({
+        telematics_device_id: device.id,
+        queue_status: ['pending_waiting_for_next_heartbeat', 'waiting_for_delay', 'queued', 'pending']
+      }).catch(() => []);
+      
       const dispatched = (await autoDispatchPendingCommands(base44, device, timestamp)) || 0;
+      
+      // Log heartbeat command evaluation
+      console.log(`[HEARTBEAT_COMMAND_EVAL] unique_id=${device.unique_id || device.id} packet_type=0x000f heartbeat_at=${timestamp}`);
+      console.log(`  pending_command_count=${pendingBefore.length}`);
+      console.log(`  evaluated_command_ids=${pendingBefore.map(c => c.id).join(',') || 'none'}`);
+      console.log(`  released_command_count=${dispatched}`);
+      console.log(`  waiting_command_count=${pendingBefore.length - dispatched}`);
+      console.log(`  delay_seconds=${device.post_heartbeat_release_delay_seconds ?? 0}`);
+      
       if (dispatched > 0) {
-        console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} commands_dispatched=${dispatched}`);
+        console.log(`[HEARTBEAT_TRIGGERED_RELEASE] unique_id=${device.unique_id || device.id} commands_dispatched=${dispatched} delay=${device.post_heartbeat_release_delay_seconds ?? 0}s`);
+      } else if (pendingBefore.length === 0) {
+        console.log(`[HEARTBEAT_NO_PENDING] unique_id=${device.unique_id || device.id} pending_command_count=0`);
       }
     }
 
