@@ -22,6 +22,8 @@ Deno.serve(async (req) => {
     const nowIso = now.toISOString();
     const nowMs = now.getTime();
 
+    console.log(`[SCHEDULER_ENTRY] running_backup_release_check now=${nowIso}`);
+
     // BACKUP ONLY: Find commands where webhook failed to release
     // Only release commands where:
     // - queue_status = waiting_for_delay (already matched heartbeat)
@@ -36,6 +38,7 @@ Deno.serve(async (req) => {
     }, '-created_date', 50);
 
     if (waitingCommands.length === 0) {
+      console.log(`[SCHEDULER_NO_PENDING] waiting_for_delay_count=0`);
       return Response.json({ ok: true, processed: 0, waiting: 0, released: 0, expired: 0, message: 'No commands waiting for delay' });
     }
 
@@ -60,11 +63,36 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Get device
+        // Get device - CRITICAL: Verify device exists and matches command
         const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ id: command.telematics_device_id });
         const device = devices[0];
         if (!device) {
-          results.details.push({ command_id: command.id, action: 'device_not_found' });
+          console.log(`[SCHEDULER_SKIP] command_id=${command.id} reason=device_not_found telematics_device_id=${command.telematics_device_id}`);
+          results.details.push({ command_id: command.id, action: 'device_not_found', telematics_device_id: command.telematics_device_id });
+          continue;
+        }
+
+        // ── CRITICAL DEVICE MATCH GUARD: Verify command.device_unique_id matches device.unique_id ──
+        const deviceMatch = command.device_unique_id === device.unique_id || command.telematics_device_id === device.id;
+        if (!deviceMatch) {
+          console.log(`[SCHEDULER_SKIP_DEVICE_MISMATCH] command_id=${command.id} command_device_unique_id=${command.device_unique_id} device_unique_id=${device.unique_id} reason=cross_device_heartbeat_release_blocked`);
+          // Create security event for cross-device release attempt
+          await base44.asServiceRole.entities.TelematicsEvent.create({
+            company_id: device.company_id || '',
+            telematics_device_id: device.id,
+            provider_key: PROVIDER_KEY,
+            vehicle_id: device.vehicle_id || '',
+            event_type: 'cross_device_heartbeat_release_blocked',
+            source: 'scheduler',
+            raw_payload: {
+              command_id: command.id,
+              command_device_unique_id: command.device_unique_id,
+              heartbeat_device_unique_id: device.unique_id,
+              reason: 'Scheduler detected cross-device heartbeat release attempt'
+            },
+            created_at: nowIso
+          }).catch(() => {});
+          results.details.push({ command_id: command.id, action: 'cross_device_release_blocked', command_device: command.device_unique_id, heartbeat_device: device.unique_id });
           continue;
         }
 
@@ -97,12 +125,16 @@ Deno.serve(async (req) => {
         
         // Import and call centralized release helper
         const { releaseNoranQueuedCommandToTraccar } = await import('file:///app/src/functions/releaseNoranQueuedCommandToTraccar.js');
+        console.log(`[SCHEDULER_CALLING_RELEASE] command_id=${command.id} device_unique_id=${device.unique_id} source=noranHeartbeatReleaseScheduler`);
         const releaseResult = await releaseNoranQueuedCommandToTraccar(base44, command.id, {
           source: 'noranHeartbeatReleaseScheduler',
           triggeredBy: 'scheduler_backup',
           reason: 'Webhook failed to release after delay complete (backup release)',
           heartbeatMatchedAt: command.heartbeat_matched_at || command.heartbeat_received_at,
-          expectedReleaseAt: command.delay_complete_at
+          expectedReleaseAt: command.delay_complete_at,
+          matched_heartbeat_device_unique_id: device.unique_id,
+          matched_heartbeat_event_id: command.matched_heartbeat_event_id || null,
+          release_device_match_verified: true
         });
         
         if (releaseResult.released) {
@@ -111,9 +143,10 @@ Deno.serve(async (req) => {
             command_id: command.id,
             action: 'released',
             traccar_command_id: releaseResult.traccar_command_id,
-            actual_delay_seconds: releaseResult.actual_delay_seconds
+            actual_delay_seconds: releaseResult.actual_delay_seconds,
+            matched_heartbeat_device_unique_id: device.unique_id
           });
-          console.log(`[SCHEDULER_BACKUP_RELEASE] command_id=${command.id} command_type=${command.command_type} traccar_command_id=${releaseResult.traccar_command_id}`);
+          console.log(`[SCHEDULER_BACKUP_RELEASE] command_id=${command.id} command_type=${command.command_type} traccar_command_id=${releaseResult.traccar_command_id} device_unique_id=${device.unique_id}`);
         } else {
           results.details.push({ command_id: command.id, action: 'release_failed', reason: releaseResult.reason });
         }
@@ -124,6 +157,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log(`[SCHEDULER_COMPLETE] processed=${results.processed} released=${results.released} waiting=${results.waiting} expired=${results.expired}`);
     return Response.json({ ok: true, ...results, timestamp: nowIso });
 
   } catch (error) {

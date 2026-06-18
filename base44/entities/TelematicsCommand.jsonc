@@ -219,6 +219,75 @@
     "failed_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "heartbeat_received_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when matching heartbeat was received for this command"
+    },
+    "heartbeat_matched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when heartbeat was matched to this command for release"
+    },
+    "configured_delay_seconds": {
+      "type": "number",
+      "default": 0,
+      "description": "Configured post-heartbeat release delay (0-30 seconds)"
+    },
+    "delay_complete_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the delay period completed and command was ready for release"
+    },
+    "command_released_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When command was actually released to Traccar"
+    },
+    "sent_to_traccar_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When Traccar API was called"
+    },
+    "traccar_command_id": {
+      "type": "string",
+      "description": "Command ID returned by Traccar API"
+    },
+    "release_triggered_by": {
+      "type": "string",
+      "enum": [
+        "webhookLightLogForwarder",
+        "noranHeartbeatReleaseScheduler",
+        "manual"
+      ],
+      "description": "Which function triggered the release"
+    },
+    "release_source_function": {
+      "type": "string",
+      "description": "Name of function that triggered release"
+    },
+    "release_lock_token": {
+      "type": "string",
+      "description": "Idempotency token for release operation"
+    },
+    "release_attempt_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of release attempts"
+    },
+    "matched_heartbeat_device_unique_id": {
+      "type": "string",
+      "description": "device_unique_id of heartbeat that triggered release - for cross-device audit"
+    },
+    "matched_heartbeat_event_id": {
+      "type": "string",
+      "description": "TelematicsEvent ID of heartbeat that triggered release"
+    },
+    "release_device_match_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if heartbeat device_unique_id matched command device_unique_id before release"
     }
   },
   "required": [

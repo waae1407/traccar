@@ -258,6 +258,7 @@ export async function releaseNoranQueuedCommandToTraccar(base44, commandId, cont
     released_after_heartbeat: !!heartbeatMatchedAt,
     released_at: nowIso,
     heartbeat_matched_at: heartbeatMatchedAt,
+    matched_heartbeat_device_unique_id: device.unique_id,
     matched_heartbeat_event_id: command.matched_heartbeat_event_id || null,
     configured_delay_seconds: command.configured_delay_seconds || 0,
     expected_release_at: expectedReleaseAt,
@@ -274,7 +275,8 @@ export async function releaseNoranQueuedCommandToTraccar(base44, commandId, cont
     hex_payload: command.hex_payload,
     payload_length_bytes: command.hex_payload ? command.hex_payload.length / 2 : 0,
     release_lock_token: lockResult.releaseLockToken,
-    release_attempt_count: command.release_attempt_count || 1
+    release_attempt_count: command.release_attempt_count || 1,
+    release_device_match_verified: true
   };
   
   try {

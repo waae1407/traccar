@@ -1038,10 +1038,37 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
       continue;
     }
 
+    // ── CRITICAL: Hard device match guard before release ──
+    const heartbeatDeviceUniqueId = device.unique_id;
+    const commandDeviceUniqueId = cmd.device_unique_id;
+    if (heartbeatDeviceUniqueId !== commandDeviceUniqueId) {
+      console.error(`[CROSS_DEVICE_RELEASE_BLOCKED] heartbeat_device=${heartbeatDeviceUniqueId} command_device=${commandDeviceUniqueId} command_id=${cmd.id} reason=heartbeat_from_different_device`);
+      // Create security event
+      await base44.asServiceRole.entities.TelematicsEvent.create({
+        company_id: device.company_id || '',
+        telematics_device_id: device.id,
+        provider_key: PROVIDER_KEY,
+        vehicle_id: device.vehicle_id || '',
+        event_type: 'cross_device_heartbeat_release_blocked',
+        source: 'webhook',
+        raw_payload: {
+          heartbeat_device_unique_id: heartbeatDeviceUniqueId,
+          command_device_unique_id: commandDeviceUniqueId,
+          command_id: cmd.id,
+          heartbeat_event_id: heartbeatEventId,
+          blocked_at: nowIso,
+          reason: 'Cross-device heartbeat release attempt blocked'
+        },
+        created_at: nowIso
+      }).catch(() => {});
+      result.skipped.push({ command_id: cmd.id, reason: 'cross_device_release_blocked', heartbeat_device: heartbeatDeviceUniqueId, command_device: commandDeviceUniqueId });
+      continue;
+    }
+
     // Delay complete - attempt release through centralized helper
     const secondsAfterDelayComplete = (nowMs - delayCompleteAt) / 1000;
-    console.log(`[AUTO_DISPATCH_READY_FOR_RELEASE] command_id=${cmd.id} delayCompleteAt=${delayCompleteIso} now=${nowIso} configuredDelay=${configuredDelay}s secondsAfterDelayComplete=${secondsAfterDelayComplete.toFixed(1)}s calling_release_helper=true matched_heartbeat_device_unique_id=${device.unique_id} matched_heartbeat_event_id=${heartbeatEventId || 'N/A'}`);
-    result.evaluated.push({ command_id: cmd.id, ready_for_release: true, delay_complete_at: delayCompleteIso, matched_heartbeat_device: device.unique_id });
+    console.log(`[AUTO_DISPATCH_READY_FOR_RELEASE] command_id=${cmd.id} delayCompleteAt=${delayCompleteIso} now=${nowIso} configuredDelay=${configuredDelay}s secondsAfterDelayComplete=${secondsAfterDelayComplete.toFixed(1)}s calling_release_helper=true matched_heartbeat_device_unique_id=${heartbeatDeviceUniqueId} matched_heartbeat_event_id=${heartbeatEventId || 'N/A'}`);
+    result.evaluated.push({ command_id: cmd.id, ready_for_release: true, delay_complete_at: delayCompleteIso, matched_heartbeat_device: device.unique_id, matched_heartbeat_event_id: heartbeatEventId });
     
     try {
       // Import and call centralized release helper
@@ -1052,7 +1079,10 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp, h
         triggeredBy: 'heartbeat_delay_release',
         reason: `Delay complete (configured=${configuredDelay}s) - matched_heartbeat=${heartbeatEventId || device.unique_id}`,
         heartbeatMatchedAt,
-        expectedReleaseAt: delayCompleteIso
+        expectedReleaseAt: delayCompleteIso,
+        matched_heartbeat_device_unique_id: device.unique_id,
+        matched_heartbeat_event_id: heartbeatEventId,
+        release_device_match_verified: true
       });
       
       if (releaseResult.released) {
