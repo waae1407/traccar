@@ -12,6 +12,14 @@ function joinUrl(baseUrl, path) {
   return `${baseUrl.replace(/\/+$/, '')}${path}`;
 }
 
+// ── HEARTBEAT FRESHNESS GATE ──
+const MAX_HEARTBEAT_AGE_MS = 10000;
+
+function isHeartbeatFresh(device) {
+  const lastHb = new Date(device.last_heartbeat_received_at || 0).getTime();
+  return (Date.now() - lastHb) <= MAX_HEARTBEAT_AGE_MS;
+}
+
 async function sendViaTraccar(device, hexPayload) {
   const baseUrl = envValue('TRACCAR_BASE_URL');
   const username = envValue('TRACCAR_USERNAME');
@@ -100,6 +108,15 @@ Deno.serve(async (req) => {
         if (!hexPayload) {
           await base44.asServiceRole.entities.TelematicsCommand.update(command.id, { status: 'failed', queue_status: 'failed', failure_reason: 'No hex payload' });
           results.commands_failed++;
+          continue;
+        }
+
+        // ── Heartbeat freshness check — skip retry if UDP session stale ──
+        if (!isHeartbeatFresh(device)) {
+          const hbAge = Math.round((nowMs - new Date(device.last_heartbeat_received_at || 0).getTime()) / 1000);
+          console.log(`[NORAN_RETRY_SKIP_STALE] command=${command.id} device=${device.unique_id} heartbeat_age=${hbAge}s — skipping retry, UDP session expired`);
+          results.details.push({ command_id: command.id, action: 'skipped_stale_heartbeat', heartbeat_age_seconds: hbAge });
+          results.processed++;
           continue;
         }
 
