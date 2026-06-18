@@ -414,7 +414,8 @@ async function getInstallerInstallRecord(base44, device, vehicle, vin) {
 }
 
 function isCompletedInstallerInstall(record, device) {
-  return record?.install_status === 'completed' || device.install_status === 'installed';
+  // Only check install record status - device.install_status may be 'installed' during testing phase
+  return record?.install_status === 'completed';
 }
 
 function canSendInstallerNoranStarterTest(provider, device, commandType) {
