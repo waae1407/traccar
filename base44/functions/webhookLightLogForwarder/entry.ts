@@ -1087,7 +1087,8 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
     const actualDelayMs = nowMs - hbMs;
     const releaseTriggeredBy = isWaitingForDelay ? 'webhook_waiting_for_delay' : 'webhook_immediate';
 
-    await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, {
+    // CRITICAL: Update command with Traccar response ID for ACK matching
+    const updatePayload = {
       queue_status: 'sent_to_traccar',
       status: 'sent_to_traccar',
       confirmation_status: 'sent',
@@ -1112,7 +1113,16 @@ async function autoDispatchPendingCommands(base44, device, heartbeatTimestamp) {
       ascii_payload: eligible.ascii_payload,
       hex_payload: eligible.hex_payload,
       payload_length_bytes: eligible.hex_payload ? eligible.hex_payload.length / 2 : 0
-    });
+    };
+    
+    // DEBUG: Log update attempt
+    console.log(`[WEBHOOK_UPDATE] command_id=${eligible.id} traccar_command_id=${traccarCommandId} status=sent_to_traccar`);
+    
+    await base44.asServiceRole.entities.TelematicsCommand.update(eligible.id, updatePayload);
+    
+    // VERIFY update succeeded
+    const updatedCmd = await base44.asServiceRole.entities.TelematicsCommand.get(eligible.id);
+    console.log(`[WEBHOOK_VERIFY] command_id=${eligible.id} sent_to_traccar_at=${updatedCmd.sent_to_traccar_at ? 'SET ✓' : 'NOT SET ❌'} traccar_command_id=${updatedCmd.traccar_command_id || 'NOT SET'}`);
 
     await base44.asServiceRole.entities.TelematicsEvent.create({
       telematics_device_id: device.id,
