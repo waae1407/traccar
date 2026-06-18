@@ -597,10 +597,10 @@ Deno.serve(async (req) => {
     if (duplicateActive) return Response.json({ error: 'Duplicate command blocked. Wait 15 seconds before sending same command type.', retry_after_seconds: 15 }, { status: 429 });
 
     // ── HEARTBEAT FRESHNESS CHECK (Noran MT20 only) ──
-    // Skip for alarm sessions (safety-critical pulses must fire regardless)
+    // Skip for: alarm sessions (safety-critical), installer tests (devices may not have established heartbeat yet)
     let heartbeatFreshness = null;
-    const isLiveNoran = device.provider_key === 'traccar_noran_mt20' && (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest || adminTraccarLiveTest);
-    const skipFreshnessCheck = !!body.alarm_session_id;
+    const isLiveNoran = device.provider_key === 'traccar_noran_mt20' && (liveNoranProduction || adminDeviceCommandTest || adminTraccarLiveTest);
+    const skipFreshnessCheck = !!body.alarm_session_id || installerInstallTest;
 
     if (isLiveNoran && !skipFreshnessCheck) {
       heartbeatFreshness = await ensureFreshHeartbeat(base44, device.id);
