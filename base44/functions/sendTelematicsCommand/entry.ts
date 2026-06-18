@@ -558,7 +558,7 @@ Deno.serve(async (req) => {
     const duplicateActive = recentCommands.some(cmd => {
       const created = new Date(cmd.created_date || cmd.created_at || 0).getTime();
       const ageSeconds = (nowMs - created) / 1000;
-      return ageSeconds < 15 && ['pending_waiting_for_next_heartbeat', 'sent_to_traccar', 'waiting_for_delay'].includes(cmd.queue_status || cmd.status);
+      return ageSeconds < 15 && ['sent_to_traccar', 'sent', 'delivered', 'acknowledged', 'executed', 'completed'].includes(cmd.queue_status || cmd.status);
     });
     if (duplicateActive) return Response.json({ error: 'Duplicate command blocked. Wait 15 seconds before sending same command type.', retry_after_seconds: 15 }, { status: 429 });
 

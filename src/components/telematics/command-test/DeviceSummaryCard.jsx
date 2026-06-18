@@ -123,8 +123,8 @@ export default function DeviceSummaryCard({ data }) {
                   {delayMutation.isPending ? <Activity className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Enter delay in seconds. Use 0 for immediate release after heartbeat.
+              <p className="text-xs text-muted-foreground mt-1">
+                [DEPRECATED] Heartbeat-delay gate removed. Commands now sent immediately via Traccar API.
               </p>
             </div>
           </div>
