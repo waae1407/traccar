@@ -12,6 +12,13 @@ const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 // No heartbeat gate, no delay release.
 const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90; // kept for historical command expiry only
 
+// ── HEARTBEAT FRESHNESS GATE ──
+// Empirical data: commands sent >10s after heartbeat fail due to UDP NAT session timeout.
+// Commands <10s: 100% success. Commands >12s: 0% success.
+const MAX_HEARTBEAT_AGE_MS = 10000;       // 10 seconds — send immediately if fresh
+const HEARTBEAT_POLL_INTERVAL_MS = 500;    // poll every 500ms
+const HEARTBEAT_POLL_TIMEOUT_MS = 30000;   // wait up to 30s for fresh heartbeat
+
 
 
 
@@ -276,6 +283,33 @@ function ratePolicy(trafficClass, commandType, maxPerMinute) {
   return { maxAllowed: STARTER_COMMANDS.includes(commandType) ? Math.max(2, Number(maxPerMinute || 2)) : Math.max(8, Number(maxPerMinute || 4)), cooldownMs: commandCooldownMs(commandType) };
 }
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function ensureFreshHeartbeat(base44, deviceId) {
+  const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ id: deviceId });
+  const device = devices[0];
+  if (!device) return { fresh: false, reason: 'device_not_found', age_ms: null };
+
+  const lastHb = new Date(device.last_heartbeat_received_at || 0).getTime();
+  const ageMs = Date.now() - lastHb;
+
+  if (ageMs <= MAX_HEARTBEAT_AGE_MS) {
+    return { fresh: true, age_ms: ageMs, waited: false };
+  }
+
+  // Heartbeat stale — poll for fresh one (webhookLightLogForwarder updates last_heartbeat_received_at)
+  const startTime = Date.now();
+  while (Date.now() - startTime < HEARTBEAT_POLL_TIMEOUT_MS) {
+    await sleep(HEARTBEAT_POLL_INTERVAL_MS);
+    const refreshed = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: deviceId }))[0];
+    if (!refreshed) return { fresh: false, reason: 'device_not_found', age_ms: null, waited: true, wait_ms: Date.now() - startTime };
+    const newHb = new Date(refreshed.last_heartbeat_received_at || 0).getTime();
+    if (newHb > lastHb) {
+      return { fresh: true, age_ms: Date.now() - newHb, waited: true, wait_ms: Date.now() - startTime };
+    }
+  }
+
+  return { fresh: false, age_ms: ageMs, waited: true, wait_ms: HEARTBEAT_POLL_TIMEOUT_MS, reason: 'timeout_no_heartbeat' };
+}
 
 async function enforceRateLimit(base44, deviceId, commandType, actorKey, trafficClass, maxPerMinute, options = {}) {
   if (trafficClass === 'automation_alarm' || options.alarmSessionId) return { limited: false };
@@ -562,6 +596,51 @@ Deno.serve(async (req) => {
     });
     if (duplicateActive) return Response.json({ error: 'Duplicate command blocked. Wait 15 seconds before sending same command type.', retry_after_seconds: 15 }, { status: 429 });
 
+    // ── HEARTBEAT FRESHNESS CHECK (Noran MT20 only) ──
+    // Skip for alarm sessions (safety-critical pulses must fire regardless)
+    let heartbeatFreshness = null;
+    const isLiveNoran = device.provider_key === 'traccar_noran_mt20' && (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest || adminTraccarLiveTest);
+    const skipFreshnessCheck = !!body.alarm_session_id;
+
+    if (isLiveNoran && !skipFreshnessCheck) {
+      heartbeatFreshness = await ensureFreshHeartbeat(base44, device.id);
+      console.log(`[HEARTBEAT_FRESHNESS] device=${device.unique_id} fresh=${heartbeatFreshness.fresh} age_ms=${heartbeatFreshness.age_ms} waited=${heartbeatFreshness.waited} wait_ms=${heartbeatFreshness.wait_ms || 0}`);
+
+      if (!heartbeatFreshness.fresh) {
+        const failedCmd = await base44.asServiceRole.entities.TelematicsCommand.create({
+          company_id: vehicle?.company_id || device.company_id || provider.company_id || '',
+          telematics_device_id: device.id,
+          provider_key: device.provider_key,
+          vehicle_id: vehicle?.id || device.vehicle_id || '',
+          host_id: vehicle?.host_id || device.host_id || '',
+          booking_id: booking?.id || body.booking_id || '',
+          command_type: commandType,
+          device_unique_id: device.unique_id || '',
+          traccar_device_id: device.traccar_device_id || '',
+          status: 'failed',
+          queue_status: 'failed',
+          confirmation_status: 'failed',
+          failure_reason: `Heartbeat stale (${Math.round((heartbeatFreshness.age_ms || 0) / 1000)}s old). No fresh heartbeat within ${HEARTBEAT_POLL_TIMEOUT_MS / 1000}s. UDP session expired.`,
+          failed_at: new Date().toISOString(),
+          created_at: now.toISOString(),
+          idempotency_key: idempotencyKey,
+          requested_by: user.email,
+          requested_role: user.role || 'user',
+          release_strategy: 'heartbeat_freshness_gate',
+          request_payload: { heartbeat_freshness: heartbeatFreshness, command_traffic_class: trafficClass, source: body.source || 'user_control' }
+        }).catch(() => null);
+
+        return Response.json({
+          error: 'Device heartbeat stale — UDP session expired. Command not sent.',
+          command_id: failedCmd?.id || null,
+          heartbeat_age_seconds: Math.round((heartbeatFreshness.age_ms || 0) / 1000),
+          max_age_seconds: MAX_HEARTBEAT_AGE_MS / 1000,
+          waited_seconds: Math.round((heartbeatFreshness.wait_ms || 0) / 1000),
+          suggestion: 'Try again — system will automatically wait for next heartbeat.'
+        }, { status: 503 });
+      }
+    }
+
     // ── IMMEDIATE DISPATCH FOR ALL COMMANDS (including Noran MT20) ──
     const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
     const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
@@ -606,7 +685,8 @@ Deno.serve(async (req) => {
         command_traffic_class: trafficClass,
         starter_confirmation: body.confirm_starter_command === true || body.starter_confirmation === true,
         reason: body.reason || '',
-        source: body.source || 'user_control'
+        source: body.source || 'user_control',
+        ...(heartbeatFreshness ? { heartbeat_freshness: heartbeatFreshness } : {})
       }
     });
 
