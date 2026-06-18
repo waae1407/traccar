@@ -17,7 +17,7 @@ sudo cp /opt/traccar/tracker-server.jar /opt/traccar/tracker-server.jar.backup.$
 
 # 3. Navigate to source
 echo "[3/6] Building patched version..."
-cd /tmp/traccar_src || { echo "❌ Traccar source not found at /tmp/traccar_src"; exit 1; }
+cd /tmp/traccar-src || { echo "❌ Traccar source not found at /tmp/traccar-src"; exit 1; }
 
 # 4. Apply patch (if not already applied)
 if ! grep -q "getDeviceId" src/main/java/org/traccar/protocol/NoranProtocolDecoder.java; then
