@@ -5,7 +5,7 @@ const COMMAND_LABELS = {
   unlock: 'Unlock Doors',
   horn: 'Horn Alert',
   lights: 'Light Alert',
-  horn_lights: 'Horn & Light Alert',
+  horn_lights: 'Find My Car',
   alarm_pulse: 'Security Alert',
   disable_starter: 'Starter Disable',
   restore_starter: 'Starter Restore'
