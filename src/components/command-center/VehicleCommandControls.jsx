@@ -111,6 +111,22 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
   );
 }
 
+const PHASE_LABELS = {
+  connecting: "Connecting…",
+  sending: "Sending…",
+  waiting: "Waiting…",
+  success: "Done ✓",
+  failed: "Failed",
+};
+
+const PHASE_COLORS = {
+  connecting: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
+  sending: "border-blue-500/40 bg-blue-500/10 text-blue-300",
+  waiting: "border-primary/40 bg-primary/10 text-primary",
+  success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+  failed: "border-red-500/40 bg-red-500/10 text-red-400",
+};
+
 function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phase, onSend }) {
   return (
     <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
@@ -125,7 +141,9 @@ function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phas
         {commands.map((command) => {
           const Icon = command.icon;
           const isActive = activeCommand === command.key && isBusy;
-          const isSuccess = activeCommand === command.key && phase === PHASES.success;
+          const isThisPhase = activeCommand === command.key && phase && phase !== PHASES.idle;
+          const phaseColor = isThisPhase ? (PHASE_COLORS[phase] || "") : "bg-secondary text-foreground hover:bg-secondary/80";
+          const phaseLabel = isThisPhase ? PHASE_LABELS[phase] : command.label;
 
           return (
             <Button
@@ -133,22 +151,16 @@ function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phas
               variant="outline"
               disabled={isBusy}
               onClick={() => onSend(command.key, command.starter)}
-              className={`h-20 flex-col rounded-2xl border-border transition-all duration-300 ${
-                isSuccess
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                  : isActive
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "bg-secondary text-foreground hover:bg-secondary/80"
-              }`}
+              className={`h-20 flex-col rounded-2xl border-border transition-all duration-300 ${phaseColor}`}
             >
               {isActive ? (
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              ) : isSuccess ? (
+                <Loader2 className={`h-5 w-5 animate-spin ${phase === "connecting" ? "text-yellow-300" : phase === "sending" ? "text-blue-300" : "text-primary"}`} />
+              ) : phase === "success" && activeCommand === command.key ? (
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
               ) : (
-                <Icon className="h-5 w-5 text-primary" />
+                <Icon className={`h-5 w-5 ${isThisPhase ? "" : "text-primary"}`} />
               )}
-              <span className="text-xs font-black">{command.label}</span>
+              <span className="text-xs font-black">{phaseLabel}</span>
             </Button>
           );
         })}

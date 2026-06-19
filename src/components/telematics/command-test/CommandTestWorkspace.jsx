@@ -142,7 +142,7 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
 
       {lookupData?.device && (
         <>
-          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} />
+          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} activePhase={progress.phase} activePhaseCommand={progress.commandType} />
           <CommandProgressOverlay phase={progress.phase} elapsed={progress.elapsed} phaseElapsed={progress.phaseElapsed} commandType={progress.commandType} errorMessage={progress.errorMessage} />
           {lookupData.vehicle?.id && (
             <TelematicsAlarmControls vehicleId={lookupData.vehicle.id} role="admin" />

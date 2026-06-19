@@ -20,7 +20,22 @@ const RESULT_STYLES = {
 const RESPONSE_STATUSES = new Set(['acknowledged', 'executed', 'confirmed']);
 const CLOSED_STATUSES = new Set(['acknowledged', 'executed', 'confirmed', 'failed', 'expired']);
 
-export default function CommandButtonGrid({ commands, execution, onSend, sending, session, sentCommands = {}, commandHistory = [] }) {
+const GATE_PHASE_LABELS = {
+  connecting: "Connecting…",
+  sending: "Sending…",
+  waiting: "Waiting reply…",
+  success: "Done ✓",
+  failed: "Failed",
+};
+const GATE_PHASE_STYLES = {
+  connecting: "border-yellow-500/30 bg-yellow-500/10 text-yellow-200",
+  sending: "border-blue-500/30 bg-blue-500/10 text-blue-200",
+  waiting: "border-purple-500/30 bg-purple-500/10 text-purple-200",
+  success: "border-emerald-500/30 bg-emerald-500/10 text-white",
+  failed: "border-red-500/30 bg-red-500/10 text-red-200",
+};
+
+export default function CommandButtonGrid({ commands, execution, onSend, sending, session, sentCommands = {}, commandHistory = [], activePhase, activePhaseCommand }) {
   const [checked, setChecked] = useState({});
 
   if (!commands?.length) return null;
@@ -66,8 +81,11 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
             const style = RESULT_STYLES[displayValue] || RESULT_STYLES.untested;
             const ResultIcon = style.icon;
             const isThisPending = sentCommands[command.key] && value === 'untested' && !CLOSED_STATUSES.has(commandStatus);
+            const isPhaseActive = activePhaseCommand === command.key && activePhase && activePhase !== 'idle';
+            const phaseStyle = isPhaseActive ? GATE_PHASE_STYLES[activePhase] : '';
+            const phaseLabel = isPhaseActive ? GATE_PHASE_LABELS[activePhase] : `Verify ${displayLabel}`;
             return (
-              <div key={command.key} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div key={command.key} className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-all duration-300 ${isPhaseActive ? 'border-white/20 bg-white/[0.06]' : ''}`}>
                 <div className="mb-3 flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary"><Icon className="h-5 w-5" /></div>
                   <p className="font-black text-white">{displayLabel}</p>
@@ -81,9 +99,21 @@ export default function CommandButtonGrid({ commands, execution, onSend, sending
                     </label>
                   </div>
                 )}
-                <Button className={`w-full ${displayValue === 'acknowledged' || displayValue === 'pass' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`} disabled={!!sending || !ready || (hasPendingCommand && !isThisPending)} onClick={() => onSend(command.key, isStarter)}>
-                  {sending === command.key || isThisPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
-                  Verify {displayLabel}
+                <Button
+                  className={`w-full border transition-all duration-300 ${
+                    isPhaseActive
+                      ? phaseStyle
+                      : displayValue === 'acknowledged' || displayValue === 'pass'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent'
+                      : 'border-transparent'
+                  }`}
+                  disabled={!!sending || !ready || (hasPendingCommand && !isThisPending)}
+                  onClick={() => onSend(command.key, isStarter)}
+                >
+                  {sending === command.key || isThisPending || isPhaseActive
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Icon className="h-4 w-4" />}
+                  {phaseLabel}
                 </Button>
 
                 {session && command.result_field && (
