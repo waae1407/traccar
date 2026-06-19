@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, BellRing, Car, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
+import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
 
 const COMMANDS = {
   remote: [
@@ -31,7 +32,24 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     return ready.supported;
   });
 
+  const [alarmResult, setAlarmResult] = useState(null);
+
   const send = async (commandType, starter = false) => {
+    // alarm_pulse routes through the alarm session system
+    if (commandType === "alarm_pulse") {
+      setLoading(commandType);
+      setLast({ command: commandType, status: "sending" });
+      try {
+        const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id });
+        setLast({ command: commandType, status: "alarm_started" });
+        await onCommand?.(res.data);
+      } catch (error) {
+        setLast({ command: commandType, status: "failed", message: error?.response?.data?.error || error.message });
+      } finally {
+        setLoading("");
+      }
+      return;
+    }
     const reason = starter ? window.prompt("Reason for starter command") : "";
     if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
     setLoading(commandType);
@@ -57,7 +75,12 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <ControlSection title="Remote Controls" subtitle="Readiness-filtered commands routed through sendTelematicsCommand." commands={visible("remote")} loading={loading} onSend={send} />
-      <ControlSection title="Security Controls" subtitle={mode === "customer" ? "Starter controls are never exposed to renters." : "Starter controls require reason and confirmation."} commands={visible("security")} loading={loading} onSend={send} />
+      <div className="space-y-3">
+        <ControlSection title="Security Controls" subtitle={mode === "customer" ? "Starter controls are never exposed to renters." : "Starter controls require reason and confirmation."} commands={visible("security")} loading={loading} onSend={send} />
+        {vehicle?.id && ["admin", "host"].includes(mode) && (
+          <TelematicsAlarmControls vehicleId={vehicle.id} role={mode} onResult={onCommand} />
+        )}
+      </div>
       {last && (
         <div className={`rounded-2xl border p-3 text-sm lg:col-span-2 ${last.status === "failed" ? "border-red-500/30 bg-red-500/10 text-red-400" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"}`}>
           <span className="font-black capitalize">{last.command.replaceAll("_", " ")}</span> · {last.status}{last.message ? ` — ${last.message}` : ""}
@@ -65,6 +88,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
       )}
     </div>
   );
+
 }
 
 function ControlSection({ title, subtitle, commands, loading, onSend }) {

@@ -4,7 +4,6 @@ const DEFAULT_MAX_DURATION_SECONDS = 90;
 const DEFAULT_PULSE_INTERVAL_SECONDS = 10;
 const DEFAULT_MAX_PULSES = 9;
 
-function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function isReturnState(vehicle) { return ['Dropoff Submitted', 'Return Pending Host Review', 'Retired'].includes(vehicle?.status); }
 
 async function resolveContext(base44, body) {
@@ -24,12 +23,15 @@ async function resolveContext(base44, body) {
   if (!device) throw new Error('No telematics device is assigned to this vehicle.');
   return { vehicle, device };
 }
+
 async function assertPermission(base44, user, vehicle) {
   if (user.role === 'admin') return;
   if (user.role !== 'host') throw new Error('Only admins and hosts can trigger alarm mode.');
   const host = vehicle.host_id ? (await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }))[0] : null;
   if (!host || (host.email !== user.email && host.user_id !== user.id)) throw new Error('Host can only trigger alarm for owned vehicles.');
 }
+
+// Send a single alarm pulse immediately via sendTelematicsCommand
 async function sendPulse(base44, { session, vehicle, pulseNumber }) {
   const response = await base44.functions.invoke('sendTelematicsCommand', {
     vehicle_id: vehicle.id,
@@ -39,39 +41,11 @@ async function sendPulse(base44, { session, vehicle, pulseNumber }) {
     source: 'software_alarm_mode'
   });
   const commandId = response?.data?.command_id || '';
-  await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { pulses_sent: pulseNumber, last_command_id: commandId });
+  await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, {
+    pulses_sent: pulseNumber,
+    last_command_id: commandId
+  });
   return response.data;
-}
-async function runAlarmCycle(base44, sessionId) {
-  // Cleanup note: this existing sleep/pulse loop is preserved for compatibility.
-  // Future improvement: move repeated alarm pulses to a queued/background worker.
-  const initialSession = (await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ id: sessionId }))[0];
-  const startPulse = Number(initialSession?.pulses_sent || 0) + 1;
-  for (let pulse = startPulse; pulse <= DEFAULT_MAX_PULSES; pulse += 1) {
-    const session = (await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ id: sessionId }))[0];
-    if (!session || session.status !== 'active') return;
-    const device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: session.telematics_device_id }))[0];
-    const vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: session.vehicle_id }))[0];
-    if (!device || device.online_status === 'offline') {
-      await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'failed', ended_at: new Date().toISOString(), cancel_reason: 'device_offline' });
-      return;
-    }
-    if (isReturnState(vehicle)) {
-      await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'cancelled', ended_at: new Date().toISOString(), cancel_reason: 'vehicle_returned' });
-      return;
-    }
-    try {
-      await sendPulse(base44, { session, vehicle, pulseNumber: pulse });
-    } catch (error) {
-      await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'failed', ended_at: new Date().toISOString(), cancel_reason: error.message });
-      return;
-    }
-    if (pulse >= DEFAULT_MAX_PULSES || Date.now() - new Date(session.started_at).getTime() >= DEFAULT_MAX_DURATION_SECONDS * 1000) {
-      await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, { status: 'completed', ended_at: new Date().toISOString(), cancel_reason: 'timeout_or_max_pulses' });
-      return;
-    }
-    await sleep(DEFAULT_PULSE_INTERVAL_SECONDS * 1000);
-  }
 }
 
 Deno.serve(async (req) => {
@@ -83,10 +57,18 @@ Deno.serve(async (req) => {
     const { vehicle, device } = await resolveContext(base44, body);
     await assertPermission(base44, user, vehicle);
     if (device.online_status === 'offline') return Response.json({ error: 'Device is offline.' }, { status: 400 });
+    if (isReturnState(vehicle)) return Response.json({ error: 'Vehicle is in return state.' }, { status: 400 });
+
+    // Block duplicate active sessions
     const active = await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ vehicle_id: vehicle.id, status: 'active' });
     if (active[0]) return Response.json({ error: 'An alarm session is already active for this vehicle.', session: active[0] }, { status: 409 });
-    const recent = (await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ vehicle_id: vehicle.id })).filter(s => new Date(s.started_at || 0).getTime() > Date.now() - 2 * 60 * 1000);
+
+    // Rate limit: max 3 starts in 2 minutes
+    const recent = (await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ vehicle_id: vehicle.id }))
+      .filter(s => new Date(s.started_at || 0).getTime() > Date.now() - 2 * 60 * 1000);
     if (recent.length >= 3) return Response.json({ error: 'Alarm start rate limit reached. Please wait before retrying.' }, { status: 429 });
+
+    // Create the session
     const session = await base44.asServiceRole.entities.TelematicsAlarmSession.create({
       vehicle_id: vehicle.id,
       host_id: vehicle.host_id || device.host_id || '',
@@ -101,10 +83,21 @@ Deno.serve(async (req) => {
       max_pulses: DEFAULT_MAX_PULSES,
       pulses_sent: 0
     });
+
+    // Fire pulse 1 immediately and return — the noranAlarmPulseScheduler automation
+    // handles subsequent pulses by polling active sessions every 10 seconds.
+    try {
+      await sendPulse(base44, { session, vehicle, pulseNumber: 1 });
+    } catch (error) {
+      await base44.asServiceRole.entities.TelematicsAlarmSession.update(session.id, {
+        status: 'failed',
+        ended_at: new Date().toISOString(),
+        cancel_reason: error.message
+      });
+      return Response.json({ error: `First pulse failed: ${error.message}`, session }, { status: 500 });
+    }
+
     const refreshedSession = (await base44.asServiceRole.entities.TelematicsAlarmSession.filter({ id: session.id }))[0] || session;
-    const cycle = runAlarmCycle(base44, session.id);
-    if (globalThis.EdgeRuntime?.waitUntil) globalThis.EdgeRuntime.waitUntil(cycle);
-    else cycle.catch((error) => console.error('[alarm-cycle]', error.message));
     return Response.json({ ok: true, session: refreshedSession });
   } catch (error) {
     const status = error.message === 'Vehicle not found.' || error.message === 'No telematics device is assigned to this vehicle.' ? 404 : 500;

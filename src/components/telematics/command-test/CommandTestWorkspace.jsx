@@ -8,6 +8,7 @@ import CommandHistoryPanel from '@/components/telematics/command-test/CommandHis
 import RawCommandInput from '@/components/telematics/command-test/RawCommandInput';
 import RebootDeviceCard from '@/components/telematics/command-test/RebootDeviceCard';
 import TraccarDeviceLogsPanel from '@/components/telematics/command-test/TraccarDeviceLogsPanel';
+import TelematicsAlarmControls from '@/components/telematics/TelematicsAlarmControls';
 
 export default function CommandTestWorkspace({ showHeader = true, mode = 'admin' }) {
   const queryClient = useQueryClient();
@@ -69,6 +70,26 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
   }, [lookupData?.device?.id]);
 
   const sendCommand = async (commandType, isStarter) => {
+    // alarm_pulse routes through the alarm session system (startTelematicsAlarm), not one-shot
+    if (commandType === 'alarm_pulse') {
+      if (!lookupData?.vehicle?.id) {
+        setLookupError('Security Alert requires a vehicle linked to this device.');
+        return;
+      }
+      setSending(commandType);
+      setLookupError('');
+      try {
+        await base44.functions.invoke('startTelematicsAlarm', {
+          vehicle_id: lookupData.vehicle.id,
+          telematics_device_id: lookupData.device.id,
+        });
+      } catch (error) {
+        setLookupError(error?.response?.data?.error || error.message);
+      }
+      setSending('');
+      history.refetch();
+      return;
+    }
     const reason = isHostMode && isStarter ? window.prompt('Reason for starter command') : '';
     if (isHostMode && isStarter && (!reason || reason.trim().length < 5 || !window.confirm('Confirm this high-risk starter command?'))) return;
     setSending(commandType);
@@ -113,6 +134,9 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
       {lookupData?.device && (
         <>
           <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} />
+          {lookupData.vehicle?.id && (
+            <TelematicsAlarmControls vehicleId={lookupData.vehicle.id} role="admin" />
+          )}
           <RawCommandInput device={lookupData.device} onCommandSent={() => history.refetch()} />
           <RebootDeviceCard prefillDeviceId={lookupData.device?.unique_id || ''} />
           <TraccarDeviceLogsPanel deviceUniqueId={lookupData.device?.unique_id || ''} />
