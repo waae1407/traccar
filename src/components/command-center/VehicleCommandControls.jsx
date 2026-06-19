@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, BellRing, Car, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
 import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
+import { useCommandProgress, PHASES } from "@/hooks/useCommandProgress";
+import CommandProgressOverlay from "@/components/telematics/CommandProgressOverlay";
 
 const COMMANDS = {
   remote: [
@@ -22,8 +24,7 @@ const COMMANDS = {
 };
 
 export default function VehicleCommandControls({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter, onCommand }) {
-  const [loading, setLoading] = React.useState("");
-  const [last, setLast] = React.useState(null);
+  const progress = useCommandProgress();
   const allowedCustomer = ["locate", "lock", "unlock", "alarm_pulse"];
 
   const visible = (group) => COMMANDS[group].filter((command) => {
@@ -32,28 +33,27 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     return ready.supported;
   });
 
-  const [alarmResult, setAlarmResult] = useState(null);
+  const isBusy = progress.phase && progress.phase !== PHASES.idle && progress.phase !== PHASES.success && progress.phase !== PHASES.failed;
 
   const send = async (commandType, starter = false) => {
-    // alarm_pulse routes through the alarm session system
     if (commandType === "alarm_pulse") {
-      setLoading(commandType);
-      setLast({ command: commandType, status: "sending" });
+      progress.reset();
+      progress.start(commandType, null, null);
       try {
         const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id });
-        setLast({ command: commandType, status: "alarm_started" });
         await onCommand?.(res.data);
-      } catch (error) {
-        setLast({ command: commandType, status: "failed", message: error?.response?.data?.error || error.message });
-      } finally {
-        setLoading("");
+        progress.reset();
+      } catch {
+        progress.reset();
       }
       return;
     }
+
     const reason = starter ? window.prompt("Reason for starter command") : "";
     if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
-    setLoading(commandType);
-    setLast({ command: commandType, status: "sending" });
+
+    progress.start(commandType, null, null);
+
     try {
       const res = await TelematicsService.sendCommand({
         vehicle_id: vehicle?.id,
@@ -63,35 +63,55 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
         reason,
         confirm_starter_command: !!starter
       });
-      setLast({ command: commandType, status: res.data?.queue_status || "sent" });
-      await onCommand?.(res.data);
-    } catch (error) {
-      setLast({ command: commandType, status: "failed", message: error?.response?.data?.error || error.message });
-    } finally {
-      setLoading("");
+
+      const data = res.data;
+      const cmdId = data?.command_id || data?.id;
+      const freshness = data?.heartbeat_freshness;
+      progress.start(commandType, cmdId, freshness);
+      await onCommand?.(data);
+    } catch {
+      progress.reset();
     }
   };
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <ControlSection title="Remote Controls" subtitle="Readiness-filtered commands routed through sendTelematicsCommand." commands={visible("remote")} loading={loading} onSend={send} />
+      <ControlSection
+        title="Remote Controls"
+        subtitle="Readiness-filtered commands routed through sendTelematicsCommand."
+        commands={visible("remote")}
+        isBusy={isBusy}
+        activeCommand={progress.commandType}
+        phase={progress.phase}
+        onSend={send}
+      />
       <div className="space-y-3">
-        <ControlSection title="Security Controls" subtitle={mode === "customer" ? "Starter controls are never exposed to renters." : "Starter controls require reason and confirmation."} commands={visible("security")} loading={loading} onSend={send} />
+        <ControlSection
+          title="Security Controls"
+          subtitle={mode === "customer" ? "Starter controls are never exposed to renters." : "Starter controls require reason and confirmation."}
+          commands={visible("security")}
+          isBusy={isBusy}
+          activeCommand={progress.commandType}
+          phase={progress.phase}
+          onSend={send}
+        />
         {vehicle?.id && ["admin", "host"].includes(mode) && (
           <TelematicsAlarmControls vehicleId={vehicle.id} role={mode} onResult={onCommand} />
         )}
       </div>
-      {last && (
-        <div className={`rounded-2xl border p-3 text-sm lg:col-span-2 ${last.status === "failed" ? "border-red-500/30 bg-red-500/10 text-red-400" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"}`}>
-          <span className="font-black capitalize">{last.command.replaceAll("_", " ")}</span> · {last.status}{last.message ? ` — ${last.message}` : ""}
-        </div>
-      )}
+
+      <CommandProgressOverlay
+        phase={progress.phase}
+        elapsed={progress.elapsed}
+        phaseElapsed={progress.phaseElapsed}
+        commandType={progress.commandType}
+        errorMessage={progress.errorMessage}
+      />
     </div>
   );
-
 }
 
-function ControlSection({ title, subtitle, commands, loading, onSend }) {
+function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phase, onSend }) {
   return (
     <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -104,15 +124,39 @@ function ControlSection({ title, subtitle, commands, loading, onSend }) {
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {commands.map((command) => {
           const Icon = command.icon;
-          const busy = loading === command.key;
+          const isActive = activeCommand === command.key && isBusy;
+          const isSuccess = activeCommand === command.key && phase === PHASES.success;
+
           return (
-            <Button key={command.key} variant="outline" disabled={!!loading} onClick={() => onSend(command.key, command.starter)} className="h-20 flex-col rounded-2xl border-border bg-secondary text-foreground hover:bg-secondary/80">
-              {busy ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Icon className="h-5 w-5 text-primary" />}
+            <Button
+              key={command.key}
+              variant="outline"
+              disabled={isBusy}
+              onClick={() => onSend(command.key, command.starter)}
+              className={`h-20 flex-col rounded-2xl border-border transition-all duration-300 ${
+                isSuccess
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                  : isActive
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "bg-secondary text-foreground hover:bg-secondary/80"
+              }`}
+            >
+              {isActive ? (
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              ) : isSuccess ? (
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              ) : (
+                <Icon className="h-5 w-5 text-primary" />
+              )}
               <span className="text-xs font-black">{command.label}</span>
             </Button>
           );
         })}
-        {commands.length === 0 && <div className="col-span-full rounded-2xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground"><AlertTriangle className="mx-auto mb-2 h-5 w-5" />No ready commands.</div>}
+        {commands.length === 0 && (
+          <div className="col-span-full rounded-2xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
+            <AlertTriangle className="mx-auto mb-2 h-5 w-5" />No ready commands.
+          </div>
+        )}
       </div>
     </div>
   );

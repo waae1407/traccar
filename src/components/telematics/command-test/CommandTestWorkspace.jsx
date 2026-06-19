@@ -9,6 +9,8 @@ import RawCommandInput from '@/components/telematics/command-test/RawCommandInpu
 import RebootDeviceCard from '@/components/telematics/command-test/RebootDeviceCard';
 import TraccarDeviceLogsPanel from '@/components/telematics/command-test/TraccarDeviceLogsPanel';
 import TelematicsAlarmControls from '@/components/telematics/TelematicsAlarmControls';
+import { useCommandProgress, PHASES } from '@/hooks/useCommandProgress';
+import CommandProgressOverlay from '@/components/telematics/CommandProgressOverlay';
 
 export default function CommandTestWorkspace({ showHeader = true, mode = 'admin' }) {
   const queryClient = useQueryClient();
@@ -19,6 +21,7 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
   const [lookupError, setLookupError] = useState('');
   const [sending, setSending] = useState('');
   const [sentCommands, setSentCommands] = useState({});
+  const progress = useCommandProgress();
   const [autoLookupDone, setAutoLookupDone] = useState(!initialIdentifier);
 
   const history = useQuery({
@@ -95,8 +98,9 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
     setSending(commandType);
     setLookupError('');
     setSentCommands((prev) => ({ ...prev, [commandType]: true }));
+    progress.start(commandType, null, null);
     try {
-      await base44.functions.invoke('sendTelematicsCommand', isHostMode ? {
+      const res = await base44.functions.invoke('sendTelematicsCommand', isHostMode ? {
         command_type: commandType,
         telematics_device_id: lookupData.device.id,
         vehicle_id: lookupData.vehicle?.id,
@@ -109,8 +113,13 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
         admin_device_command_test: true,
         admin_starter_override: !!isStarter
       });
+      const data = res?.data;
+      const cmdId = data?.command_id || data?.id;
+      const freshness = data?.heartbeat_freshness;
+      progress.start(commandType, cmdId, freshness);
     } catch (error) {
       setLookupError(error?.response?.data?.error || error.message);
+      progress.reset();
     }
     setSending('');
     history.refetch();
@@ -134,6 +143,7 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
       {lookupData?.device && (
         <>
           <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} />
+          <CommandProgressOverlay phase={progress.phase} elapsed={progress.elapsed} phaseElapsed={progress.phaseElapsed} commandType={progress.commandType} errorMessage={progress.errorMessage} />
           {lookupData.vehicle?.id && (
             <TelematicsAlarmControls vehicleId={lookupData.vehicle.id} role="admin" />
           )}
