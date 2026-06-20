@@ -175,15 +175,17 @@ export default function MyVehicle() {
       {/* Centered mobile container */}
       <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#050506", position: "relative" }}>
 
-        {/* ── HERO SECTION ── */}
+        {/* ── CINEMATIC VEHICLE HERO ── */}
         <div style={{
           position: "relative",
           overflow: "hidden",
-          background: "#050506",
-          paddingTop: 16,
-          paddingBottom: 20,
-          paddingLeft: 16,
-          paddingRight: 16,
+          background: "radial-gradient(circle at 78% 26%, rgba(47,128,255,0.16), transparent 34%), linear-gradient(180deg, #08090C 0%, #050506 100%)",
+          minHeight: 270,
+          paddingTop: 18,
+          paddingBottom: 24,
+          paddingLeft: 18,
+          paddingRight: 18,
+          borderBottom: "1px solid rgba(255,255,255,0.04)",
         }}>
           {/* Blue ambient glow top-right */}
           <div style={{
@@ -195,7 +197,7 @@ export default function MyVehicle() {
             zIndex: 0,
           }} />
 
-          {/* Vehicle image — full width, seamlessly blended via strong CSS overlays */}
+          {/* Vehicle image — cinematic, de-emphasized studio background */}
           <div style={{
             position: "absolute",
             inset: 0,
@@ -206,42 +208,47 @@ export default function MyVehicle() {
               src={vehicleImage}
               alt={name}
               style={{
-                width: "100%",
-                height: "100%",
+                position: "absolute",
+                right: -78,
+                top: 26,
+                width: "92%",
+                height: "72%",
                 objectFit: "cover",
-                objectPosition: "65% center", // Focuses the crop slightly right
+                objectPosition: "68% center",
                 display: "block",
+                opacity: 0.72,
+                filter: "brightness(0.42) contrast(1.28) saturate(1.15)",
+                transform: "scale(1.08)",
               }}
             />
-            {/* Left fade overlay: covers the text area solid #050506, fades to transparent over the car */}
             <div style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(to right, #050506 0%, #050506 35%, rgba(5,5,6,0.85) 50%, transparent 100%)",
+              background: "linear-gradient(90deg, #050506 0%, #050506 38%, rgba(5,5,6,0.96) 51%, rgba(5,5,6,0.62) 68%, rgba(5,5,6,0.18) 100%)",
               zIndex: 2,
             }} />
-            {/* Bottom fade overlay */}
             <div style={{
               position: "absolute",
-              bottom: 0, left: 0, right: 0,
-              height: "45%",
-              background: "linear-gradient(to top, #050506 0%, transparent 100%)",
-              zIndex: 2,
+              inset: 0,
+              background: "linear-gradient(180deg, #050506 0%, rgba(5,5,6,0.12) 28%, rgba(5,5,6,0.08) 54%, #050506 100%)",
+              zIndex: 3,
             }} />
-            {/* Top fade overlay (hides studio ceiling if visible) */}
             <div style={{
               position: "absolute",
-              top: 0, left: 0, right: 0,
-              height: "25%",
-              background: "linear-gradient(to bottom, #050506 0%, transparent 100%)",
-              zIndex: 2,
+              right: -40,
+              top: 40,
+              width: 250,
+              height: 130,
+              background: "radial-gradient(ellipse at center, rgba(47,128,255,0.22), transparent 68%)",
+              filter: "blur(18px)",
+              zIndex: 4,
             }} />
           </div>
 
           {/* Foreground text content */}
           <div style={{ position: "relative", zIndex: 2 }}>
             {/* Top row: name + icons */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
               <div>
                 <p style={{ fontSize: 26, fontWeight: 700, color: "#FFFFFF", lineHeight: 1.15, margin: 0 }}>{name}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
@@ -268,7 +275,7 @@ export default function MyVehicle() {
             </div>
 
             {/* Stats — inline, large, bold */}
-            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
               <div>
                 <p style={{ fontSize: 32, fontWeight: 800, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.5px" }}>268 mi</p>
                 <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 4, margin: "4px 0 0" }}>Range</p>
@@ -290,15 +297,16 @@ export default function MyVehicle() {
         </div>
 
         {/* Scroll content */}
-        <div style={{ padding: "0 12px", paddingBottom: 90 }}>
+        <div style={{ padding: "0 14px", paddingBottom: 98, marginTop: -10, position: "relative", zIndex: 5 }}>
 
           {/* ── MAP CARD ── */}
           <div style={{
-            background: "#17181C",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 24,
+            background: "linear-gradient(180deg, rgba(29,30,35,0.96), rgba(19,20,24,0.98))",
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 28,
             overflow: "hidden",
-            marginBottom: 10,
+            marginBottom: 12,
+            boxShadow: "0 18px 50px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)",
           }}>
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-start gap-2">
@@ -331,14 +339,15 @@ export default function MyVehicle() {
 
           {/* ── RENTAL INFO CARD ── */}
           <div style={{
-            background: "#17181C",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 24,
-            padding: "14px 16px",
+            background: "linear-gradient(180deg, rgba(29,30,35,0.96), rgba(19,20,24,0.98))",
+            border: "1px solid rgba(255,255,255,0.10)",
+            borderRadius: 28,
+            padding: "16px 18px",
             display: "flex",
             alignItems: "center",
             gap: 0,
-            marginBottom: 10,
+            marginBottom: 14,
+            boxShadow: "0 14px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)",
           }}>
             {/* Rental ends */}
             <div style={{ flex: 1 }}>
@@ -398,10 +407,11 @@ export default function MyVehicle() {
                 disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
                 style={{
                   aspectRatio: "1",
-                  background: "#17181C",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 20,
+                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  borderRadius: 24,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
                   cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
                   opacity: !isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete ? 0.45 : 1,
                   transition: "transform 0.1s",
@@ -420,10 +430,11 @@ export default function MyVehicle() {
                 disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
                 style={{
                   aspectRatio: "1",
-                  background: "#17181C",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 20,
+                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  borderRadius: 24,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
                   cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
                   opacity: !isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete ? 0.45 : 1,
                   transition: "transform 0.1s",
@@ -441,10 +452,11 @@ export default function MyVehicle() {
                 disabled
                 style={{
                   aspectRatio: "1",
-                  background: "#17181C",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 20,
+                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  borderRadius: 24,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
                   opacity: 0.45,
                   cursor: "default",
                 }}
@@ -462,9 +474,9 @@ export default function MyVehicle() {
                 disabled={!isBookingActive || !!commandLoading || dropoffInspectionComplete}
                 style={{
                   aspectRatio: "1",
-                  background: "#17181C",
-                  border: "2px solid #2F80FF",
-                  borderRadius: 20,
+                  background: "linear-gradient(180deg, rgba(47,128,255,0.16) 0%, #111216 100%)",
+                  border: "1.5px solid #2F80FF",
+                  borderRadius: 24,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
                   boxShadow: isBookingActive && !dropoffInspectionComplete
                     ? "0 0 0 1px rgba(47,128,255,0.15), 0 0 18px rgba(47,128,255,0.3)"
