@@ -125,52 +125,52 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 }
 
 const PHASE_LABELS = {
-  connecting: "Contacting Vehicle",
-  sending: "On its way…",
-  waiting: "Almost…",
-  success: null, // Will use command-specific label (Locked, Unlocked, etc.)
-  failed: "Try again",
+  connecting: "Establishing Connection",
+  sending: "Command Sent",
+  waiting: "Confirming",
+  success: null,
+  failed: "Connection Lost",
 };
 
 const SUCCESS_LABELS = {
-  lock: "Locked",
-  unlock: "Unlocked",
-  locate: "Located",
-  horn: "Horn On",
-  lights: "Lights On",
-  horn_lights: "Horn & Lights On",
-  alarm_pulse: "Vehicle Located",
+  lock: "Vehicle Secured",
+  unlock: "Vehicle Unlocked",
+  locate: "Vehicle Located",
+  horn: "Horn Activated",
+  lights: "Lights Activated",
+  horn_lights: "Horn & Lights Activated",
+  alarm_pulse: "Alert Sent",
   disable_starter: "Starter Disabled",
   restore_starter: "Starter Restored",
   status: "Status Received",
 };
 
 const PHASE_COLORS = {
-  connecting: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
-  sending: "border-blue-500/40 bg-blue-500/10 text-blue-300",
-  waiting: "border-primary/40 bg-primary/10 text-primary",
-  success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-  failed: "border-red-500/40 bg-red-500/10 text-red-400",
+  connecting: "border-yellow-500/30 bg-gradient-to-br from-yellow-500/10 to-transparent text-yellow-300",
+  sending: "border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-transparent text-blue-300",
+  waiting: "border-primary/30 bg-gradient-to-br from-primary/10 to-transparent text-primary",
+  success: "border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-transparent text-emerald-400",
+  failed: "border-red-500/30 bg-gradient-to-br from-red-500/10 to-transparent text-red-400",
 };
 
 function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phase, onSend }) {
   return (
-    <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
+    <div className="rounded-[1.75rem] border border-border/60 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-xl p-5 shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-black text-foreground">{title}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+          <h3 className="text-lg font-bold text-foreground tracking-tight">{title}</h3>
+          <p className="mt-1 text-xs text-muted-foreground/80">{subtitle}</p>
         </div>
-        <Badge variant="outline" className="rounded-full">{commands.length} ready</Badge>
+        <Badge variant="outline" className="rounded-full border-border/50 bg-secondary/30 text-xs font-semibold">{commands.length} available</Badge>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {commands.map((command) => {
           const Icon = command.icon;
           const isActive = activeCommand === command.key && isBusy;
           const isThisPhase = activeCommand === command.key && phase && phase !== PHASES.idle;
-          const phaseColor = isThisPhase ? (PHASE_COLORS[phase] || "") : "bg-secondary text-foreground hover:bg-secondary/80";
+          const phaseColor = isThisPhase ? (PHASE_COLORS[phase] || "") : "bg-gradient-to-br from-secondary/60 to-secondary/40 text-foreground hover:from-secondary/80 hover:to-secondary/60";
           const phaseLabel = phase === PHASES.success && activeCommand === command.key 
-            ? (SUCCESS_LABELS[command.key] || "Sent") 
+            ? (SUCCESS_LABELS[command.key] || "Complete") 
             : (isThisPhase ? PHASE_LABELS[phase] : command.label);
 
           return (
@@ -179,22 +179,25 @@ function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phas
               variant="outline"
               disabled={isBusy}
               onClick={() => onSend(command.key, command.starter)}
-              className={`h-20 flex-col rounded-2xl border-border transition-all duration-300 ${phaseColor}`}
+              className={`group relative h-20 flex-col overflow-hidden rounded-2xl border-border/50 backdrop-blur transition-all duration-500 ${phaseColor} ${isActive ? "scale-[1.02]" : ""}`}
             >
               {isActive ? (
-                <Loader2 className={`h-5 w-5 animate-spin ${phase === "connecting" ? "text-yellow-300" : phase === "sending" ? "text-blue-300" : "text-primary"}`} />
+                <div className="relative">
+                  <Loader2 className={`h-5 w-5 animate-spin ${phase === "connecting" ? "text-yellow-300" : phase === "sending" ? "text-blue-300" : "text-primary"}`} />
+                  <div className="absolute inset-0 animate-ping opacity-20" />
+                </div>
               ) : phase === "success" && activeCommand === command.key ? (
                 <CheckCircle2 className="h-5 w-5 text-emerald-400" />
               ) : (
-                <Icon className={`h-5 w-5 ${isThisPhase ? "" : "text-primary"}`} />
+                <Icon className={`h-5 w-5 transition-transform duration-300 ${isThisPhase ? "" : "text-primary group-hover:scale-110"}`} />
               )}
-              <span className="text-xs font-black">{phaseLabel}</span>
+              <span className="mt-1.5 text-[11px] font-bold tracking-wide">{phaseLabel}</span>
             </Button>
           );
         })}
         {commands.length === 0 && (
-          <div className="col-span-full rounded-2xl border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
-            <AlertTriangle className="mx-auto mb-2 h-5 w-5" />No ready commands.
+          <div className="col-span-full rounded-2xl border border-dashed border-border/40 bg-secondary/20 p-5 text-center text-sm text-muted-foreground/70">
+            <AlertTriangle className="mx-auto mb-2 h-5 w-5 opacity-50" />No commands available
           </div>
         )}
       </div>
