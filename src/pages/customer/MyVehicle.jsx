@@ -1,21 +1,599 @@
-import React from "react";
-import { useOutletContext } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useOutletContext } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { format, differenceInCalendarDays } from "date-fns";
+import { base44 } from "@/api/base44Client";
+import { CalendarClock, Camera, ChevronDown, FileText, MapPin, MessageSquare, Wrench, Signal, Battery, Lock, Unlock, BellRing } from "lucide-react";
+import { motion } from "framer-motion";
+import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
+import ContractModal from "@/components/customer/mybookings/ContractModal";
+import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
+
+const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
+
+function isOperationalRental(booking) {
+  if (!booking || booking.rental_ended_at) return false;
+  if (!ACTIVE_RENTAL_STATUSES.includes(booking.booking_status)) return false;
+  if (booking.end_date && Date.now() > new Date(`${booking.end_date}T23:59:59`).getTime()) return false;
+  return true;
+}
+
+function vehicleName(vehicle, booking) {
+  return vehicle?.display_name || [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean).join(" ") || booking?.vehicle_name || "My Vehicle";
+}
+
+function freshness(device) {
+  const value = device?.last_seen_at || device?.location_updated_at;
+  if (!value) return { label: "No recent GPS", time: "Not available", online: false };
+  const minutes = Math.round((Date.now() - new Date(value).getTime()) / 60000);
+  if (minutes < 2) return { label: "Live", time: format(new Date(value), "h:mm a"), online: true };
+  if (minutes < 30) return { label: `${minutes}m ago`, time: format(new Date(value), "h:mm a"), online: device?.online_status !== "offline" };
+  return { label: "Stale", time: format(new Date(value), "h:mm a"), online: device?.online_status === "online" };
+}
 
 export default function MyVehicle() {
   const { user } = useOutletContext() || {};
+  const queryClient = useQueryClient();
+  const [selectedBookingId, setSelectedBookingId] = useState("");
+  const [contractBooking, setContractBooking] = useState(null);
+  const [inspectionTarget, setInspectionTarget] = useState(null);
+  const [showFullMap, setShowFullMap] = useState(false);
+  const [activeCommand, setActiveCommand] = useState(null);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const [footerCollapsed, setFooterCollapsed] = useState(false);
 
-  if (!user) {
+  const { data: bookings = [], isLoading } = useQuery({
+    queryKey: ["my-vehicle-bookings", user?.email],
+    queryFn: () => base44.entities.BookingRequest.filter({ user_email: user.email }),
+    enabled: !!user?.email,
+    refetchInterval: 60_000,
+  });
+
+  const activeRentals = useMemo(() => bookings.filter(isOperationalRental).sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date)), [bookings]);
+
+  useEffect(() => {
+    if (!selectedBookingId && activeRentals[0]?.id) setSelectedBookingId(activeRentals[0].id);
+  }, [activeRentals, selectedBookingId]);
+
+  const booking = activeRentals.find((item) => item.id === selectedBookingId) || activeRentals[0];
+
+  const { data: vehicleList = [] } = useQuery({
+    queryKey: ["my-vehicle-record", booking?.vehicle_id],
+    queryFn: () => base44.entities.Vehicle.filter({ id: booking.vehicle_id }),
+    enabled: !!booking?.vehicle_id,
+    staleTime: 60_000,
+  });
+  const vehicle = vehicleList[0];
+
+  const { data: devices = [], refetch: refetchDevices } = useQuery({
+    queryKey: ["my-vehicle-device", booking?.vehicle_id],
+    queryFn: () => base44.entities.TelematicsDevice.filter({ vehicle_id: booking.vehicle_id }),
+    enabled: !!booking?.vehicle_id,
+    refetchInterval: 30_000,
+  });
+  const device = devices[0];
+  const gps = freshness(device);
+
+  const { data: communicationPreview = { threads: [] } } = useQuery({
+    queryKey: ["my-vehicle-communication-preview", booking?.id, booking?.vehicle_id],
+    queryFn: async () => {
+      const res = await base44.functions.invoke("searchCommunicationThreads", {
+        booking_request_id: booking.id,
+        vehicle_id: booking.vehicle_id,
+        limit: 3,
+      });
+      return res.data;
+    },
+    enabled: !!booking?.id,
+  });
+  const recentThread = communicationPreview.threads?.[0];
+
+  // Check if booking is still active (not returned yet)
+  const isBookingActive = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) && booking.payment_status === "paid" && !booking.rental_ended_at;
+  const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
+  const dropoffInspectionComplete = booking?.return_exterior_photos?.length > 0 || booking?.return_interior_photos?.length > 0;
+
+  if (!user) return <EmptyState title="Sign in to view your vehicle" text="Your Contactless360 remote appears here after login." action="Sign In" href="/account" />;
+  if (isLoading) return <LoadingState />;
+  
+  // Show completed rental state
+  if (booking && dropoffInspectionComplete) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
-        <p className="text-white">Please sign in</p>
-      </div>
+      <EmptyState 
+        title="Rental completed" 
+        text="Thank you for your rental! Your return inspection has been submitted." 
+        action="View My Bookings" 
+        href="/my-bookings" 
+      />
     );
   }
+  
+  if (!booking || !isBookingActive) return (
+    <EmptyState 
+      title="No active booking" 
+      text={booking ? "Your booking has ended or payment is due. Resolve any outstanding issues to regain access." : "Book a vehicle to unlock the Contactless360 remote experience."} 
+      action={booking ? "View My Bookings" : "Book Now"} 
+      href={booking ? "/my-bookings" : "/book-now"} 
+    />
+  );
+
+  const name = vehicleName(vehicle, booking);
+  const daysRemaining = booking.end_date ? Math.max(0, differenceInCalendarDays(new Date(`${booking.end_date}T23:59:59`), new Date())) : null;
+  const needsPayment = booking.payment_status !== "paid" || booking.starter_disabled || booking.moovetrax_kill_active;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4">
-      <h1 className="text-2xl font-bold text-white">My Vehicle Page</h1>
-      <p className="text-white/60">User: {user.email}</p>
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 pb-8">
+      {contractBooking && <ContractModal booking={contractBooking} onClose={() => setContractBooking(null)} />}
+      {inspectionTarget && <VehicleInspectionSheet booking={inspectionTarget.booking} type={inspectionTarget.type} onClose={() => setInspectionTarget(null)} onComplete={() => queryClient.invalidateQueries({ queryKey: ["my-vehicle-bookings", user?.email] })} />}
+
+      {/* Full Screen Map Modal */}
+      {showFullMap && (
+        <motion.div
+          initial={{ opacity: 0, y: "100%" }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: "100%" }}
+          className="fixed inset-0 z-50 bg-slate-950"
+        >
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between border-b border-white/10 bg-slate-900/80 backdrop-blur-xl p-4">
+              <div className="flex items-center gap-3">
+                <ContactlessLogo size="small" />
+                <span className="text-sm font-bold text-white">Live Vehicle Map</span>
+              </div>
+              <button onClick={() => setShowFullMap(false)} className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+                <ChevronDown className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1">
+              <FindMyVehicleMap booking={booking} />
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Header - Auto-Collapsing */}
+      <motion.header
+        initial={false}
+        animate={{ height: headerCollapsed ? 0 : "auto", opacity: headerCollapsed ? 0 : 1 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className="sticky top-0 z-40 overflow-hidden border-b border-white/10 bg-slate-950/80 backdrop-blur-xl"
+      >
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <ContactlessLogo />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Powered by</p>
+              <p className="text-xs font-black text-white">Vehicle Remote</p>
+            </div>
+          </div>
+          {activeRentals.length > 1 && (
+            <div className="relative">
+              <select
+                value={booking.id}
+                onChange={(e) => setSelectedBookingId(e.target.value)}
+                className="appearance-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white outline-none"
+              >
+                {activeRentals.map((item) => (
+                  <option key={item.id} value={item.id} className="bg-slate-900">
+                    {item.vehicle_name || item.vehicle_id}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-white/50" />
+            </div>
+          )}
+        </div>
+      </motion.header>
+
+      {/* Map Section - Top Half */}
+      <section className="relative h-[45vh] min-h-[320px] w-full overflow-hidden">
+        <FindMyVehicleMap booking={booking} compact />
+        
+        {/* Collapse Toggle Buttons */}
+        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+          <motion.button
+            onClick={() => setHeaderCollapsed(!headerCollapsed)}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/90 border border-white/20 text-white/80 backdrop-blur-xl shadow-lg hover:bg-slate-800 transition-colors"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${headerCollapsed ? "rotate-180" : ""}`} />
+          </motion.button>
+          <motion.button
+            onClick={() => setFooterCollapsed(!footerCollapsed)}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/90 border border-white/20 text-white/80 backdrop-blur-xl shadow-lg hover:bg-slate-800 transition-colors"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${footerCollapsed ? "rotate-180" : ""}`} />
+          </motion.button>
+        </div>
+
+        {/* Floating Vehicle Status Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute bottom-4 left-4 right-4"
+        >
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/90 backdrop-blur-xl shadow-2xl">
+            <div className="flex items-center justify-between p-3">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${gps.online ? "bg-emerald-500/20" : "bg-gray-500/20"}`}>
+                  {gps.online ? <Signal className="h-5 w-5 text-emerald-400" /> : <Signal className="h-5 w-5 text-gray-400" />}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">{name}</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold ${gps.online ? "text-emerald-400" : "text-gray-400"}`}>
+                      {gps.online ? "● Online" : "○ Offline"}
+                    </span>
+                    <span className="text-[10px] text-white/40">·</span>
+                    <span className="text-[10px] text-white/60">{gps.label}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFullMap(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20"
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                Full Map
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Controls Section - Bottom Half */}
+      <div className="px-4 pt-5">
+        {/* Primary Actions */}
+        <div className="mb-5">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/40">Remote Controls</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <ActionButton
+              icon={Lock}
+              label="Lock"
+              sub={pickupInspectionComplete ? "Secure vehicle" : "Complete pickup first"}
+              onClick={async () => {
+                if (!pickupInspectionComplete) {
+                  setInspectionTarget({ booking, type: "pickup" });
+                  return;
+                }
+                setActiveCommand("lock");
+                try {
+                  const { base44 } = await import("@/api/base44Client");
+                  const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
+                  const { toast } = await import("sonner");
+                  
+                  await TelematicsService.sendCommand({
+                    telematics_device_id: device?.id,
+                    vehicle_id: vehicle?.id,
+                    booking_id: booking?.id,
+                    command_type: "lock",
+                    source: "vehicle_command_center"
+                  });
+                  toast.success("Vehicle locked successfully");
+                  setTimeout(() => setActiveCommand(null), 2000);
+                  refetchDevices();
+                } catch (err) {
+                  console.error("Lock failed:", err);
+                  setActiveCommand(null);
+                }
+              }}
+              gradient="from-cyan-500 to-blue-500"
+              disabled={!isBookingActive || !!activeCommand || !pickupInspectionComplete || dropoffInspectionComplete}
+            />
+            <ActionButton
+              icon={Unlock}
+              label="Unlock"
+              sub={pickupInspectionComplete ? "Unlock vehicle" : "Complete pickup first"}
+              onClick={async () => {
+                if (!pickupInspectionComplete) {
+                  setInspectionTarget({ booking, type: "pickup" });
+                  return;
+                }
+                setActiveCommand("unlock");
+                try {
+                  const { base44 } = await import("@/api/base44Client");
+                  const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
+                  const { toast } = await import("sonner");
+                  
+                  await TelematicsService.sendCommand({
+                    telematics_device_id: device?.id,
+                    vehicle_id: vehicle?.id,
+                    booking_id: booking?.id,
+                    command_type: "unlock",
+                    source: "vehicle_command_center"
+                  });
+                  toast.success("Vehicle unlocked successfully");
+                  setTimeout(() => setActiveCommand(null), 2000);
+                  refetchDevices();
+                } catch (err) {
+                  console.error("Unlock failed:", err);
+                  setActiveCommand(null);
+                }
+              }}
+              gradient="from-emerald-500 to-teal-500"
+              disabled={!isBookingActive || !!activeCommand || !pickupInspectionComplete || dropoffInspectionComplete}
+            />
+            <ActionButton
+              icon={BellRing}
+              label="Find"
+              sub="Locate vehicle"
+              onClick={async () => {
+                setActiveCommand("find");
+                try {
+                  const { base44 } = await import("@/api/base44Client");
+                  const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
+                  const { toast } = await import("sonner");
+                  
+                  await TelematicsService.startAlarm({
+                    vehicle_id: vehicle?.id,
+                    telematics_device_id: device?.id
+                  });
+                  toast.success("Vehicle alarm activated!");
+                  if (vehicle?.vehicle_lat && vehicle?.vehicle_lon) {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${vehicle.vehicle_lat},${vehicle.vehicle_lon}`, "_blank");
+                  }
+                  setTimeout(() => setActiveCommand(null), 2000);
+                  refetchDevices();
+                } catch (err) {
+                  console.error("Find failed:", err);
+                  setActiveCommand(null);
+                }
+              }}
+              gradient="from-pink-500 to-rose-500"
+              disabled={!!activeCommand || !isBookingActive || dropoffInspectionComplete}
+            />
+          </div>
+        </div>
+
+        {/* End Rental CTA - Critical for stopping billing */}
+        {!dropoffInspectionComplete && isBookingActive && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5"
+          >
+            <button
+              onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
+              className="w-full relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-500 to-rose-600 p-4 shadow-2xl transition-all hover:shadow-lg active:scale-[0.98]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/10 pointer-events-none" />
+              <div className="relative flex flex-col items-center text-center">
+                <div className="flex items-center gap-2 mb-1">
+                  <Camera className="h-5 w-5 text-white" />
+                  <span className="text-base font-black text-white">End Your Rental</span>
+                </div>
+                <p className="text-xs font-semibold text-white/90">
+                  Complete return inspection to stop billing immediately
+                </p>
+              </div>
+            </button>
+          </motion.div>
+        )}
+
+        {/* Secondary Actions */}
+        <div className="mb-5">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/40">Vehicle Status</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <StatusCard
+              icon={Battery}
+              label="GPS Signal"
+              value={gps.label}
+              status={gps.online ? "good" : "poor"}
+            />
+            <StatusCard
+              icon={CalendarClock}
+              label="Rental Days"
+              value={dropoffInspectionComplete ? "Returned" : (daysRemaining !== null ? `${daysRemaining} left` : "Auto-renew")}
+              status={dropoffInspectionComplete ? "neutral" : "neutral"}
+            />
+          </div>
+        </div>
+
+        {/* Quick Links */}
+        <div className="mb-5">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/40">Rental Tools</h2>
+          <div className="space-y-2">
+            <LinkCard
+              to="/messages"
+              icon={MessageSquare}
+              label="Message Host"
+              sub={recentThread ? recentThread.subject : "Start a conversation"}
+              badge={recentThread ? "Recent" : null}
+            />
+            <LinkCard
+              to="/support"
+              icon={Wrench}
+              label="Support"
+              sub="Get help with your rental"
+            />
+            <LinkCard
+              to="/account"
+              icon={FileText}
+              label="Documents"
+              sub="View rental agreement"
+              disabled={!(booking?.contract_status === "signed" && booking?.contract_html)}
+            />
+          </div>
+        </div>
+
+        {/* Payment Alert */}
+        {needsPayment && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-500/10 to-red-500/5 p-4"
+          >
+            <p className="text-sm font-bold text-red-400">⚠️ Payment Required</p>
+            <p className="mt-1 text-xs text-red-300/80">Resolve payment to maintain vehicle access</p>
+            <Link
+              to={`/checkout?request=${booking.id}&step=payment`}
+              className="mt-3 flex w-full items-center justify-center rounded-xl bg-red-500 py-2.5 text-xs font-bold text-white hover:bg-red-600"
+            >
+              Pay Now
+            </Link>
+          </motion.div>
+        )}
+
+        {/* Footer Collapse Indicator */}
+        {footerCollapsed && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40"
+          >
+            <button
+              onClick={() => setFooterCollapsed(false)}
+              className="flex items-center gap-2 rounded-full bg-slate-900/90 border border-white/20 px-4 py-2 text-xs font-bold text-white backdrop-blur-xl shadow-lg hover:bg-slate-800 transition-colors"
+            >
+              <ChevronDown className="h-4 w-4 rotate-180" />
+              Show Menu
+            </button>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ContactlessLogo({ size = "default" }) {
+  const sizeClasses = size === "small" ? "h-6 w-6" : "h-8 w-8";
+  return (
+    <div className={`flex items-center gap-2 ${sizeClasses}`}>
+      <div className="relative flex h-full w-full items-center justify-center">
+        <div className="absolute inset-0 animate-pulse rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 blur-md" />
+        <div className="relative flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg">
+          <Signal className="h-3/5 w-3/5 text-white" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionButton({ icon: Icon, label, sub, onClick, gradient, disabled }) {
+  const [isPressed, setIsPressed] = useState(false);
+  
+  const handlePress = async () => {
+    if (disabled) return;
+    setIsPressed(true);
+    await onClick();
+    setTimeout(() => setIsPressed(false), 200);
+  };
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05, y: -2 }}
+      whileTap={{ scale: 0.92, y: 2 }}
+      animate={isPressed ? { scale: 0.92, y: 2 } : { scale: 1, y: 0 }}
+      onClick={handlePress}
+      disabled={disabled}
+      className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-4 shadow-2xl transition-all duration-200 ${
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-lg active:shadow-sm"
+      }`}
+      style={{
+        boxShadow: disabled
+          ? "none"
+          : isPressed
+          ? "inset 0 2px 8px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)"
+          : "0 8px 20px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)"
+      }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/10 pointer-events-none" />
+      <div className="absolute inset-0 bg-white/0 transition-all duration-300 group-hover:bg-white/15" />
+      {isPressed && (
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent pointer-events-none" />
+      )}
+      <div className="relative flex flex-col items-center">
+        <motion.div
+          animate={isPressed ? { scale: 0.9 } : { scale: 1 }}
+          transition={{ duration: 0.1 }}
+          className="mb-2 relative"
+        >
+          <Icon className={`h-6 w-6 text-white drop-shadow-lg ${isPressed ? "opacity-90" : ""}`} />
+          <div className="absolute -top-1 -left-1 w-3 h-3 bg-white/30 rounded-full blur-sm" />
+        </motion.div>
+        <span className="text-sm font-black text-white drop-shadow-md">{label}</span>
+        <span className="text-[10px] font-semibold text-white/80">{sub}</span>
+      </div>
+    </motion.button>
+  );
+}
+
+function StatusCard({ icon: Icon, label, value, status }) {
+  const statusColors = {
+    good: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 text-emerald-400",
+    poor: "from-red-500/20 to-red-500/5 border-red-500/30 text-red-400",
+    neutral: "from-blue-500/20 to-blue-500/5 border-blue-500/30 text-blue-400",
+  };
+
+  return (
+    <div className={`rounded-2xl border bg-gradient-to-br ${statusColors[status]} p-4 backdrop-blur-xl`}>
+      <div className="mb-2 flex items-center gap-2">
+        <Icon className="h-4 w-4" />
+        <span className="text-[10px] font-bold uppercase tracking-wider text-white/60">{label}</span>
+      </div>
+      <p className="text-sm font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function LinkCard({ to, icon: Icon, label, sub, badge, disabled }) {
+  return (
+    <Link
+      to={disabled ? "#" : to}
+      className={`group flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 transition-all ${
+        disabled ? "opacity-40" : "active:scale-[0.98] hover:bg-white/10"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+          <Icon className="h-5 w-5 text-cyan-400" />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-white">{label}</p>
+          <p className="text-xs text-white/50">{sub}</p>
+        </div>
+      </div>
+      {badge && (
+        <span className="rounded-full bg-cyan-500/20 px-2 py-1 text-[10px] font-bold text-cyan-400">
+          {badge}
+        </span>
+      )}
+      {!disabled && <ChevronDown className="h-4 w-4 -rotate-90 text-white/30" />}
+    </Link>
+  );
+}
+
+function EmptyState({ title, text, action, href }) {
+  return (
+    <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
+        <Signal className="h-9 w-9 text-cyan-400" />
+      </div>
+      <h1 className="text-2xl font-black text-white">{title}</h1>
+      <p className="mt-2 max-w-xs text-sm text-white/50">{text}</p>
+      <Link
+        to={href}
+        className="mt-6 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg"
+      >
+        {action}
+      </Link>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950">
+      <div className="relative flex h-16 w-16 items-center justify-center">
+        <div className="absolute inset-0 animate-ping rounded-full bg-cyan-500/30" />
+        <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600">
+          <Signal className="h-6 w-6 text-white" />
+        </div>
+      </div>
+      <p className="mt-4 text-sm font-bold text-white/60">Connecting to vehicle...</p>
     </div>
   );
 }
