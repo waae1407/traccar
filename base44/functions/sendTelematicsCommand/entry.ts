@@ -487,7 +487,10 @@ Deno.serve(async (req) => {
       if (device.vehicle_id) {
         try { vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || null; } catch { vehicle = null; }
       }
-      if (!vehicle) return Response.json({ error: 'Vehicle not found for this device.' }, { status: 404 });
+      if (!vehicle) {
+        console.log(`[DEBUG] No vehicle found for device ${device.id} with vehicle_id ${device.vehicle_id}`);
+        return Response.json({ error: 'Vehicle not found for this device.' }, { status: 404 });
+      }
     }
     if (installerInstallTest && body.vin) {
       vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ vin: String(body.vin || '').trim().toUpperCase() }))[0] || null;
@@ -520,6 +523,7 @@ Deno.serve(async (req) => {
       if (STARTER_COMMANDS.includes(commandType) && (provider.supports_starter_disable === false || provider.supports_starter_restore === false)) return Response.json({ error: 'Provider does not support installer starter tests for this device.' }, { status: 403 });
     } else if (!adminDeviceCommandTest) {
       const accessError = await validateAccess(base44, user, vehicle, booking, commandType, provider, device);
+      console.log(`[DEBUG] validateAccess result for user=${user.email} role=${user.role} command=${commandType}: ${accessError || 'ALLOWED'}`);
       if (accessError) return Response.json({ error: accessError }, { status: 403 });
     }
     if (STARTER_COMMANDS.includes(commandType) && !adminDeviceCommandTest && !installerInstallTest) {

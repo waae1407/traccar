@@ -55,6 +55,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
   progress.startOptimistic(commandType);
 
   try {
+    console.log(`[SEND_CMD] Sending ${commandType} device=${device?.id} vehicle=${vehicle?.id}`);
     const res = await TelematicsService.sendCommand({
       telematics_device_id: device?.id,
       vehicle_id: vehicle?.id,
@@ -65,14 +66,16 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
       confirm_starter_command: !!starter
     });
 
-      const data = res.data;
-      const cmdId = data?.command_id || data?.id;
-      // API returned = gate hold is done, now poll for ACK
-      progress.transitionToPolling(commandType, cmdId);
-      await onCommand?.(data);
-    } catch {
-      progress.reset();
-    }
+    console.log(`[SEND_CMD] Response:`, res.data);
+    const data = res.data;
+    const cmdId = data?.command_id || data?.id;
+    // API returned = gate hold is done, now poll for ACK
+    progress.transitionToPolling(commandType, cmdId);
+    await onCommand?.(data);
+  } catch (err) {
+    console.error(`[SEND_CMD] Error:`, err);
+    progress.reset();
+  }
   };
 
   return (
