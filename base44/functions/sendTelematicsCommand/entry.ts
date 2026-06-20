@@ -472,18 +472,31 @@ Deno.serve(async (req) => {
 
     const adminTraccarLiveTest = body.admin_traccar_live_test === true;
     const adminDeviceCommandTest = body.admin_device_command_test === true;
-    let { vehicle, booking } = (adminTraccarLiveTest || adminDeviceCommandTest || installerInstallTest) ? { vehicle: null, booking: null } : await resolveVehicle(base44, body);
-    if (installerInstallTest && body.vin) {
-      vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ vin: String(body.vin || '').trim().toUpperCase() }))[0] || null;
-    }
-    if (!vehicle && !adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest) return Response.json({ error: 'Vehicle not found' }, { status: 404 });
+    
+    // ── DIRECT DEVICE LOOKUP (NO RESOLUTION OVERHEAD) ──
+    // When telematics_device_id is provided, skip all vehicle/device resolution
     let device = null;
     if (body.telematics_device_id) {
       try { device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] || null; } catch { device = null; }
     }
     if (!device && body.unique_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: body.unique_id }))[0];
-    if (!device && vehicle) device = await resolveDevice(base44, vehicle);
-    if (!device) return Response.json({ error: 'No telematics device is assigned to this vehicle.' }, { status: 404 });
+    if (!device) return Response.json({ error: 'No telematics device found.' }, { status: 404 });
+    
+    // Resolve vehicle only if needed for validation (after device is confirmed)
+    let vehicle = null;
+    let booking = null;
+    if (!adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest) {
+      if (device.vehicle_id) {
+        try { vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || null; } catch { vehicle = null; }
+      }
+      if (body.booking_id) {
+        try { booking = (await base44.asServiceRole.entities.BookingRequest.filter({ id: body.booking_id }))[0] || null; } catch { booking = null; }
+      }
+      if (!vehicle) return Response.json({ error: 'Vehicle not found for this device.' }, { status: 404 });
+    }
+    if (installerInstallTest && body.vin) {
+      vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ vin: String(body.vin || '').trim().toUpperCase() }))[0] || null;
+    }
     if (adminDeviceCommandTest && user.role !== 'admin') return Response.json({ error: 'Admin access required for device command testing.' }, { status: 403 });
     if ((adminDeviceCommandTest || installerInstallTest) && device.vehicle_id) {
       vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || vehicle;
