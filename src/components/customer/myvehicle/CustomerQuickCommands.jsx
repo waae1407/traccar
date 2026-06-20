@@ -27,7 +27,6 @@ export default function CustomerQuickCommands({ booking, vehicle, device, onComp
     : null;
 
   const send = async (commandType) => {
-    console.log('[CustomerQuickCommands] Sending command:', commandType);
     progress.startOptimistic(commandType);
     try {
       const response = await TelematicsService.sendCommand({
@@ -36,18 +35,14 @@ export default function CustomerQuickCommands({ booking, vehicle, device, onComp
         command_type: commandType,
         source: "customer_my_vehicle",
       });
-      console.log('[CustomerQuickCommands] Response:', response.data);
       const cmdId = response.data?.command_id || response.data?.id;
-      console.log('[CustomerQuickCommands] Command ID:', cmdId);
       if (cmdId) {
         progress.transitionToPolling(commandType, cmdId);
+        await onComplete?.();
       } else {
-        // No command ID means it failed silently
         progress.reset();
       }
-      await onComplete?.();
     } catch (error) {
-      console.error('[CustomerQuickCommands] Error:', error);
       progress.reset();
     }
   };
