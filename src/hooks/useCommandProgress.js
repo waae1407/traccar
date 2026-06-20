@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 
 // 3-state phases: contacting → vehicle_responding → success/failed
 export const PHASES = {
-  idle: null,
+  idle: "idle",
   contacting: "contacting",           // gate hold — waiting for fresh heartbeat
   vehicle_responding: "vehicle_responding",  // command sent, waiting for device ACK
   success: "success",                 // acknowledged / executed
@@ -70,14 +70,14 @@ export function useCommandProgress() {
         if (!rec) return;
         const qs = rec.queue_status || rec.status;
         if (SUCCESS_STATUSES.has(qs)) {
-          clearAll();
           advancePhase(PHASES.success);
+          clearAll();
           return;
         }
         if (FAIL_STATUSES.has(qs)) {
-          clearAll();
           setErrorMessage(rec.failure_reason || "Vehicle didn't respond");
           advancePhase(PHASES.failed);
+          clearAll();
           return;
         }
         if (SENDING_STATUSES.has(qs)) {
