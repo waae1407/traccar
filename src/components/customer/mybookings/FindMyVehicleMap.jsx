@@ -62,12 +62,39 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
           background: "#0a0a0a"
         }}
       />
-      {/* Vehicle marker overlay - white circular pin */}
+      {/* Vehicle marker overlay - teardrop pin with blue glow at base */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative">
-          {/* White circular pin */}
-          <div className="relative h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-lg">
-            <Car className="h-5 w-5 text-[#2997ff]" />
+          {/* Blue neon glow at base of pin */}
+          <div 
+            className="absolute"
+            style={{ 
+              width: '48px', 
+              height: '48px', 
+              marginLeft: '-24px', 
+              marginTop: '-12px',
+              background: "radial-gradient(ellipse at center bottom, rgba(46,104,255,0.6) 0%, rgba(46,104,255,0.2) 40%, transparent 70%)",
+              filter: "blur(8px)"
+            }} 
+          />
+          {/* Black teardrop pin with white border */}
+          <div className="relative" style={{ width: '32px', height: '44px' }}>
+            <svg viewBox="0 0 32 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* White border/stroke */}
+              <path 
+                d="M16 0C7.163 0 0 7.163 0 16C0 26.4 16 44 16 44C16 44 32 26.4 32 16C32 7.163 24.837 0 16 0Z" 
+                fill="#000000" 
+                stroke="#FFFFFF" 
+                strokeWidth="2.5"
+              />
+              {/* White car icon - frontal view */}
+              <path 
+                d="M8 18C8 18 9 16 12 16H20C23 16 24 18 24 18V24C24 24 23 26 20 26H12C9 26 8 24 8 24V18Z" 
+                fill="#FFFFFF"
+              />
+              <rect x="10" y="20" width="3" height="2" fill="#000000" />
+              <rect x="19" y="20" width="3" height="2" fill="#000000" />
+            </svg>
           </div>
         </div>
       </div>
