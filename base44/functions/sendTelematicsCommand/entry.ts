@@ -456,7 +456,7 @@ Deno.serve(async (req) => {
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
     const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
     const liveNoranInstallerTest = installerInstallTest && canSendInstallerNoranStarterTest(provider, device, commandType);
-    const isProductionCommand = liveNoranProduction || liveNoranInstallerTest;
+    const isProductionCommand = liveNoranProduction || liveNoranInstallerTest || body.source === 'vehicle_command_center' || body.source === 'contactless360_remote';
     if (!isProductionCommand) {
       device = await ensureFreshTraccarDeviceId(base44, device);
     }
@@ -566,7 +566,7 @@ Deno.serve(async (req) => {
 
     let heartbeatFreshness = null;
     const isLiveNoran = device.provider_key === 'traccar_noran_mt20' && (liveNoranProduction || adminDeviceCommandTest || adminTraccarLiveTest || liveNoranInstallerTest);
-    const skipFreshnessCheck = !!body.alarm_session_id;
+    const skipFreshnessCheck = !!body.alarm_session_id || body.source === 'vehicle_command_center' || body.source === 'contactless360_remote';
 
     if (isLiveNoran && !skipFreshnessCheck) {
       heartbeatFreshness = await ensureFreshHeartbeat(base44, device.id);
