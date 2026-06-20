@@ -235,18 +235,18 @@ export default function MyVehicle() {
           <button
             onClick={() => handleCommand("lock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
-            className={`aspect-square rounded-2xl flex flex-col items-center justify-center transition-all border ${
+            className={`aspect-square rounded-3xl flex flex-col items-center justify-center transition-all border ${
               !pickupInspectionComplete || dropoffInspectionComplete
                 ? "bg-[#1c1c1e] border-[#2c2c2e] opacity-40"
                 : "bg-[#1c1c1e] border-[#2c2c2e] active:scale-95"
             }`}
           >
-            {/* Padlock - closed */}
-            <svg className="mb-2" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="7" y="15" width="18" height="14" rx="3" fill="#9a9a9a"/>
-              <path d="M11 15V11C11 7.686 12.686 6 16 6C19.314 6 21 7.686 21 11V15" stroke="#9a9a9a" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <rect x="14" y="20" width="4" height="4" rx="2" fill="#1c1c1e"/>
-              <line x1="16" y1="22" x2="16" y2="26" stroke="#1c1c1e" strokeWidth="2" strokeLinecap="round"/>
+            {/* Lock icon - closed padlock, shackle centered */}
+            <svg className="mb-1.5" width="30" height="32" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="16" width="22" height="16" rx="4" fill="#8e8e93"/>
+              <path d="M9 16V11C9 7.134 11.686 4 15 4C18.314 4 21 7.134 21 11V16" stroke="#8e8e93" strokeWidth="3" strokeLinecap="round" fill="none"/>
+              <rect x="12.5" y="21" width="5" height="4" rx="2.5" fill="#1c1c1e"/>
+              <line x1="15" y1="24" x2="15" y2="28" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round"/>
             </svg>
             <p className="text-xs font-semibold text-white text-center leading-tight">Lock</p>
             <p className="text-[10px] text-gray-500 text-center leading-tight mt-0.5">Doors</p>
@@ -256,69 +256,71 @@ export default function MyVehicle() {
           <button
             onClick={() => handleCommand("unlock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
-            className={`aspect-square rounded-2xl flex flex-col items-center justify-center transition-all border ${
+            className={`aspect-square rounded-3xl flex flex-col items-center justify-center transition-all border ${
               !pickupInspectionComplete || dropoffInspectionComplete
                 ? "bg-[#1c1c1e] border-[#2c2c2e] opacity-40"
                 : "bg-[#1c1c1e] border-[#2c2c2e] active:scale-95"
             }`}
           >
-            {/* Padlock - open (shackle open to right) */}
-            <svg className="mb-2" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="7" y="15" width="18" height="14" rx="3" fill="#9a9a9a"/>
-              <path d="M11 15V11C11 7.686 12.686 6 16 6C19.314 6 21 7.686 21 11V8" stroke="#9a9a9a" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <rect x="14" y="19" width="4" height="4" rx="2" fill="#1c1c1e"/>
-              <line x1="16" y1="22" x2="16" y2="26" stroke="#1c1c1e" strokeWidth="2" strokeLinecap="round"/>
+            {/* Unlock icon - shackle swings open to the RIGHT/outside */}
+            <svg className="mb-1.5" width="30" height="32" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="16" width="22" height="16" rx="4" fill="#8e8e93"/>
+              {/* Shackle open - right side lifts UP and OUT to the right */}
+              <path d="M9 16V11C9 7.134 11.686 4 15 4C18.314 4 21 7.134 21 11" stroke="#8e8e93" strokeWidth="3" strokeLinecap="round" fill="none"/>
+              <path d="M21 11V7" stroke="#8e8e93" strokeWidth="3" strokeLinecap="round"/>
+              <rect x="12.5" y="21" width="5" height="4" rx="2.5" fill="#1c1c1e"/>
+              <line x1="15" y1="24" x2="15" y2="28" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round"/>
             </svg>
             <p className="text-xs font-semibold text-white text-center leading-tight">Unlock</p>
             <p className="text-[10px] text-gray-500 text-center leading-tight mt-0.5">Doors</p>
           </button>
 
-          {/* Climate */}
-          <button className="aspect-square rounded-2xl flex flex-col items-center justify-center bg-[#1c1c1e] border border-[#2c2c2e] opacity-40">
-            {/* Fan / flower shape */}
-            <svg className="mb-2" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="3" fill="#9a9a9a"/>
-              <path d="M16 13C16 13 14 8 10 8C8 8 7 10 8 12C9 14 13 14 13 14" stroke="#9a9a9a" strokeWidth="2" strokeLinecap="round" fill="none"/>
-              <path d="M19 16C19 16 24 14 24 10C24 8 22 7 20 8C18 9 18 13 18 13" stroke="#9a9a9a" strokeWidth="2" strokeLinecap="round" fill="none"/>
-              <path d="M16 19C16 19 18 24 22 24C24 24 25 22 24 20C23 18 19 18 19 18" stroke="#9a9a9a" strokeWidth="2" strokeLinecap="round" fill="none"/>
-              <path d="M13 16C13 16 8 18 8 22C8 24 10 25 12 24C14 23 14 19 14 19" stroke="#9a9a9a" strokeWidth="2" strokeLinecap="round" fill="none"/>
+          {/* Climate - ⌘ command/clover symbol like reference */}
+          <button className="aspect-square rounded-3xl flex flex-col items-center justify-center bg-[#1c1c1e] border border-[#2c2c2e] opacity-40">
+            <svg className="mb-1.5" width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Command symbol / clover ⌘ */}
+              <path d="M10 10H20M10 20H20M10 10V20M20 10V20" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              <circle cx="7" cy="7" r="3" stroke="#8e8e93" strokeWidth="2.5" fill="none"/>
+              <circle cx="23" cy="7" r="3" stroke="#8e8e93" strokeWidth="2.5" fill="none"/>
+              <circle cx="7" cy="23" r="3" stroke="#8e8e93" strokeWidth="2.5" fill="none"/>
+              <circle cx="23" cy="23" r="3" stroke="#8e8e93" strokeWidth="2.5" fill="none"/>
             </svg>
             <p className="text-xs font-semibold text-gray-400 text-center leading-tight">Climate</p>
             <p className="text-[10px] text-gray-500 text-center leading-tight mt-0.5">Off</p>
           </button>
 
-          {/* Find Vehicle - trumpet/horn with neon blue glow */}
+          {/* Find Vehicle - speaker with sound waves (like reference), clean neon blue border */}
           <button
             onClick={() => handleCommand("find")}
             disabled={!!commandLoading || !isBookingActive || dropoffInspectionComplete}
-            className={`aspect-square rounded-2xl flex flex-col items-center justify-center transition-all border-2 ${
+            className={`aspect-square rounded-3xl flex flex-col items-center justify-center transition-all border-2 ${
               !isBookingActive || dropoffInspectionComplete
                 ? "bg-[#1c1c1e] border-[#2c2c2e] opacity-40"
-                : "bg-[#1c1c1e] border-[#2997ff] active:scale-95"
+                : "bg-[#1c1c1e] border-[#0a84ff] active:scale-95"
             }`}
             style={!isBookingActive || dropoffInspectionComplete ? {} : {
-              boxShadow: "0 0 0 2px rgba(41,151,255,0.15), 0 0 20px rgba(41,151,255,0.5), 0 0 40px rgba(41,151,255,0.25), inset 0 0 30px rgba(41,151,255,0.08)"
+              boxShadow: "0 0 12px rgba(10,132,255,0.4), 0 0 24px rgba(10,132,255,0.15)"
             }}
           >
-            {/* Trumpet / horn icon matching reference exactly */}
+            {/* Speaker with sound waves - matches reference exactly */}
             <svg
-              className="mb-2"
-              width="36"
-              height="30"
-              viewBox="0 0 36 30"
+              className="mb-1.5"
+              width="34"
+              height="28"
+              viewBox="0 0 34 28"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              style={{ filter: (!isBookingActive || dropoffInspectionComplete) ? "none" : "drop-shadow(0 0 10px rgba(41,151,255,0.9))" }}
             >
-              {/* Horn body - solid filled shape */}
-              <path d="M2 11H10L20 5V25L10 19H2V11Z" fill="#2997ff"/>
-              {/* Bell flare */}
-              <path d="M20 7C20 7 28 10 28 15C28 20 20 23 20 23" stroke="#2997ff" strokeWidth="3" strokeLinecap="round" fill="none"/>
-              {/* Sound waves - 3 horizontal curved lines */}
-              <path d="M30 8C32 10 33 12 33 15C33 18 32 20 30 22" stroke="#2997ff" strokeWidth="3" strokeLinecap="round" fill="none"/>
-              <path d="M34 6C37 9 38 12 38 15C38 18 37 21 34 24" stroke="#2997ff" strokeWidth="3" strokeLinecap="round" fill="none"/>
+              {/* Speaker body - triangle/wedge */}
+              <path d="M3 9H9L17 3V25L9 19H3V9Z" fill="#0a84ff"/>
+              {/* Sound wave 1 - small */}
+              <path d="M20 10C21.5 11.5 22 13 22 14C22 15 21.5 16.5 20 18" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              {/* Sound wave 2 - medium */}
+              <path d="M23.5 7C26 9.5 27 11.5 27 14C27 16.5 26 18.5 23.5 21" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              {/* Sound wave 3 - large */}
+              <path d="M27 4.5C30.5 7.5 32 10.5 32 14C32 17.5 30.5 20.5 27 23.5" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
             </svg>
-            <p className="text-xs font-semibold text-white text-center leading-tight">Find Vehicle</p>
+            <p className="text-xs font-bold text-white text-center leading-tight">Find Vehicle</p>
             <p className="text-[10px] text-gray-400 text-center leading-tight mt-0.5">Flash &amp; Honk</p>
           </button>
         </div>
