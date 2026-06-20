@@ -36,33 +36,34 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
   const isBusy = progress.phase && progress.phase !== PHASES.idle && progress.phase !== PHASES.success && progress.phase !== PHASES.failed;
 
   const send = async (commandType, starter = false) => {
-    if (commandType === "alarm_pulse") {
-      progress.startOptimistic(commandType);
-      try {
-        const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id });
-        await onCommand?.(res.data);
-        progress.reset();
-      } catch {
-        progress.reset();
-      }
-      return;
-    }
-
-    const reason = starter ? window.prompt("Reason for starter command") : "";
-    if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
-
-    // Show "Reaching your vehicle…" immediately — gate hold happens server-side
+  if (commandType === "alarm_pulse") {
     progress.startOptimistic(commandType);
-
     try {
-      const res = await TelematicsService.sendCommand({
-        vehicle_id: vehicle?.id,
-        booking_id: booking?.id || "",
-        command_type: commandType,
-        source: "vehicle_command_center",
-        reason,
-        confirm_starter_command: !!starter
-      });
+      const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device?.id });
+      await onCommand?.(res.data);
+      progress.reset();
+    } catch {
+      progress.reset();
+    }
+    return;
+  }
+
+  const reason = starter ? window.prompt("Reason for starter command") : "";
+  if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
+
+  // Show "Reaching your vehicle…" immediately — gate hold happens server-side
+  progress.startOptimistic(commandType);
+
+  try {
+    const res = await TelematicsService.sendCommand({
+      telematics_device_id: device?.id,
+      vehicle_id: vehicle?.id,
+      booking_id: booking?.id || "",
+      command_type: commandType,
+      source: "vehicle_command_center",
+      reason,
+      confirm_starter_command: !!starter
+    });
 
       const data = res.data;
       const cmdId = data?.command_id || data?.id;
