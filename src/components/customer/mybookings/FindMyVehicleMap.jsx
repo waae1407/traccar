@@ -58,29 +58,45 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
         src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
         className="absolute inset-0"
         style={{ 
-          filter: "invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)",
-          background: "#1a1a1a"
+          filter: "invert(92%) hue-rotate(180deg) brightness(90%) contrast(95%) saturate(0.8)",
+          background: "#0a0a0a"
         }}
       />
-      {/* Vehicle marker overlay - white car in blue glowing circle */}
+      {/* Vehicle marker overlay - teardrop pin with blue glow */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative">
-          {/* Blue glow effect */}
+          {/* Cyan-blue glow radiating from behind */}
           <div 
-            className="absolute rounded-full opacity-70"
+            className="absolute rounded-full"
             style={{ 
-              width: '64px', 
-              height: '64px', 
-              marginLeft: '-32px', 
-              marginTop: '-32px',
-              background: "radial-gradient(circle, rgba(41,151,255,0.6) 0%, rgba(41,151,255,0.2) 60%, transparent 70%)",
-              filter: "blur(8px)"
+              width: '72px', 
+              height: '72px', 
+              marginLeft: '-36px', 
+              marginTop: '-36px',
+              background: "radial-gradient(circle, rgba(41,151,255,0.5) 0%, rgba(41,151,255,0.15) 50%, transparent 70%)",
+              filter: "blur(12px)"
             }} 
           />
-          {/* White circular pin */}
-          <div className="relative h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-lg"
-            style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.3), 0 0 0 3px rgba(41,151,255,0.4)" }}>
-            <Car className="h-5 w-5 text-[#2997ff]" style={{ transform: "rotate(-15deg)" }} />
+          {/* White teardrop-shaped pin */}
+          <div className="relative flex flex-col items-center">
+            {/* Pin body */}
+            <div 
+              className="h-11 w-11 rounded-full bg-white flex items-center justify-center shadow-xl"
+              style={{ 
+                boxShadow: "0 4px 16px rgba(0,0,0,0.35), 0 0 0 4px rgba(41,151,255,0.35)",
+                clipPath: "ellipse(50% 50% at 50% 50%)"
+              }}
+            >
+              <Car className="h-6 w-6 text-[#2997ff]" style={{ transform: "rotate(-12deg)" }} />
+            </div>
+            {/* Pin point */}
+            <div 
+              className="w-2 h-2 -mt-1"
+              style={{ 
+                background: "rgba(41,151,255,0.6)",
+                clipPath: "polygon(50% 100%, 0% 0%, 100% 0%)"
+              }}
+            />
           </div>
         </div>
       </div>

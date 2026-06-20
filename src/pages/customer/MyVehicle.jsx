@@ -161,12 +161,15 @@ export default function MyVehicle() {
           </div>
 
           {/* Right Side - Vehicle Image (no card, no background) */}
-          <div className="w-[160px] h-24 flex-shrink-0 flex items-end justify-end">
+          <div className="w-[180px] h-28 flex-shrink-0 flex items-end justify-end -mt-2">
             <img 
               src={vehicle?.image_url || "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg"} 
               alt={name} 
-              className="w-full h-full object-contain drop-shadow-2xl"
-              style={{ transform: "rotate(-2deg)" }}
+              className="w-full h-full object-contain"
+              style={{ 
+                filter: "drop-shadow(0 8px 24px rgba(0,0,0,0.4))",
+                transform: "perspective(800px) rotateY(-8deg) rotateX(5deg)"
+              }}
             />
           </div>
         </div>
@@ -183,8 +186,8 @@ export default function MyVehicle() {
                 <p className="text-[10px] text-gray-500">Stevenson Ranch, CA 91381 · Updated just now</p>
               </div>
             </div>
-            <button className="h-7 w-7 rounded-full bg-[#262626] flex items-center justify-center">
-              <Navigation className="h-3.5 w-3.5 text-white" />
+            <button className="h-8 w-8 rounded-lg bg-[#2997ff] flex items-center justify-center">
+              <Navigation className="h-4 w-4 text-white" style={{ transform: "rotate(45deg)" }} />
             </button>
           </div>
           <div className="h-48">
@@ -265,10 +268,10 @@ export default function MyVehicle() {
             className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !isBookingActive || dropoffInspectionComplete
                 ? "bg-[#1c1c1e] border-[#262626] opacity-50"
-                : "bg-[#1c1c1e] border-blue-500/40 active:scale-95"
+                : "bg-[#1c1c1e] border-[#2997ff] active:scale-95"
             }`}
           >
-            <BellRing className="h-5 w-5 mb-1.5 text-white" />
+            <BellRing className="h-5 w-5 mb-1.5 text-[#2997ff]" />
             <p className="text-xs font-semibold text-white">Find Vehicle</p>
             <p className="text-[10px] text-gray-500 mt-0.5">Flash & Honk</p>
           </button>
@@ -281,11 +284,11 @@ export default function MyVehicle() {
         <div className="px-4 py-3">
           <button
             onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
-            className="w-full rounded-2xl bg-[#4a1a1a] border border-red-900/60 p-4 active:scale-98"
+            className="w-full rounded-2xl bg-[#1c1c1e] border border-[#ff3b30]/40 p-4 active:scale-98"
           >
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-red-900/30 flex items-center justify-center">
-                <Camera className="h-4 w-4 text-red-400" />
+              <div className="h-9 w-9 rounded-full bg-[#ff3b30]/20 flex items-center justify-center">
+                <Camera className="h-4 w-4 text-[#ff3b30]" />
               </div>
               <div className="text-left flex-1">
                 <p className="text-sm font-bold text-white">End Your Rental</p>
