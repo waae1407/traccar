@@ -231,52 +231,67 @@ export default function MyVehicle() {
       <div className="px-4 py-3">
         <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Remote Controls</p>
         <div className="grid grid-cols-4 gap-2">
+          {/* Lock */}
           <button
             onClick={() => handleCommand("lock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
             className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !pickupInspectionComplete || dropoffInspectionComplete
-                ? "bg-[#161618] border-[#262626] opacity-50"
-                : "bg-[#161618] border-[#262626] active:scale-95"
+                ? "bg-[#1a1a1a] border-[#2a2a2a] opacity-50"
+                : "bg-[#1a1a1a] border-[#2a2a2a] active:scale-95"
             }`}
           >
-            <Lock className="h-6 w-6 mb-2 text-white" />
+            <Lock className="h-7 w-7 mb-2 text-white" strokeWidth={2.5} />
             <p className="text-xs font-semibold text-white text-center">Lock</p>
-            <p className="text-[10px] text-gray-400 text-center">Doors</p>
+            <p className="text-[10px] text-gray-500 text-center">Doors</p>
           </button>
+          {/* Unlock */}
           <button
             onClick={() => handleCommand("unlock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
             className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !pickupInspectionComplete || dropoffInspectionComplete
-                ? "bg-[#161618] border-[#262626] opacity-50"
-                : "bg-[#161618] border-[#262626] active:scale-95"
+                ? "bg-[#1a1a1a] border-[#2a2a2a] opacity-50"
+                : "bg-[#1a1a1a] border-[#2a2a2a] active:scale-95"
             }`}
           >
-            <Unlock className="h-6 w-6 mb-2 text-white" />
+            <Unlock className="h-7 w-7 mb-2 text-white" strokeWidth={2.5} />
             <p className="text-xs font-semibold text-white text-center">Unlock</p>
-            <p className="text-[10px] text-gray-400 text-center">Doors</p>
+            <p className="text-[10px] text-gray-500 text-center">Doors</p>
           </button>
-          <button className="aspect-square rounded-xl flex flex-col items-center justify-center bg-[#161618] border border-[#262626] opacity-50">
-            <Fan className="h-6 w-6 mb-2 text-gray-500" />
+          {/* Climate */}
+          <button className="aspect-square rounded-xl flex flex-col items-center justify-center bg-[#1a1a1a] border border-[#2a2a2a] opacity-50">
+            <Fan className="h-7 w-7 mb-2 text-gray-500" strokeWidth={2.5} />
             <p className="text-xs font-semibold text-gray-500 text-center">Climate</p>
-            <p className="text-[10px] text-gray-400 text-center">Off</p>
+            <p className="text-[10px] text-gray-500 text-center">Off</p>
           </button>
+          {/* Find Vehicle - Active with neon glow */}
           <button
             onClick={() => handleCommand("find")}
             disabled={!!commandLoading || !isBookingActive || dropoffInspectionComplete}
             className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !isBookingActive || dropoffInspectionComplete
-                ? "bg-[#161618] border-[#262626] opacity-50"
-                : "bg-[#161618] border-[#2997ff] active:scale-95"
+                ? "bg-[#1a1a1a] border-[#2a2a2a] opacity-50"
+                : "bg-[#1a1a1a] border-[#007aff] active:scale-95"
             }`}
+            style={!isBookingActive || dropoffInspectionComplete ? {} : {
+              boxShadow: "0 0 20px rgba(0,122,255,0.4), 0 0 40px rgba(0,122,255,0.2), inset 0 0 20px rgba(0,122,255,0.05)"
+            }}
           >
-            <BellRing className="h-6 w-6 mb-2 text-[#2997ff]" />
+            <div className="relative mb-2">
+              <BellRing 
+                className="h-7 w-7 text-[#007aff]" 
+                strokeWidth={2.5}
+                style={{ 
+                  filter: "drop-shadow(0 0 8px rgba(0,122,255,0.6))",
+                }}
+              />
+            </div>
             <p className="text-xs font-semibold text-white text-center">Find Vehicle</p>
-            <p className="text-[10px] text-gray-400 text-center">Flash & Honk</p>
+            <p className="text-[10px] text-gray-500 text-center">Flash & Honk</p>
           </button>
         </div>
-        <p className="text-[10px] text-gray-400 text-center mt-3">Lock and unlock available after pickup</p>
+        <p className="text-[10px] text-gray-500 text-center mt-3">Lock and unlock available after pickup</p>
       </div>
 
       {/* End Rental Card */}
