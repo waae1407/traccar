@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { differenceInMinutes, format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { MapPin, MessageSquare, Lock, Unlock, Fan, BellRing, Camera, Clock, Gauge, Fuel, CheckCircle, Navigation, ChevronRight, Signal, Battery, Thermometer, Car, Calendar, Mail, AlertCircle, User } from "lucide-react";
+import { MapPin, MessageSquare, Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, AlertCircle, User } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
@@ -230,97 +230,82 @@ export default function MyVehicle() {
       {/* Remote Controls */}
       <div className="px-4 py-3">
         <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Remote Controls</p>
-        <div className="grid grid-cols-4 gap-2">
-          {/* Lock */}
+        <div className="grid grid-cols-4 gap-3">
+          {/* LOCK - Lucide Lock icon, gray, disabled state */}
           <button
             onClick={() => handleCommand("lock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
-            className={`aspect-square rounded-3xl flex flex-col items-center justify-center transition-all border ${
+            className={`aspect-square rounded-[22px] flex flex-col items-center justify-center gap-2 transition-all active:scale-95 ${
               !pickupInspectionComplete || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] border-[#2c2c2e] opacity-40"
-                : "bg-[#1c1c1e] border-[#2c2c2e] active:scale-95"
+                ? "bg-[#1c1c1e] opacity-50"
+                : "bg-[#1c1c1e]"
             }`}
           >
-            {/* Lock icon - closed padlock, shackle centered */}
-            <svg className="mb-1.5" width="30" height="32" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="16" width="22" height="16" rx="4" fill="#8e8e93"/>
-              <path d="M9 16V11C9 7.134 11.686 4 15 4C18.314 4 21 7.134 21 11V16" stroke="#8e8e93" strokeWidth="3" strokeLinecap="round" fill="none"/>
-              <rect x="12.5" y="21" width="5" height="4" rx="2.5" fill="#1c1c1e"/>
-              <line x1="15" y1="24" x2="15" y2="28" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-            <p className="text-xs font-semibold text-white text-center leading-tight">Lock</p>
-            <p className="text-[10px] text-gray-500 text-center leading-tight mt-0.5">Doors</p>
+            <Lock className="w-7 h-7 text-[#8e8e93]" strokeWidth={1.8} />
+            <div className="text-center">
+              <p className="text-[13px] font-semibold text-white leading-tight">Lock</p>
+              <p className="text-[11px] text-[#8e8e93] leading-tight">Doors</p>
+            </div>
           </button>
 
-          {/* Unlock */}
+          {/* UNLOCK - Lucide Unlock icon, gray */}
           <button
             onClick={() => handleCommand("unlock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
-            className={`aspect-square rounded-3xl flex flex-col items-center justify-center transition-all border ${
+            className={`aspect-square rounded-[22px] flex flex-col items-center justify-center gap-2 transition-all active:scale-95 ${
               !pickupInspectionComplete || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] border-[#2c2c2e] opacity-40"
-                : "bg-[#1c1c1e] border-[#2c2c2e] active:scale-95"
+                ? "bg-[#1c1c1e] opacity-50"
+                : "bg-[#1c1c1e]"
             }`}
           >
-            {/* Unlock icon - shackle swings open to the RIGHT/outside */}
-            <svg className="mb-1.5" width="30" height="32" viewBox="0 0 30 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="16" width="22" height="16" rx="4" fill="#8e8e93"/>
-              {/* Shackle open - right side lifts UP and OUT to the right */}
-              <path d="M9 16V11C9 7.134 11.686 4 15 4C18.314 4 21 7.134 21 11" stroke="#8e8e93" strokeWidth="3" strokeLinecap="round" fill="none"/>
-              <path d="M21 11V7" stroke="#8e8e93" strokeWidth="3" strokeLinecap="round"/>
-              <rect x="12.5" y="21" width="5" height="4" rx="2.5" fill="#1c1c1e"/>
-              <line x1="15" y1="24" x2="15" y2="28" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-            <p className="text-xs font-semibold text-white text-center leading-tight">Unlock</p>
-            <p className="text-[10px] text-gray-500 text-center leading-tight mt-0.5">Doors</p>
+            <Unlock className="w-7 h-7 text-[#8e8e93]" strokeWidth={1.8} />
+            <div className="text-center">
+              <p className="text-[13px] font-semibold text-white leading-tight">Unlock</p>
+              <p className="text-[11px] text-[#8e8e93] leading-tight">Doors</p>
+            </div>
           </button>
 
-          {/* Climate - 4-blade fan like reference */}
-          <button className="aspect-square rounded-3xl flex flex-col items-center justify-center bg-[#1c1c1e] border border-[#2c2c2e] opacity-40">
-            <svg className="mb-1.5" width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="15" cy="15" r="2.5" fill="#8e8e93"/>
-              {/* Top blade */}
-              <path d="M15 12.5C15 12.5 13 7 9.5 6C7.5 5.5 7 7.5 8 9C9 10.5 12.5 12 12.5 12" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              {/* Right blade */}
-              <path d="M17.5 15C17.5 15 23 17 24 20.5C24.5 22.5 22.5 23 21 22C19.5 21 18 17.5 18 17.5" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              {/* Bottom blade */}
-              <path d="M15 17.5C15 17.5 17 23 20.5 24C22.5 24.5 23 22.5 22 21C21 19.5 17.5 18 17.5 18" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-              {/* Left blade */}
-              <path d="M12.5 15C12.5 15 7 13 6 9.5C5.5 7.5 7.5 7 9 8C10.5 9 12 12.5 12 12.5" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            </svg>
-            <p className="text-xs font-semibold text-gray-400 text-center leading-tight">Climate</p>
-            <p className="text-[10px] text-gray-500 text-center leading-tight mt-0.5">Off</p>
+          {/* CLIMATE - Lucide Wind icon, gray, disabled */}
+          <button className="aspect-square rounded-[22px] flex flex-col items-center justify-center gap-2 bg-[#1c1c1e] opacity-50">
+            <Wind className="w-7 h-7 text-[#8e8e93]" strokeWidth={1.8} />
+            <div className="text-center">
+              <p className="text-[13px] font-semibold text-[#8e8e93] leading-tight">Climate</p>
+              <p className="text-[11px] text-[#8e8e93] leading-tight">Off</p>
+            </div>
           </button>
 
-          {/* Find Vehicle - trumpet horn pointing right with 3 short horizontal wave lines */}
+          {/* FIND VEHICLE - trumpet horn SVG, blue glow border */}
           <button
             onClick={() => handleCommand("find")}
             disabled={!!commandLoading || !isBookingActive || dropoffInspectionComplete}
-            className={`aspect-square rounded-3xl flex flex-col items-center justify-center transition-all border-2 ${
+            className={`aspect-square rounded-[22px] flex flex-col items-center justify-center gap-2 transition-all active:scale-95 ${
               !isBookingActive || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] border-[#2c2c2e] opacity-40"
-                : "bg-[#1c1c1e] border-[#0a84ff] active:scale-95"
+                ? "bg-[#1c1c1e] opacity-50"
+                : "bg-[#1c1c1e]"
             }`}
             style={!isBookingActive || dropoffInspectionComplete ? {} : {
-              boxShadow: "0 0 12px rgba(10,132,255,0.4), 0 0 24px rgba(10,132,255,0.15)"
+              border: "2px solid #0a84ff",
+              boxShadow: "0 0 0 1px rgba(10,132,255,0.2), 0 0 16px rgba(10,132,255,0.35), 0 0 32px rgba(10,132,255,0.15)"
             }}
           >
-            {/* Trumpet horn + 3 short horizontal lines (reference style) */}
-            <svg className="mb-1.5" width="34" height="26" viewBox="0 0 34 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Horn/trumpet body - solid filled trapezoid pointing right */}
-              <path d="M2 9H8L16 4V22L8 17H2V9Z" fill="#0a84ff"/>
-              {/* Bell flare on right of horn */}
-              <path d="M16 6C19 7.5 21 10.5 21 13C21 15.5 19 18.5 16 20" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              {/* 3 short horizontal sound-wave lines stacked vertically */}
-              <line x1="24" y1="8" x2="32" y2="8" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
-              <line x1="24" y1="13" x2="32" y2="13" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
-              <line x1="24" y1="18" x2="32" y2="18" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+            {/* Trumpet horn: solid body left, curved bell, 3 horizontal wave lines right */}
+            <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Body - solid filled trapezoid */}
+              <path d="M1 8.5H8L17 3.5V24.5L8 19.5H1V8.5Z" fill="#0a84ff"/>
+              {/* Bell curve */}
+              <path d="M17 6C20.5 8 22.5 10.5 22.5 14C22.5 17.5 20.5 20 17 22" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+              {/* 3 horizontal lines - sound waves */}
+              <line x1="25" y1="8" x2="35" y2="8" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="25" y1="14" x2="35" y2="14" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="25" y1="20" x2="35" y2="20" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
             </svg>
-            <p className="text-xs font-bold text-white text-center leading-tight">Find Vehicle</p>
-            <p className="text-[10px] text-gray-400 text-center leading-tight mt-0.5">Flash &amp; Honk</p>
+            <div className="text-center">
+              <p className="text-[13px] font-bold text-white leading-tight">Find Vehicle</p>
+              <p className="text-[11px] text-[#8e8e93] leading-tight">Flash &amp; Honk</p>
+            </div>
           </button>
         </div>
-        <p className="text-[10px] text-gray-500 text-center mt-3">Lock and unlock available after pickup</p>
+        <p className="text-[12px] text-[#636366] text-center mt-2">Lock and unlock available after pickup</p>
       </div>
 
       {/* End Rental Card */}
