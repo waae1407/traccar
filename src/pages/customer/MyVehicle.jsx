@@ -68,7 +68,98 @@ export default function MyVehicle() {
 
   if (authLoading || bookingsLoading) return <div className="min-h-screen bg-[#0C0C0C] flex items-center justify-center"><div className="w-8 h-8 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin" /></div>;
   if (!user) return <div className="min-h-screen bg-[#0C0C0C] flex items-center justify-center text-white text-center px-8"><div><p className="font-bold text-lg mb-2">Sign In Required</p><p className="text-sm text-gray-400">Please log in to access your vehicle</p></div></div>;
-  if (!booking) return <div className="min-h-screen bg-[#0C0C0C] flex items-center justify-center text-white text-center px-8"><div><p className="font-bold text-lg mb-2">No Active Rental</p><p className="text-sm text-gray-400">Book a vehicle to access remote controls</p></div></div>;
+  if (!booking) {
+    // Show demo UI for preview purposes
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] pb-20">
+        <div className="px-4 pt-4 pb-0">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-lg font-bold text-white">Demo Vehicle</p>
+              <p className="text-xs text-[#30d158] flex items-center gap-1.5 mt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#30d158]" />
+                Online | Live
+              </p>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
+              {user?.full_name?.charAt(0) || "R"}
+            </div>
+          </div>
+        </div>
+
+        {/* Remote Controls Demo */}
+        <div className="px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Remote Controls</p>
+          <div className="grid grid-cols-4 gap-3">
+            <button className="aspect-square rounded-[22px] flex flex-col items-center justify-center gap-2 bg-[#1c1c1e] opacity-50">
+              <Lock className="w-7 h-7 text-[#8e8e93]" strokeWidth={1.8} />
+              <div className="text-center">
+                <p className="text-[13px] font-semibold text-white leading-tight">Lock</p>
+                <p className="text-[11px] text-[#8e8e93] leading-tight">Doors</p>
+              </div>
+            </button>
+            <button className="aspect-square rounded-[22px] flex flex-col items-center justify-center gap-2 bg-[#1c1c1e] opacity-50">
+              <Unlock className="w-7 h-7 text-[#8e8e93]" strokeWidth={1.8} />
+              <div className="text-center">
+                <p className="text-[13px] font-semibold text-white leading-tight">Unlock</p>
+                <p className="text-[11px] text-[#8e8e93] leading-tight">Doors</p>
+              </div>
+            </button>
+            <button className="aspect-square rounded-[22px] flex flex-col items-center justify-center gap-2 bg-[#1c1c1e] opacity-50">
+              <Wind className="w-7 h-7 text-[#8e8e93]" strokeWidth={1.8} />
+              <div className="text-center">
+                <p className="text-[13px] font-semibold text-[#8e8e93] leading-tight">Climate</p>
+                <p className="text-[11px] text-[#8e8e93] leading-tight">Off</p>
+              </div>
+            </button>
+            <button
+              className="aspect-square rounded-[22px] flex flex-col items-center justify-center gap-2 bg-[#1c1c1e]"
+              style={{ border: "2px solid #0a84ff", boxShadow: "0 0 0 1px rgba(10,132,255,0.2), 0 0 16px rgba(10,132,255,0.35), 0 0 32px rgba(10,132,255,0.15)" }}
+            >
+              <svg width="36" height="28" viewBox="0 0 36 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 8.5H8L17 3.5V24.5L8 19.5H1V8.5Z" fill="#0a84ff"/>
+                <path d="M17 6C20.5 8 22.5 10.5 22.5 14C22.5 17.5 20.5 20 17 22" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+                <line x1="25" y1="8" x2="35" y2="8" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+                <line x1="25" y1="14" x2="35" y2="14" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+                <line x1="25" y1="20" x2="35" y2="20" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+              <div className="text-center">
+                <p className="text-[13px] font-bold text-white leading-tight">Find Vehicle</p>
+                <p className="text-[11px] text-[#8e8e93] leading-tight">Flash &amp; Honk</p>
+              </div>
+            </button>
+          </div>
+          <p className="text-[12px] text-[#636366] text-center mt-2">No active rental — controls disabled</p>
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 bg-[#161618] border-t border-[#262626] px-2 py-2">
+          <div className="flex items-center justify-around max-w-lg mx-auto">
+            <button className="flex flex-col items-center gap-1 px-3 py-1">
+              <Car className="h-6 w-6 text-white" />
+              <p className="text-[10px] font-semibold text-white">My Vehicle</p>
+            </button>
+            <button className="flex flex-col items-center gap-1 px-3 py-1">
+              <Calendar className="h-6 w-6 text-gray-400" />
+              <p className="text-[10px] text-gray-400">Book Now</p>
+            </button>
+            <button className="flex flex-col items-center gap-1 px-3 py-1">
+              <Mail className="h-6 w-6 text-gray-400" />
+              <p className="text-[10px] text-gray-400">Messages</p>
+            </button>
+            <button className="flex flex-col items-center gap-1 px-3 py-1 relative">
+              <AlertCircle className="h-6 w-6 text-gray-400" />
+              <p className="text-[10px] text-gray-400">Alerts</p>
+            </button>
+            <button className="flex flex-col items-center gap-1 px-3 py-1">
+              <User className="h-6 w-6 text-gray-400" />
+              <p className="text-[10px] text-gray-400">Account</p>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const name = vehicleName(vehicle, booking);
   const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
