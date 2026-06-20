@@ -56,7 +56,65 @@ export function useCommandProgress() {
     setPhaseElapsed(0);
   }, []);
 
-  // Start tracking a new command
+  const startTimers = useCallback(() => {
+    timerRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      setPhaseElapsed(Math.floor((Date.now() - phaseStartRef.current) / 1000));
+    }, 500);
+  }, []);
+
+  const startPolling = useCallback((cmdId) => {
+    if (!cmdId) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const records = await base44.entities.TelematicsCommand.filter({ id: cmdId });
+        const rec = records?.[0];
+        if (!rec) return;
+        const qs = rec.queue_status || rec.status;
+        if (SUCCESS_STATUSES.has(qs)) {
+          clearAll();
+          advancePhase(PHASES.success);
+          setTimeout(() => setPhase(PHASES.idle), 4000);
+          return;
+        }
+        if (FAIL_STATUSES.has(qs)) {
+          clearAll();
+          setErrorMessage(rec.failure_reason || "Couldn't reach the vehicle");
+          advancePhase(PHASES.failed);
+          return;
+        }
+        if (SENDING_STATUSES.has(qs)) {
+          advancePhase(PHASES.waiting);
+        }
+      } catch {
+        // ignore poll errors silently
+      }
+    }, 1500);
+  }, [clearAll, advancePhase]);
+
+  // Show "Reaching your vehicle…" immediately on button click (before API returns)
+  const startOptimistic = useCallback((cmdType) => {
+    clearAll();
+    setCommandType(cmdType);
+    setCommandId(null);
+    setErrorMessage(null);
+    startTimeRef.current = Date.now();
+    phaseStartRef.current = Date.now();
+    setElapsed(0);
+    setPhaseElapsed(0);
+    advancePhase(PHASES.connecting);
+    startTimers();
+  }, [clearAll, advancePhase, startTimers]);
+
+  // Called once API responds — gate hold is done, now poll for ACK
+  const transitionToPolling = useCallback((cmdType, cmdId) => {
+    setCommandType(cmdType);
+    setCommandId(cmdId);
+    advancePhase(PHASES.sending);
+    startPolling(cmdId);
+  }, [advancePhase, startPolling]);
+
+  // Legacy start (kept for backward compat in CommandTestWorkspace)
   const start = useCallback((cmdType, cmdId, heartbeatFreshness) => {
     clearAll();
     setCommandType(cmdType);
@@ -66,62 +124,12 @@ export function useCommandProgress() {
     phaseStartRef.current = Date.now();
     setElapsed(0);
     setPhaseElapsed(0);
-
-    // If we know from the response payload whether gate was triggered
-    if (heartbeatFreshness?.waited) {
-      setLastHeartbeatAge(heartbeatFreshness.age_ms);
-      advancePhase(PHASES.connecting);
-    } else {
-      advancePhase(PHASES.sending);
-    }
-
-    // Elapsed timers
-    timerRef.current = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
-      setPhaseElapsed(Math.floor((Date.now() - phaseStartRef.current) / 1000));
-    }, 500);
-
-    if (!cmdId) return;
-
-    // Poll the command record every 1.5s
-    pollRef.current = setInterval(async () => {
-      try {
-        const records = await base44.entities.TelematicsCommand.filter({ id: cmdId });
-        const rec = records?.[0];
-        if (!rec) return;
-
-        const qs = rec.queue_status || rec.status;
-
-        if (SUCCESS_STATUSES.has(qs)) {
-          clearAll();
-          advancePhase(PHASES.success);
-          // Auto-dismiss success after 4s
-          setTimeout(() => setPhase(PHASES.idle), 4000);
-          return;
-        }
-        if (FAIL_STATUSES.has(qs)) {
-          clearAll();
-          setErrorMessage(rec.failure_reason || "Command failed");
-          advancePhase(PHASES.failed);
-          return;
-        }
-        if (SENDING_STATUSES.has(qs)) {
-          if (phase !== PHASES.waiting) advancePhase(PHASES.waiting);
-          return;
-        }
-        // Still queued — check if heartbeat was just matched (sent_to_traccar_at set)
-        if (rec.sent_to_traccar_at && phase === PHASES.connecting) {
-          advancePhase(PHASES.waiting);
-        } else if (rec.command_released_at && phase === PHASES.connecting) {
-          advancePhase(PHASES.sending);
-        }
-      } catch {
-        // ignore poll errors silently
-      }
-    }, 1500);
-  }, [clearAll, advancePhase, phase]);
+    advancePhase(heartbeatFreshness?.waited ? PHASES.connecting : PHASES.sending);
+    startTimers();
+    startPolling(cmdId);
+  }, [clearAll, advancePhase, startTimers, startPolling]);
 
   useEffect(() => () => clearAll(), [clearAll]);
 
-  return { phase, elapsed, phaseElapsed, commandType, commandId, errorMessage, lastHeartbeatAge, start, reset };
+  return { phase, elapsed, phaseElapsed, commandType, commandId, errorMessage, lastHeartbeatAge, start, startOptimistic, transitionToPolling, reset };
 }

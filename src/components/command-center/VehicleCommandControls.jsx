@@ -37,8 +37,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
   const send = async (commandType, starter = false) => {
     if (commandType === "alarm_pulse") {
-      progress.reset();
-      progress.start(commandType, null, null);
+      progress.startOptimistic(commandType);
       try {
         const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id });
         await onCommand?.(res.data);
@@ -52,7 +51,8 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     const reason = starter ? window.prompt("Reason for starter command") : "";
     if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
 
-    progress.start(commandType, null, null);
+    // Show "Reaching your vehicle…" immediately — gate hold happens server-side
+    progress.startOptimistic(commandType);
 
     try {
       const res = await TelematicsService.sendCommand({
@@ -66,8 +66,8 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
       const data = res.data;
       const cmdId = data?.command_id || data?.id;
-      const freshness = data?.heartbeat_freshness;
-      progress.start(commandType, cmdId, freshness);
+      // API returned = gate hold is done, now poll for ACK
+      progress.transitionToPolling(commandType, cmdId);
       await onCommand?.(data);
     } catch {
       progress.reset();
