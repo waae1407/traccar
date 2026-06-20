@@ -195,13 +195,13 @@ export default function MyVehicle() {
             zIndex: 0,
           }} />
 
-          {/* Vehicle image — positioned right, blended with multi-layer gradient mask */}
+          {/* Vehicle image — full width, fades from fully transparent on left to visible on right */}
           <div style={{
             position: "absolute",
-            right: -8,
+            right: 0,
             bottom: 0,
             top: 0,
-            width: "58%",
+            left: 0,
             pointerEvents: "none",
             zIndex: 1,
           }}>
@@ -209,22 +209,27 @@ export default function MyVehicle() {
               src={vehicleImage}
               alt={name}
               style={{
-                width: "100%",
+                position: "absolute",
+                right: -8,
+                bottom: 0,
+                top: 0,
+                width: "75%",
                 height: "100%",
                 objectFit: "contain",
                 objectPosition: "right center",
                 display: "block",
-                // CSS mask to fade left edge and bottom — works on all modern browsers
-                WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 25%, rgba(0,0,0,1) 55%)",
-                maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 25%, rgba(0,0,0,1) 55%)",
+                // Mask fades from fully transparent on the left all the way across
+                WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.05) 20%, rgba(0,0,0,0.4) 45%, rgba(0,0,0,0.85) 65%, rgba(0,0,0,1) 80%)",
+                maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.05) 20%, rgba(0,0,0,0.4) 45%, rgba(0,0,0,0.85) 65%, rgba(0,0,0,1) 80%)",
               }}
             />
-            {/* Extra bottom fade overlay */}
+            {/* Bottom fade so car doesn't hard-cut at bottom */}
             <div style={{
               position: "absolute",
               bottom: 0, left: 0, right: 0,
-              height: "35%",
+              height: "40%",
               background: "linear-gradient(to top, #050506 0%, transparent 100%)",
+              zIndex: 2,
             }} />
           </div>
 
