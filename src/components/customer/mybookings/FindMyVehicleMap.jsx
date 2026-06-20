@@ -47,7 +47,7 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
   const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}&z=15`;
 
   return (
-    <div className="relative h-full w-full rounded-2xl overflow-hidden border border-gray-200">
+    <div className="relative h-full w-full rounded-2xl overflow-hidden">
       <iframe
         width="100%"
         height="100%"
@@ -57,24 +57,17 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
         marginWidth="0"
         src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
         className="absolute inset-0"
+        style={{ filter: "invert(90%) hue-rotate(180deg) contrast(1.2)" }}
       />
       {/* Vehicle marker overlay */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative">
-          <div className="absolute inset-0 blur-lg opacity-50" style={{ background: vehicleColor }} />
-          <div className="relative bg-white rounded-full p-3 shadow-2xl border-2" style={{ borderColor: vehicleColor }}>
-            <Car className="h-8 w-8" style={{ color: vehicleColor }} />
+          <div className="absolute inset-0 blur-xl opacity-60 bg-blue-500 rounded-full" style={{ width: '80px', height: '80px', marginLeft: '-40px', marginTop: '-40px' }} />
+          <div className="relative bg-white rounded-full p-4 shadow-2xl">
+            <Car className="h-6 w-6 text-blue-500" />
           </div>
         </div>
       </div>
-      <a
-        href={mapsUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute bottom-3 right-3 bg-white px-3 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-gray-50"
-      >
-        Open in Maps
-      </a>
     </div>
   );
 }

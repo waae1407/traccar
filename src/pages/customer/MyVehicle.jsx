@@ -132,37 +132,33 @@ export default function MyVehicle() {
 
         {/* Stats Row */}
         <div className="flex items-center gap-4 mt-3 bg-[#1c1c1e] rounded-2xl p-4">
-          <div className="flex-1">
-            <p className="text-2xl font-bold text-white">268 mi</p>
+          <div>
+            <p className="text-lg font-bold text-white">268 mi</p>
             <p className="text-xs text-gray-400">Range</p>
           </div>
-          <div className="w-px h-10 bg-[#262626]" />
-          <div className="flex-1">
-            <p className="text-2xl font-bold text-white">72%</p>
+          <div className="w-px h-8 bg-[#262626]" />
+          <div>
+            <p className="text-lg font-bold text-white">72%</p>
             <p className="text-xs text-gray-400">Hydrogen</p>
           </div>
+          <div className="flex-1" />
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-[#262626] flex items-center justify-center">
-              <Signal className="h-4 w-4 text-white" />
-            </div>
-            <div className="h-8 w-8 rounded-full bg-[#262626] flex items-center justify-center">
-              <Lock className="h-4 w-4 text-white" />
-            </div>
-            <div className="h-8 w-8 rounded-full bg-[#262626] flex items-center justify-center">
-              <Fan className="h-4 w-4 text-white" />
-            </div>
+            <Signal className="h-4 w-4 text-gray-400" />
+            <Lock className="h-4 w-4 text-gray-400" />
+            <Fan className="h-4 w-4 text-gray-400" />
           </div>
         </div>
       </div>
 
       {/* Vehicle Image */}
       <div className="px-4 py-4">
-        <div className="h-48 bg-[#1c1c1e] rounded-2xl flex items-center justify-center">
-          {vehicle?.image_url ? (
-            <img src={vehicle.image_url} alt={name} className="h-full w-full object-contain" />
-          ) : (
-            <div className="text-gray-600 text-sm">Vehicle Image</div>
-          )}
+        <div className="h-48 bg-[#1c1c1e] rounded-2xl flex items-center justify-center overflow-hidden">
+          <img 
+            src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" 
+            alt="2018 Toyota Mirai" 
+            className="h-full w-full object-contain"
+            style={{ filter: "hue-rotate(180deg)" }}
+          />
         </div>
       </div>
 
@@ -176,24 +172,28 @@ export default function MyVehicle() {
       {/* Rental Info Row */}
       <div className="px-4 py-4">
         <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl p-4">
-          <div className="flex items-center gap-3">
-            <Clock className="h-5 w-5 text-gray-400" />
+          <div className="flex items-center gap-3 flex-1">
+            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+              <Clock className="h-5 w-5 text-white" />
+            </div>
             <div>
               <p className="text-xs text-gray-400">Rental ends</p>
               <p className="text-sm font-bold text-white">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d, yyyy") : "N/A"}</p>
               <p className="text-xs text-gray-400">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full border-2 border-[#30d158] flex items-center justify-center">
-              <Gauge className="h-5 w-5 text-[#30d158]" />
+          <div className="w-px h-10 bg-[#262626]" />
+          <div className="flex items-center gap-3 flex-1">
+            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+              <Gauge className="h-5 w-5 text-white" />
             </div>
             <div>
               <p className="text-xs text-gray-400">Remaining</p>
               <p className="text-sm font-bold text-white">{daysRemaining ? `${Math.floor(daysRemaining / 60)}h ${daysRemaining % 60}m` : "N/A"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="w-px h-10 bg-[#262626]" />
+          <div className="flex items-center gap-3 flex-1">
             <Fuel className="h-5 w-5 text-gray-400" />
             <div>
               <p className="text-xs text-gray-400">Fuel</p>
