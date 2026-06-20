@@ -72,17 +72,41 @@ export default function MyVehicle() {
     // Show demo UI for preview purposes
     return (
       <div className="min-h-screen bg-[#0a0a0a] pb-20">
-        <div className="px-4 pt-4 pb-0">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-lg font-bold text-white">Demo Vehicle</p>
-              <p className="text-xs text-[#30d158] flex items-center gap-1.5 mt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#30d158]" />
-                Online | Live
+        <div className="relative pt-4 pb-2 overflow-hidden">
+          <div className="flex items-start justify-between px-4">
+            <div className="flex-1 pr-4">
+              <p className="text-[28px] font-bold text-white leading-tight">Demo Vehicle</p>
+              <p className="text-sm flex items-center gap-1.5 mt-1">
+                <span className="h-2 w-2 rounded-full bg-[#30d158]" />
+                <span className="text-[#30d158] font-medium">Online</span>
+                <span className="text-gray-400 mx-0.5">|</span>
+                <span className="text-white font-medium">Live</span>
               </p>
             </div>
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
-              {user?.full_name?.charAt(0) || "R"}
+            <div className="flex items-center gap-2 mt-1">
+              <button className="h-9 w-9 rounded-full bg-[#2c2c2e] flex items-center justify-center">
+                <MessageSquare className="h-4 w-4 text-gray-300" />
+              </button>
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
+                {user?.full_name?.charAt(0) || "R"}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-end mt-5">
+            <div className="px-4 flex-1">
+              <div className="flex items-end gap-6 mb-4">
+                <div><p className="text-[26px] font-bold text-white leading-none">268 mi</p><p className="text-sm text-gray-400 mt-1">Range</p></div>
+                <div className="w-px h-10 bg-[#3a3a3c]" />
+                <div><p className="text-[26px] font-bold text-white leading-none">72%</p><p className="text-sm text-gray-400 mt-1">Hydrogen</p></div>
+              </div>
+              <div className="flex items-center gap-4 pb-2">
+                <svg width="20" height="16" viewBox="0 0 20 16" fill="none"><rect x="0" y="10" width="3" height="6" rx="1" fill="#8e8e93"/><rect x="4.5" y="7" width="3" height="9" rx="1" fill="#8e8e93"/><rect x="9" y="4" width="3" height="12" rx="1" fill="#8e8e93"/><rect x="13.5" y="1" width="3" height="15" rx="1" fill="#8e8e93"/></svg>
+                <Lock className="h-5 w-5 text-[#8e8e93]" strokeWidth={1.8} />
+                <Wind className="h-5 w-5 text-[#8e8e93]" strokeWidth={1.8} />
+              </div>
+            </div>
+            <div className="w-[52%] flex-shrink-0">
+              <img src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" alt="Demo" className="w-full object-contain" style={{ filter: "drop-shadow(-8px 4px 20px rgba(0,0,0,0.7))", maxHeight: "160px" }} />
             </div>
           </div>
         </div>
@@ -208,50 +232,71 @@ export default function MyVehicle() {
       {inspectionTarget && <VehicleInspectionSheet booking={inspectionTarget.booking} type={inspectionTarget.type} onClose={() => setInspectionTarget(null)} onComplete={() => {}} />}
 
       {/* Hero Section */}
-      <div className="px-4 pt-4 pb-0">
-        {/* Header Row */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-lg font-bold text-white">{name}</p>
-            <p className="text-xs text-[#30d158] flex items-center gap-1.5 mt-0.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#30d158]" />
-              Online | Live
+      <div className="relative pt-4 pb-2 overflow-hidden">
+        {/* Top row: title + icons */}
+        <div className="flex items-start justify-between px-4">
+          <div className="flex-1 pr-4">
+            <p className="text-[28px] font-bold text-white leading-tight">{name}</p>
+            <p className="text-sm flex items-center gap-1.5 mt-1">
+              <span className="h-2 w-2 rounded-full bg-[#30d158]" />
+              <span className="text-[#30d158] font-medium">Online</span>
+              <span className="text-gray-400 mx-0.5">|</span>
+              <span className="text-white font-medium">Live</span>
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="h-8 w-8 rounded-full bg-[#1c1c1e] flex items-center justify-center">
-              <MessageSquare className="h-4 w-4 text-gray-400" />
+          <div className="flex items-center gap-2 mt-1">
+            <button className="h-9 w-9 rounded-full bg-[#2c2c2e] flex items-center justify-center">
+              <MessageSquare className="h-4 w-4 text-gray-300" />
             </button>
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
+            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
               {user?.full_name?.charAt(0) || "R"}
             </div>
           </div>
         </div>
 
-        {/* Hero Content - Stats Left, Image Right */}
-        <div className="flex items-center gap-4 mb-4">
-          {/* Left Side - Stats */}
-          <div className="flex-1">
-            <div className="flex items-center gap-4 mb-2">
+        {/* Stats + Image row */}
+        <div className="flex items-end mt-5">
+          {/* Left: stats + mini icons */}
+          <div className="px-4 flex-1">
+            <div className="flex items-end gap-6 mb-4">
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Range</p>
-                <p className="text-lg font-bold text-white">268 mi</p>
+                <p className="text-[26px] font-bold text-white leading-none">268 mi</p>
+                <p className="text-sm text-gray-400 mt-1">Range</p>
               </div>
+              <div className="w-px h-10 bg-[#3a3a3c]" />
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Hydrogen</p>
-                <p className="text-lg font-bold text-white">72%</p>
+                <p className="text-[26px] font-bold text-white leading-none">72%</p>
+                <p className="text-sm text-gray-400 mt-1">Hydrogen</p>
               </div>
+            </div>
+            {/* 3 bottom status icons */}
+            <div className="flex items-center gap-4 pb-2">
+              <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
+                <rect x="0" y="10" width="3" height="6" rx="1" fill="#8e8e93"/>
+                <rect x="4.5" y="7" width="3" height="9" rx="1" fill="#8e8e93"/>
+                <rect x="9" y="4" width="3" height="12" rx="1" fill="#8e8e93"/>
+                <rect x="13.5" y="1" width="3" height="15" rx="1" fill="#8e8e93"/>
+              </svg>
+              <Lock className="h-5 w-5 text-[#8e8e93]" strokeWidth={1.8} />
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="2" fill="#8e8e93"/>
+                <path d="M10 8C10 8 8.5 4.5 6 3.5C4.5 3 4 4.5 4.8 5.5C5.6 6.5 8 7.5 8 7.5" stroke="#8e8e93" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M12 10C12 10 15.5 11.5 16.5 14C17 15.5 15.5 16 14.5 15.2C13.5 14.4 12.5 12 12.5 12" stroke="#8e8e93" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M10 12C10 12 11.5 15.5 14 16.5C15.5 17 16 15.5 15.2 14.5C14.4 13.5 12 12.5 12 12.5" stroke="#8e8e93" strokeWidth="1.5" strokeLinecap="round"/>
+                <path d="M8 10C8 10 4.5 8.5 3.5 6C3 4.5 4.5 4 5.5 4.8C6.5 5.6 7.5 8 7.5 8" stroke="#8e8e93" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
             </div>
           </div>
 
-          {/* Right Side - Vehicle Image */}
-          <div className="w-[200px] h-32 flex-shrink-0">
-            <img 
-              src={vehicle?.image_url || "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg"} 
-              alt={name} 
-              className="w-full h-full object-contain"
-              style={{ 
-                filter: "drop-shadow(0 8px 24px rgba(0,0,0,0.5))",
+          {/* Right: vehicle image bleeding to edge */}
+          <div className="w-[52%] flex-shrink-0">
+            <img
+              src={vehicle?.image_url || "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg"}
+              alt={name}
+              className="w-full object-contain"
+              style={{
+                filter: "drop-shadow(-8px 4px 20px rgba(0,0,0,0.7))",
+                maxHeight: "160px",
               }}
             />
           </div>
