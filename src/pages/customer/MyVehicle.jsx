@@ -116,49 +116,28 @@ export default function MyVehicle() {
     <div className="min-h-screen bg-[#0C0C0C] pb-20">
       {inspectionTarget && <VehicleInspectionSheet booking={inspectionTarget.booking} type={inspectionTarget.type} onClose={() => setInspectionTarget(null)} onComplete={() => {}} />}
 
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <p className="text-lg font-bold text-white">{name}</p>
-            <p className="text-xs text-[#30d158] flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#30d158]" />
-              Online | Live
+      {/* Hero Section - Vehicle Name + Status + Image */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1">
+            <p className="text-xl font-bold text-white">2018 Toyota Mirai</p>
+            <p className="text-xs text-[#30d158] flex items-center gap-1.5 mt-1">
+              <span className="h-2 w-2 rounded-full bg-[#30d158] animate-pulse" />
+              Online
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="h-9 w-9 rounded-full bg-[#1c1c1e] flex items-center justify-center">
+            <button className="h-8 w-8 rounded-full bg-[#1c1c1e] flex items-center justify-center">
               <MessageSquare className="h-4 w-4 text-gray-400" />
             </button>
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
               {user?.full_name?.charAt(0) || "U"}
             </div>
           </div>
         </div>
 
-        {/* Stats Row */}
-        <div className="flex items-center gap-4 mt-3 bg-[#1c1c1e] rounded-2xl p-4">
-          <div>
-            <p className="text-lg font-bold text-white">268 mi</p>
-            <p className="text-xs text-gray-400">Range</p>
-          </div>
-          <div className="w-px h-8 bg-[#262626]" />
-          <div>
-            <p className="text-lg font-bold text-white">72%</p>
-            <p className="text-xs text-gray-400">Hydrogen</p>
-          </div>
-          <div className="flex-1" />
-          <div className="flex items-center gap-3">
-            <Signal className="h-4 w-4 text-gray-400" />
-            <Lock className="h-4 w-4 text-gray-400" />
-            <Fan className="h-4 w-4 text-gray-400" />
-          </div>
-        </div>
-      </div>
-
-      {/* Vehicle Image */}
-      <div className="px-4 py-4">
-        <div className="h-48 bg-[#1c1c1e] rounded-2xl flex items-center justify-center overflow-hidden">
+        {/* Vehicle Hero Image */}
+        <div className="h-40 bg-[#1c1c1e] rounded-2xl flex items-center justify-center overflow-hidden mb-3">
           <img 
             src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" 
             alt="2018 Toyota Mirai" 
@@ -166,175 +145,167 @@ export default function MyVehicle() {
             style={{ filter: "hue-rotate(180deg)" }}
           />
         </div>
-      </div>
 
-      {/* Map Section */}
-      <div className="px-4 py-4">
-        <div className="rounded-2xl overflow-hidden bg-[#1c1c1e]">
-          <div className="px-4 py-3 flex items-center justify-between border-b border-[#262626]">
-            <div className="flex items-center gap-3">
-              <MapPin className="h-4 w-4 text-gray-400" />
-              <div>
-                <p className="text-sm font-bold text-white">Pico Canyon Rd</p>
-                <p className="text-xs text-gray-400">Stevenson Ranch, CA 91381</p>
-              </div>
+        {/* Stats Inline */}
+        <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl px-4 py-3">
+          <div className="flex items-center gap-4">
+            <div>
+              <p className="text-xs text-gray-500">Range</p>
+              <p className="text-sm font-bold text-white">268 mi</p>
             </div>
-            <div className="flex items-center gap-2">
-              <p className="text-[10px] text-gray-500">Updated just now</p>
-              <Navigation className="h-4 w-4 text-gray-400" />
+            <div className="w-px h-8 bg-[#262626]" />
+            <div>
+              <p className="text-xs text-gray-500">Hydrogen</p>
+              <p className="text-sm font-bold text-white">72%</p>
             </div>
           </div>
-          <div className="h-64">
+          <div className="flex items-center gap-2">
+            <Signal className="h-4 w-4 text-gray-500" />
+            <Lock className="h-4 w-4 text-gray-500" />
+            <Fan className="h-4 w-4 text-gray-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Map Card */}
+      <div className="px-4 py-3">
+        <div className="rounded-2xl overflow-hidden bg-[#1c1c1e] border border-[#262626]">
+          <div className="px-4 py-3 border-b border-[#262626]">
+            <p className="text-sm font-bold text-white">Pico Canyon Rd</p>
+            <p className="text-xs text-gray-500">Stevenson Ranch, CA 91381</p>
+          </div>
+          <div className="h-48">
             <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color || "#2a5d8f"} />
           </div>
         </div>
       </div>
 
-      {/* Rental Info Strip */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl p-4">
-          <div className="flex items-center gap-3 flex-1">
-            <Clock className="h-5 w-5 text-gray-400" />
-            <div>
-              <p className="text-xs text-gray-400">Rental ends</p>
-              <p className="text-sm font-bold text-white">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d, yyyy") : "N/A"}</p>
-              <p className="text-xs text-gray-400">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}</p>
-            </div>
+      {/* Rental Card */}
+      <div className="px-4 py-3">
+        <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl border border-[#262626] px-4 py-4">
+          <div>
+            <p className="text-xs text-gray-500">Rental ends</p>
+            <p className="text-sm font-bold text-white">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d") : "N/A"}</p>
+            <p className="text-xs text-gray-500">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}</p>
           </div>
-          <div className="w-px h-10 bg-[#262626]" />
-          <div className="flex items-center gap-3 flex-1">
-            <div className="relative h-10 w-10">
-              <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
-                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#262626" strokeWidth="3" />
-                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3b82f6" strokeWidth="3" strokeDasharray="75, 100" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Remaining</p>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Remaining</p>
               <p className="text-sm font-bold text-white">{remainingTimeStr}</p>
             </div>
+            <div className="h-8 w-8 rounded-full border-2 border-[#262626] flex items-center justify-center">
+              <Gauge className="h-4 w-4 text-gray-500" />
+            </div>
           </div>
-          <div className="w-px h-10 bg-[#262626]" />
-          <div className="flex items-center gap-3 flex-1">
-            <Fuel className="h-5 w-5 text-gray-400" />
-            <div>
-              <p className="text-xs text-gray-400">Hydrogen</p>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-xs text-gray-500">Hydrogen</p>
               <p className="text-sm font-bold text-white">72%</p>
             </div>
-            <ChevronRight className="h-4 w-4 text-gray-500 ml-auto" />
+            <ChevronRight className="h-4 w-4 text-gray-500" />
           </div>
         </div>
       </div>
 
       {/* Remote Controls */}
-      <div className="px-4 py-4">
-        <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">REMOTE CONTROLS</p>
+      <div className="px-4 py-3">
+        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Remote Controls</p>
         <div className="grid grid-cols-4 gap-2">
           <button
             onClick={() => handleCommand("lock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
-            className={`aspect-square rounded-2xl p-3 flex flex-col items-center justify-center transition-all ${
+            className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !pickupInspectionComplete || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] opacity-50"
-                : "bg-[#1c1c1e] active:scale-95"
+                ? "bg-[#1c1c1e] border-[#262626] opacity-50"
+                : "bg-[#1c1c1e] border-[#262626] active:scale-95"
             }`}
           >
-            <Lock className="h-6 w-6 mb-2 text-white" />
-            <p className="text-xs font-bold text-white">Lock</p>
-            <p className="text-[9px] text-gray-400">Doors</p>
+            <Lock className="h-5 w-5 mb-1.5 text-white" />
+            <p className="text-xs font-semibold text-white">Lock</p>
           </button>
           <button
             onClick={() => handleCommand("unlock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
-            className={`aspect-square rounded-2xl p-3 flex flex-col items-center justify-center transition-all ${
+            className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !pickupInspectionComplete || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] opacity-50"
-                : "bg-[#1c1c1e] active:scale-95"
+                ? "bg-[#1c1c1e] border-[#262626] opacity-50"
+                : "bg-[#1c1c1e] border-[#262626] active:scale-95"
             }`}
           >
-            <Unlock className="h-6 w-6 mb-2 text-white" />
-            <p className="text-xs font-bold text-white">Unlock</p>
-            <p className="text-[9px] text-gray-400">Doors</p>
+            <Unlock className="h-5 w-5 mb-1.5 text-white" />
+            <p className="text-xs font-semibold text-white">Unlock</p>
           </button>
           <button
             onClick={() => handleCommand("find")}
             disabled={!!commandLoading || !isBookingActive || dropoffInspectionComplete}
-            className={`aspect-square rounded-2xl p-3 flex flex-col items-center justify-center transition-all border-2 ${
+            className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !isBookingActive || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] opacity-50 border-transparent"
-                : "bg-[#1c1c1e] active:scale-95 border-blue-500/30"
+                ? "bg-[#1c1c1e] border-[#262626] opacity-50"
+                : "bg-[#1c1c1e] border-blue-500/40 active:scale-95"
             }`}
           >
-            <BellRing className="h-6 w-6 mb-2 text-white" />
-            <p className="text-xs font-bold text-white">Find Vehicle</p>
-            <p className="text-[9px] text-gray-400">Flash & Honk</p>
+            <BellRing className="h-5 w-5 mb-1.5 text-white" />
+            <p className="text-xs font-semibold text-white">Find Vehicle</p>
           </button>
-          <button className="aspect-square rounded-2xl p-3 flex flex-col items-center justify-center bg-[#1c1c1e] opacity-50">
-            <Fan className="h-6 w-6 mb-2 text-gray-500" />
-            <p className="text-xs font-bold text-gray-500">Climate</p>
-            <p className="text-[9px] text-gray-600">N/A</p>
+          <button className="aspect-square rounded-xl flex flex-col items-center justify-center bg-[#1c1c1e] border border-[#262626] opacity-50">
+            <Fan className="h-5 w-5 mb-1.5 text-gray-500" />
+            <p className="text-xs font-semibold text-gray-500">Support</p>
           </button>
         </div>
-        <p className="text-[10px] text-gray-500 mt-2 text-center">Lock and unlock available after pickup</p>
       </div>
 
-      {/* End Rental Button */}
+      {/* End Rental Card */}
       {!dropoffInspectionComplete && isBookingActive && (
-        <div className="px-4 pb-4">
+        <div className="px-4 py-3">
           <button
             onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
-            className="w-full rounded-2xl bg-[#7F1D1D] p-4 active:scale-98"
+            className="w-full rounded-2xl bg-[#1c1c1e] border border-red-900/40 p-4 active:scale-98"
           >
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center">
-                <Camera className="h-5 w-5 text-white" />
+              <div className="h-9 w-9 rounded-full bg-red-900/20 flex items-center justify-center">
+                <Camera className="h-4 w-4 text-red-400" />
               </div>
-              <div className="text-left">
-                <p className="text-base font-bold text-white">End Your Rental</p>
-                <p className="text-xs text-white/70">Complete return inspection to stop billing immediately</p>
+              <div className="text-left flex-1">
+                <p className="text-sm font-bold text-white">End Your Rental</p>
+                <p className="text-xs text-gray-500">Complete return inspection</p>
               </div>
+              <ChevronRight className="h-4 w-4 text-gray-500" />
             </div>
           </button>
         </div>
       )}
 
       {/* Vehicle Health */}
-      <div className="px-4 pb-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">VEHICLE HEALTH</p>
-          <p className="text-xs text-[#30d158] flex items-center gap-1">
-            <CheckCircle className="h-3 w-3" />
-            All systems normal
-          </p>
-        </div>
+      <div className="px-4 py-3 pb-6">
+        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Vehicle Health</p>
         <div className="space-y-2">
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl p-3">
+          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl border border-[#262626] px-4 py-3">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-[#30d158]" />
-              <p className="text-sm font-bold text-white">Vehicle</p>
+              <CheckCircle className="h-4 w-4 text-[#30d158]" />
+              <p className="text-sm font-semibold text-white">Vehicle</p>
             </div>
-            <p className="text-sm text-gray-400">Online</p>
+            <p className="text-xs text-gray-500">Online</p>
           </div>
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl p-3">
+          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl border border-[#262626] px-4 py-3">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-[#30d158]" />
-              <p className="text-sm font-bold text-white">Doors</p>
+              <CheckCircle className="h-4 w-4 text-[#30d158]" />
+              <p className="text-sm font-semibold text-white">Doors</p>
             </div>
-            <p className="text-sm text-gray-400">Closed</p>
+            <p className="text-xs text-gray-500">Closed</p>
           </div>
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl p-3">
+          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl border border-[#262626] px-4 py-3">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-[#30d158]" />
-              <p className="text-sm font-bold text-white">Hydrogen</p>
+              <CheckCircle className="h-4 w-4 text-[#30d158]" />
+              <p className="text-sm font-semibold text-white">Hydrogen</p>
             </div>
-            <p className="text-sm text-gray-400">Good</p>
+            <p className="text-xs text-gray-500">Good</p>
           </div>
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl p-3">
+          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl border border-[#262626] px-4 py-3">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-[#30d158]" />
-              <p className="text-sm font-bold text-white">Location</p>
+              <CheckCircle className="h-4 w-4 text-[#30d158]" />
+              <p className="text-sm font-semibold text-white">Location</p>
             </div>
-            <p className="text-sm text-gray-400">GPS Signal</p>
+            <p className="text-xs text-gray-500">GPS Signal</p>
           </div>
         </div>
       </div>
