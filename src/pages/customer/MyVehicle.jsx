@@ -167,8 +167,8 @@ export default function MyVehicle() {
               alt={name} 
               className="w-full h-full object-contain"
               style={{ 
-                filter: "drop-shadow(0 8px 24px rgba(0,0,0,0.4))",
-                transform: "perspective(800px) rotateY(-8deg) rotateX(5deg)"
+                filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.3))",
+                transform: "scaleX(-1)"
               }}
             />
           </div>
