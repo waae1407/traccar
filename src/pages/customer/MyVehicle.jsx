@@ -88,13 +88,18 @@ export default function MyVehicle() {
   });
   const recentThread = communicationPreview.threads?.[0];
 
+  if (!user) return <EmptyState title="Sign in to view your vehicle" text="Your Contactless360 remote appears here after login." action="Sign In" href="/account" />;
+  if (isLoading) return <LoadingState />;
+  
+  // No booking found
+  if (!booking) {
+    return <EmptyState title="No active booking" text="Book a vehicle to unlock the Contactless360 remote experience." action="Book Now" href="/book-now" />;
+  }
+
   // Check if booking is still active (not returned yet)
   const isBookingActive = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) && booking.payment_status === "paid" && !booking.rental_ended_at;
   const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
   const dropoffInspectionComplete = booking?.return_exterior_photos?.length > 0 || booking?.return_interior_photos?.length > 0;
-
-  if (!user) return <EmptyState title="Sign in to view your vehicle" text="Your Contactless360 remote appears here after login." action="Sign In" href="/account" />;
-  if (isLoading) return <LoadingState />;
   
   // Show completed rental state
   if (booking && dropoffInspectionComplete) {
