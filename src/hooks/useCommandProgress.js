@@ -74,7 +74,7 @@ export function useCommandProgress() {
         if (SUCCESS_STATUSES.has(qs)) {
           clearAll();
           advancePhase(PHASES.success);
-          setTimeout(() => setPhase(PHASES.idle), 4000);
+          // Don't auto-reset — keep success state visible until next action
           return;
         }
         if (FAIL_STATUSES.has(qs)) {
@@ -84,7 +84,7 @@ export function useCommandProgress() {
           return;
         }
         if (SENDING_STATUSES.has(qs)) {
-          advancePhase(PHASES.waiting);
+          advancePhase(PHASES.sending);
         }
       } catch {
         // ignore poll errors silently

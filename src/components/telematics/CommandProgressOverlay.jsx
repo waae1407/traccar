@@ -2,10 +2,23 @@ import React from "react";
 import { CheckCircle2, Loader2, Radio, Send, Wifi, XCircle } from "lucide-react";
 import { PHASES } from "@/hooks/useCommandProgress";
 
+const SUCCESS_LABELS = {
+  lock: "Locked",
+  unlock: "Unlocked",
+  locate: "Located",
+  horn: "Horn On",
+  lights: "Lights On",
+  horn_lights: "Horn & Lights On",
+  alarm_pulse: "Alert Sent",
+  disable_starter: "Starter Disabled",
+  restore_starter: "Starter Restored",
+  status: "Status Received",
+};
+
 const PHASE_CONFIG = {
   [PHASES.connecting]: {
     icon: Radio,
-    label: "Reaching your vehicle…",
+    label: "Contacting Vehicle",
     sub: "Hang tight — this usually takes a few seconds while we wake up the device.",
     color: "text-yellow-400",
     bg: "bg-yellow-500/10 border-yellow-500/25",
@@ -14,7 +27,7 @@ const PHASE_CONFIG = {
   },
   [PHASES.sending]: {
     icon: Send,
-    label: "Almost there…",
+    label: "On its way…",
     sub: "Your vehicle is receiving the command now.",
     color: "text-blue-400",
     bg: "bg-blue-500/10 border-blue-500/25",
@@ -23,7 +36,7 @@ const PHASE_CONFIG = {
   },
   [PHASES.waiting]: {
     icon: Wifi,
-    label: "Command on its way — waiting for confirmation…",
+    label: "Waiting for response…",
     sub: "Your vehicle is processing. This usually completes in 1–3 seconds.",
     color: "text-primary",
     bg: "bg-primary/10 border-primary/25",
@@ -32,7 +45,7 @@ const PHASE_CONFIG = {
   },
   [PHASES.success]: {
     icon: CheckCircle2,
-    label: "All done — your vehicle responded!",
+    label: null, // Will use command-specific label
     sub: null,
     color: "text-emerald-400",
     bg: "bg-emerald-500/10 border-emerald-500/30",
@@ -41,7 +54,7 @@ const PHASE_CONFIG = {
   },
   [PHASES.failed]: {
     icon: XCircle,
-    label: "Couldn't reach the vehicle this time",
+    label: "Try again",
     sub: null,
     color: "text-red-400",
     bg: "bg-red-500/10 border-red-500/30",
@@ -50,7 +63,7 @@ const PHASE_CONFIG = {
   },
 };
 
-const PHASE_ORDER = [PHASES.connecting, PHASES.sending, PHASES.waiting, PHASES.success];
+const PHASE_ORDER = [PHASES.connecting, PHASES.sending, PHASES.success];
 
 function ElapsedBadge({ seconds, phase }) {
   if (phase === PHASES.success || phase === PHASES.idle || phase === PHASES.failed) return null;
@@ -69,6 +82,7 @@ export default function CommandProgressOverlay({ phase, elapsed, phaseElapsed, c
 
   const Icon = cfg.icon;
   const friendlyCommand = (commandType || "").replaceAll("_", " ");
+  const successLabel = phase === PHASES.success ? (SUCCESS_LABELS[commandType] || "Sent") : null;
 
   // Determine step index for progress dots
   const stepIndex = PHASE_ORDER.indexOf(phase);
@@ -88,8 +102,18 @@ export default function CommandProgressOverlay({ phase, elapsed, phaseElapsed, c
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1 flex-wrap">
             <span className={`font-black capitalize ${cfg.color}`}>{friendlyCommand}</span>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-foreground font-medium">{cfg.label}</span>
+            {successLabel && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-emerald-400 font-bold">{successLabel}</span>
+              </>
+            )}
+            {cfg.label && !successLabel && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-foreground font-medium">{cfg.label}</span>
+              </>
+            )}
             <ElapsedBadge seconds={elapsed} phase={phase} />
           </div>
           {(cfg.sub || errorMessage) && (
@@ -126,15 +150,7 @@ export default function CommandProgressOverlay({ phase, elapsed, phaseElapsed, c
         </div>
       )}
 
-      {/* Step labels */}
-      {phase !== PHASES.failed && (
-        <div className="mt-1 flex justify-between px-0 text-[9px] text-muted-foreground">
-          <span>Reach</span>
-          <span>Deliver</span>
-          <span>Confirm</span>
-          <span>Done</span>
-        </div>
-      )}
+
     </div>
   );
 }
