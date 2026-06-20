@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format, differenceInCalendarDays } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 import { base44 } from "@/api/base44Client";
-import { Signal, Battery, Lock, Unlock, BellRing, Camera, Calendar, MessageSquare, Wrench, FileText, ChevronUp, MapPin, Car } from "lucide-react";
-import { motion } from "framer-motion";
+import { useAuth } from "@/lib/AuthContext";
+import { Signal, Lock, Unlock, BellRing, Camera, Calendar, MessageSquare, Wrench, FileText, ChevronUp, MapPin } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
@@ -31,7 +30,7 @@ function freshness(device) {
 }
 
 export default function MyVehicle() {
-  const { user } = useOutletContext() || {};
+  const { user } = useAuth();
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
   const [activeCommand, setActiveCommand] = useState(null);
@@ -63,8 +62,8 @@ export default function MyVehicle() {
   const gps = freshness(device);
 
   if (!user) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-white">Sign in required</div>;
-  if (isLoading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-white">Loading...</div>;
-  if (!booking) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-white">No active rental</div>;
+  if (isLoading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center"><div className="w-8 h-8 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin" /></div>;
+  if (!booking) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-white text-center px-8"><div><p className="font-bold text-lg mb-2">No Active Rental</p><p className="text-sm text-gray-400">Book a vehicle to access remote controls</p></div></div>;
 
   const name = vehicleName(vehicle, booking);
   const daysRemaining = booking.end_date ? Math.max(0, differenceInCalendarDays(new Date(`${booking.end_date}T23:59:59`), new Date())) : null;
