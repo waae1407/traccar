@@ -270,10 +270,13 @@ const AuthenticatedApp = () => {
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/support" element={<RenterAIChat />} />
-        <Route path="/vehicle-command-center" element={<CustomerMyVehicle />} />
         <Route path="/messages" element={<CustomerCommunications />} />
         <Route path="/notifications" element={<CustomerNotifications />} />
       </Route>
+
+      {/* ── MY VEHICLE (standalone, no customer layout chrome) ── */}
+      <Route path="/my-vehicle" element={<CustomerMyVehicle />} />
+      <Route path="/vehicle-command-center" element={<CustomerMyVehicle />} />
 
       {/* ── CHECKOUT (standalone, no customer layout chrome) ── */}
       <Route path="/checkout" element={<CheckoutFlow />} />
