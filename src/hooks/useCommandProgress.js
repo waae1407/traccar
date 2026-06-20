@@ -28,13 +28,19 @@ export function useCommandProgress() {
   const pollRef = useRef(null);
   const timerRef = useRef(null);
 
+  // Clear all intervals
   const clearAll = useCallback(() => {
-    clearInterval(pollRef.current);
-    clearInterval(timerRef.current);
-    pollRef.current = null;
-    timerRef.current = null;
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   }, []);
 
+  // Reset everything to initial state
   const reset = useCallback(() => {
     clearAll();
     setPhase(PHASES.idle);
@@ -48,85 +54,90 @@ export function useCommandProgress() {
     phaseStartRef.current = null;
   }, [clearAll]);
 
-  const advancePhase = useCallback((newPhase) => {
-    setPhase(newPhase);
-    phaseStartRef.current = Date.now();
-    setPhaseElapsed(0);
-  }, []);
-
-  const startTimers = useCallback(() => {
-    timerRef.current = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
-      setPhaseElapsed(Math.floor((Date.now() - phaseStartRef.current) / 1000));
-    }, 500);
-  }, []);
-
+  // Start polling for command status
   const startPolling = useCallback((cmdId) => {
     if (!cmdId) return;
+    
+    // Clear any existing poll
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+    }
+    
     pollRef.current = setInterval(async () => {
       try {
         const records = await base44.entities.TelematicsCommand.filter({ id: cmdId });
         const rec = records?.[0];
         if (!rec) return;
+        
         const qs = rec.queue_status || rec.status;
+        
         if (SUCCESS_STATUSES.has(qs)) {
-          advancePhase(PHASES.success);
+          setPhase(PHASES.success);
           clearAll();
           return;
         }
+        
         if (FAIL_STATUSES.has(qs)) {
           setErrorMessage(rec.failure_reason || "Vehicle didn't respond");
-          advancePhase(PHASES.failed);
+          setPhase(PHASES.failed);
           clearAll();
           return;
         }
+        
         if (SENDING_STATUSES.has(qs)) {
-          advancePhase(PHASES.vehicle_responding);
+          setPhase(PHASES.vehicle_responding);
         }
-      } catch {
-        // ignore poll errors silently
+      } catch (err) {
+        console.error('Poll error:', err);
       }
     }, 1500);
-  }, [clearAll, advancePhase]);
+  }, [clearAll]);
 
-  // Show "Contacting vehicle…" immediately on button click (before API returns)
+  // Show "Contacting vehicle…" immediately on button click
   const startOptimistic = useCallback((cmdType) => {
     clearAll();
     setCommandType(cmdType);
     setCommandId(null);
     setErrorMessage(null);
+    setPhase(PHASES.contacting);
     startTimeRef.current = Date.now();
     phaseStartRef.current = Date.now();
     setElapsed(0);
     setPhaseElapsed(0);
-    advancePhase(PHASES.contacting);
-    startTimers();
-  }, [clearAll, advancePhase, startTimers]);
+    
+    // Start elapsed timer
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      setPhaseElapsed(Math.floor((Date.now() - phaseStartRef.current) / 1000));
+    }, 500);
+  }, [clearAll]);
 
   // Called once API responds — gate hold is done, now poll for device ACK
   const transitionToPolling = useCallback((cmdType, cmdId) => {
     setCommandType(cmdType);
     setCommandId(cmdId);
-    advancePhase(PHASES.vehicle_responding);
-    startPolling(cmdId);
-  }, [advancePhase, startPolling]);
-
-  // Legacy start (kept for backward compat in CommandTestWorkspace)
-  const start = useCallback((cmdType, cmdId, heartbeatFreshness) => {
-    clearAll();
-    setCommandType(cmdType);
-    setCommandId(cmdId);
-    setErrorMessage(null);
-    startTimeRef.current = Date.now();
+    setPhase(PHASES.vehicle_responding);
     phaseStartRef.current = Date.now();
-    setElapsed(0);
     setPhaseElapsed(0);
-    advancePhase(heartbeatFreshness?.waited ? PHASES.contacting : PHASES.vehicle_responding);
-    startTimers();
     startPolling(cmdId);
-  }, [clearAll, advancePhase, startTimers, startPolling]);
+  }, [startPolling]);
 
-  useEffect(() => () => clearAll(), [clearAll]);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => clearAll();
+  }, [clearAll]);
 
-  return { phase, elapsed, phaseElapsed, commandType, commandId, errorMessage, lastHeartbeatAge, start, startOptimistic, transitionToPolling, reset };
+  return { 
+    phase, 
+    elapsed, 
+    phaseElapsed, 
+    commandType, 
+    commandId, 
+    errorMessage, 
+    lastHeartbeatAge, 
+    startOptimistic, 
+    transitionToPolling, 
+    reset 
+  };
 }
