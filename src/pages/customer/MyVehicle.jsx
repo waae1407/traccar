@@ -175,9 +175,17 @@ export default function MyVehicle() {
       {/* Map Card */}
       <div className="px-4 py-3">
         <div className="rounded-2xl overflow-hidden bg-[#1c1c1e] border border-[#262626]">
-          <div className="px-4 py-3 border-b border-[#262626]">
-            <p className="text-sm font-bold text-white">Pico Canyon Rd</p>
-            <p className="text-xs text-gray-500">Stevenson Ranch, CA 91381</p>
+          <div className="px-4 py-3 border-b border-[#262626] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-3.5 w-3.5 text-gray-500" />
+              <div>
+                <p className="text-sm font-bold text-white">Pico Canyon Rd</p>
+                <p className="text-[10px] text-gray-500">Stevenson Ranch, CA 91381 · Updated just now</p>
+              </div>
+            </div>
+            <button className="h-7 w-7 rounded-full bg-[#262626] flex items-center justify-center">
+              <Navigation className="h-3.5 w-3.5 text-white" />
+            </button>
           </div>
           <div className="h-48">
             <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color || "#2a5d8f"} />
@@ -187,24 +195,31 @@ export default function MyVehicle() {
 
       {/* Rental Card */}
       <div className="px-4 py-3">
-        <div className="flex items-center justify-between bg-[#1c1c1e] rounded-2xl border border-[#262626] px-4 py-4">
-          <div>
-            <p className="text-xs text-gray-500">Rental ends</p>
-            <p className="text-sm font-bold text-white">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d") : "N/A"}</p>
+        <div className="flex items-center gap-4 bg-[#1c1c1e] rounded-2xl border border-[#262626] px-4 py-4">
+          {/* Left - Rental End */}
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Clock className="h-3.5 w-3.5 text-gray-500" />
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Rental ends</p>
+            </div>
+            <p className="text-sm font-bold text-white">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d, yyyy") : "N/A"}</p>
             <p className="text-xs text-gray-500">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-xs text-gray-500">Remaining</p>
-              <p className="text-sm font-bold text-white">{remainingTimeStr}</p>
+          {/* Middle - Remaining Time */}
+          <div className="flex-1 border-l border-[#262626] pl-4">
+            <div className="flex items-center gap-1.5 mb-1">
+              <div className="h-3.5 w-3.5 rounded-full border-2 border-gray-500 border-t-transparent animate-spin" />
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Remaining</p>
             </div>
-            <div className="h-8 w-8 rounded-full border-2 border-[#262626] flex items-center justify-center">
-              <Gauge className="h-4 w-4 text-gray-500" />
-            </div>
+            <p className="text-sm font-bold text-white">{remainingTimeStr}</p>
           </div>
-          <div className="flex items-center gap-3">
+          {/* Right - Hydrogen */}
+          <div className="flex items-center gap-2 pr-2">
             <div className="text-right">
-              <p className="text-xs text-gray-500">Hydrogen</p>
+              <div className="flex items-center gap-1.5 justify-end mb-1">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Hydrogen</p>
+                <Fuel className="h-3.5 w-3.5 text-gray-500" />
+              </div>
               <p className="text-sm font-bold text-white">72%</p>
             </div>
             <ChevronRight className="h-4 w-4 text-gray-500" />
@@ -226,7 +241,7 @@ export default function MyVehicle() {
             }`}
           >
             <Lock className="h-5 w-5 mb-1.5 text-white" />
-            <p className="text-xs font-semibold text-white">Lock</p>
+            <p className="text-xs font-semibold text-white">Lock Doors</p>
           </button>
           <button
             onClick={() => handleCommand("unlock")}
@@ -238,7 +253,11 @@ export default function MyVehicle() {
             }`}
           >
             <Unlock className="h-5 w-5 mb-1.5 text-white" />
-            <p className="text-xs font-semibold text-white">Unlock</p>
+            <p className="text-xs font-semibold text-white">Unlock Doors</p>
+          </button>
+          <button className="aspect-square rounded-xl flex flex-col items-center justify-center bg-[#1c1c1e] border border-[#262626] opacity-50">
+            <Fan className="h-5 w-5 mb-1.5 text-gray-500" />
+            <p className="text-xs font-semibold text-gray-500">Climate Off</p>
           </button>
           <button
             onClick={() => handleCommand("find")}
@@ -251,12 +270,10 @@ export default function MyVehicle() {
           >
             <BellRing className="h-5 w-5 mb-1.5 text-white" />
             <p className="text-xs font-semibold text-white">Find Vehicle</p>
-          </button>
-          <button className="aspect-square rounded-xl flex flex-col items-center justify-center bg-[#1c1c1e] border border-[#262626] opacity-50">
-            <Fan className="h-5 w-5 mb-1.5 text-gray-500" />
-            <p className="text-xs font-semibold text-gray-500">Support</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Flash & Honk</p>
           </button>
         </div>
+        <p className="text-[10px] text-gray-500 text-center mt-3">Lock and unlock available after pickup</p>
       </div>
 
       {/* End Rental Card */}
@@ -264,17 +281,17 @@ export default function MyVehicle() {
         <div className="px-4 py-3">
           <button
             onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
-            className="w-full rounded-2xl bg-[#1c1c1e] border border-red-900/40 p-4 active:scale-98"
+            className="w-full rounded-2xl bg-[#4a1a1a] border border-red-900/60 p-4 active:scale-98"
           >
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-red-900/20 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-full bg-red-900/30 flex items-center justify-center">
                 <Camera className="h-4 w-4 text-red-400" />
               </div>
               <div className="text-left flex-1">
                 <p className="text-sm font-bold text-white">End Your Rental</p>
-                <p className="text-xs text-gray-500">Complete return inspection</p>
+                <p className="text-xs text-gray-400">Complete return inspection to stop billing immediately</p>
               </div>
-              <ChevronRight className="h-4 w-4 text-gray-500" />
+              <ChevronRight className="h-4 w-4 text-gray-400" />
             </div>
           </button>
         </div>
@@ -282,35 +299,33 @@ export default function MyVehicle() {
 
       {/* Vehicle Health */}
       <div className="px-4 py-3 pb-6">
-        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Vehicle Health</p>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl border border-[#262626] px-4 py-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-4 w-4 text-[#30d158]" />
-              <p className="text-sm font-semibold text-white">Vehicle</p>
-            </div>
-            <p className="text-xs text-gray-500">Online</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Vehicle Health</p>
+          <div className="flex items-center gap-1.5">
+            <CheckCircle className="h-3.5 w-3.5 text-[#30d158]" />
+            <p className="text-xs text-white">All systems normal</p>
           </div>
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl border border-[#262626] px-4 py-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-4 w-4 text-[#30d158]" />
-              <p className="text-sm font-semibold text-white">Doors</p>
-            </div>
-            <p className="text-xs text-gray-500">Closed</p>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          <div className="bg-[#1c1c1e] rounded-xl border border-[#262626] p-3 text-center">
+            <CheckCircle className="h-4 w-4 text-[#30d158] mx-auto mb-1.5" />
+            <p className="text-[10px] text-gray-400">Vehicle</p>
+            <p className="text-xs font-semibold text-white">Online</p>
           </div>
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl border border-[#262626] px-4 py-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-4 w-4 text-[#30d158]" />
-              <p className="text-sm font-semibold text-white">Hydrogen</p>
-            </div>
-            <p className="text-xs text-gray-500">Good</p>
+          <div className="bg-[#1c1c1e] rounded-xl border border-[#262626] p-3 text-center">
+            <CheckCircle className="h-4 w-4 text-[#30d158] mx-auto mb-1.5" />
+            <p className="text-[10px] text-gray-400">Doors</p>
+            <p className="text-xs font-semibold text-white">Closed</p>
           </div>
-          <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl border border-[#262626] px-4 py-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-4 w-4 text-[#30d158]" />
-              <p className="text-sm font-semibold text-white">Location</p>
-            </div>
-            <p className="text-xs text-gray-500">GPS Signal</p>
+          <div className="bg-[#1c1c1e] rounded-xl border border-[#262626] p-3 text-center">
+            <CheckCircle className="h-4 w-4 text-[#30d158] mx-auto mb-1.5" />
+            <p className="text-[10px] text-gray-400">Hydrogen</p>
+            <p className="text-xs font-semibold text-white">Good</p>
+          </div>
+          <div className="bg-[#1c1c1e] rounded-xl border border-[#262626] p-3 text-center">
+            <CheckCircle className="h-4 w-4 text-[#30d158] mx-auto mb-1.5" />
+            <p className="text-[10px] text-gray-400">Location</p>
+            <p className="text-xs font-semibold text-white">GPS Signal</p>
           </div>
         </div>
       </div>
