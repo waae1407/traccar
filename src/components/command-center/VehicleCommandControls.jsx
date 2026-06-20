@@ -17,7 +17,7 @@ const COMMANDS = {
     { key: "lights", label: "Lights", icon: BellRing },
   ],
   security: [
-    { key: "alarm_pulse", label: "Find My Vehicle", icon: ShieldAlert },
+    { key: "alarm_pulse", label: "Find My Vehicle", icon: ShieldAlert, customerLabel: "Find My Vehicle" },
     { key: "disable_starter", label: "Disable Starter", icon: Zap, starter: true },
     { key: "restore_starter", label: "Restore Starter", icon: RotateCcw, starter: true },
   ]
@@ -25,7 +25,7 @@ const COMMANDS = {
 
 export default function VehicleCommandControls({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter, onCommand }) {
   const progress = useCommandProgress();
-  const allowedCustomer = ["locate", "lock", "unlock", "alarm_pulse"];
+  const allowedCustomer = ["lock", "unlock", "alarm_pulse"];
 
   const visible = (group) => COMMANDS[group].filter((command) => {
     if (mode === "customer" && !allowedCustomer.includes(command.key)) return false;
@@ -41,6 +41,12 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     try {
       const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device?.id });
       await onCommand?.(res.data);
+      // For customers, open directions after alarm triggers
+      if (mode === "customer" && vehicle?.vehicle_lat && vehicle?.vehicle_lon) {
+        setTimeout(() => {
+          window.open(`https://www.google.com/maps/dir/?api=1&destination=${vehicle.vehicle_lat},${vehicle.vehicle_lon}`, "_blank");
+        }, 1500);
+      }
       progress.reset();
     } catch {
       progress.reset();
@@ -80,19 +86,21 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <ControlSection
-        title="Remote Controls"
-        subtitle="Readiness-filtered commands routed through sendTelematicsCommand."
-        commands={visible("remote")}
-        isBusy={isBusy}
-        activeCommand={progress.commandType}
-        phase={progress.phase}
-        onSend={send}
-      />
+      {mode !== "customer" && (
+        <ControlSection
+          title="Remote Controls"
+          subtitle="Readiness-filtered commands routed through sendTelematicsCommand."
+          commands={visible("remote")}
+          isBusy={isBusy}
+          activeCommand={progress.commandType}
+          phase={progress.phase}
+          onSend={send}
+        />
+      )}
       <div className="space-y-3">
         <ControlSection
-          title="Security Controls"
-          subtitle={mode === "customer" ? "Starter controls are never exposed to renters." : "Starter controls require reason and confirmation."}
+          title={mode === "customer" ? "Vehicle Controls" : "Security Controls"}
+          subtitle={mode === "customer" ? "Quick actions to locate, lock, or unlock your vehicle." : "Starter controls require reason and confirmation."}
           commands={visible("security")}
           isBusy={isBusy}
           activeCommand={progress.commandType}
@@ -130,7 +138,7 @@ const SUCCESS_LABELS = {
   horn: "Horn On",
   lights: "Lights On",
   horn_lights: "Horn & Lights On",
-  alarm_pulse: "Alert Sent",
+  alarm_pulse: "Vehicle Located",
   disable_starter: "Starter Disabled",
   restore_starter: "Starter Restored",
   status: "Status Received",
