@@ -46,13 +46,14 @@ export default function CustomerLayout() {
 
   return (
     <div className="min-h-screen" style={{ background: "#f8f8fa", fontFamily: "var(--font-inter)" }}>
-      {!isBookNow && !isMyVehicle && <CustomerTopBar user={user} city={city} onCityChange={() => {}} />}
-      <main className={isMyVehicle ? "w-full max-w-2xl mx-auto md:pb-12" : "w-full max-w-2xl mx-auto pb-28 md:pb-12"}>
+      {/* Force hide header on MyVehicle page */}
+      {isMyVehicle ? null : <CustomerTopBar user={user} city={city} onCityChange={() => {}} />}
+      <main style={isMyVehicle ? { paddingBottom: '0 !important' } : {}} className="w-full max-w-2xl mx-auto md:pb-12">
         <Outlet context={{ user, city, setCity }} />
       </main>
-      {/* Bottom nav only on mobile, hidden on MyVehicle page */}
-      <div className="md:hidden">
-        {!isMyVehicle && <CustomerBottomNav />}
+      {/* Force hide bottom nav on MyVehicle page */}
+      <div className="md:hidden" style={isMyVehicle ? { display: 'none', visibility: 'hidden', height: 0 } : {}}>
+        <CustomerBottomNav />
       </div>
       <FloatingAIAssistant
         agentName="renter_assistant"
