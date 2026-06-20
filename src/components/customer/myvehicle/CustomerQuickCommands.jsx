@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Loader2, Lock, MapPin, Unlock, Volume2 } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
@@ -11,22 +11,25 @@ const COMMANDS = [
 ];
 
 export default function CustomerQuickCommands({ booking, vehicle, device, onComplete }) {
-  const [sending, setSending] = useState(null);
+  const [loading, setLoading] = React.useState("");
+  const [result, setResult] = React.useState(null);
 
   const send = async (commandType) => {
-    setSending(commandType);
+    setLoading(commandType);
+    setResult(null);
     try {
-      await TelematicsService.sendCommand({
+      const response = await TelematicsService.sendCommand({
         booking_id: booking.id,
         vehicle_id: vehicle?.id || booking.vehicle_id,
         command_type: commandType,
         source: "customer_my_vehicle",
       });
+      setResult({ type: "success", text: response.data?.pending_acknowledgement ? "Command sent to vehicle" : "Command completed" });
       await onComplete?.();
     } catch (error) {
-      console.error('[CustomerQuickCommands] Command error:', error);
+      setResult({ type: "error", text: error?.response?.data?.error || error.message || "Vehicle command failed" });
     } finally {
-      setTimeout(() => setSending(null), 3000);
+      setLoading("");
     }
   };
 
@@ -44,31 +47,29 @@ export default function CustomerQuickCommands({ booking, vehicle, device, onComp
         {COMMANDS.map((command) => {
           const Icon = command.icon;
           const ready = getCommandReadiness({ command: command.key, role: "customer", device: device || {}, provider: {}, booking });
-          const isSending = sending === command.key;
-
+          const busy = loading === command.key;
           return (
             <button
               key={command.key}
-              disabled={!ready.supported || isSending}
+              disabled={!ready.supported || !!loading}
               onClick={() => send(command.key)}
               className="min-h-[112px] rounded-[1.6rem] border border-white/60 bg-white p-3 text-left shadow-sm transition-all active:scale-[0.98] disabled:opacity-45"
             >
               <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${command.tone} shadow-lg`}>
-                {isSending ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-white" />
-                ) : (
-                  <Icon className="h-5 w-5 text-white" />
-                )}
+                {busy ? <Loader2 className="h-5 w-5 animate-spin text-white" /> : <Icon className="h-5 w-5 text-white" />}
               </div>
               <p className="text-sm font-black leading-tight text-gray-950">{command.label}</p>
               <p className="mt-1 text-[11px] font-semibold text-gray-400">{ready.supported ? "Ready now" : "Unavailable"}</p>
-              {isSending && (
-                <p className="mt-1 text-[10px] font-bold text-gray-400">Sending…</p>
-              )}
             </button>
           );
         })}
       </div>
+
+      {result && (
+        <div className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-bold ${result.type === "error" ? "border-red-100 bg-red-50 text-red-600" : "border-emerald-100 bg-emerald-50 text-emerald-700"}`}>
+          {result.text}
+        </div>
+      )}
     </section>
   );
 }
