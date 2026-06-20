@@ -62,24 +62,11 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
           background: "#0a0a0a"
         }}
       />
-      {/* Vehicle marker overlay - white circular pin with cyan glow */}
+      {/* Vehicle marker overlay - white circular pin */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative">
-          {/* Bright cyan/blue glow underneath */}
-          <div 
-            className="absolute rounded-full"
-            style={{ 
-              width: '64px', 
-              height: '64px', 
-              marginLeft: '-32px', 
-              marginTop: '-32px',
-              background: "radial-gradient(circle, rgba(41,151,255,0.5) 0%, rgba(41,151,255,0.15) 60%, transparent 70%)",
-              filter: "blur(12px)"
-            }} 
-          />
           {/* White circular pin */}
-          <div className="relative h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-lg"
-            style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.3), 0 0 0 3px rgba(41,151,255,0.35)" }}>
+          <div className="relative h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-lg">
             <Car className="h-5 w-5 text-[#2997ff]" />
           </div>
         </div>
