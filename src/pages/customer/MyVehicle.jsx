@@ -146,10 +146,12 @@ export default function MyVehicle() {
     );
   }
 
-  const name = booking ? vehicleName(vehicle, booking) : "My Vehicle";
+  // Demo mode: no active booking — show preview with placeholder data
+  const isDemo = !booking;
+  const name = isDemo ? "2018 Toyota Mirai" : vehicleName(vehicle, booking);
   const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
   const dropoffInspectionComplete = booking?.return_exterior_photos?.length > 0 || booking?.return_interior_photos?.length > 0;
-  const isBookingActive = booking
+  const isBookingActive = !isDemo && booking
     ? ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) &&
       booking.payment_status === "paid" &&
       !booking.rental_ended_at
