@@ -150,7 +150,7 @@ export default function MyVehicle() {
               </button>
             </div>
             <div className="flex-1">
-              <FindMyVehicleMap booking={booking} />
+              <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color || "#e91e8c"} />
             </div>
           </div>
         </motion.div>
@@ -192,7 +192,7 @@ export default function MyVehicle() {
 
       {/* Map Section - Top Half */}
       <section className="relative h-[45vh] min-h-[320px] w-full overflow-hidden">
-        <FindMyVehicleMap booking={booking} compact />
+        <FindMyVehicleMap booking={booking} compact vehicleColor={vehicle?.color || "#e91e8c"} />
         
         {/* Collapse Toggle Buttons */}
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
