@@ -9,17 +9,22 @@ const SUCCESS_LABELS = {
   horn: "Horn On",
   lights: "Lights On",
   horn_lights: "Horn & Lights On",
-  alarm_pulse: "Alert Sent",
+  alarm_pulse: "Vehicle Located",
   disable_starter: "Starter Disabled",
   restore_starter: "Starter Restored",
   status: "Status Received",
+};
+
+const WAITING_TIPS = {
+  lock: ["Your vehicle is confirming the lock signal…", "Security system is engaging…", "Verifying all doors are secured…"],
+  unlock: ["Your vehicle is verifying your identity…", "Unlocking and disarming security…", "Confirming vehicle is ready for access…"],
 };
 
 const PHASE_CONFIG = {
   [PHASES.connecting]: {
     icon: Radio,
     label: "Contacting Vehicle",
-    sub: "Hang tight — this usually takes a few seconds while we wake up the device.",
+    sub: "Hang tight — waking up your vehicle's connection.",
     color: "text-yellow-400",
     bg: "bg-yellow-500/10 border-yellow-500/25",
     spin: false,
@@ -27,8 +32,8 @@ const PHASE_CONFIG = {
   },
   [PHASES.sending]: {
     icon: Send,
-    label: "On its way…",
-    sub: "Your vehicle is receiving the command now.",
+    label: "Command sent",
+    sub: "Your vehicle is processing your request now.",
     color: "text-blue-400",
     bg: "bg-blue-500/10 border-blue-500/25",
     spin: false,
@@ -36,8 +41,8 @@ const PHASE_CONFIG = {
   },
   [PHASES.waiting]: {
     icon: Wifi,
-    label: "Almost…",
-    sub: "Your vehicle is processing. This usually completes in 1–3 seconds.",
+    label: "Confirming…",
+    sub: "Verifying your vehicle's status — this takes about 10–15 seconds.",
     color: "text-primary",
     bg: "bg-primary/10 border-primary/25",
     spin: false,
@@ -46,7 +51,7 @@ const PHASE_CONFIG = {
   opening_directions: {
     icon: MapPin,
     label: "Opening directions…",
-    sub: "Get ready — maps will open with your vehicle location in a few seconds.",
+    sub: "Get ready — maps will open with your vehicle location.",
     color: "text-purple-400",
     bg: "bg-purple-500/10 border-purple-500/25",
     spin: false,
@@ -92,6 +97,13 @@ export default function CommandProgressOverlay({ phase, elapsed, phaseElapsed, c
   const Icon = cfg.icon;
   const friendlyCommand = (commandType || "").replaceAll("_", " ");
   const successLabel = phase === PHASES.success ? (SUCCESS_LABELS[commandType] || "Sent") : null;
+  
+  // Rotate helpful tips during longer lock/unlock waits (changes every 5s)
+  const tipIndex = phase === PHASES.waiting && commandType && WAITING_TIPS[commandType]
+    ? Math.min(Math.floor(phaseElapsed / 5), WAITING_TIPS[commandType].length - 1)
+    : 0;
+  const rotatingTip = phase === PHASES.waiting && WAITING_TIPS[commandType]?.[tipIndex];
+  const displaySub = rotatingTip || cfg.sub;
 
   // Determine step index for progress dots
   const stepIndex = PHASE_ORDER.indexOf(phase);
@@ -117,9 +129,9 @@ export default function CommandProgressOverlay({ phase, elapsed, phaseElapsed, c
             </span>
             <ElapsedBadge seconds={elapsed} phase={phase} />
           </div>
-          {(cfg.sub || errorMessage) && (
+          {(displaySub || errorMessage) && (
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {errorMessage || cfg.sub}
+              {errorMessage || displaySub}
             </p>
           )}
         </div>
