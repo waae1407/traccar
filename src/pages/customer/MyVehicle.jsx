@@ -48,6 +48,8 @@ export default function MyVehicle() {
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [showFullMap, setShowFullMap] = useState(false);
   const [activeCommand, setActiveCommand] = useState(null);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const [footerCollapsed, setFooterCollapsed] = useState(false);
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email],
@@ -140,8 +142,13 @@ export default function MyVehicle() {
         </motion.div>
       )}
 
-      {/* Header - Contactless360 Branding */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
+      {/* Header - Auto-Collapsing */}
+      <motion.header
+        initial={false}
+        animate={{ height: headerCollapsed ? 0 : "auto", opacity: headerCollapsed ? 0 : 1 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className="sticky top-0 z-40 overflow-hidden border-b border-white/10 bg-slate-950/80 backdrop-blur-xl"
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <ContactlessLogo />
@@ -167,12 +174,32 @@ export default function MyVehicle() {
             </div>
           )}
         </div>
-      </header>
+      </motion.header>
 
       {/* Map Section - Top Half */}
       <section className="relative h-[45vh] min-h-[320px] w-full overflow-hidden">
         <FindMyVehicleMap booking={booking} compact />
         
+        {/* Collapse Toggle Buttons */}
+        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+          <motion.button
+            onClick={() => setHeaderCollapsed(!headerCollapsed)}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/90 border border-white/20 text-white/80 backdrop-blur-xl shadow-lg hover:bg-slate-800 transition-colors"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${headerCollapsed ? "rotate-180" : ""}`} />
+          </motion.button>
+          <motion.button
+            onClick={() => setFooterCollapsed(!footerCollapsed)}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/90 border border-white/20 text-white/80 backdrop-blur-xl shadow-lg hover:bg-slate-800 transition-colors"
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${footerCollapsed ? "rotate-180" : ""}`} />
+          </motion.button>
+        </div>
+
         {/* Floating Vehicle Status Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -358,6 +385,23 @@ export default function MyVehicle() {
             </Link>
           </motion.div>
         )}
+
+        {/* Footer Collapse Indicator */}
+        {footerCollapsed && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40"
+          >
+            <button
+              onClick={() => setFooterCollapsed(false)}
+              className="flex items-center gap-2 rounded-full bg-slate-900/90 border border-white/20 px-4 py-2 text-xs font-bold text-white backdrop-blur-xl shadow-lg hover:bg-slate-800 transition-colors"
+            >
+              <ChevronDown className="h-4 w-4 rotate-180" />
+              Show Menu
+            </button>
+          </motion.div>
+        )}
       </div>
     </div>
   );
@@ -377,18 +421,56 @@ function ContactlessLogo({ size = "default" }) {
   );
 }
 
-function ActionButton({ icon: Icon, label, sub, onClick, gradient }) {
+function ActionButton({ icon: Icon, label, sub, onClick, gradient, disabled }) {
+  const [isPressed, setIsPressed] = useState(false);
+  
+  const handlePress = async () => {
+    if (disabled) return;
+    setIsPressed(true);
+    await onClick();
+    setTimeout(() => setIsPressed(false), 200);
+  };
+
   return (
     <motion.button
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-4 shadow-lg transition-all active:scale-95`}
+      whileHover={{ scale: 1.05, y: -2 }}
+      whileTap={{ scale: 0.92, y: 2 }}
+      animate={isPressed ? { scale: 0.92, y: 2 } : { scale: 1, y: 0 }}
+      onClick={handlePress}
+      disabled={disabled}
+      className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-4 shadow-2xl transition-all duration-200 ${
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:shadow-lg active:shadow-sm"
+      }`}
+      style={{
+        boxShadow: disabled
+          ? "none"
+          : isPressed
+          ? "inset 0 2px 8px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2)"
+          : "0 8px 20px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)"
+      }}
     >
-      <div className="absolute inset-0 bg-white/0 transition-all group-hover:bg-white/10" />
+      {/* 3D highlight overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/10 pointer-events-none" />
+      {/* Hover glow */}
+      <div className="absolute inset-0 bg-white/0 transition-all duration-300 group-hover:bg-white/15" />
+      {/* Pressed inner shadow */}
+      {isPressed && (
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent pointer-events-none" />
+      )}
+      {/* Icon glow effect */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       <div className="relative flex flex-col items-center">
-        <Icon className="mb-2 h-6 w-6 text-white" />
-        <span className="text-sm font-black text-white">{label}</span>
-        <span className="text-[10px] font-semibold text-white/70">{sub}</span>
+        <motion.div
+          animate={isPressed ? { scale: 0.9 } : { scale: 1 }}
+          transition={{ duration: 0.1 }}
+          className="mb-2 relative"
+        >
+          <Icon className={`h-6 w-6 text-white drop-shadow-lg ${isPressed ? "opacity-90" : ""}`} />
+          {/* Icon highlight */}
+          <div className="absolute -top-1 -left-1 w-3 h-3 bg-white/30 rounded-full blur-sm" />
+        </motion.div>
+        <span className="text-sm font-black text-white drop-shadow-md">{label}</span>
+        <span className="text-[10px] font-semibold text-white/80">{sub}</span>
       </div>
     </motion.button>
   );
