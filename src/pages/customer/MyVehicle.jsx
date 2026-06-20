@@ -180,11 +180,11 @@ export default function MyVehicle() {
           position: "relative",
           overflow: "hidden",
           background: "radial-gradient(circle at 78% 26%, rgba(47,128,255,0.16), transparent 34%), linear-gradient(180deg, #08090C 0%, #050506 100%)",
-          minHeight: 250,
-          paddingTop: 26,
-          paddingBottom: 18,
-          paddingLeft: 28,
-          paddingRight: 18,
+          minHeight: "auto",
+          paddingTop: 16,
+          paddingBottom: 16,
+          paddingLeft: 20,
+          paddingRight: 16,
           borderBottom: "1px solid rgba(255,255,255,0.04)",
         }}>
           {/* Blue ambient glow top-right */}
@@ -210,10 +210,10 @@ export default function MyVehicle() {
                 alt={name}
                 style={{
                   position: "absolute",
-                  right: 8,
-                  top: 86,
-                  width: "56%",
-                  height: "42%",
+                  right: -10,
+                  top: 40,
+                  width: "58%",
+                  height: "58%",
                   objectFit: "contain",
                   objectPosition: "center",
                   display: "block",
@@ -238,7 +238,7 @@ export default function MyVehicle() {
             <div style={{
               position: "absolute",
               right: -40,
-              top: 82,
+              top: 40,
               width: 210,
               height: 96,
               background: "radial-gradient(ellipse at center, rgba(47,128,255,0.18), transparent 70%)",
@@ -250,9 +250,9 @@ export default function MyVehicle() {
           {/* Foreground text content */}
           <div style={{ position: "relative", zIndex: 2 }}>
             {/* Top row: name + icons */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 26 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
-                <p style={{ fontSize: 20, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.16, margin: 0, letterSpacing: "-0.35px", maxWidth: 245 }}>{name}</p>
+                <p style={{ fontSize: 18, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.16, margin: 0, letterSpacing: "-0.35px", maxWidth: 245 }}>{name}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
                   <span style={{ color: "#30D158", fontSize: 12, fontWeight: 500 }}>Online</span>
@@ -277,15 +277,15 @@ export default function MyVehicle() {
             </div>
 
             {/* Stats — inline, large, bold */}
-            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 30 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14 }}>
               <div>
-                <p style={{ fontSize: 18, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.05, margin: 0, letterSpacing: "-0.2px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
-                <p style={{ fontSize: 12, color: "#9A9AA0", margin: "5px 0 0", fontWeight: 400 }}>Range</p>
+                <p style={{ fontSize: 24, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.05, margin: 0, letterSpacing: "-0.5px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
+                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Range</p>
               </div>
               <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 18, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.05, margin: 0, letterSpacing: "-0.2px", fontVariantNumeric: "tabular-nums" }}>72%</p>
-                <p style={{ fontSize: 12, color: "#9A9AA0", margin: "5px 0 0", fontWeight: 400 }}>Hydrogen</p>
+                <p style={{ fontSize: 24, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.05, margin: 0, letterSpacing: "-0.5px", fontVariantNumeric: "tabular-nums" }}>72%</p>
+                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Hydrogen</p>
               </div>
             </div>
 
@@ -299,7 +299,7 @@ export default function MyVehicle() {
         </div>
 
         {/* Scroll content */}
-        <div style={{ padding: "0 15px", paddingBottom: 98, marginTop: -2, position: "relative", zIndex: 5 }}>
+        <div style={{ padding: "0 15px", paddingBottom: 80, marginTop: 4, position: "relative", zIndex: 5 }}>
 
           {/* ── MAP CARD ── */}
           <div style={{
@@ -310,7 +310,7 @@ export default function MyVehicle() {
             marginBottom: 12,
             boxShadow: "0 18px 50px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)",
           }}>
-            <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center justify-between px-4 py-2.5">
               <div className="flex items-start gap-2">
                 <MapPin size={15} color="#A1A1AA" style={{ marginTop: 2, flexShrink: 0 }} />
                 <div>
@@ -328,7 +328,7 @@ export default function MyVehicle() {
                 <Navigation size={15} color="#FFFFFF" style={{ transform: "rotate(45deg)" }} />
               </button>
             </div>
-            <div style={{ height: 190 }}>
+            <div style={{ height: 140 }}>
               {booking ? (
                 <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
               ) : (
@@ -344,11 +344,11 @@ export default function MyVehicle() {
             background: "linear-gradient(180deg, rgba(29,30,35,0.96), rgba(19,20,24,0.98))",
             border: "1px solid rgba(255,255,255,0.10)",
             borderRadius: 28,
-            padding: "16px 18px",
+            padding: "12px 16px",
             display: "flex",
             alignItems: "center",
             gap: 0,
-            marginBottom: 14,
+            marginBottom: 12,
             boxShadow: "0 14px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)",
           }}>
             {/* Rental ends */}
@@ -365,7 +365,7 @@ export default function MyVehicle() {
               </p>
             </div>
 
-            <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.08)", margin: "0 12px" }} />
+            <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.08)", margin: "0 10px" }} />
 
             {/* Remaining */}
             <div style={{ flex: 1 }}>
@@ -382,7 +382,7 @@ export default function MyVehicle() {
               <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 400 }}>remaining</p>
             </div>
 
-            <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.08)", margin: "0 12px" }} />
+            <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.08)", margin: "0 10px" }} />
 
             {/* Hydrogen */}
             <div style={{ flex: 0.8 }}>
@@ -398,7 +398,7 @@ export default function MyVehicle() {
 
           {/* ── REMOTE CONTROLS ── */}
           <div style={{ marginBottom: 10 }}>
-            <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
+            <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>
               Remote Controls
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
@@ -546,7 +546,7 @@ export default function MyVehicle() {
               background: "#17181C",
               border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 22,
-              padding: "12px 8px",
+              padding: "8px",
               display: "grid",
               gridTemplateColumns: "repeat(4, 1fr)",
               gap: 4,
