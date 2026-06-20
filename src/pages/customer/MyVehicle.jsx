@@ -195,13 +195,10 @@ export default function MyVehicle() {
             zIndex: 0,
           }} />
 
-          {/* Vehicle image — full width, fades from fully transparent on left to visible on right */}
+          {/* Vehicle image — full width, seamlessly blended via strong CSS overlays */}
           <div style={{
             position: "absolute",
-            right: 0,
-            bottom: 0,
-            top: 0,
-            left: 0,
+            inset: 0,
             pointerEvents: "none",
             zIndex: 1,
           }}>
@@ -209,26 +206,34 @@ export default function MyVehicle() {
               src={vehicleImage}
               alt={name}
               style={{
-                position: "absolute",
-                right: -8,
-                bottom: 0,
-                top: 0,
-                width: "75%",
+                width: "100%",
                 height: "100%",
-                objectFit: "contain",
-                objectPosition: "right center",
+                objectFit: "cover",
+                objectPosition: "65% center", // Focuses the crop slightly right
                 display: "block",
-                // Mask fades from fully transparent on the left all the way across
-                WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.05) 20%, rgba(0,0,0,0.4) 45%, rgba(0,0,0,0.85) 65%, rgba(0,0,0,1) 80%)",
-                maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.05) 20%, rgba(0,0,0,0.4) 45%, rgba(0,0,0,0.85) 65%, rgba(0,0,0,1) 80%)",
               }}
             />
-            {/* Bottom fade so car doesn't hard-cut at bottom */}
+            {/* Left fade overlay: covers the text area solid #050506, fades to transparent over the car */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(to right, #050506 0%, #050506 35%, rgba(5,5,6,0.85) 50%, transparent 100%)",
+              zIndex: 2,
+            }} />
+            {/* Bottom fade overlay */}
             <div style={{
               position: "absolute",
               bottom: 0, left: 0, right: 0,
-              height: "40%",
+              height: "45%",
               background: "linear-gradient(to top, #050506 0%, transparent 100%)",
+              zIndex: 2,
+            }} />
+            {/* Top fade overlay (hides studio ceiling if visible) */}
+            <div style={{
+              position: "absolute",
+              top: 0, left: 0, right: 0,
+              height: "25%",
+              background: "linear-gradient(to bottom, #050506 0%, transparent 100%)",
               zIndex: 2,
             }} />
           </div>
