@@ -39,8 +39,8 @@ export default function MyVehicle() {
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [showFullMap, setShowFullMap] = useState(false);
   const [activeCommand, setActiveCommand] = useState(null);
-  const [headerCollapsed, setHeaderCollapsed] = useState(true);
-  const [footerCollapsed, setFooterCollapsed] = useState(true);
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const [footerCollapsed, setFooterCollapsed] = useState(false);
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email],
