@@ -49,26 +49,24 @@ const playChime = (success = true) => {
     gainNode.connect(ctx.destination);
     
     if (success) {
-      // Pleasant ascending chime (C5 -> E5 -> G5)
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-      oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
-      oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
+      oscillator.frequency.setValueAtTime(523.25, ctx.currentTime);
+      oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2);
       gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-      oscillator.start(ctx.currentTime);
+      oscillator.start();
       oscillator.stop(ctx.currentTime + 0.4);
     } else {
-      // Low error tone
       oscillator.type = 'sawtooth';
       oscillator.frequency.setValueAtTime(150, ctx.currentTime);
       gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      oscillator.start(ctx.currentTime);
+      oscillator.start();
       oscillator.stop(ctx.currentTime + 0.3);
     }
-  } catch {
-    // Silent fail if audio not supported
+  } catch (err) {
+    console.warn('[playChime] Audio failed:', err);
   }
 };
 
@@ -83,6 +81,8 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
   });
 
   const send = async (commandType, starter = false) => {
+    console.log('[VehicleCommandControls] Send command:', { commandType, vehicle_id: vehicle?.id, booking_id: booking?.id });
+    
     if (commandType === "alarm_pulse") {
       progress.startOptimistic(commandType);
       try {
@@ -114,19 +114,19 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
       const data = res.data;
       const cmdId = data?.command_id || data?.id;
       
-      console.log('[VehicleCommandControls] Command sent, cmdId:', cmdId);
+      console.log('[VehicleCommandControls] Response:', data);
+      console.log('[VehicleCommandControls] Command ID:', cmdId);
       
       if (!cmdId) {
-        console.error('[VehicleCommandControls] No command ID returned');
+        console.error('[VehicleCommandControls] No command ID in response');
         progress.reset();
         return;
       }
       
-      // Gate hold done → transition to "Vehicle responding…"
       progress.transitionToPolling(commandType, cmdId);
       await onCommand?.(data);
     } catch (err) {
-      console.error('[VehicleCommandControls] Command failed:', err);
+      console.error('[VehicleCommandControls] Command error:', err);
       progress.reset();
     }
   };
