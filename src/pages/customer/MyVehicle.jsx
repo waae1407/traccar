@@ -169,16 +169,16 @@ export default function MyVehicle() {
 
       {/* Map Card */}
       <div className="px-4 py-3">
-        <div className="rounded-2xl overflow-hidden bg-[#1c1c1e] border border-[#262626]">
-          <div className="px-4 py-3 border-b border-[#262626] flex items-center justify-between">
+        <div className="rounded-2xl overflow-hidden bg-[#161618]">
+          <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MapPin className="h-3.5 w-3.5 text-gray-500" />
               <div>
                 <p className="text-sm font-bold text-white">Pico Canyon Rd</p>
-                <p className="text-[10px] text-gray-500">Stevenson Ranch, CA 91381 · Updated just now</p>
+                <p className="text-[10px] text-gray-400">Stevenson Ranch, CA 91381 · Updated just now</p>
               </div>
             </div>
-            <button className="h-8 w-8 rounded-lg bg-[#2997ff] flex items-center justify-center">
+            <button className="h-8 w-8 rounded-full bg-[#262626] flex items-center justify-center">
               <Navigation className="h-4 w-4 text-white" style={{ transform: "rotate(45deg)" }} />
             </button>
           </div>
@@ -229,51 +229,54 @@ export default function MyVehicle() {
 
       {/* Remote Controls */}
       <div className="px-4 py-3">
-        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Remote Controls</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Remote Controls</p>
         <div className="grid grid-cols-4 gap-2">
           <button
             onClick={() => handleCommand("lock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
             className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !pickupInspectionComplete || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] border-[#262626] opacity-50"
-                : "bg-[#1c1c1e] border-[#262626] active:scale-95"
+                ? "bg-[#161618] border-[#262626] opacity-50"
+                : "bg-[#161618] border-[#262626] active:scale-95"
             }`}
           >
-            <Lock className="h-5 w-5 mb-1.5 text-white" />
-            <p className="text-xs font-semibold text-white">Lock Doors</p>
+            <Lock className="h-6 w-6 mb-2 text-white" />
+            <p className="text-xs font-semibold text-white text-center">Lock</p>
+            <p className="text-[10px] text-gray-400 text-center">Doors</p>
           </button>
           <button
             onClick={() => handleCommand("unlock")}
             disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
             className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !pickupInspectionComplete || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] border-[#262626] opacity-50"
-                : "bg-[#1c1c1e] border-[#262626] active:scale-95"
+                ? "bg-[#161618] border-[#262626] opacity-50"
+                : "bg-[#161618] border-[#262626] active:scale-95"
             }`}
           >
-            <Unlock className="h-5 w-5 mb-1.5 text-white" />
-            <p className="text-xs font-semibold text-white">Unlock Doors</p>
+            <Unlock className="h-6 w-6 mb-2 text-white" />
+            <p className="text-xs font-semibold text-white text-center">Unlock</p>
+            <p className="text-[10px] text-gray-400 text-center">Doors</p>
           </button>
-          <button className="aspect-square rounded-xl flex flex-col items-center justify-center bg-[#1c1c1e] border border-[#262626] opacity-50">
-            <Fan className="h-5 w-5 mb-1.5 text-gray-500" />
-            <p className="text-xs font-semibold text-gray-500">Climate Off</p>
+          <button className="aspect-square rounded-xl flex flex-col items-center justify-center bg-[#161618] border border-[#262626] opacity-50">
+            <Fan className="h-6 w-6 mb-2 text-gray-500" />
+            <p className="text-xs font-semibold text-gray-500 text-center">Climate</p>
+            <p className="text-[10px] text-gray-400 text-center">Off</p>
           </button>
           <button
             onClick={() => handleCommand("find")}
             disabled={!!commandLoading || !isBookingActive || dropoffInspectionComplete}
             className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border ${
               !isBookingActive || dropoffInspectionComplete
-                ? "bg-[#1c1c1e] border-[#262626] opacity-50"
-                : "bg-[#1c1c1e] border-[#2997ff] active:scale-95"
+                ? "bg-[#161618] border-[#262626] opacity-50"
+                : "bg-[#161618] border-[#2997ff] active:scale-95"
             }`}
           >
-            <BellRing className="h-5 w-5 mb-1.5 text-[#2997ff]" />
-            <p className="text-xs font-semibold text-white">Find Vehicle</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">Flash & Honk</p>
+            <BellRing className="h-6 w-6 mb-2 text-[#2997ff]" />
+            <p className="text-xs font-semibold text-white text-center">Find Vehicle</p>
+            <p className="text-[10px] text-gray-400 text-center">Flash & Honk</p>
           </button>
         </div>
-        <p className="text-[10px] text-gray-500 text-center mt-3">Lock and unlock available after pickup</p>
+        <p className="text-[10px] text-gray-400 text-center mt-3">Lock and unlock available after pickup</p>
       </div>
 
       {/* End Rental Card */}
@@ -281,11 +284,11 @@ export default function MyVehicle() {
         <div className="px-4 py-3">
           <button
             onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
-            className="w-full rounded-2xl bg-[#161618] border border-[#e03131]/50 p-4 active:scale-98"
+            className="w-full rounded-2xl bg-[#161618] border border-[#ff3b30] p-4 active:scale-98"
           >
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-[#e03131]/20 flex items-center justify-center">
-                <Camera className="h-5 w-5 text-[#e03131]" />
+              <div className="h-10 w-10 rounded-xl bg-[#ff3b30]/20 flex items-center justify-center">
+                <Camera className="h-5 w-5 text-[#ff3b30]" />
               </div>
               <div className="text-left flex-1">
                 <p className="text-sm font-bold text-white">End Your Rental</p>
