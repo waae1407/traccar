@@ -168,7 +168,7 @@ export default function MyVehicle() {
             <ContactlessLogo />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Powered by</p>
-              <p className="text-xs font-black text-white">Vehicle Remote</p>
+              <p className="text-xs font-black text-white">Contactless360 Vehicle Remote</p>
             </div>
           </div>
           {activeRentals.length > 1 && (
