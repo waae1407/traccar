@@ -1,5 +1,5 @@
 import React from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, Car } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 
@@ -58,6 +58,18 @@ export default function FindMyVehicleMap({ booking, compact = false }) {
         src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
         className="absolute inset-0"
       />
+      
+      {/* Vehicle marker overlay */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative">
+          <div className="absolute -inset-4 bg-primary/20 rounded-full animate-ping" />
+          <div className="relative h-12 w-12 rounded-full bg-white shadow-xl flex items-center justify-center border-2 border-primary">
+            <Car className="h-6 w-6 text-primary" />
+          </div>
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-primary rotate-45" />
+        </div>
+      </div>
+
       <a
         href={mapsUrl}
         target="_blank"
