@@ -252,7 +252,7 @@ export default function MyVehicle() {
             {/* Top row: name + icons */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
-                <p style={{ fontSize: 20, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.16, margin: 0, letterSpacing: "-0.35px", maxWidth: 245, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
+                <p style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.2px", maxWidth: 245, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
                   <span style={{ color: "#30D158", fontSize: 12, fontWeight: 500 }}>Online</span>
@@ -279,12 +279,12 @@ export default function MyVehicle() {
             {/* Stats — inline, large, bold */}
             <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14 }}>
               <div>
-                <p style={{ fontSize: 24, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.05, margin: 0, letterSpacing: "-0.5px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
+                <p style={{ fontSize: 22, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Range</p>
               </div>
-              <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
+              <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 24, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.05, margin: 0, letterSpacing: "-0.5px", fontVariantNumeric: "tabular-nums" }}>72%</p>
+                <p style={{ fontSize: 22, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>72%</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Hydrogen</p>
               </div>
             </div>
