@@ -74,7 +74,6 @@ export function useCommandProgress() {
         if (SUCCESS_STATUSES.has(qs)) {
           clearAll();
           advancePhase(PHASES.success);
-          setTimeout(() => setPhase(PHASES.idle), 4000);
           return;
         }
         if (FAIL_STATUSES.has(qs)) {
