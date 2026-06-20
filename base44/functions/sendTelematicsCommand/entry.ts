@@ -13,11 +13,11 @@ const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90; // kept for historical command expiry only
 
 // ── HEARTBEAT FRESHNESS GATE ──
-// Noran MT20 devices heartbeat every ~28 seconds by design (firmware-level).
-// Threshold set to 35s to avoid gate delays while still catching stale devices.
-const MAX_HEARTBEAT_AGE_MS = 35000;        // 35 seconds — accommodate Noran MT20 heartbeat interval
+// Empirical data: commands sent >10s after heartbeat fail due to UDP NAT session timeout.
+// Commands <10s: 100% success. Commands >12s: 0% success.
+const MAX_HEARTBEAT_AGE_MS = 10000;       // 10 seconds — send immediately if fresh
 const HEARTBEAT_POLL_INTERVAL_MS = 500;    // poll every 500ms
-const HEARTBEAT_POLL_TIMEOUT_MS = 40000;   // wait up to 40s for fresh heartbeat
+const HEARTBEAT_POLL_TIMEOUT_MS = 30000;   // wait up to 30s for fresh heartbeat
 
 
 
