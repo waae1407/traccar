@@ -45,7 +45,14 @@ export default function TelematicsCommandButtons({ vehicleId, bookingId, device,
     if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
     setLoading(command_type);
     try {
-      const res = await TelematicsService.sendCommand({ vehicle_id: vehicleId, booking_id: bookingId, command_type, reason, confirm_starter_command: starter });
+      const res = await TelematicsService.sendCommand({ 
+        telematics_device_id: device?.id, 
+        vehicle_id: vehicleId, 
+        booking_id: bookingId, 
+        command_type, 
+        reason, 
+        confirm_starter_command: starter 
+      });
       onResult?.(res.data);
     } finally {
       setLoading(null);
