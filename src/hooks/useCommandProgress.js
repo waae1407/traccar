@@ -1,34 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 
-// 3-state phases: contacting → vehicle_responding → success/failed
 export const PHASES = {
   idle: "idle",
-  contacting: "contacting",           // gate hold — waiting for fresh heartbeat
-  vehicle_responding: "vehicle_responding",  // command sent, waiting for device ACK
-  success: "success",                 // acknowledged / executed
+  contacting: "contacting",
+  vehicle_responding: "vehicle_responding",
+  success: "success",
   failed: "failed",
 };
 
-const SENDING_STATUSES = new Set(["sending", "sent", "sent_to_traccar"]);
-const SUCCESS_STATUSES = new Set(["acknowledged", "executed", "delivered", "confirmed", "completed"]);
-const FAIL_STATUSES = new Set(["failed", "expired", "blocked"]);
+const PENDING_STATUSES = new Set(["pending", "sending", "sent", "sent_to_traccar", "queued", "processing", "waiting"]);
+const SUCCESS_STATUSES = new Set(["acknowledged", "executed", "delivered", "confirmed", "completed", "success", "done"]);
+const FAIL_STATUSES = new Set(["failed", "expired", "blocked", "error", "rejected", "timeout"]);
 
 export function useCommandProgress() {
   const [phase, setPhase] = useState(PHASES.idle);
   const [commandId, setCommandId] = useState(null);
   const [elapsed, setElapsed] = useState(0);
-  const [phaseElapsed, setPhaseElapsed] = useState(0);
   const [commandType, setCommandType] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [lastHeartbeatAge, setLastHeartbeatAge] = useState(null);
+  const [pollAttempts, setPollAttempts] = useState(0);
 
   const startTimeRef = useRef(null);
-  const phaseStartRef = useRef(null);
   const pollRef = useRef(null);
   const timerRef = useRef(null);
+  const isPollingRef = useRef(false);
 
-  // Clear all intervals
   const clearAll = useCallback(() => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
@@ -38,67 +35,80 @@ export function useCommandProgress() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    isPollingRef.current = false;
   }, []);
 
-  // Reset everything to initial state
   const reset = useCallback(() => {
     clearAll();
     setPhase(PHASES.idle);
     setCommandId(null);
     setElapsed(0);
-    setPhaseElapsed(0);
     setCommandType(null);
     setErrorMessage(null);
-    setLastHeartbeatAge(null);
+    setPollAttempts(0);
     startTimeRef.current = null;
-    phaseStartRef.current = null;
+    isPollingRef.current = false;
   }, [clearAll]);
 
-  // Start polling for command status
   const startPolling = useCallback((cmdId) => {
     if (!cmdId) return;
-    
-    // Clear any existing poll
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-    }
-    
-    pollRef.current = setInterval(async () => {
+    if (isPollingRef.current) return;
+
+    isPollingRef.current = true;
+    setPollAttempts(0);
+
+    const checkStatus = async () => {
       try {
         const records = await base44.entities.TelematicsCommand.filter({ id: cmdId });
         const rec = records?.[0];
         if (!rec) return;
-        
-        const qs = rec.queue_status || rec.status;
-        const cs = rec.confirmation_status;
-        
-        console.log('[useCommandProgress] Polling cmdId:', cmdId, 'queue_status:', qs, 'confirmation_status:', cs);
-        
-        if (SUCCESS_STATUSES.has(qs) || SUCCESS_STATUSES.has(cs)) {
-          console.log('[useCommandProgress] SUCCESS detected');
+
+        const queueStatus = rec.queue_status;
+        const confirmationStatus = rec.confirmation_status;
+        const status = rec.status;
+
+        const anySuccess = [queueStatus, confirmationStatus, status].some(s => SUCCESS_STATUSES.has(s));
+        if (anySuccess) {
           setPhase(PHASES.success);
           clearAll();
           return;
         }
-        
-        if (FAIL_STATUSES.has(qs) || FAIL_STATUSES.has(cs)) {
-          console.log('[useCommandProgress] FAILED detected');
+
+        const anyFail = [queueStatus, confirmationStatus, status].some(s => FAIL_STATUSES.has(s));
+        if (anyFail) {
           setErrorMessage(rec.failure_reason || "Vehicle didn't respond");
           setPhase(PHASES.failed);
           clearAll();
           return;
         }
-        
-        if (SENDING_STATUSES.has(qs) || SENDING_STATUSES.has(cs)) {
+
+        const anyPending = [queueStatus, confirmationStatus, status].some(s => PENDING_STATUSES.has(s));
+        if (anyPending) {
           setPhase(PHASES.vehicle_responding);
+        }
+
+        setPollAttempts(prev => prev + 1);
+        
+        if (pollAttempts > 120) {
+          setErrorMessage("Command timed out");
+          setPhase(PHASES.failed);
+          clearAll();
         }
       } catch (err) {
         console.error('[useCommandProgress] Poll error:', err);
+        setPollAttempts(prev => prev + 1);
+        if (pollAttempts > 5) {
+          setErrorMessage("Connection error");
+          setPhase(PHASES.failed);
+          clearAll();
+        }
       }
-    }, 1500);
-  }, [clearAll]);
+    };
 
-  // Show "Contacting vehicle…" immediately on button click
+    checkStatus();
+    pollRef.current = setInterval(checkStatus, 1000);
+  }, [clearAll, pollAttempts]);
+
   const startOptimistic = useCallback((cmdType) => {
     clearAll();
     setCommandType(cmdType);
@@ -106,29 +116,25 @@ export function useCommandProgress() {
     setErrorMessage(null);
     setPhase(PHASES.contacting);
     startTimeRef.current = Date.now();
-    phaseStartRef.current = Date.now();
     setElapsed(0);
-    setPhaseElapsed(0);
+    setPollAttempts(0);
+    isPollingRef.current = false;
     
-    // Start elapsed timer
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
-      setPhaseElapsed(Math.floor((Date.now() - phaseStartRef.current) / 1000));
     }, 500);
   }, [clearAll]);
 
-  // Called once API responds — gate hold is done, now poll for device ACK
   const transitionToPolling = useCallback((cmdType, cmdId) => {
     setCommandType(cmdType);
     setCommandId(cmdId);
     setPhase(PHASES.vehicle_responding);
-    phaseStartRef.current = Date.now();
-    setPhaseElapsed(0);
+    startTimeRef.current = Date.now();
+    setElapsed(0);
     startPolling(cmdId);
   }, [startPolling]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => clearAll();
   }, [clearAll]);
@@ -136,13 +142,13 @@ export function useCommandProgress() {
   return { 
     phase, 
     elapsed, 
-    phaseElapsed, 
     commandType, 
     commandId, 
     errorMessage, 
-    lastHeartbeatAge, 
+    pollAttempts,
     startOptimistic, 
     transitionToPolling, 
-    reset 
+    reset,
+    isPolling: isPollingRef.current
   };
 }
