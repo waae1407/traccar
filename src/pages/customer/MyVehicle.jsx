@@ -161,12 +161,12 @@ export default function MyVehicle() {
           </div>
 
           {/* Right Side - Vehicle Image (no card, no background) */}
-          <div className="w-[140px] h-20 flex-shrink-0 flex items-center justify-center">
+          <div className="w-[160px] h-24 flex-shrink-0 flex items-end justify-end">
             <img 
-              src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" 
-              alt="2018 Toyota Mirai" 
-              className="w-full h-full object-contain"
-              style={{ filter: "hue-rotate(180deg)" }}
+              src={vehicle?.image_url || "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg"} 
+              alt={name} 
+              className="w-full h-full object-contain drop-shadow-2xl"
+              style={{ transform: "rotate(-2deg)" }}
             />
           </div>
         </div>

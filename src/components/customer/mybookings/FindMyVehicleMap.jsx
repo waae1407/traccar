@@ -20,9 +20,9 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
 
   if (!canShow) {
     return (
-      <div className="h-full w-full rounded-2xl border border-gray-100 bg-gray-50 flex items-center justify-center">
+      <div className="h-full w-full rounded-2xl border border-[#262626] bg-[#121212] flex items-center justify-center">
         <div className="text-center p-4">
-          <MapPin className="mx-auto mb-2 h-5 w-5 text-gray-300" />
+          <MapPin className="mx-auto mb-2 h-5 w-5 text-gray-600" />
           <p className="text-xs font-semibold text-gray-500">Vehicle location available during active rental</p>
         </div>
       </div>
@@ -35,9 +35,9 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
 
   if (!lat || !lng) {
     return (
-      <div className="h-full w-full rounded-2xl border border-gray-100 bg-gray-50 flex items-center justify-center">
+      <div className="h-full w-full rounded-2xl border border-[#262626] bg-[#121212] flex items-center justify-center">
         <div className="text-center p-4">
-          <MapPin className="mx-auto mb-2 h-5 w-5 text-gray-300" />
+          <MapPin className="mx-auto mb-2 h-5 w-5 text-gray-600" />
           <p className="text-xs font-semibold text-gray-500">Waiting for GPS location...</p>
         </div>
       </div>
@@ -57,14 +57,30 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
         marginWidth="0"
         src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
         className="absolute inset-0"
-        style={{ filter: "invert(90%) hue-rotate(180deg) contrast(1.2)" }}
+        style={{ 
+          filter: "invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)",
+          background: "#1a1a1a"
+        }}
       />
-      {/* Vehicle marker overlay */}
+      {/* Vehicle marker overlay - white car in blue glowing circle */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative">
-          <div className="absolute inset-0 blur-xl opacity-60 bg-blue-500 rounded-full" style={{ width: '80px', height: '80px', marginLeft: '-40px', marginTop: '-40px' }} />
-          <div className="relative bg-white rounded-full p-4 shadow-2xl">
-            <Car className="h-6 w-6 text-blue-500" />
+          {/* Blue glow effect */}
+          <div 
+            className="absolute rounded-full opacity-70"
+            style={{ 
+              width: '64px', 
+              height: '64px', 
+              marginLeft: '-32px', 
+              marginTop: '-32px',
+              background: "radial-gradient(circle, rgba(41,151,255,0.6) 0%, rgba(41,151,255,0.2) 60%, transparent 70%)",
+              filter: "blur(8px)"
+            }} 
+          />
+          {/* White circular pin */}
+          <div className="relative h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-lg"
+            style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.3), 0 0 0 3px rgba(41,151,255,0.4)" }}>
+            <Car className="h-5 w-5 text-[#2997ff]" style={{ transform: "rotate(-15deg)" }} />
           </div>
         </div>
       </div>
