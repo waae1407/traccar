@@ -4,7 +4,8 @@ import { Link, useOutletContext } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays } from "date-fns";
 import { base44 } from "@/api/base44Client";
-import { Bot, CalendarClock, Camera, Car, ChevronDown, CreditCard, FileText, MapPin, MessageSquare, Navigation, ShieldCheck, Sparkles, Wrench } from "lucide-react";
+import { Bot, CalendarClock, Camera, Car, ChevronDown, CreditCard, FileText, MapPin, MessageSquare, Navigation, ShieldCheck, Sparkles, Wrench, Signal, Battery, Lock, Unlock, BellRing, Volume2, RotateCcw, Zap, AlertTriangle } from "lucide-react";
+import { motion } from "framer-motion";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import PickupAddressCard from "@/components/customer/mybookings/PickupAddressCard";
 import ContractModal from "@/components/customer/mybookings/ContractModal";
@@ -28,34 +29,13 @@ function freshness(device) {
   const value = device?.last_seen_at || device?.location_updated_at;
   if (!value) return { label: "No recent GPS", time: "Not available", online: false };
   const minutes = Math.round((Date.now() - new Date(value).getTime()) / 60000);
-  if (minutes < 2) return { label: "Live / Recent", time: format(new Date(value), "MMM d, h:mm a"), online: true };
-  if (minutes < 30) return { label: `${minutes} min old`, time: format(new Date(value), "MMM d, h:mm a"), online: device?.online_status !== "offline" };
-  return { label: "Location stale", time: format(new Date(value), "MMM d, h:mm a"), online: device?.online_status === "online" };
+  if (minutes < 2) return { label: "Live", time: format(new Date(value), "h:mm a"), online: true };
+  if (minutes < 30) return { label: `${minutes}m ago`, time: format(new Date(value), "h:mm a"), online: device?.online_status !== "offline" };
+  return { label: "Stale", time: format(new Date(value), "h:mm a"), online: device?.online_status === "online" };
 }
 
 function money(value) {
   return `$${Number(value || 0).toLocaleString()}`;
-}
-
-function eventTitle(event) {
-  const labels = {
-    contract_signed: "Contract Signed",
-    payment_received: "Payment Received",
-    booking_confirmed: "Rental Confirmed",
-    booking_active: "Rental Active",
-    "booking.approved": "Rental Approved",
-    "booking.activated": "Rental Activated",
-    "booking.completed": "Rental Completed",
-    "payment.succeeded": "Payment Received",
-    "gps.command_sent": "Vehicle Command Sent",
-    "gps.command_failed": "Vehicle Command Failed",
-  };
-  return event.event_title || event.summary || labels[event.event_type] || event.event_type?.replaceAll("_", " ") || "Rental Update";
-}
-
-function commandTitle(command) {
-  const labels = { locate: "Vehicle Located", lock: "Vehicle Locked", unlock: "Vehicle Unlocked", alarm_pulse: "Find Vehicle Triggered" };
-  return labels[command.command_type] || command.command_type?.replaceAll("_", " ") || "Vehicle Action";
 }
 
 export default function MyVehicle() {
@@ -64,6 +44,8 @@ export default function MyVehicle() {
   const [selectedBookingId, setSelectedBookingId] = useState("");
   const [contractBooking, setContractBooking] = useState(null);
   const [inspectionTarget, setInspectionTarget] = useState(null);
+  const [showFullMap, setShowFullMap] = useState(false);
+  const [activeCommand, setActiveCommand] = useState(null);
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email],
@@ -97,19 +79,6 @@ export default function MyVehicle() {
   const device = devices[0];
   const gps = freshness(device);
 
-  const { data: events = [] } = useQuery({
-    queryKey: ["my-vehicle-activity", user?.email],
-    queryFn: () => base44.entities.ActivityEvent.filter({ user_email: user.email }, "-created_date", 80),
-    enabled: !!user?.email,
-  });
-
-  const { data: commands = [] } = useQuery({
-    queryKey: ["my-vehicle-commands", booking?.id],
-    queryFn: () => base44.entities.TelematicsCommand.filter({ booking_id: booking.id }, "-created_date", 20),
-    enabled: !!booking?.id,
-    refetchInterval: 15_000,
-  });
-
   const { data: notifications = [] } = useQuery({
     queryKey: ["my-vehicle-notifications", user?.email],
     queryFn: () => base44.entities.Notification.filter({ user_email: user.email }, "-created_date", 20),
@@ -130,207 +99,363 @@ export default function MyVehicle() {
   });
   const recentThread = communicationPreview.threads?.[0];
 
-  const recentActivity = useMemo(() => {
-    const rentalEvents = events.filter((event) => event.booking_request_id === booking?.id || event.booking_id === booking?.id || event.vehicle_id === booking?.vehicle_id)
-      .map((event) => ({ id: event.id, type: "Activity", title: eventTitle(event), detail: sanitizeInternalText(event.event_description || event.event_status || "Rental timeline updated"), date: event.created_date }));
-    const commandEvents = commands.map((command) => ({ id: command.id, type: "Vehicle", title: commandTitle(command), detail: formatCommandStatus(command.queue_status || command.status), date: command.created_date || command.created_at }));
-    const notices = notifications.slice(0, 4).map((notice) => ({ id: notice.id, type: "Notice", title: notice.title || "Important Notice", detail: notice.body, date: notice.created_date }));
-    return [...commandEvents, ...rentalEvents, ...notices].filter((item) => item.title).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 8);
-  }, [events, commands, notifications, booking]);
-
-  if (!user) return <EmptyState title="Sign in to view your vehicle" text="Your active rental command center appears here after login." action="Sign In" href="/account" />;
-  if (isLoading) return <div className="p-5 space-y-4">{[1, 2, 3].map((item) => <div key={item} className="h-40 animate-pulse rounded-[2rem] bg-gray-100" />)}</div>;
-  if (!booking) return <EmptyState title="No active rental" text="Book a vehicle to unlock the connected rental experience." action="Book Now" href="/book-now" />;
+  if (!user) return <EmptyState title="Sign in to view your vehicle" text="Your Contactless360 remote appears here after login." action="Sign In" href="/account" />;
+  if (isLoading) return <LoadingState />;
+  if (!booking) return <EmptyState title="No active rental" text="Book a vehicle to unlock the Contactless360 remote experience." action="Book Now" href="/book-now" />;
 
   const name = vehicleName(vehicle, booking);
   const daysRemaining = booking.end_date ? Math.max(0, differenceInCalendarDays(new Date(`${booking.end_date}T23:59:59`), new Date())) : null;
   const paidThrough = booking.next_billing_date ? format(new Date(`${booking.next_billing_date}T00:00:00`), "MMMM d") : "current period";
-  const nextBillingLabel = booking.next_billing_date ? format(new Date(`${booking.next_billing_date}T00:00:00`), "MMM d") : "Auto-Renew";
-  const pickupDone = booking.pickup_photos?.length > 0;
-  const returnDone = booking.return_exterior_photos?.length > 0;
   const needsPayment = booking.payment_status !== "paid" || booking.starter_disabled || booking.moovetrax_kill_active;
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] pb-8">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 pb-8">
       {contractBooking && <ContractModal booking={contractBooking} onClose={() => setContractBooking(null)} />}
       {inspectionTarget && <VehicleInspectionSheet booking={inspectionTarget.booking} type={inspectionTarget.type} onClose={() => setInspectionTarget(null)} onComplete={() => queryClient.invalidateQueries({ queryKey: ["my-vehicle-bookings", user?.email] })} />}
 
-      <section className="relative overflow-hidden rounded-b-[2.5rem] bg-gray-950 text-white shadow-2xl">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(236,72,153,0.38),transparent_35%),radial-gradient(circle_at_80%_65%,rgba(59,130,246,0.25),transparent_38%)]" />
-        <div className="relative px-5 pb-6 pt-5">
-          {activeRentals.length > 1 && (
-            <div className="mb-4">
-              <label className="mb-1 block text-[10px] font-black uppercase tracking-[0.22em] text-white/40">Current Vehicle</label>
-              <div className="relative">
-                <select value={booking.id} onChange={(e) => setSelectedBookingId(e.target.value)} className="w-full appearance-none rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold text-white outline-none">
-                  {activeRentals.map((item) => <option key={item.id} value={item.id}>{item.vehicle_name || item.vehicle_id}</option>)}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+      {/* Full Screen Map Modal */}
+      {showFullMap && (
+        <motion.div
+          initial={{ opacity: 0, y: "100%" }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: "100%" }}
+          className="fixed inset-0 z-50 bg-slate-950"
+        >
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between border-b border-white/10 bg-slate-900/80 backdrop-blur-xl p-4">
+              <div className="flex items-center gap-3">
+                <ContactlessLogo size="small" />
+                <span className="text-sm font-bold text-white">Live Vehicle Map</span>
               </div>
+              <button onClick={() => setShowFullMap(false)} className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+                <ChevronDown className="h-5 w-5" />
+              </button>
             </div>
-          )}
-
-          <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/10 shadow-2xl backdrop-blur-xl">
-            <div className="relative h-56 bg-gray-900">
-              {booking.vehicle_image || vehicle?.image_url ? <img src={booking.vehicle_image || vehicle.image_url} alt={name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center"><Car className="h-20 w-20 text-white/20" /></div>}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="mb-2 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-emerald-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-950">Rental Active</span>
-                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${gps.online ? "bg-sky-400 text-sky-950" : "bg-white/20 text-white"}`}>{gps.online ? "Vehicle Online" : "Vehicle Status Unknown"}</span>
-                </div>
-                <h1 className="text-3xl font-black leading-tight" style={{ fontFamily: "var(--font-syne)" }}>{name}</h1>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 p-3">
-              <HeroMetric icon={CalendarClock} label="Rental Time" value={daysRemaining !== null ? `${daysRemaining} Days Remaining` : "Auto-Renewing"} />
-              <HeroMetric icon={CreditCard} label="Payment" value={booking.payment_status === "paid" ? `Paid Through ${paidThrough}` : "Payment Needed"} />
-              <HeroMetric icon={CalendarClock} label="Next Billing" value={nextBillingLabel} />
+            <div className="flex-1">
+              <FindMyVehicleMap booking={booking} />
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {/* Header - Contactless360 Branding */}
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <ContactlessLogo />
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Powered by</p>
+              <p className="text-xs font-black text-white">Vehicle Remote</p>
+            </div>
+          </div>
+          {activeRentals.length > 1 && (
+            <div className="relative">
+              <select
+                value={booking.id}
+                onChange={(e) => setSelectedBookingId(e.target.value)}
+                className="appearance-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-white outline-none"
+              >
+                {activeRentals.map((item) => (
+                  <option key={item.id} value={item.id} className="bg-slate-900">
+                    {item.vehicle_name || item.vehicle_id}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-white/50" />
+            </div>
+          )}
         </div>
+      </header>
+
+      {/* Map Section - Top Half */}
+      <section className="relative h-[45vh] min-h-[320px] w-full overflow-hidden">
+        <FindMyVehicleMap booking={booking} compact />
+        
+        {/* Floating Vehicle Status Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute bottom-4 left-4 right-4"
+        >
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/90 backdrop-blur-xl shadow-2xl">
+            <div className="flex items-center justify-between p-3">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${gps.online ? "bg-emerald-500/20" : "bg-gray-500/20"}`}>
+                  {gps.online ? <Signal className="h-5 w-5 text-emerald-400" /> : <Signal className="h-5 w-5 text-gray-400" />}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-white">{name}</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold ${gps.online ? "text-emerald-400" : "text-gray-400"}`}>
+                      {gps.online ? "● Online" : "○ Offline"}
+                    </span>
+                    <span className="text-[10px] text-white/40">·</span>
+                    <span className="text-[10px] text-white/60">{gps.label}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFullMap(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20"
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                Full Map
+              </button>
+            </div>
+          </div>
+        </motion.div>
       </section>
 
-      <div className="space-y-5 pt-5">
-        <CustomerQuickCommands booking={booking} vehicle={vehicle} device={device} onComplete={() => Promise.all([refetchDevices(), queryClient.invalidateQueries({ queryKey: ["my-vehicle-commands", booking.id] })])} />
-
-        <Section title="Live Vehicle Map" eyebrow="GPS Location" icon={MapPin}>
-          <div className="mb-3 grid grid-cols-3 gap-2">
-            <Mini label="Freshness" value={gps.label} />
-            <Mini label="Last Update" value={gps.time} />
-            <Mini label="Location" value={device?.address || (device?.last_latitude ? `${Number(device.last_latitude).toFixed(3)}, ${Number(device.last_longitude).toFixed(3)}` : "Pending")} />
+      {/* Controls Section - Bottom Half */}
+      <div className="px-4 pt-5">
+        {/* Primary Actions */}
+        <div className="mb-5">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/40">Remote Controls</h2>
+          <div className="grid grid-cols-3 gap-3">
+            <ActionButton
+              icon={Lock}
+              label="Lock"
+              sub="Secure vehicle"
+              onClick={async () => {
+                setActiveCommand("lock");
+                try {
+                  const res = await base44.functions.invoke("sendTelematicsCommand", {
+                    telematics_device_id: device?.id,
+                    vehicle_id: vehicle?.id,
+                    booking_id: booking?.id,
+                    command_type: "lock",
+                    source: "contactless360_remote"
+                  });
+                  setTimeout(() => setActiveCommand(null), 2000);
+                  refetchDevices();
+                } catch {
+                  setActiveCommand(null);
+                }
+              }}
+              gradient="from-cyan-500 to-blue-500"
+              disabled={!!activeCommand}
+            />
+            <ActionButton
+              icon={Unlock}
+              label="Unlock"
+              sub="Unlock vehicle"
+              onClick={async () => {
+                setActiveCommand("unlock");
+                try {
+                  const res = await base44.functions.invoke("sendTelematicsCommand", {
+                    telematics_device_id: device?.id,
+                    vehicle_id: vehicle?.id,
+                    booking_id: booking?.id,
+                    command_type: "unlock",
+                    source: "contactless360_remote"
+                  });
+                  setTimeout(() => setActiveCommand(null), 2000);
+                  refetchDevices();
+                } catch {
+                  setActiveCommand(null);
+                }
+              }}
+              gradient="from-emerald-500 to-teal-500"
+              disabled={!!activeCommand}
+            />
+            <ActionButton
+              icon={BellRing}
+              label="Find"
+              sub="Locate vehicle"
+              onClick={async () => {
+                setActiveCommand("find");
+                try {
+                  const res = await base44.functions.invoke("startTelematicsAlarm", {
+                    vehicle_id: vehicle?.id,
+                    telematics_device_id: device?.id
+                  });
+                  if (vehicle?.vehicle_lat && vehicle?.vehicle_lon) {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${vehicle.vehicle_lat},${vehicle.vehicle_lon}`, "_blank");
+                  }
+                  setTimeout(() => setActiveCommand(null), 2000);
+                  refetchDevices();
+                } catch {
+                  setActiveCommand(null);
+                }
+              }}
+              gradient="from-pink-500 to-rose-500"
+              disabled={!!activeCommand}
+            />
           </div>
-          <FindMyVehicleMap booking={booking} />
-        </Section>
+        </div>
 
-        <Section title="Pickup & Return" eyebrow="Rental Logistics" icon={Navigation}>
-          <PickupAddressCard vehicle={vehicle} booking={booking} />
-          <div className="mt-3 rounded-2xl border border-gray-100 bg-gray-50 p-4">
-            <p className="text-sm font-black text-gray-900">Return instructions</p>
-            <p className="mt-1 text-xs leading-relaxed text-gray-500">When you are ready to return the vehicle, complete the drop-off inspection below. Billing stops only after return photos are submitted and reviewed.</p>
-            <p className="mt-2 text-xs font-bold text-gray-700">Need help? Message your host or contact support from this page.</p>
+        {/* Secondary Actions */}
+        <div className="mb-5">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/40">Vehicle Status</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <StatusCard
+              icon={Battery}
+              label="GPS Signal"
+              value={gps.label}
+              status={gps.online ? "good" : "poor"}
+            />
+            <StatusCard
+              icon={CalendarClock}
+              label="Rental Days"
+              value={daysRemaining !== null ? `${daysRemaining} left` : "Auto-renew"}
+              status="neutral"
+            />
           </div>
-        </Section>
+        </div>
 
-        <Section title="Rental Documents" eyebrow="Official Agreement" icon={FileText}>
-          <div className="grid gap-2">
-            <ActionButton disabled={!(booking.contract_status === "signed" && booking.contract_html)} onClick={() => setContractBooking(booking)} label="View Official Rental Agreement" sub="Open your signed agreement in uRide" />
-            <ActionButton disabled={!booking.contract_html} onClick={() => downloadContract(booking)} label="Download Official Agreement" sub="Save a customer copy for your records" />
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3 text-xs font-semibold text-blue-700">This is your signed rental agreement. Terms remain exactly as accepted during checkout.</div>
-          </div>
-        </Section>
-
-        <Section title="Billing Status" eyebrow="Payments" icon={CreditCard}>
-          <div className="grid grid-cols-2 gap-2">
-            <Mini label="Status" value={booking.payment_status || "unknown"} />
-            <Mini label="Next Billing" value={booking.next_billing_date ? format(new Date(`${booking.next_billing_date}T00:00:00`), "MMM d, yyyy") : "—"} />
-            <Mini label="Weekly Rate" value={money(booking.weekly_rate)} />
-            <Mini label="Amount Due" value={needsPayment ? money(booking.total_due_now || booking.weekly_rate) : "$0"} />
-          </div>
-          {booking.booking_status === "payment_due" && booking.starter_disable_scheduled_at && (() => {
-            const deadline = new Date(booking.starter_disable_scheduled_at);
-            const hoursLeft = Math.max(0, (deadline.getTime() - Date.now()) / (1000 * 60 * 60));
-            const urgent = hoursLeft <= 8;
-            return (
-              <div className={`mt-3 rounded-2xl p-4 ${urgent ? "bg-red-50 border border-red-200" : "bg-orange-50 border border-orange-200"}`}>
-                <p className={`text-sm font-black ${urgent ? "text-red-800" : "text-orange-800"}`}>
-                  {urgent ? "⚠️ Final Reminder — Payment must be resolved soon" : "Payment Required"}
-                </p>
-                <p className={`text-xs mt-1 ${urgent ? "text-red-600" : "text-orange-600"}`}>
-                  Your payment failed. Please resolve within {hoursLeft < 1 ? "less than 1 hour" : `~${Math.round(hoursLeft)} hours`} to avoid vehicle access restriction.
-                </p>
-              </div>
-            );
-          })()}
-          {booking.booking_status === "suspended" && (
-            <div className="mt-3 rounded-2xl bg-red-50 border border-red-200 p-4">
-              <p className="text-sm font-black text-red-800">🔒 Vehicle Access Restricted</p>
-              <p className="text-xs mt-1 text-red-600">Your account is suspended due to an overdue payment. Please resolve your balance to restore access.</p>
-            </div>
-          )}
-          {needsPayment && <Link to={`/checkout?request=${booking.id}&step=payment`} className="mt-3 flex w-full items-center justify-center rounded-2xl bg-red-500 px-4 py-3 text-sm font-black text-white">Pay Now to Restore Access</Link>}
-        </Section>
-
-        <Section title="Inspections" eyebrow="Pickup & Return Photos" icon={Camera}>
-          <div className="grid gap-2">
-            <ActionButton onClick={() => setInspectionTarget({ booking, type: "pickup" })} label={pickupDone ? "View Pickup Inspection" : "Complete Pickup Inspection"} sub={pickupDone ? "Pickup photos submitted" : "Required before driving"} success={pickupDone} />
-            <ActionButton onClick={() => setInspectionTarget({ booking, type: "dropoff" })} label={returnDone ? "View Return Inspection" : "Complete Return Inspection"} sub={returnDone ? "Return photos submitted" : pickupDone ? "Use this when returning the vehicle" : "Complete pickup first"} success={returnDone} disabled={!pickupDone} />
-          </div>
-        </Section>
-
-        <Section title="Rental Activity" eyebrow="Recent Events" icon={Sparkles}>
+        {/* Quick Links */}
+        <div className="mb-5">
+          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/40">Rental Tools</h2>
           <div className="space-y-2">
-            {recentActivity.length === 0 ? <p className="rounded-2xl bg-gray-50 p-4 text-center text-sm text-gray-400">No recent rental activity yet.</p> : recentActivity.map((item) => <div key={`${item.type}-${item.id}`} className="rounded-2xl border border-gray-100 bg-gray-50 p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black capitalize text-gray-900">{item.title}</p><p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{item.detail}</p></div><span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-gray-400">{item.type}</span></div></div>)}
+            <LinkCard
+              to="/messages"
+              icon={MessageSquare}
+              label="Message Host"
+              sub={recentThread ? recentThread.subject : "Start a conversation"}
+              badge={recentThread ? "Recent" : null}
+            />
+            <LinkCard
+              to="/support"
+              icon={Wrench}
+              label="Support"
+              sub="Get help with your rental"
+            />
+            <LinkCard
+              to="/account"
+              icon={FileText}
+              label="Documents"
+              sub="View rental agreement"
+              disabled={!(booking.contract_status === "signed" && booking.contract_html)}
+            />
           </div>
-        </Section>
+        </div>
 
-        <Section title="Support" eyebrow="Help & Communication" icon={MessageSquare}>
-          <div className="grid gap-2">
-            <MessagePreview thread={recentThread} />
-            <SupportLink to="/messages" icon={MessageSquare} label="Message Host" sub="Open secure rental messages" />
-            <SupportLink to="/support" icon={Wrench} label="Contact Support" sub="Get help inside uRide" />
-            <SupportLink to="/support" icon={Bot} label="AI Assistant" sub="Ask about your rental instantly" />
-          </div>
-        </Section>
+        {/* Payment Alert */}
+        {needsPayment && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-500/10 to-red-500/5 p-4"
+          >
+            <p className="text-sm font-bold text-red-400">⚠️ Payment Required</p>
+            <p className="mt-1 text-xs text-red-300/80">Resolve payment to maintain vehicle access</p>
+            <Link
+              to={`/checkout?request=${booking.id}&step=payment`}
+              className="mt-3 flex w-full items-center justify-center rounded-xl bg-red-500 py-2.5 text-xs font-bold text-white hover:bg-red-600"
+            >
+              Pay Now
+            </Link>
+          </motion.div>
+        )}
       </div>
     </div>
   );
 }
 
-function HeroMetric({ icon: Icon, label, value }) {
-  return <div className="rounded-2xl bg-white/10 p-3"><Icon className="mb-2 h-4 w-4 text-pink-200" /><p className="text-[10px] font-black uppercase tracking-wider text-white/40">{label}</p><p className="mt-1 text-sm font-black text-white">{value}</p></div>;
-}
-
-function Section({ title, eyebrow, icon: Icon, children }) {
-  return <section className="px-5"><div className="rounded-[2rem] border border-white bg-white p-4 shadow-sm"><div className="mb-3 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-pink-50"><Icon className="h-5 w-5 text-pink-600" /></div><div><p className="text-[10px] font-black uppercase tracking-[0.22em] text-gray-400">{eyebrow}</p><h2 className="text-lg font-black text-gray-950" style={{ fontFamily: "var(--font-syne)" }}>{title}</h2></div></div>{children}</div></section>;
-}
-
-function Mini({ label, value }) {
-  return <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3"><p className="text-[10px] font-black uppercase tracking-wider text-gray-400">{label}</p><p className="mt-1 truncate text-xs font-black capitalize text-gray-900">{value || "—"}</p></div>;
-}
-
-function ActionButton({ label, sub, onClick, disabled, success }) {
-  return <button disabled={disabled} onClick={onClick} className="flex w-full items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 p-4 text-left transition active:scale-[0.98] disabled:opacity-45"><div><p className="text-sm font-black text-gray-950">{label}</p><p className="mt-0.5 text-xs font-semibold text-gray-400">{sub}</p></div>{success ? <ShieldCheck className="h-5 w-5 text-emerald-500" /> : <span className="text-xl text-gray-300">›</span>}</button>;
-}
-
-function MessagePreview({ thread }) {
-  if (!thread) return (
-    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-      <p className="text-sm font-black text-gray-950">Need help?</p>
-      <p className="mt-1 text-xs font-semibold text-gray-500">Start a secure conversation with your host or uRide support without leaving the app.</p>
-    </div>
-  );
-
+function ContactlessLogo({ size = "default" }) {
+  const sizeClasses = size === "small" ? "h-6 w-6" : "h-8 w-8";
   return (
-    <div className="rounded-2xl border border-pink-100 bg-pink-50/70 p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-pink-500">Recent Conversation</p>
-      <p className="mt-1 text-sm font-black text-gray-950">{thread.subject || "Rental conversation"}</p>
-      <p className="mt-1 text-xs font-semibold text-gray-500">{thread.host_name || thread.vehicle_label || "Secure uRide messaging"}</p>
-      <Link to="/messages" className="mt-3 inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-black text-pink-600 shadow-sm">Open Conversation</Link>
+    <div className={`flex items-center gap-2 ${sizeClasses}`}>
+      <div className="relative flex h-full w-full items-center justify-center">
+        <div className="absolute inset-0 animate-pulse rounded-lg bg-gradient-to-br from-cyan-500/30 to-blue-500/30 blur-md" />
+        <div className="relative flex h-full w-full items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 shadow-lg">
+          <Signal className="h-3/5 w-3/5 text-white" />
+        </div>
+      </div>
     </div>
   );
 }
 
-function SupportLink({ to, icon: Icon, label, sub }) {
+function ActionButton({ icon: Icon, label, sub, onClick, gradient }) {
   return (
-    <Link to={to} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 active:scale-[0.98] transition">
-      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white"><Icon className="h-5 w-5 text-pink-600" /></div>
-      <div><p className="text-sm font-black text-gray-950">{label}</p><p className="text-xs font-semibold text-gray-400">{sub}</p></div>
+    <motion.button
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${gradient} p-4 shadow-lg transition-all active:scale-95`}
+    >
+      <div className="absolute inset-0 bg-white/0 transition-all group-hover:bg-white/10" />
+      <div className="relative flex flex-col items-center">
+        <Icon className="mb-2 h-6 w-6 text-white" />
+        <span className="text-sm font-black text-white">{label}</span>
+        <span className="text-[10px] font-semibold text-white/70">{sub}</span>
+      </div>
+    </motion.button>
+  );
+}
+
+function StatusCard({ icon: Icon, label, value, status }) {
+  const statusColors = {
+    good: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 text-emerald-400",
+    poor: "from-red-500/20 to-red-500/5 border-red-500/30 text-red-400",
+    neutral: "from-blue-500/20 to-blue-500/5 border-blue-500/30 text-blue-400",
+  };
+
+  return (
+    <div className={`rounded-2xl border bg-gradient-to-br ${statusColors[status]} p-4 backdrop-blur-xl`}>
+      <div className="mb-2 flex items-center gap-2">
+        <Icon className="h-4 w-4" />
+        <span className="text-[10px] font-bold uppercase tracking-wider text-white/60">{label}</span>
+      </div>
+      <p className="text-sm font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function LinkCard({ to, icon: Icon, label, sub, badge, disabled }) {
+  return (
+    <Link
+      to={disabled ? "#" : to}
+      className={`group flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 transition-all ${
+        disabled ? "opacity-40" : "active:scale-[0.98] hover:bg-white/10"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
+          <Icon className="h-5 w-5 text-cyan-400" />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-white">{label}</p>
+          <p className="text-xs text-white/50">{sub}</p>
+        </div>
+      </div>
+      {badge && (
+        <span className="rounded-full bg-cyan-500/20 px-2 py-1 text-[10px] font-bold text-cyan-400">
+          {badge}
+        </span>
+      )}
+      {!disabled && <ChevronDown className="h-4 w-4 -rotate-90 text-white/30" />}
     </Link>
   );
 }
 
 function EmptyState({ title, text, action, href }) {
-  return <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center"><div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-pink-50"><Car className="h-9 w-9 text-pink-500" /></div><h1 className="text-2xl font-black text-gray-950" style={{ fontFamily: "var(--font-syne)" }}>{title}</h1><p className="mt-2 max-w-xs text-sm text-gray-500">{text}</p><Link to={href} className="mt-6 rounded-2xl bg-pink-600 px-6 py-3 text-sm font-black text-white">{action}</Link></div>;
+  return (
+    <div className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
+      <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20">
+        <Signal className="h-9 w-9 text-cyan-400" />
+      </div>
+      <h1 className="text-2xl font-black text-white">{title}</h1>
+      <p className="mt-2 max-w-xs text-sm text-white/50">{text}</p>
+      <Link
+        to={href}
+        className="mt-6 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg"
+      >
+        {action}
+      </Link>
+    </div>
+  );
 }
 
-function downloadContract(booking) {
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>uRide Official Rental Agreement</title><style>body{font-family:Inter,Arial,sans-serif;margin:40px;color:#111827;line-height:1.6}.cover{border-bottom:2px solid #e5e7eb;margin-bottom:24px;padding-bottom:16px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#db2777}h1{margin:4px 0 8px;font-size:28px}.meta{font-size:13px;color:#6b7280}</style></head><body><div class="cover"><div class="eyebrow">uRide Official Rental Agreement</div><h1>${booking.vehicle_name || "Rental Vehicle"}</h1><div class="meta">Agreement ID: ${booking.id || ""} · Downloaded ${new Date().toLocaleString()}</div></div>${booking.contract_html || ""}</body></html>`;
-  const blob = new Blob([html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `uRide-official-rental-agreement-${booking.id?.slice(-8) || "customer"}.html`;
-  link.click();
-  URL.revokeObjectURL(url);
+function LoadingState() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950">
+      <div className="relative flex h-16 w-16 items-center justify-center">
+        <div className="absolute inset-0 animate-ping rounded-full bg-cyan-500/30" />
+        <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600">
+          <Signal className="h-6 w-6 text-white" />
+        </div>
+      </div>
+      <p className="mt-4 text-sm font-bold text-white/60">Connecting to vehicle...</p>
+    </div>
+  );
 }
