@@ -28,7 +28,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
   const visible = (group) => COMMANDS[group].filter((command) => {
     if (mode === "customer" && !allowedCustomer.includes(command.key)) return false;
-    const ready = getCommandReadiness({ command: command.key, role: mode, device, provider, booking, hostOwnsVehicle, allowStarter });
+    const ready = getCommandReadiness({ command: command.key, role: mode, device, provider: provider || {}, booking, hostOwnsVehicle, allowStarter });
     return ready.supported;
   });
 
