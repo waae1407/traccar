@@ -12,6 +12,7 @@ import PickupAddressCard from "@/components/customer/mybookings/PickupAddressCar
 import ContractModal from "@/components/customer/mybookings/ContractModal";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 import CustomerQuickCommands from "@/components/customer/myvehicle/CustomerQuickCommands";
+import TelematicsService from "@/lib/telematics/TelematicsService";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 
@@ -220,12 +221,12 @@ export default function MyVehicle() {
               onClick={async () => {
                 setActiveCommand("lock");
                 try {
-                  const res = await base44.functions.invoke("sendTelematicsCommand", {
+                  const res = await TelematicsService.sendCommand({
                     telematics_device_id: device?.id,
                     vehicle_id: vehicle?.id,
                     booking_id: booking?.id,
                     command_type: "lock",
-                    source: "contactless360_remote"
+                    source: "vehicle_command_center"
                   });
                   toast.success("Vehicle locked successfully");
                   setTimeout(() => setActiveCommand(null), 2000);
@@ -246,12 +247,12 @@ export default function MyVehicle() {
               onClick={async () => {
                 setActiveCommand("unlock");
                 try {
-                  const res = await base44.functions.invoke("sendTelematicsCommand", {
+                  const res = await TelematicsService.sendCommand({
                     telematics_device_id: device?.id,
                     vehicle_id: vehicle?.id,
                     booking_id: booking?.id,
                     command_type: "unlock",
-                    source: "contactless360_remote"
+                    source: "vehicle_command_center"
                   });
                   toast.success("Vehicle unlocked successfully");
                   setTimeout(() => setActiveCommand(null), 2000);
@@ -272,7 +273,7 @@ export default function MyVehicle() {
               onClick={async () => {
                 setActiveCommand("find");
                 try {
-                  const res = await base44.functions.invoke("startTelematicsAlarm", {
+                  const res = await TelematicsService.startAlarm({
                     vehicle_id: vehicle?.id,
                     telematics_device_id: device?.id
                   });
