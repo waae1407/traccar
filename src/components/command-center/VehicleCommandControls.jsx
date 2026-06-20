@@ -112,11 +112,24 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 }
 
 const PHASE_LABELS = {
-  connecting: "Reaching…",
+  connecting: "Contacting Vehicle",
   sending: "On its way…",
   waiting: "Almost…",
-  success: "Done ✓",
+  success: null, // Will use command-specific label (Locked, Unlocked, etc.)
   failed: "Try again",
+};
+
+const SUCCESS_LABELS = {
+  lock: "Locked",
+  unlock: "Unlocked",
+  locate: "Located",
+  horn: "Horn On",
+  lights: "Lights On",
+  horn_lights: "Horn & Lights On",
+  alarm_pulse: "Alert Sent",
+  disable_starter: "Starter Disabled",
+  restore_starter: "Starter Restored",
+  status: "Status Received",
 };
 
 const PHASE_COLORS = {
@@ -143,7 +156,9 @@ function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phas
           const isActive = activeCommand === command.key && isBusy;
           const isThisPhase = activeCommand === command.key && phase && phase !== PHASES.idle;
           const phaseColor = isThisPhase ? (PHASE_COLORS[phase] || "") : "bg-secondary text-foreground hover:bg-secondary/80";
-          const phaseLabel = isThisPhase ? PHASE_LABELS[phase] : command.label;
+          const phaseLabel = phase === PHASES.success && activeCommand === command.key 
+            ? (SUCCESS_LABELS[command.key] || "Sent") 
+            : (isThisPhase ? PHASE_LABELS[phase] : command.label);
 
           return (
             <Button
