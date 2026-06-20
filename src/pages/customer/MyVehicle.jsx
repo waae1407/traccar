@@ -157,7 +157,7 @@ export default function MyVehicle() {
       !booking.rental_ended_at
     : false;
 
-  const vehicleImage = vehicle?.image_url || booking?.vehicle_image || (isDemo ? PLACEHOLDER_CAR : "");
+  const vehicleImage = vehicle?.image_url || (isDemo ? PLACEHOLDER_CAR : "");
   const locationLabel = device?.address || "Vehicle Location";
   const locationSub = device?.last_latitude ? `${device.last_latitude.toFixed(4)}, ${device.last_longitude.toFixed(4)}` : "Locating...";
 
@@ -204,23 +204,25 @@ export default function MyVehicle() {
             pointerEvents: "none",
             zIndex: 1,
           }}>
-            <img
-              src={vehicleImage}
-              alt={name}
-              style={{
-                position: "absolute",
-                right: -78,
-                top: 26,
-                width: "92%",
-                height: "72%",
-                objectFit: "cover",
-                objectPosition: "68% center",
-                display: "block",
-                opacity: 0.72,
-                filter: "brightness(0.42) contrast(1.28) saturate(1.15)",
-                transform: "scale(1.08)",
-              }}
-            />
+            {vehicleImage && (
+              <img
+                src={vehicleImage}
+                alt={name}
+                style={{
+                  position: "absolute",
+                  right: -78,
+                  top: 26,
+                  width: "92%",
+                  height: "72%",
+                  objectFit: "cover",
+                  objectPosition: "68% center",
+                  display: "block",
+                  opacity: 0.72,
+                  filter: "brightness(0.42) contrast(1.28) saturate(1.15)",
+                  transform: "scale(1.08)",
+                }}
+              />
+            )}
             <div style={{
               position: "absolute",
               inset: 0,
