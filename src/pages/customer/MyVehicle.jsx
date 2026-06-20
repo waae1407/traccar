@@ -162,7 +162,7 @@ export default function MyVehicle() {
   const locationSub = device?.last_latitude ? `${device.last_latitude.toFixed(4)}, ${device.last_longitude.toFixed(4)}` : "Locating...";
 
   return (
-    <div style={{ background: "#050506", minHeight: "100vh" }}>
+    <div style={{ background: "#050506", minHeight: "100vh", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em" }}>
       {inspectionTarget && (
         <VehicleInspectionSheet
           booking={inspectionTarget.booking}
@@ -250,12 +250,12 @@ export default function MyVehicle() {
             {/* Top row: name + icons */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
               <div>
-                <p style={{ fontSize: 26, fontWeight: 700, color: "#FFFFFF", lineHeight: 1.15, margin: 0 }}>{name}</p>
+                <p style={{ fontSize: 24, fontWeight: 650, color: "#FFFFFF", lineHeight: 1.12, margin: 0, letterSpacing: "-0.6px", maxWidth: 260 }}>{name}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ color: "#30D158", fontSize: 14, fontWeight: 500 }}>Online</span>
-                  <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 14, margin: "0 2px" }}>|</span>
-                  <span style={{ color: "#FFFFFF", fontSize: 14 }}>Live</span>
+                  <span style={{ color: "#30D158", fontSize: 13, fontWeight: 500 }}>Online</span>
+                  <span style={{ color: "rgba(255,255,255,0.28)", fontSize: 13, margin: "0 2px" }}>|</span>
+                  <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 450 }}>Live</span>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -277,13 +277,13 @@ export default function MyVehicle() {
             {/* Stats — inline, large, bold */}
             <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
               <div>
-                <p style={{ fontSize: 32, fontWeight: 800, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.5px" }}>268 mi</p>
-                <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 4, margin: "4px 0 0" }}>Range</p>
+                <p style={{ fontSize: 30, fontWeight: 650, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.8px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
+                <p style={{ fontSize: 12, color: "#8E8E93", margin: "5px 0 0", fontWeight: 450 }}>Range</p>
               </div>
               <div style={{ width: 1, height: 36, background: "rgba(255,255,255,0.15)", flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 32, fontWeight: 800, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.5px" }}>72%</p>
-                <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 4, margin: "4px 0 0" }}>Hydrogen</p>
+                <p style={{ fontSize: 30, fontWeight: 650, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.8px", fontVariantNumeric: "tabular-nums" }}>72%</p>
+                <p style={{ fontSize: 12, color: "#8E8E93", margin: "5px 0 0", fontWeight: 450 }}>Hydrogen</p>
               </div>
             </div>
 
@@ -312,9 +312,9 @@ export default function MyVehicle() {
               <div className="flex items-start gap-2">
                 <MapPin size={15} color="#A1A1AA" style={{ marginTop: 2, flexShrink: 0 }} />
                 <div>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#FFFFFF" }}>{locationLabel}</p>
-                  <p style={{ fontSize: 11, color: "#71717A", marginTop: 1 }}>{locationSub}</p>
-                  <p style={{ fontSize: 11, color: "#71717A" }}>Updated {gps.label}</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#F5F5F7", letterSpacing: "-0.1px" }}>{locationLabel}</p>
+                  <p style={{ fontSize: 11, color: "#8E8E93", marginTop: 3, fontWeight: 400 }}>{locationSub}</p>
+                  <p style={{ fontSize: 11, color: "#8E8E93", marginTop: 2, fontWeight: 400 }}>Updated {gps.label}</p>
                 </div>
               </div>
               <button style={{
@@ -353,12 +353,12 @@ export default function MyVehicle() {
             <div style={{ flex: 1 }}>
               <div className="flex items-center gap-1.5 mb-1">
                 <Clock size={13} color="#71717A" />
-                <p style={{ fontSize: 11, color: "#71717A" }}>Rental ends</p>
+                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Rental ends</p>
               </div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF" }}>
+              <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px" }}>
                 {booking?.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d, yyyy") : "N/A"}
               </p>
-              <p style={{ fontSize: 12, color: "#A1A1AA" }}>
+              <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 400 }}>
                 {booking?.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}
               </p>
             </div>
@@ -374,10 +374,10 @@ export default function MyVehicle() {
                     strokeDasharray="34.5" strokeDashoffset="8.6" strokeLinecap="round"
                     transform="rotate(-90 6.5 6.5)" />
                 </svg>
-                <p style={{ fontSize: 11, color: "#71717A" }}>Remaining</p>
+                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Remaining</p>
               </div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF" }}>{remainingStr}</p>
-              <p style={{ fontSize: 12, color: "#A1A1AA" }}>remaining</p>
+              <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{remainingStr}</p>
+              <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 400 }}>remaining</p>
             </div>
 
             <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.08)", margin: "0 12px" }} />
@@ -386,9 +386,9 @@ export default function MyVehicle() {
             <div style={{ flex: 0.8 }}>
               <div className="flex items-center gap-1.5 mb-1">
                 <Fuel size={13} color="#71717A" />
-                <p style={{ fontSize: 11, color: "#71717A" }}>Hydrogen</p>
+                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Hydrogen</p>
               </div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF" }}>72%</p>
+              <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", fontVariantNumeric: "tabular-nums" }}>72%</p>
             </div>
 
             <ChevronRight size={16} color="#71717A" style={{ marginLeft: 4 }} />
@@ -396,7 +396,7 @@ export default function MyVehicle() {
 
           {/* ── REMOTE CONTROLS ── */}
           <div style={{ marginBottom: 10 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+            <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
               Remote Controls
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
@@ -419,8 +419,8 @@ export default function MyVehicle() {
               >
                 <Lock size={26} color="#FFFFFF" strokeWidth={1.5} />
                 <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#FFFFFF", lineHeight: 1.2 }}>Lock</p>
-                  <p style={{ fontSize: 10, color: "#71717A", lineHeight: 1.2 }}>Doors</p>
+                  <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
+                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
                 </div>
               </button>
 
@@ -442,8 +442,8 @@ export default function MyVehicle() {
               >
                 <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} />
                 <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#FFFFFF", lineHeight: 1.2 }}>Unlock</p>
-                  <p style={{ fontSize: 10, color: "#71717A", lineHeight: 1.2 }}>Doors</p>
+                  <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
+                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
                 </div>
               </button>
 
@@ -464,7 +464,7 @@ export default function MyVehicle() {
                 <Wind size={26} color="#FFFFFF" strokeWidth={1.5} />
                 <div style={{ textAlign: "center" }}>
                   <p style={{ fontSize: 12, fontWeight: 600, color: "#A1A1AA", lineHeight: 1.2 }}>Climate</p>
-                  <p style={{ fontSize: 10, color: "#71717A", lineHeight: 1.2 }}>Off</p>
+                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Off</p>
                 </div>
               </button>
 
@@ -488,8 +488,8 @@ export default function MyVehicle() {
               >
                 <HornIcon color="#2F80FF" />
                 <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#FFFFFF", lineHeight: 1.2 }}>Find Vehicle</p>
-                  <p style={{ fontSize: 10, color: "#71717A", lineHeight: 1.2 }}>Flash & Honk</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Find Vehicle</p>
+                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Flash & Honk</p>
                 </div>
               </button>
             </div>
