@@ -157,7 +157,7 @@ export default function MyVehicle() {
       !booking.rental_ended_at
     : false;
 
-  const vehicleImage = vehicle?.image_url || PLACEHOLDER_CAR;
+  const vehicleImage = vehicle?.image_url || booking?.vehicle_image || (isDemo ? PLACEHOLDER_CAR : "");
   const locationLabel = device?.address || "Vehicle Location";
   const locationSub = device?.last_latitude ? `${device.last_latitude.toFixed(4)}, ${device.last_longitude.toFixed(4)}` : "Locating...";
 
