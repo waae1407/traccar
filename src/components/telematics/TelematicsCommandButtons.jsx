@@ -43,6 +43,7 @@ export default function TelematicsCommandButtons({ vehicleId, bookingId, device,
     const starter = command_type === "disable_starter" || command_type === "restore_starter";
     const reason = starter ? window.prompt("Reason for starter command") : "";
     if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
+    console.log(`[MAP_CMD] Sending ${command_type} device=${device?.id} vehicle=${vehicleId} booking=${bookingId}`);
     setLoading(command_type);
     try {
       const res = await TelematicsService.sendCommand({ 
@@ -53,7 +54,11 @@ export default function TelematicsCommandButtons({ vehicleId, bookingId, device,
         reason, 
         confirm_starter_command: starter 
       });
+      console.log(`[MAP_CMD] Response:`, res.data);
       onResult?.(res.data);
+    } catch (err) {
+      console.error(`[MAP_CMD] Error:`, err);
+      throw err;
     } finally {
       setLoading(null);
     }
