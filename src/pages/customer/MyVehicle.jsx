@@ -275,21 +275,24 @@ export default function MyVehicle() {
             <p className="text-[10px] text-gray-500 text-center leading-tight mt-0.5">Doors</p>
           </button>
 
-          {/* Climate - ⌘ command/clover symbol like reference */}
+          {/* Climate - 4-blade fan like reference */}
           <button className="aspect-square rounded-3xl flex flex-col items-center justify-center bg-[#1c1c1e] border border-[#2c2c2e] opacity-40">
             <svg className="mb-1.5" width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Command symbol / clover ⌘ */}
-              <path d="M10 10H20M10 20H20M10 10V20M20 10V20" stroke="#8e8e93" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <circle cx="7" cy="7" r="3" stroke="#8e8e93" strokeWidth="2.5" fill="none"/>
-              <circle cx="23" cy="7" r="3" stroke="#8e8e93" strokeWidth="2.5" fill="none"/>
-              <circle cx="7" cy="23" r="3" stroke="#8e8e93" strokeWidth="2.5" fill="none"/>
-              <circle cx="23" cy="23" r="3" stroke="#8e8e93" strokeWidth="2.5" fill="none"/>
+              <circle cx="15" cy="15" r="2.5" fill="#8e8e93"/>
+              {/* Top blade */}
+              <path d="M15 12.5C15 12.5 13 7 9.5 6C7.5 5.5 7 7.5 8 9C9 10.5 12.5 12 12.5 12" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              {/* Right blade */}
+              <path d="M17.5 15C17.5 15 23 17 24 20.5C24.5 22.5 22.5 23 21 22C19.5 21 18 17.5 18 17.5" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              {/* Bottom blade */}
+              <path d="M15 17.5C15 17.5 17 23 20.5 24C22.5 24.5 23 22.5 22 21C21 19.5 17.5 18 17.5 18" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              {/* Left blade */}
+              <path d="M12.5 15C12.5 15 7 13 6 9.5C5.5 7.5 7.5 7 9 8C10.5 9 12 12.5 12 12.5" stroke="#8e8e93" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             </svg>
             <p className="text-xs font-semibold text-gray-400 text-center leading-tight">Climate</p>
             <p className="text-[10px] text-gray-500 text-center leading-tight mt-0.5">Off</p>
           </button>
 
-          {/* Find Vehicle - speaker with sound waves (like reference), clean neon blue border */}
+          {/* Find Vehicle - trumpet horn pointing right with 3 short horizontal wave lines */}
           <button
             onClick={() => handleCommand("find")}
             disabled={!!commandLoading || !isBookingActive || dropoffInspectionComplete}
@@ -302,23 +305,16 @@ export default function MyVehicle() {
               boxShadow: "0 0 12px rgba(10,132,255,0.4), 0 0 24px rgba(10,132,255,0.15)"
             }}
           >
-            {/* Speaker with sound waves - matches reference exactly */}
-            <svg
-              className="mb-1.5"
-              width="34"
-              height="28"
-              viewBox="0 0 34 28"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Speaker body - triangle/wedge */}
-              <path d="M3 9H9L17 3V25L9 19H3V9Z" fill="#0a84ff"/>
-              {/* Sound wave 1 - small */}
-              <path d="M20 10C21.5 11.5 22 13 22 14C22 15 21.5 16.5 20 18" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              {/* Sound wave 2 - medium */}
-              <path d="M23.5 7C26 9.5 27 11.5 27 14C27 16.5 26 18.5 23.5 21" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              {/* Sound wave 3 - large */}
-              <path d="M27 4.5C30.5 7.5 32 10.5 32 14C32 17.5 30.5 20.5 27 23.5" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+            {/* Trumpet horn + 3 short horizontal lines (reference style) */}
+            <svg className="mb-1.5" width="34" height="26" viewBox="0 0 34 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Horn/trumpet body - solid filled trapezoid pointing right */}
+              <path d="M2 9H8L16 4V22L8 17H2V9Z" fill="#0a84ff"/>
+              {/* Bell flare on right of horn */}
+              <path d="M16 6C19 7.5 21 10.5 21 13C21 15.5 19 18.5 16 20" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              {/* 3 short horizontal sound-wave lines stacked vertically */}
+              <line x1="24" y1="8" x2="32" y2="8" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="24" y1="13" x2="32" y2="13" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
+              <line x1="24" y1="18" x2="32" y2="18" stroke="#0a84ff" strokeWidth="2.5" strokeLinecap="round"/>
             </svg>
             <p className="text-xs font-bold text-white text-center leading-tight">Find Vehicle</p>
             <p className="text-[10px] text-gray-400 text-center leading-tight mt-0.5">Flash &amp; Honk</p>
