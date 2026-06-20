@@ -10,8 +10,8 @@ export const PHASES = {
   failed: "failed",
 };
 
-const SENDING_STATUSES = new Set(["sending", "sent"]);
-const SUCCESS_STATUSES = new Set(["acknowledged", "executed", "delivered", "confirmed"]);
+const SENDING_STATUSES = new Set(["sending", "sent", "sent_to_traccar"]);
+const SUCCESS_STATUSES = new Set(["acknowledged", "executed", "delivered", "confirmed", "completed"]);
 const FAIL_STATUSES = new Set(["failed", "expired", "blocked"]);
 
 export function useCommandProgress() {
@@ -70,25 +70,30 @@ export function useCommandProgress() {
         if (!rec) return;
         
         const qs = rec.queue_status || rec.status;
+        const cs = rec.confirmation_status;
         
-        if (SUCCESS_STATUSES.has(qs)) {
+        console.log('[useCommandProgress] Polling cmdId:', cmdId, 'queue_status:', qs, 'confirmation_status:', cs);
+        
+        if (SUCCESS_STATUSES.has(qs) || SUCCESS_STATUSES.has(cs)) {
+          console.log('[useCommandProgress] SUCCESS detected');
           setPhase(PHASES.success);
           clearAll();
           return;
         }
         
-        if (FAIL_STATUSES.has(qs)) {
+        if (FAIL_STATUSES.has(qs) || FAIL_STATUSES.has(cs)) {
+          console.log('[useCommandProgress] FAILED detected');
           setErrorMessage(rec.failure_reason || "Vehicle didn't respond");
           setPhase(PHASES.failed);
           clearAll();
           return;
         }
         
-        if (SENDING_STATUSES.has(qs)) {
+        if (SENDING_STATUSES.has(qs) || SENDING_STATUSES.has(cs)) {
           setPhase(PHASES.vehicle_responding);
         }
       } catch (err) {
-        console.error('Poll error:', err);
+        console.error('[useCommandProgress] Poll error:', err);
       }
     }, 1500);
   }, [clearAll]);
