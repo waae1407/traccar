@@ -105,6 +105,19 @@ export default function MyVehicle() {
 
   if (!user) return <EmptyState title="Sign in to view your vehicle" text="Your Contactless360 remote appears here after login." action="Sign In" href="/account" />;
   if (isLoading) return <LoadingState />;
+  
+  // Show completed rental state
+  if (booking && dropoffInspectionComplete) {
+    return (
+      <EmptyState 
+        title="Rental completed" 
+        text="Thank you for your rental! Your return inspection has been submitted." 
+        action="View My Bookings" 
+        href="/my-bookings" 
+      />
+    );
+  }
+  
   if (!booking || !isBookingActive) return (
     <EmptyState 
       title="No active booking" 
@@ -114,9 +127,10 @@ export default function MyVehicle() {
     />
   );
   
-  // Check if booking is still active
-  const isBookingActive = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) && booking.payment_status === "paid";
+  // Check if booking is still active (not returned yet)
+  const isBookingActive = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) && booking.payment_status === "paid" && !booking.rental_ended_at;
   const pickupInspectionComplete = booking.pickup_photos?.length > 0;
+  const dropoffInspectionComplete = booking.return_exterior_photos?.length > 0 || booking.return_interior_photos?.length > 0;
 
   const name = vehicleName(vehicle, booking);
   const daysRemaining = booking.end_date ? Math.max(0, differenceInCalendarDays(new Date(`${booking.end_date}T23:59:59`), new Date())) : null;
@@ -280,7 +294,7 @@ export default function MyVehicle() {
                 }
               }}
               gradient="from-cyan-500 to-blue-500"
-              disabled={!isBookingActive || !!activeCommand || !pickupInspectionComplete}
+              disabled={!isBookingActive || !!activeCommand || !pickupInspectionComplete || dropoffInspectionComplete}
             />
             <ActionButton
               icon={Unlock}
@@ -310,7 +324,7 @@ export default function MyVehicle() {
                 }
               }}
               gradient="from-emerald-500 to-teal-500"
-              disabled={!isBookingActive || !!activeCommand || !pickupInspectionComplete}
+              disabled={!isBookingActive || !!activeCommand || !pickupInspectionComplete || dropoffInspectionComplete}
             />
             <ActionButton
               icon={BellRing}
@@ -336,7 +350,7 @@ export default function MyVehicle() {
                 }
               }}
               gradient="from-pink-500 to-rose-500"
-              disabled={!!activeCommand}
+              disabled={!!activeCommand || !isBookingActive || dropoffInspectionComplete}
             />
           </div>
         </div>
@@ -354,8 +368,8 @@ export default function MyVehicle() {
             <StatusCard
               icon={CalendarClock}
               label="Rental Days"
-              value={daysRemaining !== null ? `${daysRemaining} left` : "Auto-renew"}
-              status="neutral"
+              value={dropoffInspectionComplete ? "Returned" : (daysRemaining !== null ? `${daysRemaining} left` : "Auto-renew")}
+              status={dropoffInspectionComplete ? "neutral" : "neutral"}
             />
           </div>
         </div>
