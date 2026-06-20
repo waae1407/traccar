@@ -177,74 +177,100 @@ export default function MyVehicle() {
 
         {/* ── HERO SECTION ── */}
         <div style={{
-          background: "radial-gradient(circle at 75% 20%, rgba(47,128,255,0.16), transparent 50%), #050506",
-          padding: "16px 16px 12px",
           position: "relative",
           overflow: "hidden",
+          background: "#050506",
+          minHeight: 200,
+          padding: "16px 16px 16px",
         }}>
-          {/* Top row */}
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p style={{ fontSize: 26, fontWeight: 700, color: "#FFFFFF", lineHeight: 1.15 }}>{name}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block" }} />
-                <span style={{ color: "#30D158", fontSize: 14, fontWeight: 500 }}>Online</span>
-                <span style={{ color: "#A1A1AA", fontSize: 14 }}>|</span>
-                <span style={{ color: "#FFFFFF", fontSize: 14, fontWeight: 400 }}>Live</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => window.location.href = "/messages"}
-                style={{ width: 36, height: 36, borderRadius: "50%", background: "#17181C", border: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                <MessageSquare size={16} color="#A1A1AA" />
-              </button>
-              <button
-                onClick={() => window.location.href = "/account"}
-                style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #9B59B6, #E91E8C)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 15 }}
-              >
-                {user?.full_name?.charAt(0) || "R"}
-              </button>
-            </div>
+          {/* Vehicle image — full right bleed, fades left into bg */}
+          <div style={{
+            position: "absolute",
+            right: 0,
+            bottom: 0,
+            top: 0,
+            width: "62%",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}>
+            <img
+              src={vehicleImage}
+              alt={name}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                objectPosition: "right bottom",
+                display: "block",
+              }}
+            />
+            {/* Gradient fade: left edge blends into #050506 */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(to right, #050506 0%, #050506 18%, rgba(5,5,6,0.7) 45%, rgba(5,5,6,0.0) 100%)",
+            }} />
+            {/* Subtle bottom fade */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(to top, #050506 0%, transparent 30%)",
+            }} />
+            {/* Blue glow behind car */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              background: "radial-gradient(ellipse at 80% 40%, rgba(47,128,255,0.13), transparent 65%)",
+            }} />
           </div>
 
-          {/* Stats + Image row */}
-          <div className="flex items-end" style={{ minHeight: 120 }}>
-            {/* Left: stats */}
-            <div style={{ flex: 1, paddingBottom: 8 }}>
-              <div className="flex items-end gap-5 mb-4">
-                <div>
-                  <p style={{ fontSize: 28, fontWeight: 700, color: "#FFFFFF", lineHeight: 1 }}>268 mi</p>
-                  <p style={{ fontSize: 13, color: "#A1A1AA", marginTop: 3 }}>Range</p>
-                </div>
-                <div style={{ width: 1, height: 36, background: "rgba(255,255,255,0.12)" }} />
-                <div>
-                  <p style={{ fontSize: 28, fontWeight: 700, color: "#FFFFFF", lineHeight: 1 }}>72%</p>
-                  <p style={{ fontSize: 13, color: "#A1A1AA", marginTop: 3 }}>Hydrogen</p>
+          {/* Foreground content */}
+          <div style={{ position: "relative", zIndex: 1 }}>
+            {/* Top row */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <p style={{ fontSize: 26, fontWeight: 700, color: "#FFFFFF", lineHeight: 1.15, margin: 0 }}>{name}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ color: "#30D158", fontSize: 14, fontWeight: 500 }}>Online</span>
+                  <span style={{ color: "#A1A1AA", fontSize: 14 }}>|</span>
+                  <span style={{ color: "#FFFFFF", fontSize: 14, fontWeight: 400 }}>Live</span>
                 </div>
               </div>
-              {/* Status icons row */}
-              <div className="flex items-center gap-5">
-                <SignalBarsIcon color="#A1A1AA" />
-                <Lock size={17} color="#A1A1AA" strokeWidth={1.6} />
-                <FanIcon color="#A1A1AA" />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={() => window.location.href = "/messages"}
+                  style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  <MessageSquare size={16} color="#A1A1AA" />
+                </button>
+                <button
+                  onClick={() => window.location.href = "/account"}
+                  style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #9B59B6, #E91E8C)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 15, border: "none" }}
+                >
+                  {user?.full_name?.charAt(0) || "R"}
+                </button>
               </div>
             </div>
 
-            {/* Right: vehicle image */}
-            <div style={{ width: "52%", flexShrink: 0, display: "flex", alignItems: "flex-end", justifyContent: "flex-end" }}>
-              <img
-                src={vehicleImage}
-                alt={name}
-                style={{
-                  width: "100%",
-                  maxHeight: 145,
-                  objectFit: "contain",
-                  filter: "drop-shadow(-6px 4px 18px rgba(0,0,0,0.85))",
-                  display: "block",
-                }}
-              />
+            {/* Stats row — left aligned, sits over fade */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 20, marginTop: 8 }}>
+              <div>
+                <p style={{ fontSize: 30, fontWeight: 700, color: "#FFFFFF", lineHeight: 1, margin: 0 }}>268 mi</p>
+                <p style={{ fontSize: 13, color: "#A1A1AA", marginTop: 4 }}>Range</p>
+              </div>
+              <div style={{ width: 1, height: 34, background: "rgba(255,255,255,0.15)" }} />
+              <div>
+                <p style={{ fontSize: 30, fontWeight: 700, color: "#FFFFFF", lineHeight: 1, margin: 0 }}>72%</p>
+                <p style={{ fontSize: 13, color: "#A1A1AA", marginTop: 4 }}>Hydrogen</p>
+              </div>
+            </div>
+
+            {/* Status icons row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <SignalBarsIcon color="#A1A1AA" />
+              <Lock size={17} color="#A1A1AA" strokeWidth={1.6} />
+              <FanIcon color="#A1A1AA" />
             </div>
           </div>
         </div>
