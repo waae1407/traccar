@@ -5,8 +5,8 @@ import { PHASES } from "@/hooks/useCommandProgress";
 const PHASE_CONFIG = {
   [PHASES.connecting]: {
     icon: Radio,
-    label: "Establishing secure channel…",
-    sub: "Waiting for device heartbeat. This can take up to 20s.",
+    label: "Reaching your vehicle…",
+    sub: "Hang tight — this usually takes a few seconds while we wake up the device.",
     color: "text-yellow-400",
     bg: "bg-yellow-500/10 border-yellow-500/25",
     spin: false,
@@ -14,8 +14,8 @@ const PHASE_CONFIG = {
   },
   [PHASES.sending]: {
     icon: Send,
-    label: "Sending command to vehicle…",
-    sub: "Command is being transmitted via Traccar.",
+    label: "Almost there…",
+    sub: "Your vehicle is receiving the command now.",
     color: "text-blue-400",
     bg: "bg-blue-500/10 border-blue-500/25",
     spin: false,
@@ -23,8 +23,8 @@ const PHASE_CONFIG = {
   },
   [PHASES.waiting]: {
     icon: Wifi,
-    label: "Command delivered — awaiting vehicle reply…",
-    sub: "Vehicle is processing. Typical reply in 1–3s.",
+    label: "Command on its way — waiting for confirmation…",
+    sub: "Your vehicle is processing. This usually completes in 1–3 seconds.",
     color: "text-primary",
     bg: "bg-primary/10 border-primary/25",
     spin: false,
@@ -32,7 +32,7 @@ const PHASE_CONFIG = {
   },
   [PHASES.success]: {
     icon: CheckCircle2,
-    label: "Vehicle confirmed ✓",
+    label: "All done — your vehicle responded!",
     sub: null,
     color: "text-emerald-400",
     bg: "bg-emerald-500/10 border-emerald-500/30",
@@ -41,7 +41,7 @@ const PHASE_CONFIG = {
   },
   [PHASES.failed]: {
     icon: XCircle,
-    label: "Command failed",
+    label: "Couldn't reach the vehicle this time",
     sub: null,
     color: "text-red-400",
     bg: "bg-red-500/10 border-red-500/30",
@@ -129,9 +129,9 @@ export default function CommandProgressOverlay({ phase, elapsed, phaseElapsed, c
       {/* Step labels */}
       {phase !== PHASES.failed && (
         <div className="mt-1 flex justify-between px-0 text-[9px] text-muted-foreground">
-          <span>Connect</span>
-          <span>Send</span>
-          <span>Transmit</span>
+          <span>Reach</span>
+          <span>Deliver</span>
+          <span>Confirm</span>
           <span>Done</span>
         </div>
       )}

@@ -112,11 +112,11 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 }
 
 const PHASE_LABELS = {
-  connecting: "Connecting…",
-  sending: "Sending…",
-  waiting: "Waiting…",
+  connecting: "Reaching…",
+  sending: "On its way…",
+  waiting: "Almost…",
   success: "Done ✓",
-  failed: "Failed",
+  failed: "Try again",
 };
 
 const PHASE_COLORS = {

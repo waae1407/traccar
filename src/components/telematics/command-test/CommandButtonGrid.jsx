@@ -21,11 +21,11 @@ const RESPONSE_STATUSES = new Set(['acknowledged', 'executed', 'confirmed']);
 const CLOSED_STATUSES = new Set(['acknowledged', 'executed', 'confirmed', 'failed', 'expired']);
 
 const GATE_PHASE_LABELS = {
-  connecting: "Connecting…",
-  sending: "Sending…",
-  waiting: "Waiting reply…",
+  connecting: "Reaching…",
+  sending: "On its way…",
+  waiting: "Almost…",
   success: "Done ✓",
-  failed: "Failed",
+  failed: "Try again",
 };
 const GATE_PHASE_STYLES = {
   connecting: "border-yellow-500/30 bg-yellow-500/10 text-yellow-200",
