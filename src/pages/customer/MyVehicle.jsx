@@ -180,10 +180,10 @@ export default function MyVehicle() {
           position: "relative",
           overflow: "hidden",
           background: "radial-gradient(circle at 78% 26%, rgba(47,128,255,0.16), transparent 34%), linear-gradient(180deg, #08090C 0%, #050506 100%)",
-          minHeight: 270,
-          paddingTop: 18,
-          paddingBottom: 24,
-          paddingLeft: 18,
+          minHeight: 250,
+          paddingTop: 26,
+          paddingBottom: 18,
+          paddingLeft: 28,
           paddingRight: 18,
           borderBottom: "1px solid rgba(255,255,255,0.04)",
         }}>
@@ -210,23 +210,23 @@ export default function MyVehicle() {
                 alt={name}
                 style={{
                   position: "absolute",
-                  right: -78,
-                  top: 26,
-                  width: "92%",
-                  height: "72%",
-                  objectFit: "cover",
-                  objectPosition: "68% center",
+                  right: 8,
+                  top: 86,
+                  width: "56%",
+                  height: "42%",
+                  objectFit: "contain",
+                  objectPosition: "center",
                   display: "block",
-                  opacity: 0.72,
-                  filter: "brightness(0.42) contrast(1.28) saturate(1.15)",
-                  transform: "scale(1.08)",
+                  opacity: 0.96,
+                  filter: "brightness(0.86) contrast(1.16) saturate(1.06)",
+                  transform: "none",
                 }}
               />
             )}
             <div style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(90deg, #050506 0%, #050506 38%, rgba(5,5,6,0.96) 51%, rgba(5,5,6,0.62) 68%, rgba(5,5,6,0.18) 100%)",
+              background: "linear-gradient(90deg, #050506 0%, rgba(5,5,6,0.98) 34%, rgba(5,5,6,0.56) 55%, rgba(5,5,6,0.08) 100%)",
               zIndex: 2,
             }} />
             <div style={{
@@ -238,10 +238,10 @@ export default function MyVehicle() {
             <div style={{
               position: "absolute",
               right: -40,
-              top: 40,
-              width: 250,
-              height: 130,
-              background: "radial-gradient(ellipse at center, rgba(47,128,255,0.22), transparent 68%)",
+              top: 82,
+              width: 210,
+              height: 96,
+              background: "radial-gradient(ellipse at center, rgba(47,128,255,0.18), transparent 70%)",
               filter: "blur(18px)",
               zIndex: 4,
             }} />
@@ -250,14 +250,14 @@ export default function MyVehicle() {
           {/* Foreground text content */}
           <div style={{ position: "relative", zIndex: 2 }}>
             {/* Top row: name + icons */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 26 }}>
               <div>
-                <p style={{ fontSize: 24, fontWeight: 650, color: "#FFFFFF", lineHeight: 1.12, margin: 0, letterSpacing: "-0.6px", maxWidth: 260 }}>{name}</p>
+                <p style={{ fontSize: 20, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.16, margin: 0, letterSpacing: "-0.35px", maxWidth: 245 }}>{name}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ color: "#30D158", fontSize: 13, fontWeight: 500 }}>Online</span>
-                  <span style={{ color: "rgba(255,255,255,0.28)", fontSize: 13, margin: "0 2px" }}>|</span>
-                  <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 450 }}>Live</span>
+                  <span style={{ color: "#30D158", fontSize: 12, fontWeight: 500 }}>Online</span>
+                  <span style={{ color: "rgba(255,255,255,0.24)", fontSize: 12, margin: "0 3px" }}>|</span>
+                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 450 }}>Live</span>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -277,20 +277,20 @@ export default function MyVehicle() {
             </div>
 
             {/* Stats — inline, large, bold */}
-            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 30 }}>
               <div>
-                <p style={{ fontSize: 30, fontWeight: 650, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.8px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
-                <p style={{ fontSize: 12, color: "#8E8E93", margin: "5px 0 0", fontWeight: 450 }}>Range</p>
+                <p style={{ fontSize: 18, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.05, margin: 0, letterSpacing: "-0.2px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
+                <p style={{ fontSize: 12, color: "#9A9AA0", margin: "5px 0 0", fontWeight: 400 }}>Range</p>
               </div>
-              <div style={{ width: 1, height: 36, background: "rgba(255,255,255,0.15)", flexShrink: 0 }} />
+              <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 30, fontWeight: 650, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.8px", fontVariantNumeric: "tabular-nums" }}>72%</p>
-                <p style={{ fontSize: 12, color: "#8E8E93", margin: "5px 0 0", fontWeight: 450 }}>Hydrogen</p>
+                <p style={{ fontSize: 18, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.05, margin: 0, letterSpacing: "-0.2px", fontVariantNumeric: "tabular-nums" }}>72%</p>
+                <p style={{ fontSize: 12, color: "#9A9AA0", margin: "5px 0 0", fontWeight: 400 }}>Hydrogen</p>
               </div>
             </div>
 
             {/* Status icons row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 2 }}>
               <SignalBarsIcon color="#8E8E93" />
               <Lock size={16} color="#8E8E93" strokeWidth={1.5} />
               <FanIcon color="#8E8E93" />
@@ -299,7 +299,7 @@ export default function MyVehicle() {
         </div>
 
         {/* Scroll content */}
-        <div style={{ padding: "0 14px", paddingBottom: 98, marginTop: -10, position: "relative", zIndex: 5 }}>
+        <div style={{ padding: "0 15px", paddingBottom: 98, marginTop: -2, position: "relative", zIndex: 5 }}>
 
           {/* ── MAP CARD ── */}
           <div style={{
