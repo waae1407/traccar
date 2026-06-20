@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, BellRing, CheckCircle2, Clock, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
 import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
@@ -121,14 +121,20 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     }
   };
 
-  // Handle phase completion with chime
+  // Handle phase completion with chime and auto-reset
   useEffect(() => {
     if (progress.phase === PHASES.success) {
       setTimeout(() => playChime(true), 500);
+      // Auto-reset after 3 seconds
+      const timer = setTimeout(() => progress.reset(), 3000);
+      return () => clearTimeout(timer);
     } else if (progress.phase === PHASES.failed) {
       setTimeout(() => playChime(false), 500);
+      // Auto-reset after 4 seconds (give user time to see error)
+      const timer = setTimeout(() => progress.reset(), 4000);
+      return () => clearTimeout(timer);
     }
-  }, [progress.phase]);
+  }, [progress.phase, progress.reset]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -191,26 +197,27 @@ function ControlSection({ title, subtitle, commands, activeCommand, phase, elaps
 
           let buttonClass = "bg-secondary text-foreground hover:bg-secondary/80";
           let label = command.label;
-          let showIcon = true;
-          let showClock = false;
+          let iconType = "default"; // "default", "loader", "check", "none"
+          let showTimer = false;
 
           if (isContacting) {
             buttonClass = PHASE_COLORS.contacting;
             label = "Contacting vehicle…";
-            showIcon = false;
-            showClock = true;
+            iconType = "loader";
+            showTimer = true;
           } else if (isResponding) {
             buttonClass = PHASE_COLORS.vehicle_responding;
             label = "Vehicle responding…";
-            showIcon = false;
+            iconType = "none";
+            showTimer = true;
           } else if (isSuccess) {
             buttonClass = "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30";
             label = labels.success;
-            showIcon = true;
+            iconType = "check";
           } else if (isFailed) {
             buttonClass = "bg-red-500 text-white shadow-lg shadow-red-500/30";
             label = labels.failed;
-            showIcon = false;
+            iconType = "none";
           }
 
           return (
@@ -222,16 +229,16 @@ function ControlSection({ title, subtitle, commands, activeCommand, phase, elaps
               className={`h-20 flex-col rounded-2xl border-border transition-all duration-300 ${buttonClass}`}
             >
               <div className="flex items-center gap-2">
-                {showClock && isContacting && (
-                  <Clock className="h-4 w-4 animate-spin" />
+                {iconType === "loader" && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                {showIcon && isSuccess && (
+                {iconType === "check" && (
                   <CheckCircle2 className="h-5 w-5" />
                 )}
-                {!isContacting && !isResponding && !isSuccess && <Icon className="h-5 w-5" />}
+                {iconType === "default" && <Icon className="h-5 w-5" />}
                 <span className="text-xs font-black">{label}</span>
               </div>
-              {(isContacting || isResponding) && (
+              {showTimer && (
                 <span className="mt-0.5 text-[10px] tabular-nums opacity-70">{elapsed}s</span>
               )}
             </Button>
