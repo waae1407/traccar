@@ -210,29 +210,29 @@ export default function MyVehicle() {
                 alt={name}
                 style={{
                   position: "absolute",
-                  right: -10,
-                  top: 40,
-                  width: "58%",
-                  height: "58%",
-                  objectFit: "contain",
+                  right: "-15%",
+                  top: "5%",
+                  width: "90%",
+                  height: "90%",
+                  objectFit: "cover",
                   objectPosition: "center",
                   display: "block",
-                  opacity: 0.96,
-                  filter: "brightness(0.86) contrast(1.16) saturate(1.06)",
-                  transform: "none",
+                  opacity: 0.75,
+                  filter: "brightness(0.65) contrast(1.2) saturate(1.1)",
+                  transform: "scale(1.05)",
                 }}
               />
             )}
             <div style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(90deg, #050506 0%, rgba(5,5,6,0.98) 34%, rgba(5,5,6,0.56) 55%, rgba(5,5,6,0.08) 100%)",
+              background: "linear-gradient(90deg, #050506 0%, #050506 15%, rgba(5,5,6,0.98) 35%, rgba(5,5,6,0.5) 60%, transparent 100%)",
               zIndex: 2,
             }} />
             <div style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(180deg, #050506 0%, rgba(5,5,6,0.12) 28%, rgba(5,5,6,0.08) 54%, #050506 100%)",
+              background: "linear-gradient(180deg, #050506 0%, transparent 15%, transparent 85%, #050506 100%)",
               zIndex: 3,
             }} />
             <div style={{
@@ -252,7 +252,7 @@ export default function MyVehicle() {
             {/* Top row: name + icons */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
-                <p style={{ fontSize: 18, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.16, margin: 0, letterSpacing: "-0.35px", maxWidth: 245 }}>{name}</p>
+                <p style={{ fontSize: 20, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.16, margin: 0, letterSpacing: "-0.35px", maxWidth: 245, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
                   <span style={{ color: "#30D158", fontSize: 12, fontWeight: 500 }}>Online</span>
@@ -506,8 +506,8 @@ export default function MyVehicle() {
               onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
               style={{
                 width: "100%",
-                background: "rgba(255,69,58,0.08)",
-                border: "1px solid rgba(255,69,58,0.4)",
+                background: "rgba(255,69,58,0.05)",
+                border: "1px solid rgba(255,69,58,0.25)",
                 borderRadius: 22,
                 padding: "14px 16px",
                 display: "flex", alignItems: "center", gap: 12,
