@@ -7,22 +7,12 @@ const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_light
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 
 // ── IMMEDIATE COMMAND DISPATCH ──
-// Noran MT20 UDP commands are sent immediately via Traccar API.
-// Traccar handles UDP/session delivery and ACK processing.
-// No heartbeat gate, no delay release.
-const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90; // kept for historical command expiry only
+const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90;
 
-// ── HEARTBEAT FRESHNESS GATE — LOCKED VALUES — DO NOT MODIFY ──
-// These values are system-critical and MUST NOT be changed without explicit approval.
-// Empirical data: commands sent >10s after heartbeat fail due to UDP NAT session timeout.
-// Commands <10s: 100% success. Commands >12s: 0% success.
-// LOCKED: 2026-06-20 — Device heartbeat intervals vary by hardware; gate timing is fixed.
-const MAX_HEARTBEAT_AGE_MS = 10000;       // 10 seconds — send immediately if fresh
-const HEARTBEAT_POLL_INTERVAL_MS = 500;    // poll every 500ms
-const HEARTBEAT_POLL_TIMEOUT_MS = 30000;   // wait up to 30s for fresh heartbeat
-
-
-
+// ── HEARTBEAT FRESHNESS GATE — LOCKED VALUES ──
+const MAX_HEARTBEAT_AGE_MS = 10000;
+const HEARTBEAT_POLL_INTERVAL_MS = 500;
+const HEARTBEAT_POLL_TIMEOUT_MS = 30000;
 
 const TRACCAR_TEST_UNIQUE_ID = 'NR09G00002';
 const TRACCAR_TEST_DEVICE_ID = '5';
@@ -140,10 +130,6 @@ async function ensureFreshTraccarDeviceId(base44, device) {
   return device;
 }
 
-async function sendTraccarSingleDeviceLiveTest(commandType, device) {
-  const routed = await sendTraccarNoranProductionCommand(commandType, { ...device, traccar_device_id: TRACCAR_TEST_DEVICE_ID }, null);
-  return { ...routed, live_test: true };
-}
 function commandCooldownMs(commandType) {
   if (STARTER_COMMANDS.includes(commandType)) return 60 * 1000;
   if (commandType === 'alarm_pulse') return 0;
@@ -174,30 +160,6 @@ async function getTemplate(base44, providerKey, commandType) {
   const templates = await base44.asServiceRole.entities.TelematicsCommandTemplate.filter({ provider_key: providerKey, command_type: commandType });
   return templates.find(t => t.enabled !== false) || null;
 }
-async function resolveVehicle(base44, { vehicle_id, booking_id }) {
-  let booking = null;
-  if (booking_id) {
-    try { booking = (await base44.asServiceRole.entities.BookingRequest.filter({ id: booking_id }))[0] || null; } catch { booking = null; }
-  }
-  const targetVehicleId = vehicle_id || booking?.vehicle_id;
-  if (!targetVehicleId) return { vehicle: null, booking };
-  let vehicle = null;
-  try { vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: targetVehicleId }))[0] || null; } catch { vehicle = null; }
-  return { vehicle, booking };
-}
-async function resolveDevice(base44, vehicle) {
-  const existing = await base44.asServiceRole.entities.TelematicsDevice.filter({ vehicle_id: vehicle.id });
-  if (existing[0]) return existing[0];
-  if (vehicle.moovetrax_device_id) {
-    return await base44.asServiceRole.entities.TelematicsDevice.create({
-    company_id: vehicle.company_id || '', provider_key: 'moovetrax', provider_type: 'api', unique_id: `moovetrax:${sanitizeIdentifier(vehicle.moovetrax_device_id)}`,
-    moovetrax_device_id: vehicle.moovetrax_device_id, provider_device_id: vehicle.moovetrax_device_id,
-    vehicle_id: vehicle.id, host_id: vehicle.host_id || '', assigned_status: 'assigned', install_status: 'installed', lifecycle_status: 'live_enabled',
-    gps_enabled: true, lock_unlock_enabled: true, horn_light_enabled: true, production_commands_enabled: true, production_command_scope: 'all_supported_commands', created_at: new Date().toISOString()
-    });
-  }
-  return null;
-}
 function isRentalControlActive(booking) {
   if (!booking) return false;
   if (booking.rental_ended_at) return false;
@@ -211,14 +173,19 @@ function isRentalControlActive(booking) {
   return true;
 }
 
-async function validateAccess(base44, user, vehicle, booking, commandType, provider, device) {
+async function validateAccess(base44, user, vehicle, commandType, provider, device) {
   if (STARTER_COMMANDS.includes(commandType)) {
     if (!provider.allow_starter_commands) return 'Starter commands are disabled for this provider.';
     if (provider.require_admin_approval_for_starter && !['admin', 'host'].includes(user.role)) return 'Starter commands require admin or host policy approval.';
   }
   if (user.role === 'admin') return null;
 
-  // Host validation
+  if (user.role === 'customer' || user.role === 'user') {
+    if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
+    if (device.vehicle_id !== vehicle.id) return 'Device is not assigned to this rental vehicle.';
+    return null;
+  }
+
   if (vehicle.host_id) {
     const host = (await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }))[0];
     if (host?.email === user.email || host?.user_id === user.id) {
@@ -232,12 +199,6 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
       }
       return null;
     }
-  }
-
-  // Customer validation - UI already hides buttons when rental ends, just check command type
-  if (user.role === 'customer' || user.role === 'user') {
-    if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
-    return null;
   }
 
   if (user.role === 'installer') return commandType === 'status' || commandType === 'locate' ? null : 'Installers can only run installation checks.';
@@ -296,7 +257,6 @@ async function ensureFreshHeartbeat(base44, deviceId) {
     return { fresh: true, age_ms: ageMs, waited: false };
   }
 
-  // Heartbeat stale — poll for fresh one (webhookLightLogForwarder updates last_heartbeat_received_at)
   const startTime = Date.now();
   while (Date.now() - startTime < HEARTBEAT_POLL_TIMEOUT_MS) {
     await sleep(HEARTBEAT_POLL_INTERVAL_MS);
@@ -356,8 +316,7 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
   const responses = [];
   for (const built of builtCommands) {
     const traccarPayload = { deviceId: traccarDeviceId, type: 'custom', attributes: { data: built.hex } };
-    // ── Proof log: about to POST to Traccar ──
-    console.log(`[MT20_SEND] POST /api/commands/send traccar_device_id=${traccarDeviceId} unique_id=${device.unique_id} command=${commandType} ascii="${built.ascii}" hex_length=${built.hex.length / 2}bytes hex_prefix=${built.hex.slice(0, 12)}`);
+    console.log(`[MT20_SEND] POST /api/commands/send traccar_device_id=${traccarDeviceId} unique_id=${device.unique_id} command=${commandType} ascii="${built.ascii}" hex_length=${built.hex.length / 2}bytes`);
     const sentAt = new Date().toISOString();
     const res = await fetch(joinUrl(baseUrl, '/api/commands/send'), {
       method: 'POST',
@@ -367,8 +326,7 @@ async function sendTraccarNoranProductionCommand(commandType, device, template) 
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { data = { raw: text }; }
-    // ── Proof log: Traccar response ──
-    console.log(`[MT20_RESP] status=${res.status} sent_to_traccar_at=${sentAt} response=${text.slice(0, 200)}`);
+    console.log(`[MT20_RESP] status=${res.status} sent_to_traccar_at=${sentAt}`);
     if (!res.ok) throw new Error(`Traccar production command failed (${res.status}): ${typeof data?.raw === 'string' ? data.raw : JSON.stringify(data)}`);
     responses.push({ ...data, traccar_payload: traccarPayload, sData_hex: built.sDataHex, mt20_total_bytes: built.totalBytes, sent_to_traccar_at: sentAt });
   }
@@ -384,7 +342,7 @@ async function renderTemplateExecution(template, provider, device, commandType, 
     const unlockOptions = getNoranUnlockOptions(commandType, device, provider);
     const builtCommands = buildNoranCommandBatch(commandType, noranDeviceId, template.ascii_template, { wrapMt20: provider.provider_key === 'traccar_noran_mt20', ...unlockOptions });
     const first = builtCommands[0];
-    return { provider_command_name: template.provider_command_name || 'custom', ascii_payload: first.ascii, hex_payload: first.hex, dry_run: true, response: { dry_run: true, ascii_payload: first.ascii, hex_payload: first.hex, sData_hex: first.sDataHex, mt20_total_bytes: first.totalBytes, noran_command_count: builtCommands.length, unlock_disarms_alarm: unlockOptions.unlockDisarmsAlarm, unlock_double_pulse_enabled: unlockOptions.unlockDoublePulse, device_identifier_source: 'TelematicsDevice.unique_id', simulated_traccar_payloads: device.traccar_device_id ? builtCommands.map((built) => ({ deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: built.hex } })) : [] } };
+    return { provider_command_name: template.provider_command_name || 'custom', ascii_payload: first.ascii, hex_payload: first.hex, dry_run: true, response: { dry_run: true, ascii_payload: first.ascii, hex_payload: first.hex, sData_hex: first.sDataHex, mt20_total_bytes: first.totalBytes, noran_command_count: builtCommands.length, unlock_disarms_alarm: unlockOptions.unlockDisarmsAlarm, unlock_double_pulse_enabled: unlockOptions.unlockDoublePulse, device_identifier_source: 'TelematicsDevice.unique_id' } };
   }
   if (!template || template.dry_run_only || provider.execution_mode === 'dry_run' || !provider.allow_live_commands) {
     return { provider_command_name: template?.provider_command_name || commandType, dry_run: true, response: { dry_run: true, endpoint: template?.endpoint_template || '', payload_template: template?.payload_template || {} } };
@@ -414,7 +372,6 @@ async function getInstallerInstallRecord(base44, device, vehicle, vin) {
 }
 
 function isCompletedInstallerInstall(record, device) {
-  // Only check install record status - device.install_status may be 'installed' during testing phase
   return record?.install_status === 'completed';
 }
 
@@ -471,8 +428,6 @@ Deno.serve(async (req) => {
     const adminTraccarLiveTest = body.admin_traccar_live_test === true;
     const adminDeviceCommandTest = body.admin_device_command_test === true;
     
-    // ── DIRECT DEVICE LOOKUP (NO RESOLUTION OVERHEAD) ──
-    // When telematics_device_id is provided, skip all vehicle/device resolution
     let device = null;
     if (body.telematics_device_id) {
       try { device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: body.telematics_device_id }))[0] || null; } catch { device = null; }
@@ -480,17 +435,13 @@ Deno.serve(async (req) => {
     if (!device && body.unique_id) device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: body.unique_id }))[0];
     if (!device) return Response.json({ error: 'No telematics device found.' }, { status: 404 });
     
-    // Resolve vehicle only if needed for validation (after device is confirmed)
     let vehicle = null;
     let booking = null;
     if (!adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest) {
       if (device.vehicle_id) {
         try { vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || null; } catch { vehicle = null; }
       }
-      if (!vehicle) {
-        console.log(`[DEBUG] No vehicle found for device ${device.id} with vehicle_id ${device.vehicle_id}`);
-        return Response.json({ error: 'Vehicle not found for this device.' }, { status: 404 });
-      }
+      if (!vehicle) return Response.json({ error: 'Vehicle not found for this device.' }, { status: 404 });
     }
     if (installerInstallTest && body.vin) {
       vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ vin: String(body.vin || '').trim().toUpperCase() }))[0] || null;
@@ -503,7 +454,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Device is not enabled for live commands.' }, { status: 403 });
     }
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
-    // Skip Traccar sync for production commands - device already has valid traccar_device_id
+    const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
+    const liveNoranInstallerTest = installerInstallTest && canSendInstallerNoranStarterTest(provider, device, commandType);
     const isProductionCommand = liveNoranProduction || liveNoranInstallerTest;
     if (!isProductionCommand) {
       device = await ensureFreshTraccarDeviceId(base44, device);
@@ -522,7 +474,7 @@ Deno.serve(async (req) => {
       if (isCompletedInstallerInstall(installRecord, device)) return Response.json({ error: 'Installer command tests are disabled after installation is completed.' }, { status: 403 });
       if (STARTER_COMMANDS.includes(commandType) && (provider.supports_starter_disable === false || provider.supports_starter_restore === false)) return Response.json({ error: 'Provider does not support installer starter tests for this device.' }, { status: 403 });
     } else if (!adminDeviceCommandTest) {
-      const accessError = await validateAccess(base44, user, vehicle, booking, commandType, provider, device);
+      const accessError = await validateAccess(base44, user, vehicle, commandType, provider, device);
       console.log(`[DEBUG] validateAccess result for user=${user.email} role=${user.role} command=${commandType}: ${accessError || 'ALLOWED'}`);
       if (accessError) return Response.json({ error: accessError }, { status: 403 });
     }
@@ -535,7 +487,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Starter commands are blocked on active rentals unless explicit admin override is provided.' }, { status: 403 });
     }
     if (!adminTraccarLiveTest && !adminDeviceCommandTest && !provider.is_active && provider.provider_key !== 'moovetrax') return Response.json({ error: 'Telematics provider is not active.' }, { status: 400 });
-    // Raw command: bypass capability checks, send directly
     if (commandType === 'raw') {
       const rawPayload = String(body.raw_command || '').trim();
       if (!rawPayload) return Response.json({ error: 'raw_command body is required for raw command type.' }, { status: 400 });
@@ -584,8 +535,7 @@ Deno.serve(async (req) => {
 
     if (capability && provider[capability] === false) return Response.json({ error: 'Provider does not support this command.' }, { status: 400 });
     if (provider.execution_mode === 'production' && !provider.allow_live_commands) return Response.json({ error: 'Live commands are disabled for this provider.' }, { status: 400 });
-    const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
-    const liveNoranInstallerTest = installerInstallTest && canSendInstallerNoranStarterTest(provider, device, commandType);
+    
     if (installerInstallTest && provider.provider_key === 'traccar_noran_mt20' && !liveNoranProduction && !liveNoranInstallerTest) {
       return Response.json({ error: STARTER_COMMANDS.includes(commandType) ? 'Live installer starter testing is disabled because this device/provider does not support wrapped MT20 starter commands.' : 'Live installer command testing is disabled for this device. Enable production commands for this device before sending installer test commands.' }, { status: 403 });
     }
@@ -605,7 +555,6 @@ Deno.serve(async (req) => {
     const nowMs = Date.now();
     const expiresAt = new Date(now.getTime() + NORAN_HEARTBEAT_EXPIRY_SECONDS * 1000).toISOString();
     
-    // ── SIMPLE DUPLICATE PROTECTION (15 seconds) ──
     const idempotencyKey = makeIdempotencyKey(user.email, device.id, commandType, { alarmSessionId: body.alarm_session_id || '', pulseNumber: body.pulse_number || 0 });
     const recentCommands = await base44.asServiceRole.entities.TelematicsCommand.filter({ telematics_device_id: device.id, command_type: commandType }, '-created_date', 5);
     const duplicateActive = recentCommands.some(cmd => {
@@ -615,15 +564,13 @@ Deno.serve(async (req) => {
     });
     if (duplicateActive) return Response.json({ error: 'Duplicate command blocked. Wait 15 seconds before sending same command type.', retry_after_seconds: 15 }, { status: 429 });
 
-    // ── HEARTBEAT FRESHNESS CHECK (Noran MT20 only) ──
-    // Skip for: alarm sessions (safety-critical) only
     let heartbeatFreshness = null;
     const isLiveNoran = device.provider_key === 'traccar_noran_mt20' && (liveNoranProduction || adminDeviceCommandTest || adminTraccarLiveTest || liveNoranInstallerTest);
     const skipFreshnessCheck = !!body.alarm_session_id;
 
     if (isLiveNoran && !skipFreshnessCheck) {
       heartbeatFreshness = await ensureFreshHeartbeat(base44, device.id);
-      console.log(`[HEARTBEAT_FRESHNESS] device=${device.unique_id} fresh=${heartbeatFreshness.fresh} age_ms=${heartbeatFreshness.age_ms} waited=${heartbeatFreshness.waited} wait_ms=${heartbeatFreshness.wait_ms || 0}`);
+      console.log(`[HEARTBEAT_FRESHNESS] device=${device.unique_id} fresh=${heartbeatFreshness.fresh} age_ms=${heartbeatFreshness.age_ms}`);
 
       if (!heartbeatFreshness.fresh) {
         const failedCmd = await base44.asServiceRole.entities.TelematicsCommand.create({
@@ -639,7 +586,7 @@ Deno.serve(async (req) => {
           status: 'failed',
           queue_status: 'failed',
           confirmation_status: 'failed',
-          failure_reason: `Heartbeat stale (${Math.round((heartbeatFreshness.age_ms || 0) / 1000)}s old). No fresh heartbeat within ${HEARTBEAT_POLL_TIMEOUT_MS / 1000}s. UDP session expired.`,
+          failure_reason: `Heartbeat stale (${Math.round((heartbeatFreshness.age_ms || 0) / 1000)}s old).`,
           failed_at: new Date().toISOString(),
           created_at: now.toISOString(),
           idempotency_key: idempotencyKey,
@@ -660,7 +607,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── IMMEDIATE DISPATCH FOR ALL COMMANDS (including Noran MT20) ──
     const template = adminTraccarLiveTest ? null : await getTemplate(base44, device.provider_key, commandType);
     const preBuiltCommand = (liveNoranProduction || liveNoranInstallerTest || adminDeviceCommandTest)
       ? await sendTraccarNoranProductionCommand(commandType, adminDeviceCommandTest ? { ...device, unlock_double_pulse_enabled: false } : device, template).catch(() => null)
@@ -709,7 +655,6 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Send immediately via Traccar API
     try {
       const sentAt = new Date().toISOString();
       const providerCommandId = preBuiltCommand.response?.id || preBuiltCommand.response?.commandId || preBuiltCommand.response?.command_id || '';
@@ -729,7 +674,7 @@ Deno.serve(async (req) => {
         ascii_payload: asciiPayload,
         hex_payload: hexPayload,
         wrapped_payload: hexPayload || '',
-        sData_hex: sDataHex,
+        sDataHex: sDataHex,
         transmission_format: hexPayload ? 'mt20_wrapped_hex' : preBuiltCommand.dry_run ? 'dry_run' : 'provider_api',
         production_command: !!preBuiltCommand.production_command,
         provider_response: preBuiltCommand.response || {},
