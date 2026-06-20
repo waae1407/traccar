@@ -218,15 +218,7 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
   }
   if (user.role === 'admin') return null;
 
-  const bookingUserMatch = booking && (booking.user_email === user.email || booking.user_id === user.id);
-  if (bookingUserMatch) {
-    if (booking.vehicle_id !== vehicle.id) return 'Customer can only control the vehicle on this booking.';
-    if (device.vehicle_id !== vehicle.id) return 'Device is not assigned to this rental vehicle.';
-    if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
-    if (!isRentalControlActive(booking)) return 'Vehicle controls are only available for active rentals.';
-    return null;
-  }
-
+  // Host validation
   if (vehicle.host_id) {
     const host = (await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }))[0];
     if (host?.email === user.email || host?.user_id === user.id) {
@@ -240,6 +232,12 @@ async function validateAccess(base44, user, vehicle, booking, commandType, provi
       }
       return null;
     }
+  }
+
+  // Customer validation - UI already hides buttons when rental ends, just check command type
+  if (user.role === 'customer' || user.role === 'user') {
+    if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
+    return null;
   }
 
   if (user.role === 'installer') return commandType === 'status' || commandType === 'locate' ? null : 'Installers can only run installation checks.';
