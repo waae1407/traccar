@@ -25,6 +25,7 @@ export function useCommandProgress() {
   const pollRef = useRef(null);
   const timerRef = useRef(null);
   const isPollingRef = useRef(false);
+  const pollAttemptsRef = useRef(0);
 
   const clearAll = useCallback(() => {
     if (pollRef.current) {
@@ -48,68 +49,77 @@ export function useCommandProgress() {
     setPollAttempts(0);
     startTimeRef.current = null;
     isPollingRef.current = false;
+    pollAttemptsRef.current = 0;
+  }, [clearAll]);
+
+  const checkStatus = useCallback(async (cmdId) => {
+    try {
+      const records = await base44.entities.TelematicsCommand.filter({ id: cmdId });
+      const rec = records?.[0];
+      if (!rec) return;
+
+      const queueStatus = rec.queue_status;
+      const confirmationStatus = rec.confirmation_status;
+      const status = rec.status;
+
+      const anySuccess = [queueStatus, confirmationStatus, status].some(s => SUCCESS_STATUSES.has(s));
+      if (anySuccess) {
+        setPhase(PHASES.success);
+        clearAll();
+        return;
+      }
+
+      const anyFail = [queueStatus, confirmationStatus, status].some(s => FAIL_STATUSES.has(s));
+      if (anyFail) {
+        setErrorMessage(rec.failure_reason || "Vehicle didn't respond");
+        setPhase(PHASES.failed);
+        clearAll();
+        return;
+      }
+
+      const anyPending = [queueStatus, confirmationStatus, status].some(s => PENDING_STATUSES.has(s));
+      if (anyPending) {
+        setPhase(PHASES.vehicle_responding);
+      }
+
+      pollAttemptsRef.current += 1;
+      setPollAttempts(pollAttemptsRef.current);
+      
+      if (pollAttemptsRef.current > 120) {
+        setErrorMessage("Command timed out");
+        setPhase(PHASES.failed);
+        clearAll();
+      }
+    } catch (err) {
+      console.error('[useCommandProgress] Poll error:', err);
+      pollAttemptsRef.current += 1;
+      setPollAttempts(pollAttemptsRef.current);
+      if (pollAttemptsRef.current > 5) {
+        setErrorMessage("Connection error");
+        setPhase(PHASES.failed);
+        clearAll();
+      }
+    }
   }, [clearAll]);
 
   const startPolling = useCallback((cmdId) => {
     if (!cmdId) return;
     if (isPollingRef.current) return;
 
+    console.log('[useCommandProgress] Starting polling for:', cmdId);
     isPollingRef.current = true;
+    pollAttemptsRef.current = 0;
     setPollAttempts(0);
 
-    const checkStatus = async () => {
-      try {
-        const records = await base44.entities.TelematicsCommand.filter({ id: cmdId });
-        const rec = records?.[0];
-        if (!rec) return;
-
-        const queueStatus = rec.queue_status;
-        const confirmationStatus = rec.confirmation_status;
-        const status = rec.status;
-
-        const anySuccess = [queueStatus, confirmationStatus, status].some(s => SUCCESS_STATUSES.has(s));
-        if (anySuccess) {
-          setPhase(PHASES.success);
-          clearAll();
-          return;
-        }
-
-        const anyFail = [queueStatus, confirmationStatus, status].some(s => FAIL_STATUSES.has(s));
-        if (anyFail) {
-          setErrorMessage(rec.failure_reason || "Vehicle didn't respond");
-          setPhase(PHASES.failed);
-          clearAll();
-          return;
-        }
-
-        const anyPending = [queueStatus, confirmationStatus, status].some(s => PENDING_STATUSES.has(s));
-        if (anyPending) {
-          setPhase(PHASES.vehicle_responding);
-        }
-
-        setPollAttempts(prev => prev + 1);
-        
-        if (pollAttempts > 120) {
-          setErrorMessage("Command timed out");
-          setPhase(PHASES.failed);
-          clearAll();
-        }
-      } catch (err) {
-        console.error('[useCommandProgress] Poll error:', err);
-        setPollAttempts(prev => prev + 1);
-        if (pollAttempts > 5) {
-          setErrorMessage("Connection error");
-          setPhase(PHASES.failed);
-          clearAll();
-        }
-      }
-    };
-
-    checkStatus();
-    pollRef.current = setInterval(checkStatus, 1000);
-  }, [clearAll, pollAttempts]);
+    // Immediate check
+    checkStatus(cmdId);
+    
+    // Then poll every 1 second
+    pollRef.current = setInterval(() => checkStatus(cmdId), 1000);
+  }, [checkStatus]);
 
   const startOptimistic = useCallback((cmdType) => {
+    console.log('[useCommandProgress] Starting optimistic for:', cmdType);
     clearAll();
     setCommandType(cmdType);
     setCommandId(null);
@@ -118,6 +128,7 @@ export function useCommandProgress() {
     startTimeRef.current = Date.now();
     setElapsed(0);
     setPollAttempts(0);
+    pollAttemptsRef.current = 0;
     isPollingRef.current = false;
     
     if (timerRef.current) clearInterval(timerRef.current);
@@ -127,6 +138,7 @@ export function useCommandProgress() {
   }, [clearAll]);
 
   const transitionToPolling = useCallback((cmdType, cmdId) => {
+    console.log('[useCommandProgress] Transition to polling:', { cmdType, cmdId });
     setCommandType(cmdType);
     setCommandId(cmdId);
     setPhase(PHASES.vehicle_responding);

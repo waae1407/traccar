@@ -88,8 +88,8 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
       try {
         const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id });
         await onCommand?.(res.data);
-        progress.reset();
-      } catch {
+      } catch (err) {
+        console.error('[VehicleCommandControls] Alarm failed:', err);
         progress.reset();
       }
       return;
@@ -113,10 +113,20 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
       const data = res.data;
       const cmdId = data?.command_id || data?.id;
+      
+      console.log('[VehicleCommandControls] Command sent, cmdId:', cmdId);
+      
+      if (!cmdId) {
+        console.error('[VehicleCommandControls] No command ID returned');
+        progress.reset();
+        return;
+      }
+      
       // Gate hold done → transition to "Vehicle responding…"
       progress.transitionToPolling(commandType, cmdId);
       await onCommand?.(data);
-    } catch {
+    } catch (err) {
+      console.error('[VehicleCommandControls] Command failed:', err);
       progress.reset();
     }
   };
