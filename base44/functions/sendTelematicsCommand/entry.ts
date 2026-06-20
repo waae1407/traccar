@@ -485,11 +485,13 @@ Deno.serve(async (req) => {
     // Resolve vehicle only if needed for validation (after device is confirmed)
     let vehicle = null;
     let booking = null;
+    const isCustomerRequest = user.role === 'user' || user.role === 'customer';
     if (!adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest) {
       if (device.vehicle_id) {
         try { vehicle = (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] || null; } catch { vehicle = null; }
       }
-      if (body.booking_id) {
+      // Only resolve booking for customer requests - admins/hosts don't need booking validation
+      if (isCustomerRequest && body.booking_id) {
         try { booking = (await base44.asServiceRole.entities.BookingRequest.filter({ id: body.booking_id }))[0] || null; } catch { booking = null; }
       }
       if (!vehicle) return Response.json({ error: 'Vehicle not found for this device.' }, { status: 404 });
