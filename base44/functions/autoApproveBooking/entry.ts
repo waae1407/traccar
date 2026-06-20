@@ -221,7 +221,8 @@ Deno.serve(async (req) => {
       grace_period_ends_at: null,
       suspension_triggered_at: null,
       suspended_at: null,
-      next_billing_date: nextBillingDate
+      next_billing_date: nextBillingDate,
+      redirect_to_vehicle: true
     });
 
     await base44.asServiceRole.entities.Vehicle.update(vehicle.id, { status: shouldActivate ? 'Active Rental' : 'Booked' }).catch(() => {});

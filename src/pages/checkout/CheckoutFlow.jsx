@@ -175,7 +175,14 @@ export default function CheckoutFlow() {
           booking_request_id: booking.id,
           source: options.paymentRecovery ? "payment_recovery" : "checkout_payment_success"
         });
-        if (approval.data?.booking) setBooking(approval.data.booking);
+        if (approval.data?.booking) {
+          setBooking(approval.data.booking);
+          // Redirect to /my-vehicle after successful approval
+          if (["approved", "active", "confirmed"].includes(approval.data.booking.booking_status)) {
+            window.location.href = "/my-vehicle";
+            return;
+          }
+        }
       }
     }
     setCurrentStep("confirmation");

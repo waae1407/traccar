@@ -94,6 +94,13 @@ export default function MyBookings() {
   );
 
   const activeBookings = deduplicated.filter((b) => ACTIVE_STATUSES.includes(b.booking_status));
+  
+  // Redirect to /my-vehicle if there's an active paid booking
+  const hasActiveRental = activeBookings.some(b => ["active", "approved", "confirmed"].includes(b.booking_status) && b.payment_status === "paid");
+  if (hasActiveRental && window.location.pathname !== "/my-vehicle") {
+    window.location.href = "/my-vehicle";
+  }
+  
   const pastBookings   = deduplicated.filter((b) => PAST_STATUSES.includes(b.booking_status))
     .sort((a, b) => new Date(b.rental_ended_at || b.updated_date) - new Date(a.rental_ended_at || a.updated_date));
   const pendingReviewBookings = pastBookings.filter((b) => b.booking_status === "completed" && !reviewMap[b.id]);

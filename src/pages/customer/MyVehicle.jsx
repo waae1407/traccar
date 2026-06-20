@@ -105,7 +105,18 @@ export default function MyVehicle() {
 
   if (!user) return <EmptyState title="Sign in to view your vehicle" text="Your Contactless360 remote appears here after login." action="Sign In" href="/account" />;
   if (isLoading) return <LoadingState />;
-  if (!booking) return <EmptyState title="No active rental" text="Book a vehicle to unlock the Contactless360 remote experience." action="Book Now" href="/book-now" />;
+  if (!booking || !isBookingActive) return (
+    <EmptyState 
+      title="No active booking" 
+      text={booking ? "Your booking has ended or payment is due. Resolve any outstanding issues to regain access." : "Book a vehicle to unlock the Contactless360 remote experience."} 
+      action={booking ? "View My Bookings" : "Book Now"} 
+      href={booking ? "/my-bookings" : "/book-now"} 
+    />
+  );
+  
+  // Check if booking is still active
+  const isBookingActive = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) && booking.payment_status === "paid";
+  const pickupInspectionComplete = booking.pickup_photos?.length > 0;
 
   const name = vehicleName(vehicle, booking);
   const daysRemaining = booking.end_date ? Math.max(0, differenceInCalendarDays(new Date(`${booking.end_date}T23:59:59`), new Date())) : null;
@@ -244,8 +255,12 @@ export default function MyVehicle() {
             <ActionButton
               icon={Lock}
               label="Lock"
-              sub="Secure vehicle"
+              sub={pickupInspectionComplete ? "Secure vehicle" : "Complete pickup first"}
               onClick={async () => {
+                if (!pickupInspectionComplete) {
+                  setInspectionTarget({ booking, type: "pickup" });
+                  return;
+                }
                 setActiveCommand("lock");
                 try {
                   const res = await TelematicsService.sendCommand({
@@ -265,13 +280,17 @@ export default function MyVehicle() {
                 }
               }}
               gradient="from-cyan-500 to-blue-500"
-              disabled={!!activeCommand}
+              disabled={!isBookingActive || !!activeCommand || !pickupInspectionComplete}
             />
             <ActionButton
               icon={Unlock}
               label="Unlock"
-              sub="Unlock vehicle"
+              sub={pickupInspectionComplete ? "Unlock vehicle" : "Complete pickup first"}
               onClick={async () => {
+                if (!pickupInspectionComplete) {
+                  setInspectionTarget({ booking, type: "pickup" });
+                  return;
+                }
                 setActiveCommand("unlock");
                 try {
                   const res = await TelematicsService.sendCommand({
@@ -291,7 +310,7 @@ export default function MyVehicle() {
                 }
               }}
               gradient="from-emerald-500 to-teal-500"
-              disabled={!!activeCommand}
+              disabled={!isBookingActive || !!activeCommand || !pickupInspectionComplete}
             />
             <ActionButton
               icon={BellRing}
