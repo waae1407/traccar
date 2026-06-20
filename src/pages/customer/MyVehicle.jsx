@@ -116,10 +116,10 @@ export default function MyVehicle() {
     <div className="min-h-screen bg-[#0C0C0C] pb-20">
       {inspectionTarget && <VehicleInspectionSheet booking={inspectionTarget.booking} type={inspectionTarget.type} onClose={() => setInspectionTarget(null)} onComplete={() => {}} />}
 
-      {/* Hero Section - Continuous layout like Tesla mockup */}
-      <div className="px-4 pt-4 pb-3">
+      {/* Hero Section - One continuous hero like Tesla mockup */}
+      <div className="px-4 pt-4 pb-0">
         {/* Header Row */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-lg font-bold text-white">2018 Toyota Mirai</p>
             <p className="text-xs text-[#30d158] flex items-center gap-1.5 mt-0.5">
@@ -137,31 +137,31 @@ export default function MyVehicle() {
           </div>
         </div>
 
-        {/* Hero Content - Stats Left, Image Right */}
-        <div className="flex items-center gap-4">
+        {/* Hero Content - Stats Left, Image Right - NO CARDS */}
+        <div className="flex items-center gap-3 mb-4">
           {/* Left Side - Stats */}
           <div className="flex-1">
-            <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center gap-3 mb-2">
               <div>
-                <p className="text-xs text-gray-500">Range</p>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Range</p>
                 <p className="text-base font-bold text-white">268 mi</p>
               </div>
-              <div className="w-px h-8 bg-[#262626]" />
+              <div className="w-px h-6 bg-[#262626]" />
               <div>
-                <p className="text-xs text-gray-500">Hydrogen</p>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Hydrogen</p>
                 <p className="text-base font-bold text-white">72%</p>
               </div>
             </div>
             {/* Status Icons */}
-            <div className="flex items-center gap-3">
-              <Signal className="h-4 w-4 text-gray-500" />
-              <Lock className="h-4 w-4 text-gray-500" />
-              <Fan className="h-4 w-4 text-gray-500" />
+            <div className="flex items-center gap-2.5">
+              <Signal className="h-3.5 w-3.5 text-gray-500" />
+              <Lock className="h-3.5 w-3.5 text-gray-500" />
+              <Fan className="h-3.5 w-3.5 text-gray-500" />
             </div>
           </div>
 
-          {/* Right Side - Vehicle Image */}
-          <div className="w-32 h-24 flex-shrink-0">
+          {/* Right Side - Vehicle Image (no card, no background) */}
+          <div className="w-[140px] h-20 flex-shrink-0 flex items-center justify-center">
             <img 
               src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" 
               alt="2018 Toyota Mirai" 
