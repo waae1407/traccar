@@ -355,6 +355,31 @@ export default function MyVehicle() {
           </div>
         </div>
 
+        {/* End Rental CTA - Critical for stopping billing */}
+        {!dropoffInspectionComplete && isBookingActive && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5"
+          >
+            <button
+              onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
+              className="w-full relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-500 to-rose-600 p-4 shadow-2xl transition-all hover:shadow-lg active:scale-[0.98]"
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-black/10 pointer-events-none" />
+              <div className="relative flex flex-col items-center text-center">
+                <div className="flex items-center gap-2 mb-1">
+                  <Camera className="h-5 w-5 text-white" />
+                  <span className="text-base font-black text-white">End Your Rental</span>
+                </div>
+                <p className="text-xs font-semibold text-white/90">
+                  Complete return inspection to stop billing immediately
+                </p>
+              </div>
+            </button>
+          </motion.div>
+        )}
+
         {/* Secondary Actions */}
         <div className="mb-5">
           <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-white/40">Vehicle Status</h2>
