@@ -30,15 +30,15 @@ function freshness(device) {
 }
 
 export default function MyVehicle() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
   const [activeCommand, setActiveCommand] = useState(null);
 
-  const { data: bookings = [], isLoading } = useQuery({
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email],
     queryFn: () => base44.entities.BookingRequest.filter({ user_email: user?.email }),
-    enabled: !!user?.email,
+    enabled: !!user?.email && !authLoading,
     refetchInterval: 60_000,
   });
 
@@ -61,8 +61,8 @@ export default function MyVehicle() {
   const device = devices[0];
   const gps = freshness(device);
 
-  if (!user) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-white">Sign in required</div>;
-  if (isLoading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center"><div className="w-8 h-8 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin" /></div>;
+  if (authLoading || bookingsLoading) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center"><div className="w-8 h-8 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin" /></div>;
+  if (!user) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-white text-center px-8"><div><p className="font-bold text-lg mb-2">Sign In Required</p><p className="text-sm text-gray-400">Please log in to access your vehicle</p></div></div>;
   if (!booking) return <div className="min-h-screen bg-[#0b0e14] flex items-center justify-center text-white text-center px-8"><div><p className="font-bold text-lg mb-2">No Active Rental</p><p className="text-sm text-gray-400">Book a vehicle to access remote controls</p></div></div>;
 
   const name = vehicleName(vehicle, booking);
