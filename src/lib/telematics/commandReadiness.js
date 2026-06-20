@@ -62,8 +62,7 @@ export function getCommandReadiness({ command, role = "customer", device = {}, p
   if (provider && capability.provider && provider[capability.provider] === false) reasons.push("Provider does not support this command.");
   if (device && capability.device && device[capability.device] === false) reasons.push("Device does not support this command.");
   if (device?.online_status === "offline") reasons.push("Device is offline.");
-  const isReadCommand = ["locate", "status"].includes(normalized);
-  if (!isReadCommand && !isInstallationReady(device) && device.provider_key !== "moovetrax" && !device.traccar_test_activation_enabled) reasons.push("Device installation is not ready.");
+  if (!isInstallationReady(device) && device.provider_key !== "moovetrax" && !device.traccar_test_activation_enabled) reasons.push("Device installation is not ready.");
 
   if (STARTER_COMMANDS.includes(normalized)) {
     if (provider?.allow_starter_commands === false) reasons.push("Provider starter controls are disabled.");

@@ -23,12 +23,12 @@ const COMMANDS = {
 };
 
 export default function VehicleCommandControls({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter, onCommand }) {
-  const { buttonStates, activeCommand, startOptimistic, transitionToPolling, reset } = useCommandProgress();
+  const { buttonStates, activeCommand, startOptimistic, transitionToPolling, reset, PHASES } = useCommandProgress();
   const allowedCustomer = ["locate", "lock", "unlock", "alarm_pulse"];
 
   const visible = (group) => COMMANDS[group].filter((command) => {
     if (mode === "customer" && !allowedCustomer.includes(command.key)) return false;
-    const ready = getCommandReadiness({ command: command.key, role: mode, device, provider: provider || {}, booking, hostOwnsVehicle, allowStarter });
+    const ready = getCommandReadiness({ command: command.key, role: mode, device, provider, booking, hostOwnsVehicle, allowStarter });
     return ready.supported;
   });
 
