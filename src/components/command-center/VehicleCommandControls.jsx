@@ -36,39 +36,8 @@ const COMMAND_LABELS = {
   status: { success: "Status Received", failed: "No Status" },
 };
 
-// Play chime sound using Web Audio API
-const playChime = (success = true) => {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-    
-    if (success) {
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(523.25, ctx.currentTime);
-      oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1);
-      oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2);
-      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.4);
-    } else {
-      oscillator.type = 'sawtooth';
-      oscillator.frequency.setValueAtTime(150, ctx.currentTime);
-      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.3);
-    }
-  } catch (err) {
-    console.warn('[playChime] Audio failed:', err);
-  }
-};
+// Audio chime disabled - was causing errors
+const playChime = () => {};
 
 export default function VehicleCommandControls({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter, onCommand }) {
   const progress = useCommandProgress();
@@ -131,16 +100,12 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     }
   };
 
-  // Handle phase completion with chime and auto-reset
+  // Auto-reset after completion
   useEffect(() => {
     if (progress.phase === PHASES.success) {
-      setTimeout(() => playChime(true), 500);
-      // Auto-reset after 3 seconds
       const timer = setTimeout(() => progress.reset(), 3000);
       return () => clearTimeout(timer);
     } else if (progress.phase === PHASES.failed) {
-      setTimeout(() => playChime(false), 500);
-      // Auto-reset after 4 seconds (give user time to see error)
       const timer = setTimeout(() => progress.reset(), 4000);
       return () => clearTimeout(timer);
     }
