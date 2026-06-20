@@ -113,6 +113,11 @@ export function useCommandProgress() {
     startPolling(cmdId);
   }, [advancePhase, startPolling]);
 
+  // Custom phase setter (e.g., "opening_directions")
+  const setPhaseCustom = useCallback((customPhase) => {
+    advancePhase(customPhase);
+  }, [advancePhase]);
+
   // Legacy start (kept for backward compat in CommandTestWorkspace)
   const start = useCallback((cmdType, cmdId, heartbeatFreshness) => {
     clearAll();
@@ -130,5 +135,5 @@ export function useCommandProgress() {
 
   useEffect(() => () => clearAll(), [clearAll]);
 
-  return { phase, elapsed, phaseElapsed, commandType, commandId, errorMessage, lastHeartbeatAge, start, startOptimistic, transitionToPolling, reset };
+  return { phase, elapsed, phaseElapsed, commandType, commandId, errorMessage, lastHeartbeatAge, start, startOptimistic, transitionToPolling, setPhase: setPhaseCustom, reset };
 }

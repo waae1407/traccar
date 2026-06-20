@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, Loader2, Radio, Send, Wifi, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, MapPin, Radio, Send, Wifi, XCircle } from "lucide-react";
 import { PHASES } from "@/hooks/useCommandProgress";
 
 const SUCCESS_LABELS = {
@@ -43,6 +43,15 @@ const PHASE_CONFIG = {
     spin: false,
     pulse: true,
   },
+  opening_directions: {
+    icon: MapPin,
+    label: "Opening directions…",
+    sub: "Get ready — maps will open with your vehicle location in a few seconds.",
+    color: "text-purple-400",
+    bg: "bg-purple-500/10 border-purple-500/25",
+    spin: false,
+    pulse: true,
+  },
   [PHASES.success]: {
     icon: CheckCircle2,
     label: null,
@@ -63,7 +72,7 @@ const PHASE_CONFIG = {
   },
 };
 
-const PHASE_ORDER = [PHASES.connecting, PHASES.sending, PHASES.waiting, PHASES.success];
+const PHASE_ORDER = [PHASES.connecting, PHASES.sending, PHASES.waiting, "opening_directions", PHASES.success];
 
 function ElapsedBadge({ seconds, phase }) {
   if (phase === PHASES.success || phase === PHASES.idle || phase === PHASES.failed) return null;

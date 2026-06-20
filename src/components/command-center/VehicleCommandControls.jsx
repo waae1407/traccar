@@ -41,11 +41,14 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     try {
       const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device?.id });
       await onCommand?.(res.data);
-      // For customers, open directions after alarm triggers
+      // For customers, show "Opening directions..." then open maps
       if (mode === "customer" && vehicle?.vehicle_lat && vehicle?.vehicle_lon) {
+        progress.setPhase("opening_directions");
         setTimeout(() => {
           window.open(`https://www.google.com/maps/dir/?api=1&destination=${vehicle.vehicle_lat},${vehicle.vehicle_lon}`, "_blank");
-        }, 1500);
+          progress.reset();
+        }, 5000);
+        return;
       }
       progress.reset();
     } catch {
