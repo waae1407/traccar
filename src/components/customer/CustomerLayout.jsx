@@ -14,6 +14,7 @@ export default function CustomerLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isBookNow = location.pathname === "/book-now";
+  const isMyVehicle = location.pathname === "/my-vehicle" || location.pathname === "/vehicle-command-center";
   const [city, setCity] = useState(user?.preferred_city || "");
 
   // Fetch bookings to check for active rental
@@ -45,13 +46,13 @@ export default function CustomerLayout() {
 
   return (
     <div className="min-h-screen" style={{ background: "#f8f8fa", fontFamily: "var(--font-inter)" }}>
-      {!isBookNow && <CustomerTopBar user={user} city={city} onCityChange={() => {}} />}
-      <main className="w-full max-w-2xl mx-auto pb-28 md:pb-12">
+      {!isBookNow && !isMyVehicle && <CustomerTopBar user={user} city={city} onCityChange={() => {}} />}
+      <main className={isMyVehicle ? "w-full max-w-2xl mx-auto md:pb-12" : "w-full max-w-2xl mx-auto pb-28 md:pb-12"}>
         <Outlet context={{ user, city, setCity }} />
       </main>
-      {/* Bottom nav only on mobile */}
+      {/* Bottom nav only on mobile, hidden on MyVehicle page */}
       <div className="md:hidden">
-        <CustomerBottomNav />
+        {!isMyVehicle && <CustomerBottomNav />}
       </div>
       <FloatingAIAssistant
         agentName="renter_assistant"
