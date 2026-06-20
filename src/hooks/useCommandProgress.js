@@ -1,17 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 
-// Phases map to real queue_status transitions
+// 3-state phases: contacting → vehicle_responding → success/failed
 export const PHASES = {
   idle: null,
-  connecting: "connecting",   // gate hold — waiting for fresh heartbeat
-  sending: "sending",         // Traccar API called
-  waiting: "waiting",         // waiting for device ACK
-  success: "success",         // acknowledged / executed
+  contacting: "contacting",           // gate hold — waiting for fresh heartbeat
+  vehicle_responding: "vehicle_responding",  // command sent, waiting for device ACK
+  success: "success",                 // acknowledged / executed
   failed: "failed",
 };
 
-const GATE_STATUSES = new Set(["queued"]);
 const SENDING_STATUSES = new Set(["sending", "sent"]);
 const SUCCESS_STATUSES = new Set(["acknowledged", "executed", "delivered", "confirmed"]);
 const FAIL_STATUSES = new Set(["failed", "expired", "blocked"]);
@@ -74,17 +72,16 @@ export function useCommandProgress() {
         if (SUCCESS_STATUSES.has(qs)) {
           clearAll();
           advancePhase(PHASES.success);
-          setTimeout(() => setPhase(PHASES.idle), 4000);
           return;
         }
         if (FAIL_STATUSES.has(qs)) {
           clearAll();
-          setErrorMessage(rec.failure_reason || "Couldn't reach the vehicle");
+          setErrorMessage(rec.failure_reason || "Vehicle didn't respond");
           advancePhase(PHASES.failed);
           return;
         }
         if (SENDING_STATUSES.has(qs)) {
-          advancePhase(PHASES.waiting);
+          advancePhase(PHASES.vehicle_responding);
         }
       } catch {
         // ignore poll errors silently
@@ -92,7 +89,7 @@ export function useCommandProgress() {
     }, 1500);
   }, [clearAll, advancePhase]);
 
-  // Show "Reaching your vehicle…" immediately on button click (before API returns)
+  // Show "Contacting vehicle…" immediately on button click (before API returns)
   const startOptimistic = useCallback((cmdType) => {
     clearAll();
     setCommandType(cmdType);
@@ -102,15 +99,15 @@ export function useCommandProgress() {
     phaseStartRef.current = Date.now();
     setElapsed(0);
     setPhaseElapsed(0);
-    advancePhase(PHASES.connecting);
+    advancePhase(PHASES.contacting);
     startTimers();
   }, [clearAll, advancePhase, startTimers]);
 
-  // Called once API responds — gate hold is done, now poll for ACK
+  // Called once API responds — gate hold is done, now poll for device ACK
   const transitionToPolling = useCallback((cmdType, cmdId) => {
     setCommandType(cmdType);
     setCommandId(cmdId);
-    advancePhase(PHASES.sending);
+    advancePhase(PHASES.vehicle_responding);
     startPolling(cmdId);
   }, [advancePhase, startPolling]);
 
@@ -124,7 +121,7 @@ export function useCommandProgress() {
     phaseStartRef.current = Date.now();
     setElapsed(0);
     setPhaseElapsed(0);
-    advancePhase(heartbeatFreshness?.waited ? PHASES.connecting : PHASES.sending);
+    advancePhase(heartbeatFreshness?.waited ? PHASES.contacting : PHASES.vehicle_responding);
     startTimers();
     startPolling(cmdId);
   }, [clearAll, advancePhase, startTimers, startPolling]);

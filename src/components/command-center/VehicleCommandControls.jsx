@@ -1,12 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, BellRing, CheckCircle2, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, Clock, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
 import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
 import { useCommandProgress, PHASES } from "@/hooks/useCommandProgress";
-import CommandProgressOverlay from "@/components/telematics/CommandProgressOverlay";
 
 const COMMANDS = {
   remote: [
@@ -23,6 +22,56 @@ const COMMANDS = {
   ]
 };
 
+// Success/failure labels for each command
+const COMMAND_LABELS = {
+  lock: { success: "Locked", failed: "Not Locked" },
+  unlock: { success: "Unlocked", failed: "Not Unlocked" },
+  locate: { success: "Located", failed: "Not Located" },
+  horn: { success: "Horn On", failed: "No Horn" },
+  lights: { success: "Lights On", failed: "No Lights" },
+  horn_lights: { success: "Horn & Lights On", failed: "No Response" },
+  alarm_pulse: { success: "Alert Sent", failed: "Alert Failed" },
+  disable_starter: { success: "Starter Disabled", failed: "Not Disabled" },
+  restore_starter: { success: "Starter Restored", failed: "Not Restored" },
+  status: { success: "Status Received", failed: "No Status" },
+};
+
+// Play chime sound using Web Audio API
+const playChime = (success = true) => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    if (success) {
+      // Pleasant ascending chime (C5 -> E5 -> G5)
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      oscillator.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+      oscillator.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.4);
+    } else {
+      // Low error tone
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(150, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.3);
+    }
+  } catch {
+    // Silent fail if audio not supported
+  }
+};
+
 export default function VehicleCommandControls({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter, onCommand }) {
   const progress = useCommandProgress();
   const allowedCustomer = ["locate", "lock", "unlock", "alarm_pulse"];
@@ -32,8 +81,6 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     const ready = getCommandReadiness({ command: command.key, role: mode, device, provider, booking, hostOwnsVehicle, allowStarter });
     return ready.supported;
   });
-
-  const isBusy = progress.phase && progress.phase !== PHASES.idle && progress.phase !== PHASES.success && progress.phase !== PHASES.failed;
 
   const send = async (commandType, starter = false) => {
     if (commandType === "alarm_pulse") {
@@ -51,7 +98,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     const reason = starter ? window.prompt("Reason for starter command") : "";
     if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
 
-    // Show "Reaching your vehicle…" immediately — gate hold happens server-side
+    // Show "Contacting vehicle…" immediately
     progress.startOptimistic(commandType);
 
     try {
@@ -66,7 +113,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
       const data = res.data;
       const cmdId = data?.command_id || data?.id;
-      // API returned = gate hold is done, now poll for ACK
+      // Gate hold done → transition to "Vehicle responding…"
       progress.transitionToPolling(commandType, cmdId);
       await onCommand?.(data);
     } catch {
@@ -74,15 +121,24 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
     }
   };
 
+  // Handle phase completion with chime
+  useEffect(() => {
+    if (progress.phase === PHASES.success) {
+      setTimeout(() => playChime(true), 500);
+    } else if (progress.phase === PHASES.failed) {
+      setTimeout(() => playChime(false), 500);
+    }
+  }, [progress.phase]);
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <ControlSection
         title="Remote Controls"
         subtitle="Readiness-filtered commands routed through sendTelematicsCommand."
         commands={visible("remote")}
-        isBusy={isBusy}
         activeCommand={progress.commandType}
         phase={progress.phase}
+        elapsed={progress.elapsed}
         onSend={send}
       />
       <div className="space-y-3">
@@ -90,44 +146,27 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
           title="Security Controls"
           subtitle={mode === "customer" ? "Starter controls are never exposed to renters." : "Starter controls require reason and confirmation."}
           commands={visible("security")}
-          isBusy={isBusy}
           activeCommand={progress.commandType}
           phase={progress.phase}
+          elapsed={progress.elapsed}
           onSend={send}
         />
         {vehicle?.id && ["admin", "host"].includes(mode) && (
           <TelematicsAlarmControls vehicleId={vehicle.id} role={mode} onResult={onCommand} />
         )}
       </div>
-
-      <CommandProgressOverlay
-        phase={progress.phase}
-        elapsed={progress.elapsed}
-        phaseElapsed={progress.phaseElapsed}
-        commandType={progress.commandType}
-        errorMessage={progress.errorMessage}
-      />
     </div>
   );
 }
 
-const PHASE_LABELS = {
-  connecting: "Reaching…",
-  sending: "On its way…",
-  waiting: "Almost…",
-  success: "Done ✓",
-  failed: "Try again",
-};
-
 const PHASE_COLORS = {
-  connecting: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
-  sending: "border-blue-500/40 bg-blue-500/10 text-blue-300",
-  waiting: "border-primary/40 bg-primary/10 text-primary",
+  contacting: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
+  vehicle_responding: "border-blue-500/40 bg-blue-500/10 text-blue-300",
   success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
   failed: "border-red-500/40 bg-red-500/10 text-red-400",
 };
 
-function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phase, onSend }) {
+function ControlSection({ title, subtitle, commands, activeCommand, phase, elapsed, onSend }) {
   return (
     <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -140,27 +179,61 @@ function ControlSection({ title, subtitle, commands, isBusy, activeCommand, phas
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {commands.map((command) => {
           const Icon = command.icon;
-          const isActive = activeCommand === command.key && isBusy;
-          const isThisPhase = activeCommand === command.key && phase && phase !== PHASES.idle;
-          const phaseColor = isThisPhase ? (PHASE_COLORS[phase] || "") : "bg-secondary text-foreground hover:bg-secondary/80";
-          const phaseLabel = isThisPhase ? PHASE_LABELS[phase] : command.label;
+          const isThisCommand = activeCommand === command.key;
+          const labels = COMMAND_LABELS[command.key] || { success: "Sent", failed: "Failed" };
+          
+          // Determine button state
+          const isContacting = isThisCommand && phase === PHASES.contacting;
+          const isResponding = isThisCommand && phase === PHASES.vehicle_responding;
+          const isSuccess = isThisCommand && phase === PHASES.success;
+          const isFailed = isThisCommand && phase === PHASES.failed;
+          const isIdle = !isThisCommand || phase === PHASES.idle;
+
+          let buttonClass = "bg-secondary text-foreground hover:bg-secondary/80";
+          let label = command.label;
+          let showIcon = true;
+          let showClock = false;
+
+          if (isContacting) {
+            buttonClass = PHASE_COLORS.contacting;
+            label = "Contacting vehicle…";
+            showIcon = false;
+            showClock = true;
+          } else if (isResponding) {
+            buttonClass = PHASE_COLORS.vehicle_responding;
+            label = "Vehicle responding…";
+            showIcon = false;
+          } else if (isSuccess) {
+            buttonClass = "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30";
+            label = labels.success;
+            showIcon = true;
+          } else if (isFailed) {
+            buttonClass = "bg-red-500 text-white shadow-lg shadow-red-500/30";
+            label = labels.failed;
+            showIcon = false;
+          }
 
           return (
             <Button
               key={command.key}
               variant="outline"
-              disabled={isBusy}
+              disabled={isContacting || isResponding}
               onClick={() => onSend(command.key, command.starter)}
-              className={`h-20 flex-col rounded-2xl border-border transition-all duration-300 ${phaseColor}`}
+              className={`h-20 flex-col rounded-2xl border-border transition-all duration-300 ${buttonClass}`}
             >
-              {isActive ? (
-                <Loader2 className={`h-5 w-5 animate-spin ${phase === "connecting" ? "text-yellow-300" : phase === "sending" ? "text-blue-300" : "text-primary"}`} />
-              ) : phase === "success" && activeCommand === command.key ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-              ) : (
-                <Icon className={`h-5 w-5 ${isThisPhase ? "" : "text-primary"}`} />
+              <div className="flex items-center gap-2">
+                {showClock && isContacting && (
+                  <Clock className="h-4 w-4 animate-spin" />
+                )}
+                {showIcon && isSuccess && (
+                  <CheckCircle2 className="h-5 w-5" />
+                )}
+                {!isContacting && !isResponding && !isSuccess && <Icon className="h-5 w-5" />}
+                <span className="text-xs font-black">{label}</span>
+              </div>
+              {(isContacting || isResponding) && (
+                <span className="mt-0.5 text-[10px] tabular-nums opacity-70">{elapsed}s</span>
               )}
-              <span className="text-xs font-black">{phaseLabel}</span>
             </Button>
           );
         })}
