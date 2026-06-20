@@ -291,33 +291,32 @@ export default function MyVehicle() {
           <button
             onClick={() => handleCommand("find")}
             disabled={!!commandLoading || !isBookingActive || dropoffInspectionComplete}
-            className={`aspect-square rounded-2xl flex flex-col items-center justify-center transition-all border ${
+            className={`aspect-square rounded-2xl flex flex-col items-center justify-center transition-all border-2 ${
               !isBookingActive || dropoffInspectionComplete
                 ? "bg-[#1c1c1e] border-[#2c2c2e] opacity-40"
                 : "bg-[#1c1c1e] border-[#2997ff] active:scale-95"
             }`}
             style={!isBookingActive || dropoffInspectionComplete ? {} : {
-              boxShadow: "0 0 0 1px rgba(41,151,255,0.3), 0 0 16px rgba(41,151,255,0.35), 0 0 32px rgba(41,151,255,0.15)"
+              boxShadow: "0 0 0 2px rgba(41,151,255,0.15), 0 0 20px rgba(41,151,255,0.5), 0 0 40px rgba(41,151,255,0.25), inset 0 0 30px rgba(41,151,255,0.08)"
             }}
           >
             {/* Trumpet / horn icon matching reference exactly */}
             <svg
               className="mb-2"
-              width="34"
-              height="28"
-              viewBox="0 0 34 28"
+              width="36"
+              height="30"
+              viewBox="0 0 36 30"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              style={{ filter: (!isBookingActive || dropoffInspectionComplete) ? "none" : "drop-shadow(0 0 6px rgba(41,151,255,0.8))" }}
+              style={{ filter: (!isBookingActive || dropoffInspectionComplete) ? "none" : "drop-shadow(0 0 10px rgba(41,151,255,0.9))" }}
             >
-              {/* Horn body */}
-              <path d="M3 10H9L19 4V24L9 18H3V10Z" fill="#2997ff" stroke="#2997ff" strokeWidth="1" strokeLinejoin="round"/>
-              {/* Bell of horn flaring out */}
-              <path d="M19 6C19 6 26 8 26 14C26 20 19 22 19 22" stroke="#2997ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <path d="M19 10C19 10 22 11 22 14C22 17 19 18 19 18" stroke="#2997ff" strokeWidth="2" strokeLinecap="round" fill="none"/>
-              {/* Sound waves */}
-              <path d="M28 10C29.5 11.5 30 12.7 30 14C30 15.3 29.5 16.5 28 18" stroke="#2997ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-              <path d="M30.5 7.5C33 9.5 34 11.7 34 14C34 16.3 33 18.5 30.5 20.5" stroke="#2997ff" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+              {/* Horn body - solid filled shape */}
+              <path d="M2 11H10L20 5V25L10 19H2V11Z" fill="#2997ff"/>
+              {/* Bell flare */}
+              <path d="M20 7C20 7 28 10 28 15C28 20 20 23 20 23" stroke="#2997ff" strokeWidth="3" strokeLinecap="round" fill="none"/>
+              {/* Sound waves - 3 horizontal curved lines */}
+              <path d="M30 8C32 10 33 12 33 15C33 18 32 20 30 22" stroke="#2997ff" strokeWidth="3" strokeLinecap="round" fill="none"/>
+              <path d="M34 6C37 9 38 12 38 15C38 18 37 21 34 24" stroke="#2997ff" strokeWidth="3" strokeLinecap="round" fill="none"/>
             </svg>
             <p className="text-xs font-semibold text-white text-center leading-tight">Find Vehicle</p>
             <p className="text-[10px] text-gray-400 text-center leading-tight mt-0.5">Flash &amp; Honk</p>
