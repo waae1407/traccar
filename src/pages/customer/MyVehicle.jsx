@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { differenceInMinutes, format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { MapPin, MessageSquare, Lock, Unlock, Fan, BellRing, Camera, Clock, Gauge, Fuel, CheckCircle, Navigation, ChevronRight, Signal, Battery, Thermometer } from "lucide-react";
+import { MapPin, MessageSquare, Lock, Unlock, Fan, BellRing, Camera, Clock, Gauge, Fuel, CheckCircle, Navigation, ChevronRight, Signal, Battery, Thermometer, Car, Calendar, Mail, AlertCircle, User } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
@@ -113,15 +113,15 @@ export default function MyVehicle() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0C0C0C] pb-20">
+    <div className="min-h-screen bg-[#0a0a0a] pb-20">
       {inspectionTarget && <VehicleInspectionSheet booking={inspectionTarget.booking} type={inspectionTarget.type} onClose={() => setInspectionTarget(null)} onComplete={() => {}} />}
 
-      {/* Hero Section - One continuous hero like Tesla mockup */}
+      {/* Hero Section */}
       <div className="px-4 pt-4 pb-0">
         {/* Header Row */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-lg font-bold text-white">2018 Toyota Mirai</p>
+            <p className="text-lg font-bold text-white">{name}</p>
             <p className="text-xs text-[#30d158] flex items-center gap-1.5 mt-0.5">
               <span className="h-1.5 w-1.5 rounded-full bg-[#30d158]" />
               Online | Live
@@ -131,44 +131,36 @@ export default function MyVehicle() {
             <button className="h-8 w-8 rounded-full bg-[#1c1c1e] flex items-center justify-center">
               <MessageSquare className="h-4 w-4 text-gray-400" />
             </button>
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-white font-bold text-xs">
-              {user?.full_name?.charAt(0) || "U"}
+            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs">
+              {user?.full_name?.charAt(0) || "R"}
             </div>
           </div>
         </div>
 
-        {/* Hero Content - Stats Left, Image Right - NO CARDS */}
-        <div className="flex items-center gap-3 mb-4">
+        {/* Hero Content - Stats Left, Image Right */}
+        <div className="flex items-center gap-4 mb-4">
           {/* Left Side - Stats */}
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-4 mb-2">
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Range</p>
-                <p className="text-base font-bold text-white">268 mi</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Range</p>
+                <p className="text-lg font-bold text-white">268 mi</p>
               </div>
-              <div className="w-px h-6 bg-[#262626]" />
               <div>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Hydrogen</p>
-                <p className="text-base font-bold text-white">72%</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Hydrogen</p>
+                <p className="text-lg font-bold text-white">72%</p>
               </div>
-            </div>
-            {/* Status Icons */}
-            <div className="flex items-center gap-2.5">
-              <Signal className="h-3.5 w-3.5 text-gray-500" />
-              <Lock className="h-3.5 w-3.5 text-gray-500" />
-              <Fan className="h-3.5 w-3.5 text-gray-500" />
             </div>
           </div>
 
-          {/* Right Side - Vehicle Image (no card, no background) */}
-          <div className="w-[180px] h-28 flex-shrink-0 flex items-end justify-end -mt-2">
+          {/* Right Side - Vehicle Image */}
+          <div className="w-[200px] h-32 flex-shrink-0">
             <img 
               src={vehicle?.image_url || "https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg"} 
               alt={name} 
               className="w-full h-full object-contain"
               style={{ 
-                filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.3))",
-                transform: "scaleX(-1)"
+                filter: "drop-shadow(0 8px 24px rgba(0,0,0,0.5))",
               }}
             />
           </div>
@@ -198,34 +190,39 @@ export default function MyVehicle() {
 
       {/* Rental Card */}
       <div className="px-4 py-3">
-        <div className="flex items-center gap-4 bg-[#1c1c1e] rounded-2xl border border-[#262626] px-4 py-4">
+        <div className="flex items-center gap-3 bg-[#161618] rounded-2xl px-4 py-4">
           {/* Left - Rental End */}
           <div className="flex-1">
             <div className="flex items-center gap-1.5 mb-1">
-              <Clock className="h-3.5 w-3.5 text-gray-500" />
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Rental ends</p>
+              <Clock className="h-4 w-4 text-gray-400" />
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide">Rental ends</p>
             </div>
             <p className="text-sm font-bold text-white">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d, yyyy") : "N/A"}</p>
-            <p className="text-xs text-gray-500">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}</p>
+            <p className="text-xs text-gray-400">{booking.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}</p>
           </div>
-          {/* Middle - Remaining Time */}
+          {/* Middle - Remaining Time with circular progress */}
           <div className="flex-1 border-l border-[#262626] pl-4">
             <div className="flex items-center gap-1.5 mb-1">
-              <div className="h-3.5 w-3.5 rounded-full border-2 border-gray-500 border-t-transparent animate-spin" />
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Remaining</p>
+              <div className="relative h-4 w-4">
+                <svg className="h-4 w-4 -rotate-90" viewBox="0 0 16 16">
+                  <circle cx="8" cy="8" r="6" fill="none" stroke="#262626" strokeWidth="2" />
+                  <circle cx="8" cy="8" r="6" fill="none" stroke="#2997ff" strokeWidth="2" strokeDasharray="37.7" strokeDashoffset="9.4" strokeLinecap="round" />
+                </svg>
+              </div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide">Remaining</p>
             </div>
             <p className="text-sm font-bold text-white">{remainingTimeStr}</p>
           </div>
           {/* Right - Hydrogen */}
-          <div className="flex items-center gap-2 pr-2">
+          <div className="flex items-center gap-2">
             <div className="text-right">
               <div className="flex items-center gap-1.5 justify-end mb-1">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Hydrogen</p>
-                <Fuel className="h-3.5 w-3.5 text-gray-500" />
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide">Hydrogen</p>
+                <Fuel className="h-4 w-4 text-gray-400" />
               </div>
               <p className="text-sm font-bold text-white">72%</p>
             </div>
-            <ChevronRight className="h-4 w-4 text-gray-500" />
+            <ChevronRight className="h-4 w-4 text-gray-400" />
           </div>
         </div>
       </div>
@@ -284,17 +281,17 @@ export default function MyVehicle() {
         <div className="px-4 py-3">
           <button
             onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
-            className="w-full rounded-2xl bg-[#1c1c1e] border border-[#ff3b30]/40 p-4 active:scale-98"
+            className="w-full rounded-2xl bg-[#161618] border border-[#e03131]/50 p-4 active:scale-98"
           >
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-[#ff3b30]/20 flex items-center justify-center">
-                <Camera className="h-4 w-4 text-[#ff3b30]" />
+              <div className="h-10 w-10 rounded-xl bg-[#e03131]/20 flex items-center justify-center">
+                <Camera className="h-5 w-5 text-[#e03131]" />
               </div>
               <div className="text-left flex-1">
                 <p className="text-sm font-bold text-white">End Your Rental</p>
                 <p className="text-xs text-gray-400">Complete return inspection to stop billing immediately</p>
               </div>
-              <ChevronRight className="h-4 w-4 text-gray-400" />
+              <ChevronRight className="h-5 w-5 text-gray-400" />
             </div>
           </button>
         </div>
@@ -303,33 +300,62 @@ export default function MyVehicle() {
       {/* Vehicle Health */}
       <div className="px-4 py-3 pb-6">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Vehicle Health</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Vehicle Health</p>
           <div className="flex items-center gap-1.5">
-            <CheckCircle className="h-3.5 w-3.5 text-[#30d158]" />
+            <CheckCircle className="h-4 w-4 text-[#2b8a3e]" />
             <p className="text-xs text-white">All systems normal</p>
           </div>
         </div>
         <div className="grid grid-cols-4 gap-2">
-          <div className="bg-[#1c1c1e] rounded-xl border border-[#262626] p-3 text-center">
-            <CheckCircle className="h-4 w-4 text-[#30d158] mx-auto mb-1.5" />
+          <div className="bg-[#161618] rounded-xl p-3 text-center">
+            <CheckCircle className="h-5 w-5 text-[#2b8a3e] mx-auto mb-1.5" />
             <p className="text-[10px] text-gray-400">Vehicle</p>
             <p className="text-xs font-semibold text-white">Online</p>
           </div>
-          <div className="bg-[#1c1c1e] rounded-xl border border-[#262626] p-3 text-center">
-            <CheckCircle className="h-4 w-4 text-[#30d158] mx-auto mb-1.5" />
+          <div className="bg-[#161618] rounded-xl p-3 text-center">
+            <CheckCircle className="h-5 w-5 text-[#2b8a3e] mx-auto mb-1.5" />
             <p className="text-[10px] text-gray-400">Doors</p>
             <p className="text-xs font-semibold text-white">Closed</p>
           </div>
-          <div className="bg-[#1c1c1e] rounded-xl border border-[#262626] p-3 text-center">
-            <CheckCircle className="h-4 w-4 text-[#30d158] mx-auto mb-1.5" />
+          <div className="bg-[#161618] rounded-xl p-3 text-center">
+            <CheckCircle className="h-5 w-5 text-[#2b8a3e] mx-auto mb-1.5" />
             <p className="text-[10px] text-gray-400">Hydrogen</p>
             <p className="text-xs font-semibold text-white">Good</p>
           </div>
-          <div className="bg-[#1c1c1e] rounded-xl border border-[#262626] p-3 text-center">
-            <CheckCircle className="h-4 w-4 text-[#30d158] mx-auto mb-1.5" />
+          <div className="bg-[#161618] rounded-xl p-3 text-center">
+            <CheckCircle className="h-5 w-5 text-[#2b8a3e] mx-auto mb-1.5" />
             <p className="text-[10px] text-gray-400">Location</p>
             <p className="text-xs font-semibold text-white">GPS Signal</p>
           </div>
+        </div>
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#161618] border-t border-[#262626] px-2 py-2">
+        <div className="flex items-center justify-around max-w-lg mx-auto">
+          <button className="flex flex-col items-center gap-1 px-3 py-1">
+            <Car className="h-6 w-6 text-white" />
+            <p className="text-[10px] font-semibold text-white">My Vehicle</p>
+          </button>
+          <button className="flex flex-col items-center gap-1 px-3 py-1">
+            <Calendar className="h-6 w-6 text-gray-400" />
+            <p className="text-[10px] text-gray-400">Book Now</p>
+          </button>
+          <button className="flex flex-col items-center gap-1 px-3 py-1">
+            <Mail className="h-6 w-6 text-gray-400" />
+            <p className="text-[10px] text-gray-400">Messages</p>
+          </button>
+          <button className="flex flex-col items-center gap-1 px-3 py-1 relative">
+            <AlertCircle className="h-6 w-6 text-gray-400" />
+            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-[#e03131] flex items-center justify-center">
+              <p className="text-[9px] font-bold text-white">6</p>
+            </div>
+            <p className="text-[10px] text-gray-400">Alerts</p>
+          </button>
+          <button className="flex flex-col items-center gap-1 px-3 py-1">
+            <User className="h-6 w-6 text-gray-400" />
+            <p className="text-[10px] text-gray-400">Account</p>
+          </button>
         </div>
       </div>
     </div>

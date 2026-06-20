@@ -62,25 +62,29 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
           background: "#0a0a0a"
         }}
       />
-      {/* Vehicle marker overlay - white circle with blue car silhouette */}
+      {/* Vehicle marker overlay - white teardrop pin with cyan glow */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative">
-          {/* Soft cyan-blue radial glow */}
+          {/* Bright cyan/blue glow underneath */}
           <div 
             className="absolute rounded-full"
             style={{ 
-              width: '64px', 
-              height: '64px', 
-              marginLeft: '-32px', 
-              marginTop: '-32px',
-              background: "radial-gradient(circle, rgba(41,151,255,0.4) 0%, rgba(41,151,255,0.1) 60%, transparent 70%)",
-              filter: "blur(10px)"
+              width: '72px', 
+              height: '72px', 
+              marginLeft: '-36px', 
+              marginTop: '-36px',
+              background: "radial-gradient(circle, rgba(41,151,255,0.6) 0%, rgba(41,151,255,0.2) 60%, transparent 70%)",
+              filter: "blur(14px)"
             }} 
           />
-          {/* White circular pin */}
-          <div className="relative h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-lg"
-            style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.3), 0 0 0 3px rgba(41,151,255,0.3)" }}>
-            <Car className="h-5 w-5 text-[#2997ff]" />
+          {/* White teardrop-shaped pin */}
+          <div className="relative flex flex-col items-center">
+            <div 
+              className="h-12 w-12 rounded-full bg-white flex items-center justify-center shadow-2xl"
+              style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.4), 0 0 0 4px rgba(41,151,255,0.4)" }}
+            >
+              <Car className="h-7 w-7 text-[#2997ff]" />
+            </div>
           </div>
         </div>
       </div>
