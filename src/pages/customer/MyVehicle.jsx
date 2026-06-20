@@ -106,6 +106,11 @@ export default function MyVehicle() {
   if (!user) return <EmptyState title="Sign in to view your vehicle" text="Your Contactless360 remote appears here after login." action="Sign In" href="/account" />;
   if (isLoading) return <LoadingState />;
   
+  // Check if booking is still active (not returned yet)
+  const isBookingActive = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) && booking.payment_status === "paid" && !booking.rental_ended_at;
+  const pickupInspectionComplete = booking.pickup_photos?.length > 0;
+  const dropoffInspectionComplete = booking.return_exterior_photos?.length > 0 || booking.return_interior_photos?.length > 0;
+  
   // Show completed rental state
   if (booking && dropoffInspectionComplete) {
     return (
@@ -126,11 +131,6 @@ export default function MyVehicle() {
       href={booking ? "/my-bookings" : "/book-now"} 
     />
   );
-  
-  // Check if booking is still active (not returned yet)
-  const isBookingActive = ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) && booking.payment_status === "paid" && !booking.rental_ended_at;
-  const pickupInspectionComplete = booking.pickup_photos?.length > 0;
-  const dropoffInspectionComplete = booking.return_exterior_photos?.length > 0 || booking.return_interior_photos?.length > 0;
 
   const name = vehicleName(vehicle, booking);
   const daysRemaining = booking.end_date ? Math.max(0, differenceInCalendarDays(new Date(`${booking.end_date}T23:59:59`), new Date())) : null;
