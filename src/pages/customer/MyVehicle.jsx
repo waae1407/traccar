@@ -116,14 +116,15 @@ export default function MyVehicle() {
     <div className="min-h-screen bg-[#0C0C0C] pb-20">
       {inspectionTarget && <VehicleInspectionSheet booking={inspectionTarget.booking} type={inspectionTarget.type} onClose={() => setInspectionTarget(null)} onComplete={() => {}} />}
 
-      {/* Hero Section - Vehicle Name + Status + Image */}
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <p className="text-xl font-bold text-white">2018 Toyota Mirai</p>
-            <p className="text-xs text-[#30d158] flex items-center gap-1.5 mt-1">
-              <span className="h-2 w-2 rounded-full bg-[#30d158] animate-pulse" />
-              Online
+      {/* Hero Section - Continuous layout like Tesla mockup */}
+      <div className="px-4 pt-4 pb-3">
+        {/* Header Row */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-lg font-bold text-white">2018 Toyota Mirai</p>
+            <p className="text-xs text-[#30d158] flex items-center gap-1.5 mt-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#30d158]" />
+              Online | Live
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -136,33 +137,37 @@ export default function MyVehicle() {
           </div>
         </div>
 
-        {/* Vehicle Hero Image */}
-        <div className="h-40 bg-[#1c1c1e] rounded-2xl flex items-center justify-center overflow-hidden mb-3">
-          <img 
-            src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" 
-            alt="2018 Toyota Mirai" 
-            className="h-full w-full object-contain"
-            style={{ filter: "hue-rotate(180deg)" }}
-          />
-        </div>
-
-        {/* Stats Inline */}
-        <div className="flex items-center justify-between bg-[#1c1c1e] rounded-xl px-4 py-3">
-          <div className="flex items-center gap-4">
-            <div>
-              <p className="text-xs text-gray-500">Range</p>
-              <p className="text-sm font-bold text-white">268 mi</p>
+        {/* Hero Content - Stats Left, Image Right */}
+        <div className="flex items-center gap-4">
+          {/* Left Side - Stats */}
+          <div className="flex-1">
+            <div className="flex items-center gap-4 mb-3">
+              <div>
+                <p className="text-xs text-gray-500">Range</p>
+                <p className="text-base font-bold text-white">268 mi</p>
+              </div>
+              <div className="w-px h-8 bg-[#262626]" />
+              <div>
+                <p className="text-xs text-gray-500">Hydrogen</p>
+                <p className="text-base font-bold text-white">72%</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-[#262626]" />
-            <div>
-              <p className="text-xs text-gray-500">Hydrogen</p>
-              <p className="text-sm font-bold text-white">72%</p>
+            {/* Status Icons */}
+            <div className="flex items-center gap-3">
+              <Signal className="h-4 w-4 text-gray-500" />
+              <Lock className="h-4 w-4 text-gray-500" />
+              <Fan className="h-4 w-4 text-gray-500" />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Signal className="h-4 w-4 text-gray-500" />
-            <Lock className="h-4 w-4 text-gray-500" />
-            <Fan className="h-4 w-4 text-gray-500" />
+
+          {/* Right Side - Vehicle Image */}
+          <div className="w-32 h-24 flex-shrink-0">
+            <img 
+              src="https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg" 
+              alt="2018 Toyota Mirai" 
+              className="w-full h-full object-contain"
+              style={{ filter: "hue-rotate(180deg)" }}
+            />
           </div>
         </div>
       </div>
