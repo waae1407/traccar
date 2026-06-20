@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { Bot, CalendarClock, Camera, Car, ChevronDown, CreditCard, FileText, MapPin, MessageSquare, Navigation, ShieldCheck, Sparkles, Wrench, Signal, Battery, Lock, Unlock, BellRing, Volume2, RotateCcw, Zap, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import PickupAddressCard from "@/components/customer/mybookings/PickupAddressCard";
@@ -226,9 +227,12 @@ export default function MyVehicle() {
                     command_type: "lock",
                     source: "contactless360_remote"
                   });
+                  toast.success("Vehicle locked successfully");
                   setTimeout(() => setActiveCommand(null), 2000);
                   refetchDevices();
-                } catch {
+                } catch (err) {
+                  console.error("Lock failed:", err);
+                  toast.error(err?.response?.data?.error || "Failed to lock vehicle");
                   setActiveCommand(null);
                 }
               }}
@@ -249,9 +253,12 @@ export default function MyVehicle() {
                     command_type: "unlock",
                     source: "contactless360_remote"
                   });
+                  toast.success("Vehicle unlocked successfully");
                   setTimeout(() => setActiveCommand(null), 2000);
                   refetchDevices();
-                } catch {
+                } catch (err) {
+                  console.error("Unlock failed:", err);
+                  toast.error(err?.response?.data?.error || "Failed to unlock vehicle");
                   setActiveCommand(null);
                 }
               }}
@@ -269,12 +276,15 @@ export default function MyVehicle() {
                     vehicle_id: vehicle?.id,
                     telematics_device_id: device?.id
                   });
+                  toast.success("Vehicle alarm activated!");
                   if (vehicle?.vehicle_lat && vehicle?.vehicle_lon) {
                     window.open(`https://www.google.com/maps/dir/?api=1&destination=${vehicle.vehicle_lat},${vehicle.vehicle_lon}`, "_blank");
                   }
                   setTimeout(() => setActiveCommand(null), 2000);
                   refetchDevices();
-                } catch {
+                } catch (err) {
+                  console.error("Find failed:", err);
+                  toast.error(err?.response?.data?.error || "Failed to activate alarm");
                   setActiveCommand(null);
                 }
               }}
