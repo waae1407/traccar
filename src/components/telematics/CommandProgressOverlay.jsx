@@ -36,7 +36,7 @@ const PHASE_CONFIG = {
   },
   [PHASES.waiting]: {
     icon: Wifi,
-    label: "Waiting for response…",
+    label: "Almost…",
     sub: "Your vehicle is processing. This usually completes in 1–3 seconds.",
     color: "text-primary",
     bg: "bg-primary/10 border-primary/25",
@@ -45,7 +45,7 @@ const PHASE_CONFIG = {
   },
   [PHASES.success]: {
     icon: CheckCircle2,
-    label: null, // Will use command-specific label
+    label: null,
     sub: null,
     color: "text-emerald-400",
     bg: "bg-emerald-500/10 border-emerald-500/30",
@@ -63,7 +63,7 @@ const PHASE_CONFIG = {
   },
 };
 
-const PHASE_ORDER = [PHASES.connecting, PHASES.sending, PHASES.success];
+const PHASE_ORDER = [PHASES.connecting, PHASES.sending, PHASES.waiting, PHASES.success];
 
 function ElapsedBadge({ seconds, phase }) {
   if (phase === PHASES.success || phase === PHASES.idle || phase === PHASES.failed) return null;
@@ -102,18 +102,10 @@ export default function CommandProgressOverlay({ phase, elapsed, phaseElapsed, c
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-1 flex-wrap">
             <span className={`font-black capitalize ${cfg.color}`}>{friendlyCommand}</span>
-            {successLabel && (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-emerald-400 font-bold">{successLabel}</span>
-              </>
-            )}
-            {cfg.label && !successLabel && (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-foreground font-medium">{cfg.label}</span>
-              </>
-            )}
+            <span className="text-muted-foreground">·</span>
+            <span className={`font-medium ${phase === PHASES.success ? "text-emerald-400 font-bold" : "text-foreground"}`}>
+              {successLabel || cfg.label}
+            </span>
             <ElapsedBadge seconds={elapsed} phase={phase} />
           </div>
           {(cfg.sub || errorMessage) && (
