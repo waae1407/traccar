@@ -505,7 +505,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Device is not enabled for live commands.' }, { status: 403 });
     }
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
-    device = await ensureFreshTraccarDeviceId(base44, device);
+    // Skip Traccar sync for production commands - device already has valid traccar_device_id
+    const isProductionCommand = liveNoranProduction || liveNoranInstallerTest;
+    if (!isProductionCommand) {
+      device = await ensureFreshTraccarDeviceId(base44, device);
+    }
     const capability = CAPABILITY_MAP[commandType];
     if (adminTraccarLiveTest) {
       if (user.role !== 'admin') return Response.json({ error: 'Admin access required for Traccar single-device live test.' }, { status: 403 });
