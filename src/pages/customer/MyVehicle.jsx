@@ -8,7 +8,7 @@ import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap"
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
-const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1617654112329-5e3d7b5f56e7?w=600&auto=format&fit=crop&q=80&ixlib=rb-4.0.3";
+const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
 
 function isOperationalRental(booking) {
   if (!booking || booking.rental_ended_at) return false;
@@ -180,18 +180,30 @@ export default function MyVehicle() {
           position: "relative",
           overflow: "hidden",
           background: "#050506",
-          minHeight: 200,
-          padding: "16px 16px 16px",
+          paddingTop: 16,
+          paddingBottom: 20,
+          paddingLeft: 16,
+          paddingRight: 16,
         }}>
-          {/* Vehicle image — full right bleed, fades left into bg */}
+          {/* Blue ambient glow top-right */}
           <div style={{
             position: "absolute",
-            right: 0,
-            bottom: 0,
-            top: 0,
-            width: "62%",
+            top: 0, right: 0,
+            width: "70%", height: "100%",
+            background: "radial-gradient(ellipse at 85% 30%, rgba(47,128,255,0.18), transparent 60%)",
             pointerEvents: "none",
             zIndex: 0,
+          }} />
+
+          {/* Vehicle image — positioned right, blended with multi-layer gradient mask */}
+          <div style={{
+            position: "absolute",
+            right: -8,
+            bottom: 0,
+            top: 0,
+            width: "58%",
+            pointerEvents: "none",
+            zIndex: 1,
           }}>
             <img
               src={vehicleImage}
@@ -200,77 +212,69 @@ export default function MyVehicle() {
                 width: "100%",
                 height: "100%",
                 objectFit: "contain",
-                objectPosition: "right bottom",
+                objectPosition: "right center",
                 display: "block",
+                // CSS mask to fade left edge and bottom — works on all modern browsers
+                WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 25%, rgba(0,0,0,1) 55%)",
+                maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 25%, rgba(0,0,0,1) 55%)",
               }}
             />
-            {/* Gradient fade: left edge blends into #050506 */}
+            {/* Extra bottom fade overlay */}
             <div style={{
               position: "absolute",
-              inset: 0,
-              background: "linear-gradient(to right, #050506 0%, #050506 18%, rgba(5,5,6,0.7) 45%, rgba(5,5,6,0.0) 100%)",
-            }} />
-            {/* Subtle bottom fade */}
-            <div style={{
-              position: "absolute",
-              inset: 0,
-              background: "linear-gradient(to top, #050506 0%, transparent 30%)",
-            }} />
-            {/* Blue glow behind car */}
-            <div style={{
-              position: "absolute",
-              inset: 0,
-              background: "radial-gradient(ellipse at 80% 40%, rgba(47,128,255,0.13), transparent 65%)",
+              bottom: 0, left: 0, right: 0,
+              height: "35%",
+              background: "linear-gradient(to top, #050506 0%, transparent 100%)",
             }} />
           </div>
 
-          {/* Foreground content */}
-          <div style={{ position: "relative", zIndex: 1 }}>
-            {/* Top row */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+          {/* Foreground text content */}
+          <div style={{ position: "relative", zIndex: 2 }}>
+            {/* Top row: name + icons */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
               <div>
                 <p style={{ fontSize: 26, fontWeight: 700, color: "#FFFFFF", lineHeight: 1.15, margin: 0 }}>{name}</p>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
                   <span style={{ color: "#30D158", fontSize: 14, fontWeight: 500 }}>Online</span>
-                  <span style={{ color: "#A1A1AA", fontSize: 14 }}>|</span>
-                  <span style={{ color: "#FFFFFF", fontSize: 14, fontWeight: 400 }}>Live</span>
+                  <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 14, margin: "0 2px" }}>|</span>
+                  <span style={{ color: "#FFFFFF", fontSize: 14 }}>Live</span>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                 <button
                   onClick={() => window.location.href = "/messages"}
-                  style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                 >
                   <MessageSquare size={16} color="#A1A1AA" />
                 </button>
                 <button
                   onClick={() => window.location.href = "/account"}
-                  style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #9B59B6, #E91E8C)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 15, border: "none" }}
+                  style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #9B59B6, #E91E8C)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 15, border: "none", cursor: "pointer" }}
                 >
                   {user?.full_name?.charAt(0) || "R"}
                 </button>
               </div>
             </div>
 
-            {/* Stats row — left aligned, sits over fade */}
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 16, marginBottom: 20, marginTop: 8 }}>
+            {/* Stats — inline, large, bold */}
+            <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 18 }}>
               <div>
-                <p style={{ fontSize: 30, fontWeight: 700, color: "#FFFFFF", lineHeight: 1, margin: 0 }}>268 mi</p>
-                <p style={{ fontSize: 13, color: "#A1A1AA", marginTop: 4 }}>Range</p>
+                <p style={{ fontSize: 32, fontWeight: 800, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.5px" }}>268 mi</p>
+                <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 4, margin: "4px 0 0" }}>Range</p>
               </div>
-              <div style={{ width: 1, height: 34, background: "rgba(255,255,255,0.15)" }} />
+              <div style={{ width: 1, height: 36, background: "rgba(255,255,255,0.15)", flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 30, fontWeight: 700, color: "#FFFFFF", lineHeight: 1, margin: 0 }}>72%</p>
-                <p style={{ fontSize: 13, color: "#A1A1AA", marginTop: 4 }}>Hydrogen</p>
+                <p style={{ fontSize: 32, fontWeight: 800, color: "#FFFFFF", lineHeight: 1, margin: 0, letterSpacing: "-0.5px" }}>72%</p>
+                <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 4, margin: "4px 0 0" }}>Hydrogen</p>
               </div>
             </div>
 
             {/* Status icons row */}
             <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-              <SignalBarsIcon color="#A1A1AA" />
-              <Lock size={17} color="#A1A1AA" strokeWidth={1.6} />
-              <FanIcon color="#A1A1AA" />
+              <SignalBarsIcon color="#8E8E93" />
+              <Lock size={16} color="#8E8E93" strokeWidth={1.5} />
+              <FanIcon color="#8E8E93" />
             </div>
           </div>
         </div>
