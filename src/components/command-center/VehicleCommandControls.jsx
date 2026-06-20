@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, BellRing, CheckCircle2, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
+import { AlertTriangle, BellRing, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
 import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
-import { useCommandProgress, PHASES } from "@/hooks/useCommandProgress";
 
 const COMMANDS = {
   remote: [
@@ -23,24 +22,8 @@ const COMMANDS = {
 };
 
 // Success/failure labels for each command
-const COMMAND_LABELS = {
-  lock: { success: "Locked", failed: "Not Locked" },
-  unlock: { success: "Unlocked", failed: "Not Unlocked" },
-  locate: { success: "Located", failed: "Not Located" },
-  horn: { success: "Horn On", failed: "No Horn" },
-  lights: { success: "Lights On", failed: "No Lights" },
-  horn_lights: { success: "Horn & Lights On", failed: "No Response" },
-  alarm_pulse: { success: "Alert Sent", failed: "Alert Failed" },
-  disable_starter: { success: "Starter Disabled", failed: "Not Disabled" },
-  restore_starter: { success: "Starter Restored", failed: "Not Restored" },
-  status: { success: "Status Received", failed: "No Status" },
-};
-
-// Audio chime disabled - was causing errors
-const playChime = () => {};
-
 export default function VehicleCommandControls({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter, onCommand }) {
-  const progress = useCommandProgress();
+  const [sending, setSending] = useState(null);
   const allowedCustomer = ["locate", "lock", "unlock", "alarm_pulse"];
 
   const visible = (group) => COMMANDS[group].filter((command) => {
@@ -50,66 +33,33 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
   });
 
   const send = async (commandType, starter = false) => {
-    console.log('[VehicleCommandControls] Send command:', { commandType, vehicle_id: vehicle?.id, booking_id: booking?.id });
-    
-    if (commandType === "alarm_pulse") {
-      progress.startOptimistic(commandType);
-      try {
+    setSending(commandType);
+    try {
+      if (commandType === "alarm_pulse") {
         const res = await TelematicsService.startAlarm({ vehicle_id: vehicle?.id });
         await onCommand?.(res.data);
-      } catch (err) {
-        console.error('[VehicleCommandControls] Alarm failed:', err);
-        progress.reset();
+      } else {
+        const reason = starter ? window.prompt("Reason for starter command") : "";
+        if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) {
+          setSending(null);
+          return;
+        }
+        const res = await TelematicsService.sendCommand({
+          vehicle_id: vehicle?.id,
+          booking_id: booking?.id || "",
+          command_type: commandType,
+          source: "vehicle_command_center",
+          reason,
+          confirm_starter_command: !!starter
+        });
+        await onCommand?.(res.data);
       }
-      return;
-    }
-
-    const reason = starter ? window.prompt("Reason for starter command") : "";
-    if (starter && (!reason || reason.trim().length < 5 || !window.confirm("Confirm this high-risk starter command?"))) return;
-
-    // Show "Contacting vehicle…" immediately
-    progress.startOptimistic(commandType);
-
-    try {
-      const res = await TelematicsService.sendCommand({
-        vehicle_id: vehicle?.id,
-        booking_id: booking?.id || "",
-        command_type: commandType,
-        source: "vehicle_command_center",
-        reason,
-        confirm_starter_command: !!starter
-      });
-
-      const data = res.data;
-      const cmdId = data?.command_id || data?.id;
-      
-      console.log('[VehicleCommandControls] Response:', data);
-      console.log('[VehicleCommandControls] Command ID:', cmdId);
-      
-      if (!cmdId) {
-        console.error('[VehicleCommandControls] No command ID in response');
-        progress.reset();
-        return;
-      }
-      
-      progress.transitionToPolling(commandType, cmdId);
-      await onCommand?.(data);
     } catch (err) {
       console.error('[VehicleCommandControls] Command error:', err);
-      progress.reset();
+    } finally {
+      setTimeout(() => setSending(null), 3000);
     }
   };
-
-  // Auto-reset after completion
-  useEffect(() => {
-    if (progress.phase === PHASES.success) {
-      const timer = setTimeout(() => progress.reset(), 3000);
-      return () => clearTimeout(timer);
-    } else if (progress.phase === PHASES.failed) {
-      const timer = setTimeout(() => progress.reset(), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [progress.phase, progress.reset]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -117,9 +67,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
         title="Remote Controls"
         subtitle="Readiness-filtered commands routed through sendTelematicsCommand."
         commands={visible("remote")}
-        activeCommand={progress.commandType}
-        phase={progress.phase}
-        elapsed={progress.elapsed}
+        sending={sending}
         onSend={send}
       />
       <div className="space-y-3">
@@ -127,9 +75,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
           title="Security Controls"
           subtitle={mode === "customer" ? "Starter controls are never exposed to renters." : "Starter controls require reason and confirmation."}
           commands={visible("security")}
-          activeCommand={progress.commandType}
-          phase={progress.phase}
-          elapsed={progress.elapsed}
+          sending={sending}
           onSend={send}
         />
         {vehicle?.id && ["admin", "host"].includes(mode) && (
@@ -140,14 +86,7 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
   );
 }
 
-const PHASE_COLORS = {
-  contacting: "border-yellow-500/40 bg-yellow-500/10 text-yellow-300",
-  vehicle_responding: "border-blue-500/40 bg-blue-500/10 text-blue-300",
-  success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
-  failed: "border-red-500/40 bg-red-500/10 text-red-400",
-};
-
-function ControlSection({ title, subtitle, commands, activeCommand, phase, elapsed, onSend }) {
+function ControlSection({ title, subtitle, commands, sending, onSend }) {
   return (
     <div className="rounded-[1.75rem] border border-border bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -160,61 +99,26 @@ function ControlSection({ title, subtitle, commands, activeCommand, phase, elaps
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {commands.map((command) => {
           const Icon = command.icon;
-          const isThisCommand = activeCommand === command.key;
-          const labels = COMMAND_LABELS[command.key] || { success: "Sent", failed: "Failed" };
-          
-          // Determine button state
-          const isContacting = isThisCommand && phase === PHASES.contacting;
-          const isResponding = isThisCommand && phase === PHASES.vehicle_responding;
-          const isSuccess = isThisCommand && phase === PHASES.success;
-          const isFailed = isThisCommand && phase === PHASES.failed;
-          const isIdle = !isThisCommand || phase === PHASES.idle;
-
-          let buttonClass = "bg-secondary text-foreground hover:bg-secondary/80";
-          let label = command.label;
-          let iconType = "default"; // "default", "loader", "check", "none"
-          let showTimer = false;
-
-          if (isContacting) {
-            buttonClass = PHASE_COLORS.contacting;
-            label = "Contacting vehicle…";
-            iconType = "loader";
-            showTimer = true;
-          } else if (isResponding) {
-            buttonClass = PHASE_COLORS.vehicle_responding;
-            label = "Vehicle responding…";
-            iconType = "none";
-            showTimer = true;
-          } else if (isSuccess) {
-            buttonClass = "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30";
-            label = labels.success;
-            iconType = "check";
-          } else if (isFailed) {
-            buttonClass = "bg-red-500 text-white shadow-lg shadow-red-500/30";
-            label = labels.failed;
-            iconType = "none";
-          }
+          const isSending = sending === command.key;
 
           return (
             <Button
               key={command.key}
               variant="outline"
-              disabled={isContacting || isResponding}
+              disabled={isSending}
               onClick={() => onSend(command.key, command.starter)}
-              className={`h-20 flex-col rounded-2xl border-border transition-all duration-300 ${buttonClass}`}
+              className="h-20 flex-col rounded-2xl border-border bg-secondary text-foreground hover:bg-secondary/80 transition-all duration-300"
             >
               <div className="flex items-center gap-2">
-                {iconType === "loader" && (
+                {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Icon className="h-5 w-5" />
                 )}
-                {iconType === "check" && (
-                  <CheckCircle2 className="h-5 w-5" />
-                )}
-                {iconType === "default" && <Icon className="h-5 w-5" />}
-                <span className="text-xs font-black">{label}</span>
+                <span className="text-xs font-black">{command.label}</span>
               </div>
-              {showTimer && (
-                <span className="mt-0.5 text-[10px] tabular-nums opacity-70">{elapsed}s</span>
+              {isSending && (
+                <span className="mt-0.5 text-[10px] text-muted-foreground">Sending…</span>
               )}
             </Button>
           );

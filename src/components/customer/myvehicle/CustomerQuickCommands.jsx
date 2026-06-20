@@ -1,8 +1,7 @@
-import React, { useEffect } from "react";
-import { CheckCircle2, Loader2, Lock, MapPin, Unlock, Volume2, XCircle } from "lucide-react";
+import React, { useState } from "react";
+import { Loader2, Lock, MapPin, Unlock, Volume2 } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
-import { useCommandProgress, PHASES } from "@/hooks/useCommandProgress";
 
 const COMMANDS = [
   { key: "locate", label: "Locate Vehicle", icon: MapPin, tone: "from-sky-500 to-cyan-400" },
@@ -11,49 +10,25 @@ const COMMANDS = [
   { key: "alarm_pulse", label: "Find Vehicle", icon: Volume2, tone: "from-amber-500 to-orange-400" },
 ];
 
-const COMMAND_LABELS = {
-  lock: { success: "Locked", failed: "Not Locked" },
-  unlock: { success: "Unlocked", failed: "Not Unlocked" },
-  locate: { success: "Located", failed: "Not Located" },
-  alarm_pulse: { success: "Alert Sent", failed: "Alert Failed" },
-};
-
 export default function CustomerQuickCommands({ booking, vehicle, device, onComplete }) {
-  const progress = useCommandProgress();
-  const resultText = progress.phase === PHASES.success 
-    ? "Vehicle response confirmed" 
-    : progress.phase === PHASES.failed 
-    ? progress.errorMessage || "Command failed"
-    : null;
+  const [sending, setSending] = useState(null);
 
   const send = async (commandType) => {
-    progress.startOptimistic(commandType);
+    setSending(commandType);
     try {
-      const response = await TelematicsService.sendCommand({
+      await TelematicsService.sendCommand({
         booking_id: booking.id,
         vehicle_id: vehicle?.id || booking.vehicle_id,
         command_type: commandType,
         source: "customer_my_vehicle",
       });
-      const cmdId = response.data?.command_id || response.data?.id;
-      if (cmdId) {
-        progress.transitionToPolling(commandType, cmdId);
-        await onComplete?.();
-      } else {
-        progress.reset();
-      }
+      await onComplete?.();
     } catch (error) {
-      progress.reset();
+      console.error('[CustomerQuickCommands] Command error:', error);
+    } finally {
+      setTimeout(() => setSending(null), 3000);
     }
   };
-
-  // Auto-reset after completion
-  useEffect(() => {
-    if (progress.phase === PHASES.success || progress.phase === PHASES.failed) {
-      const timer = setTimeout(() => progress.reset(), progress.phase === PHASES.success ? 3000 : 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [progress.phase, progress.reset]);
 
   return (
     <section className="px-5">
@@ -69,54 +44,31 @@ export default function CustomerQuickCommands({ booking, vehicle, device, onComp
         {COMMANDS.map((command) => {
           const Icon = command.icon;
           const ready = getCommandReadiness({ command: command.key, role: "customer", device: device || {}, provider: {}, booking });
-          const isThisCommand = progress.commandType === command.key;
-          const isContacting = isThisCommand && progress.phase === PHASES.contacting;
-          const isResponding = isThisCommand && progress.phase === PHASES.vehicle_responding;
-          const isSuccess = isThisCommand && progress.phase === PHASES.success;
-          const isFailed = isThisCommand && progress.phase === PHASES.failed;
-          const labels = COMMAND_LABELS[command.key] || { success: "Done", failed: "Failed" };
-
-          let buttonContent = <Icon className="h-5 w-5 text-white" />;
-          let statusLabel = command.label;
-          let statusSub = ready.supported ? "Ready now" : "Unavailable";
-          let isDisabled = !ready.supported || isContacting || isResponding;
-
-          if (isContacting || isResponding) {
-            buttonContent = <Loader2 className="h-5 w-5 animate-spin text-white" />;
-            statusLabel = isContacting ? "Contacting vehicle…" : "Vehicle responding…";
-            statusSub = `${progress.elapsed}s elapsed`;
-          } else if (isSuccess) {
-            buttonContent = <CheckCircle2 className="h-5 w-5 text-white" />;
-            statusLabel = labels.success;
-            statusSub = "Command completed";
-          } else if (isFailed) {
-            buttonContent = <XCircle className="h-5 w-5 text-white" />;
-            statusLabel = labels.failed;
-            statusSub = "Command failed";
-          }
+          const isSending = sending === command.key;
 
           return (
             <button
               key={command.key}
-              disabled={isDisabled}
+              disabled={!ready.supported || isSending}
               onClick={() => send(command.key)}
               className="min-h-[112px] rounded-[1.6rem] border border-white/60 bg-white p-3 text-left shadow-sm transition-all active:scale-[0.98] disabled:opacity-45"
             >
               <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${command.tone} shadow-lg`}>
-                {buttonContent}
+                {isSending ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-white" />
+                ) : (
+                  <Icon className="h-5 w-5 text-white" />
+                )}
               </div>
-              <p className="text-sm font-black leading-tight text-gray-950">{statusLabel}</p>
-              <p className="mt-1 text-[11px] font-semibold text-gray-400">{statusSub}</p>
+              <p className="text-sm font-black leading-tight text-gray-950">{command.label}</p>
+              <p className="mt-1 text-[11px] font-semibold text-gray-400">{ready.supported ? "Ready now" : "Unavailable"}</p>
+              {isSending && (
+                <p className="mt-1 text-[10px] font-bold text-gray-400">Sending…</p>
+              )}
             </button>
           );
         })}
       </div>
-
-      {resultText && (
-        <div className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-bold ${progress.phase === PHASES.failed ? "border-red-100 bg-red-50 text-red-600" : "border-emerald-100 bg-emerald-50 text-emerald-700"}`}>
-          {resultText}
-        </div>
-      )}
     </section>
   );
 }

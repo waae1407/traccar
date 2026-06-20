@@ -9,7 +9,6 @@ import RawCommandInput from '@/components/telematics/command-test/RawCommandInpu
 import RebootDeviceCard from '@/components/telematics/command-test/RebootDeviceCard';
 import TraccarDeviceLogsPanel from '@/components/telematics/command-test/TraccarDeviceLogsPanel';
 import TelematicsAlarmControls from '@/components/telematics/TelematicsAlarmControls';
-import { useCommandProgress, PHASES } from '@/hooks/useCommandProgress';
 import CommandProgressOverlay from '@/components/telematics/CommandProgressOverlay';
 
 export default function CommandTestWorkspace({ showHeader = true, mode = 'admin' }) {
@@ -21,8 +20,8 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
   const [lookupError, setLookupError] = useState('');
   const [sending, setSending] = useState('');
   const [sentCommands, setSentCommands] = useState({});
-  const progress = useCommandProgress();
   const [autoLookupDone, setAutoLookupDone] = useState(!initialIdentifier);
+  const [progressState, setProgressState] = useState({ phase: 'idle', commandType: null, elapsed: 0, errorMessage: null });
 
   const history = useQuery({
     queryKey: ['admin-command-test-history', lookupData?.device?.id],
@@ -98,7 +97,7 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
     setSending(commandType);
     setLookupError('');
     setSentCommands((prev) => ({ ...prev, [commandType]: true }));
-    progress.start(commandType, null, null);
+    setProgressState({ phase: 'connecting', commandType, elapsed: 0, errorMessage: null });
     try {
       const res = await base44.functions.invoke('sendTelematicsCommand', isHostMode ? {
         command_type: commandType,
@@ -115,11 +114,12 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
       });
       const data = res?.data;
       const cmdId = data?.command_id || data?.id;
-      const freshness = data?.heartbeat_freshness;
-      progress.start(commandType, cmdId, freshness);
+      setProgressState({ phase: 'success', commandType, elapsed: 0, errorMessage: null });
+      setTimeout(() => setProgressState({ phase: 'idle', commandType: null, elapsed: 0, errorMessage: null }), 3000);
     } catch (error) {
       setLookupError(error?.response?.data?.error || error.message);
-      progress.reset();
+      setProgressState({ phase: 'failed', commandType, elapsed: 0, errorMessage: error.message });
+      setTimeout(() => setProgressState({ phase: 'idle', commandType: null, elapsed: 0, errorMessage: null }), 4000);
     }
     setSending('');
     history.refetch();
@@ -142,8 +142,8 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
 
       {lookupData?.device && (
         <>
-          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} activePhase={progress.phase} activePhaseCommand={progress.commandType} />
-          <CommandProgressOverlay phase={progress.phase} elapsed={progress.elapsed} phaseElapsed={progress.phaseElapsed} commandType={progress.commandType} errorMessage={progress.errorMessage} />
+          <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} activePhase={progressState.phase} activePhaseCommand={progressState.commandType} />
+          <CommandProgressOverlay phase={progressState.phase} elapsed={progressState.elapsed} phaseElapsed={0} commandType={progressState.commandType} errorMessage={progressState.errorMessage} />
           {lookupData.vehicle?.id && (
             <TelematicsAlarmControls vehicleId={lookupData.vehicle.id} role="admin" />
           )}

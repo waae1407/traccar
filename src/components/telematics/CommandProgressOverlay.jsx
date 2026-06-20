@@ -1,6 +1,15 @@
 import React from "react";
 import { CheckCircle2, Loader2, Radio, Send, Wifi, XCircle } from "lucide-react";
-import { PHASES } from "@/hooks/useCommandProgress";
+
+// Local PHASES definition (no longer imported from deleted hook)
+const PHASES = {
+  idle: "idle",
+  connecting: "connecting",
+  sending: "sending",
+  waiting: "waiting",
+  success: "success",
+  failed: "failed",
+};
 
 const PHASE_CONFIG = {
   [PHASES.connecting]: {
