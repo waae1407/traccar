@@ -33,10 +33,10 @@ function freshness(device) {
 function getWeatherStyle(weather) {
   if (!weather?.current_weather) {
     return {
-      gradient: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
       icon: <Cloud size={26} color="#A1A1AA" strokeWidth={1.5} />,
       label: "Weather",
       temp: "--°",
+      border: "1px solid rgba(255,255,255,0.10)",
       glow: "rgba(255,255,255,0.02)"
     };
   }
@@ -47,59 +47,59 @@ function getWeatherStyle(weather) {
   // Rain / Drizzle / Showers
   if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(weathercode)) {
     return {
-      gradient: "linear-gradient(180deg, rgba(31,52,78,0.6) 0%, #111216 100%)",
       icon: <CloudRain size={26} color="#89B4F8" strokeWidth={1.5} />,
       label: "Rain",
       temp: tempStr,
-      glow: "rgba(137,180,248,0.25)"
+      border: "1.5px solid #89B4F8",
+      glow: "rgba(137,180,248,0.3)"
     };
   }
   // Snow
   if ([71,73,75,77,85,86].includes(weathercode)) {
     return {
-      gradient: "linear-gradient(180deg, rgba(62,91,102,0.6) 0%, #111216 100%)",
       icon: <Snowflake size={26} color="#A7E4F2" strokeWidth={1.5} />,
       label: "Snow",
       temp: tempStr,
-      glow: "rgba(167,228,242,0.25)"
+      border: "1.5px solid #A7E4F2",
+      glow: "rgba(167,228,242,0.3)"
     };
   }
   // Thunderstorm
   if ([95,96,99].includes(weathercode)) {
     return {
-      gradient: "linear-gradient(180deg, rgba(45,36,66,0.6) 0%, #111216 100%)",
       icon: <CloudLightning size={26} color="#C4A7E7" strokeWidth={1.5} />,
       label: "Storm",
       temp: tempStr,
-      glow: "rgba(196,167,231,0.25)"
+      border: "1.5px solid #C4A7E7",
+      glow: "rgba(196,167,231,0.3)"
     };
   }
   // Cloudy / Fog
   if ([2,3,45,48].includes(weathercode)) {
     return {
-      gradient: "linear-gradient(180deg, rgba(54,58,66,0.6) 0%, #111216 100%)",
       icon: <Cloud size={26} color="#B5B9C2" strokeWidth={1.5} />,
       label: "Cloudy",
       temp: tempStr,
-      glow: "rgba(181,185,194,0.15)"
+      border: "1.5px solid #B5B9C2",
+      glow: "rgba(181,185,194,0.2)"
     };
   }
   // Clear / Mostly Clear
   if (is_day) {
     return {
-      gradient: "linear-gradient(180deg, rgba(105,74,30,0.5) 0%, #111216 100%)",
       icon: <Sun size={26} color="#F8C455" strokeWidth={1.5} />,
       label: "Clear",
       temp: tempStr,
-      glow: "rgba(248,196,85,0.25)"
+      border: "1.5px solid #F8C455",
+      glow: "rgba(248,196,85,0.3)"
     };
   } else {
     return {
-      gradient: "linear-gradient(180deg, rgba(28,30,66,0.5) 0%, #111216 100%)",
       icon: <Moon size={26} color="#9EA5F1" strokeWidth={1.5} />,
       label: "Clear",
       temp: tempStr,
-      glow: "rgba(158,165,241,0.25)"
+      border: "1.5px solid #9EA5F1",
+      glow: "rgba(158,165,241,0.3)"
     };
   }
 }
@@ -146,6 +146,7 @@ export default function MyVehicle() {
   const { user, isLoading: authLoading } = useAuth();
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [commandLoading, setCommandLoading] = useState(null);
+  const [isLocked, setIsLocked] = useState(true); // Optimistic lock state
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email],
@@ -192,24 +193,25 @@ export default function MyVehicle() {
     : "N/A";
 
   const handleCommand = async (type) => {
-    if (!pickupInspectionComplete && (type === "lock" || type === "unlock")) {
-      setInspectionTarget({ booking, type: "pickup" });
-      return;
-    }
-    setCommandLoading(type);
-    try {
-      const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
-      const { toast } = await import("sonner");
-      if (type === "lock" || type === "unlock") {
-        await TelematicsService.sendCommand({
-          telematics_device_id: device?.id,
-          vehicle_id: vehicle?.id,
-          booking_id: booking?.id,
-          command_type: type,
-          source: "vehicle_command_center",
-        });
-        toast.success(`Vehicle ${type}ed`);
-      } else if (type === "find") {
+  if (!pickupInspectionComplete && (type === "lock" || type === "unlock")) {
+  setInspectionTarget({ booking, type: "pickup" });
+  return;
+  }
+  setCommandLoading(type);
+  try {
+  const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
+  const { toast } = await import("sonner");
+  if (type === "lock" || type === "unlock") {
+    await TelematicsService.sendCommand({
+      telematics_device_id: device?.id,
+      vehicle_id: vehicle?.id,
+      booking_id: booking?.id,
+      command_type: type,
+      source: "vehicle_command_center",
+    });
+    toast.success(`Vehicle ${type}ed`);
+    setIsLocked(type === "lock");
+  } else if (type === "find") {
         await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device?.id });
         toast.success("Vehicle alarm activated!");
         if (device?.last_latitude && device?.last_longitude) {
@@ -506,19 +508,23 @@ export default function MyVehicle() {
                 style={{
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1px solid rgba(255,255,255,0.10)",
+                  border: isLocked ? "1.5px solid #30D158" : "1.5px solid #FF453A",
                   borderRadius: 24,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
+                  boxShadow: isLocked 
+                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(48,209,88,0.15), 0 0 12px rgba(48,209,88,0.2)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(255,69,58,0.15), 0 0 12px rgba(255,69,58,0.2)",
                   cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
                   opacity: !isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete ? 0.45 : 1,
-                  transition: "transform 0.1s",
+                  transition: "all 0.2s ease-in-out",
                 }}
               >
-                <Lock size={26} color="#FFFFFF" strokeWidth={1.5} />
+                <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} />
                 <div style={{ textAlign: "center" }}>
                   <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
-                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
+                  <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
+                    {isLocked ? "Locked" : "Unlocked"}
+                  </p>
                 </div>
               </button>
 
@@ -535,7 +541,7 @@ export default function MyVehicle() {
                   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
                   cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
                   opacity: !isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete ? 0.45 : 1,
-                  transition: "transform 0.1s",
+                  transition: "all 0.2s ease-in-out",
                 }}
               >
                 <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} />
@@ -545,14 +551,14 @@ export default function MyVehicle() {
                 </div>
               </button>
 
-              {/* Weather (replaces Climate) */}
+              {/* Weather (Dynamic Border) */}
               <button
                 disabled
                 className="weather-card-animated"
                 style={{
                   aspectRatio: "1",
-                  background: weatherStyle.gradient,
-                  border: "1px solid rgba(255,255,255,0.10)",
+                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
+                  border: weatherStyle.border,
                   borderRadius: 24,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
                   opacity: (!isBookingActive || dropoffInspectionComplete) ? 0.45 : 1,
@@ -574,22 +580,22 @@ export default function MyVehicle() {
                 disabled={!isBookingActive || !!commandLoading || dropoffInspectionComplete}
                 style={{
                   aspectRatio: "1",
-                  background: "linear-gradient(180deg, rgba(47,128,255,0.16) 0%, #111216 100%)",
+                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
                   border: "1.5px solid #2F80FF",
                   borderRadius: 24,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
                   boxShadow: isBookingActive && !dropoffInspectionComplete
-                    ? "0 0 0 1px rgba(47,128,255,0.15), 0 0 18px rgba(47,128,255,0.3)"
-                    : "none",
+                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(47,128,255,0.15), 0 0 18px rgba(47,128,255,0.3)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
                   opacity: !isBookingActive || dropoffInspectionComplete ? 0.45 : 1,
                   cursor: isBookingActive && !dropoffInspectionComplete ? "pointer" : "default",
-                  transition: "transform 0.1s",
+                  transition: "all 0.2s ease-in-out",
                 }}
               >
                 <HornIcon color="#2F80FF" />
                 <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Find Vehicle</p>
-                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Flash & Honk</p>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Find</p>
+                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Vehicle</p>
                 </div>
               </button>
             </div>
