@@ -548,7 +548,7 @@ export default function MyVehicle() {
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: isLocked ? "1.5px solid rgba(48,209,88,0.35)" : "1.5px solid rgba(255,69,58,0.35)",
+                  border: isLocked ? "1.5px solid rgba(48,209,88,0.75)" : "1.5px solid rgba(255,69,58,0.75)",
                   borderRadius: 24,
                   padding: 0,
                   boxShadow: isLocked 
@@ -579,7 +579,7 @@ export default function MyVehicle() {
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1.5px solid rgba(255,255,255,0.25)",
+                  border: "1.5px solid rgba(255,255,255,0.6)",
                   borderRadius: 24,
                   padding: 0,
                   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 12px rgba(255,255,255,0.05)",
