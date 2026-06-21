@@ -48,8 +48,9 @@ import HostPageHeader from "@/components/host/HostPageHeader";
 import HostPaymentHistory from "@/pages/host/HostPaymentHistory";
 import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import { format } from "date-fns";
-import { Plus } from "lucide-react";
+import { Plus, Banknote } from "lucide-react";
 import PaymentFormDialog from "@/components/payments/PaymentFormDialog";
+import { toast } from "sonner";
 
 const PAYMENT_STATUS_CONFIG = {
   paid: { label: "Paid", cls: "bg-emerald-50 text-emerald-700", icon: CheckCircle2 },
@@ -74,23 +75,29 @@ export default function HostPayments() {
   const recordPaymentMutation = useMutation({
     mutationFn: async (data) => {
       const b = bookings.find(x => x.id === data.booking_id);
+      if (!b) throw new Error("Please select a booking to record payment against.");
       await base44.entities.PaymentLog.create({
         host_id: host?.id,
-        customer_id: data.customer_id,
-        customer_name: data.customer_name,
+        customer_email: b.user_email || "manual@payment",
+        customer_name: data.customer_name || b.customer_full_name,
         booking_request_id: data.booking_id,
-        vehicle_id: b?.vehicle_id,
-        vehicle_name: b?.vehicle_name,
+        week_number: b.billing_week_number || 1,
+        vehicle_id: b.vehicle_id,
+        vehicle_name: b.vehicle_name,
         amount: data.amount,
         payment_method: data.payment_method.toLowerCase(),
         status: data.status.toLowerCase(),
         paid_at: data.paid_date ? new Date(data.paid_date).toISOString() : new Date().toISOString(),
-        source_type: "manual_payment"
+        source_type: "admin_manual"
       });
     },
     onSuccess: () => {
       qc.invalidateQueries();
       setShowPaymentForm(false);
+      toast.success("Payment recorded successfully");
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to record payment");
     }
   });
 
@@ -182,7 +189,7 @@ export default function HostPayments() {
           className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-[0.98]"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
         >
-          <Plus className="h-4 w-4" />
+          <Banknote className="h-4 w-4" />
           Record Payment
         </button>
       </div>

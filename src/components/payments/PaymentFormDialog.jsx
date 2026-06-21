@@ -4,21 +4,29 @@ import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormField, inputClass } from "@/components/shared/FormField";
+import { toast } from "sonner";
 
-const emptyForm = { customer_id: "", booking_id: "", amount: "", payment_type: "Rental", payment_method: "Card", status: "Pending", due_date: "", paid_date: "" };
+const emptyForm = { customer_id: "", booking_id: "", amount: "", payment_type: "Rental", payment_method: "Card", status: "Paid", due_date: "", paid_date: new Date().toISOString().split("T")[0] };
 
 export default function PaymentFormDialog({ open, onOpenChange, onSave, payment, isSaving }) {
   const [form, setForm] = useState(emptyForm);
   const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => base44.entities.Customer.list(), enabled: open });
-  const { data: bookings = [] } = useQuery({ queryKey: ["bookings"], queryFn: () => base44.entities.Booking.list(), enabled: open });
+  const { data: bookings = [] } = useQuery({ queryKey: ["bookings-request"], queryFn: () => base44.entities.BookingRequest.list(), enabled: open });
 
   useEffect(() => { setForm(payment ? { ...emptyForm, ...payment, amount: payment.amount || "" } : emptyForm); }, [payment, open]);
 
   const set = (field, value) => setForm((p) => ({ ...p, [field]: value }));
-  const customerBookings = bookings.filter((b) => b.customer_id === form.customer_id);
+  const customerBookings = form.customer_id ? bookings.filter((b) => {
+    const c = customers.find(cust => cust.id === form.customer_id);
+    return b.user_email === c?.email || b.customer_full_name === c?.full_name;
+  }) : [];
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!form.booking_id) {
+      toast.error("Please select a booking");
+      return;
+    }
     const c = customers.find((c) => c.id === form.customer_id);
     onSave({ ...form, amount: Number(form.amount), customer_name: c?.full_name || "" });
   };
@@ -54,11 +62,13 @@ export default function PaymentFormDialog({ open, onOpenChange, onSave, payment,
               </SelectContent>
             </Select>
           </FormField>
-          {customerBookings.length > 0 && (
-            <FormField label="Booking">
-              {mkSelect("booking_id", customerBookings.map((b) => ({ id: b.id, label: `${b.vehicle_name} — ${b.booking_type}` })))}
-            </FormField>
-          )}
+          <FormField label="Booking" required>
+            {customerBookings.length > 0 ? (
+              mkSelect("booking_id", customerBookings.map((b) => ({ id: b.id, label: `${b.vehicle_name} — ${b.booking_type || 'Booking'}` })))
+            ) : (
+              <div className="text-xs text-white/50 h-9 flex items-center">Please select a customer with active bookings</div>
+            )}
+          </FormField>
           <FormField label="Amount" required>
             <input type="number" step="0.01" className={inputClass} value={form.amount} onChange={(e) => set("amount", e.target.value)} required />
           </FormField>
