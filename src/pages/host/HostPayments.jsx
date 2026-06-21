@@ -48,6 +48,8 @@ import HostPageHeader from "@/components/host/HostPageHeader";
 import HostPaymentHistory from "@/pages/host/HostPaymentHistory";
 import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperationalAlertPanel";
 import { format } from "date-fns";
+import { Plus } from "lucide-react";
+import PaymentFormDialog from "@/components/payments/PaymentFormDialog";
 
 const PAYMENT_STATUS_CONFIG = {
   paid: { label: "Paid", cls: "bg-emerald-50 text-emerald-700", icon: CheckCircle2 },
@@ -67,6 +69,30 @@ export default function HostPayments() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const [activeTab, setActiveTab] = useState("overview");
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+
+  const recordPaymentMutation = useMutation({
+    mutationFn: async (data) => {
+      const b = bookings.find(x => x.id === data.booking_id);
+      await base44.entities.PaymentLog.create({
+        host_id: host?.id,
+        customer_id: data.customer_id,
+        customer_name: data.customer_name,
+        booking_request_id: data.booking_id,
+        vehicle_id: b?.vehicle_id,
+        vehicle_name: b?.vehicle_name,
+        amount: data.amount,
+        payment_method: data.payment_method.toLowerCase(),
+        status: data.status.toLowerCase(),
+        paid_at: data.paid_date ? new Date(data.paid_date).toISOString() : new Date().toISOString(),
+        source_type: "manual_payment"
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries();
+      setShowPaymentForm(false);
+    }
+  });
 
   const { data: hosts = [] } = useQuery({
     queryKey: ["my-host", user?.email],
@@ -146,10 +172,28 @@ export default function HostPayments() {
 
   return (
     <div className="space-y-5">
-      <HostPageHeader
-        title="Payments"
-        subtitle="Payment status across all your active rentals"
+      <div className="flex items-start justify-between">
+        <HostPageHeader
+          title="Payments"
+          subtitle="Payment status across all your active rentals"
+        />
+        <button
+          onClick={() => setShowPaymentForm(true)}
+          className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white shadow-sm hover:opacity-90 transition-all active:scale-[0.98]"
+          style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+        >
+          <Plus className="h-4 w-4" />
+          Record Payment
+        </button>
+      </div>
+
+      <PaymentFormDialog 
+        open={showPaymentForm} 
+        onOpenChange={setShowPaymentForm}
+        onSave={(data) => recordPaymentMutation.mutate(data)}
+        isSaving={recordPaymentMutation.isPending}
       />
+
       <PaymentOperationalAlertPanel scope="host" hostId={host?.id} limit={3} />
 
       <div className="flex gap-2 rounded-2xl bg-white border border-gray-100 p-1 shadow-sm">
