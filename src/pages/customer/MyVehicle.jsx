@@ -260,6 +260,44 @@ export default function MyVehicle() {
         .weather-card-animated {
           animation: weatherPulse 4s ease-in-out infinite;
         }
+
+        @keyframes borderSpin { 
+          from { transform: translate(-50%, -50%) rotate(0deg); }
+          to { transform: translate(-50%, -50%) rotate(360deg); } 
+        }
+        .btn-loading-spin {
+          overflow: hidden;
+          border-color: transparent !important;
+          box-shadow: 0 0 15px rgba(255,255,255,0.1) !important;
+        }
+        .btn-loading-spin::before {
+          content: '';
+          position: absolute;
+          top: 50%; left: 50%; 
+          width: 250%; height: 250%;
+          background: conic-gradient(from 0deg, transparent 75%, rgba(255,255,255,0.85) 100%);
+          animation: borderSpin 1s linear infinite;
+          z-index: 0;
+        }
+        .btn-loading-spin::after {
+          content: '';
+          position: absolute;
+          inset: 1.5px;
+          background: linear-gradient(180deg, #1B1C21 0%, #111216 100%);
+          border-radius: 22.5px;
+          z-index: 1;
+        }
+        .btn-loading-content {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          height: 100%;
+        }
       `}</style>
       {inspectionTarget && (
         <VehicleInspectionSheet
@@ -505,26 +543,30 @@ export default function MyVehicle() {
               <button
                 onClick={() => booking && handleCommand("lock")}
                 disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
+                className={commandLoading === "lock" ? "btn-loading-spin" : ""}
                 style={{
+                  position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
                   border: isLocked ? "1.5px solid #30D158" : "1.5px solid #FF453A",
                   borderRadius: 24,
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: 0,
                   boxShadow: isLocked 
                     ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(48,209,88,0.15), 0 0 12px rgba(48,209,88,0.2)"
                     : "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(255,69,58,0.15), 0 0 12px rgba(255,69,58,0.2)",
                   cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
-                  opacity: !isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete ? 0.45 : 1,
+                  opacity: (!isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete) && commandLoading !== "lock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
-                <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} />
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
-                  <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
-                    {isLocked ? "Locked" : "Unlocked"}
-                  </p>
+                <div className="btn-loading-content">
+                  <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} />
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
+                    <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
+                      {isLocked ? "Locked" : "Unlocked"}
+                    </p>
+                  </div>
                 </div>
               </button>
 
@@ -532,22 +574,26 @@ export default function MyVehicle() {
               <button
                 onClick={() => booking && handleCommand("unlock")}
                 disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
+                className={commandLoading === "unlock" ? "btn-loading-spin" : ""}
                 style={{
+                  position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
                   border: "1px solid rgba(255,255,255,0.10)",
                   borderRadius: 24,
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: 0,
                   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
                   cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
-                  opacity: !isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete ? 0.45 : 1,
+                  opacity: (!isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete) && commandLoading !== "unlock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
-                <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} />
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
-                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
+                <div className="btn-loading-content">
+                  <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} />
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
+                    <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
+                  </div>
                 </div>
               </button>
 
@@ -578,24 +624,28 @@ export default function MyVehicle() {
               <button
                 onClick={() => booking && handleCommand("find")}
                 disabled={!isBookingActive || !!commandLoading || dropoffInspectionComplete}
+                className={commandLoading === "find" ? "btn-loading-spin" : ""}
                 style={{
+                  position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
                   border: "1.5px solid #2F80FF",
                   borderRadius: 24,
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: 0,
                   boxShadow: isBookingActive && !dropoffInspectionComplete
                     ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(47,128,255,0.15), 0 0 18px rgba(47,128,255,0.3)"
                     : "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
-                  opacity: !isBookingActive || dropoffInspectionComplete ? 0.45 : 1,
+                  opacity: (!isBookingActive || dropoffInspectionComplete) && commandLoading !== "find" ? 0.45 : 1,
                   cursor: isBookingActive && !dropoffInspectionComplete ? "pointer" : "default",
                   transition: "all 0.2s ease-in-out",
                 }}
               >
-                <HornIcon color="#2F80FF" />
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Find</p>
-                  <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Vehicle</p>
+                <div className="btn-loading-content">
+                  <HornIcon color="#2F80FF" />
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Find</p>
+                    <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Vehicle</p>
+                  </div>
                 </div>
               </button>
             </div>
