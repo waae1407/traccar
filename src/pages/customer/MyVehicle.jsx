@@ -50,8 +50,8 @@ function getWeatherStyle(weather) {
       icon: <CloudRain size={26} color="#89B4F8" strokeWidth={1.5} />,
       label: "Rain",
       temp: tempStr,
-      border: "1.5px solid #89B4F8",
-      glow: "rgba(137,180,248,0.3)"
+      border: "1.5px solid rgba(137,180,248,0.25)",
+      glow: "rgba(137,180,248,0.075)"
     };
   }
   // Snow
@@ -60,8 +60,8 @@ function getWeatherStyle(weather) {
       icon: <Snowflake size={26} color="#A7E4F2" strokeWidth={1.5} />,
       label: "Snow",
       temp: tempStr,
-      border: "1.5px solid #A7E4F2",
-      glow: "rgba(167,228,242,0.3)"
+      border: "1.5px solid rgba(167,228,242,0.25)",
+      glow: "rgba(167,228,242,0.075)"
     };
   }
   // Thunderstorm
@@ -70,8 +70,8 @@ function getWeatherStyle(weather) {
       icon: <CloudLightning size={26} color="#C4A7E7" strokeWidth={1.5} />,
       label: "Storm",
       temp: tempStr,
-      border: "1.5px solid #C4A7E7",
-      glow: "rgba(196,167,231,0.3)"
+      border: "1.5px solid rgba(196,167,231,0.25)",
+      glow: "rgba(196,167,231,0.075)"
     };
   }
   // Cloudy / Fog
@@ -80,8 +80,8 @@ function getWeatherStyle(weather) {
       icon: <Cloud size={26} color="#B5B9C2" strokeWidth={1.5} />,
       label: "Cloudy",
       temp: tempStr,
-      border: "1.5px solid #B5B9C2",
-      glow: "rgba(181,185,194,0.2)"
+      border: "1.5px solid rgba(181,185,194,0.25)",
+      glow: "rgba(181,185,194,0.05)"
     };
   }
   // Clear / Mostly Clear
@@ -90,16 +90,16 @@ function getWeatherStyle(weather) {
       icon: <Sun size={26} color="#F8C455" strokeWidth={1.5} />,
       label: "Clear",
       temp: tempStr,
-      border: "1.5px solid #F8C455",
-      glow: "rgba(248,196,85,0.3)"
+      border: "1.5px solid rgba(248,196,85,0.25)",
+      glow: "rgba(248,196,85,0.075)"
     };
   } else {
     return {
       icon: <Moon size={26} color="#9EA5F1" strokeWidth={1.5} />,
       label: "Clear",
       temp: tempStr,
-      border: "1.5px solid #9EA5F1",
-      glow: "rgba(158,165,241,0.3)"
+      border: "1.5px solid rgba(158,165,241,0.25)",
+      glow: "rgba(158,165,241,0.075)"
     };
   }
 }
@@ -390,8 +390,8 @@ export default function MyVehicle() {
               <div>
                 <p style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.2px", maxWidth: 245, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ color: "#30D158", fontSize: 12, fontWeight: 500 }}>Online</span>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#2E8B57", display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ color: "#2E8B57", fontSize: 12, fontWeight: 500 }}>Online</span>
                   <span style={{ color: "rgba(255,255,255,0.24)", fontSize: 12, margin: "0 3px" }}>|</span>
                   <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 450 }}>Live</span>
                 </div>
@@ -548,22 +548,22 @@ export default function MyVehicle() {
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: isLocked ? "1.5px solid #30D158" : "1.5px solid #FF453A",
+                  border: isLocked ? "1.5px solid rgba(46,139,87,0.25)" : "1.5px solid rgba(255,69,58,0.25)",
                   borderRadius: 24,
                   padding: 0,
                   boxShadow: isLocked 
-                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(48,209,88,0.15), 0 0 12px rgba(48,209,88,0.2)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(255,69,58,0.15), 0 0 12px rgba(255,69,58,0.2)",
+                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(46,139,87,0.04), 0 0 12px rgba(46,139,87,0.05)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(255,69,58,0.04), 0 0 12px rgba(255,69,58,0.05)",
                   cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
                   opacity: (!isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete) && commandLoading !== "lock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} />
+                  <Lock size={26} color={isLocked ? "#2E8B57" : "#FF453A"} strokeWidth={1.5} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
-                    <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
+                    <p style={{ fontSize: 10, color: isLocked ? "#2E8B57" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
                       {isLocked ? "Locked" : "Unlocked"}
                     </p>
                   </div>
@@ -629,11 +629,11 @@ export default function MyVehicle() {
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1.5px solid #2F80FF",
+                  border: "1.5px solid rgba(47,128,255,0.25)",
                   borderRadius: 24,
                   padding: 0,
                   boxShadow: isBookingActive && !dropoffInspectionComplete
-                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(47,128,255,0.15), 0 0 18px rgba(47,128,255,0.3)"
+                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 18px rgba(47,128,255,0.075)"
                     : "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
                   opacity: (!isBookingActive || dropoffInspectionComplete) && commandLoading !== "find" ? 0.45 : 1,
                   cursor: isBookingActive && !dropoffInspectionComplete ? "pointer" : "default",
@@ -691,10 +691,6 @@ export default function MyVehicle() {
               <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Vehicle Health
               </p>
-              <div className="flex items-center gap-1">
-                <CheckCircle size={13} color="#30D158" />
-                <p style={{ fontSize: 11, color: "#30D158" }}>All systems normal</p>
-              </div>
             </div>
             <div style={{
               background: "#17181C",
@@ -712,7 +708,7 @@ export default function MyVehicle() {
                 { label: "Location", sub: "GPS Signal" },
               ].map((item) => (
                 <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                  <CheckCircle size={18} color="#30D158" />
+                  <CheckCircle size={18} color="#2E8B57" />
                   <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
                 </div>
