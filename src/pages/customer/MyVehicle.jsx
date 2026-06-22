@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X, AlertTriangle, Satellite } from "lucide-react";
+import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X, AlertTriangle, Satellite, Banknote } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
@@ -607,22 +607,34 @@ export default function MyVehicle() {
 
             <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.08)", margin: "0 10px" }} />
 
-            {/* Battery Health (Hybrid View) */}
-            <div style={{ flex: 0.8 }}>
-              <div className="flex items-start gap-1.5 mb-1">
-                <div style={{ position: "relative", width: 10, height: 16, borderRadius: 2, border: "1.5px solid #71717A", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: 1, marginTop: 3, flexShrink: 0 }}>
-                  <div style={{ position: "absolute", top: -2, left: "50%", transform: "translateX(-50%)", width: 4, height: 1.5, background: "#71717A", borderRadius: "1px 1px 0 0" }} />
-                  <div style={{ width: "100%", height: `${battInfo.pct}%`, background: battInfo.color, borderRadius: 1, transition: "height 0.3s ease, background 0.3s ease" }} />
-                </div>
-                <div style={{ lineHeight: 1.1 }}>
-                  <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Battery</p>
-                  <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Health</p>
-                </div>
+            {/* Payment Status */}
+            <div 
+              onClick={() => {
+                if (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") {
+                  window.location.href = `/account`;
+                }
+              }}
+              style={{ 
+                flex: 0.8, 
+                cursor: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "pointer" : "default",
+                background: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "rgba(255,69,58,0.15)" : "transparent",
+                borderRadius: 12,
+                padding: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "8px 10px" : "0",
+                margin: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "-8px -10px" : "0",
+                border: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "1px solid rgba(255,69,58,0.4)" : "none",
+                transition: "all 0.2s"
+              }}
+            >
+              <div className="flex items-center gap-1.5 mb-1">
+                <Banknote size={14} color={(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#71717A"} />
+                <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#8E8E93", fontWeight: 450 }}>Payment</p>
               </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 4 }}>
-                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
-                <p style={{ fontSize: 11, color: battInfo.color, fontWeight: 500 }}>{battInfo.label}</p>
-              </div>
+              <p style={{ fontSize: 13, fontWeight: 650, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#F5F5F7", letterSpacing: "-0.1px" }}>
+                {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Action Needed" : (booking?.payment_status === "paid" || booking?.payment_status === "pending" || !booking ? "Paid" : "Due Soon")}
+              </p>
+              <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#30D158", fontWeight: 500 }}>
+                {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Update Card" : (booking?.next_billing_date ? `Next: ${format(new Date(`${booking.next_billing_date}T12:00:00`), "MMM d")}` : "Up to date")}
+              </p>
             </div>
 
             <ChevronRight size={16} color="#71717A" style={{ marginLeft: 4 }} />
