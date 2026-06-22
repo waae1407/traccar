@@ -473,10 +473,14 @@ export default function MyVehicle() {
               <div>
                 <p style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.2px", maxWidth: 245, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", boxShadow: "0 0 10px rgba(48,209,88,0.5)", display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ color: "#30D158", textShadow: "0 0 12px rgba(48,209,88,0.4)", fontSize: 12, fontWeight: 500 }}>Online</span>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93", boxShadow: isDemo || device?.online_status === "online" ? "0 0 10px rgba(48,209,88,0.5)" : "none", display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ color: isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93", textShadow: isDemo || device?.online_status === "online" ? "0 0 12px rgba(48,209,88,0.4)" : "none", fontSize: 12, fontWeight: 500 }}>
+                    {isDemo || device?.online_status === "online" ? "Online" : "Offline"}
+                  </span>
                   <span style={{ color: "rgba(255,255,255,0.24)", fontSize: 12, margin: "0 3px" }}>|</span>
-                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 450 }}>Live</span>
+                  <span style={{ color: isDemo || isBookingActive ? "rgba(255,255,255,0.76)" : "#FF453A", fontSize: 12, fontWeight: isDemo || isBookingActive ? 450 : 600 }}>
+                    {isDemo ? "Active" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive")}
+                  </span>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
