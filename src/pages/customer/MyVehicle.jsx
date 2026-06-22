@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X, AlertTriangle } from "lucide-react";
+import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X, AlertTriangle, Satellite } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
@@ -148,13 +148,21 @@ function getWeatherStyle(weather) {
 }
 
 // Signal bars SVG icon
-function SignalBarsIcon({ color = "#A1A1AA" }) {
+function SignalBarsIcon({ strength = 100 }) {
+  const bars = [
+    { x: 0, y: 9, h: 5, threshold: 0 },
+    { x: 4.5, y: 6.5, h: 7.5, threshold: 25 },
+    { x: 9, y: 3.5, h: 10.5, threshold: 50 },
+    { x: 13.5, y: 0, h: 14, threshold: 75 },
+  ];
+  const activeColor = strength > 25 ? "#30D158" : (strength > 0 ? "#FF9F0A" : "#FF453A");
+  const inactiveColor = "rgba(255,255,255,0.15)";
+  
   return (
     <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
-      <rect x="0" y="9" width="3" height="5" rx="1" fill={color} />
-      <rect x="4.5" y="6.5" width="3" height="7.5" rx="1" fill={color} />
-      <rect x="9" y="3.5" width="3" height="10.5" rx="1" fill={color} />
-      <rect x="13.5" y="0" width="3" height="14" rx="1" fill={color} />
+      {bars.map((bar, i) => (
+        <rect key={i} x={bar.x} y={bar.y} width="3" height={bar.h} rx="1" fill={strength >= bar.threshold ? activeColor : inactiveColor} style={{ filter: strength >= bar.threshold ? `drop-shadow(0 0 6px ${activeColor}60)` : 'none' }} />
+      ))}
     </svg>
   );
 }
@@ -502,9 +510,13 @@ export default function MyVehicle() {
 
             {/* Status icons row */}
             <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 2 }}>
-              <SignalBarsIcon color="#8E8E93" />
-              <Lock size={16} color="#8E8E93" strokeWidth={1.5} />
-              <FanIcon color="#8E8E93" />
+              <SignalBarsIcon strength={isDemo ? 100 : (device?.signal_strength ?? 100)} />
+              {isDemo || !device?.door_open ? (
+                <Lock size={16} color="#30D158" strokeWidth={2} style={{ filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" }} />
+              ) : (
+                <Unlock size={16} color="#FF453A" strokeWidth={2} style={{ filter: "drop-shadow(0 0 6px rgba(255,69,58,0.5))" }} />
+              )}
+              <Satellite size={17} color={isDemo || gps.status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={1.5} style={isDemo || gps.status === "online" ? { filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" } : {}} />
             </div>
           </div>
         </div>
