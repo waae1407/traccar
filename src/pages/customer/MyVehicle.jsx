@@ -74,12 +74,15 @@ function freshness(device) {
 }
 
 function getWeatherStyle(weather) {
+  const baseBg = "linear-gradient(180deg, #08090C 0%, #050506 100%)";
   if (!weather?.current_weather) {
     return {
       icon: <Cloud size={14} color="#A1A1AA" strokeWidth={2.5} />,
       label: "Weather",
       temp: "--°",
-      ambientBg: "radial-gradient(circle at 100% 0%, rgba(255,255,255,0.06), transparent 40%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
+      ambientBg: baseBg,
+      rayClass: "",
+      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(255,255,255,0.06), transparent 40%)" }
     };
   }
   
@@ -92,7 +95,9 @@ function getWeatherStyle(weather) {
       icon: <CloudRain size={14} color="#89B4F8" strokeWidth={2.5} />,
       label: "Rain",
       temp: tempStr,
-      ambientBg: "radial-gradient(circle at 100% 0%, rgba(137,180,248,0.15), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
+      ambientBg: baseBg,
+      rayClass: "rain-glow-active",
+      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(137,180,248,0.25) 0%, transparent 60%)" }
     };
   }
   // Snow
@@ -101,7 +106,9 @@ function getWeatherStyle(weather) {
       icon: <Snowflake size={14} color="#A7E4F2" strokeWidth={2.5} />,
       label: "Snow",
       temp: tempStr,
-      ambientBg: "radial-gradient(circle at 100% 0%, rgba(167,228,242,0.18), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
+      ambientBg: baseBg,
+      rayClass: "snow-glow-active",
+      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(167,228,242,0.25) 0%, transparent 60%)" }
     };
   }
   // Thunderstorm
@@ -110,7 +117,9 @@ function getWeatherStyle(weather) {
       icon: <CloudLightning size={14} color="#C4A7E7" strokeWidth={2.5} />,
       label: "Storm",
       temp: tempStr,
-      ambientBg: "radial-gradient(circle at 100% 0%, rgba(196,167,231,0.15), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
+      ambientBg: baseBg,
+      rayClass: "storm-glow-active",
+      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(196,167,231,0.25) 0%, transparent 60%)" }
     };
   }
   // Cloudy / Fog
@@ -119,7 +128,9 @@ function getWeatherStyle(weather) {
       icon: <Cloud size={14} color="#B5B9C2" strokeWidth={2.5} />,
       label: "Cloudy",
       temp: tempStr,
-      ambientBg: "radial-gradient(circle at 100% 0%, rgba(181,185,194,0.12), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
+      ambientBg: baseBg,
+      rayClass: "cloud-glow-active",
+      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(181,185,194,0.2) 0%, transparent 60%)" }
     };
   }
   // Clear / Mostly Clear
@@ -128,14 +139,22 @@ function getWeatherStyle(weather) {
       icon: <Sun size={14} color="#F8C455" strokeWidth={2.5} />,
       label: "Clear",
       temp: tempStr,
-      ambientBg: "radial-gradient(circle at 100% 0%, rgba(248,196,85,0.22), transparent 55%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
+      ambientBg: baseBg,
+      rayClass: "sun-rays-active",
+      rayStyle: { 
+        background: "repeating-conic-gradient(from 180deg at 100% 0%, rgba(248,196,85,0.12) 0deg, rgba(248,196,85,0.12) 8deg, transparent 8deg, transparent 18deg), radial-gradient(circle at 100% 0%, rgba(255,230,150,0.4) 0%, transparent 50%)" 
+      }
     };
   } else {
     return {
       icon: <Moon size={14} color="#9EA5F1" strokeWidth={2.5} />,
       label: "Clear",
       temp: tempStr,
-      ambientBg: "radial-gradient(circle at 100% 0%, rgba(158,165,241,0.18), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
+      ambientBg: baseBg,
+      rayClass: "moon-beams-active",
+      rayStyle: { 
+        background: "repeating-conic-gradient(from 180deg at 100% 0%, rgba(158,165,241,0.06) 0deg, rgba(158,165,241,0.06) 12deg, transparent 12deg, transparent 25deg), radial-gradient(circle at 100% 0%, rgba(158,165,241,0.25) 0%, transparent 55%)" 
+      }
     };
   }
 }
@@ -402,6 +421,32 @@ export default function MyVehicle() {
           width: 100%;
           height: 100%;
         }
+        @keyframes spinRays {
+          from { transform: scale(2.5) rotate(0deg); }
+          to { transform: scale(2.5) rotate(360deg); }
+        }
+        .sun-rays-active {
+          transform-origin: 100% 0%;
+          animation: spinRays 120s linear infinite;
+        }
+        @keyframes pulseBeams {
+          0% { transform: scale(2.5) rotate(0deg); opacity: 0.6; }
+          50% { transform: scale(2.5) rotate(5deg); opacity: 1; }
+          100% { transform: scale(2.5) rotate(0deg); opacity: 0.6; }
+        }
+        .moon-beams-active {
+          transform-origin: 100% 0%;
+          animation: pulseBeams 12s ease-in-out infinite;
+        }
+        @keyframes ambientGlow {
+          0% { opacity: 0.5; transform: scale(1.5); }
+          50% { opacity: 1; transform: scale(1.6); }
+          100% { opacity: 0.5; transform: scale(1.5); }
+        }
+        .rain-glow-active, .snow-glow-active, .storm-glow-active, .cloud-glow-active {
+          transform-origin: 100% 0%;
+          animation: ambientGlow 8s ease-in-out infinite;
+        }
       `}</style>
       {inspectionTarget && (
         <VehicleInspectionSheet
@@ -476,6 +521,18 @@ export default function MyVehicle() {
               zIndex: 4,
             }} />
           </div>
+
+          {/* Dynamic weather rays layer (OVER vehicle, UNDER text) */}
+          <div className={weatherStyle.rayClass} style={{
+            position: "absolute",
+            top: 0, right: 0, bottom: 0, left: 0,
+            pointerEvents: "none",
+            zIndex: 1,
+            mixBlendMode: "screen",
+            WebkitMaskImage: "radial-gradient(circle at 100% 0%, black 10%, transparent 70%)",
+            maskImage: "radial-gradient(circle at 100% 0%, black 10%, transparent 70%)",
+            ...weatherStyle.rayStyle,
+          }} />
 
           {/* Foreground text content */}
           <div style={{ position: "relative", zIndex: 2 }}>
