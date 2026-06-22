@@ -289,16 +289,39 @@ export default function MyVehicle() {
     : "N/A";
 
   const handleCommand = async (type) => {
-  if (!pickupInspectionComplete && (type === "lock" || type === "unlock")) {
-  setInspectionTarget({ booking, type: "pickup" });
-  return;
-  }
-  setCommandLoading(type);
-  try {
-  const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
-  const { toast } = await import("sonner");
-  if (type === "lock" || type === "unlock") {
-    await TelematicsService.sendCommand({
+    const isPaymentIssue = booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due";
+    
+    if (isPaymentIssue) {
+      import("sonner").then(({ toast }) => {
+        toast.error("Account Action Required", {
+          description: "Please update your payment method to unlock vehicle controls.",
+          action: { label: "Update Card", onClick: () => window.location.href = "/account" }
+        });
+      });
+      return;
+    }
+
+    if (!isBookingActive && !pickupInspectionComplete && (type === "lock" || type === "unlock")) {
+      import("sonner").then(({ toast }) => {
+        toast.error("Rental Not Started", {
+          description: "You must complete the pickup inspection to unlock the vehicle.",
+          action: { label: "Start Inspection", onClick: () => setInspectionTarget({ booking, type: "pickup" }) }
+        });
+      });
+      return;
+    }
+
+    if (!pickupInspectionComplete && (type === "lock" || type === "unlock")) {
+      setInspectionTarget({ booking, type: "pickup" });
+      return;
+    }
+
+    setCommandLoading(type);
+    try {
+      const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
+      const { toast } = await import("sonner");
+      if (type === "lock" || type === "unlock") {
+        await TelematicsService.sendCommand({
       telematics_device_id: device?.id,
       vehicle_id: vehicle?.id,
       booking_id: booking?.id,
@@ -796,25 +819,25 @@ export default function MyVehicle() {
               {/* Lock */}
               <button
                 onClick={() => booking && handleCommand("lock")}
-                disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
+                disabled={!!commandLoading || dropoffInspectionComplete}
                 className={commandLoading === "lock" ? "btn-loading-spin" : ""}
                 style={{
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: isLocked ? "1.5px solid rgba(48,209,88,0.75)" : "1.5px solid rgba(255,69,58,0.75)",
+                  border: isLocked ? "1.5px solid rgba(48,209,88,0.9)" : "1.5px solid rgba(255,69,58,0.9)",
                   borderRadius: 24,
                   padding: 0,
                   boxShadow: isLocked 
-                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 16px rgba(48,209,88,0.12)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 16px rgba(255,69,58,0.12)",
-                  cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
-                  opacity: (!isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete) && commandLoading !== "lock" ? 0.45 : 1,
+                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 20px rgba(48,209,88,0.2)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 20px rgba(255,69,58,0.2)",
+                  cursor: "pointer",
+                  opacity: dropoffInspectionComplete && commandLoading !== "lock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(48,209,88,0.4))" : "drop-shadow(0 2px 8px rgba(255,69,58,0.4))" }} />
+                  <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(48,209,88,0.5))" : "drop-shadow(0 2px 8px rgba(255,69,58,0.5))" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
                     <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
@@ -827,23 +850,23 @@ export default function MyVehicle() {
               {/* Unlock */}
               <button
                 onClick={() => booking && handleCommand("unlock")}
-                disabled={!isBookingActive || !!commandLoading || !pickupInspectionComplete || dropoffInspectionComplete}
+                disabled={!!commandLoading || dropoffInspectionComplete}
                 className={commandLoading === "unlock" ? "btn-loading-spin" : ""}
                 style={{
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1.5px solid rgba(255,255,255,0.6)",
+                  border: "1.5px solid rgba(255,255,255,0.85)",
                   borderRadius: 24,
                   padding: 0,
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 12px rgba(255,255,255,0.05)",
-                  cursor: isBookingActive && pickupInspectionComplete ? "pointer" : "default",
-                  opacity: (!isBookingActive || !pickupInspectionComplete || dropoffInspectionComplete) && commandLoading !== "unlock" ? 0.45 : 1,
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 18px rgba(255,255,255,0.1)",
+                  cursor: "pointer",
+                  opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} style={{ filter: "drop-shadow(0 2px 8px rgba(255,255,255,0.3))" }} />
+                  <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} style={{ filter: "drop-shadow(0 2px 8px rgba(255,255,255,0.4))" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
                     <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
@@ -854,20 +877,20 @@ export default function MyVehicle() {
               {/* Find Vehicle */}
               <button
                 onClick={() => booking && handleCommand("find")}
-                disabled={!isBookingActive || !!commandLoading || dropoffInspectionComplete}
+                disabled={!!commandLoading || dropoffInspectionComplete}
                 className={commandLoading === "find" ? "btn-loading-spin" : ""}
                 style={{
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1.5px solid rgba(47,128,255,0.25)",
+                  border: "1.5px solid rgba(47,128,255,0.6)",
                   borderRadius: 24,
                   padding: 0,
-                  boxShadow: isBookingActive && !dropoffInspectionComplete
-                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 18px rgba(47,128,255,0.075)"
+                  boxShadow: !dropoffInspectionComplete
+                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 20px rgba(47,128,255,0.15)"
                     : "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)",
-                  opacity: (!isBookingActive || dropoffInspectionComplete) && commandLoading !== "find" ? 0.45 : 1,
-                  cursor: isBookingActive && !dropoffInspectionComplete ? "pointer" : "default",
+                  opacity: dropoffInspectionComplete && commandLoading !== "find" ? 0.45 : 1,
+                  cursor: !dropoffInspectionComplete ? "pointer" : "default",
                   transition: "all 0.2s ease-in-out",
                 }}
               >
@@ -892,12 +915,14 @@ export default function MyVehicle() {
               style={{
                 width: "100%",
                 background: "rgba(255,69,58,0.05)",
-                border: "1px solid rgba(255,69,58,0.25)",
+                border: "1.5px solid rgba(255,69,58,0.5)",
                 borderRadius: 22,
                 padding: "14px 16px",
                 display: "flex", alignItems: "center", gap: 12,
                 marginBottom: 10,
                 cursor: "pointer",
+                boxShadow: "0 0 16px rgba(255,69,58,0.08)",
+                transition: "all 0.2s",
               }}
             >
               <div style={{
