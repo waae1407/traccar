@@ -495,7 +495,7 @@ export default function MyVehicle() {
               </div>
               <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 22, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>{battInfo.pct}%</p>
+                <p style={{ fontSize: 22, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery Health</p>
               </div>
             </div>
@@ -597,16 +597,19 @@ export default function MyVehicle() {
 
             {/* Battery Health (Hybrid View) */}
             <div style={{ flex: 0.8 }}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <div style={{ position: "relative", width: 16, height: 9, borderRadius: 2, border: "1px solid #71717A", display: "flex", alignItems: "center", padding: 1 }}>
+              <div className="flex items-start gap-1.5 mb-1">
+                <div style={{ position: "relative", width: 16, height: 9, borderRadius: 2, border: "1px solid #71717A", display: "flex", alignItems: "center", padding: 1, marginTop: 2, flexShrink: 0 }}>
                   <div style={{ position: "absolute", right: -2, top: 2, width: 1.5, height: 3, background: "#71717A", borderRadius: "0 1px 1px 0" }} />
                   <div style={{ height: "100%", width: `${battInfo.pct}%`, background: battInfo.color, borderRadius: 1, transition: "width 0.3s ease, background 0.3s ease" }} />
                 </div>
-                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Battery Health</p>
+                <div style={{ lineHeight: 1.2 }}>
+                  <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Battery</p>
+                  <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Health</p>
+                </div>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                 <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
-                <p style={{ fontSize: 10, color: battInfo.color, fontWeight: 500 }}>{battInfo.label}</p>
+                <p style={{ fontSize: 11, color: battInfo.color, fontWeight: 500 }}>{battInfo.label}</p>
               </div>
             </div>
 
