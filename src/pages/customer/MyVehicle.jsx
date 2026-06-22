@@ -630,22 +630,22 @@ export default function MyVehicle() {
               <div>
                 <p style={{ fontSize: 26, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.4px", maxWidth: 280, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 12px", marginTop: 8 }}>
-                  <span style={{ color: isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93", textShadow: isDemo || device?.online_status === "online" ? "0 0 12px rgba(48,209,88,0.4)" : "none", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Satellite size={13} color={isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} style={isDemo || device?.online_status === "online" ? { filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" } : {}} />
+                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Satellite size={13} color={isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
                     {isDemo || device?.online_status === "online" ? "Connected" : "Disconnected"}
                   </span>
 
-                  <span style={{ color: isLocked ? "#30D158" : "#FF453A", textShadow: isLocked ? "0 0 12px rgba(48,209,88,0.4)" : "0 0 12px rgba(255,69,58,0.4)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
                     {isLocked ? (
-                      <Lock size={13} color="#30D158" strokeWidth={2.5} style={{ filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" }} />
+                      <Lock size={13} color="#30D158" strokeWidth={2.5} />
                     ) : (
-                      <Unlock size={13} color="#FF453A" strokeWidth={2.5} style={{ filter: "drop-shadow(0 0 6px rgba(255,69,58,0.5))" }} />
+                      <Unlock size={13} color="#FF453A" strokeWidth={2.5} />
                     )}
                     {isLocked ? "Locked" : "Unlocked"}
                   </span>
 
-                  <span style={{ color: "#30D158", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Car size={13} color="#30D158" strokeWidth={2.5} />
+                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Car size={13} color={isDemo || isBookingActive || (!pickupInspectionComplete && booking) ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
                     {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
                   </span>
 
