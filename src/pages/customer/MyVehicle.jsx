@@ -35,6 +35,35 @@ function vehicleName(vehicle, booking) {
   return vehicle?.display_name || [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean).join(" ") || booking?.vehicle_name || "My Vehicle";
 }
 
+function getBatteryInfo(device) {
+  const voltage = device?.power_voltage || device?.battery_voltage || 0;
+  if (!voltage) return { pct: 0, label: "Unknown", color: "#71717A", voltage: "0.0" };
+  
+  let pct = 0;
+  if (device?.ignition_status === 'on' || voltage >= 13.0) {
+    pct = 100;
+  } else {
+    pct = Math.max(0, Math.min(100, Math.round(((voltage - 11.8) / (12.6 - 11.8)) * 100)));
+  }
+
+  let label = "Good";
+  let color = "#30D158";
+  if (voltage < 11.8) {
+    label = "Critical";
+    color = "#FF453A";
+  } else if (voltage <= 12.1) {
+    label = "Low";
+    color = "#FF9F0A";
+  }
+  
+  if (device?.ignition_status === 'on' || voltage >= 13.0) {
+    label = "Charging";
+    color = "#30D158";
+  }
+
+  return { pct, label, color, voltage: voltage.toFixed(1) };
+}
+
 function freshness(device) {
   const value = device?.last_seen_at || device?.location_updated_at;
   if (!value) return { label: "No GPS", status: "offline" };
@@ -260,6 +289,7 @@ export default function MyVehicle() {
   // Demo mode: no active booking — show preview with placeholder data
   const isDemo = !booking;
   const name = isDemo ? "2018 Toyota Mirai" : vehicleName(vehicle, booking);
+  const battInfo = isDemo ? { pct: 100, label: "Good", color: "#30D158", voltage: "12.8" } : getBatteryInfo(device);
   const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
   const dropoffInspectionComplete = booking?.return_exterior_photos?.length > 0 || booking?.return_interior_photos?.length > 0;
   const isBookingActive = !isDemo && booking
@@ -465,8 +495,8 @@ export default function MyVehicle() {
               </div>
               <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 22, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>72%</p>
-                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Hydrogen</p>
+                <p style={{ fontSize: 22, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>{battInfo.pct}%</p>
+                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery</p>
               </div>
             </div>
 
@@ -565,13 +595,19 @@ export default function MyVehicle() {
 
             <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.08)", margin: "0 10px" }} />
 
-            {/* Hydrogen */}
+            {/* Battery Health (Hybrid View) */}
             <div style={{ flex: 0.8 }}>
               <div className="flex items-center gap-1.5 mb-1">
-                <Fuel size={13} color="#71717A" />
-                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Hydrogen</p>
+                <div style={{ position: "relative", width: 16, height: 9, borderRadius: 2, border: "1px solid #71717A", display: "flex", alignItems: "center", padding: 1 }}>
+                  <div style={{ position: "absolute", right: -2, top: 2, width: 1.5, height: 3, background: "#71717A", borderRadius: "0 1px 1px 0" }} />
+                  <div style={{ height: "100%", width: `${battInfo.pct}%`, background: battInfo.color, borderRadius: 1, transition: "width 0.3s ease, background 0.3s ease" }} />
+                </div>
+                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Battery</p>
               </div>
-              <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", fontVariantNumeric: "tabular-nums" }}>72%</p>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
+                <p style={{ fontSize: 10, color: battInfo.color, fontWeight: 500 }}>{battInfo.label}</p>
+              </div>
             </div>
 
             <ChevronRight size={16} color="#71717A" style={{ marginLeft: 4 }} />
