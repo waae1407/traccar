@@ -10,6 +10,20 @@ import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
 
+function getCompassDirection(course) {
+  if (course === undefined || course === null) return "Unknown";
+  const val = course % 360;
+  if (val >= 337.5 || val < 22.5) return `${val}° (North)`;
+  if (val >= 22.5 && val < 67.5) return `${val}° (NE)`;
+  if (val >= 67.5 && val < 112.5) return `${val}° (East)`;
+  if (val >= 112.5 && val < 157.5) return `${val}° (SE)`;
+  if (val >= 157.5 && val < 202.5) return `${val}° (South)`;
+  if (val >= 202.5 && val < 247.5) return `${val}° (SW)`;
+  if (val >= 247.5 && val < 292.5) return `${val}° (West)`;
+  if (val >= 292.5 && val < 337.5) return `${val}° (NW)`;
+  return `${val}°`;
+}
+
 function isOperationalRental(booking) {
   if (!booking || booking.rental_ended_at) return false;
   if (!ACTIVE_RENTAL_STATUSES.includes(booking.booking_status)) return false;
@@ -797,8 +811,8 @@ export default function MyVehicle() {
                     <DiagRow label="Doors" value={device?.door_open ? "Open" : "Closed"} isAlert={device?.door_open} />
                     <DiagRow label="Trunk" value={device?.trunk_open ? "Open" : "Closed"} isAlert={device?.trunk_open} />
                     <DiagRow label="Starter Circuit" value={device?.starter_disabled ? "Disabled" : "Normal"} isAlert={device?.starter_disabled} />
-                    <DiagRow label="Hood Wire Volt" value={device?.hood_wire_voltage ? `${device.hood_wire_voltage}V` : "0.0V"} />
-                    <DiagRow label="Door Wire Volt" value={device?.door_wire_voltage ? `${device.door_wire_voltage}V` : "0.0V"} />
+                    <DiagRow label="Hood Wire Volt" value={device?.hood_wire_voltage ? `${device.hood_wire_voltage}V (Analog)` : "0.0V (Analog)"} />
+                    <DiagRow label="Door Wire Volt" value={device?.door_wire_voltage ? `${device.door_wire_voltage}V (Analog)` : "0.0V (Analog)"} />
                   </div>
                 </div>
 
@@ -818,16 +832,16 @@ export default function MyVehicle() {
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Environmental</p>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
                     <DiagRow label="Smoke Sensor" value={device?.smoke_detected ? "Detected" : "Clear"} isAlert={device?.smoke_detected} />
-                    <DiagRow label="Smoke Voltage" value={device?.smoke_voltage ? `${device.smoke_voltage}V` : "0.0V"} />
+                    <DiagRow label="Smoke Voltage" value={device?.smoke_voltage ? `${device.smoke_voltage}V (Analog)` : "0.0V (Analog)"} />
                   </div>
                 </div>
 
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Raw Data</p>
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
-                    <DiagRow label="Bluetooth" value={device?.bluetooth_on ? "Enabled" : "Disabled"} />
-                    <DiagRow label="Direction Heading" value={device?.course ? `${device.course}°` : "0°"} />
-                    <DiagRow label="Device Mileage" value={device?.device_mileage ? `${device.device_mileage} mi` : "0 mi"} />
+                    <DiagRow label="Bluetooth" value={device?.bluetooth_on ? "Active" : "Inactive"} />
+                    <DiagRow label="Direction Heading" value={getCompassDirection(device?.course)} />
+                    <DiagRow label="Device Mileage" value={device?.device_mileage ? `${device.device_mileage.toLocaleString()} miles` : "0 miles"} />
                   </div>
                 </div>
               </div>
