@@ -478,8 +478,9 @@ export default function MyVehicle() {
                     {isDemo || device?.online_status === "online" ? "Online" : "Offline"}
                   </span>
                   <span style={{ color: "rgba(255,255,255,0.24)", fontSize: 12, margin: "0 3px" }}>|</span>
-                  <span style={{ color: isDemo || isBookingActive ? "rgba(255,255,255,0.76)" : "#FF453A", fontSize: 12, fontWeight: isDemo || isBookingActive ? 450 : 600 }}>
+                  <span style={{ color: isDemo || isBookingActive ? "rgba(255,255,255,0.76)" : "#FF453A", fontSize: 12, fontWeight: isDemo || isBookingActive ? 450 : 600, display: "flex", alignItems: "center", gap: 4 }}>
                     {isDemo ? "Active" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive")}
+                    <Satellite size={13} color={isDemo || gps.status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} style={isDemo || gps.status === "online" ? { filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" } : {}} />
                   </span>
                 </div>
               </div>
@@ -512,16 +513,7 @@ export default function MyVehicle() {
               </div>
             </div>
 
-            {/* Status icons row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 2 }}>
-              <SignalBarsIcon strength={isDemo ? 100 : (device?.signal_strength ?? 100)} />
-              {isDemo || !device?.door_open ? (
-                <Lock size={16} color="#30D158" strokeWidth={2} style={{ filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" }} />
-              ) : (
-                <Unlock size={16} color="#FF453A" strokeWidth={2} style={{ filter: "drop-shadow(0 0 6px rgba(255,69,58,0.5))" }} />
-              )}
-              <Satellite size={17} color={isDemo || gps.status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={1.5} style={isDemo || gps.status === "online" ? { filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" } : {}} />
-            </div>
+            {/* Removed redundant status icons to free up map space */}
           </div>
         </div>
 
@@ -546,11 +538,18 @@ export default function MyVehicle() {
                   <p style={{ fontSize: 11, color: "#8E8E93", marginTop: 2, fontWeight: 400 }}>Updated {gps.label}</p>
                 </div>
               </div>
-              <button style={{
+              <button 
+                onClick={() => {
+                  if (device?.last_latitude && device?.last_longitude) {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+                  }
+                }}
+                style={{
                 width: 34, height: 34, borderRadius: "50%",
                 background: "#24252A",
                 border: "1px solid rgba(255,255,255,0.1)",
                 display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer",
               }}>
                 <Navigation size={15} color="#FFFFFF" style={{ transform: "rotate(45deg)" }} />
               </button>
@@ -641,7 +640,12 @@ export default function MyVehicle() {
               </p>
             </div>
 
-            <ChevronRight size={16} color="#71717A" style={{ marginLeft: 4 }} />
+            <button 
+              onClick={() => window.location.href = '/my-bookings'}
+              style={{ background: 'transparent', border: 'none', padding: '12px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              <ChevronRight size={18} color="#71717A" />
+            </button>
           </div>
 
           {/* ── REMOTE CONTROLS ── */}
