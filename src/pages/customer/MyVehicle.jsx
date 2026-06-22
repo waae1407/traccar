@@ -422,30 +422,62 @@ export default function MyVehicle() {
           height: 100%;
         }
         @keyframes spinRays {
-          from { transform: scale(2.5) rotate(0deg); }
-          to { transform: scale(2.5) rotate(360deg); }
+          0% { transform: scale(2.5) rotate(0deg); opacity: 0.8; }
+          50% { transform: scale(2.5) rotate(180deg); opacity: 1; }
+          100% { transform: scale(2.5) rotate(360deg); opacity: 0.8; }
         }
         .sun-rays-active {
           transform-origin: 100% 0%;
           animation: spinRays 120s linear infinite;
         }
         @keyframes pulseBeams {
-          0% { transform: scale(2.5) rotate(0deg); opacity: 0.6; }
+          0% { transform: scale(2.5) rotate(0deg); opacity: 0.7; }
           50% { transform: scale(2.5) rotate(5deg); opacity: 1; }
-          100% { transform: scale(2.5) rotate(0deg); opacity: 0.6; }
+          100% { transform: scale(2.5) rotate(0deg); opacity: 0.7; }
         }
         .moon-beams-active {
           transform-origin: 100% 0%;
           animation: pulseBeams 12s ease-in-out infinite;
         }
         @keyframes ambientGlow {
-          0% { opacity: 0.5; transform: scale(1.5); }
-          50% { opacity: 1; transform: scale(1.6); }
-          100% { opacity: 0.5; transform: scale(1.5); }
+          0% { opacity: 0.7; transform: scale(1.5); }
+          50% { opacity: 1; transform: scale(1.55); }
+          100% { opacity: 0.7; transform: scale(1.5); }
         }
-        .rain-glow-active, .snow-glow-active, .storm-glow-active, .cloud-glow-active {
+        .cloud-glow-active {
           transform-origin: 100% 0%;
           animation: ambientGlow 8s ease-in-out infinite;
+        }
+        
+        @keyframes rainFall {
+          0% { background-position: 0 0, 0px 0px, 0px 0px; }
+          100% { background-position: 0 0, -20px 100px, -40px 200px; }
+        }
+        .rain-glow-active {
+          background-image: radial-gradient(circle at 100% 0%, rgba(137,180,248,0.3) 0%, transparent 70%),
+                            repeating-linear-gradient(20deg, transparent, transparent 15px, rgba(255,255,255,0.15) 15px, rgba(255,255,255,0.15) 16px),
+                            repeating-linear-gradient(20deg, transparent, transparent 25px, rgba(255,255,255,0.08) 25px, rgba(255,255,255,0.08) 27px) !important;
+          background-size: 100% 100%, 200% 200%, 200% 200%;
+          animation: rainFall 1.2s linear infinite;
+        }
+        .storm-glow-active {
+          background-image: radial-gradient(circle at 100% 0%, rgba(196,167,231,0.3) 0%, transparent 70%),
+                            repeating-linear-gradient(25deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 11px),
+                            repeating-linear-gradient(25deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 22px) !important;
+          background-size: 100% 100%, 200% 200%, 200% 200%;
+          animation: rainFall 0.8s linear infinite;
+        }
+        
+        @keyframes snowFall {
+          0% { background-position: 0 0, 0px 0px, 0px 0px; }
+          100% { background-position: 0 0, -15px 50px, 20px 80px; }
+        }
+        .snow-glow-active {
+          background-image: radial-gradient(circle at 100% 0%, rgba(167,228,242,0.3) 0%, transparent 70%),
+                            radial-gradient(circle, rgba(255,255,255,0.6) 1.5px, transparent 1.5px),
+                            radial-gradient(circle, rgba(255,255,255,0.3) 2.5px, transparent 2.5px) !important;
+          background-size: 100% 100%, 30px 30px, 50px 50px;
+          animation: snowFall 4s linear infinite;
         }
       `}</style>
       {inspectionTarget && (
