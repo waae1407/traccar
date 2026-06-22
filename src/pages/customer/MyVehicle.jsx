@@ -629,15 +629,29 @@ export default function MyVehicle() {
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
                 <p style={{ fontSize: 26, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.4px", maxWidth: 280, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93", boxShadow: isDemo || device?.online_status === "online" ? "0 0 10px rgba(48,209,88,0.5)" : "none", display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ color: isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93", textShadow: isDemo || device?.online_status === "online" ? "0 0 12px rgba(48,209,88,0.4)" : "none", fontSize: 12, fontWeight: 500 }}>
-                    {isDemo || device?.online_status === "online" ? "Online" : "Offline"}
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 12px", marginTop: 8 }}>
+                  <span style={{ color: isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93", textShadow: isDemo || device?.online_status === "online" ? "0 0 12px rgba(48,209,88,0.4)" : "none", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Satellite size={13} color={isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} style={isDemo || device?.online_status === "online" ? { filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" } : {}} />
+                    {isDemo || device?.online_status === "online" ? "Connected" : "Disconnected"}
                   </span>
-                  <span style={{ color: "rgba(255,255,255,0.24)", fontSize: 12, margin: "0 3px" }}>|</span>
-                  <span style={{ color: isDemo || isBookingActive ? "rgba(255,255,255,0.76)" : "#FF453A", fontSize: 12, fontWeight: isDemo || isBookingActive ? 450 : 600, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Satellite size={13} color={isDemo || gps.status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} style={isDemo || gps.status === "online" ? { filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" } : {}} />
-                    {isDemo ? "Active" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive")}
+
+                  <span style={{ color: isLocked ? "#30D158" : "#FF453A", textShadow: isLocked ? "0 0 12px rgba(48,209,88,0.4)" : "0 0 12px rgba(255,69,58,0.4)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                    {isLocked ? (
+                      <Lock size={13} color="#30D158" strokeWidth={2.5} style={{ filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" }} />
+                    ) : (
+                      <Unlock size={13} color="#FF453A" strokeWidth={2.5} style={{ filter: "drop-shadow(0 0 6px rgba(255,69,58,0.5))" }} />
+                    )}
+                    {isLocked ? "Locked" : "Unlocked"}
+                  </span>
+
+                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Car size={13} color="#A1A1AA" strokeWidth={2.5} />
+                    {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
+                  </span>
+
+                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Zap size={13} color={battInfo.color} strokeWidth={2.5} />
+                    {battInfo.voltage}V
                   </span>
                 </div>
               </div>
@@ -662,15 +676,10 @@ export default function MyVehicle() {
             </div>
 
             {/* Stats — inline, large, bold */}
-            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14, marginTop: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14, marginTop: 14 }}>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{displayMiles} mi</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>{displayLabel}</p>
-              </div>
-              <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
-                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery Health</p>
               </div>
             </div>
 
