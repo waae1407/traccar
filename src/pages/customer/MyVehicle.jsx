@@ -496,7 +496,7 @@ export default function MyVehicle() {
               <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
               <div>
                 <p style={{ fontSize: 22, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>{battInfo.pct}%</p>
-                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery</p>
+                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery Health</p>
               </div>
             </div>
 
@@ -602,7 +602,7 @@ export default function MyVehicle() {
                   <div style={{ position: "absolute", right: -2, top: 2, width: 1.5, height: 3, background: "#71717A", borderRadius: "0 1px 1px 0" }} />
                   <div style={{ height: "100%", width: `${battInfo.pct}%`, background: battInfo.color, borderRadius: 1, transition: "width 0.3s ease, background 0.3s ease" }} />
                 </div>
-                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Battery</p>
+                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Battery Health</p>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                 <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
