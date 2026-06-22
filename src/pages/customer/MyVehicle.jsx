@@ -598,16 +598,16 @@ export default function MyVehicle() {
             {/* Battery Health (Hybrid View) */}
             <div style={{ flex: 0.8 }}>
               <div className="flex items-start gap-1.5 mb-1">
-                <div style={{ position: "relative", width: 16, height: 9, borderRadius: 2, border: "1px solid #71717A", display: "flex", alignItems: "center", padding: 1, marginTop: 2, flexShrink: 0 }}>
-                  <div style={{ position: "absolute", right: -2, top: 2, width: 1.5, height: 3, background: "#71717A", borderRadius: "0 1px 1px 0" }} />
-                  <div style={{ height: "100%", width: `${battInfo.pct}%`, background: battInfo.color, borderRadius: 1, transition: "width 0.3s ease, background 0.3s ease" }} />
+                <div style={{ position: "relative", width: 10, height: 16, borderRadius: 2, border: "1.5px solid #71717A", display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: 1, marginTop: 3, flexShrink: 0 }}>
+                  <div style={{ position: "absolute", top: -2, left: "50%", transform: "translateX(-50%)", width: 4, height: 1.5, background: "#71717A", borderRadius: "1px 1px 0 0" }} />
+                  <div style={{ width: "100%", height: `${battInfo.pct}%`, background: battInfo.color, borderRadius: 1, transition: "height 0.3s ease, background 0.3s ease" }} />
                 </div>
-                <div style={{ lineHeight: 1.2 }}>
+                <div style={{ lineHeight: 1.1 }}>
                   <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Battery</p>
                   <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Health</p>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 4 }}>
                 <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
                 <p style={{ fontSize: 11, color: battInfo.color, fontWeight: 500 }}>{battInfo.label}</p>
               </div>
