@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap } from "lucide-react";
+import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
@@ -142,11 +142,21 @@ function HornIcon({ color = "#2F80FF" }) {
   );
 }
 
+function DiagRow({ label, value, isAlert }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <span style={{ fontSize: 13, color: "#A1A1AA" }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: isAlert ? "#FF453A" : "#F5F5F7" }}>{value}</span>
+    </div>
+  );
+}
+
 export default function MyVehicle() {
   const { user, isLoading: authLoading } = useAuth();
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [commandLoading, setCommandLoading] = useState(null);
   const [isLocked, setIsLocked] = useState(true); // Optimistic lock state
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email],
@@ -248,6 +258,11 @@ export default function MyVehicle() {
   const weatherStyle = getWeatherStyle(weather);
   const locationLabel = device?.address || "Vehicle Location";
   const locationSub = device?.last_latitude ? `${device.last_latitude.toFixed(4)}, ${device.last_longitude.toFixed(4)}` : "Locating...";
+
+  const activeAlarms = [];
+  if (device?.smoke_detected) activeAlarms.push({ id: 'smoke', label: 'Smoke Detected in Cabin', icon: Flame, color: '#FF453A' });
+  if (device?.shock_alarm) activeAlarms.push({ id: 'shock', label: 'Impact / Shock Detected', icon: Activity, color: '#FF9F0A' });
+  if (device?.power_cut_alarm) activeAlarms.push({ id: 'power_cut', label: 'Main Power Cut', icon: ZapOff, color: '#FF453A' });
 
   return (
     <div style={{ background: "#050506", minHeight: "100vh", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em" }}>
@@ -385,6 +400,18 @@ export default function MyVehicle() {
 
           {/* Foreground text content */}
           <div style={{ position: "relative", zIndex: 2 }}>
+            {/* Active Alert Banners */}
+            {activeAlarms.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                {activeAlarms.map(alarm => (
+                  <div key={alarm.id} style={{ background: "rgba(255,69,58,0.15)", border: `1px solid ${alarm.color}`, borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 8, backdropFilter: "blur(10px)" }}>
+                    <alarm.icon size={18} color={alarm.color} />
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#FFF", margin: 0 }}>{alarm.label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Top row: name + icons */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
@@ -721,9 +748,72 @@ export default function MyVehicle() {
                 );
               })}
             </div>
+
+            <button
+              onClick={() => setShowDiagnostics(true)}
+              style={{
+                width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 16, padding: "12px", display: "flex", alignItems: "center", justifyContent: "center",
+                gap: 8, marginTop: 12, cursor: "pointer", transition: "all 0.2s"
+              }}
+            >
+              <Settings2 size={16} color="#A1A1AA" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#E4E4E7" }}>View Full Diagnostics</span>
+            </button>
           </div>
 
         </div>
+
+        {/* Full Diagnostics Bottom Sheet */}
+        {showDiagnostics && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end"
+          }}>
+            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={() => setShowDiagnostics(false)} />
+            <div style={{
+              position: "relative", background: "#17181C", borderTop: "1px solid rgba(255,255,255,0.1)",
+              borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: "24px 20px 40px",
+              boxShadow: "0 -10px 40px rgba(0,0,0,0.5)", animation: "fade-in-up 0.3s ease-out"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: "#FFF", margin: 0 }}>System Diagnostics</h3>
+                  <p style={{ fontSize: 12, color: "#A1A1AA", margin: "2px 0 0" }}>Raw telemetry from MT20 interface</p>
+                </div>
+                <button onClick={() => setShowDiagnostics(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                  <X size={16} color="#FFF" />
+                </button>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Security & Access</p>
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                  <DiagRow label="Doors" value={device?.door_open ? "Open" : "Closed"} isAlert={device?.door_open} />
+                  <DiagRow label="Trunk" value={device?.trunk_open ? "Open" : "Closed"} isAlert={device?.trunk_open} />
+                  <DiagRow label="Hood Wire Volt" value={device?.hood_wire_voltage ? `${device.hood_wire_voltage}V` : "0.0V"} />
+                  <DiagRow label="Door Wire Volt" value={device?.door_wire_voltage ? `${device.door_wire_voltage}V` : "0.0V"} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Environmental</p>
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                  <DiagRow label="Smoke Sensor" value={device?.smoke_detected ? "Detected" : "Clear"} isAlert={device?.smoke_detected} />
+                  <DiagRow label="Smoke Voltage" value={device?.smoke_voltage ? `${device.smoke_voltage}V` : "0.0V"} />
+                </div>
+              </div>
+
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Raw Data</p>
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                  <DiagRow label="Bluetooth" value={device?.bluetooth_on ? "Enabled" : "Disabled"} />
+                  <DiagRow label="Direction Heading" value={device?.course ? `${device.course}°` : "0°"} />
+                  <DiagRow label="Device Mileage" value={device?.device_mileage ? `${device.device_mileage} mi` : "0 mi"} />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── BOTTOM NAVIGATION ── */}
         <div style={{

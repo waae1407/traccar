@@ -336,8 +336,7 @@
     },
     "last_inbound_packet_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Timestamp of the most recent inbound packet received by Traccar from this device"
+      "format": "date-time"
     },
     "last_inbound_packet_type": {
       "type": "string",
@@ -348,21 +347,17 @@
         "command_response",
         "heartbeat",
         "unknown"
-      ],
-      "description": "Type of the most recent inbound packet"
+      ]
     },
     "last_inbound_source": {
-      "type": "string",
-      "description": "Source identifier of the forwarder log"
+      "type": "string"
     },
     "last_inbound_raw_hex": {
-      "type": "string",
-      "description": "Raw hex prefix of the last inbound packet"
+      "type": "string"
     },
     "udp_session_fresh_until": {
       "type": "string",
-      "format": "date-time",
-      "description": "Calculated expiry time for UDP session"
+      "format": "date-time"
     },
     "udp_session_status": {
       "type": "string",
@@ -371,28 +366,75 @@
         "stale",
         "unknown"
       ],
-      "default": "unknown",
-      "description": "Freshness state of the Traccar UDP session"
+      "default": "unknown"
     },
     "post_heartbeat_release_delay_seconds": {
       "type": "number",
       "default": 0,
-      "description": "Delay in seconds before releasing queued command after heartbeat (0-30). Use 0 for immediate release.",
       "minimum": 0,
       "maximum": 30
     },
     "last_heartbeat_received_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "Timestamp of last MT20 heartbeat (0x000f) packet"
+      "format": "date-time"
     },
     "last_heartbeat_source_ip": {
-      "type": "string",
-      "description": "Source IP from last heartbeat packet"
+      "type": "string"
     },
     "last_heartbeat_source_port": {
-      "type": "string",
-      "description": "Source port from last heartbeat packet"
+      "type": "string"
+    },
+    "smoke_detected": {
+      "type": "boolean",
+      "default": false
+    },
+    "smoke_voltage": {
+      "type": "number"
+    },
+    "door_open": {
+      "type": "boolean",
+      "default": false
+    },
+    "trunk_open": {
+      "type": "boolean",
+      "default": false
+    },
+    "bluetooth_on": {
+      "type": "boolean",
+      "default": false
+    },
+    "hood_wire_voltage": {
+      "type": "number"
+    },
+    "door_wire_voltage": {
+      "type": "number"
+    },
+    "device_mileage": {
+      "type": "number"
+    },
+    "shock_alarm": {
+      "type": "boolean",
+      "default": false
+    },
+    "power_cut_alarm": {
+      "type": "boolean",
+      "default": false
+    },
+    "low_battery_alarm": {
+      "type": "boolean",
+      "default": false
+    },
+    "overspeed_alarm": {
+      "type": "boolean",
+      "default": false
+    },
+    "movement_alarm": {
+      "type": "boolean",
+      "default": false
+    },
+    "geofence_alarm": {
+      "type": "boolean",
+      "default": false
     }
   },
   "required": [
