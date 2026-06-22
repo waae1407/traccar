@@ -825,19 +825,19 @@ export default function MyVehicle() {
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: isLocked ? "1.5px solid rgba(48,209,88,0.5)" : "1.5px solid rgba(255,69,58,0.5)",
+                  border: isLocked ? "1.5px solid rgba(48,209,88,0.3)" : "1.5px solid rgba(255,69,58,0.3)",
                   borderRadius: 24,
                   padding: 0,
                   boxShadow: isLocked 
-                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 14px rgba(48,209,88,0.12)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 14px rgba(255,69,58,0.12)",
+                    ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 10px rgba(48,209,88,0.08)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 10px rgba(255,69,58,0.08)",
                   cursor: "pointer",
                   opacity: dropoffInspectionComplete && commandLoading !== "lock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(48,209,88,0.3))" : "drop-shadow(0 2px 8px rgba(255,69,58,0.3))" }} />
+                  <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 8px rgba(255,69,58,0.2))" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
                     <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
@@ -856,17 +856,17 @@ export default function MyVehicle() {
                   position: "relative",
                   aspectRatio: "1",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1.5px solid rgba(255,255,255,0.4)",
+                  border: "1.5px solid rgba(255,255,255,0.25)",
                   borderRadius: 24,
                   padding: 0,
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 12px rgba(255,255,255,0.06)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 10px rgba(255,255,255,0.04)",
                   cursor: "pointer",
                   opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} style={{ filter: "drop-shadow(0 2px 8px rgba(255,255,255,0.4))" }} />
+                  <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} style={{ filter: "drop-shadow(0 2px 8px rgba(255,255,255,0.2))" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
                     <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
