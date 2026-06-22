@@ -76,11 +76,10 @@ function freshness(device) {
 function getWeatherStyle(weather) {
   if (!weather?.current_weather) {
     return {
-      icon: <Cloud size={26} color="#A1A1AA" strokeWidth={1.5} />,
+      icon: <Cloud size={14} color="#A1A1AA" strokeWidth={2.5} />,
       label: "Weather",
       temp: "--°",
-      border: "1px solid rgba(255,255,255,0.10)",
-      glow: "rgba(255,255,255,0.02)"
+      ambientBg: "radial-gradient(circle at 100% 0%, rgba(255,255,255,0.06), transparent 40%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
     };
   }
   
@@ -90,59 +89,53 @@ function getWeatherStyle(weather) {
   // Rain / Drizzle / Showers
   if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(weathercode)) {
     return {
-      icon: <CloudRain size={26} color="#89B4F8" strokeWidth={1.5} />,
+      icon: <CloudRain size={14} color="#89B4F8" strokeWidth={2.5} />,
       label: "Rain",
       temp: tempStr,
-      border: "1.5px solid rgba(137,180,248,0.25)",
-      glow: "rgba(137,180,248,0.075)"
+      ambientBg: "radial-gradient(circle at 100% 0%, rgba(137,180,248,0.15), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
     };
   }
   // Snow
   if ([71,73,75,77,85,86].includes(weathercode)) {
     return {
-      icon: <Snowflake size={26} color="#A7E4F2" strokeWidth={1.5} />,
+      icon: <Snowflake size={14} color="#A7E4F2" strokeWidth={2.5} />,
       label: "Snow",
       temp: tempStr,
-      border: "1.5px solid rgba(167,228,242,0.25)",
-      glow: "rgba(167,228,242,0.075)"
+      ambientBg: "radial-gradient(circle at 100% 0%, rgba(167,228,242,0.18), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
     };
   }
   // Thunderstorm
   if ([95,96,99].includes(weathercode)) {
     return {
-      icon: <CloudLightning size={26} color="#C4A7E7" strokeWidth={1.5} />,
+      icon: <CloudLightning size={14} color="#C4A7E7" strokeWidth={2.5} />,
       label: "Storm",
       temp: tempStr,
-      border: "1.5px solid rgba(196,167,231,0.25)",
-      glow: "rgba(196,167,231,0.075)"
+      ambientBg: "radial-gradient(circle at 100% 0%, rgba(196,167,231,0.15), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
     };
   }
   // Cloudy / Fog
   if ([2,3,45,48].includes(weathercode)) {
     return {
-      icon: <Cloud size={26} color="#B5B9C2" strokeWidth={1.5} />,
+      icon: <Cloud size={14} color="#B5B9C2" strokeWidth={2.5} />,
       label: "Cloudy",
       temp: tempStr,
-      border: "1.5px solid rgba(181,185,194,0.25)",
-      glow: "rgba(181,185,194,0.05)"
+      ambientBg: "radial-gradient(circle at 100% 0%, rgba(181,185,194,0.12), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
     };
   }
   // Clear / Mostly Clear
   if (is_day) {
     return {
-      icon: <Sun size={26} color="#F8C455" strokeWidth={1.5} />,
+      icon: <Sun size={14} color="#F8C455" strokeWidth={2.5} />,
       label: "Clear",
       temp: tempStr,
-      border: "1.5px solid rgba(248,196,85,0.25)",
-      glow: "rgba(248,196,85,0.075)"
+      ambientBg: "radial-gradient(circle at 100% 0%, rgba(248,196,85,0.22), transparent 55%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
     };
   } else {
     return {
-      icon: <Moon size={26} color="#9EA5F1" strokeWidth={1.5} />,
+      icon: <Moon size={14} color="#9EA5F1" strokeWidth={2.5} />,
       label: "Clear",
       temp: tempStr,
-      border: "1.5px solid rgba(158,165,241,0.25)",
-      glow: "rgba(158,165,241,0.075)"
+      ambientBg: "radial-gradient(circle at 100% 0%, rgba(158,165,241,0.18), transparent 50%), linear-gradient(180deg, #08090C 0%, #050506 100%)"
     };
   }
 }
@@ -426,7 +419,7 @@ export default function MyVehicle() {
         <div style={{
           position: "relative",
           overflow: "hidden",
-          background: "radial-gradient(circle at 78% 26%, rgba(47,128,255,0.16), transparent 34%), linear-gradient(180deg, #08090C 0%, #050506 100%)",
+          background: weatherStyle.ambientBg,
           minHeight: "auto",
           paddingTop: 16,
           paddingBottom: 16,
@@ -434,16 +427,6 @@ export default function MyVehicle() {
           paddingRight: 16,
           borderBottom: "1px solid rgba(255,255,255,0.04)",
         }}>
-          {/* Blue ambient glow top-right */}
-          <div style={{
-            position: "absolute",
-            top: 0, right: 0,
-            width: "70%", height: "100%",
-            background: "radial-gradient(ellipse at 85% 30%, rgba(47,128,255,0.18), transparent 60%)",
-            pointerEvents: "none",
-            zIndex: 0,
-          }} />
-
           {/* Vehicle image — cinematic, de-emphasized studio background */}
           <div style={{
             position: "absolute",
@@ -525,6 +508,10 @@ export default function MyVehicle() {
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 10px", height: 36, borderRadius: 18, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(10px)" }}>
+                  {weatherStyle.icon}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7" }}>{weatherStyle.temp}</span>
+                </div>
                 <button
                   onClick={() => window.location.href = "/messages"}
                   style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
@@ -693,7 +680,7 @@ export default function MyVehicle() {
             <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>
               Remote Controls
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
 
               {/* Lock */}
               <button
@@ -750,29 +737,6 @@ export default function MyVehicle() {
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
                     <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
                   </div>
-                </div>
-              </button>
-
-              {/* Weather (Dynamic Border) */}
-              <button
-                disabled
-                className="weather-card-animated"
-                style={{
-                  aspectRatio: "1",
-                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: weatherStyle.border,
-                  borderRadius: 24,
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
-                  opacity: (!isBookingActive || dropoffInspectionComplete) ? 0.45 : 1,
-                  cursor: "default",
-                  "--weather-glow": weatherStyle.glow,
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 28px rgba(0,0,0,0.28)" // fallback, animation overrides
-                }}
-              >
-                {weatherStyle.icon}
-                <div style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 14, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>{weatherStyle.temp}</p>
-                  <p style={{ fontSize: 10, color: "#A1A1AA", lineHeight: 1.2, fontWeight: 450 }}>{weatherStyle.label}</p>
                 </div>
               </button>
 
