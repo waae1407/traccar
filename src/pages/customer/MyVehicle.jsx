@@ -417,8 +417,8 @@ export default function MyVehicle() {
               <div>
                 <p style={{ fontSize: 18, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.2px", maxWidth: 245, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", display: "inline-block", flexShrink: 0 }} />
-                  <span style={{ color: "#30D158", fontSize: 12, fontWeight: 500 }}>Online</span>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#30D158", boxShadow: "0 0 10px rgba(48,209,88,0.5)", display: "inline-block", flexShrink: 0 }} />
+                  <span style={{ color: "#30D158", textShadow: "0 0 12px rgba(48,209,88,0.4)", fontSize: 12, fontWeight: 500 }}>Online</span>
                   <span style={{ color: "rgba(255,255,255,0.24)", fontSize: 12, margin: "0 3px" }}>|</span>
                   <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 450 }}>Live</span>
                 </div>
@@ -741,7 +741,7 @@ export default function MyVehicle() {
                 const Icon = item.icon || CheckCircle;
                 return (
                   <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                    <Icon size={18} color="#30D158" />
+                    <Icon size={18} color="#30D158" style={{ filter: "drop-shadow(0 2px 8px rgba(48,209,88,0.4))" }} />
                     <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
                     <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
                   </div>
