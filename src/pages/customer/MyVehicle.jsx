@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X } from "lucide-react";
+import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X, AlertTriangle } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
@@ -263,6 +263,10 @@ export default function MyVehicle() {
   if (device?.smoke_detected) activeAlarms.push({ id: 'smoke', label: 'Smoke Detected in Cabin', icon: Flame, color: '#FF453A' });
   if (device?.shock_alarm) activeAlarms.push({ id: 'shock', label: 'Impact / Shock Detected', icon: Activity, color: '#FF9F0A' });
   if (device?.power_cut_alarm) activeAlarms.push({ id: 'power_cut', label: 'Main Power Cut', icon: ZapOff, color: '#FF453A' });
+  if (device?.low_battery_alarm) activeAlarms.push({ id: 'low_battery', label: 'Low Battery Warning', icon: Battery, color: '#FF9F0A' });
+  if (device?.overspeed_alarm) activeAlarms.push({ id: 'overspeed', label: 'Overspeed Warning', icon: Gauge, color: '#FF9F0A' });
+  if (device?.movement_alarm) activeAlarms.push({ id: 'movement', label: 'Unauthorized Movement', icon: AlertTriangle, color: '#FF453A' });
+  if (device?.geofence_alarm) activeAlarms.push({ id: 'geofence', label: 'Geofence Breach', icon: MapPin, color: '#FF9F0A' });
 
   return (
     <div style={{ background: "#050506", minHeight: "100vh", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em" }}>
@@ -773,9 +777,10 @@ export default function MyVehicle() {
             <div style={{
               position: "relative", background: "#17181C", borderTop: "1px solid rgba(255,255,255,0.1)",
               borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: "24px 20px 40px",
-              boxShadow: "0 -10px 40px rgba(0,0,0,0.5)", animation: "fade-in-up 0.3s ease-out"
+              boxShadow: "0 -10px 40px rgba(0,0,0,0.5)", animation: "fade-in-up 0.3s ease-out",
+              maxHeight: "85vh", display: "flex", flexDirection: "column"
             }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexShrink: 0 }}>
                 <div>
                   <h3 style={{ fontSize: 18, fontWeight: 700, color: "#FFF", margin: 0 }}>System Diagnostics</h3>
                   <p style={{ fontSize: 12, color: "#A1A1AA", margin: "2px 0 0" }}>Raw telemetry from MT20 interface</p>
@@ -785,30 +790,45 @@ export default function MyVehicle() {
                 </button>
               </div>
 
-              <div style={{ marginBottom: 20 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Security & Access</p>
-                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
-                  <DiagRow label="Doors" value={device?.door_open ? "Open" : "Closed"} isAlert={device?.door_open} />
-                  <DiagRow label="Trunk" value={device?.trunk_open ? "Open" : "Closed"} isAlert={device?.trunk_open} />
-                  <DiagRow label="Hood Wire Volt" value={device?.hood_wire_voltage ? `${device.hood_wire_voltage}V` : "0.0V"} />
-                  <DiagRow label="Door Wire Volt" value={device?.door_wire_voltage ? `${device.door_wire_voltage}V` : "0.0V"} />
+              <div style={{ overflowY: "auto", flex: 1, paddingRight: 4, paddingBottom: 20 }} className="no-scrollbar">
+                <div style={{ marginBottom: 20 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Security & Access</p>
+                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                    <DiagRow label="Doors" value={device?.door_open ? "Open" : "Closed"} isAlert={device?.door_open} />
+                    <DiagRow label="Trunk" value={device?.trunk_open ? "Open" : "Closed"} isAlert={device?.trunk_open} />
+                    <DiagRow label="Starter Circuit" value={device?.starter_disabled ? "Disabled" : "Normal"} isAlert={device?.starter_disabled} />
+                    <DiagRow label="Hood Wire Volt" value={device?.hood_wire_voltage ? `${device.hood_wire_voltage}V` : "0.0V"} />
+                    <DiagRow label="Door Wire Volt" value={device?.door_wire_voltage ? `${device.door_wire_voltage}V` : "0.0V"} />
+                  </div>
                 </div>
-              </div>
 
-              <div style={{ marginBottom: 20 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Environmental</p>
-                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
-                  <DiagRow label="Smoke Sensor" value={device?.smoke_detected ? "Detected" : "Clear"} isAlert={device?.smoke_detected} />
-                  <DiagRow label="Smoke Voltage" value={device?.smoke_voltage ? `${device.smoke_voltage}V` : "0.0V"} />
+                <div style={{ marginBottom: 20 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>System Alarms</p>
+                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                    <DiagRow label="Impact / Shock" value={device?.shock_alarm ? "Triggered" : "Clear"} isAlert={device?.shock_alarm} />
+                    <DiagRow label="Power Cut" value={device?.power_cut_alarm ? "Triggered" : "Clear"} isAlert={device?.power_cut_alarm} />
+                    <DiagRow label="Low Battery" value={device?.low_battery_alarm ? "Triggered" : "Clear"} isAlert={device?.low_battery_alarm} />
+                    <DiagRow label="Overspeed" value={device?.overspeed_alarm ? "Triggered" : "Clear"} isAlert={device?.overspeed_alarm} />
+                    <DiagRow label="Movement" value={device?.movement_alarm ? "Triggered" : "Clear"} isAlert={device?.movement_alarm} />
+                    <DiagRow label="Geofence" value={device?.geofence_alarm ? "Triggered" : "Clear"} isAlert={device?.geofence_alarm} />
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Raw Data</p>
-                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
-                  <DiagRow label="Bluetooth" value={device?.bluetooth_on ? "Enabled" : "Disabled"} />
-                  <DiagRow label="Direction Heading" value={device?.course ? `${device.course}°` : "0°"} />
-                  <DiagRow label="Device Mileage" value={device?.device_mileage ? `${device.device_mileage} mi` : "0 mi"} />
+                <div style={{ marginBottom: 20 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Environmental</p>
+                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                    <DiagRow label="Smoke Sensor" value={device?.smoke_detected ? "Detected" : "Clear"} isAlert={device?.smoke_detected} />
+                    <DiagRow label="Smoke Voltage" value={device?.smoke_voltage ? `${device.smoke_voltage}V` : "0.0V"} />
+                  </div>
+                </div>
+
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Raw Data</p>
+                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                    <DiagRow label="Bluetooth" value={device?.bluetooth_on ? "Enabled" : "Disabled"} />
+                    <DiagRow label="Direction Heading" value={device?.course ? `${device.course}°` : "0°"} />
+                    <DiagRow label="Device Mileage" value={device?.device_mileage ? `${device.device_mileage} mi` : "0 mi"} />
+                  </div>
                 </div>
               </div>
             </div>
