@@ -166,6 +166,38 @@
     "mileage": {
       "type": "number"
     },
+    "baseline_odometer": {
+      "type": "number",
+      "description": "Manual odometer reading taken at time of GPS installation"
+    },
+    "baseline_odometer_set_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "virtual_odometer": {
+      "type": "number",
+      "description": "Calculated: baseline_odometer + GPS distance delta"
+    },
+    "virtual_odometer_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "utilization_30d_avg_miles_per_day": {
+      "type": "number",
+      "default": 0
+    },
+    "projected_maintenance_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "lifetime_active_rental_miles": {
+      "type": "number",
+      "default": 0
+    },
+    "lifetime_operational_idle_miles": {
+      "type": "number",
+      "default": 0
+    },
     "last_service_date": {
       "type": "string",
       "format": "date"

@@ -409,6 +409,9 @@
     "door_wire_voltage": {
       "type": "number"
     },
+    "traccar_total_distance_meters": {
+      "type": "number"
+    },
     "device_mileage": {
       "type": "number"
     },

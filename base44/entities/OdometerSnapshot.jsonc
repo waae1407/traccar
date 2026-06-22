@@ -1,0 +1,43 @@
+{
+  "name": "OdometerSnapshot",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "snapshot_type": {
+      "type": "string",
+      "enum": [
+        "baseline_set",
+        "rental_pickup",
+        "rental_dropoff",
+        "maintenance_logged",
+        "system_audit"
+      ]
+    },
+    "virtual_odometer_miles": {
+      "type": "number"
+    },
+    "traccar_raw_distance_meters": {
+      "type": "number"
+    },
+    "telematics_device_id": {
+      "type": "string"
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "snapshot_type",
+    "virtual_odometer_miles"
+  ]
+}

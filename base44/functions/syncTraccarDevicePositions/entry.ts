@@ -410,6 +410,10 @@ Deno.serve(async (req) => {
       }
       const noranPacket = noranPacketFromPosition({ position, traccarDevice });
       const seenAt = toIso(noranPacket?.datetime || position.fixTime || position.deviceTime || position.serverTime);
+      // Virtual Odometer Processing
+      const totalDistanceMeters = position.attributes?.totalDistance || 0;
+      const deviceMiles = totalDistanceMeters * 0.000621371;
+      
       const payload = {
         last_latitude: noranPacket?.latitude ?? position.latitude,
         last_longitude: noranPacket?.longitude ?? position.longitude,
@@ -421,8 +425,23 @@ Deno.serve(async (req) => {
         location_source: 'traccar',
         location_updated_at: new Date().toISOString(),
         online_status: onlineStatus(traccarDevice, position),
-        ignition_status: ignitionStatus(position)
+        ignition_status: ignitionStatus(position),
+        traccar_total_distance_meters: totalDistanceMeters,
+        device_mileage: Math.round(deviceMiles)
       };
+
+      // Also update Vehicle Virtual Odometer if linked
+      if (local.vehicle_id && totalDistanceMeters > 0) {
+        const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: local.vehicle_id });
+        const vehicle = vehicles[0];
+        if (vehicle && vehicle.baseline_odometer !== undefined) {
+          const virtualMiles = vehicle.baseline_odometer + deviceMiles;
+          await base44.asServiceRole.entities.Vehicle.update(vehicle.id, {
+            virtual_odometer: Math.round(virtualMiles),
+            virtual_odometer_updated_at: new Date().toISOString()
+          }).catch(console.error);
+        }
+      }
       if (noranPacket?.battery_voltage !== null && noranPacket?.battery_voltage !== undefined) {
         payload.battery_voltage = noranPacket.battery_voltage;
         payload.power_voltage = noranPacket.power_voltage ?? noranPacket.battery_voltage;
