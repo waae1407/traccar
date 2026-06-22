@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning } from "lucide-react";
+import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
@@ -696,23 +696,30 @@ export default function MyVehicle() {
               background: "#17181C",
               border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 22,
-              padding: "8px",
+              padding: "16px 8px",
               display: "grid",
               gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 4,
+              gap: "16px 4px",
             }}>
               {[
-                { label: "Vehicle", sub: "Online" },
-                { label: "Doors", sub: "Closed" },
-                { label: "Hydrogen", sub: "Good" },
-                { label: "Location", sub: "GPS Signal" },
-              ].map((item) => (
-                <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                  <CheckCircle size={18} color="#30D158" />
-                  <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
-                </div>
-              ))}
+                { label: "Connection", sub: device?.online_status === "offline" ? "Offline" : "Online", icon: Activity },
+                { label: "Ignition", sub: device?.ignition_status === "on" ? "On" : "Off", icon: Power },
+                { label: "Main Batt", sub: device?.power_voltage ? `${device.power_voltage}V` : "12.6V", icon: Battery },
+                { label: "Int. Batt", sub: device?.battery_voltage ? `${device.battery_voltage}V` : "4.1V", icon: Zap },
+                { label: "GPS Status", sub: gps.status === "online" ? "Active" : "Lost", icon: MapPin },
+                { label: "Speed", sub: device?.speed ? `${Math.round(device.speed)} mph` : "0 mph", icon: Gauge },
+                { label: "Cell Signal", sub: device?.signal_strength ? `${device.signal_strength}%` : "Strong", icon: Signal },
+                { label: "ACC Volt", sub: device?.voltage ? `${device.voltage}V` : "0.0V", icon: Activity },
+              ].map((item) => {
+                const Icon = item.icon || CheckCircle;
+                return (
+                  <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                    <Icon size={18} color="#30D158" />
+                    <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
