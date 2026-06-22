@@ -644,13 +644,17 @@ export default function MyVehicle() {
                     {isLocked ? "Locked" : "Unlocked"}
                   </span>
 
-                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Car size={13} color="#A1A1AA" strokeWidth={2.5} />
-                    {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
+                  <span style={{ 
+                    color: isDemo ? "#30D158" : (!pickupInspectionComplete && booking ? "#0A84FF" : (isBookingActive ? "#30D158" : "#8E8E93")), 
+                    textShadow: isDemo ? "0 0 12px rgba(48,209,88,0.4)" : (!pickupInspectionComplete && booking ? "0 0 12px rgba(10,132,255,0.4)" : (isBookingActive ? "0 0 12px rgba(48,209,88,0.4)" : "none")),
+                    fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 
+                  }}>
+                    <Car size={13} color={isDemo ? "#30D158" : (!pickupInspectionComplete && booking ? "#0A84FF" : (isBookingActive ? "#30D158" : "#A1A1AA"))} strokeWidth={2.5} style={{ filter: isDemo ? "drop-shadow(0 0 6px rgba(48,209,88,0.5))" : (!pickupInspectionComplete && booking ? "drop-shadow(0 0 6px rgba(10,132,255,0.5))" : (isBookingActive ? "drop-shadow(0 0 6px rgba(48,209,88,0.5))" : "none")) }} />
+                    {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for Pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
                   </span>
 
-                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Zap size={13} color={battInfo.color} strokeWidth={2.5} />
+                  <span style={{ color: battInfo.color, textShadow: `0 0 12px ${battInfo.color}66`, fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Zap size={13} color={battInfo.color} strokeWidth={2.5} style={{ filter: `drop-shadow(0 0 6px ${battInfo.color}80)` }} />
                     {battInfo.voltage}V
                   </span>
                 </div>
