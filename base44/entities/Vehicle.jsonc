@@ -259,7 +259,8 @@
     "host_id",
     "make",
     "model",
-    "year"
+    "year",
+    "mileage"
   ],
   "unique_fields": [
     "vin"

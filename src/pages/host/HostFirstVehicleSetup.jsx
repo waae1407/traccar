@@ -186,7 +186,7 @@ export default function HostFirstVehicleSetup() {
     setImageUploading(false);
   };
 
-  const canSaveVehicle = vehicleForm.vin && vehicleForm.year && vehicleForm.make && vehicleForm.model && vehicleForm.city && vehicleForm.state && (vehicleForm.weekly_rate || vehicleForm.monthly_rate);
+  const canSaveVehicle = vehicleForm.vin && vehicleForm.year && vehicleForm.make && vehicleForm.model && vehicleForm.city && vehicleForm.state && vehicleForm.mileage && (vehicleForm.weekly_rate || vehicleForm.monthly_rate);
 
   const missingText = useMemo(() => readiness?.missing_requirements?.join(', ') || '', [readiness]);
 

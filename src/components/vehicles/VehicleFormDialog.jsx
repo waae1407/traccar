@@ -210,7 +210,7 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="Purchase Price"><input type="number" className={inputClass} value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} /></FormField>
-            <FormField label="Mileage"><input type="number" className={inputClass} value={form.mileage} onChange={(e) => set("mileage", e.target.value)} /></FormField>
+            <FormField label="Mileage" required><input type="number" className={inputClass} value={form.mileage} onChange={(e) => set("mileage", e.target.value)} required /></FormField>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
