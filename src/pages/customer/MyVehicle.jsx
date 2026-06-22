@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
@@ -208,6 +208,22 @@ export default function MyVehicle() {
   const [commandLoading, setCommandLoading] = useState(null);
   const [isLocked, setIsLocked] = useState(true); // Optimistic lock state
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showFooter, setShowFooter] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current + 5) {
+        setShowFooter(false);
+      } else if (currentScrollY < lastScrollY.current - 5) {
+        setShowFooter(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email],
@@ -471,7 +487,7 @@ export default function MyVehicle() {
             {/* Top row: name + icons */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
-                <p style={{ fontSize: 22, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.3px", maxWidth: 245, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
+                <p style={{ fontSize: 26, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.4px", maxWidth: 280, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93", boxShadow: isDemo || device?.online_status === "online" ? "0 0 10px rgba(48,209,88,0.5)" : "none", display: "inline-block", flexShrink: 0 }} />
                   <span style={{ color: isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93", textShadow: isDemo || device?.online_status === "online" ? "0 0 12px rgba(48,209,88,0.4)" : "none", fontSize: 12, fontWeight: 500 }}>
@@ -479,8 +495,8 @@ export default function MyVehicle() {
                   </span>
                   <span style={{ color: "rgba(255,255,255,0.24)", fontSize: 12, margin: "0 3px" }}>|</span>
                   <span style={{ color: isDemo || isBookingActive ? "rgba(255,255,255,0.76)" : "#FF453A", fontSize: 12, fontWeight: isDemo || isBookingActive ? 450 : 600, display: "flex", alignItems: "center", gap: 4 }}>
-                    {isDemo ? "Active" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive")}
                     <Satellite size={13} color={isDemo || gps.status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} style={isDemo || gps.status === "online" ? { filter: "drop-shadow(0 0 6px rgba(48,209,88,0.5))" } : {}} />
+                    {isDemo ? "Active" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive")}
                   </span>
                 </div>
               </div>
@@ -503,12 +519,12 @@ export default function MyVehicle() {
             {/* Stats — inline, large, bold */}
             <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14 }}>
               <div>
-                <p style={{ fontSize: 15, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.2px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
+                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Range</p>
               </div>
               <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 15, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.2px", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
+                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{battInfo.voltage}V</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery Health</p>
               </div>
             </div>
@@ -554,7 +570,7 @@ export default function MyVehicle() {
                 <Navigation size={15} color="#FFFFFF" style={{ transform: "rotate(45deg)" }} />
               </button>
             </div>
-            <div style={{ height: 140 }}>
+            <div style={{ height: 200 }}>
               {booking ? (
                 <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
               ) : (
@@ -925,7 +941,8 @@ export default function MyVehicle() {
           position: "fixed",
           bottom: 0,
           left: "50%",
-          transform: "translateX(-50%)",
+          transform: showFooter ? "translateX(-50%) translateY(0)" : "translateX(-50%) translateY(100%)",
+          transition: "transform 0.3s ease-in-out",
           width: "100%",
           maxWidth: 430,
           background: "#17181C",

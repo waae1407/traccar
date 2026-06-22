@@ -11,20 +11,22 @@ const ALLOWED_STATUSES = ["active", "approved", "confirmed", "payment_due", "gra
 // Premium black teardrop pin with white car silhouette + blue radial glow at base
 function createVehicleIcon() {
   const iconHtml = `
-    <div style="position:relative;width:44px;height:58px;">
+    <div style="position:relative;width:64px;height:70px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;">
       <!-- Blue radial glow at base -->
       <div style="
         position:absolute;
-        bottom:-6px;
+        bottom:8px;
         left:50%;
         transform:translateX(-50%);
-        width:44px;
-        height:22px;
-        background:radial-gradient(ellipse at center, rgba(47,128,255,0.65) 0%, transparent 70%);
-        filter:blur(4px);
+        width:24px;
+        height:8px;
+        border-radius: 50%;
+        background: rgba(47,128,255,1);
+        box-shadow: 0 0 16px 8px rgba(47,128,255,0.8);
+        z-index: 0;
       "></div>
       <!-- Pin shape -->
-      <svg viewBox="0 0 44 58" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:44px;height:58px;">
+      <svg viewBox="0 0 44 58" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:44px;height:58px;margin-bottom:6px;">
         <!-- Outer white border -->
         <path d="M22 1C10.402 1 1 10.402 1 22C1 36.5 22 57 22 57C22 57 43 36.5 43 22C43 10.402 33.598 1 22 1Z" fill="#111111" stroke="#FFFFFF" stroke-width="2"/>
         <!-- Car silhouette white -->
@@ -46,9 +48,9 @@ function createVehicleIcon() {
   return L.divIcon({
     html: iconHtml,
     className: "",
-    iconSize: [44, 58],
-    iconAnchor: [22, 57],
-    popupAnchor: [0, -58],
+    iconSize: [64, 70],
+    iconAnchor: [32, 64],
+    popupAnchor: [0, -64],
   });
 }
 
