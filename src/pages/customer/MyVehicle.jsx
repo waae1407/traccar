@@ -650,8 +650,8 @@ export default function MyVehicle() {
                   </span>
 
                   <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Zap size={13} color={battInfo.color} strokeWidth={2.5} />
-                    {battInfo.voltage}V
+                    <Flame size={13} color={device?.smoke_detected ? "#FF453A" : "#30D158"} strokeWidth={2.5} />
+                    Cabin: <span style={{ color: device?.smoke_detected ? "#FF453A" : "#30D158" }}>{device?.smoke_detected ? "Smoke Detected" : "Clear"}</span>
                   </span>
                 </div>
               </div>
