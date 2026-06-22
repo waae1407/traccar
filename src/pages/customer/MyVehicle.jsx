@@ -251,6 +251,13 @@ export default function MyVehicle() {
   const device = devices[0];
   const gps = freshness(device);
 
+  const { data: snapshots = [] } = useQuery({
+    queryKey: ["pickup-snapshot", booking?.id],
+    queryFn: () => base44.entities.OdometerSnapshot.filter({ booking_id: booking?.id, snapshot_type: "rental_pickup" }),
+    enabled: !!booking?.id,
+  });
+  const pickupSnapshot = snapshots[0];
+
   const { data: weather } = useQuery({
     queryKey: ["vehicle-weather", device?.last_latitude, device?.last_longitude],
     queryFn: async () => {
@@ -335,6 +342,23 @@ export default function MyVehicle() {
   if (device?.overspeed_alarm) activeAlarms.push({ id: 'overspeed', label: 'Overspeed Warning', icon: Gauge, color: '#FF9F0A' });
   if (device?.movement_alarm) activeAlarms.push({ id: 'movement', label: 'Unauthorized Movement', icon: AlertTriangle, color: '#FF453A' });
   if (device?.geofence_alarm) activeAlarms.push({ id: 'geofence', label: 'Geofence Breach', icon: MapPin, color: '#FF9F0A' });
+
+  let displayMiles = "268";
+  let displayLabel = "Range";
+  if (!isDemo) {
+    const currentMiles = vehicle?.virtual_odometer || device?.device_mileage || 0;
+    if (pickupSnapshot?.virtual_odometer_miles) {
+      const driven = Math.max(0, Math.round(currentMiles - pickupSnapshot.virtual_odometer_miles));
+      displayMiles = driven.toLocaleString();
+      displayLabel = "Trip Miles";
+    } else if (booking) {
+      displayMiles = "0";
+      displayLabel = "Trip Miles";
+    } else {
+      displayMiles = Math.round(currentMiles).toLocaleString();
+      displayLabel = "Odometer";
+    }
+  }
 
   return (
     <div style={{ background: "#050506", minHeight: "100vh", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em" }}>
@@ -519,8 +543,8 @@ export default function MyVehicle() {
             {/* Stats — inline, large, bold */}
             <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14 }}>
               <div>
-                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>268 mi</p>
-                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Range</p>
+                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{displayMiles} mi</p>
+                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>{displayLabel}</p>
               </div>
               <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.13)", flexShrink: 0 }} />
               <div>
