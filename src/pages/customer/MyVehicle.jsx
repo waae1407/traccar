@@ -479,6 +479,21 @@ export default function MyVehicle() {
           background-size: 100% 100%, 30px 30px, 50px 50px;
           animation: snowFall 4s linear infinite;
         }
+        @keyframes vehicleGlint {
+          0%, 80% { transform: translateX(-150%) skewX(-20deg); opacity: 0; }
+          85% { opacity: 0.15; }
+          90% { transform: translateX(150%) skewX(-20deg); opacity: 0; }
+          100% { transform: translateX(150%) skewX(-20deg); opacity: 0; }
+        }
+        .vehicle-glint {
+          position: absolute;
+          top: 0; bottom: 0; left: 0; right: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+          animation: vehicleGlint 10s ease-in-out infinite;
+          pointer-events: none;
+          z-index: 5;
+          mix-blend-mode: overlay;
+        }
       `}</style>
       {inspectionTarget && (
         <VehicleInspectionSheet
@@ -512,23 +527,30 @@ export default function MyVehicle() {
             zIndex: 1,
           }}>
             {vehicleImage && (
-              <img
-                src={vehicleImage}
-                alt={name}
-                style={{
-                  position: "absolute",
-                  right: "-15%",
-                  top: "5%",
-                  width: "90%",
-                  height: "90%",
-                  objectFit: "cover",
-                  objectPosition: "center",
-                  display: "block",
-                  opacity: 0.75,
-                  filter: "brightness(0.65) contrast(1.2) saturate(1.1)",
-                  transform: "scale(1.05)",
-                }}
-              />
+              <div style={{
+                position: "absolute",
+                right: "-15%",
+                top: "5%",
+                width: "90%",
+                height: "90%",
+                overflow: "hidden" // Contains the glint within the image area
+              }}>
+                <img
+                  src={vehicleImage}
+                  alt={name}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: "center",
+                    display: "block",
+                    opacity: 0.75,
+                    filter: "brightness(0.65) contrast(1.2) saturate(1.1)",
+                    transform: "scale(1.05)",
+                  }}
+                />
+                <div className="vehicle-glint" />
+              </div>
             )}
             <div style={{
               position: "absolute",
