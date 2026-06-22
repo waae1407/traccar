@@ -662,7 +662,7 @@ export default function MyVehicle() {
             </div>
 
             {/* Stats — inline, large, bold */}
-            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14, marginTop: 18 }}>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{displayMiles} mi</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>{displayLabel}</p>
@@ -684,11 +684,11 @@ export default function MyVehicle() {
           {/* ── MAP CARD ── */}
           <div style={{
             background: "linear-gradient(180deg, rgba(29,30,35,0.96), rgba(19,20,24,0.98))",
-            border: "1px solid rgba(255,255,255,0.10)",
+            border: "1px solid rgba(255,255,255,0.05)",
             borderRadius: 28,
             overflow: "hidden",
             marginBottom: 12,
-            boxShadow: "0 18px 50px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05)",
+            boxShadow: "0 18px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)",
           }}>
             <div className="flex items-center justify-between px-4 py-2.5">
               <div className="flex items-start gap-2">
@@ -729,14 +729,14 @@ export default function MyVehicle() {
           {/* ── RENTAL INFO CARD ── */}
           <div style={{
             background: "linear-gradient(180deg, rgba(29,30,35,0.96), rgba(19,20,24,0.98))",
-            border: "1px solid rgba(255,255,255,0.10)",
+            border: "1px solid rgba(255,255,255,0.05)",
             borderRadius: 28,
-            padding: "12px 16px",
+            padding: "16px 20px",
             display: "flex",
             alignItems: "center",
             gap: 0,
-            marginBottom: 12,
-            boxShadow: "0 14px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)",
+            marginBottom: 16,
+            boxShadow: "0 14px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)",
           }}>
             {/* Rental ends */}
             <div style={{ flex: 1 }}>
@@ -810,11 +810,11 @@ export default function MyVehicle() {
           </div>
 
           {/* ── REMOTE CONTROLS ── */}
-          <div style={{ marginBottom: 10 }}>
-            <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
               Remote Controls
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
 
               {/* Lock */}
               <button
@@ -823,7 +823,7 @@ export default function MyVehicle() {
                 className={commandLoading === "lock" ? "btn-loading-spin" : ""}
                 style={{
                   position: "relative",
-                  aspectRatio: "1",
+                  aspectRatio: "4/3",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
                   border: isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,69,58,0.15)",
                   borderRadius: 24,
@@ -854,7 +854,7 @@ export default function MyVehicle() {
                 className={commandLoading === "unlock" ? "btn-loading-spin" : ""}
                 style={{
                   position: "relative",
-                  aspectRatio: "1",
+                  aspectRatio: "4/3",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   borderRadius: 24,
@@ -881,7 +881,7 @@ export default function MyVehicle() {
                 className={commandLoading === "find" ? "btn-loading-spin" : ""}
                 style={{
                   position: "relative",
-                  aspectRatio: "1",
+                  aspectRatio: "4/3",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
                   border: "1px solid rgba(47,128,255,0.2)",
                   borderRadius: 24,

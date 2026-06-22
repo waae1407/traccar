@@ -8,49 +8,48 @@ import "leaflet/dist/leaflet.css";
 
 const ALLOWED_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 
-// Premium black teardrop pin with white car silhouette + blue radial glow at base
+// Premium pulsing dot representing the vehicle
 function createVehicleIcon() {
   const iconHtml = `
-    <div style="position:relative;width:64px;height:70px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end;">
-      <!-- Blue radial glow at base -->
+    <div style="position:relative;width:40px;height:40px; display:flex; align-items:center; justify-content:center;">
+      <!-- Pulsing outer ring -->
       <div style="
         position:absolute;
-        bottom:8px;
-        left:50%;
-        transform:translateX(-50%);
-        width:24px;
-        height:8px;
+        width: 100%;
+        height: 100%;
         border-radius: 50%;
-        background: rgba(47,128,255,1);
-        box-shadow: 0 0 16px 8px rgba(47,128,255,0.8);
+        background: rgba(47,128,255,0.3);
+        animation: mapPulse 2s ease-in-out infinite;
         z-index: 0;
       "></div>
-      <!-- Pin shape -->
-      <svg viewBox="0 0 44 58" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:relative;z-index:1;width:44px;height:58px;margin-bottom:6px;">
-        <!-- Outer white border -->
-        <path d="M22 1C10.402 1 1 10.402 1 22C1 36.5 22 57 22 57C22 57 43 36.5 43 22C43 10.402 33.598 1 22 1Z" fill="#111111" stroke="#FFFFFF" stroke-width="2"/>
-        <!-- Car silhouette white -->
-        <g transform="translate(9,10)">
-          <!-- Car body -->
-          <path d="M2 14 L4 9 L7 7 L17 7 L20 9 L22 14 L22 18 L2 18 Z" fill="#FFFFFF"/>
-          <!-- Roof -->
-          <path d="M7 7 L9 3 L15 3 L17 7 Z" fill="#FFFFFF"/>
-          <!-- Windows (cutout dark) -->
-          <path d="M9 7 L10 4 L14 4 L15 7 Z" fill="#111111"/>
-          <!-- Wheels -->
-          <circle cx="7" cy="18" r="2.5" fill="#111111" stroke="#FFFFFF" stroke-width="1"/>
-          <circle cx="17" cy="18" r="2.5" fill="#111111" stroke="#FFFFFF" stroke-width="1"/>
-        </g>
-      </svg>
+      
+      <!-- Inner blue dot -->
+      <div style="
+        position:relative;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #2F80FF;
+        border: 2.5px solid #FFFFFF;
+        box-shadow: 0 0 10px rgba(47,128,255,0.8);
+        z-index: 1;
+      "></div>
+      
+      <style>
+        @keyframes mapPulse {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          50% { transform: scale(1.5); opacity: 0.2; }
+          100% { transform: scale(0.8); opacity: 0.8; }
+        }
+      </style>
     </div>
   `;
 
   return L.divIcon({
     html: iconHtml,
     className: "",
-    iconSize: [64, 70],
-    iconAnchor: [32, 64],
-    popupAnchor: [0, -64],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
   });
 }
 
