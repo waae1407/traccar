@@ -1082,7 +1082,6 @@ Deno.serve(async (req) => {
       heartbeat_received: isHeartbeatPacket(parsed),
       can_complete_locate: ['0x0032', '0x0008'].includes(parsed.packet_type),
       source: parsed.source,
-      alarm_processing,
       command_processing
     });
   } catch (error) {

@@ -11,6 +11,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import { format } from 'date-fns';
 
+import Alert360DetailDrawer from '@/components/telematics/Alert360DetailDrawer';
+import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDrawer';
+
 function SBadge({ status }) {
   const m = { Available: 'bg-green-500/20 text-green-400', paid: 'bg-green-500/20 text-green-400', valid: 'bg-green-500/20 text-green-400', online: 'bg-green-500/20 text-green-400', offline: 'bg-red-500/20 text-red-400', expired: 'bg-red-500/20 text-red-400', expiring_soon: 'bg-yellow-500/20 text-yellow-400', failed: 'bg-red-500/20 text-red-400' };
   return <Badge className={m[status] || 'bg-muted text-muted-foreground text-xs'}>{status?.replace(/_/g, ' ')}</Badge>;
@@ -29,7 +32,15 @@ function MetricCard({ label, value, sub, color }) {
 export default function HostVehicle360() {
   const { user } = useAuth();
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null);
   const qc = useQueryClient();
+
+  const { data: selectedIncident } = useQuery({
+    queryKey: ['telematics-incident', selectedIncidentId],
+    queryFn: () => base44.entities.TelematicsIncident.get(selectedIncidentId),
+    enabled: !!selectedIncidentId,
+  });
 
   // Only host's own vehicles
   const { data: hosts = [] } = useQuery({
@@ -170,7 +181,7 @@ export default function HostVehicle360() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Active Alerts</p>
                 <div className="space-y-2">
                   {data.safety_events?.filter(e => e.visible_to_host && e.is_active).map(ev => (
-                    <div key={ev.id} className="flex justify-between rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm">
+                    <div key={ev.id} className="flex justify-between rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm cursor-pointer hover:bg-red-500/20 transition-colors" onClick={() => setSelectedAlert(ev)}>
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-foreground">{ev.alert_title || ev.alert_type} <span className="text-muted-foreground font-normal ml-1">x{ev.occurrence_count || 1}</span></p>
@@ -188,7 +199,7 @@ export default function HostVehicle360() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Alert Timeline</p>
                 <div className="space-y-2 relative border-l-2 border-border ml-2 pl-4">
                   {data.safety_events?.filter(e => e.visible_to_host).sort((a,b) => new Date(b.first_seen_at) - new Date(a.first_seen_at)).map(ev => (
-                    <div key={ev.id} className="relative mb-4">
+                    <div key={ev.id} className="relative mb-4 cursor-pointer hover:opacity-80" onClick={() => setSelectedAlert(ev)}>
                       <div className={`absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full ${ev.is_active ? 'bg-red-400' : 'bg-green-400'}`}></div>
                       <p className="font-medium text-sm">{ev.alert_title || ev.alert_type}</p>
                       <p className="text-muted-foreground text-xs">{ev.first_seen_at ? format(new Date(ev.first_seen_at), 'MMM d, yyyy h:mm a') : '—'} · {ev.is_active ? 'Active' : 'Resolved'}</p>
@@ -220,6 +231,18 @@ export default function HostVehicle360() {
           </Tabs>
         </div>
       )}
+
+      <Alert360DetailDrawer 
+        open={!!selectedAlert} 
+        onOpenChange={(open) => !open && setSelectedAlert(null)} 
+        alert={selectedAlert} 
+        onIncidentClick={(incidentId) => setSelectedIncidentId(incidentId)}
+      />
+      <Alert360IncidentDrawer 
+        open={!!selectedIncidentId} 
+        onOpenChange={(open) => !open && setSelectedIncidentId(null)} 
+        incident={selectedIncident} 
+      />
     </div>
   );
 }

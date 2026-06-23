@@ -32,9 +32,14 @@ function MetricCard({ label, value, sub, color }) {
 export default function Vehicle360() {
   const [loadedVehicleId, setLoadedVehicleId] = useState('');
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null);
 
   const qc = useQueryClient();
+  const { data: selectedIncident } = useQuery({
+    queryKey: ['telematics-incident', selectedIncidentId],
+    queryFn: () => base44.entities.TelematicsIncident.get(selectedIncidentId),
+    enabled: !!selectedIncidentId,
+  });
   const { data, isLoading } = useQuery({
     queryKey: ['vehicle360', loadedVehicleId],
     queryFn: () => base44.functions.invoke('getVehicle360', { vehicle_id: loadedVehicleId }).then(r => r.data),
@@ -221,6 +226,18 @@ export default function Vehicle360() {
           </Tabs>
         </div>
       )}
+      
+      <Alert360DetailDrawer 
+        open={!!selectedAlert} 
+        onOpenChange={(open) => !open && setSelectedAlert(null)} 
+        alert={selectedAlert} 
+        onIncidentClick={(incidentId) => setSelectedIncidentId(incidentId)}
+      />
+      <Alert360IncidentDrawer 
+        open={!!selectedIncidentId} 
+        onOpenChange={(open) => !open && setSelectedIncidentId(null)} 
+        incident={selectedIncident} 
+      />
     </div>
   );
 }
