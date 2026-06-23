@@ -244,6 +244,10 @@
       "type": "boolean",
       "default": false
     },
+    "smoking_allowed": {
+      "type": "boolean",
+      "default": false
+    },
     "image_url": {
       "type": "string"
     },
@@ -260,7 +264,8 @@
     "make",
     "model",
     "year",
-    "mileage"
+    "mileage",
+    "smoking_allowed"
   ],
   "unique_fields": [
     "vin"

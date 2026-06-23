@@ -767,10 +767,48 @@ export default function MyVehicle() {
                     {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
                   </span>
 
-                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 0 }}>
-                    <CigaretteIcon color={device?.smoke_detected ? "#FF453A" : "#30D158"} isAlert={device?.smoke_detected} />
-                    Cabin: <span className={!device?.smoke_detected ? "text-monitor-pulse" : ""} style={{ color: device?.smoke_detected ? "#FF453A" : "#30D158", marginLeft: 4 }}>{device?.smoke_detected ? "Smoke Detected" : "Clear"}</span>
-                  </span>
+                  {(() => {
+                    const isSmokingAllowed = vehicle?.smoking_allowed === true;
+                    const isSmokeDetected = device?.smoke_detected;
+                    let icon, label, statusText, statusColor, pulse;
+                    
+                    if (!isSmokingAllowed) {
+                      if (!isSmokeDetected) {
+                        icon = <span style={{ fontSize: 14, filter: "grayscale(100%) opacity(0.6)", marginRight: 4 }}>🚭</span>;
+                        label = "Smoke Sensor:";
+                        statusText = "Clear";
+                        statusColor = "#30D158";
+                        pulse = true;
+                      } else {
+                        icon = <CigaretteIcon color="#FF453A" isAlert={true} />;
+                        label = "Smoking:";
+                        statusText = "Detected";
+                        statusColor = "#FF453A";
+                        pulse = false;
+                      }
+                    } else {
+                      if (!isSmokeDetected) {
+                        icon = <span style={{ fontSize: 14, filter: "grayscale(100%) opacity(0.6)", marginRight: 4 }}>🌬️</span>;
+                        label = "Cabin Air:";
+                        statusText = "Clear";
+                        statusColor = "#30D158";
+                        pulse = true;
+                      } else {
+                        icon = <span style={{ fontSize: 14, marginRight: 4 }}>⚠️</span>;
+                        label = "Cabin:";
+                        statusText = "Heavy Smoke";
+                        statusColor = "#FF9F0A";
+                        pulse = false;
+                      }
+                    }
+
+                    return (
+                      <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 0 }}>
+                        {icon}
+                        {label} <span className={pulse ? "text-monitor-pulse" : ""} style={{ color: statusColor, marginLeft: 4 }}>{statusText}</span>
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>

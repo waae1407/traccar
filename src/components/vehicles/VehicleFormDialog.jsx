@@ -17,7 +17,8 @@ const emptyForm = {
   daily_rate: "", monthly_rate: "",
   allow_daily_booking: false, allow_weekly_booking: true, allow_monthly_booking: false,
   storefront_visible: true, marketplace_visible: true,
-};
+  smoking_allowed: false,
+  };
 
 const PREVIEW_DAYS = [1, 3, 7, 14, 30];
 
@@ -79,6 +80,7 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
       allow_daily_booking: vehicle.allow_daily_booking ?? false,
       allow_weekly_booking: vehicle.allow_weekly_booking ?? true,
       allow_monthly_booking: vehicle.allow_monthly_booking ?? false,
+      smoking_allowed: vehicle.smoking_allowed ?? false,
       host_id: vehicle.host_id || requiredHostId || "",
       storefront_visible: vehicle.storefront_visible ?? true,
       marketplace_visible: vehicle.marketplace_visible ?? (planMode === 'fleetos_professional' ? false : true),
@@ -135,6 +137,7 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
       monthly_rate: form.monthly_rate ? Number(form.monthly_rate) : undefined,
       minimum_rental_days: form.minimum_rental_days ? Number(form.minimum_rental_days) : 7,
       maximum_rental_days: form.maximum_rental_days ? Number(form.maximum_rental_days) : undefined,
+      smoking_allowed: form.smoking_allowed,
     });
   };
 
@@ -296,6 +299,14 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             {toggle("rent_to_own_eligible")}
             <span className="text-sm text-white/60">Rent-to-Own Eligible</span>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            {toggle("smoking_allowed")}
+            <div>
+              <span className="text-sm text-white/60 block">Smoking Allowed</span>
+              <span className="text-[10px] text-white/40">If yes, smoke sensor monitors for fire safety instead of rule enforcement.</span>
+            </div>
           </div>
 
           <VehicleVisibilityControls form={form} onChange={set} planMode={planMode} hybridSubscriptionActive={hybridSubscriptionActive} />
