@@ -200,6 +200,25 @@ function FanIcon({ color = "#A1A1AA" }) {
   );
 }
 
+// No Smoking SVG
+function NoSmokingIcon() {
+  return (
+    <div style={{ position: "relative", width: 14, height: 14, marginRight: 4 }}>
+      {/* Cigarette base */}
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", zIndex: 1 }}>
+        <rect x="3" y="11" width="12" height="3" rx="1" fill="#A1A1AA" />
+        <rect x="15" y="11" width="5" height="3" rx="1" fill="#D4A373" />
+        <path d="M4 11 Q6 8 8 7" stroke="#A1A1AA" strokeWidth="1.5" strokeLinecap="round" opacity="0.5" />
+      </svg>
+      {/* Red circle and slash */}
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", zIndex: 2 }}>
+        <circle cx="12" cy="12" r="10" stroke="#FF453A" strokeWidth="2.5" />
+        <line x1="5" y1="5" x2="19" y2="19" stroke="#FF453A" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
 // Cigarette / Smoke SVG
 function CigaretteIcon({ color = "#30D158", isAlert = false }) {
   return (
@@ -747,68 +766,72 @@ export default function MyVehicle() {
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
                 <p style={{ fontSize: 26, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.4px", maxWidth: 280, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
-                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 12px", marginTop: 8 }}>
-                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Satellite size={13} color={isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
-                    {isDemo || device?.online_status === "online" ? "Connected" : "Disconnected"}
-                  </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  {/* Row 1 */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                      <Satellite size={13} color={isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
+                      {isDemo || device?.online_status === "online" ? "Online" : "Offline"}
+                    </span>
+                    <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                      <Car size={13} color={isDemo || isBookingActive || (!pickupInspectionComplete && booking) ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
+                      {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
+                    </span>
+                  </div>
 
-                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    {isLocked ? (
-                      <Lock size={13} color="#30D158" strokeWidth={2.5} />
-                    ) : (
-                      <Unlock size={13} color="#FF453A" strokeWidth={2.5} />
-                    )}
-                    {isLocked ? "Locked" : "Unlocked"}
-                  </span>
-
-                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Car size={13} color={isDemo || isBookingActive || (!pickupInspectionComplete && booking) ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
-                    {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
-                  </span>
-
-                  {(() => {
-                    const isSmokingAllowed = vehicle?.smoking_allowed === true;
-                    const isSmokeDetected = device?.smoke_detected;
-                    let icon, label, statusText, statusColor, pulse;
-                    
-                    if (!isSmokingAllowed) {
-                      if (!isSmokeDetected) {
-                        icon = <span style={{ fontSize: 14, filter: "grayscale(100%) opacity(0.6)", marginRight: 4 }}>🚭</span>;
-                        label = "Smoke Sensor:";
-                        statusText = "Clear";
-                        statusColor = "#30D158";
-                        pulse = true;
+                  {/* Row 2 */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                      {isLocked ? (
+                        <Lock size={13} color="#30D158" strokeWidth={2.5} />
+                      ) : (
+                        <Unlock size={13} color="#FF453A" strokeWidth={2.5} />
+                      )}
+                      {isLocked ? "Locked" : "Unlocked"}
+                    </span>
+                    {(() => {
+                      const isSmokingAllowed = vehicle?.smoking_allowed === true;
+                      const isSmokeDetected = device?.smoke_detected;
+                      let icon, label, statusText, statusColor, pulse;
+                      
+                      if (!isSmokingAllowed) {
+                        if (!isSmokeDetected) {
+                          icon = <NoSmokingIcon />;
+                          label = "Smoke Sensor:";
+                          statusText = "Clear";
+                          statusColor = "#30D158";
+                          pulse = true;
+                        } else {
+                          icon = <CigaretteIcon color="#FF453A" isAlert={true} />;
+                          label = "Smoking:";
+                          statusText = "Detected";
+                          statusColor = "#FF453A";
+                          pulse = false;
+                        }
                       } else {
-                        icon = <CigaretteIcon color="#FF453A" isAlert={true} />;
-                        label = "Smoking:";
-                        statusText = "Detected";
-                        statusColor = "#FF453A";
-                        pulse = false;
+                        if (!isSmokeDetected) {
+                          icon = <span style={{ fontSize: 14, filter: "grayscale(100%) opacity(0.6)", marginRight: 4 }}>🌬️</span>;
+                          label = "Cabin Air:";
+                          statusText = "Clear";
+                          statusColor = "#30D158";
+                          pulse = true;
+                        } else {
+                          icon = <span style={{ fontSize: 14, marginRight: 4 }}>⚠️</span>;
+                          label = "Cabin:";
+                          statusText = "Heavy Smoke";
+                          statusColor = "#FF9F0A";
+                          pulse = false;
+                        }
                       }
-                    } else {
-                      if (!isSmokeDetected) {
-                        icon = <span style={{ fontSize: 14, filter: "grayscale(100%) opacity(0.6)", marginRight: 4 }}>🌬️</span>;
-                        label = "Cabin Air:";
-                        statusText = "Clear";
-                        statusColor = "#30D158";
-                        pulse = true;
-                      } else {
-                        icon = <span style={{ fontSize: 14, marginRight: 4 }}>⚠️</span>;
-                        label = "Cabin:";
-                        statusText = "Heavy Smoke";
-                        statusColor = "#FF9F0A";
-                        pulse = false;
-                      }
-                    }
 
-                    return (
-                      <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 0 }}>
-                        {icon}
-                        {label} <span className={pulse ? "text-monitor-pulse" : ""} style={{ color: statusColor, marginLeft: 4 }}>{statusText}</span>
-                      </span>
-                    );
-                  })()}
+                      return (
+                        <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 0 }}>
+                          {icon}
+                          {label} <span className={pulse ? "text-monitor-pulse" : ""} style={{ color: statusColor, marginLeft: 4 }}>{statusText}</span>
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
