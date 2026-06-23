@@ -3,7 +3,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShieldAlert, AlertTriangle, AlertCircle, Clock, MapPin, Car, Info, Key, FileText, CheckCircle, ExternalLink, Hash } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+
+const safeFormat = (dateStr, fmt) => {
+  if (!dateStr) return 'Unknown';
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt) : 'Unknown';
+};
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -86,11 +92,11 @@ export default function Alert360DetailDrawer({ open, onOpenChange, alert, onInci
               </div>
               <div className="bg-secondary/30 p-4 rounded-xl">
                 <p className="text-xs text-muted-foreground uppercase font-bold mb-1">First Seen</p>
-                <p className="text-sm">{alert.first_seen_at ? format(new Date(alert.first_seen_at), 'MMM d, yyyy h:mm:ss a') : 'Unknown'}</p>
+                <p className="text-sm">{safeFormat(alert.first_seen_at, 'MMM d, yyyy h:mm:ss a')}</p>
               </div>
               <div className="bg-secondary/30 p-4 rounded-xl">
                 <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Last Seen</p>
-                <p className="text-sm">{alert.last_seen_at ? format(new Date(alert.last_seen_at), 'MMM d, yyyy h:mm:ss a') : 'Unknown'}</p>
+                <p className="text-sm">{safeFormat(alert.last_seen_at, 'MMM d, yyyy h:mm:ss a')}</p>
               </div>
             </div>
 

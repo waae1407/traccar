@@ -3,7 +3,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShieldAlert, AlertTriangle, AlertCircle, Clock, MapPin, Car, Info, Key, FileText, CheckCircle, ExternalLink, Hash } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+
+const safeFormat = (dateStr, fmt) => {
+  if (!dateStr) return 'Unknown';
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt) : 'Unknown';
+};
 import { useAuth } from '@/lib/AuthContext';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -89,7 +95,7 @@ export default function Alert360IncidentDrawer({ open, onOpenChange, incident })
                 </div>
                 <div className="bg-secondary/30 p-4 rounded-xl">
                   <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Created</p>
-                  <p className="text-sm">{incident.first_seen_at ? format(new Date(incident.first_seen_at), 'MMM d, h:mm a') : 'Unknown'}</p>
+                  <p className="text-sm">{safeFormat(incident.first_seen_at, 'MMM d, h:mm a')}</p>
                 </div>
                 <div className="bg-secondary/30 p-4 rounded-xl">
                   <p className="text-xs text-muted-foreground uppercase font-bold mb-1">Total Events</p>
@@ -136,7 +142,7 @@ export default function Alert360IncidentDrawer({ open, onOpenChange, incident })
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="font-medium text-sm text-foreground">{ev.alert_title}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{ev.first_seen_at ? format(new Date(ev.first_seen_at), 'MMM d, h:mm:ss a') : ''}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{ev.first_seen_at ? safeFormat(ev.first_seen_at, 'MMM d, h:mm:ss a') : ''}</p>
                         </div>
                         <Badge variant="outline" className="text-[10px] uppercase">{ev.status}</Badge>
                       </div>

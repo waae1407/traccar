@@ -9,7 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Wifi, WifiOff } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+
+const safeFormat = (dateStr, fmt) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt) : '—';
+};
 
 import Alert360DetailDrawer from '@/components/telematics/Alert360DetailDrawer';
 import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDrawer';

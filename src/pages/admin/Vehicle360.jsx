@@ -9,7 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import GPSCtaCard from '@/components/gps/GPSCtaCard';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+
+const safeFormat = (dateStr, fmt) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt) : '—';
+};
 
 import Alert360DetailDrawer from '@/components/telematics/Alert360DetailDrawer';
 import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDrawer';
@@ -107,7 +113,7 @@ export default function Vehicle360() {
                 {gps ? (
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">{gps.online ? <Wifi className="h-4 w-4 text-green-400" /> : <WifiOff className="h-4 w-4 text-red-400" />}<SBadge status={gps.status} /></div>
-                    <p className="text-muted-foreground text-xs">Last seen: {gps.last_seen ? format(new Date(gps.last_seen), 'MMM d, h:mm a') : '—'}</p>
+                    <p className="text-muted-foreground text-xs">Last seen: {safeFormat(gps.last_seen, 'MMM d, h:mm a')}</p>
                     {gps.lat && <p className="text-muted-foreground text-xs">{gps.lat.toFixed(4)}, {gps.lon.toFixed(4)}</p>}
                     {gps.starter_disabled && <Badge className="bg-red-500/20 text-red-400 text-xs">⚡ Starter Disabled</Badge>}
                   </div>
@@ -134,7 +140,7 @@ export default function Vehicle360() {
             <TabsContent value="revenue" className="mt-4 space-y-2">
               {data.payment_logs?.filter(p => p.status === 'paid').map(p => (
                 <div key={p.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
-                  <div><p className="font-medium">${(p.amount || 0).toFixed(2)} · Week {p.week_number}</p><p className="text-muted-foreground text-xs">{p.paid_at ? format(new Date(p.paid_at), 'MMM d, yyyy') : '—'}</p></div>
+                  <div><p className="font-medium">${(p.amount || 0).toFixed(2)} · Week {p.week_number}</p><p className="text-muted-foreground text-xs">{safeFormat(p.paid_at, 'MMM d, yyyy')}</p></div>
                   <SBadge status={p.status} />
                 </div>
               ))}
@@ -164,7 +170,7 @@ export default function Vehicle360() {
             <TabsContent value="commands" className="mt-4 space-y-2">
               {data.telematics_commands?.map(cmd => (
                 <div key={cmd.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
-                  <div><p className="font-medium">{cmd.command_type?.replace(/_/g,' ')} {cmd.production_command && <span className="text-green-400 text-xs ml-1">LIVE</span>}</p><p className="text-muted-foreground text-xs">{cmd.requested_by} · {cmd.created_at ? format(new Date(cmd.created_at), 'MMM d, h:mm a') : '—'}</p></div>
+                  <div><p className="font-medium">{cmd.command_type?.replace(/_/g,' ')} {cmd.production_command && <span className="text-green-400 text-xs ml-1">LIVE</span>}</p><p className="text-muted-foreground text-xs">{cmd.requested_by} · {safeFormat(cmd.created_at, 'MMM d, h:mm a')}</p></div>
                   <SBadge status={cmd.queue_status || cmd.status} />
                 </div>
               ))}
@@ -181,7 +187,7 @@ export default function Vehicle360() {
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-foreground">{ev.alert_title || ev.alert_type} <span className="text-muted-foreground font-normal ml-1">x{ev.occurrence_count || 1}</span></p>
                         </div>
-                        <p className="text-muted-foreground text-xs">{ev.category} · Last seen: {ev.last_seen_at ? format(new Date(ev.last_seen_at), 'MMM d, h:mm a') : '—'}</p>
+                        <p className="text-muted-foreground text-xs">{ev.category} · Last seen: {safeFormat(ev.last_seen_at, 'MMM d, h:mm a')}</p>
                       </div>
                       <SBadge status={ev.status} />
                     </div>
@@ -197,7 +203,7 @@ export default function Vehicle360() {
                     <div key={ev.id} className="relative mb-4 cursor-pointer hover:opacity-80" onClick={() => setSelectedAlert(ev)}>
                       <div className={`absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full ${ev.is_active ? 'bg-red-400' : 'bg-green-400'}`}></div>
                       <p className="font-medium text-sm">{ev.alert_title || ev.alert_type}</p>
-                      <p className="text-muted-foreground text-xs">{ev.first_seen_at ? format(new Date(ev.first_seen_at), 'MMM d, yyyy h:mm a') : '—'} · {ev.is_active ? 'Active' : 'Resolved'}</p>
+                      <p className="text-muted-foreground text-xs">{safeFormat(ev.first_seen_at, 'MMM d, yyyy h:mm a')} · {ev.is_active ? 'Active' : 'Resolved'}</p>
                     </div>
                   ))}
                   {!data.safety_events?.length && <p className="text-muted-foreground text-sm -ml-4">No alert history.</p>}

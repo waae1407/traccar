@@ -4,7 +4,13 @@ import { base44 } from '@/api/base44Client';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShieldAlert, AlertTriangle, AlertCircle, Search, Eye } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
+
+const safeFormat = (dateStr, fmt) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt) : '—';
+};
 
 function MetricCard({ label, value, sub, color, warning }) {
   return (
@@ -112,7 +118,7 @@ export default function AdminAlert360() {
               </div>
               <div className="flex items-center justify-between md:justify-end w-full md:w-auto gap-4">
                 <div className="text-left md:text-right">
-                  <p className="text-muted-foreground text-xs">{(e.last_seen_at || e.first_seen_at) ? format(new Date(e.last_seen_at || e.first_seen_at), 'MMM d, h:mm a') : '—'}</p>
+                  <p className="text-muted-foreground text-xs">{safeFormat(e.last_seen_at || e.first_seen_at, 'MMM d, h:mm a')}</p>
                   <SBadge status={e.status} />
                 </div>
                 <button className="text-primary hover:text-primary/80 text-sm font-semibold flex items-center gap-1">
@@ -135,7 +141,7 @@ export default function AdminAlert360() {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-muted-foreground text-xs">{(i.last_seen_at || i.first_seen_at) ? format(new Date(i.last_seen_at || i.first_seen_at), 'MMM d, h:mm a') : '—'}</p>
+                <p className="text-muted-foreground text-xs">{safeFormat(i.last_seen_at || i.first_seen_at, 'MMM d, h:mm a')}</p>
                 <Badge className="bg-red-500/20 text-red-400 text-xs mt-1 uppercase">{i.status}</Badge>
               </div>
             </div>
@@ -154,7 +160,7 @@ export default function AdminAlert360() {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-muted-foreground text-xs">{(e.last_seen_at || e.first_seen_at) ? format(new Date(e.last_seen_at || e.first_seen_at), 'MMM d, h:mm a') : '—'}</p>
+                <p className="text-muted-foreground text-xs">{safeFormat(e.last_seen_at || e.first_seen_at, 'MMM d, h:mm a')}</p>
                 <SBadge status={e.status} />
               </div>
             </div>
@@ -178,7 +184,7 @@ export default function AdminAlert360() {
               <tbody className="divide-y divide-border">
                 {filteredEvents.map(e => (
                   <tr key={e.id} className="hover:bg-secondary/30 cursor-pointer transition-colors" onClick={() => setSelectedAlert(e)}>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{e.first_seen_at ? format(new Date(e.first_seen_at), 'MMM d, h:mm a') : '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{safeFormat(e.first_seen_at, 'MMM d, h:mm a')}</td>
                     <td className="px-4 py-3 font-medium">{e.alert_type}</td>
                     <td className="px-4 py-3 capitalize">{e.severity}</td>
                     <td className="px-4 py-3"><SBadge status={e.status} /></td>
