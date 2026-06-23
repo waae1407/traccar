@@ -305,6 +305,10 @@
       "type": "string",
       "format": "date-time"
     },
+    "parked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "battery_level": {
       "type": "number"
     },

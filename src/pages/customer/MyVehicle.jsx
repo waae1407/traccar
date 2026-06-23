@@ -10,6 +10,14 @@ import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
 
+function getDistanceMiles(lat1, lon1, lat2, lon2) {
+  const R = 3959;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
+}
+
 function getCompassDirection(course) {
   if (course === undefined || course === null) return "Unknown";
   const val = course % 360;
@@ -344,6 +352,32 @@ export default function MyVehicle() {
     setTimeout(() => setCommandLoading(null), 2000);
   };
 
+  const { data: addressData } = useQuery({
+    queryKey: ["reverse-geocode", device?.last_latitude, device?.last_longitude],
+    queryFn: async () => {
+      if (!device?.last_latitude || !device?.last_longitude) return null;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${device.last_latitude}&lon=${device.last_longitude}&format=json`);
+        const data = await res.json();
+        const poi = data.address?.amenity || data.address?.shop || data.address?.building || data.address?.leisure || data.address?.tourism;
+        const road = data.address?.road ? `${data.address.house_number ? data.address.house_number + ' ' : ''}${data.address.road}` : null;
+        const city = data.address?.city || data.address?.town || data.address?.village || "";
+        return { poi: poi || null, street: road || city || "Unknown Location", city_state: `${city}${data.address?.state ? ', ' + data.address.state : ''}` };
+      } catch (e) { return null; }
+    },
+    enabled: !!device?.last_latitude && !!device?.last_longitude,
+    staleTime: 300000,
+  });
+
+  const [userLoc, setUserLoc] = useState(null);
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        setUserLoc({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+      }, () => {}, { enableHighAccuracy: false, maximumAge: 60000 });
+    }
+  }, []);
+
   if (authLoading || bookingsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#050506" }}>
@@ -366,8 +400,28 @@ export default function MyVehicle() {
 
   const vehicleImage = vehicle?.image_url || (isDemo ? PLACEHOLDER_CAR : "");
   const weatherStyle = getWeatherStyle(weather);
-  const locationLabel = device?.address || "Vehicle Location";
-  const locationSub = device?.last_latitude ? `${device.last_latitude.toFixed(4)}, ${device.last_longitude.toFixed(4)}` : "Locating...";
+
+  let distanceStr = null;
+  if (userLoc && device?.last_latitude) {
+    const dist = getDistanceMiles(userLoc.lat, userLoc.lon, device.last_latitude, device.last_longitude);
+    distanceStr = dist < 0.1 ? "Near you" : `${dist.toFixed(1)} mi away`;
+    const walkMins = Math.round(dist * 20);
+    if (walkMins > 0 && walkMins < 60 && dist < 3) distanceStr += ` • ${walkMins} min walk`;
+  }
+
+  let parkedStr = null;
+  if (device?.speed === 0 || device?.ignition_status === 'off') {
+    if (device?.parked_at) {
+      const hours = Math.floor((Date.now() - new Date(device.parked_at).getTime()) / 3600000);
+      const mins = Math.floor((Date.now() - new Date(device.parked_at).getTime()) / 60000);
+      if (hours > 24) parkedStr = `Parked for ${Math.floor(hours/24)} days`;
+      else if (hours > 0) parkedStr = `Parked for ${hours} hr${hours > 1 ? 's' : ''}`;
+      else if (mins > 0) parkedStr = `Parked for ${mins} min${mins > 1 ? 's' : ''}`;
+      else parkedStr = "Just parked";
+    } else {
+      parkedStr = "Parked";
+    }
+  }
 
   const activeAlarms = [];
   if (device?.smoke_detected) activeAlarms.push({ id: 'smoke', label: 'Smoke Detected in Cabin', icon: Flame, color: '#FF453A' });
@@ -699,34 +753,57 @@ export default function MyVehicle() {
             marginBottom: 12,
             boxShadow: "0 18px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)",
           }}>
-            <div className="flex items-center justify-between px-4 py-2.5">
-              <div className="flex items-start gap-2">
-                <MapPin size={15} color="#A1A1AA" style={{ marginTop: 2, flexShrink: 0 }} />
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-start gap-3">
+                <div style={{ marginTop: 2, flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "rgba(47,128,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <MapPin size={14} color="#2F80FF" />
+                </div>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "#F5F5F7", letterSpacing: "-0.1px" }}>{locationLabel}</p>
-                  <p style={{ fontSize: 11, color: "#8E8E93", marginTop: 3, fontWeight: 400 }}>{locationSub}</p>
-                  <p style={{ fontSize: 11, color: "#8E8E93", marginTop: 2, fontWeight: 400 }}>Updated {gps.label}</p>
+                  <p style={{ fontSize: 14, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", lineHeight: 1.2 }}>
+                    {addressData?.poi || addressData?.street || "Locating Vehicle..."}
+                  </p>
+                  <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 2, fontWeight: 400 }}>
+                    {addressData?.poi ? addressData.street : addressData?.city_state}
+                  </p>
+                  
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    {distanceStr && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#89B4F8", background: "rgba(137,180,248,0.15)", padding: "2px 6px", borderRadius: 6 }}>
+                        {distanceStr}
+                      </span>
+                    )}
+                    {parkedStr && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#A1A1AA", background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 6 }}>
+                        {parkedStr}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 11, color: "#71717A" }}>{gps.label}</span>
+                  </div>
                 </div>
               </div>
-              <button 
-                onClick={() => {
-                  if (device?.last_latitude && device?.last_longitude) {
-                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
-                  }
-                }}
-                style={{
-                width: 34, height: 34, borderRadius: "50%",
-                background: "#24252A",
-                border: "1px solid rgba(255,255,255,0.1)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer",
-              }}>
-                <Navigation size={15} color="#FFFFFF" style={{ transform: "rotate(45deg)" }} />
-              </button>
             </div>
-            <div style={{ height: 200 }}>
+            <div style={{ height: 200, position: "relative" }}>
               {booking ? (
-                <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+                <>
+                  <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+                  <button 
+                    onClick={() => {
+                      if (device?.last_latitude && device?.last_longitude) {
+                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+                      }
+                    }}
+                    style={{
+                      position: "absolute", bottom: 12, right: 12, zIndex: 400,
+                      background: "#2F80FF", border: "none", borderRadius: 20,
+                      padding: "8px 16px", display: "flex", alignItems: "center", gap: 6,
+                      color: "#FFF", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      boxShadow: "0 4px 12px rgba(47,128,255,0.4)"
+                    }}
+                  >
+                    <Navigation size={14} color="#FFFFFF" style={{ transform: "rotate(45deg)", marginBottom: 2 }} />
+                    Directions
+                  </button>
+                </>
               ) : (
                 <div style={{ height: "100%", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <p style={{ color: "#71717A", fontSize: 12 }}>GPS location available during active rental</p>
