@@ -165,20 +165,38 @@ export default function HostVehicle360() {
               {!data.telematics_commands?.length && <p className="text-muted-foreground text-sm">No commands found.</p>}
             </TabsContent>
 
-            <TabsContent value="alert360" className="mt-4 space-y-2">
-              {data.safety_events?.filter(e => e.visible_to_host).map(ev => (
-                <div key={ev.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{ev.alert_title || ev.alert_type}</p>
-                      {ev.is_active && <span className="text-red-400 text-xs font-bold">ACTIVE</span>}
+            <TabsContent value="alert360" className="mt-4 space-y-4">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Active Alerts</p>
+                <div className="space-y-2">
+                  {data.safety_events?.filter(e => e.visible_to_host && e.is_active).map(ev => (
+                    <div key={ev.id} className="flex justify-between rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-foreground">{ev.alert_title || ev.alert_type} <span className="text-muted-foreground font-normal ml-1">x{ev.occurrence_count || 1}</span></p>
+                        </div>
+                        <p className="text-muted-foreground text-xs">{ev.category} · Last seen: {ev.last_seen_at ? format(new Date(ev.last_seen_at), 'MMM d, h:mm a') : '—'}</p>
+                      </div>
+                      <SBadge status={ev.status} />
                     </div>
-                    <p className="text-muted-foreground text-xs">{ev.category} · {ev.first_seen_at ? format(new Date(ev.first_seen_at), 'MMM d, h:mm a') : '—'}</p>
-                  </div>
-                  <SBadge status={ev.status} />
+                  ))}
+                  {!data.safety_events?.filter(e => e.visible_to_host && e.is_active).length && <p className="text-muted-foreground text-sm">No active alerts.</p>}
                 </div>
-              ))}
-              {!data.safety_events?.filter(e => e.visible_to_host).length && <p className="text-muted-foreground text-sm">No Alert360 events found.</p>}
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Alert Timeline</p>
+                <div className="space-y-2 relative border-l-2 border-border ml-2 pl-4">
+                  {data.safety_events?.filter(e => e.visible_to_host).sort((a,b) => new Date(b.first_seen_at) - new Date(a.first_seen_at)).map(ev => (
+                    <div key={ev.id} className="relative mb-4">
+                      <div className={`absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full ${ev.is_active ? 'bg-red-400' : 'bg-green-400'}`}></div>
+                      <p className="font-medium text-sm">{ev.alert_title || ev.alert_type}</p>
+                      <p className="text-muted-foreground text-xs">{ev.first_seen_at ? format(new Date(ev.first_seen_at), 'MMM d, yyyy h:mm a') : '—'} · {ev.is_active ? 'Active' : 'Resolved'}</p>
+                    </div>
+                  ))}
+                  {!data.safety_events?.filter(e => e.visible_to_host).length && <p className="text-muted-foreground text-sm -ml-4">No alert history.</p>}
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="inspections" className="mt-4 space-y-2">
