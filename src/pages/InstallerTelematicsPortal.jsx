@@ -1,3 +1,4 @@
+import { uploadFile } from "@/utils/uploadFile";
 import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -673,7 +674,7 @@ export default function InstallerTelematicsPortal() {
   const uploadRequiredPhoto = async (slot, file) => {
     if (!file) return;
     setUploadingSlot(slot);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await uploadFile(file);
     setPhotoSlots(prev => {
       const next = { ...prev, [slot]: file_url };
       setForm(current => ({ ...current, install_photos: [...Object.values(next).filter(Boolean), ...additionalPhotos] }));
@@ -685,7 +686,7 @@ export default function InstallerTelematicsPortal() {
   const uploadAdditionalPhotos = async (files) => {
     const urls = [];
     for (const file of Array.from(files || [])) {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await uploadFile(file);
       urls.push(file_url);
     }
     setAdditionalPhotos(prev => {

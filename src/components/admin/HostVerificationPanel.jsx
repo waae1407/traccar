@@ -1,3 +1,4 @@
+import { uploadFile } from "@/utils/uploadFile";
 import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -62,7 +63,7 @@ export default function HostVerificationPanel({ host: hostProp, open, onClose })
     const file = e.target.files[0];
     if (!file) return;
     setUploading(p => ({ ...p, [field]: true }));
-    const res = await base44.integrations.Core.UploadFile({ file });
+    const res = await uploadFile(file);
     await updateMutation.mutateAsync({ [field]: res.file_url });
     setUploading(p => ({ ...p, [field]: false }));
   };

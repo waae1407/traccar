@@ -202,7 +202,7 @@ export default function GPSActivate() {
       }).catch(() => {});
 
       // Notify
-      await base44.integrations.Core.SendEmail({
+      await base44.functions.invoke('sendEmail', {
         to: form.email,
         subject: '✅ Your Contactless360 GPS Device is Activated',
         body: `Your GPS device (IMEI: ${form.imei}) has been successfully activated for order ${form.order_number}. It may take up to 10 minutes to appear online.`,

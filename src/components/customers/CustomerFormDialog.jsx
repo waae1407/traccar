@@ -1,3 +1,4 @@
+import { uploadFile } from "@/utils/uploadFile";
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ export default function CustomerFormDialog({ open, onOpenChange, onSave, custome
 
   const handleUpload = async (field, file) => {
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await uploadFile(file);
     set(field, file_url);
     setUploading(false);
   };

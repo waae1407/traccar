@@ -1,3 +1,4 @@
+import { uploadFile } from "@/utils/uploadFile";
 import React, { useState, useEffect } from "react";
 import ReferralCard from "@/components/customer/ReferralCard";
 import { useOutletContext, useNavigate, useParams } from "react-router-dom";
@@ -75,7 +76,7 @@ function IDVerificationSheet({ user, isVerified, verifiedBooking, onClose, heroG
   const handleUpload = async (field, file) => {
     if (!file) return;
     setUploading(p => ({ ...p, [field]: true }));
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await uploadFile(file);
     setUploads(p => ({ ...p, [field]: file_url }));
     setUploading(p => ({ ...p, [field]: false }));
   };

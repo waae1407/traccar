@@ -1,3 +1,4 @@
+import { uploadFile } from "@/utils/uploadFile";
 import React, { useState, useRef, useEffect } from "react";
 import { X, Camera, CheckCircle, Upload, Loader2, KeyRound, AlertTriangle, MapPin, Clock, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -247,7 +248,7 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
     setUploading((u) => ({ ...u, [slotId]: true }));
     try {
       const compressed = await compressImage(file);
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: compressed });
+      const { file_url } = await uploadFile(compressed );
       setPhotos((p) => ({ ...p, [slotId]: { preview, url: file_url } }));
     } finally {
       setUploading((u) => ({ ...u, [slotId]: false }));
@@ -260,7 +261,7 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
     setUploading((u) => ({ ...u, [key]: true }));
     try {
       const compressed = await compressImage(file);
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: compressed });
+      const { file_url } = await uploadFile(compressed );
       setAdditionalPhotos((prev) => [...prev, { preview, url: file_url }]);
     } finally {
       setUploading((u) => ({ ...u, [key]: false }));

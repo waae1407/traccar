@@ -1,3 +1,4 @@
+import { uploadFile } from "@/utils/uploadFile";
 import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
@@ -39,7 +40,7 @@ export default function HostReturnReviews() {
   const disputeMutation = useMutation({ mutationFn: (payload) => base44.functions.invoke("openReturnDispute", payload), onSuccess: () => { qc.invalidateQueries({ queryKey: ["host-return-packets"] }); qc.invalidateQueries({ queryKey: ["host-return-bookings"] }); setSelected(null); setDisputeForm({ photo: null, category: "new_damage", notes: "", evidence: [] }); } });
 
   const uploadEvidence = async (file) => {
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await uploadFile(file);
     setDisputeForm((prev) => ({ ...prev, evidence: [...prev.evidence, file_url] }));
   };
 

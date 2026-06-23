@@ -1,3 +1,4 @@
+import { uploadFile } from "@/utils/uploadFile";
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -37,7 +38,7 @@ export default function VehicleExpenseForm({ vehicle, open, onOpenChange }) {
       let receipt_url = null;
       if (receipt) {
         setUploading(true);
-        const uploadRes = await base44.integrations.Core.UploadFile({ file: receipt });
+        const uploadRes = await uploadFile(receipt );
         receipt_url = uploadRes.file_url;
       }
       return base44.entities.VehicleExpense.create({
