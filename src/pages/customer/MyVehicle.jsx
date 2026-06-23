@@ -271,6 +271,13 @@ export default function MyVehicle() {
   const device = devices[0];
   const gps = freshness(device);
 
+  const { data: safetyEvents = [] } = useQuery({
+    queryKey: ["customer-safety-events", booking?.vehicle_id],
+    queryFn: () => base44.entities.TelematicsSafetyEvent.filter({ vehicle_id: booking?.vehicle_id, is_active: true, visible_to_customer: true }),
+    enabled: !!booking?.vehicle_id,
+    refetchInterval: 15_000,
+  });
+
   const { data: snapshots = [] } = useQuery({
     queryKey: ["pickup-snapshot", booking?.id],
     queryFn: () => base44.entities.OdometerSnapshot.filter({ booking_id: booking?.id, snapshot_type: "rental_pickup" }),
@@ -427,15 +434,13 @@ export default function MyVehicle() {
     }
   }
 
-  const activeAlarms = [];
+  const activeAlarms = safetyEvents.map(event => ({
+    id: event.id,
+    label: event.alert_message || event.alert_title,
+    icon: event.category === "safety" || event.category === "security" ? AlertTriangle : Activity,
+    color: event.customer_severity === "critical" ? "#FF453A" : "#FF9F0A"
+  }));
   const displayAddress = isDemo ? { poi: "Barton Creek Square", street: "2901 S Capital of Texas Hwy", city_state: "Austin, TX" } : addressData;
-  if (device?.smoke_detected) activeAlarms.push({ id: 'smoke', label: 'Smoke Detected in Cabin', icon: Flame, color: '#FF453A' });
-  if (device?.shock_alarm) activeAlarms.push({ id: 'shock', label: 'Impact / Shock Detected', icon: Activity, color: '#FF9F0A' });
-  if (device?.power_cut_alarm) activeAlarms.push({ id: 'power_cut', label: 'Main Power Cut', icon: ZapOff, color: '#FF453A' });
-  if (device?.low_battery_alarm) activeAlarms.push({ id: 'low_battery', label: 'Low Battery Warning', icon: Battery, color: '#FF9F0A' });
-  if (device?.overspeed_alarm) activeAlarms.push({ id: 'overspeed', label: 'Overspeed Warning', icon: Gauge, color: '#FF9F0A' });
-  if (device?.movement_alarm) activeAlarms.push({ id: 'movement', label: 'Unauthorized Movement', icon: AlertTriangle, color: '#FF453A' });
-  if (device?.geofence_alarm) activeAlarms.push({ id: 'geofence', label: 'Geofence Breach', icon: MapPin, color: '#FF9F0A' });
 
   let displayMiles = "268";
   let displayLabel = "Range";

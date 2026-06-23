@@ -1,0 +1,86 @@
+{
+  "name": "TelematicsIncident",
+  "type": "object",
+  "properties": {
+    "incident_type": {
+      "type": "string"
+    },
+    "incident_title": {
+      "type": "string"
+    },
+    "incident_summary": {
+      "type": "string"
+    },
+    "related_event_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "primary_event_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "vin": {
+      "type": "string"
+    },
+    "device_unique_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "investigating",
+        "resolved",
+        "dismissed_false_positive"
+      ],
+      "default": "open"
+    },
+    "first_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "occurrence_count": {
+      "type": "number",
+      "default": 1
+    },
+    "assigned_to": {
+      "type": "string"
+    },
+    "resolution_notes": {
+      "type": "string"
+    },
+    "internal_notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "incident_type",
+    "severity",
+    "first_seen_at"
+  ]
+}

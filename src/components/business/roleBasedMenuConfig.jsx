@@ -39,6 +39,7 @@ export const masterMenuSections = [
     label: "Command Centers",
     icon: LayoutDashboard,
     items: [
+      { id: "alert360", label: "Alert360", icon: ShieldAlert, paths: { admin: "/admin/alert360" }, roles: ["admin"] },
       { id: "operations-center", label: "Operations Center", icon: Activity, paths: { admin: "/admin/operations-center" }, roles: ["admin"] },
       { id: "financial-center", label: "Financial Center", icon: DollarSign, paths: { admin: "/admin/financial-center" }, roles: ["admin"] },
       { id: "subscription-center", label: "Subscription Center", icon: CreditCard, paths: { admin: "/admin/subscription-center" }, roles: ["admin"] },
@@ -69,6 +70,7 @@ export const masterMenuSections = [
     label: "Command Center",
     icon: LayoutDashboard,
     items: [
+      { id: "host-alert360", label: "Alert360", icon: ShieldAlert, paths: { host: "/host/alert360" }, roles: ["host"] },
       { id: "host-operations-center", label: "Operations Center", icon: Activity, paths: { host: "/host/operations-center" }, roles: ["host"] },
       { id: "host-financial-center", label: "Financial Center", icon: DollarSign, paths: { host: "/host/financial-center" }, roles: ["host"] },
       { id: "host-subscriptions", label: "Subscriptions", icon: CreditCard, paths: { host: "/host/subscriptions" }, roles: ["host"] },

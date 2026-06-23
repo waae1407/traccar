@@ -904,134 +904,232 @@ function isStarterCommand(commandType) {
 // Commands are now sent immediately via Traccar API (no heartbeat wait).
 // This function is removed and should not be called.
 
-async function processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp }) {
-  if (!ALARM_EVENT_TYPES.has(parsed?.event_type) || !device?.id) return null;
-
-  const detail = ALARM_DETAILS[parsed.event_type] || ALARM_DETAILS.unknown_alarm;
+// --- Alert360 Pipeline ---
+async function processAlert360(base44, body, parsed, device, timestamp, event) {
+  if (!device) return;
+  const vehicle = device.vehicle_id ? (await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id }))[0] : null;
   const booking = await getActiveBookingForVehicle(base44, device.vehicle_id);
   const host = await getHost(base44, device.host_id);
-  const message = alarmMessage(detail, device, parsed);
+  
+  const alerts = [];
   const now = new Date().toISOString();
 
-  const safetyEvent = await base44.asServiceRole.entities.TelematicsSafetyEvent.create({
-    event_type: detail.safetyType,
-    confidence: detail.confidence,
-    severity: detail.severity,
-    vehicle_id: device.vehicle_id || '',
-    host_id: device.host_id || '',
-    booking_id: booking?.id || '',
-    customer_id: booking?.user_id || '',
-    telematics_device_id: device.id,
-    provider_key: PROVIDER_KEY,
-    latitude: parsed.latitude,
-    longitude: parsed.longitude,
-    speed: Number(parsed.speed || 0),
-    acc_status: parsed.status_bits?.accOn === true ? 'on' : parsed.status_bits?.accOn === false ? 'off' : 'unknown',
-    shock_detected: parsed.event_type === 'shock_alarm',
-    started_at: timestamp || now,
-    status: 'open',
-    last_known_location: parsed.latitude !== undefined && parsed.longitude !== undefined ? `${parsed.latitude.toFixed(3)}, ${parsed.longitude.toFixed(3)}` : '',
-    raw_telemetry_snapshot: {
-      alarm_type: parsed.event_type,
-      alarm_code: parsed.alarm_byte,
-      packet_type: parsed.packet_type,
-      raw_packet_hex: parsed.raw_packet_hex,
-      status_bits: parsed.status_bits,
-      bEnable: parsed.bEnable,
-      nBAT: parsed.nBAT,
-      battery_voltage: parsed.voltage,
-      device_timestamp: parsed.device_timestamp || '',
-      telematics_event_id: event?.id || '',
-      parsed_forwarded_log: parsed,
-      raw: rawPayload
-    },
-    created_by: 'system'
-  });
-
-  const bucket = Math.floor(new Date(timestamp || now).getTime() / (5 * 60 * 1000));
-  const dedupeKey = `mt20_alarm:${device.id}:${parsed.event_type}:${bucket}`;
-  const existingAlert = (await base44.asServiceRole.entities.OperationalAlert.filter({ dedupe_key: dedupeKey }))[0];
-  const alertPayload = {
-    alert_type: parsed.event_type === 'shock_alarm' || parsed.event_type === 'sos_alarm' ? 'command_failed' : 'provider_health_warning',
-    severity: detail.severity,
-    status: 'new',
-    title: detail.title,
-    message,
-    recommended_action: 'Review the vehicle location, contact the assigned host or active renter if needed, and resolve the safety event.',
-    assigned_role: 'admin',
-    source_entity_type: 'TelematicsSafetyEvent',
-    source_entity_id: safetyEvent.id,
-    domain: 'telematics',
-    action_url: '/admin/telematics-operations',
-    provider_key: PROVIDER_KEY,
-    telematics_device_id: device.id,
-    vehicle_id: device.vehicle_id || '',
-    host_id: device.host_id || '',
-    dedupe_key: dedupeKey,
-    metadata: { alarm_type: parsed.event_type, safety_event_id: safetyEvent.id, telematics_event_id: event?.id || '', booking_id: booking?.id || '' }
+  const addAlert = (type, category, customer_severity, host_severity, admin_severity, visCust, visHost, visAdmin, active, message) => {
+    alerts.push({
+      alert_type: type,
+      alert_title: type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+      alert_message: message,
+      category,
+      severity: admin_severity,
+      customer_severity,
+      host_severity,
+      admin_severity,
+      vehicle_id: vehicle?.id || '',
+      vehicle_display_name: vehicle?.display_name || `${vehicle?.year || ''} ${vehicle?.make || ''} ${vehicle?.model || ''}`.trim(),
+      vin: vehicle?.vin || '',
+      device_id: device.id,
+      device_unique_id: device.unique_id || '',
+      provider_key: PROVIDER_KEY,
+      host_id: vehicle?.host_id || device.host_id || '',
+      host_name: host?.full_name || host?.business_name || '',
+      customer_id: booking?.user_id || '',
+      customer_name: booking?.customer_full_name || '',
+      booking_id: booking?.id || '',
+      lat: parsed?.latitude,
+      lon: parsed?.longitude,
+      speed: parsed?.speed,
+      battery_voltage: parsed?.voltage,
+      raw_packet_hex: parsed?.raw_packet_hex || rawHexFromBody(body) || '',
+      raw_packet_hex_latest: parsed?.raw_packet_hex || rawHexFromBody(body) || '',
+      packet_type: parsed?.packet_type || 'unknown',
+      packet_type_name: parsed?.message_type || 'unknown',
+      parsed_payload_json: parsed || {},
+      source: 'webhook',
+      is_active: active,
+      first_seen_at: now,
+      last_seen_at: now,
+      visible_to_customer: visCust,
+      visible_to_host: visHost,
+      visible_to_admin: visAdmin
+    });
   };
 
-  if (existingAlert) {
-    await base44.asServiceRole.entities.OperationalAlert.update(existingAlert.id, {
-      ...alertPayload,
-      repeat_count: Number(existingAlert.repeat_count || 1) + 1,
-      last_duplicate_at: now,
-      status: existingAlert.status === 'resolved' ? 'new' : existingAlert.status
-    });
+  if (!parsed) {
+    addAlert('telematics_parser_error', 'device_health', 'none', 'none', 'warning', false, false, true, true, 'Unrecognized packet or parser error');
   } else {
-    await base44.asServiceRole.entities.OperationalAlert.create(alertPayload);
+    const smokeActive = parsed.status_bits?.smokeDetected === true;
+    if (smokeActive || device.smoke_detected) {
+      if (smokeActive !== device.smoke_detected) {
+        addAlert('cabin_smoke_detected', 'safety', 'critical', 'critical', 'critical', true, true, true, smokeActive, smokeActive ? 'Cabin smoke detected' : 'Cabin smoke cleared');
+      }
+    }
+
+    const doorActive = parsed.status_bits?.doorOpen === true || parsed.status_bits?.trunkOpen === true;
+    const prevDoorActive = device.door_open === true || device.trunk_open === true;
+    if (doorActive !== prevDoorActive) {
+      addAlert('door_or_trunk_open', 'security', 'info', 'warning', 'info', !!booking, true, true, doorActive, doorActive ? 'Door or trunk opened' : 'Doors and trunk closed');
+    }
+
+    if (parsed.voltage) {
+      const lowBattActive = parsed.voltage < 11.8;
+      const prevLowBatt = device.low_battery_alarm === true;
+      if (lowBattActive !== prevLowBatt) {
+        addAlert('low_12v_battery', 'vehicle_health', 'warning', 'warning', 'warning', !!booking, true, true, lowBattActive, lowBattActive ? 'Vehicle battery voltage is low' : 'Vehicle battery voltage recovered');
+      }
+    }
+
+    if (parsed.event_type) {
+      if (parsed.alarm_type === 'shock_alarm') {
+        addAlert('impact_detected', 'safety', 'critical', 'critical', 'critical', true, true, true, true, 'Impact / Shock detected on vehicle');
+      }
+      if (parsed.alarm_type === 'power_alarm') {
+        addAlert('tracker_power_cut', 'security', 'none', 'critical', 'critical', false, true, true, true, 'Main power cut / Tracker tamper detected');
+      }
+      if (parsed.alarm_type === 'overspeed_alarm') {
+        addAlert('overspeed_violation', 'rental_compliance', 'none', 'warning', 'warning', false, true, true, true, 'Overspeed violation detected');
+      }
+      if (parsed.alarm_type === 'geofence_alarm') {
+        addAlert('geofence_breach', 'rental_compliance', 'none', 'warning', 'warning', false, true, true, true, 'Geofence breach detected');
+      }
+      if (parsed.alarm_type === 'movement_alarm') {
+        addAlert('unauthorized_movement', 'security', !!booking ? 'critical' : 'none', 'critical', 'critical', !!booking, true, true, true, 'Unauthorized movement detected');
+      }
+    }
   }
 
-  const shouldNotifyRecipients = ['sos_alarm', 'shock_alarm'].includes(parsed.event_type);
-
-  if (!existingAlert && shouldNotifyRecipients) {
-    const adminMsg = alarmMessage(detail, device, parsed, 'admin');
-    const hostMsg = alarmMessage(detail, device, parsed, 'host');
-    const customerMsg = alarmMessage(detail, device, parsed, 'customer');
-    
-    await createScopedAlarmNotification(base44, {
-      recipient_role: 'admin',
-      severity: detail.severity,
-      title: detail.title,
-      body: adminMsg,
-      message: adminMsg,
-      source_entity_type: 'TelematicsSafetyEvent',
-      source_entity_id: safetyEvent.id,
-      action_url: '/admin/telematics-operations'
+  for (const alert of alerts) {
+    const existing = await base44.asServiceRole.entities.TelematicsSafetyEvent.filter({
+      vehicle_id: alert.vehicle_id,
+      alert_type: alert.alert_type,
+      is_active: true
     });
-    if (host?.email) {
-      await createScopedAlarmNotification(base44, {
-        recipient_role: 'host',
-        recipient_email: host.email,
-        recipient_phone: host.phone || '',
-        severity: detail.severity,
-        title: detail.title,
-        body: hostMsg,
-        message: hostMsg,
-        source_entity_type: 'TelematicsSafetyEvent',
-        source_entity_id: safetyEvent.id,
-        action_url: '/host/telematics'
-      });
-    }
-    if (booking?.user_email) {
-      await createScopedAlarmNotification(base44, {
-        recipient_role: 'customer',
-        recipient_email: booking.user_email,
-        recipient_phone: booking.customer_phone || '',
-        user_email: booking.user_email,
-        user_id: booking.user_id || '',
-        severity: detail.severity,
-        title: detail.title,
-        body: customerMsg,
-        message: customerMsg,
-        source_entity_type: 'TelematicsSafetyEvent',
-        source_entity_id: safetyEvent.id,
-        action_url: '/my-bookings'
-      });
+
+    let ev = null;
+    let isNew = false;
+    if (!alert.is_active) {
+      if (existing.length > 0) {
+        for (const oldEv of existing) {
+          await base44.asServiceRole.entities.TelematicsSafetyEvent.update(oldEv.id, {
+            is_active: false,
+            status: 'resolved',
+            resolved_at: now,
+            resolution_notes: 'Auto-resolved because device state returned normal'
+          });
+        }
+      }
+    } else {
+      if (existing.length > 0) {
+        ev = existing[0];
+        await base44.asServiceRole.entities.TelematicsSafetyEvent.update(ev.id, {
+          occurrence_count: (ev.occurrence_count || 1) + 1,
+          last_seen_at: now,
+          raw_packet_hex_latest: alert.raw_packet_hex,
+          parsed_payload_json: alert.parsed_payload_json,
+          lat: alert.lat || ev.lat,
+          lon: alert.lon || ev.lon,
+          battery_voltage: alert.battery_voltage || ev.battery_voltage,
+          speed: alert.speed || ev.speed
+        });
+      } else {
+        alert.status = 'new';
+        let suppressMin = 0;
+        if (alert.alert_type === 'impact_detected') suppressMin = 10;
+        if (alert.alert_type === 'overspeed_violation') suppressMin = 5;
+        if (alert.alert_type === 'geofence_breach') suppressMin = 60;
+        if (alert.alert_type === 'telematics_parser_error') suppressMin = 10;
+        if (suppressMin > 0) {
+          alert.suppress_until = new Date(Date.now() + suppressMin * 60000).toISOString();
+        }
+        ev = await base44.asServiceRole.entities.TelematicsSafetyEvent.create(alert);
+        isNew = true;
+      }
+
+      if (ev && (ev.occurrence_count || 1) >= 4) {
+        const incidents = await base44.asServiceRole.entities.TelematicsIncident.filter({ primary_event_id: ev.id });
+        if (incidents.length > 0) {
+          await base44.asServiceRole.entities.TelematicsIncident.update(incidents[0].id, {
+            occurrence_count: ev.occurrence_count,
+            last_seen_at: now
+          });
+        } else {
+          await base44.asServiceRole.entities.TelematicsIncident.create({
+            incident_type: 'repeated_alert',
+            incident_title: `Repeated ${ev.alert_title}`,
+            incident_summary: `${ev.alert_title} detected ${ev.occurrence_count} times`,
+            related_event_ids: [ev.id],
+            primary_event_id: ev.id,
+            vehicle_id: ev.vehicle_id,
+            vin: ev.vin,
+            device_unique_id: ev.device_unique_id,
+            host_id: ev.host_id,
+            customer_id: ev.customer_id,
+            booking_id: ev.booking_id,
+            severity: ev.severity,
+            status: 'open',
+            first_seen_at: ev.first_seen_at,
+            last_seen_at: now,
+            occurrence_count: ev.occurrence_count
+          });
+        }
+      }
+
+      // Backward compatibility for OperationalAlert
+      if (isNew && ['impact_detected', 'tracker_power_cut'].includes(alert.alert_type)) {
+        await base44.asServiceRole.entities.OperationalAlert.create({
+          alert_type: 'provider_health_warning',
+          severity: alert.severity,
+          status: 'new',
+          title: alert.alert_title,
+          message: alert.alert_message,
+          assigned_role: 'admin',
+          source_entity_type: 'TelematicsSafetyEvent',
+          source_entity_id: ev.id,
+          domain: 'telematics',
+          action_url: '/admin/telematics-operations',
+          provider_key: PROVIDER_KEY,
+          telematics_device_id: device.id,
+          vehicle_id: alert.vehicle_id,
+          host_id: alert.host_id
+        });
+      }
+
+      if (isNew) {
+        if (ev.visible_to_customer && ev.customer_id && ['cabin_smoke_detected', 'impact_detected'].includes(ev.alert_type)) {
+          await createScopedAlarmNotification(base44, {
+            recipient_role: 'customer',
+            recipient_email: booking?.user_email,
+            recipient_phone: booking?.customer_phone || '',
+            user_email: booking?.user_email,
+            user_id: ev.customer_id,
+            severity: ev.customer_severity,
+            title: ev.alert_title,
+            body: ev.alert_message,
+            message: ev.alert_message,
+            source_entity_type: 'TelematicsSafetyEvent',
+            source_entity_id: ev.id,
+            action_url: '/my-bookings'
+          });
+        }
+        if (ev.visible_to_host && ev.host_id && host?.email) {
+          const isCritical = ev.host_severity === 'critical';
+          if (isCritical || ev.alert_type === 'cabin_smoke_detected') {
+            await createScopedAlarmNotification(base44, {
+              recipient_role: 'host',
+              recipient_email: host.email,
+              recipient_phone: host.phone || '',
+              severity: ev.host_severity,
+              title: ev.alert_title,
+              body: ev.alert_message,
+              message: ev.alert_message,
+              source_entity_type: 'TelematicsSafetyEvent',
+              source_entity_id: ev.id,
+              action_url: '/host/telematics'
+            });
+          }
+        }
+      }
     }
   }
-
-  return { safety_event_id: safetyEvent.id, alarm_type: parsed.event_type, customer_notified: !!booking?.user_email, host_notified: !!host?.email };
 }
 
 Deno.serve(async (req) => {
@@ -1151,12 +1249,11 @@ Deno.serve(async (req) => {
       // Heartbeat only updates device session state - no command dispatch
     }
 
-    // ── Alarm processing with error guard ──
-    let alarm_processing = null;
+    // ── Alert360 processing with error guard ──
     try {
-      alarm_processing = await processAlarmUpload(base44, { device, parsed, event, rawPayload, timestamp });
-    } catch (alarmError) {
-      console.error('[webhookLightLogForwarder] Alarm processing error:', alarmError.message);
+      await processAlert360(base44, body, parsed, device, timestamp, event);
+    } catch (alertError) {
+      console.error('[webhookLightLogForwarder] Alert360 processing error:', alertError.message);
     }
 
     // ── Command response processing with error guard ──

@@ -120,7 +120,7 @@ export default function HostVehicle360() {
 
           <Tabs defaultValue="revenue">
             <TabsList className="flex-wrap h-auto gap-1">
-              {[['revenue','Revenue'],['expenses','Expenses'],['maintenance','Maintenance'],['commands','Commands'],['inspections','Inspections'],['bookings','Booking History']].map(([val,l]) => (
+              {[['revenue','Revenue'],['expenses','Expenses'],['maintenance','Maintenance'],['commands','Commands'],['alert360','Alert360'],['inspections','Inspections'],['bookings','Booking History']].map(([val,l]) => (
                 <TabsTrigger key={val} value={val}>{l}</TabsTrigger>
               ))}
             </TabsList>
@@ -163,6 +163,22 @@ export default function HostVehicle360() {
                 </div>
               ))}
               {!data.telematics_commands?.length && <p className="text-muted-foreground text-sm">No commands found.</p>}
+            </TabsContent>
+
+            <TabsContent value="alert360" className="mt-4 space-y-2">
+              {data.safety_events?.filter(e => e.visible_to_host).map(ev => (
+                <div key={ev.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{ev.alert_title || ev.alert_type}</p>
+                      {ev.is_active && <span className="text-red-400 text-xs font-bold">ACTIVE</span>}
+                    </div>
+                    <p className="text-muted-foreground text-xs">{ev.category} · {ev.first_seen_at ? format(new Date(ev.first_seen_at), 'MMM d, h:mm a') : '—'}</p>
+                  </div>
+                  <SBadge status={ev.status} />
+                </div>
+              ))}
+              {!data.safety_events?.filter(e => e.visible_to_host).length && <p className="text-muted-foreground text-sm">No Alert360 events found.</p>}
             </TabsContent>
 
             <TabsContent value="inspections" className="mt-4 space-y-2">

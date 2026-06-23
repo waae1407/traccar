@@ -58,6 +58,13 @@ function NotificationCard({ notification, onMarkRead, onArchive }) {
 
 export default function CustomerNotifications() {
   const { user } = useAuth();
+
+  const { data: safetyEvents = [] } = useQuery({
+    queryKey: ["customer-safety-events", user?.id],
+    queryFn: () => base44.entities.TelematicsSafetyEvent.filter({ customer_id: user?.id, visible_to_customer: true }, "-first_seen_at", 50),
+    enabled: !!user?.id,
+    refetchInterval: 30_000,
+  });
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
@@ -135,6 +142,32 @@ export default function CustomerNotifications() {
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="pl-9" />
         {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="h-4 w-4 text-muted-foreground" /></button>}
       </div>
+
+      {safetyEvents.filter(e => e.is_active).length > 0 && (
+        <div className="space-y-2 mb-4">
+          <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Active Alerts</h2>
+          {safetyEvents.filter(e => e.is_active).map(event => (
+            <div key={event.id} className="relative flex flex-col gap-3 p-4 rounded-2xl border bg-red-50/50 border-red-200">
+              <div className="flex gap-3">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 border bg-red-100 border-red-200">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-red-900 leading-snug">{event.alert_title}</p>
+                  <p className="text-xs text-red-700 leading-relaxed mt-0.5 line-clamp-2">{event.alert_message}</p>
+                  <p className="text-[10px] text-red-600/70 mt-1">
+                    {new Date(event.first_seen_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1 text-xs border-red-200 text-red-700 hover:bg-red-50">Call Support</Button>
+                <Button size="sm" variant="outline" className="flex-1 text-xs border-red-200 text-red-700 hover:bg-red-50">Mark Safe</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
         {categories.map(cat => {

@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     const platformSettingsList = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'compliance_enforcement_enabled' }, '-updated_date', 1).catch(() => []);
     const enforcementEnabled = platformSettingsList[0] ? platformSettingsList[0].value_boolean !== false : true;
 
-    const [host, bookings, paymentLogs, expenses, maintenanceLogs, complianceDocs, telematicsDevice, telematicsCommands, telematicsEvents, positionHistory, inspectionPackets, operationalAlerts] = await Promise.all([
+    const [host, bookings, paymentLogs, expenses, maintenanceLogs, complianceDocs, telematicsDevice, telematicsCommands, telematicsEvents, positionHistory, inspectionPackets, operationalAlerts, safetyEvents] = await Promise.all([
       vehicle.host_id ? base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id }).then(r => r[0]) : null,
       base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id }),
       base44.asServiceRole.entities.PaymentLog.filter({ vehicle_id }),
@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
       base44.asServiceRole.entities.TelematicsPositionHistory.filter({ vehicle_id }, '-timestamp', 20),
       base44.asServiceRole.entities.InspectionEvidencePacket.filter({ vehicle_id }, '-created_date', 20),
       base44.asServiceRole.entities.OperationalAlert.filter({ vehicle_id }),
+      base44.asServiceRole.entities.TelematicsSafetyEvent.filter({ vehicle_id }, '-first_seen_at', 50),
     ]);
 
     // Also try to fetch compliance by host_id if vehicle_id returns nothing (fallback for legacy records)
@@ -163,6 +164,7 @@ Deno.serve(async (req) => {
       position_history: positionHistory,
       inspections: inspectionPackets,
       operational_alerts: operationalAlerts,
+      safety_events: safetyEvents,
       warnings,
       scope: isAdmin ? 'admin' : 'host',
       generated_at: new Date().toISOString(),

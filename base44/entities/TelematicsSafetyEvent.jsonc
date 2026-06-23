@@ -2,21 +2,26 @@
   "name": "TelematicsSafetyEvent",
   "type": "object",
   "properties": {
-    "event_type": {
-      "type": "string",
-      "enum": [
-        "vehicle_movement_detected",
-        "possible_accident"
-      ]
+    "alert_type": {
+      "type": "string"
     },
-    "confidence": {
+    "alert_title": {
+      "type": "string"
+    },
+    "alert_message": {
+      "type": "string"
+    },
+    "category": {
       "type": "string",
       "enum": [
-        "low",
-        "medium",
-        "high"
-      ],
-      "default": "low"
+        "safety",
+        "security",
+        "device_health",
+        "vehicle_health",
+        "rental_compliance",
+        "payment_risk",
+        "operational"
+      ]
     },
     "severity": {
       "type": "string",
@@ -24,94 +29,231 @@
         "info",
         "warning",
         "critical"
-      ],
-      "default": "warning"
+      ]
+    },
+    "customer_severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical",
+        "none"
+      ]
+    },
+    "host_severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical",
+        "none"
+      ]
+    },
+    "admin_severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical",
+        "none"
+      ]
     },
     "vehicle_id": {
       "type": "string"
     },
-    "host_id": {
+    "vehicle_display_name": {
       "type": "string"
     },
-    "booking_id": {
+    "vin": {
       "type": "string"
     },
-    "customer_id": {
+    "device_id": {
       "type": "string"
     },
-    "telematics_device_id": {
+    "device_unique_id": {
       "type": "string"
     },
     "provider_key": {
       "type": "string"
     },
-    "latitude": {
+    "host_id": {
+      "type": "string"
+    },
+    "host_name": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "rental_id": {
+      "type": "string"
+    },
+    "company_id": {
+      "type": "string"
+    },
+    "lat": {
       "type": "number"
     },
-    "longitude": {
+    "lon": {
+      "type": "number"
+    },
+    "address_label": {
+      "type": "string"
+    },
+    "odometer": {
       "type": "number"
     },
     "speed": {
       "type": "number"
     },
-    "acc_status": {
+    "battery_voltage": {
+      "type": "number"
+    },
+    "fuel_level": {
+      "type": "number"
+    },
+    "raw_packet_hex": {
+      "type": "string"
+    },
+    "raw_packet_hex_latest": {
+      "type": "string"
+    },
+    "packet_type": {
+      "type": "string"
+    },
+    "packet_type_name": {
+      "type": "string"
+    },
+    "parsed_payload_json": {
+      "type": "object"
+    },
+    "source": {
       "type": "string",
       "enum": [
-        "unknown",
-        "on",
-        "off"
+        "contactless360_device",
+        "traccar",
+        "webhook",
+        "manual_admin",
+        "booking_system",
+        "payment_system",
+        "command_system"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "active",
+        "acknowledged",
+        "resolved",
+        "dismissed_false_positive"
       ],
-      "default": "unknown"
+      "default": "new"
     },
-    "shock_detected": {
+    "is_active": {
       "type": "boolean",
-      "default": false
+      "default": true
     },
-    "started_at": {
+    "first_seen_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "occurrence_count": {
+      "type": "number",
+      "default": 1
+    },
+    "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "acknowledged_by": {
+      "type": "string"
     },
     "resolved_at": {
       "type": "string",
       "format": "date-time"
     },
-    "status": {
+    "resolved_by": {
+      "type": "string"
+    },
+    "resolution_notes": {
+      "type": "string"
+    },
+    "internal_notes": {
+      "type": "string"
+    },
+    "visible_to_customer": {
+      "type": "boolean",
+      "default": false
+    },
+    "visible_to_host": {
+      "type": "boolean",
+      "default": false
+    },
+    "visible_to_admin": {
+      "type": "boolean",
+      "default": true
+    },
+    "notification_sent_sms": {
+      "type": "boolean",
+      "default": false
+    },
+    "notification_sent_email": {
+      "type": "boolean",
+      "default": false
+    },
+    "notification_sent_in_app": {
+      "type": "boolean",
+      "default": false
+    },
+    "escalation_level": {
+      "type": "number",
+      "default": 0
+    },
+    "last_escalated_at": {
       "type": "string",
-      "enum": [
-        "open",
-        "acknowledged",
-        "customer_confirmed_safe",
-        "escalated",
-        "false_alarm",
-        "resolved"
-      ],
-      "default": "open"
+      "format": "date-time"
     },
-    "customer_response": {
-      "type": "string"
-    },
-    "host_response": {
-      "type": "string"
-    },
-    "admin_response": {
-      "type": "string"
-    },
-    "last_known_location": {
-      "type": "string"
-    },
-    "raw_telemetry_snapshot": {
-      "type": "object"
-    },
-    "created_by": {
+    "suppress_until": {
       "type": "string",
-      "default": "system"
+      "format": "date-time"
+    },
+    "linked_incident_id": {
+      "type": "string"
+    },
+    "command_id": {
+      "type": "string"
+    },
+    "command_type": {
+      "type": "string"
+    },
+    "raw_ack_hex": {
+      "type": "string"
+    },
+    "ack_status": {
+      "type": "string"
+    },
+    "ack_match_confidence": {
+      "type": "string"
+    },
+    "assigned_to": {
+      "type": "string"
     }
   },
   "required": [
-    "event_type",
-    "vehicle_id",
-    "telematics_device_id",
-    "provider_key",
-    "started_at"
+    "alert_type",
+    "category",
+    "severity",
+    "first_seen_at"
   ]
 }

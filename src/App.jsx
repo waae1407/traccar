@@ -55,6 +55,8 @@ import AdminGPSMonitor from '@/pages/admin/AdminGPSMonitor';
 import AdminTelematicsCenter from '@/pages/admin/AdminTelematicsCenter.jsx';
 import AdminTraccarReadiness from '@/pages/admin/AdminTraccarReadiness.jsx';
 import AdminTelematicsOperationsCenter from '@/pages/admin/AdminTelematicsOperationsCenter.jsx';
+import AdminAlert360 from '@/pages/admin/AdminAlert360.jsx';
+import HostAlert360 from '@/pages/host/HostAlert360.jsx';
 import NoranRetryLab from '@/pages/admin/NoranRetryLab.jsx';
 import AdminTelematicsCommandTest from '@/pages/admin/AdminTelematicsCommandTest.jsx';
 import VehicleCommandCenter from '@/pages/VehicleCommandCenter.jsx';
@@ -239,6 +241,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/expense-center" element={<HostExpenseCenter />} />
         <Route path="/host/maintenance-center" element={<HostMaintenanceCenter />} />
         <Route path="/host/telematics" element={<HostTelematicsDashboard />} />
+        <Route path="/host/alert360" element={<HostAlert360 />} />
         <Route path="/host/installers" element={<HostInstallers />} />
         <Route path="/host/vehicle-command-center" element={<VehicleCommandCenter mode="host" />} />
         <Route path="/host/telematics-command-test" element={<HostTelematicsCommandTest />} />
@@ -316,6 +319,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/vehicle-command-center" element={<VehicleCommandCenter mode="admin" />} />
         <Route path="/admin/telematics-command-test" element={<AdminTelematicsCommandTest />} />
         <Route path="/admin/telematics-operations" element={<AdminTelematicsOperationsCenter />} />
+        <Route path="/admin/alert360" element={<AdminAlert360 />} />
         <Route path="/admin/noran-reliability-lab" element={<NoranRetryLab />} />
         <Route path="/admin/telematics-rollout" element={<TelematicsRolloutDashboard />} />
         <Route path="/admin/traccar-readiness" element={<AdminTraccarReadiness />} />
