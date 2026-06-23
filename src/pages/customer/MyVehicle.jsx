@@ -627,6 +627,14 @@ export default function MyVehicle() {
           animation: smokeRise2 3s infinite ease-out;
           animation-delay: 1s;
         }
+        @keyframes textMonitorPulse {
+          0% { opacity: 0.6; text-shadow: 0 0 2px transparent; }
+          50% { opacity: 1; text-shadow: 0 0 10px currentColor; }
+          100% { opacity: 0.6; text-shadow: 0 0 2px transparent; }
+        }
+        .text-monitor-pulse {
+          animation: textMonitorPulse 2.5s ease-in-out infinite;
+        }
       `}</style>
       {inspectionTarget && (
         <VehicleInspectionSheet
@@ -761,7 +769,7 @@ export default function MyVehicle() {
 
                   <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 0 }}>
                     <CigaretteIcon color={device?.smoke_detected ? "#FF453A" : "#30D158"} isAlert={device?.smoke_detected} />
-                    Cabin: <span style={{ color: device?.smoke_detected ? "#FF453A" : "#30D158", marginLeft: 4 }}>{device?.smoke_detected ? "Smoke Detected" : "Clear"}</span>
+                    Cabin: <span className={!device?.smoke_detected ? "text-monitor-pulse" : ""} style={{ color: device?.smoke_detected ? "#FF453A" : "#30D158", marginLeft: 4 }}>{device?.smoke_detected ? "Smoke Detected" : "Clear"}</span>
                   </span>
                 </div>
               </div>
