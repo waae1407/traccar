@@ -430,6 +430,12 @@ Deno.serve(async (req) => {
         device_mileage: Math.round(deviceMiles)
       };
 
+      if (payload.speed === 0) {
+        payload.parked_at = local.parked_at || seenAt;
+      } else {
+        payload.parked_at = null;
+      }
+
       // Also update Vehicle Virtual Odometer if linked
       if (local.vehicle_id && totalDistanceMeters > 0) {
         const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: local.vehicle_id });

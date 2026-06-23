@@ -1228,7 +1228,10 @@ Deno.serve(async (req) => {
         ...(Number.isFinite(parsed.voltage) ? { voltage_last_seen_at: timestamp } : {}),
         ...(parsed.latitude !== undefined ? { last_latitude: parsed.latitude } : {}),
         ...(parsed.longitude !== undefined ? { last_longitude: parsed.longitude } : {}),
-        ...(parsed.speed !== undefined ? { speed: parsed.speed } : {}),
+        ...(parsed.speed !== undefined ? { 
+            speed: parsed.speed,
+            parked_at: parsed.speed === 0 ? (device.parked_at || timestamp) : null 
+        } : {}),
         ...(typeof parsed.status_bits?.accOn === 'boolean' ? { ignition_status: parsed.status_bits.accOn ? 'on' : 'off' } : {}),
         last_seen_at: timestamp
       }).catch((error) => console.warn('Device update skipped:', error.message));

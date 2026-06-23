@@ -469,7 +469,10 @@ export default function MyVehicle() {
     if (device?.parked_at) {
       const hours = Math.floor((Date.now() - new Date(device.parked_at).getTime()) / 3600000);
       const mins = Math.floor((Date.now() - new Date(device.parked_at).getTime()) / 60000);
-      if (hours > 24) parkedStr = `Parked for ${Math.floor(hours/24)} days`;
+      if (hours >= 24) {
+        const days = Math.floor(hours/24);
+        parkedStr = `Parked for ${days} day${days > 1 ? 's' : ''}`;
+      }
       else if (hours > 0) parkedStr = `Parked for ${hours} hr${hours > 1 ? 's' : ''}`;
       else if (mins > 0) parkedStr = `Parked for ${mins} min${mins > 1 ? 's' : ''}`;
       else parkedStr = "Just parked";
