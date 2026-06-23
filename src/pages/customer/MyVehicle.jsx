@@ -402,7 +402,9 @@ export default function MyVehicle() {
   const weatherStyle = getWeatherStyle(weather);
 
   let distanceStr = null;
-  if (userLoc && device?.last_latitude) {
+  if (isDemo) {
+    distanceStr = "0.3 mi away • 6 min walk";
+  } else if (userLoc && device?.last_latitude) {
     const dist = getDistanceMiles(userLoc.lat, userLoc.lon, device.last_latitude, device.last_longitude);
     distanceStr = dist < 0.1 ? "Near you" : `${dist.toFixed(1)} mi away`;
     const walkMins = Math.round(dist * 20);
@@ -410,7 +412,9 @@ export default function MyVehicle() {
   }
 
   let parkedStr = null;
-  if (device?.speed === 0 || device?.ignition_status === 'off') {
+  if (isDemo) {
+    parkedStr = "Parked for 2 hrs";
+  } else if (device?.speed === 0 || device?.ignition_status === 'off') {
     if (device?.parked_at) {
       const hours = Math.floor((Date.now() - new Date(device.parked_at).getTime()) / 3600000);
       const mins = Math.floor((Date.now() - new Date(device.parked_at).getTime()) / 60000);
@@ -424,6 +428,7 @@ export default function MyVehicle() {
   }
 
   const activeAlarms = [];
+  const displayAddress = isDemo ? { poi: "Barton Creek Square", street: "2901 S Capital of Texas Hwy", city_state: "Austin, TX" } : addressData;
   if (device?.smoke_detected) activeAlarms.push({ id: 'smoke', label: 'Smoke Detected in Cabin', icon: Flame, color: '#FF453A' });
   if (device?.shock_alarm) activeAlarms.push({ id: 'shock', label: 'Impact / Shock Detected', icon: Activity, color: '#FF9F0A' });
   if (device?.power_cut_alarm) activeAlarms.push({ id: 'power_cut', label: 'Main Power Cut', icon: ZapOff, color: '#FF453A' });
@@ -760,10 +765,10 @@ export default function MyVehicle() {
                 </div>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", lineHeight: 1.2 }}>
-                    {addressData?.poi || addressData?.street || "Locating Vehicle..."}
+                    {displayAddress?.poi || displayAddress?.street || "Locating Vehicle..."}
                   </p>
                   <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 2, fontWeight: 400 }}>
-                    {addressData?.poi ? addressData.street : addressData?.city_state}
+                    {displayAddress?.poi ? displayAddress.street : displayAddress?.city_state}
                   </p>
                   
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
