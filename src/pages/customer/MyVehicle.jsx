@@ -200,6 +200,31 @@ function FanIcon({ color = "#A1A1AA" }) {
   );
 }
 
+// Cigarette / Smoke SVG
+function CigaretteIcon({ color = "#30D158", isAlert = false }) {
+  return (
+    <div style={{ position: "relative", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 2 }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", zIndex: 2 }}>
+        {/* Cigarette Body */}
+        <rect x="4" y="16" width="16" height="4" rx="1" fill="#E4E4E7" />
+        {/* Filter */}
+        <rect x="15" y="16" width="5" height="4" rx="1" fill="#D4A373" />
+        {/* Ash/Ember tip */}
+        <circle cx="4" cy="18" r="1.5" fill={isAlert ? "#FF453A" : color} style={{
+           filter: isAlert ? "drop-shadow(0 0 4px #FF453A)" : `drop-shadow(0 0 2px ${color})`,
+           animation: isAlert ? "cherryPulse 0.5s infinite alternate" : "cherryPulse 1.5s infinite alternate",
+           transformOrigin: "4px 18px"
+        }} />
+      </svg>
+      {/* Dynamic Smoke Lines */}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", zIndex: 1, top: -8, left: -6 }}>
+        <path className="smoke-line-1" d="M8 15C5 11 11 7 7 2" stroke={isAlert ? "#FF453A" : color} strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+        <path className="smoke-line-2" d="M10 16C7 12 13 8 9 3" stroke={isAlert ? "#FF453A" : color} strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      </svg>
+    </div>
+  );
+}
+
 // Find Vehicle horn SVG
 function HornIcon({ color = "#2F80FF" }) {
   return (
@@ -581,6 +606,27 @@ export default function MyVehicle() {
           z-index: 5;
           mix-blend-mode: overlay;
         }
+        @keyframes cherryPulse {
+          0% { opacity: 0.5; transform: scale(0.9); }
+          100% { opacity: 1; transform: scale(1.2); }
+        }
+        @keyframes smokeRise1 {
+          0% { opacity: 0; transform: translateY(2px) translateX(0); }
+          50% { opacity: 0.8; }
+          100% { opacity: 0; transform: translateY(-6px) translateX(2px); }
+        }
+        @keyframes smokeRise2 {
+          0% { opacity: 0; transform: translateY(4px) translateX(0); }
+          50% { opacity: 0.5; }
+          100% { opacity: 0; transform: translateY(-4px) translateX(-2px); }
+        }
+        .smoke-line-1 {
+          animation: smokeRise1 2.5s infinite ease-out;
+        }
+        .smoke-line-2 {
+          animation: smokeRise2 3s infinite ease-out;
+          animation-delay: 1s;
+        }
       `}</style>
       {inspectionTarget && (
         <VehicleInspectionSheet
@@ -713,9 +759,9 @@ export default function MyVehicle() {
                     {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
                   </span>
 
-                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Flame size={13} color={device?.smoke_detected ? "#FF453A" : "#30D158"} strokeWidth={2.5} />
-                    Cabin: <span style={{ color: device?.smoke_detected ? "#FF453A" : "#30D158" }}>{device?.smoke_detected ? "Smoke Detected" : "Clear"}</span>
+                  <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 0 }}>
+                    <CigaretteIcon color={device?.smoke_detected ? "#FF453A" : "#30D158"} isAlert={device?.smoke_detected} />
+                    Cabin: <span style={{ color: device?.smoke_detected ? "#FF453A" : "#30D158", marginLeft: 4 }}>{device?.smoke_detected ? "Smoke Detected" : "Clear"}</span>
                   </span>
                 </div>
               </div>
