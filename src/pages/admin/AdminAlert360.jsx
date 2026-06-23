@@ -27,8 +27,13 @@ function SBadge({ status }) {
   return <Badge className={m[status] || 'bg-muted text-muted-foreground text-xs'}>{status?.replace(/_/g, ' ')}</Badge>;
 }
 
+import Alert360DetailDrawer from '@/components/telematics/Alert360DetailDrawer';
+import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDrawer';
+
 export default function AdminAlert360() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [selectedIncident, setSelectedIncident] = useState(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-alert360-dashboard'],
@@ -81,6 +86,7 @@ export default function AdminAlert360() {
           <TabsTrigger value="active_alerts">Active Alerts</TabsTrigger>
           <TabsTrigger value="open_incidents">Open Incidents</TabsTrigger>
           <TabsTrigger value="all_history">Alert History</TabsTrigger>
+          <TabsTrigger value="audit_trail">Audit Trail</TabsTrigger>
         </TabsList>
 
         <div className="mt-4 mb-4 relative max-w-sm">
@@ -96,7 +102,7 @@ export default function AdminAlert360() {
 
         <TabsContent value="active_alerts" className="space-y-2">
           {filteredEvents.filter(e => e.is_active).map(e => (
-            <div key={e.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-secondary/30 px-4 py-3 text-sm">
+            <div key={e.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-secondary/30 px-4 py-3 text-sm cursor-pointer hover:bg-secondary/50 transition-colors" onClick={() => setSelectedAlert(e)}>
               <div className="flex items-start gap-3">
                 {e.severity === 'critical' ? <ShieldAlert className="h-5 w-5 text-red-400 mt-0.5" /> : <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5" />}
                 <div>
@@ -120,7 +126,7 @@ export default function AdminAlert360() {
 
         <TabsContent value="open_incidents" className="space-y-2">
           {incidents.filter(i => i.status === 'open' || i.status === 'investigating').map(i => (
-            <div key={i.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm">
+            <div key={i.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm cursor-pointer hover:bg-red-500/20 transition-colors" onClick={() => setSelectedIncident(i)}>
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
                 <div>
@@ -139,7 +145,7 @@ export default function AdminAlert360() {
 
         <TabsContent value="all_history" className="space-y-2">
           {filteredEvents.map(e => (
-            <div key={e.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-secondary/30 px-4 py-3 text-sm">
+            <div key={e.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-secondary/30 px-4 py-3 text-sm cursor-pointer hover:bg-secondary/50 transition-colors" onClick={() => setSelectedAlert(e)}>
               <div className="flex items-start gap-3">
                 {e.severity === 'critical' ? <ShieldAlert className="h-5 w-5 text-red-400 mt-0.5" /> : <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5" />}
                 <div>
@@ -154,7 +160,57 @@ export default function AdminAlert360() {
             </div>
           ))}
         </TabsContent>
+
+        <TabsContent value="audit_trail" className="space-y-4">
+          <div className="bg-secondary/20 rounded-xl border border-border overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-secondary/40 text-muted-foreground border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Time</th>
+                  <th className="px-4 py-3 font-medium">Type</th>
+                  <th className="px-4 py-3 font-medium">Severity</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Vehicle / Host</th>
+                  <th className="px-4 py-3 font-medium">Customer</th>
+                  <th className="px-4 py-3 font-medium">Count</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredEvents.map(e => (
+                  <tr key={e.id} className="hover:bg-secondary/30 cursor-pointer transition-colors" onClick={() => setSelectedAlert(e)}>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{e.first_seen_at ? format(new Date(e.first_seen_at), 'MMM d, h:mm a') : '—'}</td>
+                    <td className="px-4 py-3 font-medium">{e.alert_type}</td>
+                    <td className="px-4 py-3 capitalize">{e.severity}</td>
+                    <td className="px-4 py-3"><SBadge status={e.status} /></td>
+                    <td className="px-4 py-3">
+                      <div>{e.vehicle_display_name || e.vin}</div>
+                      <div className="text-xs text-muted-foreground">{e.host_name}</div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{e.customer_name || '—'}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{e.occurrence_count || 1}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!filteredEvents.length && <p className="p-4 text-muted-foreground text-sm text-center">No alerts found.</p>}
+          </div>
+        </TabsContent>
       </Tabs>
+
+      <Alert360DetailDrawer 
+        open={!!selectedAlert} 
+        onOpenChange={(open) => !open && setSelectedAlert(null)} 
+        alert={selectedAlert} 
+        onIncidentClick={(incidentId) => {
+          const incident = incidents.find(i => i.id === incidentId);
+          if (incident) setSelectedIncident(incident);
+        }}
+      />
+      <Alert360IncidentDrawer 
+        open={!!selectedIncident} 
+        onOpenChange={(open) => !open && setSelectedIncident(null)} 
+        incident={selectedIncident} 
+      />
     </div>
   );
 }

@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
         activeCritical,
         activeWarnings,
         openIncidents,
+        escalatedAlerts: events.filter(e => e.is_active && (e.escalation_level || 0) > 0).length,
         smokeToday,
         impactToday,
         powerCutEvents,

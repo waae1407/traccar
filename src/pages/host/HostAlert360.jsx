@@ -28,9 +28,14 @@ function SBadge({ status }) {
   return <Badge className={m[status] || 'bg-muted text-muted-foreground text-xs'}>{status?.replace(/_/g, ' ')}</Badge>;
 }
 
+import Alert360DetailDrawer from '@/components/telematics/Alert360DetailDrawer';
+import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDrawer';
+
 export default function HostAlert360() {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [selectedIncident, setSelectedIncident] = useState(null);
 
   const { data: hosts } = useQuery({
     queryKey: ['host-record', user?.email],
@@ -102,7 +107,7 @@ export default function HostAlert360() {
 
         <TabsContent value="active_alerts" className="space-y-2">
           {filteredEvents.filter(e => e.is_active).map(e => (
-            <div key={e.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-secondary/30 px-4 py-3 text-sm">
+            <div key={e.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-secondary/30 px-4 py-3 text-sm cursor-pointer hover:bg-secondary/50 transition-colors" onClick={() => setSelectedAlert(e)}>
               <div className="flex items-start gap-3">
                 {e.host_severity === 'critical' ? <ShieldAlert className="h-5 w-5 text-red-400 mt-0.5" /> : <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5" />}
                 <div>
@@ -126,7 +131,7 @@ export default function HostAlert360() {
 
         <TabsContent value="open_incidents" className="space-y-2">
           {incidents.filter(i => i.status === 'open' || i.status === 'investigating').map(i => (
-            <div key={i.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm">
+            <div key={i.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm cursor-pointer hover:bg-red-500/20 transition-colors" onClick={() => setSelectedIncident(i)}>
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
                 <div>
@@ -145,7 +150,7 @@ export default function HostAlert360() {
 
         <TabsContent value="all_history" className="space-y-2">
           {filteredEvents.map(e => (
-            <div key={e.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-secondary/30 px-4 py-3 text-sm">
+            <div key={e.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-lg bg-secondary/30 px-4 py-3 text-sm cursor-pointer hover:bg-secondary/50 transition-colors" onClick={() => setSelectedAlert(e)}>
               <div className="flex items-start gap-3">
                 {e.host_severity === 'critical' ? <ShieldAlert className="h-5 w-5 text-red-400 mt-0.5" /> : <AlertTriangle className="h-5 w-5 text-yellow-400 mt-0.5" />}
                 <div>
@@ -161,6 +166,21 @@ export default function HostAlert360() {
           ))}
         </TabsContent>
       </Tabs>
+
+      <Alert360DetailDrawer 
+        open={!!selectedAlert} 
+        onOpenChange={(open) => !open && setSelectedAlert(null)} 
+        alert={selectedAlert} 
+        onIncidentClick={(incidentId) => {
+          const incident = incidents.find(i => i.id === incidentId);
+          if (incident) setSelectedIncident(incident);
+        }}
+      />
+      <Alert360IncidentDrawer 
+        open={!!selectedIncident} 
+        onOpenChange={(open) => !open && setSelectedIncident(null)} 
+        incident={selectedIncident} 
+      />
     </div>
   );
 }
