@@ -777,7 +777,6 @@ export default function MyVehicle() {
                         {parkedStr}
                       </span>
                     )}
-                    <span style={{ fontSize: 11, color: "#71717A" }}>{gps.label}</span>
                   </div>
                 </div>
               </div>
