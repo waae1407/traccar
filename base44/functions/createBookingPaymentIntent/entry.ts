@@ -74,6 +74,37 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // ── PRICING INTEGRITY GUARD ──────────────────────────────────────────
+    // Never allow weekly_rate to be used as a daily rate. For rentals under 7 days,
+    // never charge more than the weekly rate. Caps overcharges before Stripe charge.
+    if (booking.start_date && booking.end_date && booking.weekly_rate) {
+      const rentalDays = Math.max(1, Math.ceil((new Date(booking.end_date + 'T12:00:00') - new Date(booking.start_date + 'T12:00:00')) / 86400000));
+      const chargedAmount = amount_cents / 100;
+      const weeklyRate = booking.weekly_rate;
+
+      // Detect weekly_rate used as daily rate
+      if (rentalDays > 1) {
+        const perDayRate = chargedAmount / rentalDays;
+        if (Math.abs(perDayRate - weeklyRate) < 0.01) {
+          console.error(`[PRICING GUARD] BLOCKED: Weekly rate $${weeklyRate} used as daily rate for ${rentalDays} days = $${chargedAmount}`);
+          return Response.json({ error: 'Pricing integrity violation: weekly rate cannot be used as daily rate' }, { status: 400 });
+        }
+      }
+
+      // Cap: rentals under 7 days never exceed weekly rate
+      if (rentalDays < 7 && chargedAmount > weeklyRate) {
+        console.error(`[PRICING GUARD] BLOCKED: $${chargedAmount} for ${rentalDays} days exceeds weekly rate $${weeklyRate}`);
+        return Response.json({ error: `Pricing integrity violation: charge of $${chargedAmount} exceeds weekly rate of $${weeklyRate} for a ${rentalDays}-day rental` }, { status: 400 });
+      }
+
+      // Cap: rentals under 28 days never exceed monthly rate
+      if (rentalDays < 28 && booking.monthly_rate && chargedAmount > booking.monthly_rate) {
+        console.error(`[PRICING GUARD] BLOCKED: $${chargedAmount} for ${rentalDays} days exceeds monthly rate $${booking.monthly_rate}`);
+        return Response.json({ error: `Pricing integrity violation: charge of $${chargedAmount} exceeds monthly rate of $${booking.monthly_rate} for a ${rentalDays}-day rental` }, { status: 400 });
+      }
+    }
+    // ── END PRICING INTEGRITY GUARD ──────────────────────────────────────
+
     const vehicle = booking.vehicle_id ? await base44.asServiceRole.entities.Vehicle.get(booking.vehicle_id) : null;
     const hostId = booking.host_id || vehicle?.host_id;
     if (!hostId) return Response.json({ error: 'Booking is missing host assignment' }, { status: 400 });
