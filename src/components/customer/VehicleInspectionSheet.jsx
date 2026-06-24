@@ -6,13 +6,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
 const PHOTO_SLOTS = [
-  { id: "interior_front", label: "Interior Front (Driver Side)", icon: "🚗", aiPrompt: "Cartoon illustration showing the interior of this vehicle photographed from outside through the open driver door." },
-  { id: "interior_rear", label: "Interior Rear (Driver Side)", icon: "🪑", aiPrompt: "Cartoon illustration showing the rear interior photographed through the open rear driver-side door." },
-  { id: "exterior_front_left", label: "Front Left Corner (Driver Side)", icon: "↖️", aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-LEFT corner." },
-  { id: "exterior_rear_left", label: "Rear Left Corner (Driver Side)", icon: "↙️", aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-LEFT corner." },
-  { id: "exterior_front_right", label: "Front Right Corner (Passenger Side)", icon: "↗️", mirrorX: true, aiPrompt: "Cartoon illustration of this vehicle shot from the FRONT-RIGHT corner." },
-  { id: "exterior_rear_right", label: "Rear Right Corner (Passenger Side)", icon: "↘️", mirrorX: true, aiPrompt: "Cartoon illustration of this vehicle shot from the REAR-RIGHT corner." },
-  { id: "vehicle_keys", label: "Vehicle Keys", icon: "🔑", isKeys: true, aiPrompt: "Cartoon illustration of this vehicle's car key(s) held up in a hand in front of the car." },
+  { id: "interior_front", label: "Interior Front (Driver Side)", icon: "🚗", template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nInterior+Front" },
+  { id: "interior_rear", label: "Interior Rear (Driver Side)", icon: "🪑", template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nInterior+Rear" },
+  { id: "exterior_front_left", label: "Front Left Corner (Driver Side)", icon: "↖️", template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nFront+Left+Corner" },
+  { id: "exterior_rear_left", label: "Rear Left Corner (Driver Side)", icon: "↙️", template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nRear+Left+Corner" },
+  { id: "exterior_front_right", label: "Front Right Corner (Passenger Side)", icon: "↗️", mirrorX: true, template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nFront+Right+Corner" },
+  { id: "exterior_rear_right", label: "Rear Right Corner (Passenger Side)", icon: "↘️", mirrorX: true, template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nRear+Right+Corner" },
+  { id: "vehicle_keys", label: "Vehicle Keys", icon: "🔑", isKeys: true, template: "https://placehold.co/800x600/f8f9fa/1f2937?text=Vehicle+Keys" },
 ];
 
 const ISSUE_CATEGORIES = [
@@ -21,26 +21,6 @@ const ISSUE_CATEGORIES = [
   ["unsafe_issue", "Unsafe issue"], ["wrong_vehicle", "Wrong vehicle"],
   ["missing_item", "Missing item"], ["other", "Other"],
 ];
-
-async function generateAngleImage(vehicleImageUrl, slot) {
-  try {
-    const prompt = `${slot.aiPrompt} Match the reference vehicle style and color exactly.`;
-    const { data: result } = await base44.functions.invoke('generateImage', {
-      prompt,
-      existing_image_urls: [vehicleImageUrl],
-    });
-    return result ? {
-      url: result.url,
-      generated_at: result.created_at || new Date().toISOString(),
-      prompt: result.prompt || prompt,
-      model: result.model || "imagen-4.0-generate-001",
-      provider: result.provider || "google"
-    } : null;
-  } catch (error) {
-    console.error("Imagen error:", error);
-    return null;
-  }
-}
 
 async function captureLocation() {
   return new Promise((resolve) => {
@@ -136,7 +116,7 @@ function ReadOnlyViewer({ submittedPhotos, submittedAt, locationLabel, type, onC
   );
 }
 
-function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoading }) {
+function PhotoSlot({ slot, photo, onCapture, uploading }) {
   const inputRef = useRef(null);
   return (
     <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
@@ -154,8 +134,7 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
         <button onClick={() => inputRef.current?.click()} disabled={uploading} className="w-full text-left active:scale-[0.98] transition-transform">
           {slot.isKeys && <div className="flex items-center gap-2 px-4 py-2 border-b border-red-100 bg-red-50"><AlertTriangle className="h-3.5 w-3.5 text-red-500" /><p className="text-[11px] font-black text-red-600">Lost keys = <span className="text-red-700">$250 expense</span> — all keys must be in frame</p></div>}
           <div className="relative w-full h-44 bg-gray-100">
-            {sampleLoading ? <div className="w-full h-full flex flex-col items-center justify-center gap-2"><Loader2 className="h-5 w-5 text-primary animate-spin" /><span className="text-[10px] text-gray-400">Generating example…</span></div>
-              : sampleImage ? <img src={sampleImage.url || sampleImage} alt={slot.label} className="w-full h-full object-cover" style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}} />
+            {slot.template ? <img src={slot.template} alt={slot.label} className="w-full h-full object-cover" style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}} />
               : <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">{slot.icon}</div>}
             <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 flex items-center justify-center"><Camera className="h-4 w-4 text-white" /></div>
           </div>
@@ -217,38 +196,10 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
   const [additionalPhotos, setAdditionalPhotos] = useState([]);
   const [uploading, setUploading] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [sampleImages, setSampleImages] = useState({});
-  const [samplesLoading, setSamplesLoading] = useState({});
   const [issueGrade, setIssueGrade] = useState("excellent");
   const [issueCategories, setIssueCategories] = useState([]);
   const [issueDescription, setIssueDescription] = useState("");
   const queryClient = useQueryClient();
-
-  const vehicleImageUrl = booking?.vehicle_image;
-  const cachedImages = booking?.inspection_sample_images || {};
-
-  useEffect(() => {
-    if (!vehicleImageUrl) return;
-    if (Object.keys(cachedImages).length > 0) setSampleImages(cachedImages);
-    const slotsToGenerate = PHOTO_SLOTS.filter((slot) => slot.aiPrompt && !cachedImages[slot.id]);
-    if (slotsToGenerate.length === 0) return;
-    const loadingState = {};
-    slotsToGenerate.forEach((s) => { loadingState[s.id] = true; });
-    setSamplesLoading(loadingState);
-    const newlyGenerated = {};
-    Promise.all(slotsToGenerate.map(async (slot) => {
-      try {
-        const url = await generateAngleImage(vehicleImageUrl, slot);
-        newlyGenerated[slot.id] = url;
-        setSampleImages((prev) => ({ ...prev, [slot.id]: url }));
-      } catch { /* fallback */ }
-      finally { setSamplesLoading((prev) => ({ ...prev, [slot.id]: false })); }
-    })).then(() => {
-      if (Object.keys(newlyGenerated).length > 0 && booking?.id) {
-        base44.entities.BookingRequest.update(booking.id, { inspection_sample_images: { ...cachedImages, ...newlyGenerated } }).catch(() => {});
-      }
-    });
-  }, [vehicleImageUrl, booking?.id]);
 
   const updateBooking = useMutation({
     mutationFn: (data) => base44.entities.BookingRequest.update(booking.id, data),
@@ -360,7 +311,7 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
             {(issueGrade === "problematic" || issueCategories.includes("other")) && <textarea value={issueDescription} onChange={(e) => setIssueDescription(e.target.value)} placeholder="Briefly describe the issue..." className="w-full min-h-20 rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-pink-300" />}
           </div>
         )}
-        {PHOTO_SLOTS.map((slot) => <PhotoSlot key={slot.id} slot={slot} photo={photos[slot.id]} onCapture={handleCapture} uploading={uploading[slot.id]} sampleImage={sampleImages[slot.id]} sampleLoading={samplesLoading[slot.id]} />)}
+        {PHOTO_SLOTS.map((slot) => <PhotoSlot key={slot.id} slot={slot} photo={photos[slot.id]} onCapture={handleCapture} uploading={uploading[slot.id]} />)}
         <AdditionalPhotoUploader photos={additionalPhotos} onCapture={handleAdditionalCapture} uploading={Object.values(uploading).some(Boolean)} />
       </div>
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4">
