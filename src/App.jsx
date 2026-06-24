@@ -6,6 +6,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import SessionContinuityManager from '@/components/session/SessionContinuityManager';
+import OneSignalManager from '@/components/shared/OneSignalManager';
 
 // Layouts
 import AppLayout from '@/components/layout/AppLayout';
@@ -185,6 +186,7 @@ const AuthenticatedApp = () => {
   return (
     <CustomDomainGate>
     <SessionContinuityManager />
+    <OneSignalManager />
     <Routes>
       {/* ── PUBLIC PAGES (no login required) ── */}
       <Route path="/" element={<PublicHome />} />

@@ -174,6 +174,47 @@ async function checkDedup(base44, idempotency_key) {
   return existing.length > 0;
 }
 
+async function sendPush({ user_email, title, body, url }) {
+  const appId = Deno.env.get('ONESIGNAL_APP_ID');
+  const restKey = Deno.env.get('ONESIGNAL_REST_API_KEY');
+  if (!appId || !restKey || !user_email) return { ok: false, error: 'NOT_CONFIGURED', notification_id: null, recipients: 0 };
+  try {
+    const res = await fetch('https://api.onesignal.com/notifications', {
+      method: 'POST',
+      headers: { 'Authorization': `Key ${restKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        app_id: appId,
+        include_aliases: { external_id: [user_email] },
+        target_channel: 'push',
+        headings: { en: String(title).slice(0, 100) },
+        contents: { en: String(body).slice(0, 4000) },
+        ...(url ? { url: url.startsWith('http') ? url : `${APP_URL}${url}` } : {}),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.errors?.[0] || 'PUSH_FAILED', notification_id: null, recipients: 0 };
+    return { ok: true, notification_id: data.id, recipients: data.recipients || 0 };
+  } catch (e) {
+    return { ok: false, error: e.message, notification_id: null, recipients: 0 };
+  }
+}
+
+function getPushTemplate(event_type, body) {
+  const booking = body.booking || {};
+  const vehicle = body.vehicle || {};
+  const vehicleName = vehicle.display_name || `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim() || booking.vehicle_name || 'your vehicle';
+  const templates = {
+    booking_approved: { title: '✅ Booking Confirmed!', body: `Your ${vehicleName} booking has been approved. View pickup details.`, url: '/my-bookings' },
+    booking_rejected: { title: 'Booking Update', body: body.reason || `Your ${vehicleName} booking was not approved.`, url: '/book-now' },
+    gps_offline_24h: { title: '📡 GPS Device Offline (24h+)', body: `Your ${vehicleName} GPS device has been offline for 24+ hours.`, url: '/host/telematics' },
+    compliance_expired_host: { title: `🚨 ${(body.doc_type || 'Document')} Expired`, body: `${vehicleName} is on Compliance Hold. Upload renewal to reinstate.`, url: '/host/compliance' },
+    compliance_hold_active_booking: { title: '⚠️ Rental Action Required', body: `Your ${vehicleName} rental has a compliance issue. Contact support.`, url: '/support' },
+    weekly_payment_receipt: { title: `Week ${body.week_number} Payment — $${body.amount}`, body: `$${body.amount} for ${vehicleName} (Week ${body.week_number}) has been processed.`, url: '/my-bookings' },
+    stripe_account_restricted: { title: '🔴 Stripe Account Restricted', body: 'Your Stripe payout account has been restricted. Payouts are paused.', url: 'https://dashboard.stripe.com' },
+  };
+  return templates[event_type] || null;
+}
+
 // ── Notification Builders ────────────────────────────────────────────────────
 
 async function handleBookingApproved(base44, { booking }) {
@@ -718,6 +759,37 @@ Deno.serve(async (req) => {
         break;
       default:
         return Response.json({ error: `Unknown event_type: ${event_type}` }, { status: 400 });
+    }
+
+    // ── PUSH NOTIFICATION (OneSignal) ──────────────────────────────────────
+    const pushTemplate = getPushTemplate(event_type, body);
+    if (pushTemplate) {
+      const pushEmail = body.booking?.user_email || body.host?.email || '';
+      const today = new Date().toISOString().slice(0, 10);
+      const pushKey = `${event_type}:push:${pushEmail}:${today}`;
+      if (pushEmail && !await checkDedup(base44, pushKey)) {
+        const pushResult = await sendPush({ user_email: pushEmail, title: pushTemplate.title, body: pushTemplate.body, url: pushTemplate.url });
+        await logDelivery(base44, {
+          event_type: pushResult.ok ? `notification.${event_type}.push` : 'notification.delivery_failed',
+          idempotency_key: pushKey,
+          recipient_email: pushEmail,
+          channel: 'push',
+          provider: 'onesignal',
+          provider_message_id: pushResult.notification_id,
+          provider_status: pushResult.ok ? 'sent' : 'failed',
+          failure_reason: pushResult.error,
+          source_event: event_type,
+          source_entity_type: body.booking ? 'BookingRequest' : body.host ? 'Host' : '',
+          source_entity_id: body.booking?.id || body.host?.id || '',
+          host_id: body.host?.id || '',
+          booking_id: body.booking?.id || '',
+          vehicle_id: body.vehicle?.id || body.booking?.vehicle_id || '',
+          metadata: { recipients: pushResult.recipients },
+        });
+        result.push = pushResult.ok ? `sent (${pushResult.recipients} recipients)` : `failed:${pushResult.error}`;
+      } else {
+        result.push = pushEmail ? 'deduped' : 'no_email';
+      }
     }
 
     return Response.json({ ok: true, event_type, result });
