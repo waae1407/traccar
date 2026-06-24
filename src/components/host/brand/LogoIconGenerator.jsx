@@ -51,10 +51,11 @@ export default function LogoIconGenerator({ host, brand, onApplyLogo, onApplyIco
       }
       setGeneratedUrl(res.data.image_url);
     } catch (err) {
-      if (err.message?.includes("402") || err.message?.includes("payment")) {
+      const msg = err.response?.data?.error || err.message || "Failed to generate image.";
+      if (msg.includes("402") || msg.includes("payment")) {
         setShowPayment(true);
       } else {
-        setError(err.message);
+        setError("Generation failed: " + msg);
       }
     }
     setLoading(false);

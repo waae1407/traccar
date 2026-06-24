@@ -21,11 +21,13 @@ export default function AIBrandBuilder({ host, vehicles, onApply }) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     setLoading(true);
     setDone(false);
+    setError(null);
 
     const vehicleSummary = vehicles.slice(0, 5).map(v => `${v.year} ${v.make} ${v.model} at $${v.weekly_rate}/wk`).join(", ");
     const fullPrompt = `You are a brand copywriter for a vehicle rental business called "${host?.business_name || "this rental business"}" in ${host?.city || "USA"}.
@@ -63,10 +65,11 @@ Return ONLY valid JSON, no explanation.`;
       setLoading(false);
       setDone(true);
       setTimeout(() => setDone(false), 4000);
-    } catch (error) {
-      console.error("AI Brand Builder error:", error);
+    } catch (err) {
+      console.error("AI Brand Builder error:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to generate brand profile";
+      setError(msg);
       setLoading(false);
-      // Let the user retry
     }
   };
 
@@ -110,6 +113,11 @@ Return ONLY valid JSON, no explanation.`;
       </div>
 
       {/* Generation status */}
+      {error && (
+        <div className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 border border-red-100">
+          <p className="text-xs font-semibold text-red-700">Generation failed: {error}</p>
+        </div>
+      )}
       {loading && (
         <div className="mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-100">
           <Loader2 className="h-4 w-4 text-blue-500 animate-spin flex-shrink-0" />

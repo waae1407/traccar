@@ -77,8 +77,13 @@ Deno.serve(async (req) => {
       prompt = `Design a minimalist app icon / favicon for a car rental company called "${name}". Style: ${hint}. Primary color: ${color}. Should be a bold symbol or monogram only — NO text. Clean, geometric, works as a small icon, app icon, or favicon. White or transparent background. Square format.`;
     }
 
-    const result = await base44.asServiceRole.integrations.Core.GenerateImage({ prompt });
-    const imageUrl = result.url;
+    let imageUrl;
+    try {
+      const { data: result } = await base44.functions.invoke("generateImage", { prompt });
+      imageUrl = result.url;
+    } catch (apiErr) {
+      throw new Error(apiErr.response?.data?.error || apiErr.message || "Image generation failed");
+    }
 
     // Save to host record
     const currentList = type === 'logo' ? (host.generated_logos || []) : (host.generated_icons || []);
