@@ -13,9 +13,12 @@ const safeFormat = (dateStr, fmt) => {
   return isValid(d) ? format(d, fmt) : '—';
 };
 
-function MetricCard({ label, value, sub, color, warning }) {
+function MetricCard({ label, value, sub, color, warning, onClick }) {
   return (
-    <div className={`rounded-xl p-4 border ${warning ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-border bg-secondary/40'}`}>
+    <div 
+      onClick={onClick}
+      className={`rounded-xl p-4 border ${warning ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-border bg-secondary/40'} ${onClick ? 'cursor-pointer hover:bg-secondary/60 transition-colors active:scale-[0.98]' : ''}`}
+    >
       <p className="text-muted-foreground text-xs">{label}</p>
       <p className={`text-xl font-bold mt-1 ${color || 'text-foreground'}`}>{value}</p>
       {sub && <p className="text-muted-foreground text-xs mt-0.5">{sub}</p>}
@@ -39,9 +42,18 @@ import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDraw
 
 export default function HostAlert360() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('active_alerts');
   const [searchTerm, setSearchTerm] = useState('');
+  const [severityFilter, setSeverityFilter] = useState(null);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [selectedIncident, setSelectedIncident] = useState(null);
+
+  const handleMetricClick = (tab, search = '', severity = null) => {
+    setActiveTab(tab);
+    setSearchTerm(search);
+    setSeverityFilter(severity);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const { data: hosts } = useQuery({
     queryKey: ['host-record', user?.email],
@@ -64,6 +76,7 @@ export default function HostAlert360() {
   const incidents = data?.incidents || [];
 
   const filteredEvents = events.filter((e) => {
+    if (severityFilter && e.severity !== severityFilter && e.host_severity !== severityFilter) return false;
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       return e.vehicle_display_name?.toLowerCase().includes(q) ||
@@ -81,19 +94,19 @@ export default function HostAlert360() {
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MetricCard label="Active Critical Alerts" value={kpis.activeCritical} color="text-red-400" warning={kpis.activeCritical > 0} />
-        <MetricCard label="Active Warnings" value={kpis.activeWarnings} color="text-yellow-400" />
-        <MetricCard label="Vehicles With Alerts" value={kpis.vehiclesWithAlerts} />
-        <MetricCard label="Open Incidents" value={kpis.openIncidents} color="text-red-400" />
-        <MetricCard label="Offline Devices" value={kpis.offlineDevices} color={kpis.offlineDevices > 0 ? 'text-yellow-400' : ''} />
-        <MetricCard label="Smoke Events Today" value={kpis.smokeToday} />
-        <MetricCard label="Impact Events Today" value={kpis.impactToday} />
-        <MetricCard label="Power Cut Events" value={kpis.powerCutEvents} color={kpis.powerCutEvents > 0 ? 'text-red-400' : ''} />
-        <MetricCard label="Geofence Breaches" value={kpis.geofenceBreaches} />
-        <MetricCard label="Overspeed Violations" value={kpis.overspeedViolations} />
+        <MetricCard label="Active Critical Alerts" value={kpis.activeCritical} color="text-red-400" warning={kpis.activeCritical > 0} onClick={() => handleMetricClick('active_alerts', '', 'critical')} />
+        <MetricCard label="Active Warnings" value={kpis.activeWarnings} color="text-yellow-400" onClick={() => handleMetricClick('active_alerts', '', 'warning')} />
+        <MetricCard label="Vehicles With Alerts" value={kpis.vehiclesWithAlerts} onClick={() => handleMetricClick('active_alerts')} />
+        <MetricCard label="Open Incidents" value={kpis.openIncidents} color="text-red-400" onClick={() => handleMetricClick('open_incidents')} />
+        <MetricCard label="Offline Devices" value={kpis.offlineDevices} color={kpis.offlineDevices > 0 ? 'text-yellow-400' : ''} onClick={() => handleMetricClick('all_history', 'offline')} />
+        <MetricCard label="Smoke Events Today" value={kpis.smokeToday} onClick={() => handleMetricClick('all_history', 'smoke')} />
+        <MetricCard label="Impact Events Today" value={kpis.impactToday} onClick={() => handleMetricClick('all_history', 'impact')} />
+        <MetricCard label="Power Cut Events" value={kpis.powerCutEvents} color={kpis.powerCutEvents > 0 ? 'text-red-400' : ''} onClick={() => handleMetricClick('all_history', 'power cut')} />
+        <MetricCard label="Geofence Breaches" value={kpis.geofenceBreaches} onClick={() => handleMetricClick('all_history', 'geofence')} />
+        <MetricCard label="Overspeed Violations" value={kpis.overspeedViolations} onClick={() => handleMetricClick('all_history', 'overspeed')} />
       </div>
 
-      <Tabs defaultValue="active_alerts">
+      <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val); setSearchTerm(''); setSeverityFilter(null); }}>
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="active_alerts">Active Alerts</TabsTrigger>
           <TabsTrigger value="open_incidents">Open Incidents</TabsTrigger>
