@@ -7,7 +7,17 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // dedicated lookup in BookingRequest with booking_request_id = "global_inspection_samples".
 // Instead, we store them in the FIRST booking that needs them, then copy to all others.
 
-const GLOBAL_SAMPLES_MARKER = "global_inspection_samples";
+// LOCKED GLOBAL DIRECTIVE IMAGES - NEVER REGENERATE
+// These 7 instructional images are immutable and shared across all bookings
+const LOCKED_DIRECTIVE_IMAGES = {
+  interior_front: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/c67386fcc_generated_image.png",
+  interior_rear: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/ee94ed70a_generated_image.png",
+  exterior_front_left: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/f0d33145f_generated_image.png",
+  exterior_rear_left: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/0e026d674_generated_image.png",
+  exterior_front_right: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/b7007e8d8_generated_image.png",
+  exterior_rear_right: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/675d53e03_generated_image.png",
+  vehicle_keys: "https://pub-ec158408d4234d31a08ca1141739c206.r2.dev/uploads/imagen-1782335459976-2580l8x9nso.jpg"
+};
 
 const PHOTO_SLOTS = [
   {
@@ -51,76 +61,19 @@ Deno.serve(async (req) => {
       return Response.json({ error: "booking_id required" }, { status: 400 });
     }
 
-    // Check if this booking already has samples
-    const booking = await base44.asServiceRole.entities.BookingRequest.get(bookingId);
-    const existingSamples = booking?.inspection_sample_images || {};
-    const alreadyDone = PHOTO_SLOTS.every(s => !!existingSamples[s.id]);
-    if (alreadyDone) {
-      console.log(`[InspectionSamples] Already have all samples for booking ${bookingId}, skipping`);
-      return Response.json({ ok: true, skipped: true, reason: "already_generated" });
-    }
-
-    // Merge partial caches across ALL bookings — collect first available URL for each missing slot
-    console.log(`[InspectionSamples] Looking for cached sample images across all bookings...`);
-    const allBookings = await base44.asServiceRole.entities.BookingRequest.list("-created_date", 200);
-    const mergedCache = { ...existingSamples };
-    for (const b of allBookings) {
-      if (b.id === bookingId) continue;
-      const samples = b.inspection_sample_images || {};
-      for (const slot of PHOTO_SLOTS) {
-        if (!mergedCache[slot.id] && samples[slot.id]) {
-          mergedCache[slot.id] = samples[slot.id];
-        }
-      }
-    }
-
-    const stillMissing = PHOTO_SLOTS.filter(s => !mergedCache[s.id]);
-    if (stillMissing.length === 0) {
-      // All slots resolved from cache — save and return
-      console.log(`[InspectionSamples] All slots resolved from cross-booking cache merge`);
-      await base44.asServiceRole.entities.BookingRequest.update(bookingId, {
-        inspection_sample_images: mergedCache,
-      });
-      return Response.json({ ok: true, reused: true, images: mergedCache });
-    }
-
-    // Save the merged cache so far (partial), then generate only still-missing slots
-    if (Object.keys(mergedCache).length > Object.keys(existingSamples).length) {
-      await base44.asServiceRole.entities.BookingRequest.update(bookingId, {
-        inspection_sample_images: mergedCache,
-      });
-    }
-
-    const slotsToGenerate = stillMissing;
-    console.log(`[InspectionSamples] Generating ${slotsToGenerate.length} missing slot(s): ${slotsToGenerate.map(s => s.id).join(', ')}`);
-
-    const results = await Promise.allSettled(
-      slotsToGenerate.map(async (slot) => {
-        const { data: result } = await base44.asServiceRole.functions.invoke('generateImage', {
-          prompt: slot.aiPrompt,
-        });
-        return { id: slot.id, url: result.url };
-      })
-    );
-
-    // Merge existing + newly generated
-    const images = { ...existingSamples };
-    let successCount = 0;
-    for (const result of results) {
-      if (result.status === "fulfilled" && result.value?.url) {
-        images[result.value.id] = result.value.url;
-        successCount++;
-      } else if (result.status === "rejected") {
-        console.error(`[InspectionSamples] Slot generation failed:`, result.reason);
-      }
-    }
-
+    // LOCKED: Always return the immutable global directive images - no generation ever
+    console.log(`[InspectionSamples] Returning locked global directive images for booking ${bookingId}`);
+    
     await base44.asServiceRole.entities.BookingRequest.update(bookingId, {
-      inspection_sample_images: images,
+      inspection_sample_images: LOCKED_DIRECTIVE_IMAGES,
     });
 
-    console.log(`[InspectionSamples] ✓ Generated ${successCount}/7 global sample images, saved to booking ${bookingId}`);
-    return Response.json({ ok: true, generated: successCount, images });
+    return Response.json({ 
+      ok: true, 
+      locked: true, 
+      reason: "global_directive_images_immutable",
+      images: LOCKED_DIRECTIVE_IMAGES 
+    });
 
   } catch (error) {
     console.error("[InspectionSamples] Error:", error.message);
