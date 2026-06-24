@@ -12,7 +12,7 @@ const PHOTO_SLOTS = [
   { id: "exterior_rear_left", label: "Rear Left Corner (Driver Side)", icon: "↙️", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/0e026d674_generated_image.png" },
   { id: "exterior_front_right", label: "Front Right Corner (Passenger Side)", icon: "↗️", mirrorX: true, template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/b7007e8d8_generated_image.png" },
   { id: "exterior_rear_right", label: "Rear Right Corner (Passenger Side)", icon: "↘️", mirrorX: true, template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/675d53e03_generated_image.png" },
-  { id: "vehicle_keys", label: "Vehicle Keys", icon: "🔑", isKeys: true, template: "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&q=80&w=800" },
+  { id: "vehicle_keys", label: "Vehicle Keys", icon: "🔑", isKeys: true, template: null },
 ];
 
 const ISSUE_CATEGORIES = [
