@@ -12,6 +12,21 @@
       OneSignalDeferred.push(async function(OneSignal) {
         await OneSignal.init({
           appId: "3edc6b4e-bc99-4f51-af70-b7ca29004e64",
+          promptOptions: {
+            slidedown: {
+              prompts: [
+                {
+                  type: "push",
+                  autoPrompt: true,
+                  text: {
+                    actionMessage: "Get notified about your bookings, payments, and vehicle alerts.",
+                    acceptButton: "Allow",
+                    cancelButton: "Not Now"
+                  }
+                }
+              ]
+            }
+          }
         });
       });
     </script>
