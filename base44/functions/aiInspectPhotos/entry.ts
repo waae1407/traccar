@@ -73,7 +73,6 @@ Be strict. If a photo is clearly not of the subject vehicle, flag it.`;
     const { data: identityResult } = await base44.asServiceRole.functions.invoke('invokeLLM', {
       prompt: identityPrompt,
       file_urls: photos,
-      model: "claude_sonnet_4_6",
       response_json_schema: {
         type: "object",
         properties: {
@@ -184,7 +183,6 @@ Be objective and thorough.`;
       const { data: damageResult } = await base44.asServiceRole.functions.invoke('invokeLLM', {
         prompt: damagePrompt,
         file_urls: allPhotoUrls,
-        model: "claude_sonnet_4_6",
         response_json_schema: {
           type: "object",
           properties: {
