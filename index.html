@@ -17,7 +17,6 @@
               prompts: [
                 {
                   type: "push",
-                  autoPrompt: true,
                   text: {
                     actionMessage: "Get notified about your bookings, payments, and vehicle alerts.",
                     acceptButton: "Allow",
@@ -28,6 +27,8 @@
             }
           }
         });
+        // Manually trigger the slidedown prompt after init (more reliable than autoPrompt)
+        OneSignal.showSlidedownPrompt();
       });
     </script>
   </head>
