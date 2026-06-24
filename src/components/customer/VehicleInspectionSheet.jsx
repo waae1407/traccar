@@ -116,7 +116,7 @@ function ReadOnlyViewer({ submittedPhotos, submittedAt, locationLabel, type, onC
   );
 }
 
-function PhotoSlot({ slot, photo, onCapture, uploading }) {
+function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage }) {
   const inputRef = useRef(null);
   return (
     <div className="rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-sm">
@@ -134,7 +134,7 @@ function PhotoSlot({ slot, photo, onCapture, uploading }) {
         <button onClick={() => inputRef.current?.click()} disabled={uploading} className="w-full text-left active:scale-[0.98] transition-transform">
           {slot.isKeys && <div className="flex items-center gap-2 px-4 py-2 border-b border-red-100 bg-red-50"><AlertTriangle className="h-3.5 w-3.5 text-red-500" /><p className="text-[11px] font-black text-red-600">Lost keys = <span className="text-red-700">$250 expense</span> — all keys must be in frame</p></div>}
           <div className="relative w-full h-44 bg-gray-100">
-            {slot.template ? <img src={slot.template} alt={slot.label} className="w-full h-full object-cover" style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}} />
+            {sampleImage ? <img src={sampleImage} alt={slot.label} className="w-full h-full object-cover" style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}} />
               : <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">{slot.icon}</div>}
             <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 flex items-center justify-center"><Camera className="h-4 w-4 text-white" /></div>
           </div>
@@ -200,6 +200,8 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
   const [issueCategories, setIssueCategories] = useState([]);
   const [issueDescription, setIssueDescription] = useState("");
   const queryClient = useQueryClient();
+
+  const cachedImages = booking?.inspection_sample_images || {};
 
   const updateBooking = useMutation({
     mutationFn: (data) => base44.entities.BookingRequest.update(booking.id, data),
@@ -311,7 +313,7 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
             {(issueGrade === "problematic" || issueCategories.includes("other")) && <textarea value={issueDescription} onChange={(e) => setIssueDescription(e.target.value)} placeholder="Briefly describe the issue..." className="w-full min-h-20 rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-pink-300" />}
           </div>
         )}
-        {PHOTO_SLOTS.map((slot) => <PhotoSlot key={slot.id} slot={slot} photo={photos[slot.id]} onCapture={handleCapture} uploading={uploading[slot.id]} />)}
+        {PHOTO_SLOTS.map((slot) => <PhotoSlot key={slot.id} slot={slot} photo={photos[slot.id]} onCapture={handleCapture} uploading={uploading[slot.id]} sampleImage={cachedImages[slot.id] || slot.template} />)}
         <AdditionalPhotoUploader photos={additionalPhotos} onCapture={handleAdditionalCapture} uploading={Object.values(uploading).some(Boolean)} />
       </div>
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4">
