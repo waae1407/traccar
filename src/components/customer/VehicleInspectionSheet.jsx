@@ -6,13 +6,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
 const PHOTO_SLOTS = [
-  { id: "interior_front", label: "Interior Front (Driver Side)", icon: "🚗", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/c67386fcc_generated_image.png" },
-  { id: "interior_rear", label: "Interior Rear (Driver Side)", icon: "🪑", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/ee94ed70a_generated_image.png" },
-  { id: "exterior_front_left", label: "Front Left Corner (Driver Side)", icon: "↖️", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/f0d33145f_generated_image.png" },
-  { id: "exterior_rear_left", label: "Rear Left Corner (Driver Side)", icon: "↙️", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/0e026d674_generated_image.png" },
-  { id: "exterior_front_right", label: "Front Right Corner (Passenger Side)", icon: "↗️", mirrorX: true, template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/b7007e8d8_generated_image.png" },
-  { id: "exterior_rear_right", label: "Rear Right Corner (Passenger Side)", icon: "↘️", mirrorX: true, template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/675d53e03_generated_image.png" },
-  { id: "vehicle_keys", label: "Vehicle Keys", icon: "🔑", isKeys: true, template: null },
+  { id: "interior_front", label: "Interior Front (Driver Side)", icon: "🚗", template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nInterior+Front" },
+  { id: "interior_rear", label: "Interior Rear (Driver Side)", icon: "🪑", template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nInterior+Rear" },
+  { id: "exterior_front_left", label: "Front Left Corner (Driver Side)", icon: "↖️", template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nFront+Left+Corner" },
+  { id: "exterior_rear_left", label: "Rear Left Corner (Driver Side)", icon: "↙️", template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nRear+Left+Corner" },
+  { id: "exterior_front_right", label: "Front Right Corner (Passenger Side)", icon: "↗️", mirrorX: true, template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nFront+Right+Corner" },
+  { id: "exterior_rear_right", label: "Rear Right Corner (Passenger Side)", icon: "↘️", mirrorX: true, template: "https://placehold.co/800x600/f8f9fa/1f2937?text=White+Prius\\nRear+Right+Corner" },
+  { id: "vehicle_keys", label: "Vehicle Keys", icon: "🔑", isKeys: true, template: "https://placehold.co/800x600/f8f9fa/1f2937?text=Vehicle+Keys" },
 ];
 
 const ISSUE_CATEGORIES = [
