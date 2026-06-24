@@ -60,26 +60,38 @@ Deno.serve(async (req) => {
       return Response.json({ ok: true, skipped: true, reason: "already_generated" });
     }
 
-    // Look for globally cached samples — find any booking that has all 7 slots filled
-    console.log(`[InspectionSamples] Looking for globally cached sample images...`);
+    // Merge partial caches across ALL bookings — collect first available URL for each missing slot
+    console.log(`[InspectionSamples] Looking for cached sample images across all bookings...`);
     const allBookings = await base44.asServiceRole.entities.BookingRequest.list("-created_date", 200);
-    const cachedBooking = allBookings.find(b => {
-      if (b.id === bookingId) return false;
+    const mergedCache = { ...existingSamples };
+    for (const b of allBookings) {
+      if (b.id === bookingId) continue;
       const samples = b.inspection_sample_images || {};
-      return PHOTO_SLOTS.every(s => !!samples[s.id]);
-    });
-
-    if (cachedBooking) {
-      // Reuse the cached samples — copy to this booking
-      console.log(`[InspectionSamples] Reusing cached samples from booking ${cachedBooking.id}`);
-      await base44.asServiceRole.entities.BookingRequest.update(bookingId, {
-        inspection_sample_images: cachedBooking.inspection_sample_images,
-      });
-      return Response.json({ ok: true, reused: true, source_booking: cachedBooking.id });
+      for (const slot of PHOTO_SLOTS) {
+        if (!mergedCache[slot.id] && samples[slot.id]) {
+          mergedCache[slot.id] = samples[slot.id];
+        }
+      }
     }
 
-    // No cache found — generate ONLY the missing slots (not all 7)
-    const slotsToGenerate = PHOTO_SLOTS.filter(s => !existingSamples[s.id]);
+    const stillMissing = PHOTO_SLOTS.filter(s => !mergedCache[s.id]);
+    if (stillMissing.length === 0) {
+      // All slots resolved from cache — save and return
+      console.log(`[InspectionSamples] All slots resolved from cross-booking cache merge`);
+      await base44.asServiceRole.entities.BookingRequest.update(bookingId, {
+        inspection_sample_images: mergedCache,
+      });
+      return Response.json({ ok: true, reused: true, images: mergedCache });
+    }
+
+    // Save the merged cache so far (partial), then generate only still-missing slots
+    if (Object.keys(mergedCache).length > Object.keys(existingSamples).length) {
+      await base44.asServiceRole.entities.BookingRequest.update(bookingId, {
+        inspection_sample_images: mergedCache,
+      });
+    }
+
+    const slotsToGenerate = stillMissing;
     console.log(`[InspectionSamples] Generating ${slotsToGenerate.length} missing slot(s): ${slotsToGenerate.map(s => s.id).join(', ')}`);
 
     const results = await Promise.allSettled(

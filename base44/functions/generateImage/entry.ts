@@ -47,27 +47,65 @@ Deno.serve(async (req) => {
 
     if (data.predictions && data.predictions.length > 0 && data.predictions[0].bytesBase64Encoded) {
       const base64 = data.predictions[0].bytesBase64Encoded;
-      
-      let imageUrl = null;
-      let storageProvider = null;
-      
-      try {
-        const uploadRes = await base44.asServiceRole.functions.invoke('uploadToR2', {
-          fileBase64: base64,
-          fileName: `imagen-${Date.now()}.jpg`,
-          fileType: 'image/jpeg'
-        });
-        
-        if (uploadRes.data && uploadRes.data.file_url) {
-          imageUrl = uploadRes.data.file_url;
-          storageProvider = "cloudflare_r2";
-        } else {
-          throw new Error("Upload failed: " + JSON.stringify(uploadRes.data));
-        }
-      } catch (uploadError) {
-        console.error("[generateImage] Image upload failed:", uploadError);
-        throw new Error("Image generated but upload to storage failed");
+
+      // Inline R2 upload (avoids auth-context issues when calling uploadToR2 via functions.invoke)
+      const accountId = Deno.env.get('R2_ACCOUNT_ID');
+      const accessKeyId = Deno.env.get('R2_ACCESS_KEY_ID');
+      const secretAccessKey = Deno.env.get('R2_SECRET_ACCESS_KEY');
+      const bucketName = Deno.env.get('R2_BUCKET_NAME');
+      const publicUrl = Deno.env.get('R2_PUBLIC_URL');
+
+      if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !publicUrl) {
+        throw new Error("R2 storage not configured");
       }
+
+      const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+      const bodyBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+      const key = `uploads/imagen-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const contentType = 'image/jpeg';
+      const host = `${accountId}.r2.cloudflarestorage.com`;
+      const url = `https://${host}/${bucketName}/${key}`;
+
+      const now = new Date();
+      const dateStr = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z';
+      const dateShort = dateStr.slice(0, 8);
+      const region = 'auto';
+      const service = 's3';
+
+      const bodyHash = await crypto.subtle.digest('SHA-256', bodyBytes);
+      const bodyHashHex = Array.from(new Uint8Array(bodyHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const canonicalHeaders = `content-type:${contentType}\nhost:${host}\nx-amz-content-sha256:${bodyHashHex}\nx-amz-date:${dateStr}\n`;
+      const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+      const canonicalRequest = `PUT\n/${bucketName}/${key}\n\n${canonicalHeaders}\n${signedHeaders}\n${bodyHashHex}`;
+
+      const credentialScope = `${dateShort}/${region}/${service}/aws4_request`;
+      const crHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonicalRequest));
+      const crHashHex = Array.from(new Uint8Array(crHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const stringToSign = `AWS4-HMAC-SHA256\n${dateStr}\n${credentialScope}\n${crHashHex}`;
+
+      const hmac = async (hmacKey, hmacData) => {
+        const k = await crypto.subtle.importKey('raw', typeof hmacKey === 'string' ? new TextEncoder().encode(hmacKey) : hmacKey, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        return new Uint8Array(await crypto.subtle.sign('HMAC', k, typeof hmacData === 'string' ? new TextEncoder().encode(hmacData) : hmacData));
+      };
+
+      const signingKey = await hmac(await hmac(await hmac(await hmac(`AWS4${secretAccessKey}`, dateShort), region), service), 'aws4_request');
+      const signature = Array.from(await hmac(signingKey, stringToSign)).map(b => b.toString(16).padStart(2, '0')).join('');
+      const authHeader = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+      const r2Res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType, 'x-amz-content-sha256': bodyHashHex, 'x-amz-date': dateStr, 'Authorization': authHeader },
+        body: bodyBytes,
+      });
+
+      if (!r2Res.ok) {
+        const errText = await r2Res.text();
+        throw new Error(`R2 upload failed: ${errText}`);
+      }
+
+      const imageUrl = `${publicUrl.replace(/\/$/, '')}/${key}`;
+      const storageProvider = "cloudflare_r2";
       
       const responsePayload = {
         image_url: imageUrl,
