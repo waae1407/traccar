@@ -35,8 +35,13 @@ function getCompassDirection(course) {
 function isOperationalRental(booking) {
   if (!booking || booking.rental_ended_at) return false;
   if (!ACTIVE_RENTAL_STATUSES.includes(booking.booking_status)) return false;
-  if (booking.end_date && Date.now() > new Date(`${booking.end_date}T23:59:59`).getTime()) return false;
+  // Don't filter out overdue bookings - they should still display with warning
   return true;
+}
+
+function isOverdue(booking) {
+  if (!booking || !booking.end_date) return false;
+  return Date.now() > new Date(`${booking.end_date}T23:59:59`).getTime();
 }
 
 function vehicleName(vehicle, booking) {
@@ -298,6 +303,7 @@ export default function MyVehicle() {
 
   const activeRentals = bookings.filter(isOperationalRental).sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
   const booking = activeRentals[0];
+  const isOverdueRental = isOverdue(booking);
 
   const { data: vehicleList = [] } = useQuery({
     queryKey: ["my-vehicle-record", booking?.vehicle_id],
@@ -753,17 +759,30 @@ export default function MyVehicle() {
 
           {/* Foreground text content */}
           <div style={{ position: "relative", zIndex: 2 }}>
-            {/* Active Alert Banners */}
-            {activeAlarms.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                {activeAlarms.map(alarm => (
-                  <div key={alarm.id} style={{ background: "rgba(255,69,58,0.15)", border: `1px solid ${alarm.color}`, borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 8, backdropFilter: "blur(10px)" }}>
-                    <alarm.icon size={18} color={alarm.color} />
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "#FFF", margin: 0 }}>{alarm.label}</p>
-                  </div>
-                ))}
+          {/* Overdue Warning Banner */}
+          {isOverdueRental && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ background: "rgba(255,69,58,0.15)", border: "1px solid rgba(255,69,58,0.4)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, backdropFilter: "blur(10px)" }}>
+                <AlertTriangle size={18} color="#FF453A" />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#FFF", margin: 0 }}>Rental Overdue</p>
+                  <p style={{ fontSize: 11, color: "#FF453A", margin: "2px 0 0" }}>Return vehicle immediately to stop billing</p>
+                </div>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Active Alert Banners */}
+          {activeAlarms.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              {activeAlarms.map(alarm => (
+                <div key={alarm.id} style={{ background: "rgba(255,69,58,0.15)", border: `1px solid ${alarm.color}`, borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 8, backdropFilter: "blur(10px)" }}>
+                  <alarm.icon size={18} color={alarm.color} />
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#FFF", margin: 0 }}>{alarm.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
             {/* Top row: name + icons */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
@@ -954,13 +973,15 @@ export default function MyVehicle() {
             {/* Rental ends */}
             <div style={{ flex: 1 }}>
               <div className="flex items-center gap-1.5 mb-1">
-                <Clock size={13} color="#71717A" />
-                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Rental ends</p>
+                <Clock size={13} color={isOverdueRental ? "#FF453A" : "#71717A"} />
+                <p style={{ fontSize: 11, color: isOverdueRental ? "#FF453A" : "#8E8E93", fontWeight: 450 }}>
+                  {isOverdueRental ? "Overdue since" : "Rental ends"}
+                </p>
               </div>
-              <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px" }}>
+              <p style={{ fontSize: 13, fontWeight: 650, color: isOverdueRental ? "#FF453A" : "#F5F5F7", letterSpacing: "-0.1px" }}>
                 {booking?.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d, yyyy") : "N/A"}
               </p>
-              <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 400 }}>
+              <p style={{ fontSize: 11, color: isOverdueRental ? "#FF453A" : "#8E8E93", fontWeight: 400 }}>
                 {booking?.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}
               </p>
             </div>
