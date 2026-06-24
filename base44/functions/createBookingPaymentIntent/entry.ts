@@ -56,6 +56,37 @@ async function getOrCreateCustomer(base44, stripeOptions, user, bookingId) {
   return customer.id;
 }
 
+const PRICING_CANONICAL_VERSION = '2.0.0';
+
+function validateCanonicalPrice(booking, chargedAmount, chargeContext) {
+  chargeContext = chargeContext || 'total';
+  if (!booking || !booking.start_date || !booking.end_date || !booking.weekly_rate) return { valid: true, canonical_amount: 0, charged_amount: Number(chargedAmount) || 0, overcharge_amount: 0, pricing_canonical_version: PRICING_CANONICAL_VERSION, issues: ['insufficient_data'] };
+  var days = Math.max(1, Math.ceil((new Date(booking.end_date + 'T12:00:00') - new Date(booking.start_date + 'T12:00:00')) / 86400000));
+  var wRate = Number(booking.weekly_rate) || 0, mRate = Number(booking.monthly_rate) || 0, dRate = Number(booking.daily_rate) || 0, charged = Number(chargedAmount) || 0;
+  var canonical = 0;
+  if (days >= 28 && booking.allow_monthly_booking && mRate) canonical = Math.ceil(days / 30) * mRate;
+  else if (days >= 7 && booking.allow_weekly_booking !== false && wRate) canonical = Math.ceil(days / 7) * wRate;
+  else if (booking.allow_daily_booking && dRate) canonical = days * dRate;
+  else if (wRate) { canonical = wRate; }
+  canonical = Math.round(canonical * 100) / 100;
+  var issues = [], overcharge = 0;
+  if (charged > 0) {
+    if (chargeContext === 'per_week') {
+      if (wRate > 0 && charged > wRate + 1) { overcharge = Math.round((charged - wRate) * 100) / 100; issues.push('OVERCHARGE: Weekly billing $' + charged + ' exceeds weekly rate $' + wRate + ' by $' + overcharge); }
+      if (days > 1 && wRate > 0 && Math.abs(charged / days - wRate) < 0.01) { overcharge = Math.round((charged - canonical) * 100) / 100; issues.push('CRITICAL: Weekly rate ($' + wRate + ') used as daily rate for ' + days + ' days'); }
+    } else if (chargeContext === 'admin_charge') {
+      if (wRate > 0 && days > 1 && Math.abs(charged / days - wRate) < 0.01) { overcharge = Math.round((charged - canonical) * 100) / 100; issues.push('CRITICAL: Weekly rate ($' + wRate + ') used as daily rate for ' + days + ' days'); }
+      if (days < 7 && wRate > 0 && charged > wRate + 1 && Math.abs(charged - wRate * days) < 1) { overcharge = Math.round((charged - wRate) * 100) / 100; issues.push('OVERCHARGE: $' + charged + ' for ' + days + ' days exceeds weekly rate $' + wRate); }
+    } else {
+      if (wRate && days > 1 && Math.abs(charged / days - wRate) < 0.01) { overcharge = Math.round((charged - canonical) * 100) / 100; issues.push('CRITICAL: Weekly rate ($' + wRate + ') used as daily rate for ' + days + ' days'); }
+      if (days < 7 && wRate && charged > wRate + 1) { overcharge = Math.max(overcharge, Math.round((charged - wRate) * 100) / 100); issues.push('OVERCHARGE: $' + charged + ' for ' + days + ' days exceeds weekly rate $' + wRate); }
+      if (days < 28 && mRate && charged > mRate + 1) { overcharge = Math.max(overcharge, Math.round((charged - mRate) * 100) / 100); issues.push('OVERCHARGE: $' + charged + ' exceeds monthly rate $' + mRate); }
+      if (canonical > 0 && charged > canonical + 1) { overcharge = Math.max(overcharge, Math.round((charged - canonical) * 100) / 100); issues.push('MISMATCH: Charged $' + charged + ' vs canonical $' + canonical); }
+    }
+  }
+  return { valid: issues.length === 0, canonical_amount: canonical, charged_amount: charged, overcharge_amount: overcharge, rental_days: days, pricing_canonical_version: PRICING_CANONICAL_VERSION, issues: issues };
+}
+
 Deno.serve(async (req) => {
   try {
     if (!stripeKey) return Response.json({ error: 'Stripe configuration error: missing API key' }, { status: 500 });
@@ -74,36 +105,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // ── PRICING INTEGRITY GUARD ──────────────────────────────────────────
-    // Never allow weekly_rate to be used as a daily rate. For rentals under 7 days,
-    // never charge more than the weekly rate. Caps overcharges before Stripe charge.
-    if (booking.start_date && booking.end_date && booking.weekly_rate) {
-      const rentalDays = Math.max(1, Math.ceil((new Date(booking.end_date + 'T12:00:00') - new Date(booking.start_date + 'T12:00:00')) / 86400000));
-      const chargedAmount = amount_cents / 100;
-      const weeklyRate = booking.weekly_rate;
-
-      // Detect weekly_rate used as daily rate
-      if (rentalDays > 1) {
-        const perDayRate = chargedAmount / rentalDays;
-        if (Math.abs(perDayRate - weeklyRate) < 0.01) {
-          console.error(`[PRICING GUARD] BLOCKED: Weekly rate $${weeklyRate} used as daily rate for ${rentalDays} days = $${chargedAmount}`);
-          return Response.json({ error: 'Pricing integrity violation: weekly rate cannot be used as daily rate' }, { status: 400 });
-        }
-      }
-
-      // Cap: rentals under 7 days never exceed weekly rate
-      if (rentalDays < 7 && chargedAmount > weeklyRate) {
-        console.error(`[PRICING GUARD] BLOCKED: $${chargedAmount} for ${rentalDays} days exceeds weekly rate $${weeklyRate}`);
-        return Response.json({ error: `Pricing integrity violation: charge of $${chargedAmount} exceeds weekly rate of $${weeklyRate} for a ${rentalDays}-day rental` }, { status: 400 });
-      }
-
-      // Cap: rentals under 28 days never exceed monthly rate
-      if (rentalDays < 28 && booking.monthly_rate && chargedAmount > booking.monthly_rate) {
-        console.error(`[PRICING GUARD] BLOCKED: $${chargedAmount} for ${rentalDays} days exceeds monthly rate $${booking.monthly_rate}`);
-        return Response.json({ error: `Pricing integrity violation: charge of $${chargedAmount} exceeds monthly rate of $${booking.monthly_rate} for a ${rentalDays}-day rental` }, { status: 400 });
-      }
+    // ── CANONICAL PRICING GUARD (v2.0.0) ────────────────────────────────
+    const pricingResult = validateCanonicalPrice(booking, amount_cents / 100, 'total');
+    if (!pricingResult.valid && pricingResult.overcharge_amount > 0) {
+      console.error(`[PRICING GUARD v${PRICING_CANONICAL_VERSION}] BLOCKED:`, pricingResult.issues.join('; '));
+      return Response.json({ error: 'Pricing integrity violation: ' + pricingResult.issues.join('; '), canonical_amount: pricingResult.canonical_amount, pricing_canonical_version: PRICING_CANONICAL_VERSION }, { status: 400 });
     }
-    // ── END PRICING INTEGRITY GUARD ──────────────────────────────────────
+    // ── END PRICING INTEGRITY GUARD ────────────────────────────────────
 
     const vehicle = booking.vehicle_id ? await base44.asServiceRole.entities.Vehicle.get(booking.vehicle_id) : null;
     const hostId = booking.host_id || vehicle?.host_id;

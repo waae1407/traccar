@@ -1,15 +1,17 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+const PRICING_CANONICAL_VERSION = '2.0.0';
+
 function validateCanonicalPrice(booking, chargedAmount, chargeContext) {
   chargeContext = chargeContext || 'total';
-  if (!booking || !booking.start_date || !booking.end_date || !booking.weekly_rate) return { valid: true, canonical_amount: 0, charged_amount: Number(chargedAmount) || 0, overcharge_amount: 0, issues: ['insufficient_data'] };
+  if (!booking || !booking.start_date || !booking.end_date || !booking.weekly_rate) return { valid: true, canonical_amount: 0, charged_amount: Number(chargedAmount) || 0, overcharge_amount: 0, pricing_canonical_version: PRICING_CANONICAL_VERSION, issues: ['insufficient_data'] };
   var days = Math.max(1, Math.ceil((new Date(booking.end_date + 'T12:00:00') - new Date(booking.start_date + 'T12:00:00')) / 86400000));
   var wRate = Number(booking.weekly_rate) || 0, mRate = Number(booking.monthly_rate) || 0, dRate = Number(booking.daily_rate) || 0, charged = Number(chargedAmount) || 0;
   var canonical = 0;
   if (days >= 28 && booking.allow_monthly_booking && mRate) canonical = Math.ceil(days / 30) * mRate;
   else if (days >= 7 && booking.allow_weekly_booking !== false && wRate) canonical = Math.ceil(days / 7) * wRate;
   else if (booking.allow_daily_booking && dRate) canonical = days * dRate;
-  else if (wRate) { canonical = Math.round(days * (wRate / 7) * 100) / 100; if (days < 7 && canonical > wRate) canonical = wRate; }
+  else if (wRate) { canonical = wRate; }
   canonical = Math.round(canonical * 100) / 100;
   var issues = [], overcharge = 0;
   if (charged > 0) {
@@ -26,7 +28,7 @@ function validateCanonicalPrice(booking, chargedAmount, chargeContext) {
       if (canonical > 0 && charged > canonical + 1) { overcharge = Math.max(overcharge, Math.round((charged - canonical) * 100) / 100); issues.push('MISMATCH: Charged $' + charged + ' vs canonical $' + canonical); }
     }
   }
-  return { valid: issues.length === 0, canonical_amount: canonical, charged_amount: charged, overcharge_amount: overcharge, rental_days: days, issues: issues };
+  return { valid: issues.length === 0, canonical_amount: canonical, charged_amount: charged, overcharge_amount: overcharge, rental_days: days, pricing_canonical_version: PRICING_CANONICAL_VERSION, issues: issues };
 }
 
 /**
@@ -119,6 +121,7 @@ Deno.serve(async (req) => {
             payout_correction_required: booking.payment_status === 'paid',
             audit_note: `Detected by auditPricingIntegrity scan — booking status: ${booking.booking_status}, payment_status: ${booking.payment_status}. Booking total NOT modified — manual review required.`,
             detected_by: 'auditPricingIntegrity',
+            pricing_canonical_version: PRICING_CANONICAL_VERSION,
             detected_at: now,
           }).catch(e => console.error('[Audit] PricingAdjustment create failed:', e.message));
           results.pricing_adjustments_created++;
@@ -197,6 +200,7 @@ Deno.serve(async (req) => {
             refund_status: 'pending',
             audit_note: `Detected by auditPricingIntegrity payment log scan — week ${pLog.week_number}, payment_log ${pLog.id}. Stripe refund may be required.`,
             detected_by: 'auditPricingIntegrity',
+            pricing_canonical_version: PRICING_CANONICAL_VERSION,
             detected_at: now,
           }).catch(e => console.error('[Audit] PaymentLog PricingAdjustment create failed:', e.message));
           results.pricing_adjustments_created++;
@@ -256,6 +260,7 @@ Deno.serve(async (req) => {
             refund_status: 'pending',
             audit_note: `Detected by auditPricingIntegrity payout scan — payout ${payout.id}, status ${payout.status}. Payout correction required if host was overpaid.`,
             detected_by: 'auditPricingIntegrity',
+            pricing_canonical_version: PRICING_CANONICAL_VERSION,
             detected_at: now,
           }).catch(e => console.error('[Audit] Payout PricingAdjustment create failed:', e.message));
           results.pricing_adjustments_created++;

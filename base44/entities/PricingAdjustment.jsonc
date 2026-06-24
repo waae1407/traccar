@@ -1,0 +1,124 @@
+{
+  "name": "PricingAdjustment",
+  "type": "object",
+  "properties": {
+    "booking_request_id": {
+      "type": "string",
+      "description": "Booking that had the pricing error"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string"
+    },
+    "adjustment_type": {
+      "type": "string",
+      "enum": [
+        "overcharge_refund",
+        "undercharge_correction",
+        "payout_correction",
+        "manual_review",
+        "false_positive"
+      ],
+      "default": "overcharge_refund"
+    },
+    "original_amount": {
+      "type": "number",
+      "description": "Amount that was charged"
+    },
+    "corrected_amount": {
+      "type": "number",
+      "description": "What should have been charged"
+    },
+    "overcharge_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "undercharge_amount": {
+      "type": "number",
+      "default": 0
+    },
+    "reason": {
+      "type": "string"
+    },
+    "stripe_charge_id": {
+      "type": "string"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "stripe_refund_id": {
+      "type": "string"
+    },
+    "manual_refund_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "refund_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processed",
+        "not_required",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "payout_correction_required": {
+      "type": "boolean",
+      "default": false
+    },
+    "payout_corrected": {
+      "type": "boolean",
+      "default": false
+    },
+    "original_platform_fee": {
+      "type": "number"
+    },
+    "corrected_platform_fee": {
+      "type": "number"
+    },
+    "original_host_payout": {
+      "type": "number"
+    },
+    "corrected_host_payout": {
+      "type": "number"
+    },
+    "audit_note": {
+      "type": "string"
+    },
+    "detected_by": {
+      "type": "string",
+      "description": "Function that detected the issue"
+    },
+    "detected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string"
+    },
+    "pricing_canonical_version": {
+      "type": "string",
+      "description": "Version of the canonical pricing logic that created or resolved this record"
+    }
+  },
+  "required": [
+    "booking_request_id",
+    "adjustment_type",
+    "original_amount",
+    "corrected_amount",
+    "reason"
+  ]
+}
