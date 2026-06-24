@@ -294,16 +294,29 @@ export default function MyVehicle() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+  const { data: bookings = [], isLoading: bookingsLoading, error: bookingsError } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email],
-    queryFn: () => base44.entities.BookingRequest.filter({ user_email: user?.email }),
+    queryFn: async () => {
+      const results = await base44.entities.BookingRequest.filter({ user_email: user?.email });
+      console.log('[MyVehicle] Bookings loaded:', results.length, results.map(b => ({ id: b.id, status: b.booking_status, vehicle: b.vehicle_name })));
+      return results;
+    },
     enabled: !!user?.email && !authLoading,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 
   const activeRentals = bookings.filter(isOperationalRental).sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
   const booking = activeRentals[0];
   const isOverdueRental = isOverdue(booking);
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[MyVehicle] User:', user?.email, user?.id);
+    console.log('[MyVehicle] Bookings:', bookings.length, 'Active rentals:', activeRentals.length);
+    console.log('[MyVehicle] Current booking:', booking ? { id: booking.id, status: booking.booking_status, vehicle: booking.vehicle_name, end_date: booking.end_date } : 'NO BOOKING');
+    console.log('[MyVehicle] Is demo mode:', !booking);
+    if (bookingsError) console.error('[MyVehicle] Query error:', bookingsError);
+  }, [bookings, booking, activeRentals.length, user?.email, bookingsError]);
 
   const { data: vehicleList = [] } = useQuery({
     queryKey: ["my-vehicle-record", booking?.vehicle_id],
