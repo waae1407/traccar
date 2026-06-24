@@ -3,37 +3,330 @@
   "type": "object",
   "properties": {
     "user_id": {
-      "type": "string"
+      "type": "string",
+      "description": "User ID this preference belongs to"
     },
     "user_email": {
-      "type": "string"
+      "type": "string",
+      "description": "User email for lookup"
     },
     "user_role": {
       "type": "string",
       "enum": [
-        "admin",
+        "customer",
         "host",
-        "customer"
-      ]
+        "admin",
+        "installer"
+      ],
+      "description": "User role for preference scoping"
     },
-    "category": {
-      "type": "string"
+    "host_id": {
+      "type": "string",
+      "description": "Host ID if user is a host"
     },
-    "sms_enabled": {
-      "type": "boolean",
-      "default": true
+    "channels_enabled": {
+      "type": "object",
+      "properties": {
+        "inapp": {
+          "type": "boolean",
+          "default": true
+        },
+        "email": {
+          "type": "boolean",
+          "default": true
+        },
+        "sms": {
+          "type": "boolean",
+          "default": false
+        },
+        "push": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "description": "Enabled notification channels"
     },
-    "email_enabled": {
-      "type": "boolean",
-      "default": true
+    "category_preferences": {
+      "type": "object",
+      "properties": {
+        "bookings": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "inapp",
+                "email"
+              ]
+            },
+            "severity_threshold": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "critical"
+              ],
+              "default": "info"
+            }
+          }
+        },
+        "payments": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "inapp",
+                "email",
+                "sms"
+              ]
+            },
+            "severity_threshold": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "critical"
+              ],
+              "default": "warning"
+            }
+          }
+        },
+        "payouts": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "inapp",
+                "email"
+              ]
+            },
+            "severity_threshold": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "critical"
+              ],
+              "default": "warning"
+            }
+          }
+        },
+        "gps": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "inapp",
+                "email",
+                "sms"
+              ]
+            },
+            "severity_threshold": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "critical"
+              ],
+              "default": "warning"
+            }
+          }
+        },
+        "compliance": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "inapp",
+                "email"
+              ]
+            },
+            "severity_threshold": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "critical"
+              ],
+              "default": "warning"
+            }
+          }
+        },
+        "maintenance": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "inapp",
+                "email"
+              ]
+            },
+            "severity_threshold": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "critical"
+              ],
+              "default": "info"
+            }
+          }
+        },
+        "telematics": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "inapp",
+                "email",
+                "sms"
+              ]
+            },
+            "severity_threshold": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "critical"
+              ],
+              "default": "warning"
+            }
+          }
+        },
+        "system": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "inapp"
+              ]
+            },
+            "severity_threshold": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "critical"
+              ],
+              "default": "info"
+            }
+          }
+        }
+      }
     },
-    "in_app_enabled": {
-      "type": "boolean",
-      "default": true
+    "critical_override": {
+      "type": "object",
+      "properties": {
+        "allow_sms_critical": {
+          "type": "boolean",
+          "default": true,
+          "description": "Always allow SMS for critical alerts even if SMS disabled"
+        },
+        "allow_email_critical": {
+          "type": "boolean",
+          "default": true,
+          "description": "Always allow email for critical alerts even if email disabled"
+        },
+        "allow_push_critical": {
+          "type": "boolean",
+          "default": true,
+          "description": "Always allow push for critical alerts"
+        },
+        "quiet_hours_enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable quiet hours suppression"
+        },
+        "quiet_hours_start": {
+          "type": "string",
+          "description": "Quiet hours start time (HH:MM)"
+        },
+        "quiet_hours_end": {
+          "type": "string",
+          "description": "Quiet hours end time (HH:MM)"
+        },
+        "quiet_hours_allow_critical": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow critical alerts during quiet hours"
+        }
+      }
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_date": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": [
+    "user_id",
     "user_email",
-    "category"
+    "user_role"
   ]
 }
