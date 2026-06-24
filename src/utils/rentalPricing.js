@@ -57,16 +57,65 @@ export function calculateRentalPrice(vehicle, days) {
   // Fallback: derive daily rate from weekly rate
   if (weekly_rate) {
     const derivedDaily = weekly_rate / 7;
+    let total = Math.round(days * derivedDaily * 100) / 100;
+
+    // HARD CAP: For rentals under 7 days, never charge more than one weekly rate.
+    // This prevents the weekly_rate from being used as a per-day rate.
+    if (days < 7 && total > weekly_rate) {
+      total = weekly_rate;
+    }
+
     return {
-      total: Math.round(days * derivedDaily * 100) / 100,
+      total,
       rate: Math.round(derivedDaily * 100) / 100,
       unit: "day",
-      label: `${days} day${days > 1 ? "s" : ""} @ $${(derivedDaily).toFixed(2)}/day (from weekly rate)`,
+      label: `${days} day${days > 1 ? "s" : ""} @ $${derivedDaily.toFixed(2)}/day (from weekly rate)`,
       derived: true,
     };
   }
 
   return null;
+}
+
+/**
+ * Validate pricing integrity — catches overcharges and misuse of weekly rate as daily rate.
+ *
+ * RULE 1: Never use weekly_rate as a daily rate (e.g. $300/wk × 3 days = $900 is INVALID).
+ * RULE 2: Never charge more than weekly_rate for rentals under 7 days.
+ * RULE 3: Never charge more than monthly_rate for rentals under 28 days.
+ *
+ * @param {object} vehicle - Vehicle entity (or booking with weekly_rate/monthly_rate)
+ * @param {number} days - Rental days
+ * @param {number} chargedAmount - Actual amount charged or to be charged
+ * @returns {{ valid: boolean, issues: string[] }}
+ */
+export function validatePricingIntegrity(vehicle, days, chargedAmount) {
+  const issues = [];
+
+  if (!vehicle || !chargedAmount || !days || days <= 0) return { valid: true, issues };
+
+  const weeklyRate = vehicle.weekly_rate;
+  const monthlyRate = vehicle.monthly_rate;
+
+  // RULE 1: Never use weekly_rate as a daily rate
+  if (weeklyRate && days > 1) {
+    const perDayRate = chargedAmount / days;
+    if (Math.abs(perDayRate - weeklyRate) < 0.01) {
+      issues.push(`CRITICAL: Weekly rate ($${weeklyRate}) was used as daily rate for ${days} days = $${chargedAmount}`);
+    }
+  }
+
+  // RULE 2: Never charge more than weekly_rate for rentals under 7 days
+  if (days < 7 && weeklyRate && chargedAmount > weeklyRate) {
+    issues.push(`OVERCHARGE: $${chargedAmount} for ${days} days exceeds weekly rate of $${weeklyRate}`);
+  }
+
+  // RULE 3: Never charge more than monthly_rate for rentals under 28 days
+  if (days < 28 && monthlyRate && chargedAmount > monthlyRate) {
+    issues.push(`OVERCHARGE: $${chargedAmount} for ${days} days exceeds monthly rate of $${monthlyRate}`);
+  }
+
+  return { valid: issues.length === 0, issues };
 }
 
 /**

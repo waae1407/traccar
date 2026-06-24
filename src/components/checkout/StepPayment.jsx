@@ -7,6 +7,7 @@ import { CreditCard, Shield, Lock, Check, RefreshCw, Zap, AlertCircle } from "lu
 import OwnPaymentInstructions from "@/components/checkout/OwnPaymentInstructions";
 import ReservationRequestOnly from "@/components/checkout/ReservationRequestOnly";
 import PaymentProcessorBadge from "@/components/checkout/PaymentProcessorBadge";
+import { validatePricingIntegrity } from "@/utils/rentalPricing";
 
 // ─── Inner form — lives inside <Elements> ────────────────────────────────────
 function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeCustomerId, amountDue, baseAmount, processor, isPaymentRecovery }) {
@@ -245,7 +246,22 @@ export default function StepPayment({ booking, user, saveAndAdvance, onPaymentSu
   const [error, setError] = useState(null);
   const initialized = useRef(false);
 
-  const baseAmount = booking?.total_due_now || booking?.weekly_rate || 0;
+  // PRICING GUARD: Calculate rental days and validate amount before charging
+  const rentalDays = booking?.start_date && booking?.end_date
+    ? Math.max(1, Math.ceil((new Date(booking.end_date + "T12:00:00") - new Date(booking.start_date + "T12:00:00")) / (1000 * 60 * 60 * 24)))
+    : 7;
+  let baseAmount = booking?.total_due_now || booking?.weekly_rate || 0;
+
+  // Block overcharge: never use weekly_rate as a daily rate
+  const integrityCheck = validatePricingIntegrity(booking, rentalDays, baseAmount);
+  if (!integrityCheck.valid) {
+    console.error("[Pricing Guard] Overcharge detected at payment step:", integrityCheck.issues);
+    // Cap at weekly_rate for rentals under 7 days
+    if (rentalDays < 7 && booking?.weekly_rate && baseAmount > booking.weekly_rate) {
+      baseAmount = booking.weekly_rate;
+    }
+  }
+
   const stripeFee = Math.round(baseAmount * STRIPE_RATE * 100) / 100;
   const amountDue = Math.round((baseAmount + stripeFee) * 100) / 100;
   const amountCents = Math.round(amountDue * 100);

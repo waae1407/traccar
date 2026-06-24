@@ -13,6 +13,7 @@ import StepContract from "@/components/checkout/StepContract";
 import StepPayment from "@/components/checkout/StepPayment.jsx";
 import StepConfirmation from "@/components/checkout/StepConfirmation";
 import CanonicalCheckoutGuard from "@/components/checkout/CanonicalCheckoutGuard";
+import { calculateRentalPrice, validatePricingIntegrity } from "@/utils/rentalPricing";
 import { ArrowLeft } from "lucide-react";
 
 const STEPS = ["select_vehicle", "account", "profile", "verification", "terms", "contract", "payment", "confirmation"];
@@ -289,11 +290,26 @@ export default function CheckoutFlow() {
             (b) => [...STALE_STATUSES, "draft", "pending_payment"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
           );
           await Promise.all(allStaleToCancel.map((b) => cancelStaleMutation.mutateAsync(b.id)));
-          const dueNow = type === "Monthly"
+          // Calculate actual rental days from selected dates
+          const rentalDays = opts.startDate && opts.endDate
+            ? Math.max(1, Math.ceil((new Date(opts.endDate + "T12:00:00") - new Date(opts.startDate + "T12:00:00")) / (1000 * 60 * 60 * 24)))
+            : 7;
+
+          // Use centralized pricing logic — derives daily_rate from weekly_rate when null
+          const pricing = calculateRentalPrice(v, rentalDays);
+          let dueNow = type === "Monthly" || type === "Commercial"
             ? (v.monthly_rate || (v.weekly_rate || 0) * 4)
-            : type === "Commercial"
-            ? (v.monthly_rate || (v.weekly_rate || 0) * 4)
-            : v.weekly_rate || 0;
+            : pricing ? pricing.total : (v.weekly_rate || 0);
+
+          // PRICING GUARD: Never allow weekly_rate to be used as a daily rate
+          const integrityCheck = validatePricingIntegrity(v, rentalDays, dueNow);
+          if (!integrityCheck.valid) {
+            console.error("[Pricing Guard] Overcharge blocked at checkout:", integrityCheck.issues);
+            // Cap at weekly_rate for rentals under 7 days
+            if (rentalDays < 7 && v.weekly_rate && dueNow > v.weekly_rate) {
+              dueNow = v.weekly_rate;
+            }
+          }
           await createMutation.mutateAsync({
             vehicle_id: v.id,
             vehicle_name: `${v.year} ${v.make} ${v.model}`,
