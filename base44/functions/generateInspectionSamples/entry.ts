@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     const results = await Promise.allSettled(
       PHOTO_SLOTS.map(async (slot) => {
-        const result = await base44.asServiceRole.integrations.Core.GenerateImage({
+        const { data: result } = await base44.asServiceRole.functions.invoke('generateImage', {
           prompt: slot.aiPrompt,
         });
         return { id: slot.id, url: result.url };

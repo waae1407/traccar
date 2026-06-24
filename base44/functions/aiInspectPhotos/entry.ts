@@ -70,7 +70,7 @@ For rejection_messages, write naturally like: "Photo {n} does not appear to show
 
 Be strict. If a photo is clearly not of the subject vehicle, flag it.`;
 
-    const identityResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    const { data: identityResult } = await base44.asServiceRole.functions.invoke('invokeLLM', {
       prompt: identityPrompt,
       file_urls: photos,
       model: "claude_sonnet_4_6",
@@ -181,7 +181,7 @@ Be objective and thorough.`;
 
       const allPhotoUrls = [...pickupPhotos, ...photos];
 
-      const damageResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      const { data: damageResult } = await base44.asServiceRole.functions.invoke('invokeLLM', {
         prompt: damagePrompt,
         file_urls: allPhotoUrls,
         model: "claude_sonnet_4_6",

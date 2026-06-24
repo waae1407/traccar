@@ -404,7 +404,7 @@ Provide a wholesale automotive valuation in JSON format with these fields:
 
 Base your estimates on current US used car market conditions, mileage depreciation, condition, title status, and regional factors.`;
 
-      const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      const { data: result } = await base44.asServiceRole.functions.invoke('invokeLLM', {
         prompt,
         response_json_schema: {
           type: 'object',

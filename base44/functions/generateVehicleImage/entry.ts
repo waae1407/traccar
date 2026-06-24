@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
       `No people, no text, no watermarks, no logos, no bright coastal or outdoor scenes, no daylight sky, no streets. ` +
       `Photorealistic, premium automotive catalog quality, sharp focus, unified dark-luxury fleet style.`;
 
-    const imageResult = await base44.asServiceRole.integrations.Core.GenerateImage({ prompt });
+    const { data: imageResult } = await base44.asServiceRole.functions.invoke('generateImage', { prompt });
 
     if (!imageResult?.url) {
       console.error(`[VehicleImage] Image generation returned no URL for vehicle ${id}`);
