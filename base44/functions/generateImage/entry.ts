@@ -23,18 +23,25 @@ Deno.serve(async (req) => {
     if (!GEMINI_API_KEY) throw new Error("Missing GEMINI_API_KEY");
 
     // We use Imagen 4.0 for image generation via Gemini API
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instances: [{ prompt }],
-        parameters: { sampleCount: 1 }
-      })
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
+    // Retry with exponential backoff on 429 (quota exceeded)
+    let res, data;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: { sampleCount: 1 }
+        })
+      });
+      data = await res.json();
+      if (res.ok) break;
+      if (res.status === 429 && attempt < 2) {
+        const backoffMs = (attempt + 1) * 5000; // 5s, 10s
+        console.log(`[generateImage] 429 quota hit, backing off ${backoffMs}ms (attempt ${attempt + 1}/3)`);
+        await new Promise(r => setTimeout(r, backoffMs));
+        continue;
+      }
       throw new Error(`Gemini Image API Error: ${JSON.stringify(data)}`);
     }
 

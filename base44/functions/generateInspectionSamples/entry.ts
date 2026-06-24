@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const existingSamples = booking?.inspection_sample_images || {};
     const alreadyDone = PHOTO_SLOTS.every(s => !!existingSamples[s.id]);
     if (alreadyDone) {
-      console.log(`[InspectionSamples] Already have samples for booking ${bookingId}, skipping`);
+      console.log(`[InspectionSamples] Already have all samples for booking ${bookingId}, skipping`);
       return Response.json({ ok: true, skipped: true, reason: "already_generated" });
     }
 
@@ -78,11 +78,12 @@ Deno.serve(async (req) => {
       return Response.json({ ok: true, reused: true, source_booking: cachedBooking.id });
     }
 
-    // No cache found — generate once
-    console.log(`[InspectionSamples] No cache found. Generating shared sample images for the first time...`);
+    // No cache found — generate ONLY the missing slots (not all 7)
+    const slotsToGenerate = PHOTO_SLOTS.filter(s => !existingSamples[s.id]);
+    console.log(`[InspectionSamples] Generating ${slotsToGenerate.length} missing slot(s): ${slotsToGenerate.map(s => s.id).join(', ')}`);
 
     const results = await Promise.allSettled(
-      PHOTO_SLOTS.map(async (slot) => {
+      slotsToGenerate.map(async (slot) => {
         const { data: result } = await base44.asServiceRole.functions.invoke('generateImage', {
           prompt: slot.aiPrompt,
         });
@@ -90,7 +91,8 @@ Deno.serve(async (req) => {
       })
     );
 
-    const images = {};
+    // Merge existing + newly generated
+    const images = { ...existingSamples };
     let successCount = 0;
     for (const result of results) {
       if (result.status === "fulfilled" && result.value?.url) {

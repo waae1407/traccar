@@ -226,29 +226,32 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
 
   const vehicleImageUrl = booking?.vehicle_image;
   const cachedImages = booking?.inspection_sample_images || {};
+  const hasAllCachedSamples = PHOTO_SLOTS.every(s => !!cachedImages[s.id]);
 
   useEffect(() => {
-    if (!vehicleImageUrl) return;
-    if (Object.keys(cachedImages).length > 0) setSampleImages(cachedImages);
-    const slotsToGenerate = PHOTO_SLOTS.filter((slot) => slot.aiPrompt && !cachedImages[slot.id]);
-    if (slotsToGenerate.length === 0) return;
+    // If we already have all 7 cached samples, use them directly — no generation needed
+    if (hasAllCachedSamples) {
+      setSampleImages(cachedImages);
+      return;
+    }
+    // Otherwise, call the backend function which uses global cache + only generates missing slots
     const loadingState = {};
-    slotsToGenerate.forEach((s) => { loadingState[s.id] = true; });
+    PHOTO_SLOTS.forEach((s) => { loadingState[s.id] = true; });
     setSamplesLoading(loadingState);
-    const newlyGenerated = {};
-    Promise.all(slotsToGenerate.map(async (slot) => {
-      try {
-        const url = await generateAngleImage(vehicleImageUrl, slot);
-        newlyGenerated[slot.id] = url;
-        setSampleImages((prev) => ({ ...prev, [slot.id]: url }));
-      } catch { /* fallback */ }
-      finally { setSamplesLoading((prev) => ({ ...prev, [slot.id]: false })); }
-    })).then(() => {
-      if (Object.keys(newlyGenerated).length > 0 && booking?.id) {
-        base44.entities.BookingRequest.update(booking.id, { inspection_sample_images: { ...cachedImages, ...newlyGenerated } }).catch(() => {});
-      }
-    });
-  }, [vehicleImageUrl, booking?.id]);
+    if (Object.keys(cachedImages).length > 0) setSampleImages(cachedImages);
+    base44.functions.invoke('generateInspectionSamples', { booking_id: booking?.id })
+      .then(({ data }) => {
+        if (data?.images) {
+          setSampleImages(data.images);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        const clearLoading = {};
+        PHOTO_SLOTS.forEach((s) => { clearLoading[s.id] = false; });
+        setSamplesLoading(clearLoading);
+      });
+  }, [booking?.id, hasAllCachedSamples]);
 
   const updateBooking = useMutation({
     mutationFn: (data) => base44.entities.BookingRequest.update(booking.id, data),

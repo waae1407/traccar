@@ -14,10 +14,13 @@ Deno.serve(async (req) => {
 
     const vehicles = await base44.asServiceRole.entities.Vehicle.list();
 
-    // Regenerate every current vehicle so the fleet has one unified visual standard.
-    const targets = vehicles;
+    // Only regenerate vehicles that DON'T already have an image (unless force=true is passed)
+    const body = await req.json().catch(() => ({}));
+    const force = body?.force === true;
+    const targets = force ? vehicles : vehicles.filter(v => !v.image_url);
+    const skipped = vehicles.length - targets.length;
 
-    console.log(`[RegenerateImages] Regenerating ${targets.length} vehicles with the new hyper-realistic standard`);
+    console.log(`[RegenerateImages] Processing ${targets.length} vehicles (${skipped} already have images, force=${force})`);
 
     const results = [];
 
