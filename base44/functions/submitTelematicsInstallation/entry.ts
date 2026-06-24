@@ -106,6 +106,17 @@ async function upsertVinLinkAlert(base44, { vin, device, record }) {
 
 async function notify(base44, { type, host, device, vehicle, record, failedTests }) {
   const subject = type === 'completed' ? 'Telematics installation completed' : 'Telematics installation correction needed';
+  const alertType = type === 'completed' ? 'provider_health_warning' : 'installation_failure';
+  const recentAlerts = await base44.asServiceRole.entities.OperationalAlert.filter({
+    telematics_device_id: device.id,
+    vehicle_id: vehicle?.id || '',
+    alert_type: alertType,
+    status: 'new'
+  });
+  if (recentAlerts.length > 0) {
+    console.log(`[installer-notification] Skipping duplicate "${subject}" — ${recentAlerts.length} existing new alert(s) for device ${device.unique_id || device.id}`);
+    return;
+  }
   const rows = [
     `<p><strong>Device:</strong> ${device.unique_id || device.id}</p>`,
     `<p><strong>VIN:</strong> ${record.vin || 'N/A'}</p>`,

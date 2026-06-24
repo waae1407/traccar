@@ -75,6 +75,22 @@ async function clearVehicleReference(base44, vehicleId, deviceId) {
     await base44.asServiceRole.entities.Vehicle.update(vehicle.id, { telematics_device_id: '' });
   }
 }
+async function resolveStaleDeviceAlerts(base44, deviceId, vehicleId) {
+  if (!deviceId || !vehicleId) return;
+  const stale = await base44.asServiceRole.entities.OperationalAlert.filter({
+    telematics_device_id: deviceId,
+    vehicle_id: vehicleId,
+    status: 'new'
+  });
+  const now = nowIso();
+  for (const alert of stale) {
+    await base44.asServiceRole.entities.OperationalAlert.update(alert.id, {
+      status: 'resolved',
+      resolved_at: now,
+      resolution_note: 'Auto-resolved: device was unlinked or reassigned. This alert references a previous vehicle/device pairing that is no longer current.'
+    });
+  }
+}
 async function linkDevice(base44, { user, host, deviceId, vehicleId, allowReplace = false, overrideRetired = false }) {
   const device = await getOne(base44, 'TelematicsDevice', deviceId);
   const vehicle = await getOne(base44, 'Vehicle', vehicleId);
@@ -92,7 +108,10 @@ async function linkDevice(base44, { user, host, deviceId, vehicleId, allowReplac
   if (activeForVehicle.length && !allowReplace) throw new Error('This vehicle already has a telematics device. Use Replace Device.');
 
   const oldVehicleId = device.vehicle_id || '';
-  if (oldVehicleId && oldVehicleId !== vehicle.id) await clearVehicleReference(base44, oldVehicleId, device.id);
+  if (oldVehicleId && oldVehicleId !== vehicle.id) {
+    await resolveStaleDeviceAlerts(base44, device.id, oldVehicleId);
+    await clearVehicleReference(base44, oldVehicleId, device.id);
+  }
   const providers = await providerMap(base44);
   const provider = providers[device.provider_key];
   const lifecycleStatus = isRetired(device) ? device.lifecycle_status : nextLinkedLifecycle(device, provider);
@@ -131,6 +150,7 @@ async function unlinkDevice(base44, { user, host, deviceId, disposition = 'provi
     keepHostOwnership = true;
   }
   const nextLifecycle = disposition === 'retired' ? 'retired' : disposition === 'inventory' ? 'inventory' : 'provisioned';
+  await resolveStaleDeviceAlerts(base44, device.id, device.vehicle_id);
   await clearVehicleReference(base44, device.vehicle_id, device.id);
   await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
     vehicle_id: '',
