@@ -1,10 +1,3 @@
-/**
- * dealer360AIValuation
- *
- * Public-accessible AI wholesale valuation tool.
- * Can be called by hosts to get an instant estimate before submitting a sell request.
- * Also used internally by admin when running valuation on a sell request.
- */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
@@ -50,7 +43,7 @@ Return a JSON valuation with:
 - uride_offer_suggested: uRide direct purchase offer (must be 12-18% below wholesale_value)
 - confidence: "high", "medium", or "low" based on data available`;
 
-    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    const { data: result } = await base44.asServiceRole.functions.invoke('invokeLLM', {
       prompt,
       response_json_schema: {
         type: 'object',

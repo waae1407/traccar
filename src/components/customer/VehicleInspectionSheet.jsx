@@ -24,11 +24,18 @@ const ISSUE_CATEGORIES = [
 
 async function generateAngleImage(vehicleImageUrl, slot) {
   try {
+    const prompt = `${slot.aiPrompt} Match the reference vehicle style and color exactly.`;
     const { data: result } = await base44.functions.invoke('generateImage', {
-      prompt: `${slot.aiPrompt} Match the reference vehicle style and color exactly.`,
+      prompt,
       existing_image_urls: [vehicleImageUrl],
     });
-    return result?.url || null;
+    return result ? {
+      url: result.url,
+      generated_at: result.created_at || new Date().toISOString(),
+      prompt: result.prompt || prompt,
+      model: result.model || "imagen-4.0-generate-001",
+      provider: result.provider || "google"
+    } : null;
   } catch (error) {
     console.error("Imagen error:", error);
     return null;
@@ -148,7 +155,7 @@ function PhotoSlot({ slot, photo, onCapture, uploading, sampleImage, sampleLoadi
           {slot.isKeys && <div className="flex items-center gap-2 px-4 py-2 border-b border-red-100 bg-red-50"><AlertTriangle className="h-3.5 w-3.5 text-red-500" /><p className="text-[11px] font-black text-red-600">Lost keys = <span className="text-red-700">$250 expense</span> — all keys must be in frame</p></div>}
           <div className="relative w-full h-44 bg-gray-100">
             {sampleLoading ? <div className="w-full h-full flex flex-col items-center justify-center gap-2"><Loader2 className="h-5 w-5 text-primary animate-spin" /><span className="text-[10px] text-gray-400">Generating example…</span></div>
-              : sampleImage ? <img src={sampleImage} alt={slot.label} className="w-full h-full object-cover" style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}} />
+              : sampleImage ? <img src={sampleImage.url || sampleImage} alt={slot.label} className="w-full h-full object-cover" style={slot.mirrorX ? { transform: "scaleX(-1)" } : {}} />
               : <div className="w-full h-full flex items-center justify-center text-5xl opacity-30">{slot.icon}</div>}
             <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 flex items-center justify-center"><Camera className="h-4 w-4 text-white" /></div>
           </div>

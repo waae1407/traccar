@@ -11,11 +11,15 @@ function arrayBufferToBase64(buffer) {
 }
 
 Deno.serve(async (req) => {
+  const base44 = createClientFromRequest(req);
+  let user;
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    user = await base44.auth.me();
+  } catch (e) {
+    //
+  }
 
+  try {
     const payload = await req.json();
     const { prompt, file_urls = [], response_json_schema, add_context_from_internet } = payload;
     
@@ -60,8 +64,7 @@ Deno.serve(async (req) => {
       requestBody.tools = [{ googleSearch: {} }];
     }
 
-    // Usually "gemini-1.5-flash-latest" works in v1beta
-    const model = "gemini-3.5-flash";
+    const model = "gemini-1.5-flash-latest";
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
     const response = await fetch(endpoint, {
@@ -91,10 +94,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    await base44.asServiceRole.entities.AIUsageLog.create({
+      provider: "google",
+      model: model,
+      function_name: "invokeLLM",
+      user_id: user ? user.id : null,
+      success: true,
+      estimated_cost: 0.0001
+    });
+
     return Response.json(finalResult);
 
   } catch (error) {
     console.error("invokeLLM error:", error);
+    await base44.asServiceRole.entities.AIUsageLog.create({
+      provider: "google",
+      model: "gemini-1.5-flash-latest",
+      function_name: "invokeLLM",
+      user_id: user ? user.id : null,
+      success: false,
+      error_message: error.message
+    });
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

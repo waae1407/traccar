@@ -1,0 +1,44 @@
+{
+  "name": "AIUsageLog",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "function_name": {
+      "type": "string"
+    },
+    "input_tokens": {
+      "type": "number"
+    },
+    "output_tokens": {
+      "type": "number"
+    },
+    "image_count": {
+      "type": "number"
+    },
+    "estimated_cost": {
+      "type": "number"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "company_id": {
+      "type": "string"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "error_message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider",
+    "model",
+    "function_name"
+  ]
+}

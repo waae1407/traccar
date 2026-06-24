@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'doc_url and doc_type are required' }, { status: 400 });
     }
 
-    // Ask AI to read the document and extract key info
     const prompt = `You are a compliance document reader for a vehicle rental platform.
 
 Analyze this ${doc_type} document image/PDF and extract the following information:
@@ -30,7 +29,7 @@ ${vehicle_vin ? `The vehicle's VIN on file is: ${vehicle_vin}. Flag if the docum
 
 Be strict about document validity. If you cannot read an expiry date with reasonable confidence, set needs_review to true.`;
 
-    const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    const { data: result } = await base44.asServiceRole.functions.invoke('invokeLLM', {
       prompt,
       file_urls: [doc_url],
       response_json_schema: {
@@ -48,7 +47,6 @@ Be strict about document validity. If you cannot read an expiry date with reason
       }
     });
 
-    // Update the compliance record with AI-extracted data
     if (compliance_id) {
       const updateData = {
         status: result.needs_review ? "pending_review" : "valid",
@@ -58,7 +56,6 @@ Be strict about document validity. If you cannot read an expiry date with reason
 
       if (result.expiry_date) {
         updateData.expiry_date = result.expiry_date;
-        // Check if already expiring soon
         const today = new Date();
         const in30Days = new Date(today);
         in30Days.setDate(in30Days.getDate() + 30);
@@ -74,7 +71,6 @@ Be strict about document validity. If you cannot read an expiry date with reason
 
       await base44.asServiceRole.entities.HostVehicleCompliance.update(compliance_id, updateData);
 
-      // If insurance AND registration are now valid, approve the vehicle
       if (!result.needs_review && result.document_valid && vehicle_id) {
         const allDocs = await base44.asServiceRole.entities.HostVehicleCompliance.filter({ vehicle_id });
         const hasValidInsurance = allDocs.some(d => d.doc_type === "insurance" && (d.status === "valid" || d.status === "expiring_soon"));
@@ -86,20 +82,13 @@ Be strict about document validity. If you cannot read an expiry date with reason
           if (vehicle && vehicle.approval_status === "pending") {
             await base44.asServiceRole.entities.Vehicle.update(vehicle_id, { approval_status: "approved" });
 
-            // Notify host
             const hosts = await base44.asServiceRole.entities.Host.filter({ id: host_id });
             const host = hosts[0];
             if (host) {
               await base44.asServiceRole.integrations.Core.SendEmail({
                 to: host.email,
                 subject: `✅ Vehicle Documents Verified — ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-                body: `Great news! Insurance and registration documents for your ${vehicle.year} ${vehicle.make} ${vehicle.model} have been verified. Open your vehicle setup checklist to finish any remaining items and publish the vehicle.\n\nuRide Host Team`,
-              });
-              await base44.asServiceRole.entities.Notification.create({
-                user_email: host.email,
-                title: `✅ Vehicle Documents Verified — ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-                body: `Insurance and registration verified. Finish setup to publish this vehicle.`,
-                type: "success",
+                body: `Great news! Insurance and registration documents for your ${vehicle.year} ${vehicle.make} ${vehicle.model} have been verified.\n\nuRide Host Team`,
               });
             }
           }
@@ -107,9 +96,10 @@ Be strict about document validity. If you cannot read an expiry date with reason
       }
     }
 
-    return Response.json({ ok: true, result });
+    return Response.json({ success: true, extracted_data: result });
+
   } catch (error) {
-    console.error('[aiReadComplianceDoc] Error:', error.message);
+    console.error("aiReadComplianceDoc error:", error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
