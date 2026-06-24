@@ -192,34 +192,37 @@ async function upsertTelematicsIncident(base44, event, now) {
 }
 
 async function dispatchTelematicsAlertNotifications(base44, event, booking, host) {
-  // Only send notifications for NEW alerts
+  // Only send notifications for NEW alerts - DELEGATE TO CENTRAL ROUTER
   if (event.visible_to_customer && event.customer_id && ['cabin_smoke_detected', 'impact_detected', 'low_12v_battery', 'door_or_trunk_open'].includes(event.alert_type)) {
-    await base44.functions.invoke('sendCriticalNotification', {
-      recipient_role: 'customer',
-      recipient_email: booking?.user_email,
-      recipient_phone: booking?.customer_phone || '',
+    await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: event.alert_type,
       severity: event.customer_severity,
+      category: 'telematics',
       title: event.alert_title,
-      body: event.alert_message,
-      source_entity_type: 'TelematicsSafetyEvent',
-      source_entity_id: event.id,
-      action_url: '/my-bookings'
+      message: event.alert_message,
+      booking_id: event.booking_id,
+      customer_id: event.customer_id,
+      vehicle_id: event.vehicle_id,
+      alert360_event_id: event.id,
+      action_url: '/my-bookings',
     }).catch(() => {});
   }
 
   if (event.visible_to_host && event.host_id && host?.email) {
     const isCritical = event.host_severity === 'critical';
     if (isCritical || ['cabin_smoke_detected', 'tracker_power_cut', 'geofence_breach', 'overspeed_violation'].includes(event.alert_type)) {
-      await base44.functions.invoke('sendCriticalNotification', {
-        recipient_role: 'host',
-        recipient_email: host.email,
-        recipient_phone: host.phone || '',
+      await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+        event_type: event.alert_type,
         severity: event.host_severity,
+        category: 'telematics',
         title: event.alert_title,
-        body: event.alert_message,
-        source_entity_type: 'TelematicsSafetyEvent',
-        source_entity_id: event.id,
-        action_url: '/host/telematics'
+        message: event.alert_message,
+        booking_id: event.booking_id,
+        host_id: event.host_id,
+        vehicle_id: event.vehicle_id,
+        alert360_event_id: event.id,
+        action_url: '/host/telematics',
+        notify_admin: isCritical,
       }).catch(() => {});
     }
   }

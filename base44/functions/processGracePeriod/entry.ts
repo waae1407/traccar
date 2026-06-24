@@ -357,34 +357,18 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     next_billing_date: nextBillingDate,
   });
 
-  await base44.asServiceRole.entities.Notification.create({
-    user_email: booking.user_email,
+  // DELEGATE TO CENTRAL ROUTER for payment recovery notification
+  await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+    event_type: 'payment_recovered',
+    severity: 'info',
+    category: 'payments',
     title: "Payment received — starter access restored",
-    body: `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active and starter access has been restored. Next billing: ${nextBillingDate}.`,
-    type: "payment",
-    booking_request_id: booking.id,
-  });
-
-  if (booking.customer_phone) {
-    await sendSMS(booking.customer_phone, `uRide: Payment received for ${booking.vehicle_name}. Your rental is active and starter access has been restored.`);
-  }
-
-  // M3 FIX: isolate email so failure never fails parent billing workflow
-  await sendEmail(
-    base44,
-    booking.user_email,
-    `Payment Received — ${booking.vehicle_name || 'Your Rental'} Restored`,
-    `Hi ${booking.customer_full_name || ""},\n\nYour rental payment has been processed successfully. Your booking is active and starter access has been restored.\n\nNext billing: ${nextBillingDate}\n\nThe uRide Team`
-  ).catch(async (emailErr) => {
-    console.error('[GracePeriod] Recovery email failed:', emailErr.message);
-    await base44.asServiceRole.entities.ActivityEvent.create({
-      event_type: 'email_delivery_failed', actor_id: 'processGracePeriod', actor_email: 'automation@uridehub.com',
-      actor_role: 'automation', target_entity: 'BookingRequest', target_id: booking.id,
-      booking_id: booking.id, customer_id: booking.user_email || '',
-      summary: `Payment recovery email failed for booking ${booking.id}: ${emailErr.message}`,
-      metadata: { error: emailErr.message, email_type: 'payment_recovery' }, source: 'payment_enforcement', event_status: 'error',
-    }).catch(() => {});
-  });
+    message: `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active and starter access has been restored. Next billing: ${nextBillingDate}.`,
+    booking_id: booking.id,
+    customer_id: booking.user_id,
+    action_url: '/my-bookings',
+    metadata: { next_billing_date: nextBillingDate, starter_restored: true },
+  }).catch(e => console.error('[GracePeriod] recovery notification failed:', e.message));
 
   await logEvent(base44, {
     event_type: 'payment.succeeded',
@@ -676,37 +660,24 @@ async function disableStarterAfterWindow(base44, booking, now) {
 async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
   const title = isPending ? '⚠️ Account Suspended — Vehicle Access Pending Restriction' : hasDevice ? '🔒 Account Suspended — Vehicle Access Restricted' : '🔒 Account Suspended — Payment Required';
   const body = isPending
-    ? `Your payment for ${booking.vehicle_name} remains unresolved. Your account is suspended. Vehicle access will be restricted as soon as the vehicle is parked. Please resolve payment immediately.`
+    ? `Your payment for ${booking.vehicle_name} remains unresolved. Your account is suspended. Vehicle access will be restricted as soon as the vehicle is parked.`
     : hasDevice
-      ? `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Vehicle starter access has been interrupted. This does not shut down a running engine. Please update your payment method to restore access.`
-      : `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Your account has been suspended. Please contact support to resolve.`;
+      ? `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Vehicle starter access has been interrupted (starter-interrupt only, no engine shutdown).`
+      : `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Your account has been suspended.`;
 
-  await base44.asServiceRole.entities.Notification.create({
-    user_email: booking.user_email,
+  // DELEGATE TO CENTRAL ROUTER
+  await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+    event_type: 'grace_period_expired',
+    severity: 'critical',
+    category: 'payments',
     title,
-    body,
-    type: 'payment',
-    booking_request_id: booking.id,
-  });
-
-  if (booking.customer_phone) {
-    await sendSMS(booking.customer_phone, `uRide: ${body}`);
-  }
-
-  await sendEmail(
-    base44,
-    booking.user_email,
-    title,
-    `Hi ${booking.customer_full_name || ''},\n\n${body}\n\nThe uRide Team`
-  ).catch(async (emailErr) => {
-    await base44.asServiceRole.entities.ActivityEvent.create({
-      event_type: 'email_delivery_failed', actor_id: 'processGracePeriod', actor_email: 'automation@uridehub.com',
-      actor_role: 'automation', target_entity: 'BookingRequest', target_id: booking.id,
-      booking_id: booking.id, customer_id: booking.user_email || '',
-      summary: `Grace-expired email failed for booking ${booking.id}: ${emailErr.message}`,
-      metadata: { error: emailErr.message, email_type: 'grace_expired' }, source: 'payment_enforcement', event_status: 'error',
-    }).catch(() => {});
-  });
+    message: body,
+    booking_id: booking.id,
+    customer_id: booking.user_id,
+    host_id: booking.host_id,
+    action_url: '/my-bookings',
+    metadata: { recovery_window_hours: RECOVERY_WINDOW_HOURS, has_device: hasDevice, pending_restriction: isPending, starter_interrupt_only: true },
+  }).catch(e => console.error('[GracePeriod] grace expired notification failed:', e.message));
 }
 
 Deno.serve(async (req) => {

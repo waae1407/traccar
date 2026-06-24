@@ -219,57 +219,22 @@ function getPushTemplate(event_type, body) {
 
 async function handleBookingApproved(base44, { booking }) {
   if (!booking?.id) return { error: "Missing booking" };
-  const today = new Date().toISOString().slice(0, 10);
-  const results = {};
-
-  // In-app
-  const inAppKey = `booking_approved:${booking.id}:${booking.user_email}:inapp`;
-  if (!await checkDedup(base44, inAppKey)) {
-    await base44.asServiceRole.entities.Notification.create({
-      user_email: booking.user_email,
-      title: '✅ Booking Confirmed!',
-      body: `Your ${booking.vehicle_name || 'vehicle'} booking has been approved. Pickup details are now available.`,
-      type: 'booking',
-      booking_request_id: booking.id,
-      category: 'bookings',
-      is_read: false,
-    }).catch(() => {});
-    await logDelivery(base44, { event_type: 'notification.booking_approved.inapp', idempotency_key: inAppKey, recipient_email: booking.user_email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'booking_approved', source_entity_type: 'BookingRequest', source_entity_id: booking.id, booking_id: booking.id });
-    results.inapp = 'sent';
-  } else { results.inapp = 'deduped'; }
-
-  // Email
-  const emailKey = `booking_approved:${booking.id}:${booking.user_email}:email`;
-  if (!await checkDedup(base44, emailKey)) {
-    const html = emailTemplate('🎉 Your Booking is Confirmed!', `
-      <p style="font-size:15px;color:#374151;margin:0 0 20px">Hi ${booking.customer_full_name?.split(' ')[0] || 'there'},</p>
-      <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 24px">Great news! Your <strong>${booking.vehicle_name}</strong> booking has been approved. You can now view your pickup details in the app.</p>
-      <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Vehicle</td><td style="font-size:14px;font-weight:600;color:#111;text-align:right">${booking.vehicle_name || '—'}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Booking Type</td><td style="font-size:14px;color:#111;text-align:right">${booking.booking_type || '—'}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Start Date</td><td style="font-size:14px;color:#111;text-align:right">${booking.start_date || '—'}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Status</td><td style="font-size:14px;font-weight:700;color:#16a34a;text-align:right">✅ Approved</td></tr>
-        </table>
-      </div>
-      <div style="text-align:center;margin-bottom:20px">
-        <a href="${APP_URL}/my-bookings" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#7c3aed);color:white;font-weight:700;font-size:15px;padding:14px 32px;border-radius:12px;text-decoration:none">View Pickup Details →</a>
-      </div>
-    `);
-    const emailResult = await sendEmail(booking.user_email, `✅ Booking Confirmed — ${booking.vehicle_name}`, html);
-    await logDelivery(base44, { event_type: emailResult.ok ? 'notification.booking_approved.email' : 'notification.delivery_failed', idempotency_key: emailKey, recipient_email: booking.user_email, channel: 'email', provider: 'resend', provider_message_id: emailResult.message_id, provider_status: emailResult.ok ? 'sent' : 'failed', failure_reason: emailResult.error, source_event: 'booking_approved', source_entity_type: 'BookingRequest', source_entity_id: booking.id, booking_id: booking.id });
-    results.email = emailResult.ok ? 'sent' : `failed:${emailResult.error}`;
-  } else { results.email = 'deduped'; }
-
-  // SMS
-  const smsKey = `booking_approved:${booking.id}:${booking.user_email}:sms:${today}`;
-  if (booking.customer_phone && !await checkDedup(base44, smsKey)) {
-    const smsResult = await sendSMS(booking.customer_phone, `uRide: Your ${booking.vehicle_name || 'vehicle'} booking is CONFIRMED! 🎉 View pickup details: ${APP_URL}/my-bookings`);
-    await logDelivery(base44, { event_type: smsResult.ok ? 'notification.booking_approved.sms' : 'notification.delivery_failed', idempotency_key: smsKey, recipient_email: booking.user_email, recipient_phone: booking.customer_phone, channel: 'sms', provider: 'twilio', provider_message_id: smsResult.sid, provider_status: smsResult.ok ? 'sent' : 'failed', failure_reason: smsResult.error, source_event: 'booking_approved', source_entity_type: 'BookingRequest', source_entity_id: booking.id, booking_id: booking.id });
-    results.sms = smsResult.ok ? 'sent' : `failed:${smsResult.error}`;
-  } else { results.sms = booking.customer_phone ? 'deduped' : 'no_phone'; }
-
-  return results;
+  
+  // DELEGATE TO CENTRAL ROUTER
+  const routerResult = await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+    event_type: 'booking_approved',
+    severity: 'info',
+    category: 'bookings',
+    title: '✅ Booking Confirmed!',
+    message: `Your ${booking.vehicle_name || 'vehicle'} booking has been approved. Pickup details are now available.`,
+    booking_id: booking.id,
+    customer_id: booking.user_id,
+    host_id: booking.host_id,
+    action_url: '/my-bookings',
+    metadata: { booking_type: booking.booking_type, start_date: booking.start_date },
+  }).catch(e => ({ data: { error: e.message } }));
+  
+  return { delegated_to_router: true, router_result: routerResult?.data };
 }
 
 async function handleBookingRejected(base44, { booking, reason }) {

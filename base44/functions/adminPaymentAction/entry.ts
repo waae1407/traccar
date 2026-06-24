@@ -148,13 +148,18 @@ Deno.serve(async (req) => {
           admin_notes: `Refund issued by ${user.email}: $${amount || "full"} — ${reason || ""}`,
         });
 
-        await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
+        // DELEGATE TO CENTRAL ROUTER
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'payment_refunded',
+          severity: 'info',
+          category: 'payments',
           title: "Refund Issued",
-          body: `A refund of $${amount || "full amount"} has been issued for your ${booking.vehicle_name} rental. Please allow 5-10 business days.`,
-          type: "payment",
-          booking_request_id,
-        });
+          message: `A refund of $${amount || "full amount"} has been issued for your ${booking.vehicle_name} rental. Please allow 5-10 business days.`,
+          booking_id: booking_request_id,
+          customer_id: booking.user_id,
+          action_url: '/my-bookings',
+          metadata: { refund_amount: amount, reason },
+        }).catch(() => {});
 
         await logEvent(base44, user.email, {
           event_type: 'payment.refunded',
@@ -196,13 +201,18 @@ Deno.serve(async (req) => {
           metadata: { booking_request_id, action, admin_email: user.email },
         });
 
-        await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
+        // DELEGATE TO CENTRAL ROUTER
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: action === "charge_toll" ? 'toll_fee_charged' : action === "charge_key_fee" ? 'key_fee_charged' : 'admin_charge',
+          severity: 'warning',
+          category: 'payments',
           title: action === "charge_toll" ? "Toll Fee Charged" : action === "charge_key_fee" ? "Lost Key Fee Charged" : "Additional Charge",
-          body: `$${amount} was charged to your card on file. Reason: ${chargeDescription}`,
-          type: "payment",
-          booking_request_id,
-        });
+          message: `$${amount} was charged to your card on file. Reason: ${chargeDescription}`,
+          booking_id: booking_request_id,
+          customer_id: booking.user_id,
+          action_url: '/my-bookings',
+          metadata: { charge_type: action, amount, description },
+        }).catch(() => {});
 
         // H1 FIX: Create PaymentLog for all admin charges
         const chargeData = paymentIntent.charges?.data?.[0];
@@ -264,13 +274,18 @@ Deno.serve(async (req) => {
           moovetrax_kill_active: false,
         });
 
-        await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
+        // DELEGATE TO CENTRAL ROUTER
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'payment_recovery_extended',
+          severity: 'warning',
+          category: 'payments',
           title: "Payment recovery window extended",
-          body: `Your payment recovery window for ${booking.vehicle_name} has been extended. Please resolve payment before ${extendedAt.toLocaleString()}.`,
-          type: "payment",
-          booking_request_id,
-        });
+          message: `Your payment recovery window for ${booking.vehicle_name} has been extended. Please resolve payment before ${extendedAt.toLocaleString()}.`,
+          booking_id: booking_request_id,
+          customer_id: booking.user_id,
+          action_url: '/my-bookings',
+          metadata: { extended_hours: hours, new_deadline: extendedAt.toISOString() },
+        }).catch(() => {});
 
         await logEvent(base44, user.email, {
           event_type: 'payment.recovery_window_extended',
@@ -305,13 +320,17 @@ Deno.serve(async (req) => {
           }
         }
 
-        await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
+        // DELEGATE TO CENTRAL ROUTER
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'rental_reinstated',
+          severity: 'success',
+          category: 'bookings',
           title: "Rental Reinstated ✓",
-          body: `Your rental for ${booking.vehicle_name} has been reinstated. Your vehicle is now active again.`,
-          type: "booking",
-          booking_request_id,
-        });
+          message: `Your rental for ${booking.vehicle_name} has been reinstated. Your vehicle is now active again.`,
+          booking_id: booking_request_id,
+          customer_id: booking.user_id,
+          action_url: '/my-bookings',
+        }).catch(() => {});
 
         await logEvent(base44, user.email, {
           event_type: 'gps.reinstate_sent',
@@ -337,13 +356,19 @@ Deno.serve(async (req) => {
           moovetrax_kill_active: true,
           starter_disabled: true,
         });
-        await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
+        // DELEGATE TO CENTRAL ROUTER
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'vehicle_disabled',
+          severity: 'critical',
+          category: 'bookings',
           title: "⚠️ Vehicle Remotely Disabled",
-          body: `Your ${booking.vehicle_name} has been remotely disabled by fleet management. Please contact support.`,
-          type: "booking",
-          booking_request_id,
-        });
+          message: `Your ${booking.vehicle_name} has been remotely disabled by fleet management. Please contact support.`,
+          booking_id: booking_request_id,
+          customer_id: booking.user_id,
+          host_id: booking.host_id,
+          action_url: '/support',
+          notify_admin: true,
+        }).catch(() => {});
 
         await logEvent(base44, user.email, {
           event_type: 'gps.kill_sent',
@@ -571,14 +596,18 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Notify customer
-          await base44.asServiceRole.entities.Notification.create({
-            user_email: booking.user_email,
+          // DELEGATE TO CENTRAL ROUTER
+          await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+            event_type: 'manual_payment_recorded',
+            severity: 'success',
+            category: 'payments',
             title: '✅ Payment Received — Account Restored',
-            body: `Your $${payAmount} payment for ${booking.vehicle_name} has been recorded. Your account is now in good standing.`,
-            type: 'payment',
-            booking_request_id,
-          });
+            message: `Your $${payAmount} payment for ${booking.vehicle_name} has been recorded. Your account is now in good standing.`,
+            booking_id: booking_request_id,
+            customer_id: booking.user_id,
+            action_url: '/my-bookings',
+            metadata: { payment_method, amount: payAmount, week_number: weekNum },
+          }).catch(() => {});
 
           // Log ActivityEvent
           await logEvent(base44, user.email, {
@@ -647,13 +676,17 @@ Deno.serve(async (req) => {
           moovetrax_kill_active: false,
           starter_disabled: false,
         });
-        await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
+        // DELEGATE TO CENTRAL ROUTER
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'vehicle_restored',
+          severity: 'success',
+          category: 'bookings',
           title: "✅ Vehicle Restored",
-          body: `Your ${booking.vehicle_name} has been restored and is ready to drive.`,
-          type: "booking",
-          booking_request_id,
-        });
+          message: `Your ${booking.vehicle_name} has been restored and is ready to drive.`,
+          booking_id: booking_request_id,
+          customer_id: booking.user_id,
+          action_url: '/my-bookings',
+        }).catch(() => {});
 
         await logEvent(base44, user.email, {
           event_type: 'gps.reinstate_sent',

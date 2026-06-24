@@ -495,18 +495,17 @@ Deno.serve(async (req) => {
             source: 'automation',
           });
 
-          // Send weekly receipt (email + in-app with dedup)
-          await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
+          // Send weekly receipt via CENTRAL ROUTER
+          await base44.asServiceRole.functions.invoke('routePlatformNotification', {
             event_type: 'weekly_payment_receipt',
-            booking: {
-              id: booking.id,
-              user_email: booking.user_email,
-              customer_full_name: booking.customer_full_name,
-              vehicle_name: booking.vehicle_name,
-              next_billing_date: nextBillingDate,
-            },
-            amount: amount.toFixed(2),
-            week_number: weekNum,
+            severity: 'info',
+            category: 'payments',
+            title: `Week ${weekNum} Payment Received — $${amount.toFixed(2)}`,
+            message: `$${amount.toFixed(2)} for your ${booking.vehicle_name} rental (Week ${weekNum}) has been processed. Next charge: ${nextBillingDate}.`,
+            booking_id: booking.id,
+            customer_id: booking.user_id,
+            action_url: '/my-bookings',
+            metadata: { week_number: weekNum, amount, next_billing_date: nextBillingDate },
           }).catch(e => console.error('[WeeklyBilling] receipt notification failed:', e.message));
 
           // Send 24hr pre-charge warning for NEXT week

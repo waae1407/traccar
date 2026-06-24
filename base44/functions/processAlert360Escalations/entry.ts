@@ -65,31 +65,52 @@ Deno.serve(async (req) => {
                 updates.linked_incident_id = incident.id;
             }
 
-            // Notification dispatch
+            // Notification dispatch - DELEGATE TO CENTRAL ROUTER
             if (newLevel === 1) {
-              // Try to notify admin and host
               try {
-                await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
-                  user_ids: [alert.host_id, 'admin'], 
-                  message: `Escalation L1: ${alert.alert_title}`
+                await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+                  event_type: 'telematics_escalation_l1',
+                  severity: 'warning',
+                  category: 'telematics',
+                  title: `Escalation L1: ${alert.alert_title}`,
+                  message: `Alert unresolved for 5+ minutes. Host and admin notified.`,
+                  alert360_event_id: alert.id,
+                  vehicle_id: alert.vehicle_id,
+                  host_id: alert.host_id,
+                  notify_admin: true,
+                  action_url: '/admin/alert360',
                 });
               } catch(e) {
                 updates.internal_notes += `\n[${timestamp}] System: Notification suppressed: ${e.message}`;
               }
             } else if (newLevel === 2) {
               try {
-                await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
-                  user_ids: ['admin'], 
-                  message: `Escalation L2: ${alert.alert_title} (15m+ unresolved)`
+                await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+                  event_type: 'telematics_escalation_l2',
+                  severity: 'critical',
+                  category: 'telematics',
+                  title: `Escalation L2: ${alert.alert_title} (15m+ unresolved)`,
+                  message: `Critical telematics alert requires immediate admin attention.`,
+                  alert360_event_id: alert.id,
+                  vehicle_id: alert.vehicle_id,
+                  notify_admin: true,
+                  action_url: '/admin/alert360',
                 });
               } catch(e) {
                 updates.internal_notes += `\n[${timestamp}] System: Notification suppressed: ${e.message}`;
               }
             } else if (newLevel === 3) {
               try {
-                await base44.asServiceRole.functions.invoke('sendCriticalNotification', {
-                  user_ids: ['admin'], 
-                  message: `Escalation L3: ${alert.alert_title} (30m+ unresolved). Incident created.`
+                await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+                  event_type: 'telematics_escalation_l3',
+                  severity: 'critical',
+                  category: 'telematics',
+                  title: `Escalation L3: ${alert.alert_title} (30m+ unresolved). Incident created.`,
+                  message: `CRITICAL: Telematics alert unresolved for 30+ minutes. Incident auto-created.`,
+                  alert360_event_id: alert.id,
+                  vehicle_id: alert.vehicle_id,
+                  notify_admin: true,
+                  action_url: '/admin/alert360',
                 });
               } catch(e) {
                 updates.internal_notes += `\n[${timestamp}] System: Notification suppressed: ${e.message}`;
