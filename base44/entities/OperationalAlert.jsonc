@@ -23,7 +23,39 @@
         "overdue_return",
         "dealer_network_issue",
         "maintenance_overdue",
-        "missing_document"
+        "missing_document",
+        "pickup_inspection_incomplete",
+        "rental_overdue",
+        "return_review_required",
+        "payment_failed",
+        "pricing_mismatch",
+        "overcharge_detected",
+        "manual_refund_required",
+        "payout_hold_created",
+        "payout_correction_required",
+        "host_payout_failed",
+        "host_payout_sent",
+        "weekly_billing_failed",
+        "grace_period_started",
+        "grace_period_expired",
+        "starter_interrupt_sent",
+        "telematics_power_cut",
+        "smoke_impact_critical",
+        "parser_error",
+        "unknown_device",
+        "unmatched_ack",
+        "command_no_ack",
+        "repeated_failures",
+        "escalation_event",
+        "booking_issues_detected",
+        "payment_recovered",
+        "fleetos_manual_payment_required",
+        "stripe_account_restricted",
+        "gps_offline_24h",
+        "gps_offline_72h",
+        "compliance_hold_active_booking",
+        "chargeback_opened",
+        "payout_held"
       ]
     },
     "severity": {
@@ -163,6 +195,84 @@
     },
     "metadata": {
       "type": "object"
+    },
+    "related_booking_id": {
+      "type": "string",
+      "description": "BookingRequest ID related to this alert"
+    },
+    "related_customer_id": {
+      "type": "string",
+      "description": "Customer/user ID related to this alert"
+    },
+    "related_alert360_event_id": {
+      "type": "string",
+      "description": "TelematicsSafetyEvent ID for telematics alerts"
+    },
+    "financial_impact_amount": {
+      "type": "number",
+      "description": "Financial impact in USD"
+    },
+    "currency": {
+      "type": "string",
+      "default": "usd"
+    },
+    "requires_admin_action": {
+      "type": "boolean",
+      "default": false
+    },
+    "requires_host_action": {
+      "type": "boolean",
+      "default": false
+    },
+    "requires_customer_action": {
+      "type": "boolean",
+      "default": false
+    },
+    "billing_context": {
+      "type": "string",
+      "enum": [
+        "weekly_billing",
+        "payment_recovery",
+        "grace_period",
+        "payout",
+        "rental_payment",
+        "fleetos_billing",
+        "gps_fleet",
+        "active_rental",
+        "booking_monitor"
+      ],
+      "description": "Billing context for payment-related alerts"
+    },
+    "renter_email": {
+      "type": "string",
+      "description": "Renter/customer email for payment alerts"
+    },
+    "host_email": {
+      "type": "string",
+      "description": "Host email for payout alerts"
+    },
+    "retry_attempts": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of retry attempts for payment alerts"
+    },
+    "escalation_deadline_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Deadline for escalation"
+    },
+    "stripe_payment_intent_id": {
+      "type": "string"
+    },
+    "stripe_charge_id": {
+      "type": "string"
+    },
+    "stripe_transfer_id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source function or system that created this alert"
     }
   },
   "required": [

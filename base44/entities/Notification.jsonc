@@ -2,9 +2,27 @@
   "name": "Notification",
   "type": "object",
   "properties": {
-    "user_email": {
+    "recipient_user_id": {
+      "type": "string",
+      "description": "User ID of the notification recipient"
+    },
+    "recipient_role": {
+      "type": "string",
+      "enum": [
+        "customer",
+        "host",
+        "admin",
+        "installer"
+      ],
+      "description": "Role of the recipient for routing"
+    },
+    "recipient_email": {
       "type": "string",
       "description": "Recipient email address \u2014 data isolation key"
+    },
+    "recipient_phone": {
+      "type": "string",
+      "description": "Recipient phone number for SMS fallback"
     },
     "title": {
       "type": "string"
@@ -19,7 +37,8 @@
         "payment",
         "alert",
         "system",
-        "success"
+        "success",
+        "telematics"
       ],
       "default": "system"
     },
@@ -36,7 +55,9 @@
         "verification",
         "contracts",
         "refunds",
-        "system"
+        "system",
+        "telematics",
+        "pricing"
       ],
       "description": "Category for filtering in notification center"
     },
@@ -48,6 +69,48 @@
         "info"
       ],
       "description": "Severity level for sorting and display"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Specific event type for deduplication (e.g., booking_approved, rental_overdue)"
+    },
+    "related_entity_type": {
+      "type": "string",
+      "description": "Entity type this notification relates to (BookingRequest, Vehicle, etc.)"
+    },
+    "related_entity_id": {
+      "type": "string",
+      "description": "Entity ID this notification relates to"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "company_id": {
+      "type": "string"
+    },
+    "payment_id": {
+      "type": "string"
+    },
+    "alert360_event_id": {
+      "type": "string",
+      "description": "Linked Alert360/TelematicsSafetyEvent ID"
+    },
+    "operational_alert_id": {
+      "type": "string",
+      "description": "Linked OperationalAlert ID"
+    },
+    "action_url": {
+      "type": "string",
+      "description": "Deep link URL for CTA button in notification center"
     },
     "is_read": {
       "type": "boolean",
@@ -65,22 +128,64 @@
       "type": "string",
       "format": "date-time"
     },
-    "booking_request_id": {
-      "type": "string"
-    },
-    "vehicle_id": {
-      "type": "string"
-    },
-    "host_id": {
-      "type": "string"
-    },
-    "action_url": {
+    "delivery_status": {
       "type": "string",
-      "description": "Deep link URL for CTA button in notification center"
+      "enum": [
+        "pending",
+        "sent",
+        "failed",
+        "delivered"
+      ],
+      "default": "pending"
+    },
+    "channels_attempted": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Channels attempted: inapp, email, sms, push"
+    },
+    "channels_successful": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Channels that succeeded"
+    },
+    "source_function": {
+      "type": "string",
+      "description": "Backend function that created this notification"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata for the notification"
+    },
+    "occurrence_count": {
+      "type": "number",
+      "default": 1,
+      "description": "Number of times this notification has been updated (for dedup)"
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time this notification was updated (for suppression window)"
+    },
+    "suppress_until": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Do not create duplicate notifications until this time"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_date": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": [
-    "user_email",
+    "recipient_email",
     "title"
   ]
 }

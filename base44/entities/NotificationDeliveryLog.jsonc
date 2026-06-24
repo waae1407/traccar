@@ -1,0 +1,87 @@
+{
+  "name": "NotificationDeliveryLog",
+  "type": "object",
+  "properties": {
+    "notification_id": {
+      "type": "string",
+      "description": "ID of the Notification record this log entry corresponds to"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Type of event that triggered the notification"
+    },
+    "recipient_role": {
+      "type": "string",
+      "enum": [
+        "customer",
+        "host",
+        "admin",
+        "support"
+      ],
+      "description": "Role of the notification recipient"
+    },
+    "recipient_user_id": {
+      "type": "string",
+      "description": "User ID of the recipient"
+    },
+    "recipient_email": {
+      "type": "string",
+      "description": "Email address of the recipient"
+    },
+    "recipient_phone": {
+      "type": "string",
+      "description": "Phone number of the recipient"
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "inapp",
+        "email",
+        "sms",
+        "push"
+      ],
+      "description": "Communication channel used"
+    },
+    "attempted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the notification was attempted"
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Whether the notification was successfully delivered"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error message if delivery failed"
+    },
+    "provider_message_id": {
+      "type": "string",
+      "description": "Message ID from the provider (Resend, Twilio, OneSignal)"
+    },
+    "source_function": {
+      "type": "string",
+      "description": "Backend function that triggered the notification"
+    },
+    "booking_id": {
+      "type": "string"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the notification attempt"
+    }
+  },
+  "required": [
+    "event_type",
+    "recipient_role",
+    "channel",
+    "attempted_at",
+    "success"
+  ]
+}
