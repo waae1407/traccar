@@ -6,12 +6,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
 const PHOTO_SLOTS = [
-  { id: "interior_front", label: "Interior Front (Driver Side)", icon: "🚗", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/c67386fcc_generated_image.png" },
-  { id: "interior_rear", label: "Interior Rear (Driver Side)", icon: "🪑", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/ee94ed70a_generated_image.png" },
-  { id: "exterior_front_left", label: "Front Left Corner (Driver Side)", icon: "↖️", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/f0d33145f_generated_image.png" },
-  { id: "exterior_rear_left", label: "Rear Left Corner (Driver Side)", icon: "↙️", template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/0e026d674_generated_image.png" },
-  { id: "exterior_front_right", label: "Front Right Corner (Passenger Side)", icon: "↗️", mirrorX: true, template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/b7007e8d8_generated_image.png" },
-  { id: "exterior_rear_right", label: "Rear Right Corner (Passenger Side)", icon: "↘️", mirrorX: true, template: "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/675d53e03_generated_image.png" },
+  { id: "interior_front", label: "Interior Front (Driver Side)", icon: "🚗", template: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=400&q=80" },
+  { id: "interior_rear", label: "Interior Rear (Driver Side)", icon: "🪑", template: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&q=80" },
+  { id: "exterior_front_left", label: "Front Left Corner (Driver Side)", icon: "↖️", template: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=400&q=80" },
+  { id: "exterior_rear_left", label: "Rear Left Corner (Driver Side)", icon: "↙️", template: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=400&q=80" },
+  { id: "exterior_front_right", label: "Front Right Corner (Passenger Side)", icon: "↗️", template: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400&q=80" },
+  { id: "exterior_rear_right", label: "Rear Right Corner (Passenger Side)", icon: "↘️", template: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=400&q=80" },
   { id: "vehicle_keys", label: "Vehicle Keys", icon: "🔑", isKeys: true, template: "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?auto=format&fit=crop&q=80&w=800" },
 ];
 
@@ -313,7 +313,7 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
             {(issueGrade === "problematic" || issueCategories.includes("other")) && <textarea value={issueDescription} onChange={(e) => setIssueDescription(e.target.value)} placeholder="Briefly describe the issue..." className="w-full min-h-20 rounded-xl border border-gray-200 p-3 text-sm outline-none focus:border-pink-300" />}
           </div>
         )}
-        {PHOTO_SLOTS.map((slot) => <PhotoSlot key={slot.id} slot={slot} photo={photos[slot.id]} onCapture={handleCapture} uploading={uploading[slot.id]} sampleImage={cachedImages[slot.id] || slot.template} />)}
+        {PHOTO_SLOTS.map((slot) => <PhotoSlot key={slot.id} slot={slot} photo={photos[slot.id]} onCapture={handleCapture} uploading={uploading[slot.id]} sampleImage={slot.template} />)}
         <AdditionalPhotoUploader photos={additionalPhotos} onCapture={handleAdditionalCapture} uploading={Object.values(uploading).some(Boolean)} />
       </div>
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-4 py-4">
