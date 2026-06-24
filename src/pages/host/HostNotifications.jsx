@@ -98,7 +98,7 @@ export default function HostNotifications() {
   // Fetch all notifications for this host's email — isolated to this user
   const { data: allNotifications = [], isLoading } = useQuery({
     queryKey: ["host-notifications", user?.email],
-    queryFn: () => base44.entities.Notification.filter({ user_email: user?.email }, "-created_date", 200),
+    queryFn: () => base44.entities.Notification.filter({ recipient_email: user?.email }, "-created_date", 200),
     enabled: !!user?.email,
     refetchInterval: 30_000,
   });

@@ -5,7 +5,6 @@
  *   - pickup_inspection_incomplete: Start date passed, no pickup photos
  *   - rental_overdue: End date passed, booking not completed
  *   - return_review_required: Dropoff submitted, host must review
- *   - admin_attention_required: High-priority booking needs admin review
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
@@ -313,119 +312,6 @@ Deno.serve(async (req) => {
       default:
         return Response.json({ error: `Unknown event_type: ${event_type}` }, { status: 400 });
     }
-
-async function handleRentalOverdue(base44, { booking, host, vehicle }) {
-  if (!booking?.id || !host?.id) return { error: "Missing booking or host" };
-  const today = new Date().toISOString().slice(0, 10);
-  const results = {};
-  const vehicleName = vehicle?.display_name || booking.vehicle_name || 'vehicle';
-  const daysOverdue = booking.end_date ? Math.round((new Date() - new Date(booking.end_date + 'T23:59:59')) / (1000 * 60 * 60 * 24)) : 0;
-
-  // In-app notification to host
-  const inAppKey = `rental_overdue:${booking.id}:${host.id}:inapp:${today}`;
-  if (!await checkDedup(base44, inAppKey)) {
-    await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
-      title: `🚨 RENTAL OVERDUE — ${vehicleName}`,
-      body: `Rental ended ${booking.end_date} (${daysOverdue} days overdue). Customer has not returned vehicle. Weekly billing continues. Contact customer immediately.`,
-      type: 'alert',
-      category: 'bookings',
-      severity: 'critical',
-      is_read: false,
-      booking_request_id: booking.id,
-      host_id: host.id,
-    }).catch(() => {});
-    await logDelivery(base44, { event_type: 'notification.rental_overdue.inapp', idempotency_key: inAppKey, recipient_email: host.email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'rental_overdue', source_entity_type: 'BookingRequest', source_entity_id: booking.id, host_id: host.id, booking_id: booking.id, vehicle_id: booking.vehicle_id });
-    results.inapp = 'sent';
-  } else { results.inapp = 'deduped'; }
-
-  // Email to host
-  const emailKey = `rental_overdue:${booking.id}:${host.id}:email:${today}`;
-  if (!await checkDedup(base44, emailKey)) {
-    const html = emailTemplate('🚨 Rental Overdue — Action Required', `
-      <p style="font-size:15px;color:#374151;margin:0 0 20px">Hi ${host.full_name?.split(' ')[0] || 'there'},</p>
-      <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:12px;padding:20px;margin-bottom:24px">
-        <p style="margin:0 0 8px;font-size:14px;font-weight:700;color:#7f1d1d">🚨 A rental vehicle is OVERDUE.</p>
-        <p style="margin:0;font-size:13px;color:#7f1d1d">Customer has not returned the vehicle. Weekly billing continues until return.</p>
-      </div>
-      <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Vehicle</td><td style="font-size:14px;font-weight:600;color:#111;text-align:right">${vehicleName}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Customer</td><td style="font-size:14px;color:#111;text-align:right">${booking.customer_full_name || booking.user_email}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">End Date</td><td style="font-size:14px;color:#dc2626;text-align:right">${booking.end_date} (${daysOverdue} days overdue)</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Status</td><td style="font-size:14px;font-weight:700;color:#f59e0b;text-align:right">${booking.booking_status}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Weekly Rate</td><td style="font-size:14px;font-weight:700;color:#111;text-align:right">$${booking.weekly_rate}</td></tr>
-        </table>
-      </div>
-      <div style="text-align:center">
-        <a href="${APP_URL}/admin/booking-360?id=${booking.id}" style="display:inline-block;background:linear-gradient(135deg,#dc2626,#991b1b);color:white;font-weight:700;font-size:15px;padding:14px 32px;border-radius:12px;text-decoration:none">View Booking Details →</a>
-      </div>
-    `);
-    const emailResult = await sendEmail(host.email, `🚨 RENTAL OVERDUE: ${vehicleName} — ${daysOverdue} days`, html);
-    await logDelivery(base44, { event_type: emailResult.ok ? 'notification.rental_overdue.email' : 'notification.delivery_failed', idempotency_key: emailKey, recipient_email: host.email, channel: 'email', provider: 'resend', provider_message_id: emailResult.message_id, provider_status: emailResult.ok ? 'sent' : 'failed', failure_reason: emailResult.error, source_event: 'rental_overdue', source_entity_type: 'BookingRequest', source_entity_id: booking.id, host_id: host.id, booking_id: booking.id });
-    results.email = emailResult.ok ? 'sent' : `failed:${emailResult.error}`;
-  } else { results.email = 'deduped'; }
-
-  // SMS to host
-  const smsKey = `rental_overdue:${booking.id}:${host.id}:sms:${today}`;
-  if (host.phone && !await checkDedup(base44, smsKey)) {
-    const smsResult = await sendSMS(host.phone, `uRide URGENT: ${vehicleName} rental is ${daysOverdue} days OVERDUE. Customer: ${booking.customer_full_name || booking.user_email}. Weekly billing continues. Contact immediately: ${APP_URL}/admin/booking-360?id=${booking.id}`);
-    await logDelivery(base44, { event_type: smsResult.ok ? 'notification.rental_overdue.sms' : 'notification.delivery_failed', idempotency_key: smsKey, recipient_email: host.email, recipient_phone: host.phone, channel: 'sms', provider: 'twilio', provider_message_id: smsResult.sid, provider_status: smsResult.ok ? 'sent' : 'failed', failure_reason: smsResult.error, source_event: 'rental_overdue', source_entity_type: 'BookingRequest', source_entity_id: booking.id, host_id: host.id, booking_id: booking.id });
-    results.sms = smsResult.ok ? 'sent' : `failed:${smsResult.error}`;
-  } else { results.sms = host.phone ? 'deduped' : 'no_phone'; }
-
-  return results;
-}
-
-async function handleReturnReviewRequired(base44, { booking, host, vehicle }) {
-  if (!booking?.id || !host?.id) return { error: "Missing booking or host" };
-  const today = new Date().toISOString().slice(0, 10);
-  const results = {};
-  const vehicleName = vehicle?.display_name || booking.vehicle_name || 'vehicle';
-
-  // In-app notification to host
-  const inAppKey = `return_review_required:${booking.id}:${host.id}:inapp:${today}`;
-  if (!await checkDedup(base44, inAppKey)) {
-    await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
-      title: `✅ Return Inspection Submitted — ${vehicleName}`,
-      body: `Customer has submitted dropoff photos. Review and approve/reject the return to complete the booking and stop billing.`,
-      type: 'alert',
-      category: 'bookings',
-      severity: 'warning',
-      is_read: false,
-      booking_request_id: booking.id,
-      host_id: host.id,
-    }).catch(() => {});
-    await logDelivery(base44, { event_type: 'notification.return_review_required.inapp', idempotency_key: inAppKey, recipient_email: host.email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'return_review_required', source_entity_type: 'BookingRequest', source_entity_id: booking.id, host_id: host.id, booking_id: booking.id, vehicle_id: booking.vehicle_id });
-    results.inapp = 'sent';
-  } else { results.inapp = 'deduped'; }
-
-  // Email to host
-  const emailKey = `return_review_required:${booking.id}:${host.id}:email:${today}`;
-  if (!await checkDedup(base44, emailKey)) {
-    const html = emailTemplate('Return Inspection Submitted', `
-      <p style="font-size:15px;color:#374151;margin:0 0 20px">Hi ${host.full_name?.split(' ')[0] || 'there'},</p>
-      <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">Customer has submitted dropoff photos for <strong>${vehicleName}</strong>. Please review and approve or reject the return to complete the booking.</p>
-      <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px">
-        <table style="width:100%;border-collapse:collapse">
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Vehicle</td><td style="font-size:14px;font-weight:600;color:#111;text-align:right">${vehicleName}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Customer</td><td style="font-size:14px;color:#111;text-align:right">${booking.customer_full_name || booking.user_email}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Return Submitted</td><td style="font-size:14px;color:#111;text-align:right">${booking.dropoff_submitted_at ? new Date(booking.dropoff_submitted_at).toLocaleDateString() : '—'}</td></tr>
-          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Status</td><td style="font-size:14px;font-weight:700;color:#f59e0b;text-align:right">${booking.booking_status}</td></tr>
-        </table>
-      </div>
-      <div style="text-align:center">
-        <a href="${APP_URL}/host/vehicles" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#7c3aed);color:white;font-weight:700;font-size:15px;padding:14px 32px;border-radius:12px;text-decoration:none">Review Return →</a>
-      </div>
-    `);
-    const emailResult = await sendEmail(host.email, `Return Inspection Submitted — ${vehicleName}`, html);
-    await logDelivery(base44, { event_type: emailResult.ok ? 'notification.return_review_required.email' : 'notification.delivery_failed', idempotency_key: emailKey, recipient_email: host.email, channel: 'email', provider: 'resend', provider_message_id: emailResult.message_id, provider_status: emailResult.ok ? 'sent' : 'failed', failure_reason: emailResult.error, source_event: 'return_review_required', source_entity_type: 'BookingRequest', source_entity_id: booking.id, host_id: host.id, booking_id: booking.id });
-    results.email = emailResult.ok ? 'sent' : `failed:${emailResult.error}`;
-  } else { results.email = 'deduped'; }
-
-  return results;
-}
 
     return Response.json({ ok: true, event_type, booking_id: booking.id, result });
   } catch (error) {

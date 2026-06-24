@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { Menu, Search, Bell, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
 import AccountMenu from "@/components/shared/AccountMenu";
 
@@ -38,7 +41,20 @@ export default function BusinessPortalTopBar({ onMenuClick, role = "admin" }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [qaOpen, setQaOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const meta = pageMeta[location.pathname] || { title: role === "host" ? "Business Portal" : "uRide", subtitle: "" };
+
+  // Fetch unread notification count
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["topbar-unread-notifications", user?.email, role],
+    queryFn: async () => {
+      const notifs = await base44.entities.Notification.filter({ recipient_email: user?.email, is_read: false }, "-created_date", 100);
+      return notifs.length;
+    },
+    enabled: !!user?.email,
+    refetchInterval: 30_000,
+  });
 
   return (
     <header className="h-[70px] flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 border-b border-white/[0.06]"
@@ -64,9 +80,16 @@ export default function BusinessPortalTopBar({ onMenuClick, role = "admin" }) {
           />
         </div>
 
-        <button className="relative h-9 w-9 rounded-xl flex items-center justify-center bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/10 transition-all group">
+        <button
+          onClick={() => navigate(role === "host" ? "/host/notifications" : "/admin/notification-center")}
+          className="relative h-9 w-9 rounded-xl flex items-center justify-center bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/10 transition-all group"
+        >
           <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-primary rounded-full shadow-[0_0_6px_hsl(338_90%_56%/0.8)] animate-pulse-glow" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-[16px] px-1 bg-primary rounded-full text-[9px] font-bold text-white flex items-center justify-center shadow-[0_0_6px_hsl(338_90%_56%/0.8)]">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
         </button>
 
         <button
