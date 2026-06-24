@@ -24,8 +24,13 @@ Deno.serve(async (req) => {
     for (const v of targets) {
       try {
         const colorStr = v.color ? `${v.color.trim()} ` : '';
+        const makeStr = String(v.make || '').trim().toUpperCase();
+        const modelStr = String(v.model || '').trim();
+        const yearStr = String(v.year || '').trim();
         const prompt =
-          `Ultra-realistic luxury automotive hero photo of a ${colorStr}${v.year} ${v.make} ${v.model}. ` +
+          `Ultra-realistic luxury automotive hero photo of a ${yearStr} ${makeStr} ${modelStr}. ` +
+          `CRITICAL: This vehicle is manufactured by ${makeStr}. The image MUST accurately depict a ${makeStr} ${modelStr}, NOT any other brand or model. ` +
+          `Do NOT substitute a different car brand (e.g. Fiat, Honda, BMW). Render the exact ${makeStr} ${modelStr} body shape, grille design, headlight style, and taillight style for the ${yearStr} model year. ` +
           `Vehicle color is ${v.color ? v.color.trim() : 'correct factory color'} — render it exactly, do not substitute any other color. ` +
           `Accurate make/model/year body shape, trim proportions, headlights, grille, and wheels — no fantasy body kits, no distorted proportions. ` +
           `Composition: 3/4 front-left angle, perfectly centered, full vehicle visible, wheels straight, no cropping, no tilted camera. ` +
