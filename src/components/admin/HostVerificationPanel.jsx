@@ -93,7 +93,7 @@ export default function HostVerificationPanel({ host: hostProp, open, onClose })
         return;
       }
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const { data: result } = await base44.functions.invoke('invokeLLM', {
         prompt: `You are a fraud prevention assistant. A host is applying to a vehicle rental platform.
 Name provided: "${name}"
 ${identifier}

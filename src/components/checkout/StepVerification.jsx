@@ -322,7 +322,7 @@ export default function StepVerification({ booking, saveAndAdvance, updateMutati
     setVerifyMessage("");
 
     try {
-      const result = await base44.integrations.Core.InvokeLLM({
+      const { data: result } = await base44.functions.invoke('invokeLLM', {
         prompt: `You are an expert identity verification AI for a vehicle rental company. You have deep experience recognizing the same person across varied photos.
 
 You are given three images:

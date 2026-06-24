@@ -41,7 +41,7 @@ Generate a JSON brand profile with these exact keys:
 
 Return ONLY valid JSON, no explanation.`;
 
-    const result = await base44.integrations.Core.InvokeLLM({
+    const { data: result } = await base44.functions.invoke('invokeLLM', {
       prompt: fullPrompt,
       response_json_schema: {
         type: "object",

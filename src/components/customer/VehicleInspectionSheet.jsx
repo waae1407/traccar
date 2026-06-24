@@ -23,11 +23,11 @@ const ISSUE_CATEGORIES = [
 ];
 
 async function generateAngleImage(vehicleImageUrl, slot) {
-  const result = await base44.integrations.Core.GenerateImage({
+  const result = await base44.functions.invoke('generateImage', {
     prompt: `${slot.aiPrompt} Match the reference vehicle style and color exactly.`,
     existing_image_urls: [vehicleImageUrl],
   });
-  return result.url;
+  return result.data.url;
 }
 
 async function captureLocation() {
