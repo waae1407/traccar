@@ -101,7 +101,7 @@ export default function IdentityVerificationPanel({ subjectType = 'host', subjec
     }
 
     try {
-      const result = await base44.functions.invoke('invokeLLM', {
+      const { data: result } = await base44.functions.invoke('invokeLLM', {
         prompt: `You are an expert identity verification AI for a vehicle rental platform. You have deep experience recognizing the same person across varied photos.
 
 The host's legal name on file is: "${fullLegalName}".

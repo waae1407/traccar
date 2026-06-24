@@ -23,11 +23,16 @@ const ISSUE_CATEGORIES = [
 ];
 
 async function generateAngleImage(vehicleImageUrl, slot) {
-  const result = await base44.functions.invoke('generateImage', {
-    prompt: `${slot.aiPrompt} Match the reference vehicle style and color exactly.`,
-    existing_image_urls: [vehicleImageUrl],
-  });
-  return result.data.url;
+  try {
+    const { data: result } = await base44.functions.invoke('generateImage', {
+      prompt: `${slot.aiPrompt} Match the reference vehicle style and color exactly.`,
+      existing_image_urls: [vehicleImageUrl],
+    });
+    return result?.url || null;
+  } catch (error) {
+    console.error("Imagen error:", error);
+    return null;
+  }
 }
 
 async function captureLocation() {

@@ -41,25 +41,33 @@ Generate a JSON brand profile with these exact keys:
 
 Return ONLY valid JSON, no explanation.`;
 
-    const { data: result } = await base44.functions.invoke('invokeLLM', {
-      prompt: fullPrompt,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          hero_title: { type: "string" },
-          hero_subtitle: { type: "string" },
-          about_text: { type: "string" },
-          cta_button_text: { type: "string" },
-          layout_template: { type: "string" },
+    try {
+      const { data: result } = await base44.functions.invoke('invokeLLM', {
+        prompt: fullPrompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            hero_title: { type: "string" },
+            hero_subtitle: { type: "string" },
+            about_text: { type: "string" },
+            cta_button_text: { type: "string" },
+            layout_template: { type: "string" },
+          }
         }
-      }
-    });
+      });
 
-    const colors = TEMPLATES[result.layout_template] || TEMPLATES.modern;
-    onApply({ ...result, ...colors });
-    setLoading(false);
-    setDone(true);
-    setTimeout(() => setDone(false), 4000);
+      if (!result) throw new Error("Invalid response from AI");
+
+      const colors = TEMPLATES[result.layout_template] || TEMPLATES.modern;
+      onApply({ ...result, ...colors });
+      setLoading(false);
+      setDone(true);
+      setTimeout(() => setDone(false), 4000);
+    } catch (error) {
+      console.error("AI Brand Builder error:", error);
+      setLoading(false);
+      // Let the user retry
+    }
   };
 
   return (
