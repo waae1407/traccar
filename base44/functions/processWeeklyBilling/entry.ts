@@ -184,22 +184,7 @@ async function resolveMarketplaceFee(base44, booking = {}) {
 }
 
 // Starter commands are handled by processGracePeriod through sendTelematicsCommand.
-// Send SMS via Twilio
-async function sendSMS(to, message) {
-  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-  const from = Deno.env.get("TWILIO_PHONE_NUMBER");
-  if (!accountSid || !authToken || !from || !to) return;
-  const body = new URLSearchParams({ To: to, From: from, Body: message });
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-    method: "POST",
-    headers: {
-      "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`),
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: body.toString(),
-  });
-}
+// Note: Direct SMS/Email calls removed — all notifications now route through routePlatformNotification
 
 Deno.serve(async (req) => {
   try {
@@ -618,31 +603,26 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     grace_period_ends_at: null,
   });
 
-  await base44.asServiceRole.entities.Notification.create({
-    recipient_user_id: booking.user_id || '',
-    recipient_role: 'customer',
-    recipient_email: booking.user_email,
-    recipient_phone: booking.customer_phone || '',
-    title: "Payment failed — action required",
-    body: warningMessage,
-    type: "payment",
-    category: "payments",
-    severity: "critical",
-    booking_request_id: booking.id,
+  // Delegate all notification delivery to central router
+  await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+    event_type: 'payment_failed',
+    severity: 'critical',
+    category: 'payments',
+    title: 'Payment Failed — Action Required',
+    message: `${warningMessage} Failure reason: ${reason}`,
+    booking_id: booking.id,
+    customer_id: booking.user_id || '',
+    host_id: booking.host_id || '',
     vehicle_id: booking.vehicle_id || '',
     action_url: '/account',
-    source_function: 'processWeeklyBilling',
-  });
-
-  if (booking.customer_phone) {
-    await sendSMS(booking.customer_phone, `uRide: ${warningMessage}`);
-  }
-
-  await base44.asServiceRole.integrations.Core.SendEmail({
-    to: booking.user_email,
-    subject: `Payment Failed — ${recoveryWindowHours} Hours to Resolve`,
-    body: `Hi ${booking.customer_full_name || ""},\n\n${warningMessage}\n\nYour vehicle remains operational during this ${recoveryWindowHours}-hour recovery window. This policy uses starter interrupt only and does not shut down a running engine.\n\nPlease open the app and update your payment method immediately.\n\nThe uRide Team`,
-  });
+    metadata: {
+      recovery_window_hours: recoveryWindowHours,
+      payment_failure_reason: reason,
+      attempt_num: attemptNum,
+      starter_disable_scheduled_at: disableAt.toISOString(),
+    },
+    notify_admin: true, // Critical payment failures notify admins
+  }).catch(e => console.error('[WeeklyBilling] payment failure notification failed:', e.message));
 
   await logEvent(base44, {
     event_type: 'payment.failed',

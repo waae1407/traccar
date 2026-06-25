@@ -157,41 +157,33 @@ await base44.asServiceRole.entities.Notification.create({
 
 ---
 
-### ⚠️ REMAINING — `processWeeklyBilling`
+### ✅ FIXED — `processWeeklyBilling`
 
-**Status:** **REQUIRES MIGRATION**  
-**Issue:** Line 629 creates notification with `user_email`, lines 633-639 send direct email/SMS
+**Status:** **FIXED** (2026-06-25)  
+**Issue:** Lines 621-645 used direct `Notification.create` + direct `sendSMS` + `Core.SendEmail`  
+**Fix Applied:**
+```diff
+- await base44.asServiceRole.entities.Notification.create({...});
+- await sendSMS(booking.customer_phone, warningMessage);
+- await base44.asServiceRole.integrations.Core.SendEmail({...});
 
-**Violation:**
-```javascript
-// Line 629
-await base44.asServiceRole.entities.Notification.create({
-  user_email: booking.user_email,  // ❌ NON-STANDARD
-  title: "Payment failed — action required",
-  ...
-});
-
-// Lines 633-639
-await sendSMS(booking.customer_phone, warningMessage);
-await base44.asServiceRole.integrations.Core.SendEmail({...});
++ await base44.asServiceRole.functions.invoke('routePlatformNotification', {
++   event_type: 'payment_failed',
++   severity: 'critical',
++   category: 'payments',
++   title: 'Payment Failed — Action Required',
++   message: `${warningMessage} Failure reason: ${reason}`,
++   booking_id: booking.id,
++   customer_id: booking.user_id || '',
++   host_id: booking.host_id || '',
++   vehicle_id: booking.vehicle_id || '',
++   action_url: '/account',
++   metadata: { recovery_window_hours, payment_failure_reason: reason },
++   notify_admin: true,
++ });
 ```
 
-**Migration Required:**
-```javascript
-await base44.asServiceRole.functions.invoke('routePlatformNotification', {
-  event_type: 'payment_failed',
-  severity: 'critical',
-  category: 'payments',
-  title: 'Payment Failed — Action Required',
-  message: warningMessage,
-  booking_id: booking.id,
-  customer_id: booking.user_id,
-  action_url: '/account',
-  metadata: { recovery_window_hours: recoveryWindowHours },
-});
-```
-
-**Note:** Email/SMS calls should be removed — `routePlatformNotification` handles these automatically.
+**Also:** Removed unused `sendSMS` helper function (lines 188-202) — all notifications now route through central router.
 
 ---
 
@@ -314,7 +306,7 @@ const { data: allNotifications = [], isLoading } = useQuery({
 - [x] Tested mark as read/archive flows
 
 **Remaining Tasks:**
-1. [ ] Migrate `processWeeklyBilling` payment failure notification to router
+1. [x] Migrate `processWeeklyBilling` payment failure notification to router (FIXED 2026-06-25)
 2. [ ] Add notification preference management UI
 3. [ ] Implement notification batching for high-volume events
 
@@ -327,7 +319,7 @@ const { data: allNotifications = [], isLoading } = useQuery({
 
 ### MEDIUM PRIORITY (Technical Debt)
 - ✅ **FIXED:** `sendCriticalNotification` — all 8 handlers now use standard fields
-- ⚠️ `processWeeklyBilling` — payment failure path needs router delegation
+- ✅ **FIXED:** `processWeeklyBilling` — payment failure now routes through `routePlatformNotification`
 
 ### LOW PRIORITY (Enhancement)
 - Notification preference UI
