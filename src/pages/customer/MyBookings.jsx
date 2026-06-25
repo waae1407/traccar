@@ -88,7 +88,7 @@ export default function MyBookings() {
     window.location.href = "/my-vehicle";
   }
   
-  const pastBookings = allBookings.filter((b) => PAST_STATUSES.includes(b.booking_status))
+  const pastBookings = allBookings.filter((b) => PAST_STATUSES.includes(b.booking_status) && !b.is_superseded)
     .sort((a, b) => new Date(b.rental_ended_at || b.auto_completed_at || b.updated_date) - new Date(a.rental_ended_at || a.auto_completed_at || a.updated_date));
   const voidedBookings = allBookings.filter((b) => VOIDED_STATUSES.includes(b.booking_status))
     .sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));

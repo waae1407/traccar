@@ -76,7 +76,7 @@ export default function ActivityPage() {
     ["active", "confirmed", "approved", "checked_out", "return_required", "post_inspection_required",
      "overdue_return", "return_pending_host_review", "payment_due", "grace_period", "suspended", "under_review"].includes(b.booking_status)
   );
-  const completedBookingsList = bookings.filter((b) => b.booking_status === "completed");
+  const completedBookingsList = bookings.filter((b) => b.booking_status === "completed" && !b.is_superseded);
   const allRentalsCount = activeBookingsList.length + completedBookingsList.length;
 
   const activeBooking = activeBookingsList[0];
