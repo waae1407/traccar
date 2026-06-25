@@ -384,6 +384,10 @@
     "stripe_subscription_id": {
       "type": "string"
     },
+    "stripe_transfer_id": {
+      "type": "string",
+      "description": "Stripe transfer ID for the host payout."
+    },
     "receipt_url": {
       "type": "string"
     },
@@ -441,6 +445,39 @@
     "payment_accepted_recurring_notice": {
       "type": "boolean",
       "default": false
+    },
+    "platform_fee_amount": {
+      "type": "number",
+      "description": "Platform commission fee for this booking."
+    },
+    "host_payout_amount": {
+      "type": "number",
+      "description": "Net amount paid to host after fees."
+    },
+    "stripe_fee_amount": {
+      "type": "number",
+      "description": "Stripe processing fee for this booking."
+    },
+    "host_payout_status": {
+      "type": "string",
+      "enum": [
+        "not_eligible",
+        "pending",
+        "paid",
+        "failed",
+        "on_hold"
+      ],
+      "default": "not_eligible",
+      "description": "Host payout lifecycle. pending = payout owed but not yet processed. paid = Stripe transfer sent. failed = transfer attempted and failed. on_hold = blocked by dispute/refund/admin. not_eligible = booking not yet paid or cancelled."
+    },
+    "payout_failure_reason": {
+      "type": "string",
+      "description": "Error message when host_payout_status is failed."
+    },
+    "payout_processed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the host payout was successfully processed."
     },
     "pickup_photos": {
       "type": "array",
