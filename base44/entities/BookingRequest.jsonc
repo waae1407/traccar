@@ -57,6 +57,11 @@
       "type": "string",
       "format": "date"
     },
+    "scheduled_end_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Mirrors end_date + 23:59:59. Used for lifecycle processing."
+    },
     "auto_renew": {
       "type": "boolean",
       "default": true
@@ -83,9 +88,13 @@
         "pending_contract",
         "pending_payment",
         "pending_review",
-        "return_pending_host_review",
         "confirmed",
+        "checked_out",
         "active",
+        "return_required",
+        "post_inspection_required",
+        "overdue_return",
+        "return_pending_host_review",
         "payment_due",
         "grace_period",
         "completed",
@@ -95,7 +104,8 @@
         "approved",
         "rejected",
         "more_info_requested",
-        "cancellation_requested"
+        "cancellation_requested",
+        "superseded_invalid"
       ],
       "default": "draft"
     },
@@ -321,6 +331,15 @@
       "type": "string",
       "description": "Booking ID that replaced this booking, when known."
     },
+    "superseded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this booking was superseded."
+    },
+    "superseded_reason": {
+      "type": "string",
+      "description": "Reason for superseding: duplicate_booking_created_during_unresolved_return, replaced_booking, etc."
+    },
     "closure_reason": {
       "type": "string",
       "enum": [
@@ -414,7 +433,13 @@
     },
     "pickup_submitted_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "When pickup inspection was completed. Alias for pickup_completed_at."
+    },
+    "pickup_completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When pickup pre-inspection was completed."
     },
     "pickup_location_lat": {
       "type": "number"
@@ -460,6 +485,129 @@
         "fee_applied"
       ],
       "default": "not_returned"
+    },
+    "return_required_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When end_date passed and return photos were not yet submitted."
+    },
+    "return_inspection_started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When customer opened the return inspection flow."
+    },
+    "return_completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When return photos were submitted within geofence."
+    },
+    "return_photo_lat": {
+      "type": "number",
+      "description": "GPS lat captured with return photos."
+    },
+    "return_photo_lon": {
+      "type": "number",
+      "description": "GPS lon captured with return photos."
+    },
+    "return_distance_from_pickup_miles": {
+      "type": "number",
+      "description": "Distance from return GPS to pickup/return location in miles."
+    },
+    "post_inspection_geofence_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when return photos were submitted within the 5-mile geofence."
+    },
+    "billing_stopped_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When billing was stopped (return_completed_at or admin override)."
+    },
+    "billing_stop_reason": {
+      "type": "string",
+      "enum": [
+        "post_inspection_completed",
+        "admin_override",
+        "host_approved_return",
+        "auto_completed"
+      ],
+      "description": "Why billing was stopped."
+    },
+    "host_review_due_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Deadline for host to review return: return_completed_at + 24 hours."
+    },
+    "host_review_completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When host completed the return review."
+    },
+    "host_review_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "damage_reported",
+        "disputed",
+        "auto_completed",
+        "admin_review_requested"
+      ],
+      "default": "pending",
+      "description": "Host review outcome."
+    },
+    "auto_completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When booking was auto-completed after host review window expired."
+    },
+    "completion_reason": {
+      "type": "string",
+      "enum": [
+        "host_approved_return",
+        "host_review_window_expired",
+        "admin_override",
+        "auto_completed"
+      ],
+      "description": "Why the booking was completed."
+    },
+    "damage_dispute_deadline_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Deadline for host to open a damage dispute after auto-complete: return_completed_at + 24 hours."
+    },
+    "damage_dispute_allowed_after_auto_complete": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether host can still open a damage dispute after auto-completion."
+    },
+    "damage_dispute_opened_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "damage_dispute_status": {
+      "type": "string",
+      "enum": [
+        "none",
+        "open",
+        "resolved",
+        "rejected",
+        "admin_exception_required"
+      ],
+      "default": "none"
+    },
+    "vehicle_moved_after_return_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When system detected vehicle moved >5 miles from return photo location."
+    },
+    "vehicle_distance_from_return_miles": {
+      "type": "number",
+      "description": "Distance from return photo location to current vehicle GPS."
+    },
+    "lifecycle_audit_notes": {
+      "type": "string",
+      "description": "Internal audit notes for lifecycle events."
     },
     "moovetrax_kill_active": {
       "type": "boolean",

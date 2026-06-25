@@ -7,7 +7,7 @@ import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, Chevr
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 
-const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
+const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
 
 function getDistanceMiles(lat1, lon1, lat2, lon2) {
@@ -463,10 +463,11 @@ export default function MyVehicle() {
   const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
   const dropoffInspectionComplete = booking?.return_exterior_photos?.length > 0 || booking?.return_interior_photos?.length > 0;
   const isBookingActive = !isDemo && booking
-    ? ["active", "approved", "confirmed", "return_pending_host_review", "under_review"].includes(booking.booking_status) &&
+    ? ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "return_pending_host_review", "under_review"].includes(booking.booking_status) &&
       booking.payment_status === "paid" &&
       !booking.rental_ended_at
     : false;
+  const isReturnRequired = !isDemo && booking && ["return_required", "post_inspection_required", "overdue_return"].includes(booking.booking_status);
 
   const vehicleImage = vehicle?.image_url || (isDemo ? PLACEHOLDER_CAR : "");
   const weatherStyle = getWeatherStyle(weather);
@@ -772,8 +773,21 @@ export default function MyVehicle() {
 
           {/* Foreground text content */}
           <div style={{ position: "relative", zIndex: 2 }}>
+          {/* Return Required Banner */}
+          {isReturnRequired && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ background: "rgba(255,159,10,0.15)", border: "1px solid rgba(255,159,10,0.4)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, backdropFilter: "blur(10px)" }}>
+                <Shield size={18} color="#FF9F0A" />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#FFF", margin: 0 }}>Return Inspection Required</p>
+                  <p style={{ fontSize: 11, color: "#FF9F0A", margin: "2px 0 0" }}>Complete return inspection to close your rental</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Overdue Warning Banner */}
-          {isOverdueRental && (
+          {isOverdueRental && !isReturnRequired && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ background: "rgba(255,69,58,0.15)", border: "1px solid rgba(255,69,58,0.4)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, backdropFilter: "blur(10px)" }}>
                 <AlertTriangle size={18} color="#FF453A" />

@@ -145,10 +145,11 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 3d. Check booking conflicts
+      // 3d. Check booking conflicts — includes all lifecycle statuses that block new bookings
       const BLOCKING_STATUSES = [
-        'pending_payment', 'pending_review', 'approved', 'confirmed',
-        'active', 'return_pending_host_review', 'grace_period', 'payment_retry'
+        'pending_payment', 'pending_review', 'approved', 'confirmed', 'checked_out',
+        'active', 'return_required', 'post_inspection_required', 'overdue_return',
+        'return_pending_host_review', 'grace_period', 'payment_retry'
       ];
 
       const existingBookings = await base44.asServiceRole.entities.BookingRequest.filter({

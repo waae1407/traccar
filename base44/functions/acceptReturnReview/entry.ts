@@ -49,6 +49,12 @@ Deno.serve(async (req) => {
       clean_return_status: 'approved_clean',
       rental_ended_at: booking.rental_ended_at || now,
       rental_ended_by: user.role === 'admin' ? 'admin_return_acceptance' : 'host_return_acceptance',
+      host_review_completed_at: now,
+      host_review_status: 'approved',
+      completed_at: now,
+      completion_reason: 'host_approved_return',
+      billing_stopped_at: booking.billing_stopped_at || booking.return_completed_at || now,
+      billing_stop_reason: booking.billing_stop_reason || 'host_approved_return',
       autopay_enabled: false,
       pending_review_alert_active: false,
     });

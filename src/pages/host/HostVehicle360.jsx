@@ -20,6 +20,7 @@ const safeFormat = (dateStr, fmt) => {
 
 import Alert360DetailDrawer from '@/components/telematics/Alert360DetailDrawer';
 import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDrawer';
+import HostReturnReviewPanel from '@/components/host/HostReturnReviewPanel';
 
 function SBadge({ status }) {
   const m = { Available: 'bg-green-500/20 text-green-400', paid: 'bg-green-500/20 text-green-400', valid: 'bg-green-500/20 text-green-400', online: 'bg-green-500/20 text-green-400', offline: 'bg-red-500/20 text-red-400', expired: 'bg-red-500/20 text-red-400', expiring_soon: 'bg-yellow-500/20 text-yellow-400', failed: 'bg-red-500/20 text-red-400' };
@@ -228,14 +229,21 @@ export default function HostVehicle360() {
               </div>
             </TabsContent>
 
-            <TabsContent value="inspections" className="mt-4 space-y-2">
-              {data.inspections?.map(i => (
-                <div key={i.id} className="rounded-lg bg-secondary/30 px-3 py-2 text-sm">
-                  <div className="flex justify-between"><p className="font-medium">{i.inspection_type?.replace(/_/g,' ')} · by {i.submitted_by_role}</p><SBadge status={i.evidence_status} /></div>
-                  <p className="text-muted-foreground text-xs">{i.submitted_at ? format(new Date(i.submitted_at), 'MMM d, yyyy') : '—'}</p>
-                </div>
+            <TabsContent value="inspections" className="mt-4 space-y-4">
+              {/* Return Pending Review — show review panel */}
+              {data.all_bookings?.filter(b => b.booking_status === 'return_pending_host_review' || b.booking_status === 'completed').slice(0, 1).map(b => (
+                <HostReturnReviewPanel key={b.id} bookingId={b.id} />
               ))}
-              {!data.inspections?.length && <p className="text-muted-foreground text-sm">No inspections found.</p>}
+              {/* All inspection records */}
+              <div className="space-y-2">
+                {data.inspections?.map(i => (
+                  <div key={i.id} className="rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                    <div className="flex justify-between"><p className="font-medium">{i.inspection_type?.replace(/_/g,' ')} · by {i.submitted_by_role}</p><SBadge status={i.evidence_status} /></div>
+                    <p className="text-muted-foreground text-xs">{i.submitted_at ? format(new Date(i.submitted_at), 'MMM d, yyyy') : '—'}</p>
+                  </div>
+                ))}
+                {!data.inspections?.length && <p className="text-muted-foreground text-sm">No inspections found.</p>}
+              </div>
             </TabsContent>
 
             <TabsContent value="bookings" className="mt-4 space-y-2">

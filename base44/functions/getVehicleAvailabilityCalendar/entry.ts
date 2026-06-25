@@ -59,8 +59,9 @@ Deno.serve(async (req) => {
 
     // Load existing bookings for this vehicle in the date range
     const BLOCKING_STATUSES = [
-      'pending_payment', 'pending_review', 'approved', 'confirmed',
-      'active', 'return_pending_host_review', 'grace_period', 'payment_retry'
+      'pending_payment', 'pending_review', 'approved', 'confirmed', 'checked_out',
+      'active', 'return_required', 'post_inspection_required', 'overdue_return',
+      'return_pending_host_review', 'grace_period', 'payment_retry'
     ];
 
     const bookings = await base44.asServiceRole.entities.BookingRequest.filter({

@@ -336,11 +336,89 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
 
     const field = isPickup ? "pickup_photos" : "return_exterior_photos";
     const metaFields = isPickup
-      ? { pickup_submitted_at: submittedAt, ...(gps && { pickup_location_lat: gps.lat, pickup_location_lon: gps.lon }), ...(locationLabel && { pickup_location_label: locationLabel }) }
-      : { dropoff_submitted_at: submittedAt, ...(gps && { dropoff_location_lat: gps.lat, dropoff_location_lon: gps.lon }), ...(locationLabel && { dropoff_location_label: locationLabel }), clean_return_status: "photos_submitted", booking_status: "return_pending_host_review", pending_review_alert_active: true };
+      ? { pickup_submitted_at: submittedAt, pickup_completed_at: submittedAt, ...(gps && { pickup_location_lat: gps.lat, pickup_location_lon: gps.lon }), ...(locationLabel && { pickup_location_label: locationLabel }) }
+      : (() => {
+          const geofenceVerified = distanceMiles !== null && distanceMiles <= 5;
+          if (!geofenceVerified) {
+            // Outside geofence — do NOT complete return, keep status as post_inspection_required
+            return {
+              dropoff_submitted_at: submittedAt,
+              ...(gps && { dropoff_location_lat: gps.lat, dropoff_location_lon: gps.lon }),
+              ...(locationLabel && { dropoff_location_label: locationLabel }),
+              return_photo_lat: gps?.lat || null,
+              return_photo_lon: gps?.lon || null,
+              return_distance_from_pickup_miles: distanceMiles,
+              post_inspection_geofence_verified: false,
+              booking_status: "post_inspection_required",
+              clean_return_status: "not_returned",
+              lifecycle_audit_notes: `Return photos submitted outside 5-mile geofence (${distanceMiles} miles). Return not completed.`,
+            };
+          }
+          // Inside geofence — complete return, stop billing, start host review window
+          const hostReviewDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          const damageDisputeDeadlineAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          return {
+            dropoff_submitted_at: submittedAt,
+            return_completed_at: submittedAt,
+            return_photo_lat: gps?.lat || null,
+            return_photo_lon: gps?.lon || null,
+            return_distance_from_pickup_miles: distanceMiles,
+            post_inspection_geofence_verified: true,
+            billing_stopped_at: submittedAt,
+            billing_stop_reason: "post_inspection_completed",
+            clean_return_status: "photos_submitted",
+            booking_status: "return_pending_host_review",
+            host_review_due_at: hostReviewDueAt,
+            damage_dispute_deadline_at: damageDisputeDeadlineAt,
+            damage_dispute_allowed_after_auto_complete: true,
+            host_review_status: "pending",
+            pending_review_alert_active: true,
+          };
+        })();
 
     await updateBooking.mutateAsync({ [field]: urls, ...metaFields });
-    if (!isPickup && booking.vehicle_id) await base44.entities.Vehicle.update(booking.vehicle_id, { status: "Return Pending Host Review" });
+
+    if (!isPickup && booking.vehicle_id) {
+      const geofenceVerified = distanceMiles !== null && distanceMiles <= 5;
+      if (geofenceVerified) {
+        await base44.entities.Vehicle.update(booking.vehicle_id, { status: "Return Pending Host Review" });
+      }
+      // If outside geofence, vehicle stays in current status (don't change to Return Pending)
+    }
+
+    // Send notifications via routePlatformNotification
+    if (!isPickup) {
+      const geofenceVerified = distanceMiles !== null && distanceMiles <= 5;
+      if (geofenceVerified) {
+        // Return completed inside geofence — notify host, admin, customer
+        await base44.functions.invoke('routePlatformNotification', {
+          event_type: 'return_submitted',
+          severity: 'info',
+          category: 'bookings',
+          title: 'Return Inspection Submitted',
+          message: `Return photos submitted for ${booking.vehicle_name}. You have 24 hours to review. After that, the return will be auto-completed.`,
+          booking_id: booking.id,
+          host_id: booking.host_id || '',
+          vehicle_id: booking.vehicle_id || '',
+          action_url: '/host/vehicles',
+          metadata: { return_completed_at: submittedAt, host_review_due_at: metaFields.host_review_due_at },
+        }).catch(() => {});
+      } else {
+        // Outside geofence — notify customer, host, admin
+        await base44.functions.invoke('routePlatformNotification', {
+          event_type: 'return_geofence_failed',
+          severity: 'warning',
+          category: 'bookings',
+          title: 'Return Photos Must Be Near Return Location',
+          message: `Your return photos were submitted ${distanceMiles} miles from the return location. Please return to the vehicle return location and resubmit.`,
+          booking_id: booking.id,
+          customer_id: booking.user_id || '',
+          user_email: booking.user_email,
+          action_url: '/my-vehicle',
+        }).catch(() => {});
+      }
+    }
+
     setSubmitting(false);
     onComplete?.();
     onClose();

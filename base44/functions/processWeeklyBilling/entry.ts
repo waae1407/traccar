@@ -211,8 +211,13 @@ Deno.serve(async (req) => {
     //   • send duplicate failure notifications to customers
     // This guard must never be relaxed without updating processGracePeriod coordination.
     const billingTargets = activeBookings.filter((b) => {
-      if (!['approved', 'confirmed', 'active'].includes(b.booking_status)) return false;
+      if (!['approved', 'confirmed', 'active', 'checked_out'].includes(b.booking_status)) return false;
       if (b.clean_return_status === 'approved_clean') return false; // rental ended
+      // ── BILLING STOP: Stop if return_completed_at exists and geofence verified ──
+      if (b.billing_stopped_at && b.billing_stop_reason === 'post_inspection_completed') return false;
+      if (b.return_completed_at && b.post_inspection_geofence_verified) return false;
+      // ── BILLING STOP: Stop if billing_stopped_at set for any reason ──
+      if (b.billing_stopped_at) return false;
       if (!b.start_date) return false;
       if (!b.next_billing_date) return false;
 

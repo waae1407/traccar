@@ -172,8 +172,9 @@ Deno.serve(async (req) => {
 
         // Check for booking conflicts
         const BLOCKING_STATUSES = [
-          'pending_payment', 'pending_review', 'approved', 'confirmed',
-          'active', 'return_pending_host_review', 'grace_period', 'payment_retry'
+          'pending_payment', 'pending_review', 'approved', 'confirmed', 'checked_out',
+          'active', 'return_required', 'post_inspection_required', 'overdue_return',
+          'return_pending_host_review', 'grace_period', 'payment_retry'
         ];
 
         const conflictingBookings = await base44.asServiceRole.entities.BookingRequest.filter({
