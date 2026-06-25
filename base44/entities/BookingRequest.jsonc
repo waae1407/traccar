@@ -109,6 +109,22 @@
       ],
       "default": "draft"
     },
+    "rental_lifecycle_phase": {
+      "type": "string",
+      "enum": [
+        "payment_complete",
+        "pickup_required",
+        "checked_out",
+        "active",
+        "return_required",
+        "return_in_progress",
+        "host_review",
+        "completed",
+        "superseded",
+        "cancelled"
+      ],
+      "description": "Derived rental lifecycle phase \u2014 source of truth for vehicle availability and My Vehicle access. Do not infer from timestamps alone."
+    },
     "payment_status": {
       "type": "string",
       "enum": [
@@ -348,7 +364,8 @@
         "duplicate_booking",
         "replaced_booking",
         "manually_closed",
-        "auto_cancelled"
+        "auto_cancelled",
+        "historical_migration"
       ],
       "description": "Structured closure reason used by automation instead of parsing notes."
     },
@@ -567,7 +584,8 @@
         "host_approved_return",
         "host_review_window_expired",
         "admin_override",
-        "auto_completed"
+        "auto_completed",
+        "historical_migration"
       ],
       "description": "Why the booking was completed."
     },
