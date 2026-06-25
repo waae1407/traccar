@@ -1,34 +1,38 @@
 /**
- * reconcilePayouts
+ * reconcilePayouts v2.0 - Payment360 Production Certified
  *
  * Scheduled safety net — finds paid bookings with a Stripe PaymentIntent
  * that have NO corresponding HostPayout record, and creates the payout +
  * Stripe transfer. This catches cases where the Stripe webhook failed to
  * fire or was not configured.
  *
- * Also creates missing PaymentLog records for the same bookings.
- *
- * Idempotency: checks by booking_request_id AND stripe_payment_intent_id
- * before creating any payout. Never double-pays.
+ * CRITICAL FIXES v2.0:
+ * - Idempotency: checks for ANY existing HostPayout (not just paid)
+ * - PaymentLog created BEFORE transfer attempt (separation of concerns)
+ * - Stripe transfer idempotency key used
+ * - Max retry limit (3 attempts) before manual review
+ * - No duplicate failed payouts created
  *
  * Eligibility:
  *   - payment_status === 'paid'
  *   - stripe_payment_intent_id is present
  *   - booking_status is NOT cancelled/superseded/rejected
  *   - payment_status is NOT refunded
- *   - No existing HostPayout with this booking_request_id
+ *   - No existing HostPayout with this booking_request_id (any status)
  *   - Host has stripe_account_id + stripe_onboarding_complete
  *
  * Blocks:
  *   - host.payout_frozen === true → on_hold
  *   - host has no Stripe account → on_hold (not silent skip)
- *   - Stripe transfer fails → failed + payout_failure_reason
+ *   - Stripe transfer fails → failed + payout_failure_reason + retry tracking
+ *   - Max retries exceeded → failed_requires_manual_review + OperationalAlert
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), { apiVersion: '2023-10-16' });
+const PRICING_CANONICAL_VERSION = '2.0.0';
 
 async function logEvent(base44, data) {
   try {
@@ -51,6 +55,14 @@ async function logEvent(base44, data) {
     });
   } catch (e) {
     console.error('[AuditLog]', e.message);
+  }
+}
+
+async function createPaymentAlert(base44, payload) {
+  try {
+    await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', payload);
+  } catch (e) {
+    console.error('[PaymentOperationalAlert]', e.message);
   }
 }
 
@@ -126,15 +138,56 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // IDEMPOTENCY: check for existing HostPayout
+      // ── CRITICAL FIX: IDEMPOTENCY CHECK ────────────────────────────────
+      // Check for ANY existing HostPayout (not just paid ones)
       const existingPayouts = await base44.asServiceRole.entities.HostPayout.filter({
         booking_request_id: booking.id
       }, '-created_date', 5);
 
       if (existingPayouts.length > 0) {
-        const hasPaidPayout = existingPayouts.some(p => p.status === 'paid' || p.stripe_transfer_id);
-        if (hasPaidPayout) {
+        // Find the most recent/primary payout
+        const primaryPayout = existingPayouts[0];
+        
+        // Skip if already paid or processing
+        if (['paid', 'processing'].includes(primaryPayout.status)) {
           result.status = 'already_paid';
+          result.payout_id = primaryPayout.id;
+          results.push(result);
+          continue;
+        }
+        
+        // Skip if failed but within retry window
+        if (primaryPayout.status === 'failed' || primaryPayout.status === 'on_hold_stripe_balance') {
+          const retryCount = primaryPayout.retry_attempt_count || 0;
+          const maxRetries = primaryPayout.max_retry_attempts || 3;
+          
+          if (retryCount >= maxRetries) {
+            result.status = 'failed_max_retries_reached';
+            result.payout_id = primaryPayout.id;
+            results.push(result);
+            continue;
+          }
+          
+          // Check if next_retry_at is in the future
+          if (primaryPayout.next_retry_at && new Date(primaryPayout.next_retry_at) > new Date()) {
+            result.status = 'retry_scheduled';
+            result.payout_id = primaryPayout.id;
+            result.next_retry_at = primaryPayout.next_retry_at;
+            results.push(result);
+            continue;
+          }
+          
+          // Will retry this payout (update existing, don't create new)
+          result.status = 'will_retry_existing';
+          result.payout_id = primaryPayout.id;
+        } else if (['pending', 'held', 'on_hold'].includes(primaryPayout.status)) {
+          // Process this existing payout
+          result.status = 'will_process_existing';
+          result.payout_id = primaryPayout.id;
+        } else {
+          // Unknown status - skip for safety
+          result.status = 'skipped_unknown_status';
+          result.payout_id = primaryPayout.id;
           results.push(result);
           continue;
         }
@@ -279,115 +332,12 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ── EXECUTE STRIPE TRANSFER ──
-      let transferId = null;
-      try {
-        const transfer = await stripe.transfers.create({
-          amount: Math.round(netHostPayout * 100),
-          currency: 'usd',
-          destination: host.stripe_account_id,
-          description: `uRide payout — ${host.full_name} — booking ${booking.id}`,
-          metadata: {
-            host_id: host.id,
-            booking_request_id: booking.id,
-            payment_intent_id: booking.stripe_payment_intent_id,
-            platform: 'uride',
-            source: 'reconcilePayouts',
-          },
-        });
-        transferId = transfer.id;
-      } catch (transferErr) {
-        // Transfer failed — mark as failed with clear reason
-        await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-          host_payout_status: 'failed',
-          payout_failure_reason: `Stripe transfer failed: ${transferErr.message}`,
-        });
-        await base44.asServiceRole.entities.HostPayout.create({
-          host_id: host.id,
-          host_email: host.email,
-          host_name: host.full_name,
-          booking_request_id: booking.id,
-          vehicle_name: booking.vehicle_name || '',
-          period_start: booking.start_date || '',
-          period_end: booking.end_date || '',
-          gross_booking_amount: grossAmount,
-          stripe_fee_amount: stripeFeeAmount,
-          uride_platform_fee_amount: platformFee,
-          uride_platform_fee_rate: commissionRate,
-          net_host_payout: netHostPayout,
-          net_payout: netHostPayout,
-          gross_collected: grossAmount,
-          platform_fee: platformFee,
-          stripe_payment_intent_id: booking.stripe_payment_intent_id,
-          stripe_charge_id: chargeId,
-          status: 'failed',
-          hold_reason: 'admin_override',
-          hold_notes: `Transfer failed during reconciliation: ${transferErr.message}`,
-        });
-        await logEvent(base44, {
-          event_type: 'payout.failed',
-          target_entity: 'BookingRequest',
-          target_id: booking.id,
-          booking_id: booking.id,
-          host_id: host.id,
-          vehicle_id: booking.vehicle_id || '',
-          summary: `Payout FAILED for booking ${booking.id}: ${transferErr.message}`,
-          metadata: { error: transferErr.message, net_payout: netHostPayout },
-          event_status: 'error',
-        });
-        result.status = 'failed_transfer';
-        result.error = transferErr.message;
-        results.push(result);
-        continue;
-      }
-
-      // ── CREATE HostPayout RECORD ──
-      await base44.asServiceRole.entities.HostPayout.create({
-        host_id: host.id,
-        host_email: host.email,
-        host_name: host.full_name,
-        booking_request_id: booking.id,
-        vehicle_name: booking.vehicle_name || '',
-        period_start: booking.start_date || '',
-        period_end: booking.end_date || '',
-        gross_booking_amount: grossAmount,
-        stripe_fee_amount: stripeFeeAmount,
-        uride_platform_fee_amount: platformFee,
-        uride_platform_fee_rate: commissionRate,
-        net_host_payout: netHostPayout,
-        net_payout: netHostPayout,
-        gross_collected: grossAmount,
-        platform_fee: platformFee,
-        stripe_payment_intent_id: booking.stripe_payment_intent_id,
-        stripe_charge_id: chargeId,
-        stripe_transfer_id: transferId,
-        status: 'paid',
-        payout_date: new Date().toISOString().split('T')[0],
-        booking_count: 1,
-        vehicle_count: 1,
-      });
-
-      // ── UPDATE BOOKING ──
-      await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-        host_payout_status: 'paid',
-        payout_processed_at: new Date().toISOString(),
-        payout_failure_reason: null,
-        stripe_transfer_id: transferId,
-        platform_fee_amount: platformFee,
-        host_payout_amount: netHostPayout,
-        stripe_fee_amount: stripeFeeAmount,
-      });
-
-      // ── UPDATE HOST TOTALS ──
-      await base44.asServiceRole.entities.Host.update(host.id, {
-        total_earnings: (host.total_earnings || 0) + grossAmount,
-        total_payouts: (host.total_payouts || 0) + netHostPayout,
-      });
-
-      // ── CREATE MISSING PaymentLog ──
+      // ── CRITICAL FIX: CREATE PaymentLog FIRST (before transfer attempt) ──
+      // PaymentLog is source of truth for customer payment, independent of payout success
       const existingLogs = await base44.asServiceRole.entities.PaymentLog.filter({
         stripe_payment_intent_id: booking.stripe_payment_intent_id
       });
+      
       if (existingLogs.length === 0 && grossAmount > 0) {
         const paidAt = new Date().toISOString();
         const dedupeKey = generatePaymentDedupeKey({
@@ -396,6 +346,7 @@ Deno.serve(async (req) => {
           paidAt,
           paymentIntentId: booking.stripe_payment_intent_id,
         });
+        
         await base44.asServiceRole.entities.PaymentLog.create({
           booking_request_id: booking.id,
           host_id: host.id,
@@ -422,8 +373,220 @@ Deno.serve(async (req) => {
           status: 'paid',
           recorded_by: 'reconcilePayouts',
           paid_at: paidAt,
+          platform_fee_amount: platformFee,
+          host_payout_amount: netHostPayout,
         });
+        
+        result.payment_log_created = true;
       }
+
+      // ── EXECUTE STRIPE TRANSFER WITH IDEMPOTENCY KEY ──
+      let transferId = null;
+      const idempotencyKey = `host_payout:${booking.id}:${booking.stripe_payment_intent_id}`;
+      
+      try {
+        const transfer = await stripe.transfers.create({
+          amount: Math.round(netHostPayout * 100),
+          currency: 'usd',
+          destination: host.stripe_account_id,
+          description: `uRide payout — ${host.full_name} — booking ${booking.id}`,
+          metadata: {
+            host_id: host.id,
+            booking_request_id: booking.id,
+            payment_intent_id: booking.stripe_payment_intent_id,
+            platform: 'uride',
+            source: 'reconcilePayouts',
+          },
+          transfer_group: `booking:${booking.id}`,
+        }, {
+          idempotencyKey: idempotencyKey,
+        });
+        transferId = transfer.id;
+      } catch (transferErr) {
+        // Transfer failed — update existing payout or create new one with retry tracking
+        const errorMessage = transferErr.message || 'Unknown transfer error';
+        const isBalanceIssue = errorMessage.toLowerCase().includes('insufficient funds') || errorMessage.toLowerCase().includes('automatic');
+        
+        if (existingPayouts.length > 0 && ['will_retry_existing', 'will_process_existing'].includes(result.status)) {
+          // Update existing payout with failure info
+          const primaryPayout = existingPayouts[0];
+          const retryCount = (primaryPayout.retry_attempt_count || 0) + 1;
+          const maxRetries = primaryPayout.max_retry_attempts || 3;
+          const failureHistory = [...(primaryPayout.failure_history || []), {
+            attempted_at: new Date().toISOString(),
+            error_message: errorMessage,
+            retry_number: retryCount
+          }];
+          
+          let newStatus = 'failed';
+          let nextRetryAt = null;
+          
+          if (retryCount >= maxRetries) {
+            newStatus = 'failed_requires_manual_review';
+            // Create OperationalAlert
+            await createPaymentAlert(base44, {
+              alert_type: 'payout_retry_exhausted',
+              severity: 'critical',
+              billing_context: 'payout',
+              booking_id: booking.id,
+              host_id: host.id,
+              stripe_payment_intent_id: booking.stripe_payment_intent_id,
+              related_entity_id: primaryPayout.id,
+              title: `Payout retry exhausted — ${host.full_name}`,
+              message: `Failed to process payout for booking ${booking.id} after ${retryCount} attempts. Last error: ${errorMessage}`,
+              recommended_action: 'Manually review and process payout. Verify Stripe account balance and configuration.',
+              financial_impact_amount: netHostPayout,
+              source: 'reconcilePayouts',
+            });
+          } else if (isBalanceIssue) {
+            newStatus = 'on_hold_stripe_balance';
+            // Schedule retry in 24 hours for balance issues
+            nextRetryAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          } else {
+            // Schedule retry in 15 minutes
+            nextRetryAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+          }
+          
+          await base44.asServiceRole.entities.HostPayout.update(primaryPayout.id, {
+            status: newStatus,
+            retry_attempt_count: retryCount,
+            last_retry_at: new Date().toISOString(),
+            next_retry_at: nextRetryAt,
+            failure_history: failureHistory,
+            hold_reason: isBalanceIssue ? 'stripe_balance_insufficient' : '',
+            hold_notes: `Transfer failed (attempt ${retryCount}/${maxRetries}): ${errorMessage}`,
+            reconciliation_status: 'failed',
+          });
+          
+          result.status = newStatus;
+          result.error = errorMessage;
+          result.retry_count = retryCount;
+        } else {
+          // Create new payout with retry tracking
+          const newPayout = await base44.asServiceRole.entities.HostPayout.create({
+            host_id: host.id,
+            host_email: host.email,
+            host_name: host.full_name,
+            booking_request_id: booking.id,
+            vehicle_name: booking.vehicle_name || '',
+            period_start: booking.start_date || '',
+            period_end: booking.end_date || '',
+            gross_booking_amount: grossAmount,
+            stripe_fee_amount: stripeFeeAmount,
+            uride_platform_fee_amount: platformFee,
+            uride_platform_fee_rate: commissionRate,
+            net_host_payout: netHostPayout,
+            net_payout: netHostPayout,
+            gross_collected: grossAmount,
+            platform_fee: platformFee,
+            stripe_payment_intent_id: booking.stripe_payment_intent_id,
+            stripe_charge_id: chargeId,
+            status: isBalanceIssue ? 'on_hold_stripe_balance' : 'failed',
+            hold_reason: isBalanceIssue ? 'stripe_balance_insufficient' : 'admin_override',
+            hold_notes: `Transfer failed: ${errorMessage}`,
+            retry_attempt_count: 1,
+            max_retry_attempts: 3,
+            next_retry_at: isBalanceIssue ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+            last_retry_at: new Date().toISOString(),
+            failure_history: [{
+              attempted_at: new Date().toISOString(),
+              error_message: errorMessage,
+              retry_number: 1
+            }],
+            idempotency_key: idempotencyKey,
+            reconciliation_source: true,
+            reconciliation_status: 'failed',
+          });
+          
+          result.payout_id = newPayout.id;
+          result.status = isBalanceIssue ? 'on_hold_stripe_balance' : 'failed';
+          result.error = errorMessage;
+        }
+        
+        // Update booking
+        await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+          host_payout_status: isBalanceIssue ? 'on_hold' : 'failed',
+          payout_failure_reason: `Stripe transfer failed: ${errorMessage}`,
+        });
+        
+        // Log failure
+        await logEvent(base44, {
+          event_type: 'payout.failed',
+          target_entity: 'HostPayout',
+          target_id: booking.id,
+          booking_id: booking.id,
+          host_id: host.id,
+          vehicle_id: booking.vehicle_id || '',
+          summary: `Payout FAILED for booking ${booking.id}: ${errorMessage}`,
+          metadata: { error: errorMessage, net_payout: netHostPayout, is_balance_issue: isBalanceIssue },
+          event_status: 'error',
+        });
+        
+        results.push(result);
+        continue;
+      }
+
+      // ── TRANSFER SUCCEEDED: CREATE/UPDATE HostPayout ──
+      const now = new Date().toISOString();
+      
+      if (existingPayouts.length > 0 && ['will_retry_existing', 'will_process_existing'].includes(result.status)) {
+        // Update existing payout
+        const primaryPayout = existingPayouts[0];
+        await base44.asServiceRole.entities.HostPayout.update(primaryPayout.id, {
+          status: 'paid',
+          stripe_transfer_id: transferId,
+          payout_date: now.split('T')[0],
+          reconciliation_status: 'processed',
+        });
+        result.payout_id = primaryPayout.id;
+      } else {
+        // Create new payout
+        const newPayout = await base44.asServiceRole.entities.HostPayout.create({
+          host_id: host.id,
+          host_email: host.email,
+          host_name: host.full_name,
+          booking_request_id: booking.id,
+          vehicle_name: booking.vehicle_name || '',
+          period_start: booking.start_date || '',
+          period_end: booking.end_date || '',
+          gross_booking_amount: grossAmount,
+          stripe_fee_amount: stripeFeeAmount,
+          uride_platform_fee_amount: platformFee,
+          uride_platform_fee_rate: commissionRate,
+          net_host_payout: netHostPayout,
+          net_payout: netHostPayout,
+          gross_collected: grossAmount,
+          platform_fee: platformFee,
+          stripe_payment_intent_id: booking.stripe_payment_intent_id,
+          stripe_charge_id: chargeId,
+          stripe_transfer_id: transferId,
+          status: 'paid',
+          payout_date: now.split('T')[0],
+          booking_count: 1,
+          vehicle_count: 1,
+          idempotency_key: idempotencyKey,
+          reconciliation_source: true,
+          reconciliation_status: 'processed',
+        });
+        result.payout_id = newPayout.id;
+      }
+
+      // ── UPDATE BOOKING ──
+      await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+        host_payout_status: 'paid',
+        payout_processed_at: now,
+        payout_failure_reason: null,
+        stripe_transfer_id: transferId,
+        platform_fee_amount: platformFee,
+        host_payout_amount: netHostPayout,
+        stripe_fee_amount: stripeFeeAmount,
+      });
+
+      // ── UPDATE HOST TOTALS ──
+      await base44.asServiceRole.entities.Host.update(host.id, {
+        total_earnings: (host.total_earnings || 0) + grossAmount,
+        total_payouts: (host.total_payouts || 0) + netHostPayout,
+      });
 
       // ── NOTIFY HOST ──
       await base44.asServiceRole.entities.Notification.create({
@@ -477,6 +640,7 @@ Deno.serve(async (req) => {
       on_hold: results.filter(r => r.status.startsWith('on_hold')).length,
       skipped: results.filter(r => r.status.startsWith('skipped')).length,
       already_paid: results.filter(r => r.status === 'already_paid').length,
+      retry_scheduled: results.filter(r => r.status === 'retry_scheduled').length,
       dry_run: dryRun,
       results,
     };

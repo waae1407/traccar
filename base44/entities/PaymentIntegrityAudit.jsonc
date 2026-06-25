@@ -1,0 +1,118 @@
+{
+  "name": "PaymentIntegrityAudit",
+  "type": "object",
+  "properties": {
+    "audit_type": {
+      "type": "string",
+      "enum": [
+        "paid_booking_missing_payment_log",
+        "paid_booking_missing_host_payout",
+        "paid_booking_duplicate_host_payout",
+        "paid_booking_duplicate_payment_log",
+        "payment_successful_transfer_failed",
+        "host_earnings_mismatch",
+        "host_payouts_mismatch",
+        "orphan_host_payout",
+        "webhook_missing_for_payment",
+        "stripe_transfer_failed",
+        "payment_intent_missing_metadata",
+        "booking_paid_no_stripe_pi",
+        "cancelled_booking_paid_no_refund",
+        "reconciliation_duplicate_payout",
+        "manual_repair_action"
+      ],
+      "description": "Type of integrity issue"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "default": "high"
+    },
+    "booking_request_id": {
+      "type": "string",
+      "description": "Booking request ID"
+    },
+    "host_id": {
+      "type": "string",
+      "description": "Host ID"
+    },
+    "payment_intent_id": {
+      "type": "string",
+      "description": "Stripe PaymentIntent ID"
+    },
+    "payment_log_id": {
+      "type": "string",
+      "description": "PaymentLog ID"
+    },
+    "host_payout_id": {
+      "type": "string",
+      "description": "HostPayout ID"
+    },
+    "stripe_transfer_id": {
+      "type": "string",
+      "description": "Stripe Transfer ID"
+    },
+    "duplicate_record_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs of duplicate records"
+    },
+    "primary_record_id": {
+      "type": "string",
+      "description": "Primary record ID (for duplicates)"
+    },
+    "expected_amount": {
+      "type": "number",
+      "description": "Expected amount"
+    },
+    "actual_amount": {
+      "type": "number",
+      "description": "Actual amount"
+    },
+    "discrepancy_amount": {
+      "type": "number",
+      "description": "Discrepancy amount"
+    },
+    "resolution": {
+      "type": "string",
+      "enum": [
+        "auto_resolved",
+        "manual_repair",
+        "pending",
+        "requires_admin"
+      ],
+      "default": "pending"
+    },
+    "resolution_notes": {
+      "type": "string",
+      "description": "Resolution notes"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "User ID or function name"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "audit_type"
+  ]
+}

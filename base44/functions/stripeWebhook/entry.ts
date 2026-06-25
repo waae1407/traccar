@@ -1,8 +1,39 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import Stripe from 'npm:stripe@14.21.0';
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), { apiVersion: '2023-10-16' });
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
+
+// WebhookEventLog helper - logs EVERY webhook event before processing
+async function logWebhookEvent(base44, data) {
+  try {
+    await base44.asServiceRole.entities.WebhookEventLog.create({
+      provider: 'stripe',
+      event_id: data.event_id,
+      event_type: data.event_type,
+      livemode: data.livemode ?? false,
+      received_at: new Date().toISOString(),
+      signature_verified: data.signature_verified ?? true,
+      handler_status: 'received',
+      raw_event_summary: data.raw_event_summary || {},
+    });
+    return data.event_id; // Return for later updates
+  } catch (e) {
+    console.error('[WebhookEventLog] Creation failed:', e.message);
+    return null;
+  }
+}
+
+async function updateWebhookEventLog(base44, eventId, updates) {
+  try {
+    const logs = await base44.asServiceRole.entities.WebhookEventLog.filter({ event_id: eventId }, '-created_date', 1);
+    if (logs[0]) {
+      await base44.asServiceRole.entities.WebhookEventLog.update(logs[0].id, updates);
+    }
+  } catch (e) {
+    console.error('[WebhookEventLog] Update failed:', e.message);
+  }
+}
 
 async function logEvent(base44, data) {
   try {
@@ -617,16 +648,33 @@ Deno.serve(async (req) => {
       case 'payment_intent.succeeded': {
         const pi = event.data.object;
         const billingContext = getBillingContext(pi.metadata || {});
+        
+        // WEBHOOK HEALTH: Log event immediately after signature verification
+        const webhookLogId = await logWebhookEvent(base44, {
+          event_id: event.id,
+          event_type: event.type,
+          livemode: event.livemode,
+          signature_verified: true,
+          raw_event_summary: {
+            payment_intent_id: pi.id,
+            amount: pi.amount,
+            currency: pi.currency,
+            billing_context: billingContext,
+            booking_request_id: pi.metadata?.booking_request_id,
+          },
+        });
 
         // GPS order payment
         if (isGPSOrderContext(billingContext)) {
           await handleGPSOrderPaid(base44, pi);
+          await updateWebhookEventLog(base44, event.id, { handler_status: 'processed', handler_completed: new Date().toISOString() }).catch(() => {});
           break;
         }
 
         if (!['rental_marketplace_payment', 'fleetos_host_direct_payment', 'payment_recovery_customer_self_service'].includes(billingContext)) {
           console.log(`[Webhook] Recognized non-rental billing context ${billingContext}; no live subscription/dealer/GPS billing action taken.`);
           await logEvent(base44, { event_type: 'billing.context_ignored', actor_id: 'stripe_webhook', actor_email: 'stripe@stripe.com', actor_role: 'stripe', summary: `Ignored non-rental payment_intent.succeeded context: ${billingContext}`, metadata: { billing_context: billingContext, payment_intent_id: pi.id }, source: 'webhook' });
+          await updateWebhookEventLog(base44, event.id, { handler_status: 'ignored', ignored_reason: 'non_rental_billing_context', handler_completed: new Date().toISOString() }).catch(() => {});
           break;
         }
         const bookingRequestId = pi.metadata?.booking_request_id;
@@ -926,6 +974,16 @@ Deno.serve(async (req) => {
               metadata: { payment_intent_id: pi.id, amount: pi.amount / 100, receipt_url: receiptUrl },
               source: 'webhook',
             });
+            
+            // WEBHOOK HEALTH: Mark as processed
+            await updateWebhookEventLog(base44, event.id, {
+              handler_status: 'processed',
+              handler_completed: new Date().toISOString(),
+              booking_request_id: bookingRequestId,
+              payment_intent_id: pi.id,
+              charge_id: chargeId || '',
+              transfer_id: transfer?.id || '',
+            }).catch(() => {});
           }
         }
         break;

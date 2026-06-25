@@ -1,0 +1,106 @@
+{
+  "name": "WebhookEventLog",
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "enum": [
+        "stripe",
+        "wix",
+        "paypal"
+      ],
+      "default": "stripe",
+      "description": "Payment provider"
+    },
+    "event_id": {
+      "type": "string",
+      "description": "Provider event ID (e.g. Stripe event ID)"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Event type (e.g. payment_intent.succeeded)"
+    },
+    "livemode": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether event is live or test mode"
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When webhook was received"
+    },
+    "signature_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether signature verification passed"
+    },
+    "handler_started": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When handler execution started"
+    },
+    "handler_completed": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When handler execution completed"
+    },
+    "handler_status": {
+      "type": "string",
+      "enum": [
+        "received",
+        "processed",
+        "ignored",
+        "failed"
+      ],
+      "default": "received",
+      "description": "Handler execution status"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error message if handler failed"
+    },
+    "booking_request_id": {
+      "type": "string",
+      "description": "Linked booking request ID"
+    },
+    "payment_intent_id": {
+      "type": "string",
+      "description": "Stripe PaymentIntent ID"
+    },
+    "charge_id": {
+      "type": "string",
+      "description": "Stripe Charge ID"
+    },
+    "transfer_id": {
+      "type": "string",
+      "description": "Stripe Transfer ID"
+    },
+    "raw_event_summary": {
+      "type": "object",
+      "description": "Minimal event summary for debugging"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Webhook retry count from provider"
+    },
+    "ignored_reason": {
+      "type": "string",
+      "description": "Reason if event was ignored"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "provider",
+    "event_id",
+    "event_type"
+  ]
+}

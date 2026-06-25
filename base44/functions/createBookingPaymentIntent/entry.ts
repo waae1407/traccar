@@ -147,13 +147,21 @@ Deno.serve(async (req) => {
         payment_flow: isRecovery ? 'recovery' : 'initial_checkout',
         original_booking_id: booking.id,
         booking_request_id,
+        booking_id: booking.id, // Alias for compatibility
         host_id: hostId,
+        host_email: host.email || '',
         user_email: user.email,
+        customer_id: user.id,
+        vehicle_id: vehicle?.id || booking.vehicle_id || '',
+        vin: vehicle?.vin || '',
         booking_type: booking_type || booking.booking_type || 'unknown',
         payment_processor: processor,
-        commission_rate: String(commerce.commission_rate || 0)
+        commission_rate: String(commerce.commission_rate || 0),
+        platform: 'uride',
+        environment: Deno.env.get('BASE44_APP_ID')?.includes('prod') ? 'live' : 'test',
       },
-      payment_method_types: ['card']
+      payment_method_types: ['card'],
+      transfer_group: `booking:${booking_request_id}`,
     };
     const paymentIntent = stripeOptions.stripeAccount
       ? await stripe.paymentIntents.create(piPayload, stripeOptions)
