@@ -8,11 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { format } from "date-fns";
+import { format, addMonths } from "date-fns";
 import { Plus, Trash2, Calendar as CalendarIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import AvailabilityQuickEdit from "./AvailabilityQuickEdit";
+import RecurringRuleForm from "./RecurringRuleForm";
 
 const STATUS_CONFIG = {
   available: { color: 'bg-green-500', label: 'Available' },
@@ -25,20 +27,35 @@ const STATUS_CONFIG = {
 
 export default function VehicleAvailabilityCalendar({ vehicleId, hostId }) {
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [selectedDates, setSelectedDates] = useState([]);
   const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [blockType, setBlockType] = useState('blocked');
   const [blockNotes, setBlockNotes] = useState('');
   const [customerReason, setCustomerReason] = useState('');
 
+  // Dynamic months — current month + next month
+  const now = new Date();
+  const startMonth = format(now, 'yyyy-MM');
+  const endMonth = format(addMonths(now, 1), 'yyyy-MM');
+
   const { data: calendarData, isLoading, refetch } = useQuery({
-    queryKey: ['vehicle-availability-calendar', vehicleId, '2026-06', '2026-07'],
+    queryKey: ['vehicle-availability-calendar', vehicleId, startMonth, endMonth],
     queryFn: () => base44.functions.invoke('getVehicleAvailabilityCalendar', {
       vehicle_id: vehicleId,
-      start_month: '2026-06',
-      end_month: '2026-07'
+      start_month: startMonth,
+      end_month: endMonth
     }).then(r => r.data),
     enabled: !!vehicleId
+  });
+
+  const { data: vehicleData } = useQuery({
+    queryKey: ['vehicle-for-quickedit', vehicleId],
+    queryFn: async () => {
+      const results = await base44.entities.Vehicle.filter({ id: vehicleId });
+      return results[0];
+    },
+    enabled: !!vehicleId,
   });
 
   const createRuleMutation = useMutation({
@@ -68,9 +85,10 @@ export default function VehicleAvailabilityCalendar({ vehicleId, hostId }) {
     setSelectedDates(dates || []);
   };
 
-  const handleBlockDates = () => {
+  const handleBlockDates = async () => {
     if (selectedDates.length === 0) return;
 
+    // Create a rule for EVERY selected date (not just the first)
     const rules = selectedDates.map(date => ({
       vehicle_id: vehicleId,
       host_id: hostId,
@@ -83,7 +101,19 @@ export default function VehicleAvailabilityCalendar({ vehicleId, hostId }) {
       created_at: new Date().toISOString()
     }));
 
-    createRuleMutation.mutate(rules[0]); // Create first rule
+    // Bulk create all rules
+    try {
+      await base44.entities.VehicleAvailabilityRule.bulkCreate(rules);
+      toast({ title: 'Success', description: `${rules.length} date(s) blocked` });
+      setBlockDialogOpen(false);
+      setSelectedDates([]);
+      setBlockNotes('');
+      setCustomerReason('');
+      refetch();
+      qc.invalidateQueries({ queryKey: ['vehicle-detail-calendar'] });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
   };
 
   const renderDay = (date) => {
@@ -109,8 +139,11 @@ export default function VehicleAvailabilityCalendar({ vehicleId, hostId }) {
 
   return (
     <div className="space-y-4">
+      <AvailabilityQuickEdit vehicle={vehicleData} hostId={hostId} />
+
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-lg">Availability Calendar</h3>
+        <RecurringRuleForm vehicleId={vehicleId} hostId={hostId} />
         <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" disabled={selectedDates.length === 0}>
@@ -163,16 +196,21 @@ export default function VehicleAvailabilityCalendar({ vehicleId, hostId }) {
                   className="mt-1"
                 />
               </div>
-              <Button 
+              <Button
                 onClick={handleBlockDates}
-                disabled={selectedDates.length === 0 || createRuleMutation.isPending}
+                disabled={selectedDates.length === 0}
                 className="w-full"
               >
-                {createRuleMutation.isPending ? 'Blocking...' : 'Block Dates'}
+                Block {selectedDates.length > 0 ? `${selectedDates.length} Date(s)` : 'Dates'}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Customer Calendar Preview Note */}
+      <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-3 py-2 text-xs text-blue-300">
+        💡 This calendar mirrors what customers see on the vehicle detail page. Blocked dates will prevent booking.
       </div>
 
       {/* Availability Rules Summary */}

@@ -183,10 +183,6 @@ export default function HostVehicle360() {
               {!data.maintenance?.logs?.length && <p className="text-muted-foreground text-sm">No maintenance records.</p>}
             </TabsContent>
 
-            <TabsContent value="availability" className="mt-4">
-              <VehicleAvailabilityCalendar vehicleId={selectedVehicleId} hostId={host?.id} />
-            </TabsContent>
-
             <TabsContent value="commands" className="mt-4 space-y-2">
               {data.telematics_commands?.map(cmd => (
                 <div key={cmd.id} className="flex justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">

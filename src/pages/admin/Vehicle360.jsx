@@ -21,6 +21,7 @@ import Alert360DetailDrawer from '@/components/telematics/Alert360DetailDrawer';
 import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDrawer';
 import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
 import VehicleBookingHistoryRow from '@/components/shared/VehicleBookingHistoryRow';
+import AdminAvailabilityViewer from '@/components/admin/vehicle360/AdminAvailabilityViewer';
 import { useNavigate } from 'react-router-dom';
 
 function SBadge({ status }) {
@@ -136,10 +137,14 @@ export default function Vehicle360() {
 
           <Tabs defaultValue="revenue">
             <TabsList className="flex-wrap h-auto gap-1">
-              {[['revenue','Revenue'],['expenses','Expenses'],['maintenance','Maintenance'],['commands','Commands'],['alert360','Alert360'],['inspections','Inspections'],['bookings','Booking History']].map(([v,l]) => (
+              {[['revenue','Revenue'],['expenses','Expenses'],['maintenance','Maintenance'],['availability','Availability'],['commands','Commands'],['alert360','Alert360'],['inspections','Inspections'],['bookings','Booking History']].map(([v,l]) => (
                 <TabsTrigger key={v} value={v}>{l}</TabsTrigger>
               ))}
             </TabsList>
+
+            <TabsContent value="availability" className="mt-4">
+              <AdminAvailabilityViewer vehicleId={v?.id} />
+            </TabsContent>
 
             <TabsContent value="revenue" className="mt-4 space-y-2">
               {data.payment_logs?.filter(p => p.status === 'paid').map(p => (

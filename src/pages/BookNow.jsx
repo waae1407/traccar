@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useOutletContext, useNavigate } from "react-router-dom";
@@ -53,20 +53,42 @@ export default function BookNow() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [bookingType, setBookingType] = useState("Weekly");
   const [activeFilter, setActiveFilter] = useState("All");
-  const [marketplaceFilters, setMarketplaceFilters] = useState({
-    city: '',
-    pickup_date: '',
-    return_date: '',
-    price_min: 0,
-    price_max: 500,
-    vehicle_type: [],
-    fuel_type: [],
-    contactless_pickup: false,
-    delivery_available: false,
-    instant_booking: true,
-    rental_type: 'weekly',
-    sort: 'recommended'
+  // Read URL params on mount and prepopulate filters
+  const [marketplaceFilters, setMarketplaceFilters] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const vehicleTypeParam = urlParams.get('vehicle_type');
+    return {
+      city: urlParams.get('city') || '',
+      pickup_date: urlParams.get('pickup_date') || '',
+      return_date: urlParams.get('return_date') || '',
+      price_min: 0,
+      price_max: 500,
+      vehicle_type: vehicleTypeParam ? [vehicleTypeParam] : [],
+      fuel_type: [],
+      make: '',
+      model: '',
+      year_min: '',
+      year_max: '',
+      seats: '',
+      transmission: '',
+      contactless_pickup: false,
+      delivery_available: false,
+      instant_booking: true,
+      rental_type: 'weekly',
+      sort: 'recommended'
+    };
   });
+
+  // Keep URL in sync when filters change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (marketplaceFilters.city) params.set('city', marketplaceFilters.city);
+    if (marketplaceFilters.pickup_date) params.set('pickup_date', marketplaceFilters.pickup_date);
+    if (marketplaceFilters.return_date) params.set('return_date', marketplaceFilters.return_date);
+    if (marketplaceFilters.vehicle_type?.length) params.set('vehicle_type', marketplaceFilters.vehicle_type[0]);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(null, '', newUrl);
+  }, [marketplaceFilters]);
 
   const companySlug = new URLSearchParams(window.location.search).get("company");
   const refCode = new URLSearchParams(window.location.search).get("ref");
@@ -101,6 +123,12 @@ export default function BookNow() {
       price_max: marketplaceFilters.price_max || 500,
       vehicle_type: marketplaceFilters.vehicle_type?.length ? marketplaceFilters.vehicle_type : null,
       fuel_type: marketplaceFilters.fuel_type?.length ? marketplaceFilters.fuel_type : null,
+      make: marketplaceFilters.make || null,
+      model: marketplaceFilters.model || null,
+      year_min: marketplaceFilters.year_min || null,
+      year_max: marketplaceFilters.year_max || null,
+      seats: marketplaceFilters.seats || null,
+      transmission: marketplaceFilters.transmission || null,
       contactless_pickup: marketplaceFilters.contactless_pickup || false,
       delivery_available: marketplaceFilters.delivery_available || false,
       instant_booking: marketplaceFilters.instant_booking !== false,
@@ -120,10 +148,12 @@ export default function BookNow() {
     staleTime: 60_000,
   });
 
-  // Use search results if dates selected, otherwise use all vehicles
+  // Use server-side search results when dates are selected
+  // When no dates, fall back to listed vehicles but don't treat them as guaranteed-available
   const isLoading = searchLoading || vehiclesLoading;
-  const availableVehicles = (marketplaceFilters.pickup_date && marketplaceFilters.return_date && searchResults?.vehicles) 
-    ? searchResults.vehicles 
+  const hasDates = !!(marketplaceFilters.pickup_date && marketplaceFilters.return_date);
+  const availableVehicles = hasDates && searchResults?.vehicles
+    ? searchResults.vehicles
     : vehicles;
 
   const { data: commerceProfiles = [] } = useQuery({
@@ -297,7 +327,9 @@ export default function BookNow() {
     setSelectedVehicle(null);
     const companyParam = companySlug ? `&company=${companySlug}` : "";
     const refParam = refCode ? `&ref=${refCode}` : "";
-    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}${companyParam}${refParam}`);
+    const dateParams = vehicle.selected_pickup_date ? `&start_date=${vehicle.selected_pickup_date}` : "";
+    const returnParam = vehicle.selected_return_date ? `&end_date=${vehicle.selected_return_date}` : "";
+    navigate(`/checkout?vehicle=${vehicle.id}&type=${bookingType}${companyParam}${refParam}${dateParams}${returnParam}`);
   };
 
   const handleLocationZipSearch = async (zipcode, altCity) => {
@@ -334,6 +366,16 @@ export default function BookNow() {
         suggestedCities={suggested}
         vehicleCount={available.length}
       />
+
+      {/* Availability notice when browsing without dates */}
+      {!hasDates && available.length > 0 && (
+        <div className="max-w-5xl mx-auto px-4 mt-3">
+          <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-2.5 flex items-center gap-2">
+            <svg className="h-4 w-4 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p className="text-sm text-blue-700 font-medium">Select pickup and return dates above to confirm real-time availability and exclude booked vehicles.</p>
+          </div>
+        </div>
+      )}
 
       {/* SECTION 3: Main headline */}
       <BookNowHeadline user={user} />

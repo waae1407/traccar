@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Car, Building2, MapPin, CreditCard, Fingerprint, Shield, CheckCircle2 } from "lucide-react";
+import HomeSearchBar from "./HomeSearchBar";
 
 const TRUST_CHECKS = [
   "GPS-monitored vehicles",
@@ -66,8 +67,13 @@ export default function HomeHero() {
           uRideHub connects drivers with rental vehicles while giving fleet owners, dealerships, and auto shops their own contactless rental storefront.
         </p>
 
+        {/* Turo-style search bar */}
+        <div className="mb-8 -mt-2">
+          <HomeSearchBar />
+        </div>
+
         {/* CTA buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link to="/book-now"
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl bg-white text-gray-900 font-bold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all">
             <Car className="h-4 w-4" /> I Need a Vehicle

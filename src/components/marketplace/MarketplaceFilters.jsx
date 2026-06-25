@@ -20,7 +20,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Filter, X, MapPin, Calendar, DollarSign, Fuel } from "lucide-react";
+import { Filter, X, MapPin, Calendar, DollarSign, Fuel, Car } from "lucide-react";
 import { format } from "date-fns";
 
 const VEHICLE_TYPES = [
@@ -32,6 +32,11 @@ const VEHICLE_TYPES = [
   { value: 'van', label: 'Van' },
   { value: 'wagon', label: 'Wagon' },
   { value: 'hatchback', label: 'Hatchback' }
+];
+
+const TRANSMISSION_TYPES = [
+  { value: 'automatic', label: 'Automatic' },
+  { value: 'manual', label: 'Manual' },
 ];
 
 const FUEL_TYPES = [
@@ -56,6 +61,12 @@ export default function MarketplaceFilters({
     price_max: 500,
     vehicle_type: [],
     fuel_type: [],
+    make: '',
+    model: '',
+    year_min: '',
+    year_max: '',
+    seats: '',
+    transmission: '',
     contactless_pickup: false,
     delivery_available: false,
     instant_booking: true,
@@ -79,6 +90,12 @@ export default function MarketplaceFilters({
       price_max: 500,
       vehicle_type: [],
       fuel_type: [],
+      make: '',
+      model: '',
+      year_min: '',
+      year_max: '',
+      seats: '',
+      transmission: '',
       contactless_pickup: false,
       delivery_available: false,
       instant_booking: true,
@@ -111,14 +128,14 @@ export default function MarketplaceFilters({
               />
             </div>
             
-            <div className="hidden md:flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="date"
                   value={localFilters.pickup_date}
                   onChange={(e) => setLocalFilters({ ...localFilters, pickup_date: e.target.value })}
-                  className="pl-10 w-40"
+                  className="pl-10 w-32 sm:w-40"
                 />
               </div>
               <span className="text-gray-400">→</span>
@@ -128,7 +145,7 @@ export default function MarketplaceFilters({
                   type="date"
                   value={localFilters.return_date}
                   onChange={(e) => setLocalFilters({ ...localFilters, return_date: e.target.value })}
-                  className="pl-10 w-40"
+                  className="pl-10 w-32 sm:w-40"
                 />
               </div>
             </div>
@@ -148,9 +165,11 @@ export default function MarketplaceFilters({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="recommended">Recommended</SelectItem>
-                <SelectItem value="price_low">Price: Low to High</SelectItem>
-                <SelectItem value="price_high">Price: High to Low</SelectItem>
+                <SelectItem value="lowest_price">Price: Low to High</SelectItem>
+                <SelectItem value="highest_price">Price: High to Low</SelectItem>
                 <SelectItem value="newest">Newest Vehicles</SelectItem>
+                <SelectItem value="closest">Closest Distance</SelectItem>
+                <SelectItem value="available_soonest">Available Soonest</SelectItem>
               </SelectContent>
             </Select>
 
@@ -239,6 +258,34 @@ export default function MarketplaceFilters({
 function FilterContent({ localFilters, setLocalFilters }) {
   return (
     <div className="space-y-6">
+      {/* Date Range (also in top bar, but included here for mobile) */}
+      <div className="space-y-3">
+        <h4 className="font-semibold text-sm flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          Dates
+        </h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Pickup Date</Label>
+            <Input
+              type="date"
+              value={localFilters.pickup_date}
+              onChange={(e) => setLocalFilters({ ...localFilters, pickup_date: e.target.value })}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Return Date</Label>
+            <Input
+              type="date"
+              value={localFilters.return_date}
+              onChange={(e) => setLocalFilters({ ...localFilters, return_date: e.target.value })}
+              className="mt-1"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Price Range */}
       <div className="space-y-3">
         <h4 className="font-semibold text-sm flex items-center gap-2">
@@ -288,6 +335,77 @@ function FilterContent({ localFilters, setLocalFilters }) {
               {type.label}
             </Badge>
           ))}
+        </div>
+      </div>
+
+      {/* Make / Model / Year / Seats / Transmission */}
+      <div className="space-y-3">
+        <h4 className="font-semibold text-sm">Vehicle Details</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Make</Label>
+            <Input
+              placeholder="e.g. Toyota"
+              value={localFilters.make || ''}
+              onChange={(e) => setLocalFilters({ ...localFilters, make: e.target.value })}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Model</Label>
+            <Input
+              placeholder="e.g. Camry"
+              value={localFilters.model || ''}
+              onChange={(e) => setLocalFilters({ ...localFilters, model: e.target.value })}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Year Min</Label>
+            <Input
+              type="number"
+              placeholder="2020"
+              value={localFilters.year_min || ''}
+              onChange={(e) => setLocalFilters({ ...localFilters, year_min: e.target.value ? Number(e.target.value) : '' })}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Year Max</Label>
+            <Input
+              type="number"
+              placeholder="2025"
+              value={localFilters.year_max || ''}
+              onChange={(e) => setLocalFilters({ ...localFilters, year_max: e.target.value ? Number(e.target.value) : '' })}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Min Seats</Label>
+            <Input
+              type="number"
+              placeholder="4"
+              value={localFilters.seats || ''}
+              onChange={(e) => setLocalFilters({ ...localFilters, seats: e.target.value ? Number(e.target.value) : '' })}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Transmission</Label>
+            <Select
+              value={localFilters.transmission || ''}
+              onValueChange={(v) => setLocalFilters({ ...localFilters, transmission: v })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Any" />
+              </SelectTrigger>
+              <SelectContent>
+                {TRANSMISSION_TYPES.map(t => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
