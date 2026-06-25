@@ -134,7 +134,8 @@ async function handleRentalOverdue(base44, { booking, host, vehicle }) {
   const inAppKey = `rental_overdue:${booking.id}:${host.id}:inapp:${today}`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
+      recipient_email: host.email,
+      recipient_role: 'host',
       title: `🚨 RENTAL OVERDUE — ${vehicleName}`,
       body: `Rental ended ${booking.end_date} (${daysOverdue} days overdue). Customer has not returned vehicle. Weekly billing continues. Contact customer immediately.`,
       type: 'alert',
@@ -228,7 +229,8 @@ async function handleReturnReviewRequired(base44, { booking, host, vehicle }) {
   const inAppKey = `return_review_required:${booking.id}:${host.id}:inapp:${today}`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
+      recipient_email: host.email,
+      recipient_role: 'host',
       title: `📋 Return Review Required — ${vehicleName}`,
       body: `Customer submitted dropoff photos. Review return inspection and approve/reject to complete the rental.`,
       type: 'alert',
