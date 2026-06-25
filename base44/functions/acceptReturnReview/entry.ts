@@ -46,6 +46,7 @@ Deno.serve(async (req) => {
 
     await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
       booking_status: 'completed',
+      rental_lifecycle_phase: 'completed',
       clean_return_status: 'approved_clean',
       rental_ended_at: booking.rental_ended_at || now,
       rental_ended_by: user.role === 'admin' ? 'admin_return_acceptance' : 'host_return_acceptance',

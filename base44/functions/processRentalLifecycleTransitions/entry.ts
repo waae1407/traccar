@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
 
       await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
         booking_status: newStatus,
+        rental_lifecycle_phase: 'return_required',
         return_required_at: booking.return_required_at || now.toISOString(),
         scheduled_end_at: booking.scheduled_end_at || endDate.toISOString(),
       });
@@ -165,6 +166,7 @@ Deno.serve(async (req) => {
       if (hoursSinceReturn > 24 && booking.booking_status !== 'overdue_return') {
         await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
           booking_status: 'overdue_return',
+          rental_lifecycle_phase: 'return_required',
         });
 
         await base44.asServiceRole.functions.invoke('routePlatformNotification', {
@@ -217,6 +219,7 @@ Deno.serve(async (req) => {
       // Auto-complete the booking
       await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
         booking_status: 'completed',
+        rental_lifecycle_phase: 'completed',
         auto_completed_at: now.toISOString(),
         completed_at: now.toISOString(),
         completion_reason: 'host_review_window_expired',

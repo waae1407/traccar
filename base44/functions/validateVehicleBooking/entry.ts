@@ -48,6 +48,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── RENTAL360: Use deriveVehicleAvailability as source of truth ──
+    // Vehicle.status alone is NOT trusted — derived availability checks active bookings
+    const derivedAvailability = await base44.asServiceRole.functions.invoke('deriveVehicleAvailability', {
+      vehicle_id,
+      start_date,
+      end_date
+    });
+
+    if (derivedAvailability.data?.blocked || derivedAvailability.data?.can_book === false) {
+      return Response.json({
+        blocked: true,
+        reason: derivedAvailability.data?.blocking_reason || 'This vehicle is not available for booking.',
+        internal_reason: `DERIVED_UNAVAILABLE: ${derivedAvailability.data?.availability_status} — ${derivedAvailability.data?.blocking_phase}`,
+        blocking_booking_id: derivedAvailability.data?.blocking_booking_id,
+        availability_status: derivedAvailability.data?.availability_status
+      });
+    }
+
     // Compliance Hold always blocks regardless of enforcement setting
     if (vehicle.status === 'Compliance Hold') {
       return Response.json({
@@ -57,7 +75,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (vehicle.status !== 'Available' && vehicle.status !== 'Reserved') {
+    // Hard-block statuses (maintenance, etc.) still block
+    const HARD_BLOCK_STATUSES = ['Maintenance', 'Maintenance Hold', 'Compliance Hold', 'Suspended', 'Out of Service', 'Retired', 'Dispute Hold', 'Cleaning Hold'];
+    if (HARD_BLOCK_STATUSES.includes(vehicle.status)) {
       return Response.json({
         blocked: true,
         reason: 'This vehicle is not currently available for booking.',
@@ -145,11 +165,17 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 3d. Check booking conflicts — includes all lifecycle statuses that block new bookings
+      // 3d. Check booking conflicts — deriveVehicleAvailability already checked this, but we keep
+      // the explicit overlap check here as defense-in-depth (the helper is the primary gate)
       const BLOCKING_STATUSES = [
         'pending_payment', 'pending_review', 'approved', 'confirmed', 'checked_out',
         'active', 'return_required', 'post_inspection_required', 'overdue_return',
         'return_pending_host_review', 'grace_period', 'payment_retry'
+      ];
+
+      const BLOCKING_PHASES = [
+        'payment_complete', 'pickup_required', 'checked_out', 'active',
+        'return_required', 'return_in_progress', 'host_review'
       ];
 
       const existingBookings = await base44.asServiceRole.entities.BookingRequest.filter({
@@ -157,7 +183,14 @@ Deno.serve(async (req) => {
         booking_status: { $in: BLOCKING_STATUSES },
       });
 
-      for (const booking of existingBookings) {
+      // Also filter by phase if set — but phase is authoritative when present
+      const phaseBlockingBookings = existingBookings.filter(b => {
+        if (b.is_superseded) return false;
+        if (b.rental_lifecycle_phase && !BLOCKING_PHASES.includes(b.rental_lifecycle_phase)) return false;
+        return true;
+      });
+
+      for (const booking of phaseBlockingBookings) {
         if (!booking.start_date || !booking.end_date) continue;
 
         const existingStart = new Date(booking.start_date + 'T00:00:00');
@@ -174,6 +207,7 @@ Deno.serve(async (req) => {
               booking_id: booking.id,
               conflicting_dates: { start: booking.start_date, end: booking.end_date },
               booking_status: booking.booking_status,
+              rental_lifecycle_phase: booking.rental_lifecycle_phase,
             },
           });
         }

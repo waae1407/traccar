@@ -350,6 +350,7 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
               return_distance_from_pickup_miles: distanceMiles,
               post_inspection_geofence_verified: false,
               booking_status: "post_inspection_required",
+              rental_lifecycle_phase: "return_required",
               clean_return_status: "not_returned",
               lifecycle_audit_notes: `Return photos submitted outside 5-mile geofence (${distanceMiles} miles). Return not completed.`,
             };
@@ -368,6 +369,7 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
             billing_stop_reason: "post_inspection_completed",
             clean_return_status: "photos_submitted",
             booking_status: "return_pending_host_review",
+            rental_lifecycle_phase: "host_review",
             host_review_due_at: hostReviewDueAt,
             damage_dispute_deadline_at: damageDisputeDeadlineAt,
             damage_dispute_allowed_after_auto_complete: true,

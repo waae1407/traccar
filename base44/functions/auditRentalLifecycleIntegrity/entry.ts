@@ -53,31 +53,47 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── CHECK 2: Booking completed without return_completed_at or admin override ──
+    // ── CHECK 2: Booking completed without return_completed_at or admin override or historical_migration ──
     const completedBookings = await base44.asServiceRole.entities.BookingRequest.filter({
       booking_status: 'completed'
     });
 
     for (const booking of completedBookings) {
-      if (!booking.return_completed_at && booking.completion_reason !== 'admin_override') {
+      if (!booking.return_completed_at && booking.completion_reason !== 'admin_override' && booking.completion_reason !== 'historical_migration') {
         issues.push({
           type: 'completed_without_return',
           severity: 'high',
           booking_id: booking.id,
           vehicle_id: booking.vehicle_id,
-          message: `Booking ${booking.id} completed without return_completed_at and no admin override.`,
+          message: `Booking ${booking.id} completed without return_completed_at and no admin override or historical_migration.`,
         });
+      }
+
+      // ── CHECK 2b: auto_completed before host_review_due_at ──
+      if (booking.auto_completed_at && booking.host_review_due_at) {
+        const autoCompleted = new Date(booking.auto_completed_at);
+        const reviewDue = new Date(booking.host_review_due_at);
+        if (autoCompleted < reviewDue) {
+          issues.push({
+            type: 'auto_completed_before_due',
+            severity: 'critical',
+            booking_id: booking.id,
+            vehicle_id: booking.vehicle_id,
+            message: `Booking ${booking.id} auto_completed_at (${booking.auto_completed_at}) is BEFORE host_review_due_at (${booking.host_review_due_at}). This indicates premature auto-completion — REQUIRES MANUAL REVIEW.`,
+          });
+        }
       }
     }
 
     // ── CHECK 3: Billing stopped without return_completed_at or admin override ──
+    // Valid billing stop reasons: post_inspection_completed (return_completed_at exists), admin_override, host_approved_return
     for (const booking of completedBookings) {
-      if (booking.billing_stopped_at && !booking.return_completed_at && booking.billing_stop_reason !== 'admin_override') {
+      if (booking.billing_stopped_at && !booking.return_completed_at && booking.billing_stop_reason !== 'admin_override' && booking.billing_stop_reason !== 'host_approved_return') {
         issues.push({
           type: 'billing_stopped_no_return',
           severity: 'high',
           booking_id: booking.id,
-          message: `Booking ${booking.id} billing_stopped_at set but no return_completed_at and no admin override.`,
+          message: `Booking ${booking.id} billing_stopped_at set but no return_completed_at and no valid admin/host override.`,
         });
       }
     }
@@ -184,6 +200,47 @@ Deno.serve(async (req) => {
             });
           }
         }
+      }
+    }
+
+    // ── CHECK 8: Scheduled end passed but phase not return_required/return_in_progress/host_review/completed ──
+    for (const booking of allBookings) {
+      if (!booking.end_date) continue;
+      const endDate = new Date(booking.end_date + 'T23:59:59');
+      if (endDate >= now) continue;
+
+      const phase = booking.rental_lifecycle_phase;
+      const validPostEndPhases = ['return_required', 'return_in_progress', 'host_review', 'completed', 'cancelled', 'superseded'];
+      const validPostEndStatuses = ['return_required', 'post_inspection_required', 'overdue_return', 'return_pending_host_review', 'completed', 'cancelled', 'superseded_invalid'];
+
+      if (!validPostEndPhases.includes(phase) && !validPostEndStatuses.includes(booking.booking_status)) {
+        issues.push({
+          type: 'scheduled_end_no_return_phase',
+          severity: 'critical',
+          booking_id: booking.id,
+          vehicle_id: booking.vehicle_id,
+          message: `Booking ${booking.id} scheduled end passed (${booking.end_date}) but phase is ${phase || 'null'} and status is ${booking.booking_status}. Should be return_required or later.`,
+        });
+      }
+    }
+
+    // ── CHECK 9: host_review older than 24 hours and not auto-completed ──
+    const hostReviewBookings = allBookings.filter(b => 
+      b.booking_status === 'return_pending_host_review' || b.rental_lifecycle_phase === 'host_review'
+    );
+    for (const booking of hostReviewBookings) {
+      const returnCompletedAt = booking.return_completed_at || booking.dropoff_submitted_at;
+      if (!returnCompletedAt) continue;
+
+      const hoursSinceReturn = (now.getTime() - new Date(returnCompletedAt).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceReturn > 24 && booking.booking_status !== 'completed') {
+        issues.push({
+          type: 'host_review_overdue_not_completed',
+          severity: 'critical',
+          booking_id: booking.id,
+          vehicle_id: booking.vehicle_id,
+          message: `Booking ${booking.id} in host_review for ${Math.round(hoursSinceReturn)}h (>24h) but not auto-completed. processRentalLifecycleTransitions may not be running.`,
+        });
       }
     }
 

@@ -213,11 +213,20 @@ Deno.serve(async (req) => {
     const billingTargets = activeBookings.filter((b) => {
       if (!['approved', 'confirmed', 'active', 'checked_out'].includes(b.booking_status)) return false;
       if (b.clean_return_status === 'approved_clean') return false; // rental ended
-      // ── BILLING STOP: Stop if return_completed_at exists and geofence verified ──
-      if (b.billing_stopped_at && b.billing_stop_reason === 'post_inspection_completed') return false;
+      // ── BILLING STOP HARDENING (Rental360) ──
+      // Billing stops ONLY if:
+      // A. return_completed_at exists AND post_inspection_geofence_verified = true
+      // B. billing_stopped_at exists with admin_override or host_approved_return reason
+      // C. booking is cancelled/superseded before active rental
+      // Scheduled end alone must NEVER stop billing or complete booking.
+      if (b.billing_stopped_at) {
+        // Valid stop reasons: post_inspection_completed, admin_override, host_approved_return
+        if (['post_inspection_completed', 'admin_override', 'host_approved_return'].includes(b.billing_stop_reason)) return false;
+        // billing_stopped_at with auto_completed is also valid (auto-complete stops billing)
+        if (b.billing_stop_reason === 'auto_completed') return false;
+      }
+      // Return completed + geofence verified stops billing even if host hasn't reviewed
       if (b.return_completed_at && b.post_inspection_geofence_verified) return false;
-      // ── BILLING STOP: Stop if billing_stopped_at set for any reason ──
-      if (b.billing_stopped_at) return false;
       if (!b.start_date) return false;
       if (!b.next_billing_date) return false;
 
