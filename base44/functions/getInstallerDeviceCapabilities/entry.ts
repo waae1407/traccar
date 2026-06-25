@@ -128,10 +128,13 @@ function pickVoltageDetails(...sources) {
 async function buildAutoChecks(base44, device) {
   const events = device?.id ? await base44.asServiceRole.entities.TelematicsEvent.filter({ telematics_device_id: device.id }) : [];
   const recentEvents = events.filter(event => isRecent(event.created_at || event.created_date, 24));
-  const recentGps = isRecent(device.location_updated_at || device.last_seen_at, 24) && Number.isFinite(Number(device.last_latitude)) && Number.isFinite(Number(device.last_longitude));
+  const online = isRecent(device.last_seen_at || device.location_updated_at, 24) || recentEvents.length > 0;
+  // GPS passes if device has valid coordinates AND is online (proves GPS antenna worked at installation)
+  const hasValidGps = Number.isFinite(Number(device.last_latitude)) && Number.isFinite(Number(device.last_longitude));
+  const gpsRecent = isRecent(device.location_updated_at, 24);
+  const recentGps = hasValidGps && (gpsRecent || online);
   const ignitionKnown = device.ignition_status && device.ignition_status !== 'unknown';
   const recentIgnition = recentEvents.some(event => typeof event.ignition === 'boolean' || ['ignition_on', 'ignition_off'].includes(event.event_type));
-  const online = isRecent(device.last_seen_at || device.location_updated_at, 24) || recentEvents.length > 0;
   const voltage = pickVoltageDetails(
     { entity: 'TelematicsDevice', payload: device, timestamp: device.voltage_last_seen_at || device.location_updated_at || device.last_seen_at },
     ...recentEvents.map(event => ({ entity: 'TelematicsEvent.raw_payload', payload: event.raw_payload, timestamp: event.created_at || event.created_date }))
