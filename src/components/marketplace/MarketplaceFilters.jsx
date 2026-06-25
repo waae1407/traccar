@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,6 +67,7 @@ export default function MarketplaceFilters({
     year_max: '',
     seats: '',
     transmission: '',
+    host_rating_min: '',
     contactless_pickup: false,
     delivery_available: false,
     instant_booking: true,
@@ -75,6 +76,11 @@ export default function MarketplaceFilters({
   });
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  // Sync localFilters when parent filters change (e.g., from URL params)
+  useEffect(() => {
+    if (filters) setLocalFilters(filters);
+  }, [filters]);
 
   const handleApplyFilters = () => {
     onFiltersChange(localFilters);
@@ -96,6 +102,7 @@ export default function MarketplaceFilters({
       year_max: '',
       seats: '',
       transmission: '',
+      host_rating_min: '',
       contactless_pickup: false,
       delivery_available: false,
       instant_booking: true,
@@ -153,7 +160,7 @@ export default function MarketplaceFilters({
 
           {/* Results Count & Sort */}
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500 hidden lg:block">
+            <span className="text-sm text-gray-500 hidden sm:block">
               {isLoading ? 'Loading...' : `${vehicleCount} vehicles`}
             </span>
             <Select
@@ -403,6 +410,23 @@ function FilterContent({ localFilters, setLocalFilters }) {
                 {TRANSMISSION_TYPES.map(t => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Min Host Rating</Label>
+            <Select
+              value={localFilters.host_rating_min || ''}
+              onValueChange={(v) => setLocalFilters({ ...localFilters, host_rating_min: v })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Any" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">3+ Stars</SelectItem>
+                <SelectItem value="4">4+ Stars</SelectItem>
+                <SelectItem value="4.5">4.5+ Stars</SelectItem>
+                <SelectItem value="4.8">4.8+ Stars</SelectItem>
               </SelectContent>
             </Select>
           </div>

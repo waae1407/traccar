@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
           date,
           status: 'checkout_in_progress',
           reason_code: 'fast_commit_lock',
-          customer_label: 'Checkout in Progress',
+          customer_label: 'Being Reserved',
           host_label: 'Customer Checking Out',
           expires_at: lockOnDate.hold_expires_at,
           can_book: false
@@ -176,10 +176,10 @@ Deno.serve(async (req) => {
         let customerLabel = 'Booked';
         if (phase === 'return_required' || phase === 'return_in_progress' || ['return_required', 'post_inspection_required', 'overdue_return'].includes(bookingOnDate.booking_status)) {
           calendarStatus = 'return_required';
-          customerLabel = 'Return Required';
+          customerLabel = 'Returning Soon';
         } else if (phase === 'host_review' || bookingOnDate.booking_status === 'return_pending_host_review') {
           calendarStatus = 'host_review';
-          customerLabel = 'Host Review';
+          customerLabel = 'Returning Soon';
         }
         return {
           date,
@@ -231,9 +231,9 @@ Deno.serve(async (req) => {
         };
 
         const labelMap = {
-          'blocked': 'Host Blocked',
+          'blocked': 'Unavailable',
           'maintenance': 'Maintenance',
-          'personal_use': 'Personal Use',
+          'personal_use': 'Unavailable',
           'blackout': 'Unavailable',
           'available_override': 'Available',
           'pickup_window': 'Available',

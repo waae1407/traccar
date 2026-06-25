@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Lock, Repeat, AlertTriangle, Ban, Wrench, User, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Calendar, Lock, Repeat, AlertTriangle, Ban, Wrench, User, Clock, Search, TrendingUp } from "lucide-react";
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isBefore } from "date-fns";
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -21,6 +22,7 @@ const STATUS_CONFIG = {
 
 export default function AdminAvailabilityViewer({ vehicleId }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [searchQuery, setSearchQuery] = useState("");
 
   const startMonth = format(currentMonth, "yyyy-MM");
   const endMonth = format(addMonths(currentMonth, 1), "yyyy-MM");
@@ -85,6 +87,30 @@ export default function AdminAvailabilityViewer({ vehicleId }) {
     enabled: !!vehicleId,
   });
 
+  // Categorize bookings by lifecycle phase for admin clarity
+  const returningSoonBookings = conflictingBookings.filter(b =>
+    b.rental_lifecycle_phase === 'return_required' ||
+    b.rental_lifecycle_phase === 'return_in_progress' ||
+    b.rental_lifecycle_phase === 'host_review' ||
+    ['return_required', 'post_inspection_required', 'overdue_return', 'return_pending_host_review'].includes(b.booking_status)
+  );
+
+  const checkoutInProgressLocks = activeLocks.filter(lock => {
+    const ageSec = Math.floor((Date.now() - new Date(lock.hold_start).getTime()) / 1000);
+    return ageSec < 120;
+  });
+
+  // Search filter for bookings/conflicts
+  const searchLower = searchQuery.toLowerCase().trim();
+  const filteredBookings = searchLower
+    ? conflictingBookings.filter(b =>
+        (b.customer_full_name?.toLowerCase().includes(searchLower)) ||
+        (b.user_email?.toLowerCase().includes(searchLower)) ||
+        (b.id?.toLowerCase().includes(searchLower)) ||
+        (b.vehicle_name?.toLowerCase().includes(searchLower))
+      )
+    : conflictingBookings;
+
   if (!vehicleId) return null;
 
   const rules = calendarData?.rules || {};
@@ -101,6 +127,21 @@ export default function AdminAvailabilityViewer({ vehicleId }) {
 
   return (
     <div className="space-y-4">
+      {/* Search bar */}
+      <Card className="bg-card border-border">
+        <CardContent className="pt-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by VIN, vehicle, host, booking ID, or customer email…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Vehicle Availability Settings Summary */}
       <Card className="bg-card border-border">
         <CardHeader>
@@ -232,16 +273,41 @@ export default function AdminAvailabilityViewer({ vehicleId }) {
         </CardContent>
       </Card>
 
+      {/* Returning Soon — vehicles in return/host_review phase */}
+      {returningSoonBookings.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-amber-500" /> Returning Soon ({returningSoonBookings.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {returningSoonBookings.map((b) => (
+              <div key={b.id} className="flex items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2 text-sm">
+                <div>
+                  <p className="font-medium">{b.customer_full_name || b.user_email || "—"}</p>
+                  <p className="text-xs text-muted-foreground">{b.start_date} → {b.end_date}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs text-amber-500 border-amber-500/30">Returning Soon</Badge>
+                  {b.rental_lifecycle_phase && <Badge variant="outline" className="text-xs">{b.rental_lifecycle_phase}</Badge>}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Active Booking Conflicts */}
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" /> Active Booking Conflicts ({conflictingBookings.length})
+            <AlertTriangle className="h-4 w-4 text-amber-500" /> Active Booking Conflicts ({filteredBookings.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {conflictingBookings.length === 0 && <p className="text-muted-foreground text-sm">No active bookings blocking this vehicle.</p>}
-          {conflictingBookings.map((b) => (
+          {filteredBookings.length === 0 && <p className="text-muted-foreground text-sm">No active bookings blocking this vehicle.</p>}
+          {filteredBookings.map((b) => (
             <div key={b.id} className="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">
               <div>
                 <p className="font-medium">{b.customer_full_name || b.user_email || "—"}</p>
@@ -256,16 +322,16 @@ export default function AdminAvailabilityViewer({ vehicleId }) {
         </CardContent>
       </Card>
 
-      {/* Fast-Commit Locks */}
+      {/* Checkout In Progress — Fast-Commit Locks */}
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
-            <Lock className="h-4 w-4 text-yellow-500" /> Checkout in Progress ({activeLocks.length})
+            <Lock className="h-4 w-4 text-yellow-500" /> Checkout in Progress ({checkoutInProgressLocks.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {activeLocks.length === 0 && <p className="text-muted-foreground text-sm">No active checkout locks.</p>}
-          {activeLocks.map((lock) => {
+          {checkoutInProgressLocks.length === 0 && <p className="text-muted-foreground text-sm">No active checkout locks.</p>}
+          {checkoutInProgressLocks.map((lock) => {
             const ageSec = Math.floor((Date.now() - new Date(lock.hold_start).getTime()) / 1000);
             return (
               <div key={lock.id} className="flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm">

@@ -7,12 +7,12 @@ import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameD
 const STATUS_STYLES = {
   available: { bg: "bg-green-500/20", dot: "bg-green-500", label: "Available", text: "text-green-700" },
   booked: { bg: "bg-red-500/20", dot: "bg-red-500", label: "Booked", text: "text-red-700" },
-  unavailable: { bg: "bg-gray-400/20", dot: "bg-gray-400", label: "Host Blocked", text: "text-gray-600" },
+  unavailable: { bg: "bg-gray-400/20", dot: "bg-gray-400", label: "Unavailable", text: "text-gray-600" },
   maintenance: { bg: "bg-orange-500/20", dot: "bg-orange-500", label: "Maintenance", text: "text-orange-700" },
-  personal_use: { bg: "bg-purple-500/20", dot: "bg-purple-500", label: "Personal Use", text: "text-purple-700" },
-  return_required: { bg: "bg-amber-500/20", dot: "bg-amber-500", label: "Return Pending", text: "text-amber-700" },
-  host_review: { bg: "bg-amber-500/20", dot: "bg-amber-500", label: "Host Review", text: "text-amber-700" },
-  checkout_in_progress: { bg: "bg-yellow-400/20", dot: "bg-yellow-400", label: "Checkout in Progress", text: "text-yellow-700" },
+  personal_use: { bg: "bg-gray-400/20", dot: "bg-gray-400", label: "Unavailable", text: "text-gray-600" },
+  return_required: { bg: "bg-amber-500/20", dot: "bg-amber-500", label: "Returning Soon", text: "text-amber-700" },
+  host_review: { bg: "bg-amber-500/20", dot: "bg-amber-500", label: "Returning Soon", text: "text-amber-700" },
+  checkout_in_progress: { bg: "bg-yellow-400/20", dot: "bg-yellow-400", label: "Being Reserved", text: "text-yellow-700" },
 };
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];

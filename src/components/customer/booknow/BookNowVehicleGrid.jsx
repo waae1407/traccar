@@ -1,5 +1,5 @@
-import React from "react";
-import { MapPin, Zap, ChevronRight, Clock } from "lucide-react";
+import React, { useState } from "react";
+import { MapPin, Zap, ChevronRight, Clock, Star, Heart, Eye, Fuel, Settings2, Users } from "lucide-react";
 import PublicTrustBadges from "@/components/trust/PublicTrustBadges";
 import PublicRating from "@/components/trust/PublicRating";
 import { latestSnapshotFor, publicRating, publicVehicleLabels } from "@/lib/reputation/publicTrust";
@@ -7,34 +7,33 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const PLACEHOLDER = "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&q=80";
 
-// Heuristic tags based on vehicle properties
 function getVehicleTags(v) {
   const tags = [];
   const model = (v.model || "").toLowerCase();
-  const make = (v.make || "").toLowerCase();
-  const year = v.year || 0;
-
-  // Gig-friendly makes/models
   const gigModels = ["prius", "camry", "accord", "civic", "altima", "sentra", "malibu", "fusion", "elantra", "sonata", "corolla"];
   if (gigModels.some((m) => model.includes(m))) tags.push("uber");
-
-  // Fuel efficiency heuristic
   const efficientModels = ["prius", "civic", "corolla", "elantra", "sentra", "fit", "accent"];
   if (efficientModels.some((m) => model.includes(m))) tags.push("fuel");
-
   return tags;
 }
 
 function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapshots = [], presentationStyle = 'clean_grid' }) {
+  const [favorited, setFavorited] = useState(false);
   const tags = getVehicleTags(v);
   const snapshot = latestSnapshotFor(signalSnapshots, "vehicle", v.id);
   const labels = publicVehicleLabels(snapshot);
   const rating = publicRating(reviews.filter((r) => r.vehicle_id === v.id));
+  const estTax = Math.round((v.weekly_rate || 0) * 0.08);
+
+  const handleFavorite = (e) => {
+    e.stopPropagation();
+    setFavorited(!favorited);
+  };
 
   return (
-    <button
+    <div
       onClick={() => onSelect(v)}
-      className={`w-full text-left overflow-hidden active:scale-[0.97] transition-all duration-200 relative group ${presentationStyle === "compact" ? "rounded-xl" : presentationStyle === "editorial" ? "rounded-[1.75rem]" : "rounded-2xl"}`}
+      className={`w-full text-left overflow-hidden active:scale-[0.97] transition-all duration-200 relative group cursor-pointer ${presentationStyle === "compact" ? "rounded-xl" : presentationStyle === "editorial" ? "rounded-[1.75rem]" : "rounded-2xl"}`}
       style={{
         background: "#fff",
         border: "1px solid #e5e7eb",
@@ -64,12 +63,27 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
               ⭐ Top Pick
             </span>
           )}
+          {v.instant_booking_enabled !== false && (
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-white bg-blue-500/80 backdrop-blur-sm">
+              ⚡ Instant
+            </span>
+          )}
         </div>
 
-        {/* Approval badge top-right */}
-        <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-sm">
-          <Clock className="h-2.5 w-2.5 text-amber-300" />
-          <span className="text-[9px] text-white/80 font-medium">~24hr review</span>
+        {/* Favorite + Quick View top-right */}
+        <div className="absolute top-3 right-3 flex gap-1.5">
+          <button
+            onClick={handleFavorite}
+            className="h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+          >
+            <Heart className={`h-3.5 w-3.5 ${favorited ? "text-pink-500 fill-pink-500" : "text-gray-400"}`} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onSelect(v); }}
+            className="h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
+          >
+            <Eye className="h-3.5 w-3.5 text-gray-400" />
+          </button>
         </div>
 
         {/* Price */}
@@ -78,6 +92,13 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
             ${v.weekly_rate || "—"}
           </span>
           <span className="text-white/50 text-xs font-normal">/wk</span>
+        </div>
+
+        {/* Availability summary */}
+        <div className="absolute bottom-3 right-3">
+          <span className="px-2 py-0.5 rounded-full bg-emerald-500/90 text-white text-[9px] font-bold backdrop-blur-sm">
+            ● Available
+          </span>
         </div>
       </div>
 
@@ -98,6 +119,35 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
 
         <div className="mt-2"><PublicTrustBadges labels={labels} compact /></div>
 
+        {/* Vehicle specs row */}
+        <div className="flex items-center gap-3 mt-2 flex-wrap text-[10px] text-gray-500">
+          {v.fuel_type && (
+            <span className="flex items-center gap-0.5">
+              <Fuel className="h-2.5 w-2.5" /> {v.fuel_type}
+            </span>
+          )}
+          {v.transmission && (
+            <span className="flex items-center gap-0.5">
+              <Settings2 className="h-2.5 w-2.5" /> {v.transmission}
+            </span>
+          )}
+          {v.seats && (
+            <span className="flex items-center gap-0.5">
+              <Users className="h-2.5 w-2.5" /> {v.seats} seats
+            </span>
+          )}
+          {v.contactless_pickup && (
+            <span className="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100 font-semibold">
+              Contactless
+            </span>
+          )}
+          {v.delivery_available && (
+            <span className="px-1.5 py-0.5 rounded-md bg-green-50 text-green-600 border border-green-100 font-semibold">
+              Delivery
+            </span>
+          )}
+        </div>
+
         {/* Gig tags + min rental */}
         <div className="flex gap-1 mt-2 flex-wrap">
           {tags.includes("uber") && (
@@ -115,14 +165,18 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
               Min {v.minimum_rental_days}d
             </span>
           )}
-          {v.allow_daily_booking && v.daily_rate && (
-            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200">
-              ${v.daily_rate}/day
-            </span>
-          )}
         </div>
+
+        {/* Estimated taxes/fees */}
+        {v.weekly_rate && estTax > 0 && (
+          <div className="mt-2 pt-2 border-t border-gray-50">
+            <p className="text-[10px] text-gray-400">
+              +${estTax} est. taxes & fees
+            </p>
+          </div>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 

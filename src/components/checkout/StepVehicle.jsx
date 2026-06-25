@@ -34,8 +34,14 @@ function getSmartTip(type, filtered, startDate) {
 
 export default function StepVehicle({ vehicles = [], vehicleId, bookingType: initialType, onSelect }) {
   const validInitialType = BOOKING_TYPES.includes(initialType) ? initialType : "Weekly";
+
+  // Read start_date / end_date from URL params for search persistence
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlStartDate = urlParams.get("start_date");
+  const urlEndDate = urlParams.get("end_date");
+
   const [type, setType] = usePersistentFormDraft("checkout_vehicle_type_draft", validInitialType);
-  const [startDate, setStartDate, clearStartDateDraft] = usePersistentFormDraft("checkout_vehicle_start_date_draft", "");
+  const [startDate, setStartDate, clearStartDateDraft] = usePersistentFormDraft("checkout_vehicle_start_date_draft", urlStartDate || "");
   const [autoRenew, setAutoRenew, clearAutoRenewDraft] = usePersistentFormDraft("checkout_vehicle_auto_renew_draft", true);
   const [selectedId, setSelectedId, clearSelectedVehicleDraft] = usePersistentFormDraft("checkout_vehicle_selected_draft", vehicleId || null);
   const [zipcode, setZipcode] = usePersistentFormDraft("checkout_vehicle_zipcode_draft", "");
@@ -45,6 +51,11 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const [geocoding, setGeocoding] = useState(false);
   const [userCoords, setUserCoords] = usePersistentFormDraft("checkout_vehicle_user_coords_draft", null);
   const [zipcodeCoords, setZipcodeCoords] = usePersistentFormDraft("checkout_vehicle_zipcode_coords_draft", null);
+
+  // If URL has start_date and end_date, use those directly for validation
+  // Otherwise fall back to the draft state
+  const effectiveStartDate = startDate || urlStartDate || "";
+  const effectiveEndDate = urlEndDate || calcEndDate(effectiveStartDate, type);
 
   const available = vehicles.filter((v) => v.status === "Available" && v.host_id);
   const typeFiltered = type === "Rent-to-Own" ? available.filter((v) => v.rent_to_own_eligible) : available;
@@ -76,9 +87,9 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const displayLocationName = zipcodeCoords
     ? `${zipcodeCoords.city || "Unknown"}, ${zipcodeCoords.state || "US"}`
     : userCoords?.city || userCoords?.label || null;
-  const endDate = calcEndDate(startDate, type);
+  const endDate = effectiveEndDate;
   const selectedVehicle = vehicles.find((v) => v.id === selectedId);
-  const smartTip = getSmartTip(type, filtered, startDate);
+  const smartTip = getSmartTip(type, filtered, effectiveStartDate);
   const [signalSnapshots, setSignalSnapshots] = useState([]);
 
   useEffect(() => {
@@ -116,16 +127,16 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   };
 
   const handleConfirm = () => {
-    if (!startDate || !selectedVehicle) return;
+    if (!effectiveStartDate || !selectedVehicle) return;
     clearStartDateDraft();
     clearAutoRenewDraft();
     clearSelectedVehicleDraft();
-    onSelect(selectedVehicle, type, { startDate, endDate, autoRenew });
+    onSelect(selectedVehicle, type, { startDate: effectiveStartDate, endDate: effectiveEndDate, autoRenew });
   };
 
   const today = format(new Date(), "yyyy-MM-dd");
   // Minimum end date is always start + 7 days
-  const minEndDate = startDate ? format(addWeeks(new Date(startDate), 1), "yyyy-MM-dd") : null;
+  const minEndDate = effectiveStartDate ? format(addWeeks(new Date(effectiveStartDate), 1), "yyyy-MM-dd") : null;
 
   return (
     <div className="space-y-5">
@@ -172,12 +183,12 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
           <input
             type="date"
             min={today}
-            value={startDate}
+            value={effectiveStartDate}
             onChange={(e) => setStartDate(e.target.value)}
             className="w-full h-12 pl-10 pr-4 rounded-2xl border border-gray-200 text-sm text-gray-900 bg-white focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100 transition-all"
           />
         </div>
-        {startDate && endDate && (
+        {effectiveStartDate && endDate && (
           <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-100">
             <p className="text-xs text-amber-800 font-semibold mb-0.5">
               📅 {type === "Rent-to-Own" ? "52-week program" : "Minimum 1-week rental"}
@@ -403,11 +414,11 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
                     </div>
 
                     {/* Selected: show mini summary */}
-                    {isSelected && startDate && (
+                    {isSelected && effectiveStartDate && (
                       <div className="mt-2.5 p-2.5 rounded-xl bg-white border border-pink-100 flex items-center gap-2">
                         <Check className="h-4 w-4 text-pink-500 flex-shrink-0" />
                         <p className="text-xs text-gray-700">
-                          <strong>{type}</strong> starting <strong>{format(new Date(startDate), "MMM d, yyyy")}</strong>
+                          <strong>{type}</strong> starting <strong>{format(new Date(effectiveStartDate), "MMM d, yyyy")}</strong>
                           {endDate && <> → {format(new Date(endDate), "MMM d")}</>}
                         </p>
                       </div>
@@ -423,12 +434,12 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
       {/* CTA */}
       <div className="sticky bottom-0 bg-white pt-3 pb-1">
         <button
-          disabled={!startDate || !selectedVehicle}
+          disabled={!effectiveStartDate || !selectedVehicle}
           onClick={handleConfirm}
           className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2 shadow-lg"
           style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
         >
-          {selectedVehicle && startDate ? (
+          {selectedVehicle && effectiveStartDate ? (
             <>
               Confirm {selectedVehicle.make} {selectedVehicle.model}
               <ChevronRight className="h-5 w-5" />
@@ -436,11 +447,11 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
           ) : (
             <>
               <ChevronRight className="h-5 w-5" />
-              {!startDate ? "Pick a start date to continue" : !selectedVehicle ? "Select a vehicle to continue" : "Confirm & Continue"}
+              {!effectiveStartDate ? "Pick a start date to continue" : !selectedVehicle ? "Select a vehicle to continue" : "Confirm & Continue"}
             </>
           )}
         </button>
-        {selectedVehicle && startDate && (
+        {selectedVehicle && effectiveStartDate && (
           <p className="text-center text-xs text-gray-400 mt-2">
             ${selectedVehicle.weekly_rate}/wk · No deposit · Cancel anytime
           </p>

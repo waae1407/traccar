@@ -13,6 +13,8 @@ import BookNowHeadline from "@/components/customer/booknow/BookNowHeadline";
 import RentForFreeBanner from "@/components/customer/booknow/RentForFreeBanner";
 import WaitlistEmptyState from "@/components/customer/booknow/WaitlistEmptyState";
 import MarketplaceFilters from "@/components/marketplace/MarketplaceFilters";
+import MarketplaceSearchSummary from "@/components/marketplace/MarketplaceSearchSummary";
+import MarketplaceEmptyState from "@/components/marketplace/MarketplaceEmptyState";
 import useUserLocation from "@/hooks/useUserLocation";
 import HomeTopBar from "@/components/customer/HomeTopBar";
 
@@ -71,6 +73,7 @@ export default function BookNow() {
       year_max: '',
       seats: '',
       transmission: '',
+      host_rating_min: '',
       contactless_pickup: false,
       delivery_available: false,
       instant_booking: true,
@@ -79,13 +82,17 @@ export default function BookNow() {
     };
   });
 
-  // Keep URL in sync when filters change
+  // Keep URL in sync when filters change — persist search through URL
   useEffect(() => {
     const params = new URLSearchParams();
     if (marketplaceFilters.city) params.set('city', marketplaceFilters.city);
     if (marketplaceFilters.pickup_date) params.set('pickup_date', marketplaceFilters.pickup_date);
     if (marketplaceFilters.return_date) params.set('return_date', marketplaceFilters.return_date);
     if (marketplaceFilters.vehicle_type?.length) params.set('vehicle_type', marketplaceFilters.vehicle_type[0]);
+    if (marketplaceFilters.make) params.set('make', marketplaceFilters.make);
+    if (marketplaceFilters.model) params.set('model', marketplaceFilters.model);
+    if (marketplaceFilters.transmission) params.set('transmission', marketplaceFilters.transmission);
+    if (marketplaceFilters.sort) params.set('sort', marketplaceFilters.sort);
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState(null, '', newUrl);
   }, [marketplaceFilters]);
@@ -132,6 +139,7 @@ export default function BookNow() {
       contactless_pickup: marketplaceFilters.contactless_pickup || false,
       delivery_available: marketplaceFilters.delivery_available || false,
       instant_booking: marketplaceFilters.instant_booking !== false,
+      host_rating_min: marketplaceFilters.host_rating_min || null,
       rental_type: marketplaceFilters.rental_type || 'weekly',
       sort: marketplaceFilters.sort || 'recommended',
       limit: 50,
@@ -323,6 +331,23 @@ export default function BookNow() {
     ? [...available].sort((a, b) => (b.year || 0) - (a.year || 0))
     : available; // "All" = sorted by distance (nearest first)
 
+  const buildActiveFilters = (f) => {
+    const tags = [];
+    if (f.city) tags.push({ key: 'city', label: f.city });
+    if (f.pickup_date) tags.push({ key: 'pickup_date', label: `Pickup: ${f.pickup_date}` });
+    if (f.return_date) tags.push({ key: 'return_date', label: `Return: ${f.return_date}` });
+    if (f.make) tags.push({ key: 'make', label: f.make });
+    if (f.model) tags.push({ key: 'model', label: f.model });
+    if (f.year_min) tags.push({ key: 'year_min', label: `Min: ${f.year_min}` });
+    if (f.year_max) tags.push({ key: 'year_max', label: `Max: ${f.year_max}` });
+    if (f.transmission) tags.push({ key: 'transmission', label: f.transmission });
+    if (f.contactless_pickup) tags.push({ key: 'contactless_pickup', label: 'Contactless' });
+    if (f.delivery_available) tags.push({ key: 'delivery_available', label: 'Delivery' });
+    if (f.vehicle_type?.length) tags.push({ key: 'vehicle_type', label: f.vehicle_type.join(', ') });
+    if (f.fuel_type?.length) tags.push({ key: 'fuel_type', label: f.fuel_type.join(', ') });
+    return tags;
+  };
+
   const handleBook = (vehicle) => {
     setSelectedVehicle(null);
     const companyParam = companySlug ? `&company=${companySlug}` : "";
@@ -397,11 +422,54 @@ export default function BookNow() {
 
       {/* SECTION 6: Vehicle inventory or empty state */}
       <div id="vehicle-grid" />
+
+      {/* Search Summary */}
+      <MarketplaceSearchSummary
+        vehicleCount={searchResults?.total || available.length}
+        city={marketplaceFilters.city}
+        pickupDate={marketplaceFilters.pickup_date}
+        returnDate={marketplaceFilters.return_date}
+        activeFilters={buildActiveFilters(marketplaceFilters)}
+        sort={marketplaceFilters.sort}
+        onClearFilters={() => setMarketplaceFilters({
+          city: '', pickup_date: '', return_date: '',
+          price_min: 0, price_max: 500, vehicle_type: [], fuel_type: [],
+          make: '', model: '', year_min: '', year_max: '',
+          seats: '', transmission: '', contactless_pickup: false,
+          delivery_available: false, instant_booking: true,
+          rental_type: 'weekly', sort: 'recommended'
+        })}
+        onClearFilter={(key) => setMarketplaceFilters(prev => ({ ...prev, [key]: Array.isArray(prev[key]) ? [] : key === 'price_min' ? 0 : key === 'price_max' ? 500 : key === 'instant_booking' ? true : '' }))}
+        isLoading={searchLoading || isLoading}
+      />
+
       {(!searchLoading && !isLoading) && available.length === 0 ? (
-        <WaitlistEmptyState
-          location={location}
-          onChangeLocation={() => document.getElementById("location-context-change")?.click()}
-        />
+        hasDates ? (
+          <MarketplaceEmptyState
+            city={marketplaceFilters.city}
+            pickupDate={marketplaceFilters.pickup_date}
+            returnDate={marketplaceFilters.return_date}
+            onExpandRadius={() => setMarketplaceFilters(prev => ({ ...prev, city: '' }))}
+            onAdjustDates={(newStart, newEnd) => setMarketplaceFilters(prev => ({
+              ...prev,
+              pickup_date: newStart || prev.pickup_date,
+              return_date: newEnd || prev.return_date,
+            }))}
+            onClearFilters={() => setMarketplaceFilters({
+              city: '', pickup_date: '', return_date: '',
+              price_min: 0, price_max: 500, vehicle_type: [], fuel_type: [],
+              make: '', model: '', year_min: '', year_max: '',
+              seats: '', transmission: '', contactless_pickup: false,
+              delivery_available: false, instant_booking: true,
+              rental_type: 'weekly', sort: 'recommended'
+            })}
+          />
+        ) : (
+          <WaitlistEmptyState
+            location={location}
+            onChangeLocation={() => document.getElementById("location-context-change")?.click()}
+          />
+        )
       ) : (
         <BookNowVehicleGrid
           vehicles={filtered}

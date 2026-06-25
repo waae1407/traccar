@@ -63,7 +63,7 @@ export default function VehicleDetailSheet({ vehicle, onClose, onBook, user, rev
             {[
               { label: "Color", value: vehicle.color || "—" },
               { label: "Mileage", value: vehicle.mileage ? `${vehicle.mileage.toLocaleString()} mi` : "—" },
-              { label: "Status", value: vehicle.status },
+              { label: "Availability", value: "Available" },
             ].map(({ label, value }) => (
               <div key={label} className="text-center p-3 bg-gray-50 rounded-xl">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
