@@ -22,7 +22,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    // Allow public marketplace browsing - auth optional
+    // Public marketplace browsing allowed - auth optional for logged-in features
     const user = await base44.auth.me().catch(() => null);
 
     const {

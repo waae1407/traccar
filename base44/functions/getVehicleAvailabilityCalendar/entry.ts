@@ -26,10 +26,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // Public/calendar viewing allowed - auth optional for public marketplace browsing
+    const user = await base44.auth.me().catch(() => null);
 
-    const { vehicle_id, start_month, end_month, requested_start, requested_end } = await req.json();
+    const { vehicle_id, start_month, end_month, requested_start, requested_end } = await req.json() || {};
 
     if (!vehicle_id) {
       return Response.json({ error: 'vehicle_id required' }, { status: 400 });
@@ -70,15 +70,16 @@ Deno.serve(async (req) => {
       end_date: { $gte: startDate.toISOString().split('T')[0] }
     });
 
-    // Load host availability rules
-    const availabilityRules = await base44.entities.VehicleAvailabilityRule.filter({
+    // Load host availability rules (use service role for public access)
+    const availabilityRules = await base44.asServiceRole.entities.VehicleAvailabilityRule.filter({
       vehicle_id,
       is_active: true,
-      start_date: { $lte: endDate.toISOString().split('T')[0] },
-      $or: [
-        { end_date: { $gte: startDate.toISOString().split('T')[0] } },
-        { end_date: null }
-      ]
+      start_date: { $lte: endDate.toISOString().split('T')[0] }
+    });
+    // Filter out rules that ended before our range (handle null end_date as ongoing)
+    const filteredRules = availabilityRules.filter(rule => {
+      if (!rule.end_date) return true;
+      return rule.end_date >= startDate.toISOString().split('T')[0];
     });
 
     // Load active fast-commit locks (<120 seconds old)
@@ -167,21 +168,17 @@ Deno.serve(async (req) => {
       }
 
       // Check host availability rules
-      const ruleOnDate = availabilityRules.find(rule => {
+      const ruleOnDate = filteredRules.find(rule => {
+        if (!rule.start_date) return false;
         const ruleStart = new Date(rule.start_date + 'T00:00:00');
-        const ruleEnd = rule.end_date ? new Date(rule.end_date + 'T23:59:59') : null;
+        const ruleEnd = rule.end_date ? new Date(rule.end_date + 'T23:59:59') : ruleStart;
 
-        // Single date rule
-        if (!rule.end_date) {
-          return rule.start_date === date;
-        }
-
-        // Date range rule
-        if (ruleEnd && (dateObj < ruleStart || dateObj > ruleEnd)) {
+        // Check date range overlap
+        if (dateObj < ruleStart || dateObj > ruleEnd) {
           return false;
         }
 
-        // Recurring rules
+        // Recurring rules - check day of week
         if (rule.repeats && rule.repeat_rule) {
           if (rule.repeat_rule === 'weekdays' && (dayOfWeek === 0 || dayOfWeek === 6)) {
             return false;
@@ -238,13 +235,16 @@ Deno.serve(async (req) => {
         customer_label: isAvailable ? 'Available' : 'Unavailable',
         host_label: isAvailable ? 'Available for booking' : 'Blocked by default',
         can_book: isAvailable,
-        pricing: {
-          daily_rate: vehicle.daily_rate,
-          weekly_rate: vehicle.weekly_rate,
-          monthly_rate: vehicle.monthly_rate
-        },
-        minimum_rental_days: vehicle.minimum_rental_days,
-        maximum_rental_days: vehicle.maximum_rental_days
+        minimum_rental_days: vehicle.minimum_rental_days || 7,
+        advance_notice_hours: vehicle.advance_notice_hours || 0,
+        pickup_window: vehicle.pickup_window_start && vehicle.pickup_window_end ? {
+          start: vehicle.pickup_window_start,
+          end: vehicle.pickup_window_end
+        } : null,
+        return_window: vehicle.return_window_start && vehicle.return_window_end ? {
+          start: vehicle.return_window_start,
+          end: vehicle.return_window_end
+        } : null
       };
     });
 

@@ -15,11 +15,17 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  * Returns: { blocked: boolean, reason: string, internal_reason?: string, conflict?: object }
  */
 Deno.serve(async (req) => {
+  const base44 = createClientFromRequest(req);
+  
+  // Checkout requires authenticated customer session (outside try/catch to ensure enforcement)
   try {
-    const base44 = createClientFromRequest(req);
-    // Allow testing without auth - in production would require auth
-    const user = await base44.auth.me().catch(() => null);
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Authentication required for checkout' }, { status: 401 });
+  } catch (authError) {
+    return Response.json({ error: 'Authentication required for checkout' }, { status: 401 });
+  }
 
+  try {
     const { vehicle_id, start_date, end_date } = await req.json();
     if (!vehicle_id) return Response.json({ error: 'vehicle_id required' }, { status: 400 });
 
