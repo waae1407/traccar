@@ -106,6 +106,20 @@ export default function CheckoutFlow() {
     }),
   });
 
+  // Release booking hold on unmount if checkout is abandoned
+  useEffect(() => {
+    return () => {
+      if (booking?.vehicle_id && booking?.checkout_step !== "confirmation" && booking?.booking_status !== "confirmed" && booking?.booking_status !== "approved") {
+        // Only release if not yet confirmed/approved
+        base44.functions.invoke("manageBookingHold", {
+          operation: "release",
+          vehicle_id: booking.vehicle_id,
+          session_id: booking.id,
+        }).catch(() => {});
+      }
+    };
+  }, [booking?.vehicle_id, booking?.checkout_step, booking?.booking_status, booking?.id]);
+
   useEffect(() => {
     if (existingRequest && requestedStep === "payment" && !user) return;
     if (existingRequest && !initializedRef.current) {
@@ -172,6 +186,20 @@ export default function CheckoutFlow() {
       setBooking(updated);
 
       if (updateData.payment_status === "paid") {
+        // Convert booking hold to booking
+        if (booking.vehicle_id) {
+          try {
+            await base44.functions.invoke("manageBookingHold", {
+              operation: "convert",
+              vehicle_id: booking.vehicle_id,
+              booking_request_id: booking.id,
+            });
+            console.log("[CheckoutFlow] Hold converted to booking:", booking.id);
+          } catch (e) {
+            console.warn("[HoldConvert] Failed:", e);
+          }
+        }
+
         const approval = await base44.functions.invoke("autoApproveBooking", {
           booking_request_id: booking.id,
           source: options.paymentRecovery ? "payment_recovery" : "checkout_payment_success"
@@ -274,17 +302,44 @@ export default function CheckoutFlow() {
           }
           if (hardBlockingBooking) return;
 
+          // 1. Validate availability with dates
           try {
-            const compRes = await base44.functions.invoke("validateVehicleBooking", { vehicle_id: v.id });
-            if (compRes.data?.blocked) {
-              setComplianceError(compRes.data.reason || "This vehicle is temporarily unavailable.");
+            const validationRes = await base44.functions.invoke("validateVehicleBooking", {
+              vehicle_id: v.id,
+              start_date: opts.startDate,
+              end_date: opts.endDate,
+            });
+            if (validationRes.data?.blocked) {
+              setComplianceError(validationRes.data.reason || "This vehicle is temporarily unavailable.");
               return;
             }
-            if (compRes.data?.host_id && !v.host_id) v.host_id = compRes.data.host_id;
+            if (validationRes.data?.host_id && !v.host_id) v.host_id = validationRes.data.host_id;
           } catch (e) {
-            console.warn("[ComplianceCheck] Failed:", e);
+            console.warn("[ValidateBooking] Failed:", e);
           }
           setComplianceError(null);
+
+          // 2. Create booking hold (10-minute inventory lock)
+          const sessionId = crypto.randomUUID();
+          try {
+            const holdRes = await base44.functions.invoke("manageBookingHold", {
+              operation: "create",
+              vehicle_id: v.id,
+              session_id: sessionId,
+            });
+            if (!holdRes.data?.ok) {
+              if (holdRes.data?.error === "VEHICLE_ALREADY_HELD") {
+                setComplianceError("This vehicle is currently reserved by another customer. Please try again in a few minutes.");
+              } else {
+                setComplianceError("Unable to reserve vehicle. Please try again.");
+              }
+              return;
+            }
+            console.log("[CheckoutFlow] Hold created:", holdRes.data.hold_id, "expires:", holdRes.data.expires_at);
+          } catch (e) {
+            console.warn("[BookingHold] Failed:", e);
+            // Non-blocking — continue checkout but log warning
+          }
 
           const allStaleToCancel = allUserBookings.filter(
             (b) => [...STALE_STATUSES, "draft", "pending_payment"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId

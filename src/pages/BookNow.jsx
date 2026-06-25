@@ -115,6 +115,30 @@ export default function BookNow() {
   });
   const complianceEnforcementEnabled = platformSettingsData ? platformSettingsData.compliance_enforcement_enabled !== false : true;
 
+  // Fetch active booking holds to show "Checkout in progress" status
+  const { data: activeHolds = [] } = useQuery({
+    queryKey: ["active-booking-holds"],
+    queryFn: () => base44.entities.BookingHold.filter({ status: 'active' }, '-hold_expires_at', 100),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+
+  // Map vehicle_id to hold info
+  const vehicleHoldMap = useMemo(() => {
+    const map = {};
+    const now = new Date();
+    activeHolds.forEach(hold => {
+      if (hold.status === 'active' && new Date(hold.hold_expires_at) > now) {
+        map[hold.vehicle_id] = {
+          hold_id: hold.id,
+          expires_at: hold.hold_expires_at,
+          customer_email: hold.customer_email,
+        };
+      }
+    });
+    return map;
+  }, [activeHolds]);
+
   // Build approved host set and brand moderation set
   const approvedHostIds = useMemo(() => new Set(approvedHosts.map(h => h.id)), [approvedHosts]);
   const blockedHostIds = useMemo(() => new Set(

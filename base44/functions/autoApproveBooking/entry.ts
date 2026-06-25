@@ -184,12 +184,17 @@ Deno.serve(async (req) => {
       return Response.json({ ok: false, auto_approval_status: 'review_required', auto_approval_reason: reason, booking: updated });
     }
 
-    const vehicleBookings = await base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id: vehicle.id });
-    const conflict = vehicleBookings.find(other => other.id !== booking.id && ACTIVE_BOOKING_STATUSES.includes(other.booking_status) && overlaps(booking.start_date, booking.end_date, other.start_date, other.end_date));
-    if (conflict) {
-      const reason = 'Vehicle is already booked by another customer for this rental window.';
+    // BOOKING360 INTEGRITY GUARD — Server-side overlap validation
+    const validationRes = await base44.asServiceRole.functions.invoke('validateVehicleBooking', {
+      vehicle_id: vehicle.id,
+      start_date: booking.start_date,
+      end_date: booking.end_date,
+    });
+    if (validationRes.data?.blocked && validationRes.data?.internal_reason === 'BOOKING_CONFLICT') {
+      const conflict = validationRes.data.conflict;
+      const reason = `Vehicle is already booked for this rental window (Booking ${conflict?.booking_id || 'unknown'}).`;
       const updated = await writeOutcome(base44, booking, fail(reason, 'blocked'), 'under_review');
-      return Response.json({ ok: false, auto_approval_status: 'blocked', auto_approval_reason: reason, booking: updated });
+      return Response.json({ ok: false, auto_approval_status: 'blocked', auto_approval_reason: reason, booking: updated, conflict });
     }
 
     const start = booking.start_date ? new Date(`${booking.start_date}T00:00:00`) : todayDate();
