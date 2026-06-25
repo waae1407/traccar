@@ -141,15 +141,23 @@ Deno.serve(async (req) => {
       } else if (failure.channel === 'email' && failure.payload?.subject && failure.payload?.html) {
         retryResult = await retryEmail(failure.recipient, failure.payload.subject, failure.payload.html);
       } else if (failure.channel === 'inapp' && failure.payload) {
-        // Re-create in-app notification
+        // Re-create in-app notification with standard fields
         try {
           await base44.asServiceRole.entities.Notification.create({
-            user_email: failure.recipient,
+            recipient_email: failure.recipient,
+            recipient_role: failure.payload.recipient_role || 'system',
+            recipient_phone: failure.payload.recipient_phone || '',
             title: failure.payload.title || 'Notification',
             body: failure.payload.body || '',
             type: failure.payload.type || 'system',
             category: failure.payload.category || 'system',
+            severity: failure.payload.severity || 'info',
             is_read: false,
+            booking_request_id: failure.payload.booking_request_id || '',
+            vehicle_id: failure.payload.vehicle_id || '',
+            action_url: failure.payload.action_url || '/dashboard',
+            source_function: 'retryFailedNotifications',
+            metadata: { retry_attempt: failure.retry_count + 1, original_failure_id: failure.id },
           });
           retryResult = { ok: true };
         } catch (e) {

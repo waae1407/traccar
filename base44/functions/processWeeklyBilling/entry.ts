@@ -619,11 +619,19 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
   });
 
   await base44.asServiceRole.entities.Notification.create({
-    user_email: booking.user_email,
+    recipient_user_id: booking.user_id || '',
+    recipient_role: 'customer',
+    recipient_email: booking.user_email,
+    recipient_phone: booking.customer_phone || '',
     title: "Payment failed — action required",
     body: warningMessage,
     type: "payment",
+    category: "payments",
+    severity: "critical",
     booking_request_id: booking.id,
+    vehicle_id: booking.vehicle_id || '',
+    action_url: '/account',
+    source_function: 'processWeeklyBilling',
   });
 
   if (booking.customer_phone) {

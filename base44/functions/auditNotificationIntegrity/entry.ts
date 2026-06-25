@@ -247,6 +247,7 @@ Deno.serve(async (req) => {
           recipient_user_id: booking.user_id || '',
           recipient_role: 'customer',
           recipient_email: booking.user_email,
+          recipient_phone: booking.customer_phone || '',
           title: '⚠️ Payment Failed — Action Required',
           body: `Your payment for ${booking.vehicle_name || booking.id} failed. Please update your payment method to avoid service interruption.`,
           type: 'payment',

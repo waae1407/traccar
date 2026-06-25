@@ -244,13 +244,20 @@ async function handleBookingRejected(base44, { booking, reason }) {
   const inAppKey = `booking_rejected:${booking.id}:${booking.user_email}:inapp`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: booking.user_email,
+      recipient_user_id: booking.user_id || '',
+      recipient_role: 'customer',
+      recipient_email: booking.user_email,
+      recipient_phone: booking.customer_phone || '',
       title: 'Booking Not Approved',
       body: reason || `Your ${booking.vehicle_name || 'vehicle'} booking was not approved. Please contact support for details.`,
       type: 'booking',
-      booking_request_id: booking.id,
       category: 'bookings',
+      severity: 'warning',
       is_read: false,
+      booking_request_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      action_url: '/book-now',
+      source_function: 'sendCriticalNotification',
     }).catch(() => {});
     await logDelivery(base44, { event_type: 'notification.booking_rejected.inapp', idempotency_key: inAppKey, recipient_email: booking.user_email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'booking_rejected', source_entity_type: 'BookingRequest', source_entity_id: booking.id, booking_id: booking.id });
     results.inapp = 'sent';
@@ -283,13 +290,21 @@ async function handleChargebackOpened(base44, { dispute, host, booking }) {
   const inAppKey = `chargeback_opened:${dispute.id}:${host.id}:inapp`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
+      recipient_user_id: host.user_id || '',
+      recipient_role: 'host',
+      recipient_email: host.email,
+      recipient_phone: host.phone || '',
       title: '🚨 Chargeback Opened',
       body: `A chargeback was filed for $${dispute.stripe_dispute_amount || '?'} on ${booking?.vehicle_name || 'a rental'}. Evidence due: ${dueBy}. Act now to avoid losing this dispute.`,
       type: 'alert',
       category: 'payments',
       severity: 'critical',
       is_read: false,
+      booking_request_id: booking?.id || '',
+      vehicle_id: booking?.vehicle_id || '',
+      payment_id: dispute.stripe_payment_intent_id || '',
+      action_url: '/host/payments',
+      source_function: 'sendCriticalNotification',
     }).catch(() => {});
     await logDelivery(base44, { event_type: 'notification.chargeback_opened.inapp', idempotency_key: inAppKey, recipient_email: host.email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'chargeback_opened', source_entity_type: 'Dispute', source_entity_id: dispute.id, host_id: host.id });
     results.inapp = 'sent';
@@ -337,12 +352,20 @@ async function handlePayoutHeld(base44, { host, payout, dispute }) {
   const inAppKey = `payout_held:${payout?.id || dispute?.id}:${host.id}:inapp`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
+      recipient_user_id: host.user_id || '',
+      recipient_role: 'host',
+      recipient_email: host.email,
+      recipient_phone: host.phone || '',
       title: '⚠️ Payout Placed on Hold',
       body: `Your payout of $${payout?.net_host_payout || '?'} has been placed on hold due to a chargeback dispute. It will be released if the dispute is resolved in your favor.`,
       type: 'alert',
       category: 'payouts',
+      severity: 'warning',
       is_read: false,
+      payment_id: payout?.id || dispute?.id || '',
+      booking_request_id: booking?.id || '',
+      action_url: '/host/payouts',
+      source_function: 'sendCriticalNotification',
     }).catch(() => {});
     await logDelivery(base44, { event_type: 'notification.payout_held.inapp', idempotency_key: inAppKey, recipient_email: host.email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'payout_held', source_entity_type: 'HostPayout', source_entity_id: payout?.id || '', host_id: host.id });
     results.inapp = 'sent';
@@ -377,13 +400,21 @@ async function handleGPSOffline24h(base44, { vehicle, booking, host, device_id, 
   const inAppKey = `gps_offline_24h:${device_id}:${host.id}:inapp:${today}`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
+      recipient_user_id: host.user_id || '',
+      recipient_role: 'host',
+      recipient_email: host.email,
+      recipient_phone: host.phone || '',
       title: '📡 GPS Device Offline (24h+)',
       body: `Your ${vehicleName} GPS device has been offline for 24+ hours. Last seen: ${last_update || 'unknown'}. Please verify vehicle status.`,
       type: 'alert',
       category: 'gps',
       severity: 'critical',
       is_read: false,
+      vehicle_id: vehicle.id,
+      booking_request_id: booking?.id || '',
+      action_url: '/host/telematics',
+      source_function: 'sendCriticalNotification',
+      metadata: { device_id, last_update },
     }).catch(() => {});
     await logDelivery(base44, { event_type: 'notification.gps_offline_24h.inapp', idempotency_key: inAppKey, recipient_email: host.email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'gps_offline_24h', source_entity_type: 'Vehicle', source_entity_id: vehicle.id, host_id: host.id, vehicle_id: vehicle.id, metadata: { device_id, last_update } });
     results.inapp = 'sent';
@@ -470,13 +501,20 @@ async function handleComplianceExpiredHost(base44, { host, vehicle, doc_type, ex
   const inAppKey = `compliance_expired:${vehicle.id}:${doc_type}:${host.id}:inapp:${today}`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
+      recipient_user_id: host.user_id || '',
+      recipient_role: 'host',
+      recipient_email: host.email,
+      recipient_phone: host.phone || '',
       title: `🚨 ${docLabel} Expired — Vehicle Suspended`,
       body: `${docLabel} for ${vehicleName} expired on ${expiry_date}. Vehicle is on Compliance Hold. Upload renewal to reinstate.`,
       type: 'alert',
       category: 'compliance',
       severity: 'critical',
       is_read: false,
+      vehicle_id: vehicle.id,
+      action_url: '/host/compliance',
+      source_function: 'sendCriticalNotification',
+      metadata: { doc_type, expiry_date },
     }).catch(() => {});
     await logDelivery(base44, { event_type: 'notification.compliance_expired.inapp', idempotency_key: inAppKey, recipient_email: host.email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'compliance_expired', source_entity_type: 'Vehicle', source_entity_id: vehicle.id, host_id: host.id, vehicle_id: vehicle.id });
     results.inapp = 'sent';
@@ -519,14 +557,20 @@ async function handleComplianceHoldActiveBooking(base44, { booking, vehicle, doc
   const inAppKey = `compliance_hold_active_booking:${booking.id}:${booking.user_email}:inapp`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: booking.user_email,
+      recipient_user_id: booking.user_id || '',
+      recipient_role: 'customer',
+      recipient_email: booking.user_email,
+      recipient_phone: booking.customer_phone || '',
       title: '⚠️ Important: Your Rental Vehicle Has a Compliance Issue',
       body: `Your ${vehicleName} rental has been affected by a compliance hold. Please contact support immediately for assistance.`,
       type: 'alert',
       category: 'bookings',
-      booking_request_id: booking.id,
       severity: 'critical',
       is_read: false,
+      booking_request_id: booking.id,
+      vehicle_id: vehicle?.id || '',
+      action_url: '/support',
+      source_function: 'sendCriticalNotification',
     }).catch(() => {});
     await logDelivery(base44, { event_type: 'notification.compliance_hold_active_booking.inapp', idempotency_key: inAppKey, recipient_email: booking.user_email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'compliance_hold_active_booking', source_entity_type: 'BookingRequest', source_entity_id: booking.id, booking_id: booking.id, vehicle_id: vehicle?.id || '' });
     results.inapp = 'sent';
@@ -564,13 +608,21 @@ async function handleWeeklyPaymentReceipt(base44, { booking, amount, week_number
   const inAppKey = `weekly_receipt:${booking.id}:week_${week_number}:${booking.user_email}:inapp`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: booking.user_email,
+      recipient_user_id: booking.user_id || '',
+      recipient_role: 'customer',
+      recipient_email: booking.user_email,
+      recipient_phone: booking.customer_phone || '',
       title: `Week ${week_number} Payment Received — $${amount}`,
       body: `$${amount} for your ${booking.vehicle_name} rental (Week ${week_number}) has been processed. Next charge: ${booking.next_billing_date || 'in 7 days'}.`,
       type: 'payment',
-      booking_request_id: booking.id,
       category: 'payments',
+      severity: 'info',
       is_read: false,
+      booking_request_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      action_url: '/my-bookings',
+      source_function: 'sendCriticalNotification',
+      metadata: { week_number, amount },
     }).catch(() => {});
     await logDelivery(base44, { event_type: 'notification.weekly_receipt.inapp', idempotency_key: inAppKey, recipient_email: booking.user_email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'weekly_payment_receipt', source_entity_type: 'BookingRequest', source_entity_id: booking.id, booking_id: booking.id });
     results.inapp = 'sent';
@@ -611,13 +663,20 @@ async function handleStripeAccountRestricted(base44, { host, stripe_account_id, 
   const inAppKey = `stripe_restricted:${host.id}:inapp:${today}`;
   if (!await checkDedup(base44, inAppKey)) {
     await base44.asServiceRole.entities.Notification.create({
-      user_email: host.email,
+      recipient_user_id: host.user_id || '',
+      recipient_role: 'host',
+      recipient_email: host.email,
+      recipient_phone: host.phone || '',
       title: '🔴 Stripe Account Restricted',
       body: 'Your Stripe payout account has been restricted. Payouts are paused until you resolve this. Go to your Stripe dashboard immediately.',
       type: 'alert',
       category: 'payouts',
       severity: 'critical',
       is_read: false,
+      host_id: host.id,
+      action_url: 'https://dashboard.stripe.com',
+      source_function: 'sendCriticalNotification',
+      metadata: { stripe_account_id, restriction_reason },
     }).catch(() => {});
     await logDelivery(base44, { event_type: 'notification.stripe_restricted.inapp', idempotency_key: inAppKey, recipient_email: host.email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'stripe_account_restricted', source_entity_type: 'Host', source_entity_id: host.id, host_id: host.id });
     results.inapp = 'sent';
