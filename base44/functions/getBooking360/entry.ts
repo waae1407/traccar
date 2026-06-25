@@ -6,18 +6,86 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { booking_request_id } = await req.json();
-    if (!booking_request_id) return Response.json({ error: 'booking_request_id required' }, { status: 400 });
+    const { booking_request_id, search_query } = await req.json();
 
-    // FIX #7: Return 404 (not 500) for invalid IDs
-    let booking;
-    try {
-      booking = await base44.asServiceRole.entities.BookingRequest.get(booking_request_id);
-    } catch (e) {
-      if (e.message && e.message.includes('not found')) return Response.json({ error: 'Booking not found' }, { status: 404 });
-      throw e;
+    let booking = null;
+
+    // Multi-field search: if search_query provided, search across booking_id, customer name, email, phone, VIN, vehicle name, host name
+    if (search_query && !booking_request_id) {
+      const q = search_query.trim().toLowerCase();
+
+      // Try exact booking ID first
+      try {
+        booking = await base44.asServiceRole.entities.BookingRequest.get(search_query.trim());
+      } catch (_) { /* not a direct ID, continue searching */ }
+
+      // Search by customer email / name / phone fields
+      if (!booking) {
+        const byEmail = await base44.asServiceRole.entities.BookingRequest.filter({ user_email: search_query.trim() }, "-created_date", 20);
+        if (byEmail.length === 1) booking = byEmail[0];
+        else if (byEmail.length > 1) {
+          return Response.json({ error: 'Multiple bookings found for this email', search_results: byEmail.map(b => ({ id: b.id, customer: b.customer_full_name, vehicle: b.vehicle_name, status: b.booking_status, start: b.start_date })) }, { status: 200 });
+        }
+      }
+
+      if (!booking) {
+        const byPhone = await base44.asServiceRole.entities.BookingRequest.filter({ customer_phone: search_query.trim() }, "-created_date", 20);
+        if (byPhone.length === 1) booking = byPhone[0];
+        else if (byPhone.length > 1) {
+          return Response.json({ error: 'Multiple bookings found for this phone', search_results: byPhone.map(b => ({ id: b.id, customer: b.customer_full_name, vehicle: b.vehicle_name, status: b.booking_status, start: b.start_date })) }, { status: 200 });
+        }
+      }
+
+      // Search by VIN → find vehicle → find bookings
+      if (!booking) {
+        const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ vin: search_query.trim() }, "-created_date", 10);
+        if (vehicles.length === 1) {
+          const vBookings = await base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id: vehicles[0].id }, "-created_date", 50);
+          if (vBookings.length === 1) booking = vBookings[0];
+          else if (vBookings.length > 1) {
+            return Response.json({ error: 'Multiple bookings found for this VIN', search_results: vBookings.map(b => ({ id: b.id, customer: b.customer_full_name, vehicle: b.vehicle_name, status: b.booking_status, start: b.start_date })) }, { status: 200 });
+          }
+        }
+      }
+
+      // Search by host name → find host → find bookings
+      if (!booking) {
+        const hosts = await base44.asServiceRole.entities.Host.filter({ full_name: search_query.trim() }, "-created_date", 10);
+        if (hosts.length === 1) {
+          const hBookings = await base44.asServiceRole.entities.BookingRequest.filter({ host_id: hosts[0].id }, "-created_date", 50);
+          if (hBookings.length === 1) booking = hBookings[0];
+          else if (hBookings.length > 1) {
+            return Response.json({ error: 'Multiple bookings found for this host', search_results: hBookings.map(b => ({ id: b.id, customer: b.customer_full_name, vehicle: b.vehicle_name, status: b.booking_status, start: b.start_date })) }, { status: 200 });
+          }
+        }
+      }
+
+      // Partial name search across all recent bookings
+      if (!booking) {
+        const recent = await base44.asServiceRole.entities.BookingRequest.list("-created_date", 500);
+        const matches = recent.filter(b => {
+          const haystack = `${b.customer_full_name || ""} ${b.user_email || ""} ${b.vehicle_name || ""} ${b.customer_phone || ""}`.toLowerCase();
+          return haystack.includes(q);
+        });
+        if (matches.length === 1) booking = matches[0];
+        else if (matches.length > 1) {
+          return Response.json({ error: 'Multiple bookings match your search', search_results: matches.slice(0, 20).map(b => ({ id: b.id, customer: b.customer_full_name, vehicle: b.vehicle_name, status: b.booking_status, start: b.start_date })) }, { status: 200 });
+        }
+      }
+
+      if (!booking) return Response.json({ error: 'No booking found matching your search' }, { status: 404 });
+    } else {
+      if (!booking_request_id) return Response.json({ error: 'booking_request_id or search_query required' }, { status: 400 });
+
+      // FIX #7: Return 404 (not 500) for invalid IDs
+      try {
+        booking = await base44.asServiceRole.entities.BookingRequest.get(booking_request_id);
+      } catch (e) {
+        if (e.message && e.message.includes('not found')) return Response.json({ error: 'Booking not found' }, { status: 404 });
+        throw e;
+      }
+      if (!booking) return Response.json({ error: 'Booking not found' }, { status: 404 });
     }
-    if (!booking) return Response.json({ error: 'Booking not found' }, { status: 404 });
 
     const isAdmin = user.role === 'admin';
     if (!isAdmin) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatPaymentSource, formatVehicleAction, formatPaymentReference, formatActivityMessage, sanitizeInternalText } from '@/lib/displayFormatters';
 import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
@@ -8,24 +8,68 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap } from 'lucide-react';
-import { format } from 'date-fns';
+import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap, RotateCcw, ArrowLeft } from 'lucide-react';
+import { format, isValid } from 'date-fns';
 
 function SBadge({ status }) {
   const map = { active: 'bg-green-500/20 text-green-400', confirmed: 'bg-green-500/20 text-green-400', approved: 'bg-blue-500/20 text-blue-400', payment_due: 'bg-yellow-500/20 text-yellow-400', suspended: 'bg-red-500/20 text-red-400', paid: 'bg-green-500/20 text-green-400', failed: 'bg-red-500/20 text-red-400', signed: 'bg-green-500/20 text-green-400', completed: 'bg-muted text-muted-foreground', cancelled: 'bg-muted text-muted-foreground' };
   return <Badge className={map[status] || 'bg-muted text-muted-foreground text-xs'}>{status?.replace(/_/g, ' ')}</Badge>;
 }
 
+function safeFmt(str, fmt = "MMM d, yyyy · h:mm a") {
+  if (!str) return '—';
+  const d = new Date(str);
+  return isValid(d) ? format(d, fmt) : str;
+}
+
+function LifecycleField({ label, value }) {
+  if (!value && value !== 0 && value !== false) return null;
+  const display = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : typeof value === 'string' ? value.replace(/_/g, ' ') : String(value);
+  return (
+    <div className="flex justify-between text-xs py-1.5 border-b border-border/50 last:border-0 gap-2">
+      <span className="text-muted-foreground whitespace-nowrap">{label}</span>
+      <span className="text-foreground font-medium text-right">{display}</span>
+    </div>
+  );
+}
+
 export default function Booking360() {
-  const [bookingId, setBookingId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
 
-  const handleSearch = async () => {
-    if (!bookingId.trim()) return;
-    setLoading(true); setError(''); setData(null);
-    const res = await base44.functions.invoke('getBooking360', { booking_request_id: bookingId.trim() });
+  // URL param auto-load: /admin/booking-360?id=<booking_id> or ?booking_id=<...>
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlId = params.get('id') || params.get('booking_id');
+    if (urlId) {
+      setSearchQuery(urlId);
+      doSearch(urlId);
+    }
+  }, []);
+
+  const doSearch = async (overrideQuery) => {
+    const q = (overrideQuery || searchQuery).trim();
+    if (!q) return;
+    setLoading(true); setError(''); setData(null); setSearchResults(null);
+    const res = await base44.functions.invoke('getBooking360', {
+      booking_request_id: q.match(/^[0-9a-f]{20,}$/i) ? q : undefined,
+      search_query: q.match(/^[0-9a-f]{20,}$/i) ? undefined : q,
+    });
+    if (res.data?.error) setError(res.data.error);
+    else if (res.data?.search_results) setSearchResults(res.data.search_results);
+    else setData(res.data);
+    setLoading(false);
+  };
+
+  const loadResult = async (bookingId) => {
+    setSearchQuery(bookingId);
+    setSearchResults(null);
+    setError('');
+    setLoading(true);
+    const res = await base44.functions.invoke('getBooking360', { booking_request_id: bookingId });
     if (res.data?.error) setError(res.data.error);
     else setData(res.data);
     setLoading(false);
@@ -41,10 +85,31 @@ export default function Booking360() {
         <p className="text-muted-foreground text-sm mt-1">Full booking lifecycle — payments, payouts, telematics, inspections</p>
       </div>
       <div className="flex gap-3">
-        <Input value={bookingId} onChange={e => setBookingId(e.target.value)} placeholder="Booking ID..." className="max-w-md" onKeyDown={e => e.key === 'Enter' && handleSearch()} />
-        <Button onClick={handleSearch} disabled={loading}><Search className="h-4 w-4 mr-2" />{loading ? 'Loading…' : 'Load Booking'}</Button>
+        <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search by booking ID, customer name, email, phone, VIN, vehicle name, or host name..." className="flex-1 max-w-2xl" onKeyDown={e => e.key === 'Enter' && doSearch()} />
+        <Button onClick={() => doSearch()} disabled={loading}><Search className="h-4 w-4 mr-2" />{loading ? 'Searching…' : 'Search'}</Button>
       </div>
+
       {error && <Alert className="border-red-500/30 bg-red-500/10"><AlertDescription className="text-red-400">{error}</AlertDescription></Alert>}
+
+      {searchResults && (
+        <Card className="bg-card border-border">
+          <CardHeader><CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-yellow-400" />Multiple Bookings Found ({searchResults.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {searchResults.map(r => (
+              <button key={r.id} onClick={() => loadResult(r.id)} className="w-full flex items-center justify-between rounded-lg bg-secondary/30 px-3 py-2 text-sm hover:bg-secondary/50 transition-colors">
+                <div className="text-left">
+                  <p className="font-medium">{r.customer || 'Unknown'}</p>
+                  <p className="text-xs text-muted-foreground">{r.vehicle} · {r.start}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <SBadge status={r.status} />
+                  <span className="text-xs text-muted-foreground font-mono">{r.id?.slice(-8)}</span>
+                </div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {data?.warnings?.map((w, i) => (
         <Alert key={i} className="border-yellow-500/30 bg-yellow-500/10 py-2">
@@ -97,6 +162,45 @@ export default function Booking360() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Rental Lifecycle Section */}
+          <Card className="bg-card border-border">
+            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><RotateCcw className="h-4 w-4 text-primary" />Rental Lifecycle</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8">
+                <div>
+                  <LifecycleField label="Lifecycle Phase" value={b.rental_lifecycle_phase} />
+                  <LifecycleField label="Booking Status" value={b.booking_status} />
+                  <LifecycleField label="Closure Reason" value={b.closure_reason} />
+                  <LifecycleField label="Superseded" value={b.is_superseded} />
+                  <LifecycleField label="Superseded Reason" value={b.superseded_reason} />
+                  <LifecycleField label="Superseded By" value={b.superseded_by_booking_id ? b.superseded_by_booking_id.slice(-10) : null} />
+                  <LifecycleField label="Superseded At" value={safeFmt(b.superseded_at)} />
+                </div>
+                <div>
+                  <LifecycleField label="Return Required At" value={safeFmt(b.return_required_at)} />
+                  <LifecycleField label="Return Inspection Started" value={safeFmt(b.return_inspection_started_at)} />
+                  <LifecycleField label="Return Completed At" value={safeFmt(b.return_completed_at)} />
+                  <LifecycleField label="Post-Inspection Geofence" value={b.post_inspection_geofence_verified} />
+                  <LifecycleField label="Return Distance from Pickup (mi)" value={b.return_distance_from_pickup_miles} />
+                  <LifecycleField label="Billing Stopped At" value={safeFmt(b.billing_stopped_at)} />
+                  <LifecycleField label="Billing Stop Reason" value={b.billing_stop_reason} />
+                </div>
+                <div>
+                  <LifecycleField label="Host Review Due At" value={safeFmt(b.host_review_due_at)} />
+                  <LifecycleField label="Host Review Completed At" value={safeFmt(b.host_review_completed_at)} />
+                  <LifecycleField label="Host Review Status" value={b.host_review_status} />
+                  <LifecycleField label="Auto-Completed At" value={safeFmt(b.auto_completed_at)} />
+                  <LifecycleField label="Completion Reason" value={b.completion_reason} />
+                  <LifecycleField label="Dispute Deadline At" value={safeFmt(b.damage_dispute_deadline_at)} />
+                  <LifecycleField label="Dispute Allowed After Auto-Complete" value={b.damage_dispute_allowed_after_auto_complete} />
+                  <LifecycleField label="Dispute Status" value={b.damage_dispute_status} />
+                  <LifecycleField label="Vehicle Moved After Return At" value={safeFmt(b.vehicle_moved_after_return_at)} />
+                  <LifecycleField label="Vehicle Distance from Return (mi)" value={b.vehicle_distance_from_return_miles} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <Tabs defaultValue="payments">
             <TabsList className="flex-wrap h-auto gap-1">
