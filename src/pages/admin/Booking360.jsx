@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatPaymentSource, formatVehicleAction, formatPaymentReference, formatActivityMessage, sanitizeInternalText } from '@/lib/displayFormatters';
 import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
+import RentalLifecycleTimeline from '@/components/shared/RentalLifecycleTimeline';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap, RotateCcw, ArrowLeft } from 'lucide-react';
+import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap, RotateCcw, ArrowLeft, GitBranch } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 
 function SBadge({ status }) {
@@ -202,12 +203,21 @@ export default function Booking360() {
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="payments">
+          <Tabs defaultValue="timeline">
             <TabsList className="flex-wrap h-auto gap-1">
-              {[['payments','Payments'],['payouts','Payouts'],['telematics','Vehicle Actions'],['inspections','Inspections'],['disputes','Disputes'],['comms','Comms'],['activity','Activity']].map(([v,l]) => (
+              {[['timeline','Lifecycle Timeline'],['payments','Payments'],['payouts','Payouts'],['telematics','Vehicle Actions'],['inspections','Inspections'],['disputes','Disputes'],['comms','Comms'],['activity','Activity']].map(([v,l]) => (
                 <TabsTrigger key={v} value={v}>{l}</TabsTrigger>
               ))}
             </TabsList>
+
+            <TabsContent value="timeline" className="mt-4">
+              <Card className="bg-card border-border">
+                <CardHeader><CardTitle className="text-sm flex items-center gap-2"><GitBranch className="h-4 w-4 text-primary" />Rental Lifecycle Timeline</CardTitle></CardHeader>
+                <CardContent>
+                  <RentalLifecycleTimeline booking={b} />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="payments" className="mt-4 space-y-2">
               {data.payment_logs?.map(p => (

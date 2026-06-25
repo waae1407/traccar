@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp, MapPin, Clock, CheckCircle2, XCircle, FileText, Shield } from "lucide-react";
-import { format } from "date-fns";
+import { ChevronDown, ChevronUp, MapPin, Clock, CheckCircle2, XCircle, FileText, Shield, Hash, Calendar, DollarSign, Gauge } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
 import InspectionPhotoGallery from "./InspectionPhotoGallery";
 import CompletedBookingReviewPrompt from "./CompletedBookingReviewPrompt";
 
@@ -84,21 +84,37 @@ export default function PastRentalCard({ booking, user, existingReview, onReview
       <div className="px-4 pt-3 pb-4">
         {/* Key details row */}
         <div className="flex flex-wrap gap-3 mb-3">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <Hash className="h-3 w-3" />#{booking.id?.slice(-8)}
+          </span>
           {booking.start_date && (
             <span className="flex items-center gap-1 text-xs text-gray-500">
-              <Clock className="h-3 w-3" />
+              <Calendar className="h-3 w-3" />
               {format(new Date(booking.start_date), "MMM d, yyyy")}
               {booking.end_date && ` → ${format(new Date(booking.end_date), "MMM d, yyyy")}`}
               {!booking.end_date && booking.rental_ended_at && ` → ${format(new Date(booking.rental_ended_at), "MMM d, yyyy")}`}
             </span>
           )}
+          {booking.start_date && booking.end_date && (() => {
+            const days = differenceInDays(new Date(booking.end_date), new Date(booking.start_date));
+            return days > 0 && (
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <Clock className="h-3 w-3" />{days} day{days !== 1 ? "s" : ""}
+              </span>
+            );
+          })()}
           {booking.city && (
             <span className="flex items-center gap-1 text-xs text-gray-500">
               <MapPin className="h-3 w-3" />{booking.city}
             </span>
           )}
           {booking.total_due_now > 0 && (
-            <span className="text-xs font-bold text-gray-700">${booking.total_due_now.toLocaleString()} paid</span>
+            <span className="flex items-center gap-1 text-xs font-bold text-gray-700">
+              <DollarSign className="h-3 w-3" />{booking.total_due_now.toLocaleString()} total
+            </span>
+          )}
+          {booking.weekly_rate > 0 && !booking.total_due_now && (
+            <span className="text-xs font-bold text-gray-700">${booking.weekly_rate}/wk</span>
           )}
         </div>
 

@@ -20,6 +20,7 @@ const safeFormat = (dateStr, fmt) => {
 import Alert360DetailDrawer from '@/components/telematics/Alert360DetailDrawer';
 import Alert360IncidentDrawer from '@/components/telematics/Alert360IncidentDrawer';
 import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
+import VehicleBookingHistoryRow from '@/components/shared/VehicleBookingHistoryRow';
 import { useNavigate } from 'react-router-dom';
 
 function SBadge({ status }) {
@@ -225,22 +226,17 @@ export default function Vehicle360() {
             </TabsContent>
 
             <TabsContent value="bookings" className="mt-4 space-y-2">
-              {data.all_bookings?.map(b => (
-                <div key={b.id} className="rounded-lg bg-secondary/30 px-3 py-2 text-sm space-y-1.5 cursor-pointer hover:bg-secondary/50 transition-colors" onClick={() => navigate(`/admin/booking-360?booking_id=${b.id}`)}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium">{b.customer_full_name || b.user_email}</p>
-                      <p className="text-muted-foreground text-xs">{b.start_date} → {b.end_date || '—'}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {b.is_superseded && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">VOIDED</span>}
-                      <SBadge status={b.booking_status} />
-                      <SBadge status={b.payment_status} />
-                    </div>
-                  </div>
-                  <BookingLifecycleFields booking={b} compact />
-                </div>
-              ))}
+              {data.all_bookings?.sort((a, b) => new Date(b.created_date) - new Date(a.created_date)).map(b => {
+                const bookingRevenue = data.payment_logs?.filter(p => p.booking_request_id === b.id && p.status === 'paid').reduce((s, p) => s + (p.amount || 0), 0) || 0;
+                return (
+                  <VehicleBookingHistoryRow
+                    key={b.id}
+                    booking={b}
+                    revenue={bookingRevenue}
+                    onClick={() => navigate(`/admin/booking-360?booking_id=${b.id}`)}
+                  />
+                );
+              })}
               {!data.all_bookings?.length && <p className="text-muted-foreground text-sm">No bookings found.</p>}
             </TabsContent>
           </Tabs>

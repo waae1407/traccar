@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import { formatPaymentSource, formatVehicleAction, formatActivityMessage, sanitizeInternalText } from '@/lib/displayFormatters';
 import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
+import RentalLifecycleTimeline from '@/components/shared/RentalLifecycleTimeline';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -192,8 +193,12 @@ export default function HostBooking360() {
           {/* Lifecycle Section */}
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4 text-primary" />Rental Lifecycle</CardTitle></CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <BookingLifecycleFields booking={b} />
+              <div className="border-t border-border pt-3">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Lifecycle Timeline</p>
+                <RentalLifecycleTimeline booking={b} compact />
+              </div>
             </CardContent>
           </Card>
 

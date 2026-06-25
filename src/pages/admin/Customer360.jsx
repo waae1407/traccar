@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatPaymentSource, formatVehicleAction, formatActivityMessage, formatPaymentReference, sanitizeInternalText } from '@/lib/displayFormatters';
 import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
+import CustomerRentalHistoryMetrics from '@/components/shared/CustomerRentalHistoryMetrics';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,6 +145,9 @@ export default function Customer360() {
               </CardContent>
             </Card>
           )}
+
+          {/* Rental History Metrics */}
+          <CustomerRentalHistoryMetrics bookings={data.bookings || []} paymentLogs={data.payment_logs || []} disputes={data.disputes || []} />
 
           {/* Tabs */}
           <Tabs defaultValue="payments">
