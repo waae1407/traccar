@@ -1,0 +1,66 @@
+{
+  "name": "BookingHold",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Vehicle being held"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Checkout session identifier"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "User ID of customer"
+    },
+    "customer_email": {
+      "type": "string",
+      "description": "Customer email for lookup"
+    },
+    "hold_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When hold was created"
+    },
+    "hold_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When hold expires (default: 10 minutes)"
+    },
+    "booking_request_id": {
+      "type": "string",
+      "description": "Linked BookingRequest if created"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "converted",
+        "expired",
+        "released"
+      ],
+      "default": "active",
+      "description": "Hold status"
+    },
+    "release_reason": {
+      "type": "string",
+      "description": "Reason for hold release"
+    },
+    "released_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "released_by": {
+      "type": "string",
+      "description": "User ID or 'system' or 'timeout'"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "session_id",
+    "customer_id",
+    "hold_start",
+    "hold_expires_at"
+  ]
+}

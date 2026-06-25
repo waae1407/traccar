@@ -1,0 +1,92 @@
+{
+  "name": "BookingIntegrityAudit",
+  "type": "object",
+  "properties": {
+    "audit_type": {
+      "type": "string",
+      "enum": [
+        "overlap_detected",
+        "hold_conflict",
+        "status_mismatch",
+        "orphan_hold",
+        "expired_hold",
+        "missing_vehicle",
+        "missing_customer",
+        "missing_payment",
+        "missing_contract",
+        "duplicate_active_rental",
+        "admin_override"
+      ],
+      "description": "Type of integrity issue"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "warning",
+        "info"
+      ],
+      "default": "warning"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "booking_request_id": {
+      "type": "string"
+    },
+    "conflicting_booking_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of conflicting booking IDs"
+    },
+    "hold_id": {
+      "type": "string"
+    },
+    "admin_user_id": {
+      "type": "string",
+      "description": "Admin who triggered override"
+    },
+    "admin_email": {
+      "type": "string"
+    },
+    "override_reason": {
+      "type": "string",
+      "description": "Reason for admin override"
+    },
+    "resolution": {
+      "type": "string",
+      "enum": [
+        "auto_resolved",
+        "manual_override",
+        "booking_cancelled",
+        "hold_released",
+        "pending"
+      ],
+      "default": "pending"
+    },
+    "resolution_notes": {
+      "type": "string"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_by": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "audit_type",
+    "vehicle_id"
+  ]
+}
