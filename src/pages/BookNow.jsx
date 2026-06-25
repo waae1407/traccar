@@ -90,13 +90,41 @@ export default function BookNow() {
     queryFn: () => base44.entities.ReputationSignalSnapshot.list("-created_date", 500),
   });
 
-  const { data: vehicles = [], isLoading } = useQuery({
+  // Use searchMarketplaceVehicles for server-side filtering when dates are selected
+  const { data: searchResults, isLoading: searchLoading } = useQuery({
+    queryKey: ["marketplace-search", marketplaceFilters],
+    queryFn: () => base44.functions.invoke('searchMarketplaceVehicles', {
+      location: marketplaceFilters.city ? { city: marketplaceFilters.city } : null,
+      pickup_date: marketplaceFilters.pickup_date || null,
+      return_date: marketplaceFilters.return_date || null,
+      price_min: marketplaceFilters.price_min || 0,
+      price_max: marketplaceFilters.price_max || 500,
+      vehicle_type: marketplaceFilters.vehicle_type?.length ? marketplaceFilters.vehicle_type : null,
+      fuel_type: marketplaceFilters.fuel_type?.length ? marketplaceFilters.fuel_type : null,
+      contactless_pickup: marketplaceFilters.contactless_pickup || false,
+      delivery_available: marketplaceFilters.delivery_available || false,
+      instant_booking: marketplaceFilters.instant_booking !== false,
+      rental_type: marketplaceFilters.rental_type || 'weekly',
+      sort: marketplaceFilters.sort || 'recommended',
+      limit: 50,
+      skip: 0
+    }).then(r => r.data),
+    enabled: !!(marketplaceFilters.pickup_date && marketplaceFilters.return_date),
+  });
+
+  const { data: vehicles = [], isLoading: vehiclesLoading } = useQuery({
     queryKey: ["vehicles-public", tenantCompany?.id],
     queryFn: () => tenantCompany?.id
       ? base44.entities.Vehicle.filter({ company_id: tenantCompany.id })
       : base44.entities.Vehicle.list(),
     staleTime: 60_000,
   });
+
+  // Use search results if dates selected, otherwise use all vehicles
+  const isLoading = searchLoading || vehiclesLoading;
+  const availableVehicles = (marketplaceFilters.pickup_date && marketplaceFilters.return_date && searchResults?.vehicles) 
+    ? searchResults.vehicles 
+    : vehicles;
 
   const { data: commerceProfiles = [] } = useQuery({
     queryKey: ["public-commerce-profiles"],
@@ -200,7 +228,20 @@ export default function BookNow() {
   }, [location.city]);
 
   // All available vehicles, sorted by distance if location is known (no hard distance cutoff)
+  // When using searchMarketplaceVehicles, results are already filtered server-side
   const available = useMemo(() => {
+    if (marketplaceFilters.pickup_date && marketplaceFilters.return_date && searchResults?.vehicles) {
+      // Server-side filtered results - just apply host approval checks
+      return searchResults.vehicles.filter((v) => {
+        if (!v.host_id) return false;
+        if (!approvedHostIds.has(v.host_id)) return false;
+        if (blockedHostIds.has(v.host_id)) return false;
+        if (suspendedStorefrontHostIds.has(v.host_id)) return false;
+        return true;
+      });
+    }
+    
+    // Client-side filtering for browsing without dates
     const avail = vehicles.filter((v) => {
       if (v.status !== "Available") return false;
       if (!v.host_id) return false;
@@ -239,7 +280,7 @@ export default function BookNow() {
         if (b.distance === undefined) return -1;
         return a.distance - b.distance;
       });
-  }, [vehicles, location, marketplaceVisibilityByHost, hostPlanModeMap, approvedHostIds, blockedHostIds, suspendedStorefrontHostIds]);
+  }, [vehicles, searchResults?.vehicles, location, marketplaceFilters, marketplaceVisibilityByHost, hostPlanModeMap, approvedHostIds, blockedHostIds, suspendedStorefrontHostIds]);
 
   const rtoEligible = available.filter((v) => v.rent_to_own_eligible);
 
@@ -275,8 +316,8 @@ export default function BookNow() {
       <MarketplaceFilters
         filters={marketplaceFilters}
         onFiltersChange={setMarketplaceFilters}
-        vehicleCount={available.length}
-        isLoading={isLoading}
+        vehicleCount={searchResults?.total || available.length}
+        isLoading={searchLoading || isLoading}
       />
 
       {/* SECTION 1: Promo banner */}
@@ -314,7 +355,7 @@ export default function BookNow() {
 
       {/* SECTION 6: Vehicle inventory or empty state */}
       <div id="vehicle-grid" />
-      {!isLoading && available.length === 0 ? (
+      {(!searchLoading && !isLoading) && available.length === 0 ? (
         <WaitlistEmptyState
           location={location}
           onChangeLocation={() => document.getElementById("location-context-change")?.click()}
@@ -322,7 +363,7 @@ export default function BookNow() {
       ) : (
         <BookNowVehicleGrid
           vehicles={filtered}
-          isLoading={isLoading}
+          isLoading={searchLoading || isLoading}
           location={location}
           onSelect={setSelectedVehicle}
           isExpandedRadius={false}

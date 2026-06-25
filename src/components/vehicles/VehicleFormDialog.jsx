@@ -18,6 +18,16 @@ const emptyForm = {
   allow_daily_booking: false, allow_weekly_booking: true, allow_monthly_booking: false,
   storefront_visible: true, marketplace_visible: true,
   smoking_allowed: false,
+  // Availability settings
+  available_by_default: true,
+  advance_notice_hours: 0,
+  pickup_window_start: "",
+  pickup_window_end: "",
+  return_window_start: "",
+  return_window_end: "",
+  instant_booking_enabled: true,
+  delivery_available: false,
+  contactless_pickup_available: false,
   };
 
 const PREVIEW_DAYS = [1, 3, 7, 14, 30];
@@ -84,6 +94,16 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
       host_id: vehicle.host_id || requiredHostId || "",
       storefront_visible: vehicle.storefront_visible ?? true,
       marketplace_visible: vehicle.marketplace_visible ?? (planMode === 'fleetos_professional' ? false : true),
+      // Availability settings
+      available_by_default: vehicle.available_by_default ?? true,
+      advance_notice_hours: vehicle.advance_notice_hours ?? 0,
+      pickup_window_start: vehicle.pickup_window_start || "",
+      pickup_window_end: vehicle.pickup_window_end || "",
+      return_window_start: vehicle.return_window_start || "",
+      return_window_end: vehicle.return_window_end || "",
+      instant_booking_enabled: vehicle.instant_booking_enabled ?? true,
+      delivery_available: vehicle.delivery_available ?? false,
+      contactless_pickup_available: vehicle.contactless_pickup ?? false,
     } : { ...emptyForm, host_id: requiredHostId || "", marketplace_visible: planMode === 'fleetos_professional' ? false : true });
     setVinError("");
   }, [vehicle, open, requiredHostId]);
@@ -127,17 +147,27 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
     }
 
     onSave({
-      ...form,
-      host_id: form.host_id || requiredHostId,
-      year: form.year ? Number(form.year) : undefined,
-      purchase_price: form.purchase_price ? Number(form.purchase_price) : undefined,
-      mileage: form.mileage ? Number(form.mileage) : undefined,
-      weekly_rate: form.weekly_rate ? Number(form.weekly_rate) : undefined,
-      daily_rate: form.daily_rate ? Number(form.daily_rate) : undefined,
-      monthly_rate: form.monthly_rate ? Number(form.monthly_rate) : undefined,
-      minimum_rental_days: form.minimum_rental_days ? Number(form.minimum_rental_days) : 7,
-      maximum_rental_days: form.maximum_rental_days ? Number(form.maximum_rental_days) : undefined,
-      smoking_allowed: form.smoking_allowed,
+    ...form,
+    host_id: form.host_id || requiredHostId,
+    year: form.year ? Number(form.year) : undefined,
+    purchase_price: form.purchase_price ? Number(form.purchase_price) : undefined,
+    mileage: form.mileage ? Number(form.mileage) : undefined,
+    weekly_rate: form.weekly_rate ? Number(form.weekly_rate) : undefined,
+    daily_rate: form.daily_rate ? Number(form.daily_rate) : undefined,
+    monthly_rate: form.monthly_rate ? Number(form.monthly_rate) : undefined,
+    minimum_rental_days: form.minimum_rental_days ? Number(form.minimum_rental_days) : 7,
+    maximum_rental_days: form.maximum_rental_days ? Number(form.maximum_rental_days) : undefined,
+    smoking_allowed: form.smoking_allowed,
+    // Availability settings
+    available_by_default: form.available_by_default,
+    advance_notice_hours: form.advance_notice_hours ? Number(form.advance_notice_hours) : 0,
+    pickup_window_start: form.pickup_window_start || null,
+    pickup_window_end: form.pickup_window_end || null,
+    return_window_start: form.return_window_start || null,
+    return_window_end: form.return_window_end || null,
+    instant_booking_enabled: form.instant_booking_enabled,
+    delivery_available: form.delivery_available,
+    contactless_pickup_available: form.contactless_pickup_available,
     });
   };
 
@@ -306,6 +336,96 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             <div>
               <span className="text-sm text-white/60 block">Smoking Allowed</span>
               <span className="text-[10px] text-white/40">If yes, smoke sensor monitors for fire safety instead of rule enforcement.</span>
+            </div>
+          </div>
+
+          {/* Availability Settings */}
+          <div className="space-y-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+            <p className="text-xs font-bold text-white/50 uppercase tracking-wider">📅 Availability Settings</p>
+            
+            <div className="flex items-center gap-3">
+              {toggle("available_by_default")}
+              <div>
+                <span className="text-sm text-white/60 block">Available by Default</span>
+                <span className="text-[10px] text-white/40">If off, vehicle is blocked unless explicitly available</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {toggle("instant_booking_enabled")}
+              <div>
+                <span className="text-sm text-white/60 block">Instant Booking</span>
+                <span className="text-[10px] text-white/40">Allow self-service booking without manual approval</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {toggle("delivery_available")}
+              <div>
+                <span className="text-sm text-white/60 block">Delivery Available</span>
+                <span className="text-[10px] text-white/40">Offer vehicle delivery to customer location</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Advance Notice (hours)">
+                <input 
+                  type="number" 
+                  min="0" 
+                  className={inputClass} 
+                  value={form.advance_notice_hours} 
+                  onChange={(e) => set("advance_notice_hours", Number(e.target.value))} 
+                  placeholder="0" 
+                />
+              </FormField>
+              <FormField label="Min Rental Days">
+                <input 
+                  type="number" 
+                  min="1" 
+                  className={inputClass} 
+                  value={form.minimum_rental_days} 
+                  onChange={(e) => set("minimum_rental_days", Number(e.target.value))} 
+                  placeholder="7" 
+                />
+              </FormField>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Pickup Window Start">
+                <input 
+                  type="time" 
+                  className={inputClass} 
+                  value={form.pickup_window_start} 
+                  onChange={(e) => set("pickup_window_start", e.target.value)} 
+                />
+              </FormField>
+              <FormField label="Pickup Window End">
+                <input 
+                  type="time" 
+                  className={inputClass} 
+                  value={form.pickup_window_end} 
+                  onChange={(e) => set("pickup_window_end", e.target.value)} 
+                />
+              </FormField>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Return Window Start">
+                <input 
+                  type="time" 
+                  className={inputClass} 
+                  value={form.return_window_start} 
+                  onChange={(e) => set("return_window_start", e.target.value)} 
+                />
+              </FormField>
+              <FormField label="Return Window End">
+                <input 
+                  type="time" 
+                  className={inputClass} 
+                  value={form.return_window_end} 
+                  onChange={(e) => set("return_window_end", e.target.value)} 
+                />
+              </FormField>
             </div>
           </div>
 

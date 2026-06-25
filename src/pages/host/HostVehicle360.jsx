@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/AuthContext';
 import ListingControlsCard from '@/components/vehicles/ListingControlsCard';
+import VehicleAvailabilityCalendar from '@/components/host/availability/VehicleAvailabilityCalendar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -137,10 +138,17 @@ export default function HostVehicle360() {
 
           <Tabs defaultValue="revenue">
             <TabsList className="flex-wrap h-auto gap-1">
-              {[['revenue','Revenue'],['expenses','Expenses'],['maintenance','Maintenance'],['commands','Commands'],['alert360','Alert360'],['inspections','Inspections'],['bookings','Booking History']].map(([val,l]) => (
+              {[['revenue','Revenue'],['expenses','Expenses'],['maintenance','Maintenance'],['availability','Availability'],['commands','Commands'],['alert360','Alert360'],['inspections','Inspections'],['bookings','Booking History']].map(([val,l]) => (
                 <TabsTrigger key={val} value={val}>{l}</TabsTrigger>
               ))}
             </TabsList>
+
+            <TabsContent value="availability" className="mt-4">
+              <VehicleAvailabilityCalendar 
+                vehicleId={selectedVehicleId} 
+                hostId={host?.id} 
+              />
+            </TabsContent>
 
             <TabsContent value="revenue" className="mt-4 space-y-2">
               {data.payment_logs?.filter(p => p.status === 'paid').map(p => (
@@ -170,6 +178,10 @@ export default function HostVehicle360() {
                 </div>
               ))}
               {!data.maintenance?.logs?.length && <p className="text-muted-foreground text-sm">No maintenance records.</p>}
+            </TabsContent>
+
+            <TabsContent value="availability" className="mt-4">
+              <VehicleAvailabilityCalendar vehicleId={selectedVehicleId} hostId={host?.id} />
             </TabsContent>
 
             <TabsContent value="commands" className="mt-4 space-y-2">

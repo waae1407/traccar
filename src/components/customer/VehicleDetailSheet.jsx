@@ -1,10 +1,25 @@
-import React from "react";
-import { X, MapPin, Zap, ChevronRight, Check } from "lucide-react";
+import React, { useState } from "react";
+import { X, MapPin, Zap, ChevronRight, Check, Calendar } from "lucide-react";
 import PublicTrustBadges from "@/components/trust/PublicTrustBadges";
 import PublicRating from "@/components/trust/PublicRating";
 import { latestSnapshotFor, publicRating, publicVehicleLabels } from "@/lib/reputation/publicTrust";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 
 export default function VehicleDetailSheet({ vehicle, onClose, onBook, user, reviews = [], signalSnapshots = [], bookingDisabled = false, disabledReason = "" }) {
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const { data: availabilityData } = useQuery({
+    queryKey: ['vehicle-availability', vehicle?.id, '2026-06', '2026-07'],
+    queryFn: () => base44.functions.invoke('getVehicleAvailabilityCalendar', {
+      vehicle_id: vehicle.id,
+      start_month: '2026-06',
+      end_month: '2026-07'
+    }).then(r => r.data),
+    enabled: !!vehicle?.id && showCalendar,
+  });
+
   if (!vehicle) return null;
 
   const weeklyRate = vehicle.weekly_rate || 0;
@@ -105,6 +120,68 @@ export default function VehicleDetailSheet({ vehicle, onClose, onBook, user, rev
               ))}
             </div>
           </div>
+
+          {/* Availability Calendar Toggle */}
+          <div className="mt-4">
+            <button
+              onClick={() => setShowCalendar(!showCalendar)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 hover:border-pink-300 hover:bg-pink-50 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-pink-100 flex items-center justify-center">
+                  <Calendar className="h-5 w-5 text-pink-600" />
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-gray-800 text-sm">Check Availability</p>
+                  <p className="text-xs text-gray-500">View available dates for booking</p>
+                </div>
+              </div>
+              <ChevronRight className={`h-5 w-5 text-gray-400 transition-transform ${showCalendar ? 'rotate-90' : ''}`} />
+            </button>
+          </div>
+
+          {/* Availability Calendar */}
+          {showCalendar && availabilityData && (
+            <div className="mt-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-semibold text-gray-800 text-sm">Next 30 Days</p>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1">
+                    <div className="h-3 w-3 rounded bg-green-500" />
+                    <span className="text-xs text-gray-500">Available</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="h-3 w-3 rounded bg-red-500" />
+                    <span className="text-xs text-gray-500">Booked</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="h-3 w-3 rounded bg-gray-500" />
+                    <span className="text-xs text-gray-500">Blocked</span>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {availabilityData.calendar?.slice(0, 21).map((day, idx) => {
+                  const statusColor = day.status === 'available' ? 'bg-green-500' :
+                                     day.status === 'booked' ? 'bg-red-500' :
+                                     day.status === 'checkout_in_progress' ? 'bg-yellow-500' :
+                                     'bg-gray-500';
+                  return (
+                    <div
+                      key={idx}
+                      className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium ${statusColor} text-white`}
+                      title={`${format(new Date(day.date), 'MMM d')}: ${day.customer_label || day.status}`}
+                    >
+                      {format(new Date(day.date), 'd')}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 mt-3 text-center">
+                {availabilityData.calendar?.filter(d => d.status === 'available').length || 0} available dates in next 3 weeks
+              </p>
+            </div>
+          )}
 
           {/* CTA */}
           {bookingDisabled && disabledReason && (
