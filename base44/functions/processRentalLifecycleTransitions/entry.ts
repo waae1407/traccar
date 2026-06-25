@@ -20,7 +20,8 @@ const BLOCKING_STATUSES = [
   'active', 'confirmed', 'checked_out',
   'return_required', 'post_inspection_required', 'overdue_return',
   'return_pending_host_review',
-  'pending_payment', 'pending_review', 'approved', 'grace_period', 'payment_retry'
+  'pending_payment', 'pending_review', 'approved', 'grace_period', 'payment_retry',
+  'payment_due', 'suspended', 'under_review'
 ];
 
 function getDistanceMiles(lat1, lon1, lat2, lon2) {
@@ -213,6 +214,69 @@ Deno.serve(async (req) => {
       const reviewDueAt = booking.host_review_due_at
         ? new Date(booking.host_review_due_at)
         : new Date(new Date(returnCompletedAt).getTime() + 24 * 60 * 60 * 1000);
+
+      // ── 12h and 23h host reminders (before auto-complete) ──
+      const hoursSinceReturn = (now.getTime() - new Date(returnCompletedAt).getTime()) / (1000 * 60 * 60);
+
+      if (hoursSinceReturn >= 12 && hoursSinceReturn < 24) {
+        // 12-hour reminder
+        if (hoursSinceReturn >= 12) {
+          const dedupeKey12h = `host_review_12h:${booking.id}`;
+          const existing12h = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupe_key: dedupeKey12h }, '-created_date', 1);
+          if (existing12h.length === 0) {
+            await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+              event_type: 'host_review_12h_reminder',
+              severity: 'info',
+              category: 'bookings',
+              title: 'Return Review Reminder — 12 Hours Remaining',
+              message: `You have 12 hours remaining to review the return for ${booking.vehicle_name}. After 24 hours, the return will be auto-completed.`,
+              booking_id: booking.id,
+              host_id: booking.host_id || '',
+              vehicle_id: booking.vehicle_id || '',
+              action_url: '/host/return-reviews',
+            }).catch(e => console.error('[Lifecycle] 12h reminder failed:', e.message));
+            await logActivityEvent(base44, {
+              event_type: 'lifecycle.host_review_12h_reminder',
+              booking_id: booking.id,
+              host_id: booking.host_id,
+              vehicle_id: booking.vehicle_id,
+              user_email: booking.user_email,
+              summary: `12h review reminder sent for ${booking.vehicle_name}`,
+              metadata: { hours_since_return: Math.round(hoursSinceReturn) },
+              dedupe_key: dedupeKey12h,
+            });
+          }
+        }
+
+        // 23-hour final warning
+        if (hoursSinceReturn >= 23) {
+          const dedupeKey23h = `host_review_final_warning:${booking.id}`;
+          const existing23h = await base44.asServiceRole.entities.ActivityEvent.filter({ dedupe_key: dedupeKey23h }, '-created_date', 1);
+          if (existing23h.length === 0) {
+            await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+              event_type: 'host_review_final_warning',
+              severity: 'warning',
+              category: 'bookings',
+              title: 'Final Warning — Return Review Auto-Completes in 1 Hour',
+              message: `Return review will auto-complete in 1 hour for ${booking.vehicle_name}. Review now if you need to report damage.`,
+              booking_id: booking.id,
+              host_id: booking.host_id || '',
+              vehicle_id: booking.vehicle_id || '',
+              action_url: '/host/return-reviews',
+            }).catch(e => console.error('[Lifecycle] final warning failed:', e.message));
+            await logActivityEvent(base44, {
+              event_type: 'lifecycle.host_review_final_warning',
+              booking_id: booking.id,
+              host_id: booking.host_id,
+              vehicle_id: booking.vehicle_id,
+              user_email: booking.user_email,
+              summary: `Final warning sent for ${booking.vehicle_name}`,
+              metadata: { hours_since_return: Math.round(hoursSinceReturn) },
+              dedupe_key: dedupeKey23h,
+            });
+          }
+        }
+      }
 
       if (now < reviewDueAt) continue; // Window not expired yet
 

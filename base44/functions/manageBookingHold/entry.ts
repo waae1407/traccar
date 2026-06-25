@@ -21,12 +21,16 @@ const COMMIT_LOCK_TTL_SECONDS = 90; // 60-120s max per fast-commit spec
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    const body = await req.json();
+    const { operation, vehicle_id, session_id, booking_request_id } = body;
 
-    const { operation, vehicle_id, session_id, booking_request_id } = await req.json();
+    // Allow 'expire' operation without auth (system cleanup by scheduled automation)
+    if (operation !== 'expire') {
+      const user = await base44.auth.me();
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!vehicle_id) {
+    if (operation !== 'expire' && !vehicle_id) {
       return Response.json({ error: 'vehicle_id required' }, { status: 400 });
     }
 

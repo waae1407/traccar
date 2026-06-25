@@ -209,6 +209,7 @@ Deno.serve(async (req) => {
       host_id: hostId,
       booking_status: newStatus,
       payment_status: 'paid',
+      rental_lifecycle_phase: shouldActivate ? 'pickup_required' : 'payment_complete',
       auto_approval_status: 'approved',
       auto_approval_reason: shouldActivate ? 'Booking auto-approved and activated for contactless pickup.' : 'Booking auto-approved. Pickup details are now available.',
       auto_approval_checked_at: now,

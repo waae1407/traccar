@@ -340,6 +340,7 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
   await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
     booking_status: "active",
     payment_status: "paid",
+    rental_lifecycle_phase: "active",
     payment_failure_attempts: 0,
     payment_failure_reason: null,
     last_payment_failure_at: null,

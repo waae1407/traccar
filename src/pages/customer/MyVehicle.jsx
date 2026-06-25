@@ -33,7 +33,7 @@ function getCompassDirection(course) {
 }
 
 function isOperationalRental(booking) {
-  if (!booking || booking.rental_ended_at) return false;
+  if (!booking) return false;
   // ── RENTAL360: Use rental_lifecycle_phase as source of truth ──
   // My Vehicle must show booking if phase is: payment_complete, pickup_required, checked_out,
   // active, return_required, return_in_progress, host_review
@@ -470,8 +470,7 @@ export default function MyVehicle() {
   const isBookingActive = !isDemo && booking
     ? ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "return_pending_host_review", "under_review"].includes(booking.booking_status) &&
       (booking.rental_lifecycle_phase ? ["payment_complete", "pickup_required", "checked_out", "active", "return_required", "return_in_progress", "host_review"].includes(booking.rental_lifecycle_phase) : true) &&
-      booking.payment_status === "paid" &&
-      !booking.rental_ended_at
+      booking.payment_status === "paid"
     : false;
   const isReturnRequired = !isDemo && booking && ["return_required", "post_inspection_required", "overdue_return"].includes(booking.booking_status);
 

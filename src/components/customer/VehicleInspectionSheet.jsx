@@ -253,6 +253,19 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
       });
   }, [booking?.id, hasAllCachedSamples]);
 
+  // Set return_in_progress phase when customer opens return inspection
+  useEffect(() => {
+    if (!isPickup && booking?.id && !booking?.return_exterior_photos?.length &&
+        booking?.rental_lifecycle_phase !== 'return_in_progress' &&
+        booking?.rental_lifecycle_phase !== 'host_review' &&
+        booking?.rental_lifecycle_phase !== 'completed') {
+      base44.entities.BookingRequest.update(booking.id, {
+        rental_lifecycle_phase: 'return_in_progress',
+        return_inspection_started_at: new Date().toISOString(),
+      }).catch(() => {});
+    }
+  }, [booking?.id, isPickup]);
+
   const updateBooking = useMutation({
     mutationFn: (data) => base44.entities.BookingRequest.update(booking.id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-booking-requests"] }),
@@ -336,7 +349,7 @@ function CaptureMode({ booking, onClose, onComplete, isPickup }) {
 
     const field = isPickup ? "pickup_photos" : "return_exterior_photos";
     const metaFields = isPickup
-      ? { pickup_submitted_at: submittedAt, pickup_completed_at: submittedAt, ...(gps && { pickup_location_lat: gps.lat, pickup_location_lon: gps.lon }), ...(locationLabel && { pickup_location_label: locationLabel }) }
+      ? { pickup_submitted_at: submittedAt, pickup_completed_at: submittedAt, rental_lifecycle_phase: booking.booking_status === 'active' ? 'active' : 'checked_out', ...(gps && { pickup_location_lat: gps.lat, pickup_location_lon: gps.lon }), ...(locationLabel && { pickup_location_label: locationLabel }) }
       : (() => {
           const geofenceVerified = distanceMiles !== null && distanceMiles <= 5;
           if (!geofenceVerified) {

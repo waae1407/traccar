@@ -61,14 +61,28 @@ Deno.serve(async (req) => {
     const BLOCKING_STATUSES = [
       'pending_payment', 'pending_review', 'approved', 'confirmed', 'checked_out',
       'active', 'return_required', 'post_inspection_required', 'overdue_return',
-      'return_pending_host_review', 'grace_period', 'payment_retry'
+      'return_pending_host_review', 'grace_period', 'payment_retry',
+      'payment_due', 'suspended', 'under_review'
     ];
 
-    const bookings = await base44.asServiceRole.entities.BookingRequest.filter({
+    const BLOCKING_PHASES = [
+      'payment_complete', 'pickup_required', 'checked_out', 'active',
+      'return_required', 'return_in_progress', 'host_review'
+    ];
+
+    const rawBookings = await base44.asServiceRole.entities.BookingRequest.filter({
       vehicle_id,
       booking_status: { $in: BLOCKING_STATUSES },
       start_date: { $lte: endDate.toISOString().split('T')[0] },
       end_date: { $gte: startDate.toISOString().split('T')[0] }
+    });
+
+    // Filter using same logic as deriveVehicleAvailability
+    const bookings = rawBookings.filter(b => {
+      if (b.is_superseded) return false;
+      if (b.booking_status === 'completed' || b.booking_status === 'cancelled' || b.booking_status === 'superseded_invalid') return false;
+      if (b.rental_lifecycle_phase && !BLOCKING_PHASES.includes(b.rental_lifecycle_phase)) return false;
+      return true;
     });
 
     // Load host availability rules (use service role for public access)
@@ -157,12 +171,22 @@ Deno.serve(async (req) => {
       });
 
       if (bookingOnDate) {
+        const phase = bookingOnDate.rental_lifecycle_phase;
+        let calendarStatus = 'booked';
+        let customerLabel = 'Booked';
+        if (phase === 'return_required' || phase === 'return_in_progress' || ['return_required', 'post_inspection_required', 'overdue_return'].includes(bookingOnDate.booking_status)) {
+          calendarStatus = 'return_required';
+          customerLabel = 'Return Required';
+        } else if (phase === 'host_review' || bookingOnDate.booking_status === 'return_pending_host_review') {
+          calendarStatus = 'host_review';
+          customerLabel = 'Host Review';
+        }
         return {
           date,
-          status: 'booked',
+          status: calendarStatus,
           reason_code: 'already_booked',
-          customer_label: 'Booked',
-          host_label: `Booked (${bookingOnDate.booking_status})`,
+          customer_label: customerLabel,
+          host_label: `Booked (${phase || bookingOnDate.booking_status})`,
           booking_id: bookingOnDate.id,
           can_book: false
         };

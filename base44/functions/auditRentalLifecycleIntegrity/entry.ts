@@ -19,7 +19,8 @@ const BLOCKING_STATUSES = [
   'active', 'confirmed', 'checked_out',
   'return_required', 'post_inspection_required', 'overdue_return',
   'return_pending_host_review',
-  'pending_payment', 'pending_review', 'approved', 'grace_period', 'payment_retry'
+  'pending_payment', 'pending_review', 'approved', 'grace_period', 'payment_retry',
+  'payment_due', 'suspended', 'under_review'
 ];
 
 Deno.serve(async (req) => {

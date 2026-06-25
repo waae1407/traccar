@@ -170,54 +170,54 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Check for booking conflicts
+        // Check for booking conflicts — must match deriveVehicleAvailability exactly
         const BLOCKING_STATUSES = [
           'pending_payment', 'pending_review', 'approved', 'confirmed', 'checked_out',
           'active', 'return_required', 'post_inspection_required', 'overdue_return',
-          'return_pending_host_review', 'grace_period', 'payment_retry'
+          'return_pending_host_review', 'grace_period', 'payment_retry',
+          'payment_due', 'suspended', 'under_review'
         ];
 
-        const conflictingBookings = await base44.asServiceRole.entities.BookingRequest.filter({
+        const BLOCKING_PHASES = [
+          'payment_complete', 'pickup_required', 'checked_out', 'active',
+          'return_required', 'return_in_progress', 'host_review'
+        ];
+
+        const rawConflictingBookings = await base44.asServiceRole.entities.BookingRequest.filter({
           vehicle_id: vehicle.id,
           booking_status: { $in: BLOCKING_STATUSES },
           start_date: { $lte: return_date },
           end_date: { $gte: pickup_date }
         });
 
+        // Apply same filtering as deriveVehicleAvailability: exclude superseded, check phase
+        const conflictingBookings = rawConflictingBookings.filter(b => {
+          if (b.is_superseded) return false;
+          if (b.booking_status === 'completed' || b.booking_status === 'cancelled' || b.booking_status === 'superseded_invalid') return false;
+          if (b.rental_lifecycle_phase && !BLOCKING_PHASES.includes(b.rental_lifecycle_phase)) return false;
+          return true;
+        });
+
         if (conflictingBookings.length > 0) {
           continue;
         }
 
-        // Check host availability rules
-        const availabilityRules = await base44.entities.VehicleAvailabilityRule.filter({
+        // Check host availability rules — same overlap logic as deriveVehicleAvailability
+        const availabilityRules = await base44.asServiceRole.entities.VehicleAvailabilityRule.filter({
           vehicle_id: vehicle.id,
           is_active: true,
-          rule_type: { $in: ['blocked', 'maintenance', 'personal_use', 'blackout'] },
-          start_date: { $lte: return_date },
-          $or: [
-            { end_date: { $gte: pickup_date } },
-            { end_date: null }
-          ]
+          rule_type: { $in: ['blocked', 'maintenance', 'personal_use', 'blackout'] }
         });
 
-        // Check if any rule blocks the entire rental period
         let isBlocked = false;
         for (const rule of availabilityRules) {
           const ruleStart = new Date(rule.start_date + 'T00:00:00');
-          const ruleEnd = rule.end_date ? new Date(rule.end_date + 'T23:59:59') : null;
-
-          if (!rule.end_date) {
-            // Single day rule
-            if (rule.start_date >= pickup_date && rule.start_date <= return_date) {
-              isBlocked = true;
-              break;
-            }
-          } else if (ruleEnd) {
-            // Check if rule overlaps with rental period
-            if (pickupDate <= ruleEnd && returnDate >= ruleStart) {
-              isBlocked = true;
-              break;
-            }
+          const ruleEnd = rule.end_date ? new Date(rule.end_date + 'T23:59:59') : ruleStart;
+          // Same overlap logic as deriveVehicleAvailability
+          const hasOverlap = !(returnDate <= ruleStart || pickupDate >= ruleEnd);
+          if (hasOverlap) {
+            isBlocked = true;
+            break;
           }
         }
 

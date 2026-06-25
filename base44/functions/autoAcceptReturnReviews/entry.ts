@@ -27,19 +27,9 @@ Deno.serve(async (req) => {
         lock_reason: packet.lock_reason || 'auto_accepted_after_24h',
       });
 
-      await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-        booking_status: 'completed',
-        clean_return_status: booking.clean_return_status === 'not_clean' ? 'not_clean' : 'approved_clean',
-        rental_ended_at: booking.rental_ended_at || now.toISOString(),
-        rental_ended_by: 'auto_accept_timeout',
-        autopay_enabled: false,
-        pending_review_alert_active: false,
-      });
-
-      if (booking.vehicle_id) {
-        const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: booking.vehicle_id });
-        if (canRelease(vehicles[0])) await base44.asServiceRole.entities.Vehicle.update(booking.vehicle_id, { status: 'Available' });
-      }
+      // NOTE: processRentalLifecycleTransitions is the sole authority for BookingRequest
+      // lifecycle auto-completion. This function only manages InspectionEvidencePacket state.
+      // Do NOT update BookingRequest or Vehicle status here — prevents dual-completion race.
       accepted += 1;
     }
 
