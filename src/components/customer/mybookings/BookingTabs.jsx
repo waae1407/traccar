@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function BookingTabs({ activeTab, setActiveTab, activeCount, pastCount, brandColor, secondaryColor }) {
+export default function BookingTabs({ activeTab, setActiveTab, activeCount, pastCount, voidedCount, brandColor, secondaryColor }) {
   const primary = brandColor || "#e91e8c";
   const secondary = secondaryColor || "#7c3aed";
   const gradient = `linear-gradient(135deg, ${primary}, ${secondary})`;
@@ -17,7 +17,7 @@ export default function BookingTabs({ activeTab, setActiveTab, activeCount, past
               activeTab === "active" ? "text-white shadow-md bg-white/25" : "text-white/60 bg-white/15"
             }`}
           >
-            Active
+            Current
             {activeCount > 0 && (
               <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === "active" ? "bg-white/30 text-white" : "bg-white/10 text-white/50"}`}>
                 {activeCount}
@@ -30,10 +30,23 @@ export default function BookingTabs({ activeTab, setActiveTab, activeCount, past
               activeTab === "past" ? "text-white shadow-md bg-white/25" : "text-white/60 bg-white/15"
             }`}
           >
-            Past Rentals
+            Past
             {pastCount > 0 && (
               <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === "past" ? "bg-white/30 text-white" : "bg-white/10 text-white/50"}`}>
                 {pastCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("voided")}
+            className={`flex-1 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === "voided" ? "text-white shadow-md bg-white/25" : "text-white/60 bg-white/15"
+            }`}
+          >
+            Voided
+            {voidedCount > 0 && (
+              <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === "voided" ? "bg-white/30 text-white" : "bg-white/10 text-white/50"}`}>
+                {voidedCount}
               </span>
             )}
           </button>

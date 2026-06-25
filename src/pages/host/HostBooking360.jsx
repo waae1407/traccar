@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/lib/AuthContext';
 import { formatPaymentSource, formatVehicleAction, formatActivityMessage, sanitizeInternalText } from '@/lib/displayFormatters';
+import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap } from 'lucide-react';
+import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap, List } from 'lucide-react';
 import { format } from 'date-fns';
 
 function SBadge({ status }) {
@@ -16,17 +19,61 @@ function SBadge({ status }) {
 }
 
 export default function HostBooking360() {
+  const { user } = useAuth();
   const [bookingId, setBookingId] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [view, setView] = useState('list'); // 'list' or 'detail'
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Fetch host's bookings for list view
+  const { data: hosts = [] } = useQuery({
+    queryKey: ['host-booking360-profile', user?.email],
+    queryFn: () => base44.entities.Host.filter({ email: user.email }),
+    enabled: !!user?.email,
+  });
+  const host = hosts[0];
+
+  const { data: hostBookings = [], isLoading: listLoading } = useQuery({
+    queryKey: ['host-booking360-list', host?.id],
+    queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }, '-updated_date', 200),
+    enabled: !!host?.id,
+  });
+
+  const filteredBookings = hostBookings.filter(b => {
+    if (filterStatus !== 'all') {
+      if (filterStatus === 'active' && !['active', 'confirmed', 'approved', 'checked_out', 'return_required', 'post_inspection_required', 'overdue_return', 'return_pending_host_review', 'payment_due', 'grace_period', 'suspended'].includes(b.booking_status)) return false;
+      if (filterStatus === 'completed' && b.booking_status !== 'completed') return false;
+      if (filterStatus === 'auto_completed' && !(b.booking_status === 'completed' && b.completion_reason === 'host_review_window_expired')) return false;
+      if (filterStatus === 'return_pending' && b.booking_status !== 'return_pending_host_review') return false;
+      if (filterStatus === 'voided' && !['cancelled', 'superseded_invalid', 'rejected'].includes(b.booking_status)) return false;
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (b.customer_full_name || '').toLowerCase().includes(q) ||
+             (b.user_email || '').toLowerCase().includes(q) ||
+             (b.vehicle_name || '').toLowerCase().includes(q) ||
+             b.id.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   const handleSearch = async () => {
     if (!bookingId.trim()) return;
     setLoading(true); setError(''); setData(null);
     const res = await base44.functions.invoke('getBooking360', { booking_request_id: bookingId.trim() });
     if (res.data?.error) setError(res.data.error === 'Forbidden' ? 'This booking does not belong to your fleet.' : res.data.error);
-    else setData(res.data);
+    else { setData(res.data); setView('detail'); }
+    setLoading(false);
+  };
+
+  const openBooking = async (id) => {
+    setLoading(true); setError('');
+    const res = await base44.functions.invoke('getBooking360', { booking_request_id: id });
+    if (res.data?.error) setError(res.data.error);
+    else { setData(res.data); setView('detail'); }
     setLoading(false);
   };
 
@@ -35,15 +82,65 @@ export default function HostBooking360() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Booking 360</h1>
-        <p className="text-muted-foreground text-sm mt-1">Full booking view — payments, vehicle actions, inspections</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Booking 360</h1>
+          <p className="text-muted-foreground text-sm mt-1">Full booking view — payments, vehicle actions, inspections</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant={view === 'list' ? 'default' : 'outline'} onClick={() => setView('list')}><List className="h-4 w-4 mr-2" />List</Button>
+          <Button variant={view === 'detail' ? 'default' : 'outline'} onClick={() => setView('detail')}><Search className="h-4 w-4 mr-2" />Detail</Button>
+        </div>
       </div>
-      <div className="flex gap-3">
-        <Input value={bookingId} onChange={e => setBookingId(e.target.value)} placeholder="Booking ID..." className="max-w-md" onKeyDown={e => e.key === 'Enter' && handleSearch()} />
-        <Button onClick={handleSearch} disabled={loading}><Search className="h-4 w-4 mr-2" />{loading ? 'Loading…' : 'Load Booking'}</Button>
-      </div>
-      {error && <Alert className="border-red-500/30 bg-red-500/10"><AlertDescription className="text-red-400">{error}</AlertDescription></Alert>}
+
+      {view === 'detail' && (
+        <>
+          <div className="flex gap-3">
+            <Input value={bookingId} onChange={e => setBookingId(e.target.value)} placeholder="Booking ID..." className="max-w-md" onKeyDown={e => e.key === 'Enter' && handleSearch()} />
+            <Button onClick={handleSearch} disabled={loading}><Search className="h-4 w-4 mr-2" />{loading ? 'Loading…' : 'Load Booking'}</Button>
+          </div>
+          {error && <Alert className="border-red-500/30 bg-red-500/10"><AlertDescription className="text-red-400">{error}</AlertDescription></Alert>}
+        </>
+      )}
+
+      {view === 'list' && (
+        <>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2">
+            <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search customer, vehicle, or booking ID..." className="max-w-xs" />
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="h-9 rounded-md border border-border bg-background px-3 text-sm">
+              <option value="all">All Statuses</option>
+              <option value="active">Active / Current</option>
+              <option value="completed">Completed</option>
+              <option value="auto_completed">Auto-completed</option>
+              <option value="return_pending">Return Pending Review</option>
+              <option value="voided">Cancelled / Voided</option>
+            </select>
+          </div>
+
+          {/* List */}
+          <div className="space-y-2">
+            {listLoading && <p className="text-muted-foreground text-sm">Loading bookings…</p>}
+            {!listLoading && filteredBookings.length === 0 && <p className="text-muted-foreground text-sm">No bookings match your filters.</p>}
+            {filteredBookings.map(b => (
+              <button key={b.id} onClick={() => openBooking(b.id)} className="w-full text-left rounded-lg bg-secondary/30 px-3 py-2 text-sm hover:bg-secondary/50 transition-colors space-y-1">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium">{b.customer_full_name || b.user_email}</p>
+                    <p className="text-muted-foreground text-xs">{b.vehicle_name || '—'} · {b.start_date} → {b.end_date || '—'}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {b.is_superseded && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">VOIDED</span>}
+                    <SBadge status={b.booking_status} />
+                    <SBadge status={b.payment_status} />
+                  </div>
+                </div>
+                <BookingLifecycleFields booking={b} compact />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {data?.warnings?.map((w, i) => (
         <Alert key={i} className="border-yellow-500/30 bg-yellow-500/10 py-2">
@@ -91,6 +188,14 @@ export default function HostBooking360() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Lifecycle Section */}
+          <Card className="bg-card border-border">
+            <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4 text-primary" />Rental Lifecycle</CardTitle></CardHeader>
+            <CardContent>
+              <BookingLifecycleFields booking={b} />
+            </CardContent>
+          </Card>
 
           <Tabs defaultValue="payments">
             <TabsList className="flex-wrap h-auto gap-1">

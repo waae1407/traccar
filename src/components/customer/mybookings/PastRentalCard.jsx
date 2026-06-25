@@ -12,13 +12,53 @@ const CLEAN_RETURN_LABELS = {
   not_returned:   { label: "No Return Photos", cls: "text-gray-500 bg-gray-50 border-gray-200" },
 };
 
+const STATUS_LABELS = {
+  completed: (b) => b.completion_reason === "host_review_window_expired" ? "Auto-completed" : "Completed",
+  cancelled: () => "Cancelled",
+  rejected: () => "Rejected",
+  superseded_invalid: (b) => b.payment_status === "refunded" ? "Voided / Refunded" : "Voided / Duplicate",
+  more_info_requested: () => "More Info Needed",
+};
+
+const STATUS_BADGE_STYLES = {
+  completed: "bg-emerald-500 text-white",
+  cancelled: "bg-gray-400 text-white",
+  rejected: "bg-red-500 text-white",
+  superseded_invalid: "bg-gray-500 text-white",
+  more_info_requested: "bg-yellow-500 text-white",
+};
+
+function LifecycleField({ label, value }) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between text-[11px] py-1">
+      <span className="text-gray-400">{label}</span>
+      <span className="text-gray-600 font-medium text-right">{value}</span>
+    </div>
+  );
+}
+
+function formatDate(str) {
+  if (!str) return null;
+  try {
+    return format(new Date(str), "MMM d, yyyy · h:mm a");
+  } catch {
+    return str;
+  }
+}
+
 export default function PastRentalCard({ booking, user, existingReview, onReviewSubmitted, onViewContract }) {
   const [expanded, setExpanded] = useState(false);
 
   const isCancelled = booking.booking_status === "cancelled";
+  const isVoided = booking.booking_status === "superseded_invalid" || booking.booking_status === "rejected";
+  const isCompleted = booking.booking_status === "completed";
+  const statusLabel = STATUS_LABELS[booking.booking_status]?.(booking) || booking.booking_status?.replace(/_/g, " ");
+  const statusBadgeStyle = STATUS_BADGE_STYLES[booking.booking_status] || "bg-gray-400 text-white";
   const cleanReturn = CLEAN_RETURN_LABELS[booking.clean_return_status] || CLEAN_RETURN_LABELS.not_returned;
   const hasPickup = booking.pickup_photos?.length > 0;
   const hasDropoff = booking.return_exterior_photos?.length > 0;
+  const showLifecycleDetails = isCompleted || isVoided;
 
   return (
     <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
@@ -34,8 +74,8 @@ export default function PastRentalCard({ booking, user, existingReview, onReview
               </p>
               <p className="text-white/60 text-[11px]">{booking.booking_type}</p>
             </div>
-            <span className={`px-3 py-1 rounded-full text-[10px] font-bold shadow-sm ${isCancelled ? "bg-red-500 text-white" : "bg-emerald-500 text-white"}`}>
-              {isCancelled ? "Cancelled" : "Completed"}
+            <span className={`px-3 py-1 rounded-full text-[10px] font-bold shadow-sm ${statusBadgeStyle}`}>
+              {statusLabel}
             </span>
           </div>
         </div>
@@ -66,6 +106,38 @@ export default function PastRentalCard({ booking, user, existingReview, onReview
         {isCancelled && booking.cancellation_reason && (
           <div className="mb-3 px-3 py-2 rounded-xl bg-red-50 border border-red-100">
             <p className="text-[11px] text-red-600"><strong>Cancellation reason:</strong> {booking.cancellation_reason}</p>
+          </div>
+        )}
+
+        {/* Superseded / voided reason */}
+        {isVoided && (booking.superseded_reason || booking.closure_reason) && (
+          <div className="mb-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
+            <p className="text-[11px] text-gray-600">
+              <strong>{booking.booking_status === "superseded_invalid" ? "Voided:" : "Reason:"}</strong> {(booking.superseded_reason || booking.closure_reason || "").replace(/_/g, " ")}
+            </p>
+            {booking.superseded_by_booking_id && (
+              <p className="text-[10px] text-gray-400 mt-1">Replaced by booking #{booking.superseded_by_booking_id.slice(-8)}</p>
+            )}
+          </div>
+        )}
+
+        {/* Lifecycle details for completed/voided */}
+        {showLifecycleDetails && (
+          <div className="mb-3 px-3 py-2 rounded-xl bg-gray-50 border border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Rental Lifecycle</p>
+            <div className="divide-y divide-gray-100">
+              {isCompleted && booking.completion_reason && (
+                <LifecycleField label="Completion" value={booking.completion_reason === "host_review_window_expired" ? "Auto-completed (review window expired)" : booking.completion_reason.replace(/_/g, " ")} />
+              )}
+              <LifecycleField label="Return submitted" value={formatDate(booking.return_completed_at)} />
+              <LifecycleField label="Billing stopped" value={formatDate(booking.billing_stopped_at)} />
+              <LifecycleField label="Auto-completed at" value={formatDate(booking.auto_completed_at)} />
+              <LifecycleField label="Host review" value={booking.host_review_status?.replace(/_/g, " ")} />
+              <LifecycleField label="Dispute status" value={booking.damage_dispute_status && booking.damage_dispute_status !== "none" ? booking.damage_dispute_status.replace(/_/g, " ") : null} />
+              {booking.payment_status && (
+                <LifecycleField label="Payment" value={booking.payment_status.replace(/_/g, " ")} />
+              )}
+            </div>
           </div>
         )}
 

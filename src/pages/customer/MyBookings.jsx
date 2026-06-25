@@ -13,17 +13,15 @@ import ContractModal from "@/components/customer/mybookings/ContractModal";
 import ReviewCompletionNudge from "@/components/customer/mybookings/ReviewCompletionNudge";
 import InspectionCompletionNudge from "@/components/customer/mybookings/InspectionCompletionNudge";
 
-const STATUS_PRIORITY = {
-  active: 7, confirmed: 6, approved: 6, pending_review: 5, pending_payment: 4,
-  pending_contract: 3, pending_verification: 2, draft: 1, completed: 0, cancelled: 0,
-};
-
 const ACTIVE_STATUSES = [
-  "active", "confirmed", "approved", "pending_review", "pending_payment",
-  "pending_verification", "pending_contract", "cancellation_requested", "return_pending_host_review", "under_review", "draft",
-  "payment_due", "grace_period", "suspended",
+  "pending_payment", "payment_due", "grace_period", "suspended", "confirmed",
+  "checked_out", "active", "return_required", "post_inspection_required",
+  "overdue_return", "return_pending_host_review", "under_review",
+  "pending_review", "pending_verification", "pending_contract", "approved",
+  "cancellation_requested", "draft",
 ];
-const PAST_STATUSES = ["completed", "cancelled"];
+const PAST_STATUSES = ["completed"];
+const VOIDED_STATUSES = ["cancelled", "superseded_invalid", "rejected", "more_info_requested"];
 
 export default function MyBookings() {
   const { user, brand } = useOutletContext() || {};
@@ -78,22 +76,11 @@ export default function MyBookings() {
     );
   }
 
-  // Deduplicate by vehicle (keep highest priority status per vehicle)
-  const deduplicated = Object.values(
-    bookings.reduce((acc, b) => {
-      const isDraft = b.booking_status === "draft";
-      const key = isDraft ? b.id : (b.vehicle_id || b.id);
-      const existing = acc[key];
-      const bPriority = STATUS_PRIORITY[b.booking_status] ?? 0;
-      const ePriority = existing ? (STATUS_PRIORITY[existing.booking_status] ?? 0) : -1;
-      if (!existing || bPriority > ePriority || (bPriority === ePriority && new Date(b.updated_date) > new Date(existing.updated_date))) {
-        acc[key] = b;
-      }
-      return acc;
-    }, {})
-  );
+  // No vehicle_id-based dedup — each booking_id is its own record
+  // Only dedup exact duplicate draft records by booking.id
+  const allBookings = bookings;
 
-  const activeBookings = deduplicated.filter((b) => ACTIVE_STATUSES.includes(b.booking_status));
+  const activeBookings = allBookings.filter((b) => ACTIVE_STATUSES.includes(b.booking_status));
   
   // Redirect to /my-vehicle if there's an active paid booking
   const hasActiveRental = activeBookings.some(b => ["active", "approved", "confirmed"].includes(b.booking_status) && b.payment_status === "paid");
@@ -101,8 +88,10 @@ export default function MyBookings() {
     window.location.href = "/my-vehicle";
   }
   
-  const pastBookings   = deduplicated.filter((b) => PAST_STATUSES.includes(b.booking_status))
-    .sort((a, b) => new Date(b.rental_ended_at || b.updated_date) - new Date(a.rental_ended_at || a.updated_date));
+  const pastBookings = allBookings.filter((b) => PAST_STATUSES.includes(b.booking_status))
+    .sort((a, b) => new Date(b.rental_ended_at || b.auto_completed_at || b.updated_date) - new Date(a.rental_ended_at || a.auto_completed_at || a.updated_date));
+  const voidedBookings = allBookings.filter((b) => VOIDED_STATUSES.includes(b.booking_status))
+    .sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
   const pendingReviewBookings = pastBookings.filter((b) => b.booking_status === "completed" && !reviewMap[b.id]);
   const missingInspectionBookings = activeBookings.filter((b) =>
     ["active", "confirmed", "approved"].includes(b.booking_status) &&
@@ -134,6 +123,7 @@ export default function MyBookings() {
         setActiveTab={setActiveTab}
         activeCount={activeBookings.length}
         pastCount={pastBookings.length}
+        voidedCount={voidedBookings.length}
         brandColor={brand?.brand_color}
         secondaryColor={brand?.secondary_color}
       />
@@ -200,6 +190,32 @@ export default function MyBookings() {
           ) : (
             <div className="space-y-3">
               {pastBookings.map((b) => (
+                <PastRentalCard
+                  key={b.id}
+                  booking={b}
+                  user={user}
+                  existingReview={reviewMap[b.id]}
+                  onReviewSubmitted={() => queryClient.invalidateQueries({ queryKey: ["my-host-reviews", user?.email] })}
+                  onViewContract={setContractBooking}
+                />
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Voided / Cancelled Tab */}
+        {activeTab === "voided" && (
+          voidedBookings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+                <CalendarDays className="h-7 w-7 text-gray-400" />
+              </div>
+              <h3 className="font-bold text-gray-900 text-lg">No voided bookings</h3>
+              <p className="text-gray-400 text-sm mt-2">Cancelled or voided bookings will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {voidedBookings.map((b) => (
                 <PastRentalCard
                   key={b.id}
                   booking={b}

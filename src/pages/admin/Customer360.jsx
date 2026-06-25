@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatPaymentSource, formatVehicleAction, formatActivityMessage, formatPaymentReference, sanitizeInternalText } from '@/lib/displayFormatters';
+import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -72,6 +74,7 @@ export default function Customer360() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSearch = async () => {
     if (!search.trim()) return;
@@ -173,21 +176,24 @@ export default function Customer360() {
 
             <TabsContent value="bookings" className="space-y-3 mt-4">
               {data.bookings?.map(b => (
-                <div key={b.id} className="rounded-lg bg-secondary/30 px-3 py-2 text-sm">
+                <div key={b.id} className="rounded-lg bg-secondary/30 px-3 py-2 text-sm space-y-1.5 cursor-pointer hover:bg-secondary/50 transition-colors" onClick={() => navigate(`/admin/booking-360?booking_id=${b.id}`)}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
+                      {b.is_superseded && <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">VOIDED</span>}
                       <StatusBadge status={b.booking_status} />
                       <p className="font-mono text-xs text-muted-foreground">{b.id?.slice(-10)}</p>
                     </div>
                     <StatusBadge status={b.payment_status} />
                   </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                  <div className="mt-1 grid grid-cols-3 gap-2 text-xs">
                     <div><span className="text-muted-foreground">Vehicle: </span>{b.vehicle_name || '—'}</div>
                     <div><span className="text-muted-foreground">Start: </span>{b.start_date || '—'}</div>
-                    <div><span className="text-muted-foreground">Rate: </span>${b.weekly_rate || 0}/wk</div>
+                    <div><span className="text-muted-foreground">End: </span>{b.end_date || '—'}</div>
                   </div>
+                  <BookingLifecycleFields booking={b} compact />
                 </div>
               ))}
+              {!data.bookings?.length && <p className="text-muted-foreground text-sm">No bookings found.</p>}
             </TabsContent>
 
             <TabsContent value="telematics" className="space-y-3 mt-4">

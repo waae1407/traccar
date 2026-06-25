@@ -71,26 +71,15 @@ export default function ActivityPage() {
     .filter((e) => e.event_type === "payment_received")
     .reduce((s, e) => s + (e.amount || 0), 0);
 
-  // Deduplicate bookings by vehicle (same logic as MyBookings)
-  const STATUS_PRIORITY = {
-    active: 7, confirmed: 6, pending_review: 5, pending_payment: 4,
-    pending_contract: 3, pending_verification: 2, draft: 1,
-    completed: 0, cancelled: 0,
-  };
-  const dedupedBookings = Object.values(
-    bookings.reduce((acc, b) => {
-      const key = b.vehicle_id || b.id;
-      const existing = acc[key];
-      const bP = STATUS_PRIORITY[b.booking_status] ?? 0;
-      const eP = existing ? (STATUS_PRIORITY[existing.booking_status] ?? 0) : -1;
-      if (!existing || bP > eP || (bP === eP && new Date(b.updated_date) > new Date(existing.updated_date))) {
-        acc[key] = b;
-      }
-      return acc;
-    }, {})
-  ).filter((b) => ["active", "confirmed"].includes(b.booking_status));
+  // No vehicle_id dedup — count each booking separately
+  const activeBookingsList = bookings.filter((b) =>
+    ["active", "confirmed", "approved", "checked_out", "return_required", "post_inspection_required",
+     "overdue_return", "return_pending_host_review", "payment_due", "grace_period", "suspended", "under_review"].includes(b.booking_status)
+  );
+  const completedBookingsList = bookings.filter((b) => b.booking_status === "completed");
+  const allRentalsCount = activeBookingsList.length + completedBookingsList.length;
 
-  const activeBooking = dedupedBookings.find((b) => ["active", "confirmed", "pending_review"].includes(b.booking_status));
+  const activeBooking = activeBookingsList[0];
 
   return (
     <div className="pb-6">
@@ -108,7 +97,7 @@ export default function ActivityPage() {
             </div>
             <div className="w-px bg-white/10" />
             <div>
-              <p className="text-2xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>{dedupedBookings.length}</p>
+              <p className="text-2xl font-black text-white" style={{ fontFamily: "var(--font-syne)" }}>{allRentalsCount}</p>
               <p className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">Rentals</p>
             </div>
             <div className="w-px bg-white/10" />

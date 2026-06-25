@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatPaymentSource, formatVehicleAction, formatPaymentReference, formatActivityMessage, sanitizeInternalText } from '@/lib/displayFormatters';
+import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
