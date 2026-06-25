@@ -12,6 +12,7 @@ import LocationContext from "@/components/customer/booknow/LocationContext";
 import BookNowHeadline from "@/components/customer/booknow/BookNowHeadline";
 import RentForFreeBanner from "@/components/customer/booknow/RentForFreeBanner";
 import WaitlistEmptyState from "@/components/customer/booknow/WaitlistEmptyState";
+import MarketplaceFilters from "@/components/marketplace/MarketplaceFilters";
 import useUserLocation from "@/hooks/useUserLocation";
 import HomeTopBar from "@/components/customer/HomeTopBar";
 
@@ -52,6 +53,20 @@ export default function BookNow() {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [bookingType, setBookingType] = useState("Weekly");
   const [activeFilter, setActiveFilter] = useState("All");
+  const [marketplaceFilters, setMarketplaceFilters] = useState({
+    city: '',
+    pickup_date: '',
+    return_date: '',
+    price_min: 0,
+    price_max: 500,
+    vehicle_type: [],
+    fuel_type: [],
+    contactless_pickup: false,
+    delivery_available: false,
+    instant_booking: true,
+    rental_type: 'weekly',
+    sort: 'recommended'
+  });
 
   const companySlug = new URLSearchParams(window.location.search).get("company");
   const refCode = new URLSearchParams(window.location.search).get("ref");
@@ -255,6 +270,14 @@ export default function BookNow() {
   return (
     <div className="min-h-screen pb-32 bg-gray-50">
       <HomeTopBar user={user} />
+      
+      {/* Premium Marketplace Filters */}
+      <MarketplaceFilters
+        filters={marketplaceFilters}
+        onFiltersChange={setMarketplaceFilters}
+        vehicleCount={available.length}
+        isLoading={isLoading}
+      />
 
       {/* SECTION 1: Promo banner */}
       <GigWorkerBanner onCta={() => document.getElementById("vehicle-grid")?.scrollIntoView({ behavior: "smooth" })} />

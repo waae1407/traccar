@@ -1,0 +1,97 @@
+{
+  "name": "VehicleRecurringAvailability",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Vehicle this recurring rule applies to"
+    },
+    "host_id": {
+      "type": "string",
+      "description": "Host owner"
+    },
+    "availability_type": {
+      "type": "string",
+      "enum": [
+        "available",
+        "blocked",
+        "maintenance",
+        "personal_use"
+      ],
+      "default": "available",
+      "description": "Type of availability for recurring dates"
+    },
+    "recurrence_pattern": {
+      "type": "string",
+      "enum": [
+        "weekly",
+        "monthly",
+        "custom"
+      ],
+      "default": "weekly",
+      "description": "Recurrence pattern type"
+    },
+    "weekly_days": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6
+      },
+      "description": "Days of week (0=Sunday, 6=Saturday) for weekly recurrence"
+    },
+    "monthly_day": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 31,
+      "description": "Day of month for monthly recurrence"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When this recurring rule starts"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When this recurring rule ends (optional)"
+    },
+    "blocked_reason": {
+      "type": "string",
+      "enum": [
+        "host_blocked",
+        "maintenance_scheduled",
+        "personal_use",
+        "other"
+      ],
+      "description": "Reason for blocking"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Host notes"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this recurring rule is active"
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "host_id",
+    "availability_type",
+    "recurrence_pattern",
+    "start_date"
+  ]
+}

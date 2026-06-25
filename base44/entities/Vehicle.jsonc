@@ -257,6 +257,62 @@
     },
     "moovetrax_device_id": {
       "type": "string"
+    },
+    "available_by_default": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether vehicle is available by default (false = blocked unless explicitly available)"
+    },
+    "advance_notice_hours": {
+      "type": "number",
+      "default": 0,
+      "description": "Hours of advance notice required for bookings"
+    },
+    "pickup_window_start": {
+      "type": "string",
+      "description": "Earliest pickup time (HH:MM format)"
+    },
+    "pickup_window_end": {
+      "type": "string",
+      "description": "Latest pickup time (HH:MM format)"
+    },
+    "return_window_start": {
+      "type": "string",
+      "description": "Earliest return time (HH:MM format)"
+    },
+    "return_window_end": {
+      "type": "string",
+      "description": "Latest return time (HH:MM format)"
+    },
+    "instant_booking_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable instant self-service booking (no manual approval)"
+    },
+    "delivery_available": {
+      "type": "boolean",
+      "default": false,
+      "description": "Host offers vehicle delivery to customer location"
+    },
+    "rental_type_daily_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Daily rentals enabled for this vehicle"
+    },
+    "rental_type_weekly_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Weekly rentals enabled for this vehicle"
+    },
+    "rental_type_monthly_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Monthly rentals enabled for this vehicle"
+    },
+    "rent_to_own_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Rent-to-own program enabled for this vehicle"
     }
   },
   "required": [

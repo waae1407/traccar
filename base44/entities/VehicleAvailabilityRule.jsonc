@@ -1,0 +1,101 @@
+{
+  "name": "VehicleAvailabilityRule",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Vehicle this rule applies to"
+    },
+    "host_id": {
+      "type": "string",
+      "description": "Host owner of the vehicle"
+    },
+    "rule_type": {
+      "type": "string",
+      "enum": [
+        "blocked",
+        "maintenance",
+        "personal_use",
+        "blackout",
+        "available_override",
+        "pickup_window",
+        "return_window"
+      ],
+      "description": "Type of availability rule"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Start date of the rule"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date",
+      "description": "End date of the rule (optional for single-day rules)"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Start time (HH:MM format) for pickup/return windows"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "End time (HH:MM format) for pickup/return windows"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Internal reason for the rule (not shown to customers)"
+    },
+    "customer_reason": {
+      "type": "string",
+      "description": "Optional customer-facing reason (e.g., 'Scheduled maintenance')"
+    },
+    "repeats": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this rule repeats"
+    },
+    "repeat_rule": {
+      "type": "string",
+      "enum": [
+        "none",
+        "daily",
+        "weekly",
+        "monthly",
+        "weekdays",
+        "weekends",
+        "custom"
+      ],
+      "description": "Repeat pattern if repeats is true"
+    },
+    "repeat_days": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "description": "Days of week for custom repeat (0=Sun, 6=Sat)"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this rule is currently active"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User ID who created this rule"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "host_id",
+    "rule_type",
+    "start_date"
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "name": "VehicleAvailability",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {
+      "type": "string",
+      "description": "Vehicle this availability rule applies to"
+    },
+    "host_id": {
+      "type": "string",
+      "description": "Host owner for quick filtering"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Specific date this rule applies to"
+    },
+    "availability_type": {
+      "type": "string",
+      "enum": [
+        "available",
+        "blocked",
+        "booked",
+        "maintenance",
+        "personal_use",
+        "unavailable"
+      ],
+      "default": "available",
+      "description": "Type of availability for this date"
+    },
+    "is_all_day": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this rule applies to the entire day"
+    },
+    "start_time": {
+      "type": "string",
+      "description": "Start time for partial-day availability (HH:MM format)"
+    },
+    "end_time": {
+      "type": "string",
+      "description": "End time for partial-day availability (HH:MM format)"
+    },
+    "blocked_reason": {
+      "type": "string",
+      "enum": [
+        "host_blocked",
+        "maintenance_scheduled",
+        "personal_use",
+        "already_booked",
+        "compliance_hold",
+        "weather",
+        "other"
+      ],
+      "description": "Reason for blocking if availability_type is blocked"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Host notes for this availability rule"
+    },
+    "recurring_rule_id": {
+      "type": "string",
+      "description": "If generated from a recurring rule, reference to that rule"
+    },
+    "auto_generated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this was auto-generated from booking or recurring rule"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User ID who created this rule"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "vehicle_id",
+    "host_id",
+    "date",
+    "availability_type"
+  ]
+}
