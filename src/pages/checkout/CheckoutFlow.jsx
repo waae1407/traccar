@@ -319,27 +319,8 @@ export default function CheckoutFlow() {
           }
           setComplianceError(null);
 
-          // 2. Create booking hold (10-minute inventory lock)
-          const sessionId = crypto.randomUUID();
-          try {
-            const holdRes = await base44.functions.invoke("manageBookingHold", {
-              operation: "create",
-              vehicle_id: v.id,
-              session_id: sessionId,
-            });
-            if (!holdRes.data?.ok) {
-              if (holdRes.data?.error === "VEHICLE_ALREADY_HELD") {
-                setComplianceError("This vehicle is currently reserved by another customer. Please try again in a few minutes.");
-              } else {
-                setComplianceError("Unable to reserve vehicle. Please try again.");
-              }
-              return;
-            }
-            console.log("[CheckoutFlow] Hold created:", holdRes.data.hold_id, "expires:", holdRes.data.expires_at);
-          } catch (e) {
-            console.warn("[BookingHold] Failed:", e);
-            // Non-blocking — continue checkout but log warning
-          }
+          // FAST-COMMIT: NO lock created here — lock only created at final Submit/Pay button
+          // Vehicle remains Available during browsing and checkout navigation
 
           const allStaleToCancel = allUserBookings.filter(
             (b) => [...STALE_STATUSES, "draft", "pending_payment"].includes(b.booking_status) && b.id !== booking?.id && b.id !== requestId
@@ -402,7 +383,7 @@ export default function CheckoutFlow() {
         {currentStep === "verification" && <StepVerification {...commonProps} />}
         {currentStep === "terms" && <StepTerms {...commonProps} />}
         {currentStep === "contract" && <StepContract {...commonProps} />}
-        {currentStep === "payment" && <StepPayment {...commonProps} onPaymentSuccess={onPaymentSuccess} isPaymentRecovery={isPaymentRecovery} />}
+        {currentStep === "payment" && <StepPayment {...commonProps} onPaymentSuccess={onPaymentSuccess} isPaymentRecovery={isPaymentRecovery} booking={booking} />}
         {currentStep === "confirmation" && <StepConfirmation {...commonProps} />}
       </div>
     </div>

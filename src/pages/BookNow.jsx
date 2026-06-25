@@ -115,29 +115,36 @@ export default function BookNow() {
   });
   const complianceEnforcementEnabled = platformSettingsData ? platformSettingsData.compliance_enforcement_enabled !== false : true;
 
-  // Fetch active booking holds to show "Checkout in progress" status
-  const { data: activeHolds = [] } = useQuery({
-    queryKey: ["active-booking-holds"],
+  // Fetch active fast-commit locks to show "Checkout in progress" status
+  // ONLY show for locks created within last 120 seconds (final Submit/Pay)
+  const { data: activeLocks = [] } = useQuery({
+    queryKey: ["active-fast-commit-locks"],
     queryFn: () => base44.entities.BookingHold.filter({ status: 'active' }, '-hold_expires_at', 100),
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    staleTime: 15_000,
+    refetchInterval: 15_000,
   });
 
-  // Map vehicle_id to hold info
-  const vehicleHoldMap = useMemo(() => {
+  // Map vehicle_id to lock info (only if <120 seconds old)
+  const vehicleLockMap = useMemo(() => {
     const map = {};
     const now = new Date();
-    activeHolds.forEach(hold => {
-      if (hold.status === 'active' && new Date(hold.hold_expires_at) > now) {
-        map[hold.vehicle_id] = {
-          hold_id: hold.id,
-          expires_at: hold.hold_expires_at,
-          customer_email: hold.customer_email,
+    activeLocks.forEach(lock => {
+      const lockAge = now.getTime() - new Date(lock.hold_start).getTime();
+      const lockAgeSeconds = Math.floor(lockAge / 1000);
+      
+      // FAST-COMMIT: Only show "Checkout in progress" for locks <120 seconds old
+      // This indicates active final-submit, NOT browsing/checkout navigation
+      if (lock.status === 'active' && lockAgeSeconds < 120) {
+        map[lock.vehicle_id] = {
+          lock_id: lock.id,
+          expires_at: lock.hold_expires_at,
+          age_seconds: lockAgeSeconds,
+          customer_email: lock.customer_email,
         };
       }
     });
     return map;
-  }, [activeHolds]);
+  }, [activeLocks]);
 
   // Build approved host set and brand moderation set
   const approvedHostIds = useMemo(() => new Set(approvedHosts.map(h => h.id)), [approvedHosts]);

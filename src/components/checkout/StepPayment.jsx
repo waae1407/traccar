@@ -38,6 +38,35 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
     });
 
     try {
+      // FAST-COMMIT: Create 90-second lock at final Submit/Pay (idempotent by session)
+      const sessionId = booking?.id || crypto.randomUUID();
+      let lockId = null;
+      
+      try {
+        const lockRes = await base44.functions.invoke("manageBookingHold", {
+          operation: "create_or_reuse",
+          vehicle_id: booking.vehicle_id,
+          session_id: sessionId,
+        });
+        
+        if (!lockRes.data?.ok) {
+          if (lockRes.data?.error === "VEHICLE_BEING_SUBMITTED") {
+            setError("Another renter is submitting this vehicle right now. Please try again in a moment.");
+            setProcessing(false);
+            submittedRef.current = false;
+            return;
+          }
+          console.warn("[FastCommit] Lock creation failed:", lockRes.data?.error);
+          // Non-blocking — continue with payment but log warning
+        } else {
+          lockId = lockRes.data.hold_id;
+          console.log("[FastCommit] Lock acquired:", lockId, "expires:", lockRes.data.expires_at);
+        }
+      } catch (lockErr) {
+        console.warn("[FastCommit] Lock creation error:", lockErr.message);
+        // Non-blocking — continue with payment
+      }
+      
       console.log("[Stripe] confirmPayment: Payment Element collecting billing_details (including name)");
       
       const { error: stripeErr, paymentIntent } = await Promise.race([
@@ -55,6 +84,13 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
       if (stripeErr) {
         console.error("[Stripe] confirmPayment error:", stripeErr);
+        // FAST-COMMIT: Release lock on payment failure
+        if (lockId) {
+          base44.functions.invoke("manageBookingHold", {
+            operation: "release",
+            session_id: lockId,
+          }).catch(() => {});
+        }
         // Show friendly message to user
         const friendlyMsg = stripeErr.message?.includes("billing") 
           ? "Please ensure all payment details are filled in correctly." 
@@ -67,6 +103,16 @@ function PaymentForm({ booking, user, onPaymentSuccess, paymentIntentId, stripeC
 
       const status = paymentIntent?.status;
       if (status === "succeeded" || status === "requires_capture") {
+        // FAST-COMMIT: Convert lock to booking on payment success
+        if (lockId && booking?.id) {
+          await base44.functions.invoke("manageBookingHold", {
+            operation: "convert",
+            vehicle_id: booking.vehicle_id,
+            session_id: lockId,
+            booking_request_id: booking.id,
+          }).catch(() => {});
+        }
+        
         setPaid(true);
         if (booking?.vehicle_id) await markBooked.mutateAsync({ id: booking.vehicle_id }).catch(() => {});
         await logEvent.mutateAsync({
