@@ -38,12 +38,41 @@ Deno.serve(async (req) => {
     for (const payout of pendingPayouts) {
       results.details.push({ id: payout.id, host_name: payout.host_name, net: payout.net_host_payout });
 
-      // Check if release_after has passed
-      if (!payout.release_after) {
+      // ── Resolve release_after dynamically from confirmed pickup ──
+      // The 48-hour chargeback hold starts at pickup_completed_at, not at payment.
+      // If pickup hasn't happened within 7 days of payment, fall back to payment + 48h.
+      let releaseAfter = payout.release_after ? new Date(payout.release_after) : null;
+
+      if (!releaseAfter && payout.booking_request_id) {
+        const bookingRecords = await base44.asServiceRole.entities.BookingRequest.filter({ id: payout.booking_request_id });
+        const booking = bookingRecords[0];
+        const pickupAt = booking?.pickup_completed_at || booking?.pickup_submitted_at;
+
+        if (pickupAt) {
+          // Pickup confirmed — hold starts now, releases in 48 hours
+          releaseAfter = new Date(new Date(pickupAt).getTime() + 48 * 60 * 60 * 1000);
+          await base44.asServiceRole.entities.HostPayout.update(payout.id, {
+            release_after: releaseAfter.toISOString(),
+          });
+        } else {
+          // No pickup yet — check 7-day fallback from payout creation
+          const payoutCreated = payout.created_date ? new Date(payout.created_date) : null;
+          if (payoutCreated && (now.getTime() - payoutCreated.getTime()) > 7 * 24 * 60 * 60 * 1000) {
+            // 7 days passed without pickup — fall back to payment + 48h
+            releaseAfter = new Date(payoutCreated.getTime() + 48 * 60 * 60 * 1000);
+            await base44.asServiceRole.entities.HostPayout.update(payout.id, {
+              release_after: releaseAfter.toISOString(),
+              hold_notes: 'Fallback: no pickup within 7 days, releasing based on payment date.',
+            });
+          }
+        }
+      }
+
+      if (!releaseAfter) {
         results.skipped++;
         continue;
       }
-      if (new Date(payout.release_after) > now) {
+      if (releaseAfter > now) {
         results.skipped++;
         continue;
       }

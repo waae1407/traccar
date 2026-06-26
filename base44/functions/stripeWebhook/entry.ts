@@ -836,12 +836,13 @@ Deno.serve(async (req) => {
                   const netHostPayout = Math.round((baseAmount - uridePlatformFee - receivableOffset) * 100) / 100;
                   const hostTransferAmount = Math.round(netHostPayout * 100);
 
-                  // ── DELAYED PAYOUT: Create pending HostPayout with 48-hour chargeback hold ──
-                  // Funds are NOT transferred immediately. A scheduled job (processPendingHostPayouts)
-                  // will create the Stripe transfer once the 48-hour hold window passes, giving us
-                  // time to detect chargebacks and disputes before funds reach the host.
+                  // ── DELAYED PAYOUT: Create pending HostPayout — release_after is NOT set here. ──
+                  // The 48-hour chargeback hold window starts at CONFIRMED PICKUP (pickup_completed_at),
+                  // not at payment. processPendingHostPayouts resolves release_after dynamically:
+                  //   1. If pickup_completed_at exists → release_after = pickup + 48h
+                  //   2. If no pickup within 7 days of payment → fallback: release_after = payment + 48h
+                  // This ensures the hold covers the actual rental period when disputes arise.
                   const now = new Date();
-                  const releaseAfter = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours
                   const transfer = { id: '' };
 
                   const vehicleName = vehicle ? `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim() : null;
@@ -868,7 +869,7 @@ Deno.serve(async (req) => {
                     hold_reason: 'reserve_window',
                     held_at: now.toISOString(),
                     held_by: 'stripe_webhook',
-                    release_after: releaseAfter.toISOString(),
+                    release_after: null,
                     stripe_payment_intent_id: pi.id,
                     stripe_charge_id: chargeId || '',
                     stripe_transfer_id: '',
@@ -886,12 +887,12 @@ Deno.serve(async (req) => {
                   const feeLabel = `${(commissionRate * 100).toFixed(0)}% Uride Platform Fee`;
                   await base44.asServiceRole.entities.Notification.create({
                     user_email: host.email,
-                    title: `⏳ Payout Processing — $${netHostPayout.toLocaleString()}`,
-                    body: `Payment received: $${grossAmount}. After ${feeLabel} ($${uridePlatformFee}), Stripe processing ($${stripeFeeAmount.toFixed(2)}), and receivable offsets ($${receivableOffset.toFixed(2)}), your net payout of $${netHostPayout} is pending. Funds will be transferred to your Stripe account within 48 hours (chargeback protection window).`,
+                    title: `⏳ Payout Pending — $${netHostPayout.toLocaleString()}`,
+                    body: `Payment received: $${grossAmount}. After ${feeLabel} ($${uridePlatformFee}), Stripe processing ($${stripeFeeAmount.toFixed(2)}), and receivable offsets ($${receivableOffset.toFixed(2)}), your net payout of $${netHostPayout} is pending. Funds will be transferred 48 hours after the customer confirms vehicle pickup (chargeback protection window). If pickup doesn't occur within 7 days, the hold releases based on payment date.`,
                     type: 'payment',
                   });
 
-                  console.log(`[AutoPayout] ⏳ Pending payout created — $${netHostPayout} for host ${host.stripe_account_id} — releases at ${releaseAfter.toISOString()}`);
+                  console.log(`[AutoPayout] ⏳ Pending payout created — $${netHostPayout} for host ${host.stripe_account_id} — release_after will resolve at confirmed pickup`);
 
                   await logEvent(base44, {
                     event_type: 'payout.created',
@@ -902,8 +903,8 @@ Deno.serve(async (req) => {
                     host_id: host.id,
                     booking_id: bookingRequestId,
                     vehicle_id: booking.vehicle_id || '',
-                    summary: `Payout $${netHostPayout} pending for ${host.full_name} — 48hr chargeback hold — releases ${releaseAfter.toISOString()}`,
-                    metadata: { gross: grossAmount, base_amount: baseAmount, stripe_fee: stripeFeeAmount, platform_fee: uridePlatformFee, receivable_offset: receivableOffset, net: netHostPayout, release_after: releaseAfter.toISOString(), hold_reason: 'reserve_window' },
+                    summary: `Payout $${netHostPayout} pending for ${host.full_name} — 48hr hold starts at confirmed pickup`,
+                    metadata: { gross: grossAmount, base_amount: baseAmount, stripe_fee: stripeFeeAmount, platform_fee: uridePlatformFee, receivable_offset: receivableOffset, net: netHostPayout, hold_reason: 'reserve_window', release_trigger: 'pickup_completed_at + 48h', fallback: 'payment + 48h after 7 days' },
                     source: 'webhook',
                   });
                 } else {
