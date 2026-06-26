@@ -69,19 +69,20 @@ function validateCanonicalPrice(booking, chargedAmount, chargeContext) {
   else if (booking.allow_daily_booking && dRate) canonical = days * dRate;
   else if (wRate) { canonical = wRate; }
   canonical = Math.round(canonical * 100) / 100;
+  var STRIPE_FEE_RATE = 0.0305;
   var issues = [], overcharge = 0;
   if (charged > 0) {
     if (chargeContext === 'per_week') {
-      if (wRate > 0 && charged > wRate + 1) { overcharge = Math.round((charged - wRate) * 100) / 100; issues.push('OVERCHARGE: Weekly billing $' + charged + ' exceeds weekly rate $' + wRate + ' by $' + overcharge); }
+      if (wRate > 0 && charged > wRate * (1 + STRIPE_FEE_RATE) + 2) { overcharge = Math.round((charged - wRate) * 100) / 100; issues.push('OVERCHARGE: Weekly billing $' + charged + ' exceeds weekly rate $' + wRate + ' by $' + overcharge); }
       if (days > 1 && wRate > 0 && Math.abs(charged / days - wRate) < 0.01) { overcharge = Math.round((charged - canonical) * 100) / 100; issues.push('CRITICAL: Weekly rate ($' + wRate + ') used as daily rate for ' + days + ' days'); }
     } else if (chargeContext === 'admin_charge') {
       if (wRate > 0 && days > 1 && Math.abs(charged / days - wRate) < 0.01) { overcharge = Math.round((charged - canonical) * 100) / 100; issues.push('CRITICAL: Weekly rate ($' + wRate + ') used as daily rate for ' + days + ' days'); }
-      if (days < 7 && wRate > 0 && charged > wRate + 1 && Math.abs(charged - wRate * days) < 1) { overcharge = Math.round((charged - wRate) * 100) / 100; issues.push('OVERCHARGE: $' + charged + ' for ' + days + ' days exceeds weekly rate $' + wRate); }
+      if (days < 7 && wRate > 0 && charged > wRate * (1 + STRIPE_FEE_RATE) + 2 && Math.abs(charged - wRate * days) < 1) { overcharge = Math.round((charged - wRate) * 100) / 100; issues.push('OVERCHARGE: $' + charged + ' for ' + days + ' days exceeds weekly rate $' + wRate); }
     } else {
       if (wRate && days > 1 && Math.abs(charged / days - wRate) < 0.01) { overcharge = Math.round((charged - canonical) * 100) / 100; issues.push('CRITICAL: Weekly rate ($' + wRate + ') used as daily rate for ' + days + ' days'); }
-      if (days < 7 && wRate && charged > wRate + 1) { overcharge = Math.max(overcharge, Math.round((charged - wRate) * 100) / 100); issues.push('OVERCHARGE: $' + charged + ' for ' + days + ' days exceeds weekly rate $' + wRate); }
-      if (days < 28 && mRate && charged > mRate + 1) { overcharge = Math.max(overcharge, Math.round((charged - mRate) * 100) / 100); issues.push('OVERCHARGE: $' + charged + ' exceeds monthly rate $' + mRate); }
-      if (canonical > 0 && charged > canonical + 1) { overcharge = Math.max(overcharge, Math.round((charged - canonical) * 100) / 100); issues.push('MISMATCH: Charged $' + charged + ' vs canonical $' + canonical); }
+      if (days < 7 && wRate && charged > wRate * (1 + STRIPE_FEE_RATE) + 2) { overcharge = Math.max(overcharge, Math.round((charged - wRate) * 100) / 100); issues.push('OVERCHARGE: $' + charged + ' for ' + days + ' days exceeds weekly rate $' + wRate); }
+      if (days < 28 && mRate && charged > mRate * (1 + STRIPE_FEE_RATE) + 2) { overcharge = Math.max(overcharge, Math.round((charged - mRate) * 100) / 100); issues.push('OVERCHARGE: $' + charged + ' exceeds monthly rate $' + mRate); }
+      if (canonical > 0 && charged > canonical * (1 + STRIPE_FEE_RATE) + 2) { overcharge = Math.max(overcharge, Math.round((charged - canonical) * 100) / 100); issues.push('MISMATCH: Charged $' + charged + ' vs canonical $' + canonical); }
     }
   }
   return { valid: issues.length === 0, canonical_amount: canonical, charged_amount: charged, overcharge_amount: overcharge, rental_days: days, pricing_canonical_version: PRICING_CANONICAL_VERSION, issues: issues };
