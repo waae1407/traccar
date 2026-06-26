@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import { toast } from "@/components/ui/use-toast";
 import { Plus, Car, CheckCircle2, Clock, MoreVertical, AlertTriangle, Shield, Zap } from "lucide-react";
 import TelematicsAdminPanel from "@/components/admin/TelematicsAdminPanel";
 import HostPageHeader from "@/components/host/HostPageHeader";
@@ -74,14 +75,25 @@ export default function HostVehicles() {
   const saveMutation = useMutation({
     mutationFn: (data) => {
       const explicitPaymentSetup = paymentSettings[0] && paymentSettings[0].payment_mode && typeof paymentSettings[0].uride_payments_enabled === "boolean";
-      if (data.status === "Available" && !explicitPaymentSetup) {
-        throw new Error("Payment setup is required before publishing a vehicle.");
+      // Only enforce payment setup when PUBLISHING to Available (not editing an already-available vehicle)
+      const wasAvailable = editing?.status === "Available";
+      const publishingNow = data.status === "Available" && !wasAvailable;
+      if (publishingNow && !explicitPaymentSetup) {
+        throw new Error("Payment setup is required before publishing a vehicle. Go to Payment Settings to configure your payout method.");
       }
       return editing
         ? base44.entities.Vehicle.update(editing.id, data)
         : base44.entities.Vehicle.create({ ...data, host_id: host.id, approval_status: "pending", status: "Out of Service", deployment_type: "human", telematics_provider: "none", av_platform: "none" });
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["host-vehicles"] }); setOpen(false); setEditing(null); },
+    onSuccess: () => {
+      toast({ title: "Vehicle updated successfully", description: "Your changes have been saved." });
+      qc.invalidateQueries({ queryKey: ["host-vehicles"] });
+      setOpen(false);
+      setEditing(null);
+    },
+    onError: (err) => {
+      toast({ title: "Failed to save vehicle", description: err.message, variant: "destructive" });
+    },
   });
 
   const openEdit = (v) => { setEditing(v); setOpen(true); };
@@ -234,6 +246,7 @@ export default function HostVehicles() {
         onSave={(data) => saveMutation.mutate(data)}
         vehicle={editing}
         isSaving={saveMutation.isPending}
+        errorMessage={saveMutation.error?.message}
         requiredHostId={host?.id || ""}
         planMode={planMode}
         hybridSubscriptionActive={hybridSubscriptionActive}

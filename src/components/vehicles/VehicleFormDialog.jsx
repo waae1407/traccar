@@ -58,7 +58,7 @@ function PricingPreview({ form }) {
   );
 }
 
-export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving, requiredHostId = "", planMode = "", hybridSubscriptionActive = true }) {
+export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle, isSaving, requiredHostId = "", planMode = "", hybridSubscriptionActive = true, errorMessage = "" }) {
   const [form, setForm] = useState(emptyForm);
   const [decodingVIN, setDecodingVIN] = useState(false);
   const [vinError, setVinError] = useState("");
@@ -431,10 +431,16 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
 
           <VehicleVisibilityControls form={form} onChange={set} planMode={planMode} hybridSubscriptionActive={hybridSubscriptionActive} />
 
+          {(errorMessage || vinError) && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-300 font-medium">
+              {errorMessage || vinError}
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">Cancel</button>
             <button type="submit" disabled={isSaving || decodingVIN} className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-primary hover:opacity-90 transition-all disabled:opacity-50 shadow-glow-sm">
-              {vehicle ? "Update" : "Create"}
+              {isSaving ? "Saving…" : vehicle ? "Update" : "Create"}
             </button>
           </div>
         </form>
