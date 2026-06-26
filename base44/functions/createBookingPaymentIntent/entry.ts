@@ -163,15 +163,6 @@ Deno.serve(async (req) => {
       payment_method_types: ['card'],
       transfer_group: `booking:${booking_request_id}`,
     };
-    // ── DESTINATION CHARGES: Route funds directly to host's Connect account ──
-    // When the customer pays, Stripe automatically sends the host's share to their
-    // Connect account and keeps the platform fee. No manual transfer needed later,
-    // no balance-drain issue with automatic Stripe payouts.
-    if (processor === 'uride_stripe' && host.stripe_account_id && host.stripe_onboarding_complete) {
-      piPayload.transfer_data = { destination: host.stripe_account_id };
-      piPayload.application_fee_amount = Math.round(amount_cents * (commerce.commission_rate || 0));
-    }
-
     const paymentIntent = stripeOptions.stripeAccount
       ? await stripe.paymentIntents.create(piPayload, stripeOptions)
       : await stripe.paymentIntents.create(piPayload);

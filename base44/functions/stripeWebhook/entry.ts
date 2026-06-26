@@ -831,33 +831,18 @@ Deno.serve(async (req) => {
                   }
 
                   const baseAmount = Math.max(0, Number(booking.total_due_now || booking.weekly_rate || (grossAmount - stripeFeeAmount) || 0));
-                  // Destination charges: transfer already happened at charge time
-                  const usedDestinationCharge = !!pi.transfer_data?.destination;
-                  const uridePlatformFee = usedDestinationCharge
-                    ? Math.round((pi.application_fee_amount || 0)) / 100
-                    : Math.round(baseAmount * commissionRate * 100) / 100;
-                  const receivableOffset = usedDestinationCharge ? 0 : await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - uridePlatformFee), new Date().toISOString());
+                  const uridePlatformFee = Math.round(baseAmount * commissionRate * 100) / 100;
+                  const receivableOffset = await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - uridePlatformFee), new Date().toISOString());
                   const netHostPayout = Math.round((baseAmount - uridePlatformFee - receivableOffset) * 100) / 100;
                   const hostTransferAmount = Math.round(netHostPayout * 100);
 
-                  let transfer = { id: '' };
-                  if (usedDestinationCharge) {
-                    // Transfer was automatic — retrieve the transfer ID from the charge
-                    if (chargeId) {
-                      try {
-                        const destCharge = await stripe.charges.retrieve(chargeId);
-                        transfer.id = typeof destCharge.transfer === 'string' ? destCharge.transfer : destCharge.transfer?.id || '';
-                      } catch (_) { /* transfer may not be populated yet */ }
-                    }
-                  } else if (hostTransferAmount > 0) {
-                    transfer = await stripe.transfers.create({
-                      amount: hostTransferAmount,
-                      currency: 'usd',
-                      destination: host.stripe_account_id,
-                      description: `UrideHub payout — ${host.full_name} — booking ${bookingRequestId}`,
-                      metadata: { host_id: host.id, booking_request_id: bookingRequestId, payment_intent_id: pi.id, platform: 'uride' },
-                    });
-                  }
+                  // ── DELAYED PAYOUT: Create pending HostPayout with 48-hour chargeback hold ──
+                  // Funds are NOT transferred immediately. A scheduled job (processPendingHostPayouts)
+                  // will create the Stripe transfer once the 48-hour hold window passes, giving us
+                  // time to detect chargebacks and disputes before funds reach the host.
+                  const now = new Date();
+                  const releaseAfter = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours
+                  const transfer = { id: '' };
 
                   const vehicleName = vehicle ? `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim() : null;
 
@@ -879,32 +864,37 @@ Deno.serve(async (req) => {
                     gross_collected: grossAmount,
                     platform_fee: uridePlatformFee,
                     net_payout: netHostPayout,
-                    status: 'paid',
+                    status: 'pending',
+                    hold_reason: 'reserve_window',
+                    held_at: now.toISOString(),
+                    held_by: 'stripe_webhook',
+                    release_after: releaseAfter.toISOString(),
                     stripe_payment_intent_id: pi.id,
                     stripe_charge_id: chargeId || '',
-                    stripe_transfer_id: transfer.id,
-                    payout_date: new Date().toISOString().slice(0, 10),
+                    stripe_transfer_id: '',
                     booking_count: 1,
                     vehicle_count: 1,
                   });
 
-                  await base44.asServiceRole.entities.Host.update(host.id, {
-                    total_earnings: (host.total_earnings || 0) + grossAmount,
-                    total_payouts: (host.total_payouts || 0) + netHostPayout,
+                  await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
+                    host_payout_status: 'pending',
+                    host_payout_amount: netHostPayout,
+                    platform_fee_amount: uridePlatformFee,
+                    stripe_fee_amount: stripeFeeAmount,
                   });
 
                   const feeLabel = `${(commissionRate * 100).toFixed(0)}% Uride Platform Fee`;
                   await base44.asServiceRole.entities.Notification.create({
                     user_email: host.email,
-                    title: `💰 Payout Sent — $${netHostPayout.toLocaleString()}`,
-                    body: `Payment received: $${grossAmount}. After ${feeLabel} ($${uridePlatformFee}), Stripe processing ($${stripeFeeAmount.toFixed(2)}), and receivable offsets ($${receivableOffset.toFixed(2)}), your net payout of $${netHostPayout} is on its way. Arrives within 2 business days.`,
+                    title: `⏳ Payout Processing — $${netHostPayout.toLocaleString()}`,
+                    body: `Payment received: $${grossAmount}. After ${feeLabel} ($${uridePlatformFee}), Stripe processing ($${stripeFeeAmount.toFixed(2)}), and receivable offsets ($${receivableOffset.toFixed(2)}), your net payout of $${netHostPayout} is pending. Funds will be transferred to your Stripe account within 48 hours (chargeback protection window).`,
                     type: 'payment',
                   });
 
-                  console.log(`[AutoPayout] ✓ Transfer ${transfer.id} — $${netHostPayout} to ${host.stripe_account_id} for booking ${bookingRequestId}`);
+                  console.log(`[AutoPayout] ⏳ Pending payout created — $${netHostPayout} for host ${host.stripe_account_id} — releases at ${releaseAfter.toISOString()}`);
 
                   await logEvent(base44, {
-                    event_type: 'payout.sent',
+                    event_type: 'payout.created',
                     actor_id: 'stripe_webhook',
                     actor_email: 'stripe@stripe.com',
                     actor_role: 'stripe',
@@ -912,8 +902,8 @@ Deno.serve(async (req) => {
                     host_id: host.id,
                     booking_id: bookingRequestId,
                     vehicle_id: booking.vehicle_id || '',
-                    summary: `Payout $${netHostPayout} sent to ${host.full_name} for booking ${bookingRequestId}`,
-                    metadata: { transfer_id: transfer.id, gross: grossAmount, base_amount: baseAmount, stripe_fee: stripeFeeAmount, platform_fee: uridePlatformFee, receivable_offset: receivableOffset, net: netHostPayout },
+                    summary: `Payout $${netHostPayout} pending for ${host.full_name} — 48hr chargeback hold — releases ${releaseAfter.toISOString()}`,
+                    metadata: { gross: grossAmount, base_amount: baseAmount, stripe_fee: stripeFeeAmount, platform_fee: uridePlatformFee, receivable_offset: receivableOffset, net: netHostPayout, release_after: releaseAfter.toISOString(), hold_reason: 'reserve_window' },
                     source: 'webhook',
                   });
                 } else {
