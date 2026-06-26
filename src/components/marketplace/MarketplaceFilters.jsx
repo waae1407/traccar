@@ -121,53 +121,64 @@ export default function MarketplaceFilters({
 
   return (
     <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-4">
           {/* Search Bar */}
-          <div className="flex-1 flex items-center gap-2">
-            <div className="relative flex-1 max-w-md">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          {/* Location */}
+          <div className="flex flex-col gap-1 lg:w-64">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+              <MapPin className="h-3 w-3" /> Location
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-pink-500 pointer-events-none" />
               <Input
-                placeholder="Search by city or ZIP"
+                placeholder="City or ZIP code"
                 value={localFilters.city}
                 onChange={(e) => setLocalFilters({ ...localFilters, city: e.target.value })}
-                className="pl-10"
+                className="pl-10 border-gray-300 focus:border-pink-500 focus:ring-pink-500/20 h-11"
               />
             </div>
-            
+          </div>
+          {/* Dates */}
+          <div className="flex flex-col gap-1 flex-1">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1">
+              <Calendar className="h-3 w-3" /> Rental Period
+            </label>
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <div className="relative flex-1">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 <Input
                   type="date"
                   value={localFilters.pickup_date}
                   onChange={(e) => setLocalFilters({ ...localFilters, pickup_date: e.target.value })}
-                  className="pl-10 w-32 sm:w-40"
+                  className="pl-10 h-11 border-gray-300 focus:border-pink-500 focus:ring-pink-500/20"
                 />
               </div>
-              <span className="text-gray-400">→</span>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <div className="flex items-center justify-center h-11 px-1">
+                <span className="text-gray-300 text-lg">→</span>
+              </div>
+              <div className="relative flex-1">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 <Input
                   type="date"
                   value={localFilters.return_date}
                   onChange={(e) => setLocalFilters({ ...localFilters, return_date: e.target.value })}
-                  className="pl-10 w-32 sm:w-40"
+                  className="pl-10 h-11 border-gray-300 focus:border-pink-500 focus:ring-pink-500/20"
                 />
               </div>
             </div>
           </div>
 
-          {/* Results Count & Sort */}
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500 hidden sm:block">
-              {isLoading ? 'Loading...' : `${vehicleCount} vehicles`}
-            </span>
+          {/* Sort */}
+          <div className="flex flex-col gap-1 lg:w-52">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Sort By
+            </label>
             <Select
               value={localFilters.sort}
               onValueChange={(v) => setLocalFilters({ ...localFilters, sort: v })}
             >
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="h-11 border-gray-300 focus:border-pink-500">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
@@ -179,19 +190,26 @@ export default function MarketplaceFilters({
                 <SelectItem value="available_soonest">Available Soonest</SelectItem>
               </SelectContent>
             </Select>
+          </div>
 
-            {/* Filter Button */}
-            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="relative">
-                  <Filter className="h-4 w-4" />
-                  {activeFilterCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                      {activeFilterCount}
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
+          {/* Results + Filter Button */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              {isLoading ? 'Searching...' : `${vehicleCount} vehicles`}
+            </label>
+            <div className="flex items-center gap-2 h-11">
+              <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="relative h-11 px-4 border-gray-300 hover:border-pink-400 hover:bg-pink-50">
+                    <Filter className="h-4 w-4 mr-2" />
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-pink-600 text-white border-2 border-white">
+                        {activeFilterCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </SheetTrigger>
               <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle>Filters</SheetTitle>
@@ -212,7 +230,8 @@ export default function MarketplaceFilters({
                   </div>
                 </div>
               </SheetContent>
-            </Sheet>
+              </Sheet>
+            </div>
           </div>
         </div>
 
