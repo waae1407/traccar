@@ -16,7 +16,7 @@ import MarketplaceFilters from "@/components/marketplace/MarketplaceFilters";
 import MarketplaceSearchSummary from "@/components/marketplace/MarketplaceSearchSummary";
 import MarketplaceEmptyState from "@/components/marketplace/MarketplaceEmptyState";
 import useUserLocation from "@/hooks/useUserLocation";
-import HomeTopBar from "@/components/customer/HomeTopBar";
+
 
 // Haversine distance in miles
 function getDistance(lat1, lon1, lat2, lon2) {
@@ -367,8 +367,6 @@ export default function BookNow() {
 
   return (
     <div className="min-h-screen pb-32 bg-gray-50">
-      <HomeTopBar user={user} />
-      
       {/* Premium Marketplace Filters */}
       <MarketplaceFilters
         filters={marketplaceFilters}

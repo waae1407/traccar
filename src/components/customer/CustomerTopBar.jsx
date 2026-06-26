@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MapPin, ChevronDown, Bell, User, LogIn, LogOut, Settings } from "lucide-react";
+import { Bell, User, LogIn, LogOut, Settings } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { getLogoHomeRoute } from "@/lib/logoHomeRoute";
@@ -44,16 +44,6 @@ export default function CustomerTopBar({ user, city, onCityChange }) {
           <img src={LOGO_ICON} alt="uRide" className="h-8 w-8 rounded-xl object-cover" />
           <span className="font-bold text-gray-900 text-lg tracking-tight">uRide</span>
         </Link>
-
-        {/* City selector */}
-        <button
-          onClick={onCityChange}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-        >
-          <MapPin className="h-3.5 w-3.5 text-pink-600" />
-          <span className="text-sm font-semibold text-gray-700">{city || "Select City"}</span>
-          <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-        </button>
 
         {/* Account */}
         <div className="flex items-center gap-2">
