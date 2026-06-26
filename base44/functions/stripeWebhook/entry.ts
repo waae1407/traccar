@@ -831,18 +831,33 @@ Deno.serve(async (req) => {
                   }
 
                   const baseAmount = Math.max(0, Number(booking.total_due_now || booking.weekly_rate || (grossAmount - stripeFeeAmount) || 0));
-                  const uridePlatformFee = Math.round(baseAmount * commissionRate * 100) / 100;
-                  const receivableOffset = await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - uridePlatformFee), new Date().toISOString());
+                  // Destination charges: transfer already happened at charge time
+                  const usedDestinationCharge = !!pi.transfer_data?.destination;
+                  const uridePlatformFee = usedDestinationCharge
+                    ? Math.round((pi.application_fee_amount || 0)) / 100
+                    : Math.round(baseAmount * commissionRate * 100) / 100;
+                  const receivableOffset = usedDestinationCharge ? 0 : await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - uridePlatformFee), new Date().toISOString());
                   const netHostPayout = Math.round((baseAmount - uridePlatformFee - receivableOffset) * 100) / 100;
                   const hostTransferAmount = Math.round(netHostPayout * 100);
 
-                  const transfer = hostTransferAmount > 0 ? await stripe.transfers.create({
-                    amount: hostTransferAmount,
-                    currency: 'usd',
-                    destination: host.stripe_account_id,
-                    description: `UrideHub payout — ${host.full_name} — booking ${bookingRequestId}`,
-                    metadata: { host_id: host.id, booking_request_id: bookingRequestId, payment_intent_id: pi.id, platform: 'uride' },
-                  }) : { id: '' };
+                  let transfer = { id: '' };
+                  if (usedDestinationCharge) {
+                    // Transfer was automatic — retrieve the transfer ID from the charge
+                    if (chargeId) {
+                      try {
+                        const destCharge = await stripe.charges.retrieve(chargeId);
+                        transfer.id = typeof destCharge.transfer === 'string' ? destCharge.transfer : destCharge.transfer?.id || '';
+                      } catch (_) { /* transfer may not be populated yet */ }
+                    }
+                  } else if (hostTransferAmount > 0) {
+                    transfer = await stripe.transfers.create({
+                      amount: hostTransferAmount,
+                      currency: 'usd',
+                      destination: host.stripe_account_id,
+                      description: `UrideHub payout — ${host.full_name} — booking ${bookingRequestId}`,
+                      metadata: { host_id: host.id, booking_request_id: bookingRequestId, payment_intent_id: pi.id, platform: 'uride' },
+                    });
+                  }
 
                   const vehicleName = vehicle ? `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim() : null;
 
