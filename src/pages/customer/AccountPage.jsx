@@ -1,6 +1,7 @@
 import { uploadFile } from "@/utils/uploadFile";
 import React, { useState, useEffect } from "react";
 import ReferralCard from "@/components/customer/ReferralCard";
+import CustomerRentalHistoryCard from "@/components/customer/CustomerRentalHistoryCard";
 import { useOutletContext, useNavigate, useParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -327,6 +328,9 @@ export default function AccountPage() {
           </div>
         </div>
       ))}
+
+      {/* Rental History */}
+      <CustomerRentalHistoryCard user={user} brandColor={brandColor} />
 
       {/* Referral Card */}
       <div id="rent-for-free" className="px-5 mb-1">
