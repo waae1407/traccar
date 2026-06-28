@@ -68,6 +68,7 @@ function createInitialForm() {
     actual_device_id: "",
     device_id: "",
     vin: "",
+    baseline_odometer: "",
     installer_name: "",
     installer_signature_name: "",
     installation_notes: "",
@@ -240,7 +241,7 @@ function DeviceStep({ form, update, capabilities, deviceVerified, onScanDevice, 
   );
 }
 
-function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound, onScanVin, vinScanMessage }) {
+function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound, vinEntered, onScanVin, vinScanMessage }) {
   const vehicle = vehicleLookup.data?.vehicle;
   const host = vehicleLookup.data?.host;
   return (
@@ -267,6 +268,33 @@ function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound,
           <p className="text-xs font-bold text-slate-500">VIN is verified automatically once 17 characters are entered.</p>
         </div>
       </LuxuryCard>
+
+      {vinEntered && (
+        <LuxuryCard className="border-slate-100 bg-gradient-to-br from-white to-slate-50/80">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white text-sm">🔢</div>
+              <div>
+                <h2 className="text-lg font-black text-slate-950">Baseline Odometer Reading</h2>
+                <p className="mt-1 text-sm text-slate-500">Read the odometer from the vehicle dashboard and enter the exact miles shown right now. This anchors all future mileage tracking.</p>
+              </div>
+            </div>
+            <Input
+              type="number"
+              className="h-14 rounded-3xl border-slate-200 bg-white px-5 text-lg font-black text-slate-950 placeholder:text-slate-300"
+              placeholder="e.g. 48230"
+              value={form.baseline_odometer}
+              onChange={e => update("baseline_odometer", e.target.value)}
+            />
+            {form.baseline_odometer && Number(form.baseline_odometer) < 0 && (
+              <p className="text-sm font-bold text-red-600">Odometer reading cannot be negative.</p>
+            )}
+            <Badge className={`${form.baseline_odometer && Number(form.baseline_odometer) >= 0 ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"} rounded-full px-4 py-1.5 text-xs font-black`}>
+              {form.baseline_odometer && Number(form.baseline_odometer) >= 0 ? `✓ ${Number(form.baseline_odometer).toLocaleString()} miles recorded` : "Dashboard reading required"}
+            </Badge>
+          </div>
+        </LuxuryCard>
+      )}
 
       <WiringDiagramCard />
 
@@ -666,6 +694,7 @@ export default function InstallerTelematicsPortal() {
   const readyItems = [
     { label: "Physical device ID entered", done: deviceReady },
     { label: vehicleMatched ? "VIN matched" : "VIN entered", done: vinEntered },
+    { label: "Baseline odometer recorded", done: baselineOdometerReady },
     { label: "Required photos uploaded", done: photosReady },
     { label: "Installer name captured", done: namesReady },
     { label: anySupportedTestFailed ? "Failed tests submitted for correction" : "All supported tests complete", done: supportedTestsComplete },
@@ -774,7 +803,8 @@ export default function InstallerTelematicsPortal() {
     });
   };
 
-  const canAdvance = [deviceReady, vinEntered, photosReady && namesReady, supportedTestsComplete, true][currentStep];
+  const baselineOdometerReady = form.baseline_odometer !== "" && Number(form.baseline_odometer) >= 0;
+  const canAdvance = [deviceReady, vinEntered && baselineOdometerReady, photosReady && namesReady, supportedTestsComplete, true][currentStep];
 
   if (result?.status === "completed") {
     return <SuccessScreen result={result} form={form} vehicleLookup={vehicleLookup} />;
@@ -786,7 +816,7 @@ export default function InstallerTelematicsPortal() {
         <StepProgress currentStep={currentStep} completed={completed} />
         <div className="py-6 pb-32">
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
-          {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
+          {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} vinEntered={vinEntered} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
           {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} />}
           {currentStep === 3 && <InstallerTestingStep form={form} update={update} capabilities={capabilities} commandState={commandState} activeCommand={activeCommand} onSendCommand={sendInstallCommand} onHelp={openHelp} />}
           {currentStep === 4 && <CompleteStep form={form} deviceId={form.device_id} vehicleLookup={vehicleLookup} readyItems={readyItems} submit={submit} submitInstallation={submitInstallation} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} result={result} />}

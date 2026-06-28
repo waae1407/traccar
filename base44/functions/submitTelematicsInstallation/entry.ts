@@ -172,6 +172,8 @@ Deno.serve(async (req) => {
 
     if (!deviceIdentifier) return Response.json({ error: 'Physical device barcode is required' }, { status: 400 });
     if (!vin || vin.length !== 17) return Response.json({ error: 'A valid 17-character VIN is required' }, { status: 400 });
+    const baselineOdometer = Number(body.baseline_odometer);
+    if (!Number.isFinite(baselineOdometer) || baselineOdometer < 0) return Response.json({ error: 'A valid baseline odometer reading from the vehicle dashboard is required' }, { status: 400 });
     if (!body.installer_name || !body.installer_signature_name) return Response.json({ error: 'Installer name and signature are required' }, { status: 400 });
     if (!Array.isArray(body.install_photos) || body.install_photos.length < 3) return Response.json({ error: 'All required installation photos are required' }, { status: 400 });
 
@@ -259,7 +261,21 @@ Deno.serve(async (req) => {
     });
 
     if (testsPassed && vehicle) {
-      await base44.asServiceRole.entities.Vehicle.update(vehicle.id, vehicleTelematicsPayload(providerKey, device, providerConfig));
+      await base44.asServiceRole.entities.Vehicle.update(vehicle.id, {
+        ...vehicleTelematicsPayload(providerKey, device, providerConfig),
+        baseline_odometer: Math.round(baselineOdometer),
+        baseline_odometer_set_at: now
+      });
+      await base44.asServiceRole.entities.OdometerSnapshot.create({
+        vehicle_id: vehicle.id,
+        booking_id: '',
+        snapshot_type: 'baseline_set',
+        virtual_odometer_miles: Math.round(baselineOdometer),
+        traccar_raw_distance_meters: 0,
+        telematics_device_id: device.id,
+        captured_at: now,
+        notes: `Baseline odometer recorded by installer ${String(body.installer_name || '').trim()} during device installation.`
+      }).catch(() => null);
     }
 
     const payload = {
