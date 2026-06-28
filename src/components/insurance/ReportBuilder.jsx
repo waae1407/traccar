@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Sparkles, FileText } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { useToast } from '@/components/ui/use-toast';
+import ReportSubjectSearch from '@/components/insurance/ReportSubjectSearch';
 
 const REPORT_TYPES = [
   { value: 'insurance_audit', label: 'Insurance Audit Report' },
@@ -17,35 +17,34 @@ const REPORT_TYPES = [
 
 export default function ReportBuilder({ onGenerated }) {
   const qc = useQueryClient();
-  const [bookingId, setBookingId] = useState('');
-  const [vehicleId, setVehicleId] = useState('');
+  const { toast } = useToast();
+  const [subject, setSubject] = useState(null);
   const [reportType, setReportType] = useState('insurance_audit');
   const [generating, setGenerating] = useState(false);
 
   const handleGenerate = async () => {
-    if (!bookingId && !vehicleId) {
-      toast.error('Enter a Booking ID or Vehicle ID');
+    if (!subject) {
+      toast({ variant: 'destructive', title: 'Selection required', description: 'Search and select a booking or vehicle first.' });
       return;
     }
     setGenerating(true);
     try {
       const res = await base44.functions.invoke('generateInsuranceReport', {
-        booking_request_id: bookingId || undefined,
-        vehicle_id: vehicleId || undefined,
+        booking_request_id: subject.type === 'booking' ? subject.id : undefined,
+        vehicle_id: subject.type === 'vehicle' ? subject.id : undefined,
         report_type: reportType,
       });
       const evidence = res.data?.evidence;
       if (evidence) {
-        toast.success('Report generated successfully');
+        toast({ title: 'Report generated', description: 'AI report saved to EvidenceVault.' });
         await qc.invalidateQueries({ queryKey: ['evidence_vault'] });
         onGenerated?.(evidence);
-        setBookingId('');
-        setVehicleId('');
+        setSubject(null);
       } else {
-        toast.error(res.data?.error || 'Failed to generate report');
+        toast({ variant: 'destructive', title: 'Generation failed', description: res.data?.error || 'Unknown error' });
       }
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to generate report');
+      toast({ variant: 'destructive', title: 'Generation failed', description: err.response?.data?.error || err.message || 'Unknown error' });
     } finally {
       setGenerating(false);
     }
@@ -63,25 +62,12 @@ export default function ReportBuilder({ onGenerated }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Booking Request ID</Label>
-          <Input
-            value={bookingId}
-            onChange={(e) => setBookingId(e.target.value)}
-            placeholder="Optional — links to specific rental"
-            className="text-xs font-mono"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Vehicle ID</Label>
-          <Input
-            value={vehicleId}
-            onChange={(e) => setVehicleId(e.target.value)}
-            placeholder="Optional — if no booking ID"
-            className="text-xs font-mono"
-          />
-        </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Search Booking or Vehicle</Label>
+        <ReportSubjectSearch onSelect={setSubject} selected={subject} />
+        <p className="text-muted-foreground text-[11px]">
+          Pick a booking to include rental evidence, or a vehicle for fleet-level analysis.
+        </p>
       </div>
 
       <div className="space-y-1.5">
