@@ -1,0 +1,167 @@
+{
+  "name": "EvidenceVault",
+  "type": "object",
+  "properties": {
+    "evidence_type": {
+      "type": "string",
+      "enum": [
+        "pickup_inspection",
+        "return_inspection",
+        "telematics_log",
+        "contract",
+        "damage_assessment",
+        "audit_report",
+        "insurance_claim",
+        "dispute_evidence",
+        "vehicle_condition",
+        "compliance_document",
+        "ai_generated_report"
+      ],
+      "description": "Type of evidence stored"
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable title for this evidence record"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description or context for this evidence"
+    },
+    "booking_request_id": {
+      "type": "string",
+      "description": "Linked booking request"
+    },
+    "vehicle_id": {
+      "type": "string",
+      "description": "Linked vehicle"
+    },
+    "host_id": {
+      "type": "string",
+      "description": "Linked host"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "Linked customer/user ID"
+    },
+    "host_email": {
+      "type": "string",
+      "description": "Host email for filtering"
+    },
+    "customer_email": {
+      "type": "string",
+      "description": "Customer email for filtering"
+    },
+    "vehicle_name": {
+      "type": "string",
+      "description": "Denormalized vehicle name for display"
+    },
+    "evidence_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the evidence was collected or report generated"
+    },
+    "evidence_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Photo or document URLs supporting this evidence"
+    },
+    "telematics_snapshot": {
+      "type": "object",
+      "description": "Telematics data snapshot at time of evidence collection"
+    },
+    "ai_report_content": {
+      "type": "string",
+      "description": "Full text content of an AI-generated audit/insurance report"
+    },
+    "ai_report_summary": {
+      "type": "string",
+      "description": "Short summary of the AI report"
+    },
+    "ai_confidence_score": {
+      "type": "number",
+      "description": "Confidence score 0-1 for AI-generated reports"
+    },
+    "ai_findings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Key findings from AI analysis"
+    },
+    "ai_recommendations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Recommendations from AI analysis"
+    },
+    "integrity_hash": {
+      "type": "string",
+      "description": "SHA hash for immutability verification"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "collected",
+        "verified",
+        "disputed",
+        "archived",
+        "transmitted"
+      ],
+      "default": "collected",
+      "description": "Lifecycle status of the evidence record"
+    },
+    "verified_by": {
+      "type": "string",
+      "description": "User who verified this evidence"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "dispute_reason": {
+      "type": "string",
+      "description": "Reason for dispute if status is disputed"
+    },
+    "transmitted_to": {
+      "type": "string",
+      "description": "Insurance carrier or party the evidence was transmitted to"
+    },
+    "transmitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "transmission_method": {
+      "type": "string",
+      "enum": [
+        "email",
+        "api",
+        "portal_upload",
+        "manual"
+      ],
+      "description": "How the evidence was transmitted"
+    },
+    "transmission_notes": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of user who created this record"
+    },
+    "is_immutable": {
+      "type": "boolean",
+      "default": true,
+      "description": "When true, evidence should not be modified \u2014 only status updated"
+    }
+  },
+  "required": [
+    "evidence_type",
+    "title"
+  ]
+}

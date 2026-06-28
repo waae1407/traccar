@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
   Wrench, ChevronLeft, ChevronRight, ChevronDown, BarChart3, X, Building2, Gift, Home, Wallet, Zap,
-  Shield, MapPin, ClipboardList, Activity, MessageSquare, Star, Camera, ShieldAlert, Satellite, Settings, Network,
+  Shield, MapPin, ClipboardList, Activity, MessageSquare, Star, Camera, ShieldAlert, Satellite, Settings, Network, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -84,6 +84,7 @@ const menuSections = [
       { label: "Review Moderation", icon: Star, path: "/admin/review-moderation" },
       { label: "Inspection Oversight", icon: Camera, path: "/admin/inspection-oversight" },
       { label: "Disputes", icon: Shield, path: "/admin/disputes" },
+      { label: "Insurance360", icon: ShieldCheck, path: "/admin/insurance360" },
     ],
   },
   {
