@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, ShieldAlert, Send, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { toast } from 'react-hot-toast';
+import { useToast } from '@/components/ui/use-toast';
 import ReactMarkdown from 'react-markdown';
 
 const STATUS_STYLES = {
@@ -21,7 +21,10 @@ const STATUS_STYLES = {
 
 export default function EvidenceDetailDrawer({ evidence, open, onOpenChange }) {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState(null);
+  const [transmitEmail, setTransmitEmail] = useState('');
+  const [showTransmitForm, setShowTransmitForm] = useState(false);
 
   if (!evidence) return null;
 
@@ -33,24 +36,41 @@ export default function EvidenceDetailDrawer({ evidence, open, onOpenChange }) {
         ...extra,
       });
       await qc.invalidateQueries({ queryKey: ['evidence_vault'] });
-      toast.success(`Evidence ${newStatus}`);
+      toast({ title: `Evidence ${newStatus}` });
       onOpenChange?.(false);
     } catch (err) {
-      toast.error('Failed to update evidence status');
+      toast({ variant: 'destructive', title: 'Update failed', description: 'Failed to update evidence status' });
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleTransmit = async () => {
-    const recipient = window.prompt('Transmit to (insurance carrier email or name):');
-    if (!recipient) return;
-    await updateStatus('transmitted', {
-      transmitted_to: recipient,
-      transmitted_at: new Date().toISOString(),
-      transmission_method: 'email',
-      transmission_notes: `Transmitted to ${recipient}`,
-    });
+    const email = transmitEmail.trim();
+    if (!email) {
+      toast({ variant: 'destructive', title: 'Email required', description: 'Enter a recipient email address.' });
+      return;
+    }
+    setActionLoading('transmitted');
+    try {
+      const res = await base44.functions.invoke('transmitInsuranceReport', {
+        evidence_id: evidence.id,
+        recipient_email: email,
+      });
+      if (res.data?.success) {
+        toast({ title: 'Report transmitted', description: `Email sent to ${email}` });
+        await qc.invalidateQueries({ queryKey: ['evidence_vault'] });
+        setShowTransmitForm(false);
+        setTransmitEmail('');
+        onOpenChange?.(false);
+      } else {
+        toast({ variant: 'destructive', title: 'Transmission failed', description: res.data?.error || 'Unknown error' });
+      }
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Transmission failed', description: err.response?.data?.error || err.message || 'Unknown error' });
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
@@ -187,12 +207,33 @@ export default function EvidenceDetailDrawer({ evidence, open, onOpenChange }) {
                 <ShieldAlert className="h-3.5 w-3.5" /> Flag Dispute
               </Button>
             )}
-            {evidence.status !== 'transmitted' && (
-              <Button size="sm" variant="outline" onClick={handleTransmit}
+            {evidence.status !== 'transmitted' && !showTransmitForm && (
+              <Button size="sm" variant="outline" onClick={() => setShowTransmitForm(true)}
                 disabled={actionLoading === 'transmitted'}>
-                {actionLoading === 'transmitted' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                Transmit
+                <Send className="h-3.5 w-3.5" /> Transmit via Email
               </Button>
+            )}
+            {evidence.status !== 'transmitted' && showTransmitForm && (
+              <div className="w-full space-y-2 rounded-lg border border-border bg-secondary/30 p-3">
+                <p className="text-xs font-semibold">Send report to:</p>
+                <input
+                  type="email"
+                  value={transmitEmail}
+                  onChange={(e) => setTransmitEmail(e.target.value)}
+                  placeholder="recipient@email.com"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && handleTransmit()}
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleTransmit} disabled={actionLoading === 'transmitted'}>
+                    {actionLoading === 'transmitted' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Send Now
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setShowTransmitForm(false); setTransmitEmail(''); }}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
             )}
             {evidence.status === 'transmitted' && (
               <Button size="sm" variant="outline" onClick={() => updateStatus('archived')}
