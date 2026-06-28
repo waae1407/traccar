@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
   Wrench, ChevronLeft, ChevronRight, ChevronDown, BarChart3, X, Building2, Gift, Home, Wallet, Zap,
-  Shield, MapPin, ClipboardList, Activity, MessageSquare, Star, Camera, ShieldAlert, Satellite, Settings, Network, ShieldCheck,
+  Shield, MapPin, ClipboardList, Activity, MessageSquare, Star, Camera, ShieldAlert, Satellite, Settings, Network, ShieldCheck, ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -33,6 +33,8 @@ const menuSections = [
       { label: "Booking 360", icon: CalendarDays, path: "/admin/booking-360" },
       { label: "Host 360", icon: Home, path: "/admin/host-360" },
       { label: "Vehicle 360", icon: Car, path: "/admin/vehicle-360" },
+      { label: "Dealer360", icon: ArrowRightLeft, path: "/admin/dealer360" },
+      { label: "Insurance360", icon: ShieldCheck, path: "/admin/insurance360" },
     ],
   },
   {
@@ -84,7 +86,6 @@ const menuSections = [
       { label: "Review Moderation", icon: Star, path: "/admin/review-moderation" },
       { label: "Inspection Oversight", icon: Camera, path: "/admin/inspection-oversight" },
       { label: "Disputes", icon: Shield, path: "/admin/disputes" },
-      { label: "Insurance360", icon: ShieldCheck, path: "/admin/insurance360" },
     ],
   },
   {
