@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
   Wrench, BarChart3, Building2, Gift, Home, Wallet, Zap,
   Shield, MapPin, ClipboardList, Activity, MessageSquare, Star, Camera,
-  ShieldAlert, Satellite, Settings, Network, ArrowRightLeft, CreditCard, Bell,
+  ShieldAlert, Satellite, Settings, Network, ArrowRightLeft, CreditCard, Bell, ShieldCheck,
 } from "lucide-react";
 
 export const BUSINESS_PORTAL_ROLES = {
@@ -55,6 +55,8 @@ export const masterMenuSections = [
       { id: "booking-360", label: "Booking 360", icon: CalendarDays, paths: { admin: "/admin/booking-360" }, roles: ["admin"] },
       { id: "host-360", label: "Host 360", icon: Home, paths: { admin: "/admin/host-360" }, roles: ["admin"] },
       { id: "vehicle-360", label: "Vehicle 360", icon: Car, paths: { admin: "/admin/vehicle-360" }, roles: ["admin"] },
+      { id: "dealer360", label: "Dealer360", icon: ArrowRightLeft, paths: { admin: "/admin/dealer360", host: "/host/dealer360" }, roles: ["admin", "host"] },
+      { id: "insurance360", label: "Insurance360", icon: ShieldCheck, paths: { admin: "/admin/insurance360" }, roles: ["admin"] },
     ],
   },
   {
@@ -173,7 +175,6 @@ export const masterMenuSections = [
     icon: Network,
     items: [
       { id: "dealer-network", label: "Dealer Network (Legacy)", icon: Car, paths: { admin: "/admin/dealer-network" }, roles: ["admin"] },
-      { id: "dealer360", label: "Dealer360", icon: ArrowRightLeft, paths: { admin: "/admin/dealer360", host: "/host/dealer360" }, roles: ["admin", "host"] },
       { id: "referrals", label: "Referrals", icon: Gift, paths: { admin: "/referrals" }, roles: ["admin"] },
       { id: "installers", label: "Installers", icon: Wrench, paths: { admin: "/admin/installers" }, roles: ["admin"] },
     ],
