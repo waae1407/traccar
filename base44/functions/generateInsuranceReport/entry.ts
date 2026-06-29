@@ -280,12 +280,12 @@ Deno.serve(async (req) => {
     }
     if (activeSections.includes('data_stream_verification')) {
       sectionInstructions.push(`${sectionNums.data_stream_verification}. MANDATORY TELEMATICS DATA STREAM VERIFICATION
-   For EACH of the required data categories listed above, provide:
-   - Status: VERIFIED / GAPS_DETECTED / NOT_AVAILABLE
-   - Evidence: What data was found (data point counts, timestamps, sources)
-   - Gaps: Any missing periods or data quality issues
-   - Assessment: Whether this category meets carrier compliance requirements
-   - If a stream was excluded from this report, note it as "EXCLUDED FROM REPORT" and skip detailed verification`);
+   List ALL 7 standard telematics data streams. For EACH stream, provide:
+   - Status: VERIFIED / GAPS_DETECTED / NOT_AVAILABLE / EXCLUDED_FROM_REPORT_SCOPE
+   - Evidence: What data was found (data point counts, timestamps, sources). For excluded streams, state "This stream was excluded from this report by administrator configuration — no assessment performed."
+   - Gaps: Any missing periods or data quality issues. For excluded streams, state "N/A — not assessed."
+   - Assessment: Whether this category meets carrier compliance requirements. For excluded streams, state "NOT ASSESSED — excluded from report scope by administrator."
+   CRITICAL: Excluded streams must use status "EXCLUDED_FROM_REPORT_SCOPE", NOT "NOT_AVAILABLE". "NOT_AVAILABLE" implies the vehicle lacks the data (a compliance deficiency). "EXCLUDED_FROM_REPORT_SCOPE" means the administrator chose not to include it in this particular report.`);
     }
     if (activeSections.includes('data_continuity')) {
       sectionInstructions.push(`${sectionNums.data_continuity}. DATA CONTINUITY ASSESSMENT
@@ -296,14 +296,17 @@ Deno.serve(async (req) => {
     }
     if (activeSections.includes('compliance_status')) {
       sectionInstructions.push(`${sectionNums.compliance_status}. COMPLIANCE STATUS DETERMINATION
-   - Overall: COMPLIANT / PARTIAL_COMPLIANCE / NON-COMPLIANT
-   - Rationale based on data stream verification`);
+   - Overall: COMPLIANT / COMPLIANT_PARTIAL_SCOPE / PARTIAL_COMPLIANCE / NON_COMPLIANT
+   - Use COMPLIANT_PARTIAL_SCOPE when all in-scope streams passed verification but some standard streams were excluded from the report.
+   - If any of the 7 standard streams were excluded, the rationale MUST explicitly state how many of the 7 standard streams were assessed vs excluded.
+   - Rationale based on data stream verification for the IN-SCOPE streams only`);
     }
     if (activeSections.includes('misrepresentation_risk')) {
       sectionInstructions.push(`${sectionNums.misrepresentation_risk}. MATERIAL MISREPRESENTATION RISK ASSESSMENT
    - Risk level: NONE / LOW / MEDIUM / HIGH
-   - If any data gaps exist, explain the coverage impact
-   - Whether failure to maintain data could result in claim denial`);
+   - IMPORTANT: This risk assessment must ONLY consider actual data gaps or deficiencies in the IN-SCOPE telematics data streams. Streams that were EXCLUDED FROM REPORT SCOPE by administrator configuration must NOT influence this risk level — exclusion is a reporting choice, not a data deficiency.
+   - If any in-scope data gaps exist, explain the coverage impact
+   - Whether failure to maintain in-scope data could result in claim denial`);
     }
     if (activeSections.includes('damage_findings')) {
       const findingTitle = report_type === 'damage_assessment' ? 'DAMAGE ASSESSMENT' : report_type === 'claim_summary' ? 'CLAIM SUMMARY' : report_type === 'dispute_resolution' ? 'DISPUTE ANALYSIS' : report_type === 'fleet_risk_analysis' ? 'FLEET RISK ANALYSIS' : 'ADDITIONAL AUDIT FINDINGS';
@@ -329,7 +332,7 @@ TELEMATICS IS REQUIRED FOR EVERY VEHICLE ON THIS POLICY.
 The policy holder (host) must provide complete, timely (real-time) and ongoing telematics data. The following telematics data streams are IN SCOPE for this report:
 ${activeStreamList}
 
-${activeStreams.length < 7 ? 'NOTE: Not all 7 standard telematics data streams are included in this report. The excluded streams should be noted as "EXCLUDED FROM REPORT" but should not impact the compliance assessment of the included streams.\n' : ''}Failure to provide continuous and timely telematics data for the in-scope streams constitutes a MATERIAL MISREPRESENTATION that may result in modifications to coverage terms, including adjustments in premium, changes in coverage limits or deductables, cancellation of coverage, and/or denial of a claim.
+${activeStreams.length < 7 ? `IMPORTANT — PARTIAL SCOPE REPORT: Only ${activeStreams.length} of 7 standard telematics data streams are included in this report. The remaining ${7 - activeStreams.length} streams were excluded by administrator configuration. This is a PARTIAL SCOPE assessment. The executive summary and compliance status MUST clearly disclose this partial scope. The excluded streams must be labeled "EXCLUDED_FROM_REPORT_SCOPE" (NOT "NOT_AVAILABLE") in the data stream verification section.\n\n` : ''}Failure to provide continuous and timely telematics data for the in-scope streams constitutes a MATERIAL MISREPRESENTATION that may result in modifications to coverage terms, including adjustments in premium, changes in coverage limits or deductables, cancellation of coverage, and/or denial of a claim.
 
 === COMPLIANCE EVIDENCE DATA ===
 Vehicle: ${vehicleName}
@@ -348,7 +351,11 @@ ${sectionListStr}
 ${lastNum + 1}. FINDINGS (as array)
 ${lastNum + 2}. RECOMMENDATIONS (as array)
 
-Write the full report_content as formatted markdown text. Be specific and reference actual data points, counts, and timestamps from the evidence. Do not use placeholder text. Only assess the telematics data streams that are in scope for this report.`;
+Write the full report_content as formatted markdown text. Be specific and reference actual data points, counts, and timestamps from the evidence. Do not use placeholder text. Only assess the telematics data streams that are in scope for this report.
+
+CONFIDENCE SCORE RULES: The confidence_score (0-1) must reflect evidence completeness AND scope coverage. If ${activeStreams.length} of 7 streams are in scope, the maximum confidence score is ${(activeStreams.length / 7).toFixed(2)} even if all in-scope streams are fully verified. Scale: 0.95-1.0 = all 7 streams verified with strong evidence; 0.70-0.94 = most streams verified; 0.40-0.69 = partial scope with gaps. ${activeStreams.length < 7 ? `Since this is a partial scope report (${activeStreams.length}/7 streams), the confidence score must NOT exceed ${(activeStreams.length / 7).toFixed(2)}.` : ''}
+
+EXECUTIVE SUMMARY RULES: ${activeStreams.length < 7 ? `The report_summary MUST begin with: "PARTIAL SCOPE REPORT: This report assessed ${activeStreams.length} of 7 required telematics data streams. " before stating the compliance conclusion.` : 'State the compliance conclusion clearly.'}`;
 
     // ── Generate report via AI ──
     const llmResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
@@ -357,14 +364,14 @@ Write the full report_content as formatted markdown text. Be specific and refere
         type: "object",
         properties: {
           report_summary: { type: "string", description: "Executive summary of compliance status" },
-          compliance_status: { type: "string", enum: ["COMPLIANT", "PARTIAL_COMPLIANCE", "NON_COMPLIANT"], description: "Overall telematics compliance determination" },
+          compliance_status: { type: "string", enum: ["COMPLIANT", "COMPLIANT_PARTIAL_SCOPE", "PARTIAL_COMPLIANCE", "NON_COMPLIANT"], description: "Overall telematics compliance determination. Use COMPLIANT_PARTIAL_SCOPE when some standard streams were excluded from the report but all in-scope streams passed." },
           data_stream_verification: {
             type: "array",
             items: {
               type: "object",
               properties: {
                 category: { type: "string" },
-                status: { type: "string", enum: ["VERIFIED", "GAPS_DETECTED", "NOT_AVAILABLE"] },
+                status: { type: "string", enum: ["VERIFIED", "GAPS_DETECTED", "NOT_AVAILABLE", "EXCLUDED_FROM_REPORT_SCOPE"] },
                 evidence: { type: "string" },
                 gaps: { type: "string" },
                 assessment: { type: "string" }
