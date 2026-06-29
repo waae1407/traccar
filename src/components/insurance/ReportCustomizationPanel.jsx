@@ -3,14 +3,13 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const DEFAULT_SECTIONS = [
-  { key: 'compliance_header', label: 'Compliance Certification Header', description: 'Title + mandatory telematics requirement statement', defaultOn: true },
-  { key: 'vehicle_identification', label: 'Policy & Vehicle Identification', description: 'Vehicle details, VIN, booking reference, host info', defaultOn: true },
-  { key: 'data_stream_verification', label: 'Telematics Data Stream Verification', description: 'Verification of each mandatory data category', defaultOn: true },
-  { key: 'data_continuity', label: 'Data Continuity Assessment', description: 'Gap analysis and real-time data availability', defaultOn: true },
-  { key: 'compliance_status', label: 'Compliance Status Determination', description: 'Overall COMPLIANT / PARTIAL / NON-COMPLIANT ruling', defaultOn: true },
-  { key: 'misrepresentation_risk', label: 'Material Misrepresentation Risk', description: 'Risk level and coverage impact assessment', defaultOn: true },
-  { key: 'damage_findings', label: 'Damage & Incident Findings', description: 'Photos, telematics events, safety alerts analysis', defaultOn: true },
-  { key: 'attestation', label: 'Attestation & Signature Section', description: 'Compliance attestation with date/signature block', defaultOn: true },
+  { key: 'report_header', label: 'Report Header', description: 'Title, generation date, and brief report description', defaultOn: true },
+  { key: 'vehicle_identification', label: 'Vehicle & Booking Identification', description: 'Vehicle details, VIN, booking reference, host info', defaultOn: true },
+  { key: 'telematics_device_info', label: 'Telematics Device Information', description: 'Device provider, IMEI, status, installation details, alarms', defaultOn: true },
+  { key: 'data_stream_summary', label: 'Telematics Data Stream Summary', description: 'What data was found for each stream (counts, date ranges)', defaultOn: true },
+  { key: 'data_continuity', label: 'Data Continuity Summary', description: 'Gap analysis and data coverage timeline', defaultOn: true },
+  { key: 'incident_findings', label: 'Incident & Event Findings', description: 'Safety events, telematics alerts, notable occurrences', defaultOn: true },
+  { key: 'evidence_photos_section', label: 'Evidence Photos', description: 'Pickup/return inspection photos with URLs', defaultOn: true },
 ];
 
 const DEFAULT_DATA_STREAMS = [
