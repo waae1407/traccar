@@ -4,27 +4,36 @@ import { base44 } from '@/api/base44Client';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
-import { ChevronsUpDown, Search, Car, CalendarDays } from 'lucide-react';
+import { ChevronsUpDown, Search, Car, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function ReportSubjectSearch({ onSelect, selected }) {
+export default function ReportSubjectSearch({ onSelect, selected, mode }) {
   const [open, setOpen] = useState(false);
-
-  const { data: bookings = [] } = useQuery({
-    queryKey: ['report_bookings'],
-    queryFn: () => base44.entities.BookingRequest.list('-created_date', 50),
-    staleTime: 60_000,
-  });
 
   const { data: vehicles = [] } = useQuery({
     queryKey: ['report_vehicles'],
     queryFn: () => base44.entities.Vehicle.list('-created_date', 50),
     staleTime: 60_000,
+    enabled: mode === 'vehicle',
+  });
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ['report_customers'],
+    queryFn: () => base44.entities.Customer.list('-created_date', 50),
+    staleTime: 60_000,
+    enabled: mode === 'customer',
+  });
+
+  const { data: bookings = [] } = useQuery({
+    queryKey: ['report_all_bookings'],
+    queryFn: () => base44.entities.BookingRequest.list('-created_date', 100),
+    staleTime: 60_000,
+    enabled: mode === 'customer',
   });
 
   const label = selected
-    ? `${selected.type === 'booking' ? 'Booking' : 'Vehicle'}: ${selected.label}`
-    : 'Search booking or vehicle…';
+    ? selected.label
+    : mode === 'vehicle' ? 'Search vehicle…' : 'Search customer…';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -44,31 +53,11 @@ export default function ReportSubjectSearch({ onSelect, selected }) {
       </PopoverTrigger>
       <PopoverContent className="w-[400px] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search by name, vehicle, VIN, email…" />
+          <CommandInput placeholder={mode === 'vehicle' ? 'Search by make, model, VIN, plate…' : 'Search by name, email…'} />
           <CommandList className="max-h-[300px]">
             <CommandEmpty>No results found.</CommandEmpty>
-            {bookings.length > 0 && (
-              <CommandGroup heading="Bookings">
-                {bookings.map(b => (
-                  <CommandItem
-                    key={b.id}
-                    value={`${b.customer_full_name || ''} ${b.vehicle_name || ''} ${b.user_email || ''} ${b.id || ''}`}
-                    onSelect={() => {
-                      const label = `${b.customer_full_name || b.user_email || 'Unknown'} — ${b.vehicle_name || 'Vehicle'}`;
-                      onSelect({ type: 'booking', id: b.id, label, booking: b });
-                      setOpen(false);
-                    }}
-                  >
-                    <CalendarDays className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{b.customer_full_name || b.user_email || 'Unknown customer'}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{b.vehicle_name || '—'} · {b.booking_status?.replace(/_/g, ' ')}</p>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-            {vehicles.length > 0 && (
+
+            {mode === 'vehicle' && vehicles.length > 0 && (
               <CommandGroup heading="Vehicles">
                 {vehicles.map(v => (
                   <CommandItem
@@ -84,6 +73,50 @@ export default function ReportSubjectSearch({ onSelect, selected }) {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium truncate">{v.year} {v.make} {v.model}</p>
                       <p className="text-[10px] text-muted-foreground truncate">VIN: {v.vin?.slice(-8) || '—'} · {v.status?.replace(/_/g, ' ')}</p>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            {mode === 'customer' && customers.length > 0 && (
+              <CommandGroup heading="Customers">
+                {customers.map(c => (
+                  <CommandItem
+                    key={c.id}
+                    value={`${c.full_name || ''} ${c.email || ''} ${c.phone || ''}`}
+                    onSelect={() => {
+                      const label = c.full_name || c.email || 'Unknown Customer';
+                      onSelect({ type: 'customer', id: c.id, label, customer: c });
+                      setOpen(false);
+                    }}
+                  >
+                    <User className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{c.full_name || 'Unknown'}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{c.email || '—'}</p>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+
+            {mode === 'customer' && bookings.length > 0 && (
+              <CommandGroup heading="Or pick from recent bookings">
+                {bookings.slice(0, 15).map(b => (
+                  <CommandItem
+                    key={b.id}
+                    value={`${b.customer_full_name || ''} ${b.user_email || ''} ${b.vehicle_name || ''}`}
+                    onSelect={() => {
+                      const label = `${b.customer_full_name || b.user_email || 'Unknown'} — ${b.vehicle_name || 'Vehicle'}`;
+                      onSelect({ type: 'customer_booking', id: b.id, label, booking: b });
+                      setOpen(false);
+                    }}
+                  >
+                    <User className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{b.customer_full_name || b.user_email || 'Unknown'}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{b.vehicle_name || '—'} · {b.booking_status?.replace(/_/g, ' ')}</p>
                     </div>
                   </CommandItem>
                 ))}

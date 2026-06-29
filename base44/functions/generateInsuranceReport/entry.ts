@@ -11,6 +11,9 @@ Deno.serve(async (req) => {
     const {
       booking_request_id,
       vehicle_id,
+      customer_id,
+      date_from,
+      date_to,
       report_type = 'telematics_data_report',
       sections = null,
       data_streams = null,
@@ -20,9 +23,14 @@ Deno.serve(async (req) => {
       include_odometer_history = true
     } = body;
 
-    if (!booking_request_id && !vehicle_id) {
-      return Response.json({ error: 'booking_request_id or vehicle_id required' }, { status: 400 });
+    if (!booking_request_id && !vehicle_id && !customer_id) {
+      return Response.json({ error: 'booking_request_id, vehicle_id, or customer_id required' }, { status: 400 });
     }
+
+    // Build date range filter for time-based queries
+    const dateFilter = {};
+    if (date_from) dateFilter.date_from = date_from;
+    if (date_to) dateFilter.date_to = date_to;
 
     const ALL_SECTIONS = ['report_header', 'vehicle_identification', 'telematics_device_info', 'data_stream_summary', 'data_continuity', 'incident_findings', 'evidence_photos_section'];
     const ALL_STREAMS = ['time_stamped_location', 'speed', 'fuel_consumption', 'engine_diagnostics', 'vehicle_status', 'mileage_data', 'driver_behavior'];
@@ -33,11 +41,42 @@ Deno.serve(async (req) => {
     let booking = null;
     let vehicle = null;
     let host = null;
+    let customer = null;
+    let customerBookings = [];
 
-    if (booking_request_id) {
+    // Customer mode: find customer and their bookings within date range
+    if (customer_id) {
+      const customers = await base44.asServiceRole.entities.Customer.filter({ id: customer_id });
+      customer = customers[0];
+      if (!customer) return Response.json({ error: 'Customer not found' }, { status: 404 });
+
+      const bookingQuery = { user_email: customer.email };
+      customerBookings = await base44.asServiceRole.entities.BookingRequest.filter(bookingQuery, '-created_date', 200);
+
+      // Filter by date range if provided
+      if (date_from || date_to) {
+        customerBookings = customerBookings.filter(b => {
+          if (!b.start_date) return false;
+          if (date_from && b.start_date < date_from) return false;
+          if (date_to && b.end_date && b.end_date > date_to) return false;
+          if (date_to && !b.end_date && b.start_date > date_to) return false;
+          return true;
+        });
+      }
+
+      if (customerBookings.length === 0) {
+        return Response.json({ error: `No bookings found for customer within the selected date range` }, { status: 404 });
+      }
+
+      // Use the most recent booking as the primary record
+      booking = customerBookings[0];
+    }
+
+    if (booking_request_id && !booking) {
       const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ id: booking_request_id });
       booking = bookings[0];
       if (!booking) return Response.json({ error: 'Booking not found' }, { status: 404 });
+      customerBookings = [booking];
     }
 
     const vehicleIdToUse = booking?.vehicle_id || vehicle_id;
@@ -59,44 +98,61 @@ Deno.serve(async (req) => {
       telematicsDevice = devices[0] || null;
     }
 
+    // ── Helper: check if a timestamp falls within the date range ──
+    const isInDateRange = (timestamp) => {
+      if (!timestamp) return false;
+      const ts = new Date(timestamp).getTime();
+      if (date_from && ts < new Date(date_from).getTime()) return false;
+      if (date_to) {
+        const endTs = new Date(date_to).getTime() + (24 * 60 * 60 * 1000); // include full end day
+        if (ts > endTs) return false;
+      }
+      return true;
+    };
+
     // ── Gather position history (location + speed data stream) ──
     let positionHistory = [];
     if (telematicsDevice?.id && activeStreams.includes('time_stamped_location')) {
-      positionHistory = await base44.asServiceRole.entities.TelematicsPositionHistory.filter(
-        { device_id: telematicsDevice.id }, '-timestamp', 200
+      const rawPositions = await base44.asServiceRole.entities.TelematicsPositionHistory.filter(
+        { device_id: telematicsDevice.id }, '-timestamp', 500
       );
+      positionHistory = (date_from || date_to) ? rawPositions.filter(p => isInDateRange(p.timestamp)) : rawPositions.slice(0, 200);
     }
 
     // ── Gather telematics events (engine diagnostics + status) ──
     let telematicsEvents = [];
     if (vehicleIdToUse && include_telematics_events) {
-      telematicsEvents = await base44.asServiceRole.entities.TelematicsEvent.filter(
-        { vehicle_id: vehicleIdToUse }, '-created_at', 200
+      const rawEvents = await base44.asServiceRole.entities.TelematicsEvent.filter(
+        { vehicle_id: vehicleIdToUse }, '-created_at', 500
       );
+      telematicsEvents = (date_from || date_to) ? rawEvents.filter(e => isInDateRange(e.created_at)) : rawEvents.slice(0, 200);
     }
 
     // ── Gather odometer snapshots (mileage data stream) ──
     let odometerSnapshots = [];
     if (vehicleIdToUse && include_odometer_history && activeStreams.includes('mileage_data')) {
-      odometerSnapshots = await base44.asServiceRole.entities.OdometerSnapshot.filter(
-        { vehicle_id: vehicleIdToUse }, '-captured_at', 50
+      const rawSnapshots = await base44.asServiceRole.entities.OdometerSnapshot.filter(
+        { vehicle_id: vehicleIdToUse }, '-captured_at', 100
       );
+      odometerSnapshots = (date_from || date_to) ? rawSnapshots.filter(s => isInDateRange(s.captured_at)) : rawSnapshots.slice(0, 50);
     }
 
     // ── Gather safety events (driver behavior data stream) ──
     let safetyEvents = [];
     if (vehicleIdToUse && include_safety_events && activeStreams.includes('driver_behavior')) {
-      safetyEvents = await base44.asServiceRole.entities.TelematicsSafetyEvent.filter(
-        { vehicle_id: vehicleIdToUse }, '-created_date', 100
+      const rawSafety = await base44.asServiceRole.entities.TelematicsSafetyEvent.filter(
+        { vehicle_id: vehicleIdToUse }, '-created_date', 200
       );
+      safetyEvents = (date_from || date_to) ? rawSafety.filter(e => isInDateRange(e.created_date)) : rawSafety.slice(0, 100);
     }
 
     // ── Gather GPS command events (vehicle status + control) ──
     let gpsEvents = [];
     if (vehicleIdToUse && activeStreams.includes('vehicle_status')) {
-      gpsEvents = await base44.asServiceRole.entities.GPSEvent.filter(
-        { vehicle_id: vehicleIdToUse }, '-command_sent_at', 50
+      const rawGps = await base44.asServiceRole.entities.GPSEvent.filter(
+        { vehicle_id: vehicleIdToUse }, '-command_sent_at', 100
       );
+      gpsEvents = (date_from || date_to) ? rawGps.filter(e => isInDateRange(e.command_sent_at)) : rawGps.slice(0, 50);
     }
 
     // ── Gather inspection evidence photos ──
@@ -166,6 +222,13 @@ Deno.serve(async (req) => {
         full_name: host.full_name, email: host.email, status: host.status, business_name: host.business_name,
         business_type: host.business_type, verification_status: host.verification_status
       } : null,
+      customer: customer ? {
+        full_name: customer.full_name, email: customer.email, phone: customer.phone
+      } : (booking ? { email: booking.user_email, full_name: booking.customer_full_name, phone: booking.customer_phone } : null),
+      customer_bookings: customerBookings.length > 1 ? customerBookings.map(b => ({
+        id: b.id, vehicle_name: b.vehicle_name, start_date: b.start_date, end_date: b.end_date,
+        booking_status: b.booking_status, booking_type: b.booking_type
+      })) : null,
       telematics_device: telematicsDevice ? {
         provider_key: telematicsDevice.provider_key, model: telematicsDevice.model, imei: telematicsDevice.imei,
         activation_status: telematicsDevice.activation_status, subscription_status: telematicsDevice.subscription_status,
@@ -237,7 +300,7 @@ Deno.serve(async (req) => {
     // Build section list dynamically
     const sectionDefs = [];
     if (activeSections.includes('report_header')) {
-      sectionDefs.push({ title: 'Report Header', instructions: 'Report title, generation date/time, and a brief 1-2 sentence description of what this report contains.' });
+      sectionDefs.push({ title: 'Report Header', instructions: `Report title, generation date/time, the date range covered (${date_from || 'N/A'} to ${date_to || 'N/A'}), and a brief 1-2 sentence description of what this report contains.${customerBookings.length > 1 ? ` Note that this customer has ${customerBookings.length} bookings within the date range.` : ''}` });
     }
     if (activeSections.includes('vehicle_identification')) {
       sectionDefs.push({ title: 'Vehicle & Booking Identification', instructions: 'Vehicle make, model, year, VIN, plate, color, current mileage/status. Booking reference, rental period, booking type, booking status, payment status. Host/insured party name, business name, business type, verification status.' });
@@ -277,9 +340,11 @@ Report Type: ${reportTypeLabels[report_type] || report_type}
 Vehicle: ${vehicleName}
 VIN: ${vehicle?.vin || 'N/A'}
 Rental Period: ${rentalPeriod}
-Customer: ${booking?.user_email || 'N/A'}
+Customer: ${customer?.full_name || booking?.customer_full_name || booking?.user_email || 'N/A'}
 Booking ID: ${booking?.id || 'N/A'}
+Date Range Filter: ${date_from || 'N/A'} to ${date_to || 'N/A'}
 Report Generated: ${new Date().toISOString()}
+${customerBookings.length > 1 ? `\nNote: This customer has ${customerBookings.length} bookings within the date range. Data below is from the primary vehicle/device.` : ''}
 
 ${JSON.stringify(reportData, null, 2)}
 === END DATA ===
@@ -312,7 +377,8 @@ The report should read like a professional data summary — clear, factual, and 
       vehicle_id: vehicle?.id || vehicleIdToUse,
       host_id: hostIdToUse || null,
       host_email: host?.email || null,
-      customer_email: booking?.user_email || null,
+      customer_email: customer?.email || booking?.user_email || null,
+      customer_id: customer?.id || booking?.user_id || null,
       vehicle_name: vehicleName,
       evidence_date: new Date().toISOString(),
       evidence_urls: evidencePhotos.map(p => p.url),
@@ -336,6 +402,10 @@ The report should read like a professional data summary — clear, factual, and 
       is_immutable: true,
       metadata: {
         report_type,
+        date_from: date_from || null,
+        date_to: date_to || null,
+        filter_mode: customer_id ? 'customer' : (vehicle_id ? 'vehicle' : 'booking'),
+        customer_bookings_count: customerBookings.length,
         custom_sections: activeSections,
         custom_data_streams: activeStreams,
         include_evidence_photos,
