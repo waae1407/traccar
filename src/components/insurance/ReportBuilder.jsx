@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Sparkles, FileText } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import ReportSubjectSearch from '@/components/insurance/ReportSubjectSearch';
+import ReportCustomizationPanel from '@/components/insurance/ReportCustomizationPanel';
 
 const REPORT_TYPES = [
   { value: 'insurance_audit', label: 'Insurance Audit Report' },
@@ -21,10 +22,22 @@ export default function ReportBuilder({ onGenerated }) {
   const [subject, setSubject] = useState(null);
   const [reportType, setReportType] = useState('insurance_audit');
   const [generating, setGenerating] = useState(false);
+  const [customization, setCustomization] = useState({
+    sections: ['compliance_header', 'vehicle_identification', 'data_stream_verification', 'data_continuity', 'compliance_status', 'misrepresentation_risk', 'damage_findings', 'attestation'],
+    data_streams: ['time_stamped_location', 'speed', 'fuel_consumption', 'engine_diagnostics', 'vehicle_status', 'mileage_data', 'driver_behavior'],
+    include_evidence_photos: true,
+    include_telematics_events: true,
+    include_safety_events: true,
+    include_odometer_history: true,
+  });
 
   const handleGenerate = async () => {
     if (!subject) {
       toast({ variant: 'destructive', title: 'Selection required', description: 'Search and select a booking or vehicle first.' });
+      return;
+    }
+    if (!customization.sections.length || !customization.data_streams.length) {
+      toast({ variant: 'destructive', title: 'Customization required', description: 'Select at least one section and one data stream.' });
       return;
     }
     setGenerating(true);
@@ -33,6 +46,12 @@ export default function ReportBuilder({ onGenerated }) {
         booking_request_id: subject.type === 'booking' ? subject.id : undefined,
         vehicle_id: subject.type === 'vehicle' ? subject.id : undefined,
         report_type: reportType,
+        sections: customization.sections,
+        data_streams: customization.data_streams,
+        include_evidence_photos: customization.include_evidence_photos,
+        include_telematics_events: customization.include_telematics_events,
+        include_safety_events: customization.include_safety_events,
+        include_odometer_history: customization.include_odometer_history,
       });
       const evidence = res.data?.evidence;
       if (evidence) {
@@ -88,6 +107,8 @@ export default function ReportBuilder({ onGenerated }) {
           ))}
         </div>
       </div>
+
+      <ReportCustomizationPanel onChange={setCustomization} />
 
       <Button
         onClick={handleGenerate}

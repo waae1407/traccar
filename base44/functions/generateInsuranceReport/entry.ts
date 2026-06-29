@@ -8,11 +8,27 @@ Deno.serve(async (req) => {
     if (user.role !== 'admin') return Response.json({ error: 'Forbidden — admin only' }, { status: 403 });
 
     const body = await req.json();
-    const { booking_request_id, vehicle_id, report_type = 'insurance_audit' } = body;
+    const {
+      booking_request_id,
+      vehicle_id,
+      report_type = 'insurance_audit',
+      sections = null,
+      data_streams = null,
+      include_evidence_photos = true,
+      include_telematics_events = true,
+      include_safety_events = true,
+      include_odometer_history = true
+    } = body;
 
     if (!booking_request_id && !vehicle_id) {
       return Response.json({ error: 'booking_request_id or vehicle_id required' }, { status: 400 });
     }
+
+    // Default sections and data streams if not provided
+    const ALL_SECTIONS = ['compliance_header', 'vehicle_identification', 'data_stream_verification', 'data_continuity', 'compliance_status', 'misrepresentation_risk', 'damage_findings', 'attestation'];
+    const ALL_STREAMS = ['time_stamped_location', 'speed', 'fuel_consumption', 'engine_diagnostics', 'vehicle_status', 'mileage_data', 'driver_behavior'];
+    const activeSections = sections && Array.isArray(sections) ? sections : ALL_SECTIONS;
+    const activeStreams = data_streams && Array.isArray(data_streams) ? data_streams : ALL_STREAMS;
 
     // ── Gather core records ──
     let booking = null;
@@ -46,7 +62,7 @@ Deno.serve(async (req) => {
 
     // ── Gather position history (location + speed data stream) ──
     let positionHistory = [];
-    if (telematicsDevice?.id) {
+    if (telematicsDevice?.id && activeStreams.includes('time_stamped_location')) {
       const positions = await base44.asServiceRole.entities.TelematicsPositionHistory.filter(
         { device_id: telematicsDevice.id },
         '-timestamp',
@@ -57,7 +73,7 @@ Deno.serve(async (req) => {
 
     // ── Gather telematics events (engine diagnostics + status) ──
     let telematicsEvents = [];
-    if (vehicleIdToUse) {
+    if (vehicleIdToUse && include_telematics_events) {
       const events = await base44.asServiceRole.entities.TelematicsEvent.filter(
         { vehicle_id: vehicleIdToUse },
         '-created_at',
@@ -68,7 +84,7 @@ Deno.serve(async (req) => {
 
     // ── Gather odometer snapshots (mileage data stream) ──
     let odometerSnapshots = [];
-    if (vehicleIdToUse) {
+    if (vehicleIdToUse && include_odometer_history && activeStreams.includes('mileage_data')) {
       odometerSnapshots = await base44.asServiceRole.entities.OdometerSnapshot.filter(
         { vehicle_id: vehicleIdToUse },
         '-captured_at',
@@ -78,7 +94,7 @@ Deno.serve(async (req) => {
 
     // ── Gather safety events (driver behavior data stream) ──
     let safetyEvents = [];
-    if (vehicleIdToUse) {
+    if (vehicleIdToUse && include_safety_events && activeStreams.includes('driver_behavior')) {
       const sEvents = await base44.asServiceRole.entities.TelematicsSafetyEvent.filter(
         { vehicle_id: vehicleIdToUse },
         '-created_date',
@@ -89,7 +105,7 @@ Deno.serve(async (req) => {
 
     // ── Gather GPS command events (vehicle status + control) ──
     let gpsEvents = [];
-    if (vehicleIdToUse) {
+    if (vehicleIdToUse && activeStreams.includes('vehicle_status')) {
       gpsEvents = await base44.asServiceRole.entities.GPSEvent.filter(
         { vehicle_id: vehicleIdToUse },
         '-command_sent_at',
@@ -99,7 +115,7 @@ Deno.serve(async (req) => {
 
     // ── Gather inspection evidence photos ──
     const evidencePhotos = [];
-    if (booking) {
+    if (booking && include_evidence_photos) {
       if (booking.pickup_photos?.length) {
         booking.pickup_photos.forEach(url => evidencePhotos.push({ type: 'pickup', url }));
       }
@@ -115,14 +131,26 @@ Deno.serve(async (req) => {
     const vehicleName = booking?.vehicle_name || (vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Unknown Vehicle');
     const rentalPeriod = booking ? `${booking.start_date} to ${booking.end_date}` : 'N/A';
 
-    // Assess each required telematics data stream
+    // Assess each required telematics data stream (only for active streams)
     const positionCount = positionHistory.length;
-    const hasLocationData = positionCount > 0 || (telematicsDevice?.last_latitude != null && telematicsDevice?.last_longitude != null);
-    const hasSpeedData = positionHistory.some(p => p.speed != null) || telematicsDevice?.speed != null || telematicsEvents.some(e => e.speed != null);
-    const hasMileageData = odometerSnapshots.length > 0 || vehicle?.virtual_odometer != null || vehicle?.baseline_odometer != null || telematicsDevice?.device_mileage != null || telematicsDevice?.traccar_total_distance_meters != null;
-    const hasEngineDiagnostics = telematicsDevice?.battery_voltage != null || telematicsDevice?.power_voltage != null || telematicsDevice?.external_voltage != null || telematicsDevice?.voltage != null || telematicsDevice?.ignition_status != null;
-    const hasVehicleStatus = telematicsDevice != null && (telematicsDevice.online_status != null || telematicsDevice.lifecycle_status != null || telematicsDevice.ignition_status != null);
-    const hasDriverBehavior = safetyEvents.length > 0 || telematicsDevice?.shock_alarm != null || telematicsDevice?.overspeed_alarm != null || telematicsDevice?.movement_alarm != null;
+    const hasLocationData = activeStreams.includes('time_stamped_location')
+      ? (positionCount > 0 || (telematicsDevice?.last_latitude != null && telematicsDevice?.last_longitude != null))
+      : null;
+    const hasSpeedData = activeStreams.includes('speed')
+      ? (positionHistory.some(p => p.speed != null) || telematicsDevice?.speed != null || telematicsEvents.some(e => e.speed != null))
+      : null;
+    const hasMileageData = activeStreams.includes('mileage_data')
+      ? (odometerSnapshots.length > 0 || vehicle?.virtual_odometer != null || vehicle?.baseline_odometer != null || telematicsDevice?.device_mileage != null || telematicsDevice?.traccar_total_distance_meters != null)
+      : null;
+    const hasEngineDiagnostics = activeStreams.includes('engine_diagnostics')
+      ? (telematicsDevice?.battery_voltage != null || telematicsDevice?.power_voltage != null || telematicsDevice?.external_voltage != null || telematicsDevice?.voltage != null || telematicsDevice?.ignition_status != null)
+      : null;
+    const hasVehicleStatus = activeStreams.includes('vehicle_status')
+      ? (telematicsDevice != null && (telematicsDevice.online_status != null || telematicsDevice.lifecycle_status != null || telematicsDevice.ignition_status != null))
+      : null;
+    const hasDriverBehavior = activeStreams.includes('driver_behavior')
+      ? (safetyEvents.length > 0 || telematicsDevice?.shock_alarm != null || telematicsDevice?.overspeed_alarm != null || telematicsDevice?.movement_alarm != null)
+      : null;
 
     // Data continuity assessment
     let dataGapAnalysis = { has_gaps: false, gap_count: 0, total_gap_hours: 0, first_data: null, last_data: null };
@@ -182,13 +210,27 @@ Deno.serve(async (req) => {
         starter_disabled: telematicsDevice.starter_disabled, production_commands_enabled: telematicsDevice.production_commands_enabled
       } : null,
       data_stream_availability: {
-        time_stamped_location: { available: hasLocationData, data_points: positionCount, first_timestamp: dataGapAnalysis.first_data, last_timestamp: dataGapAnalysis.last_data },
-        speed_data: { available: hasSpeedData, sources: ['position_history', 'device', 'telematics_events'].filter(s => s) },
-        fuel_consumption: { available: false, note: 'Fuel consumption data not directly captured by current telematics provider — engine voltage and ignition data available as proxy' },
-        engine_diagnostics: { available: hasEngineDiagnostics, data_points: telematicsEvents.length },
-        vehicle_status: { available: hasVehicleStatus, online_status: telematicsDevice?.online_status, ignition_status: telematicsDevice?.ignition_status },
-        mileage_data: { available: hasMileageData, odometer_snapshots: odometerSnapshots.length, baseline: vehicle?.baseline_odometer, current: vehicle?.virtual_odometer || telematicsDevice?.device_mileage },
-        driver_behavior: { available: hasDriverBehavior, safety_events: safetyEvents.length, alarms_active: [telematicsDevice?.shock_alarm, telematicsDevice?.overspeed_alarm, telematicsDevice?.movement_alarm].filter(Boolean).length }
+        time_stamped_location: activeStreams.includes('time_stamped_location')
+          ? { available: hasLocationData, data_points: positionCount, first_timestamp: dataGapAnalysis.first_data, last_timestamp: dataGapAnalysis.last_data }
+          : { excluded: true, note: 'Stream excluded from this report per customization' },
+        speed_data: activeStreams.includes('speed')
+          ? { available: hasSpeedData, sources: ['position_history', 'device', 'telematics_events'].filter(s => s) }
+          : { excluded: true },
+        fuel_consumption: activeStreams.includes('fuel_consumption')
+          ? { available: false, note: 'Fuel consumption data not directly captured by current telematics provider — engine voltage and ignition data available as proxy' }
+          : { excluded: true },
+        engine_diagnostics: activeStreams.includes('engine_diagnostics')
+          ? { available: hasEngineDiagnostics, data_points: telematicsEvents.length }
+          : { excluded: true },
+        vehicle_status: activeStreams.includes('vehicle_status')
+          ? { available: hasVehicleStatus, online_status: telematicsDevice?.online_status, ignition_status: telematicsDevice?.ignition_status }
+          : { excluded: true },
+        mileage_data: activeStreams.includes('mileage_data')
+          ? { available: hasMileageData, odometer_snapshots: odometerSnapshots.length, baseline: vehicle?.baseline_odometer, current: vehicle?.virtual_odometer || telematicsDevice?.device_mileage }
+          : { excluded: true },
+        driver_behavior: activeStreams.includes('driver_behavior')
+          ? { available: hasDriverBehavior, safety_events: safetyEvents.length, alarms_active: [telematicsDevice?.shock_alarm, telematicsDevice?.overspeed_alarm, telematicsDevice?.movement_alarm].filter(Boolean).length }
+          : { excluded: true },
       },
       data_continuity: dataGapAnalysis,
       position_history_sample: positionHistory.slice(0, 10).map(p => ({ lat: p.latitude, lon: p.longitude, speed: p.speed, timestamp: p.timestamp, ignition: p.ignition_status })),
@@ -207,22 +249,87 @@ Deno.serve(async (req) => {
       fleet_risk_analysis: 'Fleet Risk Analysis & Telematics Compliance Report'
     };
 
+    const activeStreamLabels = {
+      time_stamped_location: 'Time-stamped vehicle location',
+      speed: 'Speed',
+      fuel_consumption: 'Fuel consumption (or engine voltage/diagnostics as proxy if fuel data unavailable)',
+      engine_diagnostics: 'Engine diagnostics',
+      vehicle_status: 'Vehicle status',
+      mileage_data: 'Mileage data',
+      driver_behavior: 'Driver behavior',
+    };
+
+    const activeStreamList = activeStreams.map((s, i) => `${i + 1}. ${activeStreamLabels[s] || s}`).join('\n');
+
+    // Build section instructions dynamically based on active sections
+    const sectionNums = {};
+    let sectionCounter = 1;
+    activeSections.forEach(s => { sectionNums[s] = sectionCounter++; });
+
+    const sectionInstructions = [];
+    if (activeSections.includes('compliance_header')) {
+      sectionInstructions.push(`${sectionNums.compliance_header}. COMPLIANCE CERTIFICATION HEADER
+   - Title: "TELEMATICS COMPLIANCE CERTIFICATION"
+   - Mandatory statement: "TELEMATICS IS REQUIRED FOR EVERY VEHICLE ON THIS POLICY."`);
+    }
+    if (activeSections.includes('vehicle_identification')) {
+      sectionInstructions.push(`${sectionNums.vehicle_identification}. POLICY & VEHICLE IDENTIFICATION
+   - Vehicle make/model/year/VIN/plate
+   - Booking/Policy reference, rental period
+   - Host/Insured party details`);
+    }
+    if (activeSections.includes('data_stream_verification')) {
+      sectionInstructions.push(`${sectionNums.data_stream_verification}. MANDATORY TELEMATICS DATA STREAM VERIFICATION
+   For EACH of the required data categories listed above, provide:
+   - Status: VERIFIED / GAPS_DETECTED / NOT_AVAILABLE
+   - Evidence: What data was found (data point counts, timestamps, sources)
+   - Gaps: Any missing periods or data quality issues
+   - Assessment: Whether this category meets carrier compliance requirements
+   - If a stream was excluded from this report, note it as "EXCLUDED FROM REPORT" and skip detailed verification`);
+    }
+    if (activeSections.includes('data_continuity')) {
+      sectionInstructions.push(`${sectionNums.data_continuity}. DATA CONTINUITY ASSESSMENT
+   - Was telematics data continuous throughout the rental/policy period?
+   - Identify any gaps > 6 hours
+   - Total gap duration
+   - Real-time data availability assessment`);
+    }
+    if (activeSections.includes('compliance_status')) {
+      sectionInstructions.push(`${sectionNums.compliance_status}. COMPLIANCE STATUS DETERMINATION
+   - Overall: COMPLIANT / PARTIAL_COMPLIANCE / NON-COMPLIANT
+   - Rationale based on data stream verification`);
+    }
+    if (activeSections.includes('misrepresentation_risk')) {
+      sectionInstructions.push(`${sectionNums.misrepresentation_risk}. MATERIAL MISREPRESENTATION RISK ASSESSMENT
+   - Risk level: NONE / LOW / MEDIUM / HIGH
+   - If any data gaps exist, explain the coverage impact
+   - Whether failure to maintain data could result in claim denial`);
+    }
+    if (activeSections.includes('damage_findings')) {
+      const findingTitle = report_type === 'damage_assessment' ? 'DAMAGE ASSESSMENT' : report_type === 'claim_summary' ? 'CLAIM SUMMARY' : report_type === 'dispute_resolution' ? 'DISPUTE ANALYSIS' : report_type === 'fleet_risk_analysis' ? 'FLEET RISK ANALYSIS' : 'ADDITIONAL AUDIT FINDINGS';
+      sectionInstructions.push(`${sectionNums.damage_findings}. ${findingTitle}
+   - Any damage, incidents, safety events, or risk factors identified
+   - Evidence from photos, telematics events, safety events`);
+    }
+    if (activeSections.includes('attestation')) {
+      sectionInstructions.push(`${sectionNums.attestation}. ATTESTATION
+   - Compliance attestation statement
+   - Signature-ready section with date`);
+    }
+
+    const sectionListStr = sectionInstructions.join('\n\n');
+    const lastNum = sectionCounter - 1;
+
     const prompt = `You are a certified insurance compliance auditor. Generate a ${reportTypeLabels[report_type] || report_type} that meets the standard requirements of ALL major insurance carriers (Roamly, National General, Progressive, etc.).
 
 This report MUST certify telematics data compliance as a MANDATORY requirement, following the standard insurance carrier telematics addendum format:
 
 TELEMATICS IS REQUIRED FOR EVERY VEHICLE ON THIS POLICY.
 
-The policy holder (host) must provide complete, timely (real-time) and ongoing telematics data, including but not limited to:
-1. Time-stamped vehicle location
-2. Speed
-3. Fuel consumption (or engine voltage/diagnostics as proxy if fuel data unavailable)
-4. Engine diagnostics
-5. Vehicle status
-6. Mileage data
-7. Driver behavior
+The policy holder (host) must provide complete, timely (real-time) and ongoing telematics data. The following telematics data streams are IN SCOPE for this report:
+${activeStreamList}
 
-Failure to provide continuous and timely telematics data constitutes a MATERIAL MISREPRESENTATION that may result in modifications to coverage terms, including adjustments in premium, changes in coverage limits or deductables, cancellation of coverage, and/or denial of a claim.
+${activeStreams.length < 7 ? 'NOTE: Not all 7 standard telematics data streams are included in this report. The excluded streams should be noted as "EXCLUDED FROM REPORT" but should not impact the compliance assessment of the included streams.\n' : ''}Failure to provide continuous and timely telematics data for the in-scope streams constitutes a MATERIAL MISREPRESENTATION that may result in modifications to coverage terms, including adjustments in premium, changes in coverage limits or deductables, cancellation of coverage, and/or denial of a claim.
 
 === COMPLIANCE EVIDENCE DATA ===
 Vehicle: ${vehicleName}
@@ -234,51 +341,14 @@ Booking ID: ${booking?.id || 'N/A'}
 ${JSON.stringify(complianceEvidence, null, 2)}
 === END EVIDENCE DATA ===
 
-Generate the report with the following structure:
+Generate the report with the following structure (only include the sections listed below — skip any sections not in this list):
 
-1. COMPLIANCE CERTIFICATION HEADER
-   - Title: "TELEMATICS COMPLIANCE CERTIFICATION"
-   - Mandatory statement: "TELEMATICS IS REQUIRED FOR EVERY VEHICLE ON THIS POLICY."
+${sectionListStr}
 
-2. POLICY & VEHICLE IDENTIFICATION
-   - Vehicle make/model/year/VIN/plate
-   - Booking/Policy reference, rental period
-   - Host/Insured party details
+${lastNum + 1}. FINDINGS (as array)
+${lastNum + 2}. RECOMMENDATIONS (as array)
 
-3. MANDATORY TELEMATICS DATA STREAM VERIFICATION
-   For EACH of the 7 required data categories above, provide:
-   - Status: VERIFIED / GAPS_DETECTED / NOT_AVAILABLE
-   - Evidence: What data was found (data point counts, timestamps, sources)
-   - Gaps: Any missing periods or data quality issues
-   - Assessment: Whether this category meets carrier compliance requirements
-
-4. DATA CONTINUITY ASSESSMENT
-   - Was telematics data continuous throughout the rental/policy period?
-   - Identify any gaps > 6 hours
-   - Total gap duration
-   - Real-time data availability assessment
-
-5. COMPLIANCE STATUS DETERMINATION
-   - Overall: COMPLIANT / PARTIAL_COMPLIANCE / NON-COMPLIANT
-   - Rationale based on data stream verification
-
-6. MATERIAL MISREPRESENTATION RISK ASSESSMENT
-   - Risk level: NONE / LOW / MEDIUM / HIGH
-   - If any data gaps exist, explain the coverage impact
-   - Whether failure to maintain data could result in claim denial
-
-7. ${report_type === 'damage_assessment' ? 'DAMAGE ASSESSMENT' : report_type === 'claim_summary' ? 'CLAIM SUMMARY' : report_type === 'dispute_resolution' ? 'DISPUTE ANALYSIS' : report_type === 'fleet_risk_analysis' ? 'FLEET RISK ANALYSIS' : 'ADDITIONAL AUDIT FINDINGS'}
-   - Any damage, incidents, safety events, or risk factors identified
-   - Evidence from photos, telematics events, safety events
-
-8. ATTESTATION
-   - Compliance attestation statement
-   - Signature-ready section with date
-
-9. FINDINGS (as array)
-10. RECOMMENDATIONS (as array)
-
-Write the full report_content as formatted markdown text. Be specific and reference actual data points, counts, and timestamps from the evidence. Do not use placeholder text.`;
+Write the full report_content as formatted markdown text. Be specific and reference actual data points, counts, and timestamps from the evidence. Do not use placeholder text. Only assess the telematics data streams that are in scope for this report.`;
 
     // ── Generate report via AI ──
     const llmResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
@@ -361,6 +431,12 @@ Write the full report_content as formatted markdown text. Be specific and refere
         coverage_impact: llmResponse.coverage_impact,
         data_stream_verification: llmResponse.data_stream_verification,
         data_continuity: llmResponse.data_continuity,
+        custom_sections: activeSections,
+        custom_data_streams: activeStreams,
+        include_evidence_photos,
+        include_telematics_events,
+        include_safety_events,
+        include_odometer_history,
         evidence_photos_count: evidencePhotos.length,
         position_history_count: positionHistory.length,
         telematics_events_count: telematicsEvents.length,
