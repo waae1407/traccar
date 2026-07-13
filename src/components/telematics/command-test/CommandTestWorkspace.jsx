@@ -7,6 +7,7 @@ import CommandButtonGrid from '@/components/telematics/command-test/CommandButto
 import CommandHistoryPanel from '@/components/telematics/command-test/CommandHistoryPanel';
 import RawCommandInput from '@/components/telematics/command-test/RawCommandInput';
 import RebootDeviceCard from '@/components/telematics/command-test/RebootDeviceCard';
+import RelayPowerSaveCard from '@/components/telematics/command-test/RelayPowerSaveCard';
 import TraccarDeviceLogsPanel from '@/components/telematics/command-test/TraccarDeviceLogsPanel';
 import TelematicsAlarmControls from '@/components/telematics/TelematicsAlarmControls';
 import { useCommandProgress, PHASES } from '@/hooks/useCommandProgress';
@@ -149,6 +150,7 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
           )}
           <RawCommandInput device={lookupData.device} onCommandSent={() => history.refetch()} />
           <RebootDeviceCard prefillDeviceId={lookupData.device?.unique_id || ''} />
+          <RelayPowerSaveCard prefillDeviceId={lookupData.device?.unique_id || ''} />
           <TraccarDeviceLogsPanel deviceUniqueId={lookupData.device?.unique_id || ''} />
           <CommandHistoryPanel commands={history.data} onRefresh={history.refetch} loading={history.isFetching} />
         </>

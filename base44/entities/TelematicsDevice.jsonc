@@ -36,6 +36,10 @@
     "sim_iccid": {
       "type": "string"
     },
+    "sim_phone_number": {
+      "type": "string",
+      "description": "SIM phone number for SMS commands (distinct from ICCID)"
+    },
     "sim_provider": {
       "type": "string"
     },

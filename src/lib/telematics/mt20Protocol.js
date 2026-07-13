@@ -32,6 +32,7 @@ export const MT20_CONTROL_CODES = Object.freeze({
   gprsUnlockHornLightMode: '043',
   bluetoothLockHornLightMode: '052',
   bluetoothUnlockHornLightMode: '053',
+  relayPowerSaveMode: '019',
   restartDevice: '099',
 });
 
