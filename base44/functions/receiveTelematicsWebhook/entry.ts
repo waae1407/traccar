@@ -408,6 +408,19 @@ async function validateWebhookRequest(base44, req, body) {
     return { ok: false, response: Response.json({ error: 'Malformed payload' }, { status: 400 }) };
   }
 
+  // ── Traccar built-in position.forward.url passthrough ──
+  // Traccar's native position forwarder POSTs a standard position JSON
+  // (keys: position/deviceId/latitude/longitude/...) WITHOUT provider_key,
+  // webhook secret, or event id. Our Python log forwarder is the authoritative
+  // ingestion path; the built-in forwarder is redundant. Acknowledge it
+  // benignly so Traccar stops logging "Position forwarding failed: HTTP 400".
+  const looksLikeTraccarNativeForward =
+    !body.provider_key && !body.providerKey && !body.raw_packet_hex && !body.packet_hex &&
+    (Boolean(body.position) || (body.deviceId && (body.latitude !== undefined || body.longitude !== undefined)));
+  if (looksLikeTraccarNativeForward) {
+    return { ok: false, response: Response.json({ ok: true, ignored: true, reason: 'Traccar native position forward — handled by log forwarder' }) };
+  }
+
   const providerKey = String(body.provider_key || body.providerKey || '').trim();
   if (!providerKey) {
     await logSecurityEvent(base44, { eventType: 'missing_provider_key', summary: 'Telematics webhook rejected: provider_key is required', metadata: { ip: getClientIp(req) } });
