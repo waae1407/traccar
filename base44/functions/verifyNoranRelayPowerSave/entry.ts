@@ -6,18 +6,18 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 //
 // Sequence (all commands gated by heartbeat freshness so packets reach the device):
 //   1. Wait for a fresh heartbeat (≤10s old, up to 30s)
-//   2. Send disable_starter (007,1,1) → device ACKs with starterKilled=true (relay energized)
+//   2. Send disable_starter (007,1,1) → device ACKs with bEnable showing pre-command state
 //   3. Wait 70s (the 60s relay-release window + buffer)
-//   4. Send locate (000) → device ACKs with current status bits
-//   5. Check starterKilled:
-//        false → relay released → power-save ON  → PASS
-//        true  → relay stayed    → power-save OFF → FAIL
-//   6. Send restore_starter (007,1,0) to clean up
+//   4. Send restore_starter (007,1,0) → device responds with 0x8009 ACK or 0x0032 position,
+//      both carrying bEnable that reflects the relay state BEFORE restore executes
+//   5. Check starterKilled from the response:
+//        false → relay auto-released during wait → power-save ON  → PASS
+//        true  → relay stayed energized           → power-save OFF → FAIL
 
 const MAX_HEARTBEAT_AGE_MS = 10000;
 const POLL_INTERVAL_MS = 500;
 const FRESHNESS_TIMEOUT_MS = 30000;
-const ACK_TIMEOUT_MS = 20000;
+const ACK_TIMEOUT_MS = 30000;
 const RELAY_RELEASE_WAIT_MS = 70000;
 
 function sanitizeIdentifier(value = '') { return String(value).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
@@ -91,15 +91,22 @@ async function waitForAck(base44, deviceId, afterMs) {
   const start = Date.now();
   while (Date.now() - start < ACK_TIMEOUT_MS) {
     await sleep(POLL_INTERVAL_MS);
-    const events = await base44.asServiceRole.entities.TelematicsEvent.filter(
-      { telematics_device_id: deviceId, event_type: 'mt20_command_response_forwarded_log' }, '-created_date', 5
-    );
-    for (const ev of events) {
+    // Query both 0x8009 command-response events AND 0x0032 position/voltage events,
+    // since the MT20 device may respond to command 007 with either packet type.
+    const [ackEvents, posEvents] = await Promise.all([
+      base44.asServiceRole.entities.TelematicsEvent.filter(
+        { telematics_device_id: deviceId, event_type: 'mt20_command_response_forwarded_log' }, '-created_date', 5
+      ),
+      base44.asServiceRole.entities.TelematicsEvent.filter(
+        { telematics_device_id: deviceId, event_type: 'mt20_voltage_forwarded_log' }, '-created_date', 5
+      ),
+    ]);
+    for (const ev of [...ackEvents, ...posEvents]) {
       const evTime = new Date(ev.created_date || ev.created_at || 0).getTime();
       if (evTime < afterMs) continue;
       const parsed = ev.raw_payload?.parsed_forwarded_log;
       if (parsed?.status_bits) {
-        return { found: true, starter_killed: parsed.status_bits.starterKilled, status_bits: parsed.status_bits, event_id: ev.id, received_at: ev.created_date };
+        return { found: true, starter_killed: parsed.status_bits.starterKilled, status_bits: parsed.status_bits, event_id: ev.id, received_at: ev.created_date, packet_type: parsed.packet_type };
       }
     }
   }

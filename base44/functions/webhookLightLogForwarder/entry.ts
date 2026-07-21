@@ -175,6 +175,7 @@ function parseMt20Voltage0032(body) {
     const packetType = readUInt16LE(bytes, i + 2);
     if (packetType !== 0x0032) continue;
 
+    const bEnable = bytes[i + 4];
     const nbat = bytes[i + 5];
     const voltage = nbat / 10;
     if (!Number.isFinite(voltage) || voltage < MIN_VOLTAGE || voltage > MAX_VOLTAGE) return null;
@@ -187,6 +188,8 @@ function parseMt20Voltage0032(body) {
       packet_type: '0x0032',
       nBAT: nbat,
       voltage,
+      bEnable,
+      status_bits: decodeStatusBits(bEnable),
       device_unique_id: extractDeviceId(bytes, {}) || extractDeviceId(bytes, body) || asciiFromBytes(bytes.slice(i + 20, Math.min(bytes.length, i + 40))) || '',
       device_updates: {
         battery_voltage: voltage,
