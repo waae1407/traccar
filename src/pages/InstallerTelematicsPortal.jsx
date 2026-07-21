@@ -678,6 +678,7 @@ export default function InstallerTelematicsPortal() {
   const allSupportedTestsPass = visibleTestIds.length > 0 && visibleTestIds.every(id => form[id] === "pass");
   const anySupportedTestFailed = visibleTestIds.some(id => form[id] === "fail");
   const testsReady = supportedTestsComplete && allSupportedTestsPass;
+  const baselineOdometerReady = form.baseline_odometer !== "" && Number(form.baseline_odometer) >= 0;
 
   useEffect(() => {
     if (currentStep === 3 && form.actual_device_id && !capabilities.data && !capabilities.isFetching) capabilities.refetch();
@@ -803,7 +804,6 @@ export default function InstallerTelematicsPortal() {
     });
   };
 
-  const baselineOdometerReady = form.baseline_odometer !== "" && Number(form.baseline_odometer) >= 0;
   const canAdvance = [deviceReady, vinEntered && baselineOdometerReady, photosReady && namesReady, supportedTestsComplete, true][currentStep];
 
   if (result?.status === "completed") {
