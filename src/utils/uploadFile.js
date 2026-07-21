@@ -100,8 +100,11 @@ export async function uploadFile(file, { timeoutMs = UPLOAD_TIMEOUT_MS } = {}) {
       throw err;
     }
 
-    // 500 / 502 / 504 and anything else
-    const err = new Error(`Upload service error (HTTP ${httpStatus || "unknown"}). Please tap Retry.`);
+    // 500 / 502 / 504 and anything else — include backend error detail when available
+    const backendError = responseBody?.error || responseBody?.message;
+    const err = new Error(backendError
+      ? `Upload failed: ${backendError}`
+      : `Upload service error (HTTP ${httpStatus || "unknown"}). Please tap Retry.`);
     err.code = "SERVER_ERROR";
     err.httpStatus = httpStatus || null;
     err.responseBody = responseBody || null;
