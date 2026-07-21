@@ -141,6 +141,8 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
       <DeviceLookupCard identifier={identifier} setIdentifier={setIdentifier} onLookup={() => lookup.mutate()} loading={lookup.isPending} error={lookupError} />
       <DeviceSummaryCard data={lookupData} />
 
+      <RelayPowerSaveCard />
+
       {lookupData?.device && (
         <>
           <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} activePhase={progress.phase} activePhaseCommand={progress.commandType} />
@@ -150,7 +152,6 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
           )}
           <RawCommandInput device={lookupData.device} onCommandSent={() => history.refetch()} />
           <RebootDeviceCard prefillDeviceId={lookupData.device?.unique_id || ''} />
-          <RelayPowerSaveCard prefillDeviceId={lookupData.device?.unique_id || ''} />
           <TraccarDeviceLogsPanel deviceUniqueId={lookupData.device?.unique_id || ''} />
           <CommandHistoryPanel commands={history.data} onRefresh={history.refetch} loading={history.isFetching} />
         </>

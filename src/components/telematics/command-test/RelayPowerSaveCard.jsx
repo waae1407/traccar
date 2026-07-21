@@ -48,6 +48,7 @@ export default function RelayPowerSaveCard({ prefillDeviceId = '' }) {
             <li>• <span className="text-emerald-400 font-semibold">Power-save ON (X=0):</span> Relay releases 60s after ACC off → ~0mA relay draw when parked</li>
             <li>• <span className="text-orange-400 font-semibold">Power-save OFF (X=1):</span> Relay stays energized 24/7 → ~150-200mA continuous draw</li>
             <li>• Starter kill still works instantly when ACC turns on (relay re-engages in ~5-20ms)</li>
+            <li>• <span className="text-sky-400 font-semibold">Freshness gate:</span> Only sends to devices with a fresh heartbeat (≤10s). Offline devices wait up to 30s for their next heartbeat, then are skipped if still stale.</li>
           </ul>
         </div>
 
@@ -86,7 +87,7 @@ export default function RelayPowerSaveCard({ prefillDeviceId = '' }) {
                 <p className="text-xs font-semibold text-green-400">
                   Bulk push complete — {result.power_save_mode ? 'Power-save ENABLED' : 'Power-save DISABLED'}
                 </p>
-                <p className="text-xs text-green-300/60 mt-0.5">Sent via Traccar /api/commands/send (68-byte MT20 wrapped packet)</p>
+                <p className="text-xs text-green-300/60 mt-0.5">Sent via Traccar /api/commands/send (68-byte MT20 wrapped packet) — freshness gate applied</p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 mb-3">
