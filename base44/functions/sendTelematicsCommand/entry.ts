@@ -566,9 +566,10 @@ Deno.serve(async (req) => {
 
     let heartbeatFreshness = null;
     const isLiveNoran = device.provider_key === 'traccar_noran_mt20' && (liveNoranProduction || adminDeviceCommandTest || adminTraccarLiveTest || liveNoranInstallerTest);
-    const skipFreshnessCheck = !!body.alarm_session_id || body.source === 'vehicle_command_center' || body.source === 'contactless360_remote';
 
-    if (isLiveNoran && !skipFreshnessCheck) {
+    // All live Noran commands must pass the freshness gate — without a fresh heartbeat
+    // the UDP NAT session has expired and the device will silently drop the packet.
+    if (isLiveNoran) {
       heartbeatFreshness = await ensureFreshHeartbeat(base44, device.id);
       console.log(`[HEARTBEAT_FRESHNESS] device=${device.unique_id} fresh=${heartbeatFreshness.fresh} age_ms=${heartbeatFreshness.age_ms}`);
 
