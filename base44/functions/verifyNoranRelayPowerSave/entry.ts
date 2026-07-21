@@ -152,6 +152,15 @@ Deno.serve(async (req) => {
     await sleep(relayWaitMs);
     steps.push({ step: 'relay_release_wait', waited_ms: relayWaitMs });
 
+    // Re-check freshness before the restore_starter read command — the 70s wait
+    // means the original heartbeat is long stale and the UDP NAT session has expired.
+    // Without a fresh heartbeat, the restore command packet will be silently dropped.
+    const freshness2 = await waitForFreshHeartbeat(base44, device.id);
+    steps.push({ step: 'freshness_gate_restore', ...freshness2 });
+    if (!freshness2.fresh) {
+      return Response.json({ ok: false, error: 'Device heartbeat stale after relay-release wait — UDP session expired. Restore command not sent.', steps, heartbeat_age_seconds: Math.round((freshness2.age_ms || 0) / 1000) }, { status: 503 });
+    }
+
     // Use restore_starter as the read step: its 0x8009 ACK contains bEnable
     // reflecting the relay state BEFORE restore executes. If power-save is ON,
     // the relay auto-released during the 70s wait → ACK shows starterKilled=FALSE.
