@@ -2,8 +2,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  // Auth is optional — installer portal is public (no login), but file uploads
+  // to R2 use a random key and public read-only URL, so no auth gate is needed.
+  let user = null;
+  try { user = await base44.auth.me(); } catch { user = null; }
 
   const { fileBase64, fileName, fileType } = await req.json();
   if (!fileBase64) return Response.json({ error: 'No file provided' }, { status: 400 });
