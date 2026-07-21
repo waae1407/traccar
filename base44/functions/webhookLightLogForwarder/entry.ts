@@ -933,6 +933,18 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Malformed payload' }, { status: 400 });
     }
 
+    // ── Traccar built-in position.forward.url passthrough ──
+    // Traccar's native position forwarder POSTs decoded position JSON
+    // (keys: deviceId/latitude/longitude/...) without raw hex or provider_key.
+    // Our Python log forwarder is the authoritative ingestion path; the built-in
+    // forwarder is redundant. Acknowledge it benignly to stop the 400 errors.
+    const looksLikeTraccarNativeForward =
+      !body.raw_packet_hex && !body.packet_hex && !body.raw_hex && !body.raw_log_line &&
+      (Boolean(body.position) || (body.deviceId && (body.latitude !== undefined || body.longitude !== undefined)));
+    if (looksLikeTraccarNativeForward) {
+      return Response.json({ ok: true, ignored: true, reason: 'Traccar native position forward — handled by log forwarder' });
+    }
+
     const expectedSecret = String(Deno.env.get('TRACCAR_WEBHOOK_SECRET') || '').trim();
     if (!expectedSecret || getSecret(req, body) !== expectedSecret) {
       return Response.json({ error: 'Invalid webhook secret' }, { status: 401 });
