@@ -41,7 +41,7 @@ export default function RelayPowerSaveCard({ prefillDeviceId = '' }) {
     }
     if (!window.confirm(
       `Verify power-save on ${deviceId}?\n\n` +
-      `This sends disable_starter, waits 70s for the relay-release window, then checks if the relay released. The device's starter is restored at the end. Takes ~90-120s.`
+      `Sends disable_starter (engages relay), waits 70s for the relay-release window, then sends restore_starter and reads the relay state from the ACK. If the relay auto-released during the wait, power-save is ON. Takes ~90-120s.`
     )) return;
     setLoading('verify');
     setVerifyResult(null);
@@ -106,8 +106,8 @@ export default function RelayPowerSaveCard({ prefillDeviceId = '' }) {
         <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-white/50 mb-2">Verify Power-Save (Single Device)</p>
           <p className="text-xs text-white/50 mb-3">
-            Sends disable_starter, waits 70s for the relay-release window, then checks if the relay released.
-            Requires a specific device ID — observes one device's ACK transition for a definitive pass/fail.
+            Sends disable_starter (engages relay), waits 70s, then sends restore_starter and reads the relay state from the 0x8009 ACK.
+            If the relay auto-released during the wait → power-save is ON (PASS). If still engaged → power-save OFF (FAIL).
           </p>
           <div className="flex gap-2">
             <Input

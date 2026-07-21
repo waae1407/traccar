@@ -145,19 +145,19 @@ Deno.serve(async (req) => {
     await sleep(relayWaitMs);
     steps.push({ step: 'relay_release_wait', waited_ms: relayWaitMs });
 
-    const locateAscii = buildAsciiCommand(device.unique_id, 'locate');
-    const locateHex = buildMt20WrappedPacket(locateAscii);
-    const t2 = Date.now();
-    await sendTraccarCommand(device.traccar_device_id, locateHex);
-    const ack2 = await waitForAck(base44, device.id, t2);
-    steps.push({ step: 'locate_after_release', ascii: locateAscii, starter_killed: ack2.starter_killed, ack_found: ack2.found });
-
+    // Use restore_starter as the read step: its 0x8009 ACK contains bEnable
+    // reflecting the relay state BEFORE restore executes. If power-save is ON,
+    // the relay auto-released during the 70s wait → ACK shows starterKilled=FALSE.
+    // If power-save is OFF, the relay stayed engaged → ACK shows starterKilled=TRUE.
     const restoreAscii = buildAsciiCommand(device.unique_id, 'restore_starter');
-    await sendTraccarCommand(device.traccar_device_id, buildMt20WrappedPacket(restoreAscii)).catch(() => {});
-    steps.push({ step: 'restore_starter_cleanup', ascii: restoreAscii });
+    const restoreHex = buildMt20WrappedPacket(restoreAscii);
+    const t2 = Date.now();
+    await sendTraccarCommand(device.traccar_device_id, restoreHex);
+    const ack2 = await waitForAck(base44, device.id, t2);
+    steps.push({ step: 'restore_starter_read', ascii: restoreAscii, starter_killed: ack2.starter_killed, ack_found: ack2.found });
 
     if (!ack2.found) {
-      return Response.json({ ok: false, error: 'No ACK received after relay release wait — cannot determine power-save state.', steps }, { status: 504 });
+      return Response.json({ ok: false, error: 'No ACK received for restore_starter — cannot determine power-save state.', steps }, { status: 504 });
     }
 
     const powerSaveActive = !ack2.starter_killed;
