@@ -339,6 +339,7 @@ function VehicleStep({ form, update, vehicleLookup, vehicleMatched, vinNotFound,
 }
 
 function PhotoTile({ title, url, uploading, onUpload }) {
+  const inputRef = useRef(null);
   return (
     <label className={`group relative block min-h-44 cursor-pointer overflow-hidden rounded-[2rem] border-2 border-dashed transition-all ${url ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white hover:border-primary/40 hover:bg-pink-50/40"}`}>
       {url ? (
@@ -351,12 +352,13 @@ function PhotoTile({ title, url, uploading, onUpload }) {
         </div>
       )}
       {url && <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-white/90 px-3 py-2 text-sm font-black text-slate-950 shadow-lg backdrop-blur">✓ {title}</div>}
-      <input type="file" accept="image/*" className="hidden" onChange={e => onUpload(e.target.files?.[0])} />
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={e => { onUpload(e.target.files?.[0]); if (inputRef.current) inputRef.current.value = ""; }} />
     </label>
   );
 }
 
-function PhotosStep({ photoSlots, additionalPhotos, uploadingSlot, uploadRequiredPhoto, uploadAdditionalPhotos, requiredPhotoCount, form, update }) {
+function PhotosStep({ photoSlots, additionalPhotos, uploadingSlot, uploadRequiredPhoto, uploadAdditionalPhotos, requiredPhotoCount, form, update, uploadError }) {
+  const additionalInputRef = useRef(null);
   return (
     <div className="space-y-4">
       <div>
@@ -380,12 +382,22 @@ function PhotosStep({ photoSlots, additionalPhotos, uploadingSlot, uploadRequire
         </div>
         <div className="mt-4 rounded-[2rem] border border-slate-200 bg-slate-50 p-4">
           <label className="flex min-h-16 cursor-pointer items-center justify-center gap-3 rounded-3xl bg-white text-sm font-black text-slate-900 shadow-sm">
-            <Upload className="h-5 w-5 text-primary" /> Optional Additional Photos
-            <input type="file" accept="image/*" multiple className="hidden" onChange={e => uploadAdditionalPhotos(e.target.files)} />
+            <Upload className="h-5 w-5 text-primary" /> {uploadingSlot === "additional" ? "Uploading..." : "Optional Additional Photos"}
+            <input ref={additionalInputRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { uploadAdditionalPhotos(e.target.files); if (additionalInputRef.current) additionalInputRef.current.value = ""; }} />
           </label>
           {additionalPhotos.length > 0 && <div className="mt-3 grid grid-cols-4 gap-2">{additionalPhotos.map((url, index) => <img key={url + index} src={url} alt="Additional install" className="h-20 rounded-2xl object-cover" />)}</div>}
         </div>
       </LuxuryCard>
+
+      {uploadError && (
+        <div className="flex items-start gap-2 rounded-3xl border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700">
+          <XCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+          <div>
+            <p className="font-black">Upload failed</p>
+            <p className="mt-1 font-medium text-red-600">{uploadError}</p>
+          </div>
+        </div>
+      )}
 
       <LuxuryCard>
         <div className="space-y-3">
@@ -558,6 +570,7 @@ export default function InstallerTelematicsPortal() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTest, setHelpTest] = useState('');
   const [helpForm, setHelpForm] = useState({ name: '', phone: '', email: '', description: '' });
+  const [uploadError, setUploadError] = useState("");
 
   useEffect(() => {
     if (result?.status === "completed") {
@@ -704,26 +717,42 @@ export default function InstallerTelematicsPortal() {
   const uploadRequiredPhoto = async (slot, file) => {
     if (!file) return;
     setUploadingSlot(slot);
-    const { file_url } = await uploadFile(file);
-    setPhotoSlots(prev => {
-      const next = { ...prev, [slot]: file_url };
-      setForm(current => ({ ...current, install_photos: [...Object.values(next).filter(Boolean), ...additionalPhotos] }));
-      return next;
-    });
-    setUploadingSlot("");
+    setUploadError("");
+    try {
+      const { file_url } = await uploadFile(file);
+      setPhotoSlots(prev => {
+        const next = { ...prev, [slot]: file_url };
+        setForm(current => ({ ...current, install_photos: [...Object.values(next).filter(Boolean), ...additionalPhotos] }));
+        return next;
+      });
+    } catch (error) {
+      setUploadError(error?.message || "Upload failed. Please try again.");
+    } finally {
+      setUploadingSlot("");
+    }
   };
 
   const uploadAdditionalPhotos = async (files) => {
-    const urls = [];
-    for (const file of Array.from(files || [])) {
-      const { file_url } = await uploadFile(file);
-      urls.push(file_url);
+    const fileArr = Array.from(files || []);
+    if (!fileArr.length) return;
+    setUploadingSlot("additional");
+    setUploadError("");
+    try {
+      const urls = [];
+      for (const file of fileArr) {
+        const { file_url } = await uploadFile(file);
+        urls.push(file_url);
+      }
+      setAdditionalPhotos(prev => {
+        const next = [...prev, ...urls];
+        setForm(current => ({ ...current, install_photos: [...Object.values(photoSlots).filter(Boolean), ...next] }));
+        return next;
+      });
+    } catch (error) {
+      setUploadError(error?.message || "Upload failed. Please try again.");
+    } finally {
+      setUploadingSlot("");
     }
-    setAdditionalPhotos(prev => {
-      const next = [...prev, ...urls];
-      setForm(current => ({ ...current, install_photos: [...Object.values(photoSlots).filter(Boolean), ...next] }));
-      return next;
-    });
   };
 
   const submitInstallation = () => {
@@ -817,7 +846,7 @@ export default function InstallerTelematicsPortal() {
         <div className="py-6 pb-32">
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
           {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} vinEntered={vinEntered} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
-          {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} />}
+          {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} uploadError={uploadError} />}
           {currentStep === 3 && <InstallerTestingStep form={form} update={update} capabilities={capabilities} commandState={commandState} activeCommand={activeCommand} onSendCommand={sendInstallCommand} onHelp={openHelp} />}
           {currentStep === 4 && <CompleteStep form={form} deviceId={form.device_id} vehicleLookup={vehicleLookup} readyItems={readyItems} submit={submit} submitInstallation={submitInstallation} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} result={result} />}
         </div>
