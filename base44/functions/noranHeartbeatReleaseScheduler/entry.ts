@@ -10,10 +10,11 @@ const DEPRECATED_REASON = 'Heartbeat-delay command gate removed after Traccar de
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me().catch(() => null);
+    const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
     const isScheduled = req.headers.get('x-base44-scheduled-function') === 'true';
-    if (!isScheduled && user?.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin or scheduled function only' }, { status: 403 });
+    if (!isCron && !isScheduled) {
+      const user = await base44.auth.me().catch(() => null);
+      if (!user || user.role !== 'admin') return Response.json({ error: 'Forbidden: cron-secret, scheduled, or admin required' }, { status: 403 });
     }
 
     const now = new Date();

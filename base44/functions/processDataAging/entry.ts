@@ -186,11 +186,15 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
-    const user = await base44.auth.me().catch(() => null);
-    const isAutomation = !!body.automation || body.source === 'scheduled_aging_handler';
+    const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduled = req.headers.get('x-base44-scheduled-function') === 'true';
 
-    if (!isAutomation && user?.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    if (!isCron && !isScheduled) {
+      const user = await base44.auth.me().catch(() => null);
+      const isAutomation = !!body.automation || body.source === 'scheduled_aging_handler';
+      if (!isAutomation && user?.role !== 'admin') {
+        return Response.json({ error: 'Forbidden: cron-secret, scheduled, or admin required' }, { status: 403 });
+      }
     }
 
     const scope = body.scope || 'telematics_provider_ids';

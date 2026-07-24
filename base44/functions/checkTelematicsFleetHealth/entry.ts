@@ -22,8 +22,10 @@ async function alert(base44, payload) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduled = req.headers.get('x-base44-scheduled-function') === 'true';
     const body = await req.json().catch(() => ({}));
-    const auth = await authorize(base44, body);
+    const auth = (isCron || isScheduled) ? { ok: true } : await authorize(base44, body);
     if (!auth.ok) return auth.response;
 
     const now = new Date();
