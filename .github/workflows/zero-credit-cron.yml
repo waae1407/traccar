@@ -125,7 +125,7 @@ jobs:
             code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
             echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
           done
- daily-9am-pt:
+  daily-9am-pt:
     if: github.event.schedule == '0 16 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
