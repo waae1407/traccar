@@ -1,0 +1,123 @@
+name: Zero-Credit Cron
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+    - cron: '*/10 * * * *'
+    - cron: '*/15 * * * *'
+    - cron: '*/30 * * * *'
+    - cron: '0 * * * *'
+    - cron: '0 */6 * * *'
+    - cron: '0 20 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: zero-credit-cron-${{ github.event.schedule || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  every-5-min:
+    if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger 5-minute functions
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in noranCommandRetryScheduler alarmPulseScheduler escalateUnresolvedNotifications retryFailedNotifications manageBookingHold processAlert360Escalations; do
+            echo "::group::$fn"
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "HTTP $code"; head -c 400 /tmp/body; echo; echo "::endgroup::"
+          done
+
+  every-10-min:
+    if: github.event.schedule == '*/10 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger 10-minute functions
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in dealer360ACVSessionCleanup; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+
+  every-15-min:
+    if: github.event.schedule == '*/15 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger 15-minute functions
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in auditPayment360Integrity processPendingHostPayouts processRentalLifecycleTransitions reconcileUnlinkedTelematicsInstalls; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+
+  every-30-min:
+    if: github.event.schedule == '*/30 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger 30-minute functions
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in reconcilePayouts; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+
+  hourly:
+    if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger hourly functions
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in checkGPSDeviceStatus autoAcceptReturnReviews auditRentalLifecycleIntegrity; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+
+  every-6-hours:
+    if: github.event.schedule == '0 */6 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Trigger 6-hourly functions
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in reconcileHostPlatformSubscriptions; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+
+  daily:
+    if: github.event.schedule == '0 20 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger daily functions
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in auditBookingIntegrity auditNotificationIntegrity checkOverdueAndIncompleteBookings auditPricingIntegrity processGracePeriod dealer360HoldExpiryAlerts; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
