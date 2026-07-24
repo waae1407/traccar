@@ -121,7 +121,66 @@ jobs:
           BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          for fn in auditBookingIntegrity auditNotificationIntegrity checkOverdueAndIncompleteBookings auditPricingIntegrity processGracePeriod dealer360HoldExpiryAlerts; do
+          for fn in auditBookingIntegrity auditNotificationIntegrity checkOverdueAndIncompleteBookings auditPricingIntegrity processGracePeriod dealer360HoldExpiryAlerts processWeeklyBilling checkComplianceExpiry; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+ daily-9am-pt:
+    if: github.event.schedule == '0 16 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger 9am-PT daily functions
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in sendPreChargeWarnings sendAbandonedCheckoutReminders; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+
+  daily-lead-enroll:
+    if: github.event.schedule == '0 8 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger lead enrollment
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in enrollNewLeads; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+
+  weekly-earnings:
+    if: github.event.schedule == '0 13 * * 1' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Monday host earnings
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in calculateHostEarnings; do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+            echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
+          done
+
+  weekly-followups:
+    if: github.event.schedule == '0 9 * * 1' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Monday lead follow-ups
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for fn in sendLeadFollowUps; do
             code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
             echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
           done
