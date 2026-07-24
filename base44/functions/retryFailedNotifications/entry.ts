@@ -66,13 +66,18 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Allow both scheduled (no user) and admin-triggered calls
+    // Allow scheduled (no user), admin-triggered, or external cron-secret calls
+    const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduled = req.headers.get('x-base44-scheduled-function') === 'true';
     const isAuthenticated = await base44.auth.isAuthenticated();
     if (isAuthenticated) {
       const user = await base44.auth.me();
-      if (user?.role !== 'admin') {
+      if (user?.role !== 'admin' && !isCron && !isScheduled) {
         return Response.json({ error: 'Forbidden' }, { status: 403 });
       }
+    }
+    if (!isAuthenticated && !isCron && !isScheduled) {
+      return Response.json({ error: 'Forbidden: cron-secret, scheduled, or admin required' }, { status: 403 });
     }
 
     const now = new Date();

@@ -3,10 +3,16 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.32';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    
-    // Auth check optional for cron, but if called manually it works.
-    
-    const activeAlerts = await base44.asServiceRole.entities.TelematicsSafetyEvent.filter({ 
+
+    // Require admin, scheduler context, or external cron secret
+    const user = await base44.auth.me().catch(() => null);
+    const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduled = req.headers.get('x-base44-scheduled-function') === 'true';
+    if (!isCron && !isScheduled && user?.role !== 'admin') {
+      return Response.json({ error: 'Forbidden: cron-secret, scheduled, or admin required' }, { status: 403 });
+    }
+
+    const activeAlerts = await base44.asServiceRole.entities.TelematicsSafetyEvent.filter({
         is_active: true,
         severity: 'critical'
     });

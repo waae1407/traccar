@@ -22,9 +22,13 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json();
-    const { operation, vehicle_id, session_id, booking_request_id } = body;
+    const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduled = req.headers.get('x-base44-scheduled-function') === 'true';
+    // Cron/scheduled cleanup calls default to the 'expire' operation
+    const operation = body.operation || ((isCron || isScheduled) ? 'expire' : body.operation);
+    const { vehicle_id, session_id, booking_request_id } = body;
 
-    // Allow 'expire' operation without auth (system cleanup by scheduled automation)
+    // Allow 'expire' operation without a user (system cleanup by cron/scheduled automation)
     if (operation !== 'expire') {
       const user = await base44.auth.me();
       if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
