@@ -130,6 +130,10 @@ async function authorizeScheduledBillingRun(base44, body) {
     return { allowed: true };
   }
 
+  // External cron (GitHub Actions) — shared secret header
+  const isCronBilling = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+  if (isCronBilling) return { allowed: true };
+
   const args = body?.args || {};
   const automation = body?.automation || {};
   const isScheduler =

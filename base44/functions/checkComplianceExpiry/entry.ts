@@ -3,6 +3,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const isCronCompliance = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduledCompliance = req.headers.get('x-base44-scheduled-function') === 'true';
+    if (!isCronCompliance && !isScheduledCompliance) {
+      const user = await base44.auth.me().catch(() => null);
+      if (!user || user.role !== 'admin') return Response.json({ error: 'Forbidden: cron-secret, scheduled, or admin required' }, { status: 403 });
+    }
 
     const today = new Date();
     const in30Days = new Date(today);

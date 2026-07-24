@@ -15,6 +15,12 @@ function generateToken(email) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const isCronEnroll = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduledEnroll = req.headers.get('x-base44-scheduled-function') === 'true';
+    if (!isCronEnroll && !isScheduledEnroll) {
+      const user = await base44.auth.me().catch(() => null);
+      if (!user || user.role !== 'admin') return Response.json({ error: 'Forbidden: cron-secret, scheduled, or admin required' }, { status: 403 });
+    }
 
     // Get all non-admin users
     const users = await base44.asServiceRole.entities.User.list("-created_date", 300);

@@ -31,6 +31,12 @@ function emailWrapper(headline, subtitle, bodyContent) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    const isCronPreCharge = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduledPreCharge = req.headers.get('x-base44-scheduled-function') === 'true';
+    if (!isCronPreCharge && !isScheduledPreCharge) {
+      const user = await base44.auth.me().catch(() => null);
+      if (!user || user.role !== 'admin') return Response.json({ error: 'Forbidden: cron-secret, scheduled, or admin required' }, { status: 403 });
+    }
 
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);

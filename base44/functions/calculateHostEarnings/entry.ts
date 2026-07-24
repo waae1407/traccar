@@ -3,8 +3,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user || user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+    const isCronEarnings = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+    const isScheduledEarnings = req.headers.get('x-base44-scheduled-function') === 'true';
+    if (!isCronEarnings && !isScheduledEarnings) {
+      const user = await base44.auth.me();
+      if (!user || user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const today = new Date();
     const periodEnd = today.toISOString().split("T")[0];
