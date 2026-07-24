@@ -1,31 +1,32 @@
 import React from "react";
-import {
-  Fingerprint, Store, Cpu, Briefcase, MapPin, Zap, Lock, Activity,
-} from "lucide-react";
+import { Fingerprint, Store, Cpu, Briefcase, MapPin, Zap, Lock, Activity, CheckCircle2 } from "lucide-react";
 
 const CARDS = [
   {
     icon: Fingerprint,
     title: "Contactless Ready",
     desc: "Online booking, remote pickup workflows, and GPS-supported fleet tools.",
-    tone: "hsl(338 90% 70%)",
-    glow: "radial-gradient(circle, hsl(338 90% 60% / 0.2) 0%, transparent 70%)",
+    color: "text-pink-600",
+    bg: "bg-pink-50",
+    border: "border-pink-100",
     tags: [],
   },
   {
     icon: Store,
     title: "Host Storefronts",
     desc: "Hosts promote their own branded rental page instead of being buried in a generic marketplace.",
-    tone: "hsl(265 80% 72%)",
-    glow: "radial-gradient(circle, hsl(265 80% 60% / 0.2) 0%, transparent 70%)",
+    color: "text-violet-600",
+    bg: "bg-violet-50",
+    border: "border-violet-100",
     tags: [],
   },
   {
     icon: Cpu,
     title: "Fleet Automation",
     desc: "Purpose-built for vehicle monitoring, payment automation, and remote fleet controls.",
-    tone: "hsl(199 90% 64%)",
-    glow: "radial-gradient(circle, hsl(199 90% 54% / 0.2) 0%, transparent 70%)",
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+    border: "border-blue-100",
     tags: [
       { icon: MapPin, label: "GPS tracking" },
       { icon: Zap, label: "Remote disable" },
@@ -37,8 +38,9 @@ const CARDS = [
     icon: Briefcase,
     title: "Business-Focused",
     desc: "Built for real auto operators — not casual marketplace hosts or weekend renters.",
-    tone: "hsl(152 60% 56%)",
-    glow: "radial-gradient(circle, hsl(152 60% 46% / 0.2) 0%, transparent 70%)",
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+    border: "border-emerald-100",
     tags: [],
   },
 ];
@@ -46,41 +48,28 @@ const CARDS = [
 export default function HomeWhyDifferent() {
   return (
     <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-white/40 mb-2">
-        Platform differentiation
-      </p>
-      <h3
-        className="text-3xl font-black text-white mb-6"
-        style={{ fontFamily: "var(--font-syne)" }}
-      >
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Platform differentiation</p>
+      <h3 className="text-lg font-black text-gray-900 mb-4" style={{ fontFamily: "var(--font-syne)" }}>
         Why uRideHub Is Different
       </h3>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CARDS.map((c, i) => (
-          <div key={i} className="p-6 rounded-3xl glass glass-hover relative overflow-hidden transition-all">
-            <div className="absolute -top-14 -right-14 h-40 w-40 rounded-full pointer-events-none" style={{ background: c.glow }} />
-            <div className="relative z-10">
-              <div
-                className="h-11 w-11 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center mb-4"
-              >
-                <c.icon className="h-5 w-5" style={{ color: c.tone }} />
-              </div>
-              <h4 className="text-base font-bold text-white mb-1.5">{c.title}</h4>
-              <p className="text-sm text-white/55 leading-relaxed">{c.desc}</p>
-              {c.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-4">
-                  {c.tags.map((t, ti) => (
-                    <span
-                      key={ti}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/8 border border-white/10 text-white/75 text-[10px] font-semibold"
-                    >
-                      <t.icon className="h-2.5 w-2.5" /> {t.label}
-                    </span>
-                  ))}
-                </div>
-              )}
+          <div key={i} className={`p-4 rounded-2xl border ${c.border} bg-white shadow-sm`}>
+            <div className={`h-9 w-9 rounded-xl ${c.bg} flex items-center justify-center mb-3`}>
+              <c.icon className={`h-4 w-4 ${c.color}`} />
             </div>
+            <h4 className="text-sm font-bold text-gray-900 mb-1">{c.title}</h4>
+            <p className="text-xs text-gray-500 leading-relaxed">{c.desc}</p>
+            {c.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {c.tags.map((t, ti) => (
+                  <span key={ti} className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 text-blue-600 text-[10px] font-semibold">
+                    <t.icon className="h-2.5 w-2.5" /> {t.label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

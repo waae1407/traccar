@@ -15,29 +15,20 @@ const HOST_STEPS = [
 
 function StepFlow({ steps, accent }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {steps.map((s, i) => (
         <div key={i} className="flex items-start gap-3 relative">
+          {/* Connector line */}
           {i < steps.length - 1 && (
-            <div
-              className="absolute left-[19px] top-11 bottom-0 w-px bg-white/10"
-              style={{ height: "calc(100% - 6px)" }}
-            />
+            <div className="absolute left-[18px] top-9 bottom-0 w-px bg-gray-100" style={{ height: "calc(100% - 8px)" }} />
           )}
-          <div
-            className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 relative z-10 border border-white/10"
-            style={{
-              background:
-                accent === "pink"
-                  ? "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))"
-                  : "linear-gradient(135deg, #302b63, #1a1040)",
-            }}
-          >
+          <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 relative z-10"
+            style={{ background: accent === "pink" ? "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" : "linear-gradient(135deg, #302b63, #1a1040)" }}>
             <s.icon className="h-4 w-4 text-white" />
           </div>
-          <div className="pt-1.5 pb-4">
-            <p className="text-sm font-bold text-white">{s.label}</p>
-            <p className="text-xs text-white/50">{s.desc}</p>
+          <div className="pt-1 pb-3">
+            <p className="text-sm font-bold text-gray-900">{s.label}</p>
+            <p className="text-xs text-gray-400">{s.desc}</p>
           </div>
         </div>
       ))}
@@ -48,44 +39,37 @@ function StepFlow({ steps, accent }) {
 export default function HomeHowItWorks() {
   return (
     <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-white/40 mb-2">
-        Simple process
-      </p>
-      <h3
-        className="text-3xl font-black text-white mb-6"
-        style={{ fontFamily: "var(--font-syne)" }}
-      >
+      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Simple process</p>
+      <h3 className="text-lg font-black text-gray-900 mb-5" style={{ fontFamily: "var(--font-syne)" }}>
         How uRideHub Works
       </h3>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="rounded-3xl glass p-6">
-          <div className="flex items-center gap-2.5 mb-5">
-            <div
-              className="h-8 w-8 rounded-xl flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
-            >
-              <Car className="h-4 w-4 text-white" />
+        {/* Driver flow */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-7 w-7 rounded-lg flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+              <Car className="h-3.5 w-3.5 text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-pink-400">For Drivers</p>
-              <p className="text-xs text-white/45">Get approved online, start renting</p>
+              <p className="text-[10px] font-bold text-pink-600 uppercase tracking-wider">For Drivers</p>
+              <p className="text-xs text-gray-500">Get approved online, start renting</p>
             </div>
           </div>
           <StepFlow steps={DRIVER_STEPS} accent="pink" />
         </div>
 
-        <div className="rounded-3xl glass p-6">
-          <div className="flex items-center gap-2.5 mb-5">
-            <div
-              className="h-8 w-8 rounded-xl flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, #302b63, #1a1040)" }}
-            >
-              <Store className="h-4 w-4 text-white" />
+        {/* Host flow */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-7 w-7 rounded-lg flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, #302b63, #1a1040)" }}>
+              <Store className="h-3.5 w-3.5 text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400">For Fleet Owners</p>
-              <p className="text-xs text-white/45">Automate your rental operations</p>
+              <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wider">For Fleet Owners</p>
+              <p className="text-xs text-gray-500">Automate your rental operations</p>
             </div>
           </div>
           <StepFlow steps={HOST_STEPS} accent="dark" />
