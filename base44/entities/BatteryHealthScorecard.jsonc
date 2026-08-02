@@ -1,0 +1,129 @@
+{
+  "name": "BatteryHealthScorecard",
+  "type": "object",
+  "properties": {
+    "telematics_device_id": {
+      "type": "string",
+      "description": "TelematicsDevice this scorecard tracks"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "vehicle_name": {
+      "type": "string",
+      "description": "Denormalized for display"
+    },
+    "host_name": {
+      "type": "string"
+    },
+    "host_email": {
+      "type": "string"
+    },
+    "device_unique_id": {
+      "type": "string"
+    },
+    "current_voltage": {
+      "type": "number",
+      "description": "Latest voltage reading"
+    },
+    "resting_voltage": {
+      "type": "number",
+      "description": "Voltage after 60s surface-charge settle \u2014 best representation of battery state"
+    },
+    "drain_rate_v_per_hr": {
+      "type": "number",
+      "description": "Voltage drop per hour while parked (after settle)"
+    },
+    "projected_hours_to_dead": {
+      "type": "number",
+      "description": "Hours until battery reaches 10.5V at current drain rate. null if no drain."
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "healthy",
+        "warning",
+        "severe",
+        "critical"
+      ],
+      "default": "healthy"
+    },
+    "battery_health_score": {
+      "type": "number",
+      "description": "0-100 score based on resting voltage and drain trend"
+    },
+    "battery_health_label": {
+      "type": "string",
+      "enum": [
+        "excellent",
+        "good",
+        "fair",
+        "poor",
+        "critical"
+      ],
+      "default": "good"
+    },
+    "power_save_active": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether relay power-save (019,0) is believed active"
+    },
+    "auto_remediated": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether power-save was auto-sent by detectParasiteDraw"
+    },
+    "auto_remediated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "remediation_verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether drain stopped after auto-remediation"
+    },
+    "remediation_verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "voltage_samples_30min": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "v": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Downsampled voltage samples for sparkline chart"
+    },
+    "ignition_status": {
+      "type": "string"
+    },
+    "online_status": {
+      "type": "string"
+    },
+    "last_notification_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_analysis_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "telematics_device_id"
+  ],
+  "unique_fields": [
+    "telematics_device_id"
+  ]
+}

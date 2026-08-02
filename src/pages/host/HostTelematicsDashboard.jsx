@@ -27,6 +27,7 @@ export default function HostTelematicsDashboard() {
 
   return <div className="space-y-5">
     <div><p className="text-xs font-black text-pink-600 uppercase tracking-widest">Telematics</p><h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Fleet Controls</h1><p className="text-sm text-gray-500">Near-real-time vehicle location, device health, and approved actions for your vehicles.</p></div>
+      <a href="/host/battery-health" className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">🔋 Battery Health Monitor</a>
     <InstallerLocatorCTA source="telematics_setup" title="Need an Installer?" description="Find a verified installer near you." />
     <TelematicsMap role="host" devices={devices} vehicles={vehicles} hosts={host ? [host] : []} bookings={bookings} providers={providers} height={520} showFilters showRefresh refreshLabel="Refresh My Fleet" onRefresh={refetchDevices} />
     <SafetyEventsPanel role="host" title="Safety Events" />

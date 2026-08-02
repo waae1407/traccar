@@ -1,0 +1,389 @@
+/**
+ * detectParasiteDraw — Parasitic battery drain detection & auto-remediation
+ *
+ * Runs every 5 minutes. For each parked MT20 device:
+ *   1. Analyzes voltage samples from the last 30 minutes
+ *   2. Calculates drain rate (V/hr), projected time-to-dead, battery health score
+ *   3. Creates/updates a BatteryHealthScorecard
+ *   4. Auto-remediates severe drains by sending power-save (019,0) via Traccar
+ *   5. Verifies previous auto-remediations succeeded
+ *   6. Sends email + SMS + push notifications to host and admin on severe/critical
+ */
+
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+
+const APP_URL = 'https://uridehub.com';
+const ANALYSIS_WINDOW_MIN = 30;
+const SURFACE_CHARGE_SETTLE_MS = 60_000;
+const DEAD_VOLTAGE = 10.5;
+const AUTO_REMEDIATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const NOTIFICATION_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+
+// ── Thresholds ──
+const DRAIN = { healthy: 0.2, warning: 0.5, severe: 1.0 };
+const VOLTAGE = { healthy: 12.2, warning: 11.8, severe: 11.5, critical: 10.8 };
+
+// ── MT20 packet building (replicated from bulkSendNoranRelayPowerSave) ──
+function sanitizeId(v = '') { return String(v).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
+function bytesToHex(bytes) { return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase(); }
+
+function buildMt20WrappedPacket(asciiCommand) {
+  const sMarkHex = '0D0A2A4B5700';
+  const packetLenHex = '4400';
+  const cmdHex = '0200';
+  const gisIpHex = '741E649C';
+  const portHex = '5B9A';
+  const sEndHex = '0D0A';
+  const sDataBytes = new TextEncoder().encode(asciiCommand);
+  if (sDataBytes.length > 50) throw new Error('sData exceeds 50 bytes');
+  const padded = new Uint8Array(50);
+  padded.set(sDataBytes);
+  return `${sMarkHex}${packetLenHex}${cmdHex}${gisIpHex}${portHex}${bytesToHex(padded)}${sEndHex}`;
+}
+
+function buildPowerSaveAscii(deviceId, mode) {
+  const d = new Date();
+  const hhmmss = [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map(n => String(n).padStart(2, '0')).join('');
+  return `*KW,${sanitizeId(deviceId)},019,${hhmmss},${mode}#`;
+}
+
+async function sendPowerSaveViaTraccar(device) {
+  const baseUrl = Deno.env.get('TRACCAR_BASE_URL');
+  const username = Deno.env.get('TRACCAR_USERNAME');
+  const password = Deno.env.get('TRACCAR_PASSWORD');
+  if (!baseUrl || !username || !password) return { ok: false, error: 'TRACCAR_NOT_CONFIGURED' };
+
+  const ascii = buildPowerSaveAscii(device.unique_id, 0);
+  const hex = buildMt20WrappedPacket(ascii);
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/commands/send`, {
+      method: 'POST',
+      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: hex } }),
+    });
+    const text = await res.text();
+    let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    if (!res.ok) return { ok: false, error: `Traccar (${res.status})` };
+    return { ok: true, ascii, hex, response: data };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Voltage extraction from TelematicsEvent ──
+function extractVoltage(event) {
+  const p = event.raw_payload || {};
+  return p.battery_voltage ?? p.power_voltage ?? p.external_voltage ?? p.voltage ?? null;
+}
+
+// ── Battery health score (0-100) ──
+function calcBatteryHealthScore(restingVoltage, drainRate) {
+  let score = 100;
+  if (restingVoltage < 11.5) score -= 50;
+  else if (restingVoltage < 11.8) score -= 40;
+  else if (restingVoltage < 12.0) score -= 30;
+  else if (restingVoltage < 12.2) score -= 20;
+  else if (restingVoltage < 12.4) score -= 10;
+
+  if (drainRate > 1.0) score -= 40;
+  else if (drainRate > 0.5) score -= 30;
+  else if (drainRate > 0.3) score -= 20;
+  else if (drainRate > 0.1) score -= 10;
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function healthLabel(score) {
+  if (score >= 90) return 'excellent';
+  if (score >= 75) return 'good';
+  if (score >= 60) return 'fair';
+  if (score >= 40) return 'poor';
+  return 'critical';
+}
+
+function classifySeverity(restingVoltage, drainRate, projectedDead) {
+  if (restingVoltage < VOLTAGE.critical || (projectedDead !== null && projectedDead < 4)) return 'critical';
+  if (drainRate > DRAIN.severe || restingVoltage < VOLTAGE.severe) return 'severe';
+  if (drainRate > DRAIN.warning || restingVoltage < VOLTAGE.healthy) return 'warning';
+  return 'healthy';
+}
+
+// ── Authorization ──
+async function authorize(base44, req) {
+  const user = await base44.auth.me().catch(() => null);
+  if (user) {
+    if (user.role !== 'admin') return { ok: false, response: Response.json({ error: 'Forbidden' }, { status: 403 }) };
+    return { ok: true };
+  }
+  const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+  const isScheduled = req.headers.get('x-base44-scheduled-function') === 'true';
+  if (isCron || isScheduled) return { ok: true };
+  return { ok: false, response: Response.json({ error: 'Unauthorized' }, { status: 401 }) };
+}
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const auth = await authorize(base44, req);
+    if (!auth.ok) return auth.response;
+
+    const now = new Date();
+    const since = new Date(now.getTime() - ANALYSIS_WINDOW_MIN * 60 * 1000).toISOString();
+    const results = { analyzed: 0, scorecards_updated: 0, severe: 0, critical: 0, auto_remediated: 0, remediation_verified: 0, notifications_sent: 0 };
+
+    // Fetch all active telematics devices (Noran MT20 only — that's what has voltage data)
+    const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({
+      provider_key: 'traccar_noran_mt20',
+    }, '-updated_date', 200);
+
+    // Fetch vehicles for name lookup
+    const vehicleIds = [...new Set(devices.map(d => d.vehicle_id).filter(Boolean))];
+    const vehicles = vehicleIds.length > 0
+      ? await base44.asServiceRole.entities.Vehicle.filter({ _id: { $in: vehicleIds } }).catch(() => [])
+      : [];
+
+    // Fetch hosts for name/email lookup
+    const hostIds = [...new Set(devices.map(d => d.host_id).filter(Boolean))];
+    const hosts = hostIds.length > 0
+      ? await base44.asServiceRole.entities.Host.filter({ _id: { $in: hostIds } }).catch(() => [])
+      : [];
+
+    const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+    const hostMap = new Map(hosts.map(h => [h.id, h]));
+
+    for (const device of devices) {
+      if (['retired', 'suspended'].includes(device.lifecycle_status)) continue;
+      if (!device.traccar_device_id) continue;
+      results.analyzed++;
+
+      const vehicle = device.vehicle_id ? vehicleMap.get(device.vehicle_id) : null;
+      const host = device.host_id ? hostMap.get(device.host_id) : null;
+      const vehicleName = vehicle ? `${vehicle.make} ${vehicle.model} ${vehicle.year || ''}`.trim() : device.unique_id;
+      const hostName = host?.full_name || host?.business_name || host?.email || '';
+      const hostEmail = host?.email || '';
+
+      // Fetch events for this device in the analysis window
+      const events = await base44.asServiceRole.entities.TelematicsEvent.filter({
+        telematics_device_id: device.id,
+        created_at: { $gte: since },
+      }, 'created_at', 200).catch(() => []);
+
+      // Extract voltage samples
+      const samples = events
+        .map(e => ({ t: new Date(e.created_at).getTime(), v: extractVoltage(e), ign: e.ignition }))
+        .filter(s => s.v !== null && s.v > 0)
+        .sort((a, b) => a.t - b.t);
+
+      // Current voltage = latest sample
+      const currentVoltage = samples.length > 0 ? samples[samples.length - 1].v : (device.battery_voltage ?? device.power_voltage ?? 0);
+
+      // Only analyze parked (ignition off) samples after surface charge settle
+      const parkedSamples = samples.filter(s => s.ign === false);
+      if (parkedSamples.length === 0) {
+        // Device is driving or no parked data — update scorecard with minimal data
+        await upsertScorecard(base44, {
+          telematics_device_id: device.id,
+          vehicle_id: device.vehicle_id || '',
+          host_id: device.host_id || '',
+          vehicle_name: vehicleName,
+          host_name: hostName,
+          host_email: hostEmail,
+          device_unique_id: device.unique_id,
+          current_voltage: currentVoltage,
+          resting_voltage: currentVoltage,
+          drain_rate_v_per_hr: 0,
+          projected_hours_to_dead: null,
+          severity: 'healthy',
+          battery_health_score: calcBatteryHealthScore(currentVoltage, 0),
+          battery_health_label: healthLabel(calcBatteryHealthScore(currentVoltage, 0)),
+          voltage_samples_30min: samples.slice(-12).map(s => ({ t: new Date(s.t).toISOString(), v: s.v })),
+          ignition_status: device.ignition_status || 'unknown',
+          online_status: device.online_status || 'unknown',
+          last_analysis_at: now.toISOString(),
+        }, results);
+        continue;
+      }
+
+      // Skip first 60s of surface charge bleed
+      const firstParkedTime = parkedSamples[0].t;
+      const settledSamples = parkedSamples.filter(s => s.t >= firstParkedTime + SURFACE_CHARGE_SETTLE_MS);
+
+      // Use settled samples for drain calculation; fall back to all parked if not enough settled
+      const drainSamples = settledSamples.length >= 2 ? settledSamples : parkedSamples;
+      const restingVoltage = drainSamples[drainSamples.length - 1].v;
+
+      // Drain rate: (first - last) / hours_elapsed
+      let drainRate = 0;
+      if (drainSamples.length >= 2) {
+        const first = drainSamples[0];
+        const last = drainSamples[drainSamples.length - 1];
+        const hoursElapsed = (last.t - first.t) / 3_600_000;
+        if (hoursElapsed > 0.01) {
+          drainRate = (first.v - last.v) / hoursElapsed;
+          if (drainRate < 0) drainRate = 0; // voltage recovering = no drain
+        }
+      }
+
+      // Projected time-to-dead
+      let projectedDead = null;
+      if (drainRate > 0.01) {
+        projectedDead = (restingVoltage - DEAD_VOLTAGE) / drainRate;
+        if (projectedDead < 0) projectedDead = 0;
+      }
+
+      // Health score + severity
+      const healthScore = calcBatteryHealthScore(restingVoltage, drainRate);
+      const severity = classifySeverity(restingVoltage, drainRate, projectedDead);
+
+      // Downsample for sparkline (max 12 points)
+      const sparkline = [];
+      const step = Math.max(1, Math.floor(parkedSamples.length / 12));
+      for (let i = 0; i < parkedSamples.length; i += step) {
+        sparkline.push({ t: new Date(parkedSamples[i].t).toISOString(), v: parkedSamples[i].v });
+      }
+
+      // Check existing scorecard for auto-remediation state
+      const existingCards = await base44.asServiceRole.entities.BatteryHealthScorecard.filter({
+        telematics_device_id: device.id,
+      }, '-updated_date', 1).catch(() => []);
+      const existing = existingCards[0];
+
+      // ── Post-action verification ──
+      let remediationVerified = existing?.remediation_verified || false;
+      let remediationVerifiedAt = existing?.remediation_verified_at || null;
+      if (existing?.auto_remediated && !remediationVerified && drainRate < DRAIN.healthy) {
+        remediationVerified = true;
+        remediationVerifiedAt = now.toISOString();
+        results.remediation_verified++;
+      }
+
+      // ── Auto-remediation ──
+      let autoRemediated = existing?.auto_remediated || false;
+      let autoRemediatedAt = existing?.auto_remediated_at || null;
+      let powerSaveActive = existing?.power_save_active || false;
+      let shouldAutoRemediate = false;
+
+      if ((severity === 'severe' || severity === 'critical') && !autoRemediated) {
+        const cooldownExpired = !autoRemediatedAt || (now.getTime() - new Date(autoRemediatedAt).getTime() > AUTO_REMEDIATION_COOLDOWN_MS);
+        if (cooldownExpired) {
+          shouldAutoRemediate = true;
+        }
+      }
+
+      if (shouldAutoRemediate) {
+        const remResult = await sendPowerSaveViaTraccar(device);
+        if (remResult.ok) {
+          autoRemediated = true;
+          autoRemediatedAt = now.toISOString();
+          powerSaveActive = true;
+          results.auto_remediated++;
+
+          await base44.asServiceRole.entities.ActivityEvent.create({
+            event_type: 'gps.device_config_traccar_sent',
+            actor_id: 'system',
+            actor_email: 'system@uride',
+            actor_role: 'system',
+            target_entity: 'TelematicsDevice',
+            target_id: device.id,
+            vehicle_id: device.vehicle_id || '',
+            summary: `Auto-remediation: power-save (019,0) sent to ${device.unique_id} — drain ${drainRate.toFixed(2)}V/hr detected`,
+            metadata: { source: 'detectParasiteDraw', drain_rate: drainRate, resting_voltage: restingVoltage, severity, ascii: remResult.ascii },
+            source: 'automation',
+            event_status: 'success',
+          }).catch(() => {});
+        }
+      }
+
+      // ── Notifications ──
+      let lastNotificationAt = existing?.last_notification_at || null;
+      const shouldNotify = (severity === 'severe' || severity === 'critical') &&
+        (!lastNotificationAt || (now.getTime() - new Date(lastNotificationAt).getTime() > NOTIFICATION_COOLDOWN_MS));
+
+      if (shouldNotify && host) {
+        const severityLabel = severity === 'critical' ? 'CRITICAL' : 'SEVERE';
+        const title = `🔋 ${severityLabel} Battery Drain — ${vehicleName}`;
+        const message = `Parasitic drain detected on ${vehicleName} (${device.unique_id}).\n\n` +
+          `Voltage: ${restingVoltage.toFixed(1)}V\n` +
+          `Drain rate: ${drainRate.toFixed(2)}V/hr\n` +
+          (projectedDead !== null ? `Battery dead in ~${projectedDead.toFixed(1)} hours\n` : '') +
+          (autoRemediated ? `\n✅ Power-save auto-applied — relay released.` : '') +
+          `\nView details: ${APP_URL}${device.host_id ? '/host/telematics' : '/admin/battery-health'}`;
+
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'parasite_draw_detected',
+          severity: severity === 'critical' ? 'critical' : 'warning',
+          category: 'telematics',
+          title,
+          message,
+          vehicle_id: device.vehicle_id || '',
+          host_id: device.host_id || '',
+          action_url: device.host_id ? '/host/telematics' : '/admin/battery-health',
+          source_function: 'detectParasiteDraw',
+          metadata: {
+            drain_rate: drainRate,
+            resting_voltage: restingVoltage,
+            projected_hours_to_dead: projectedDead,
+            severity,
+            auto_remediated: autoRemediated,
+            device_unique_id: device.unique_id,
+            financial_impact_amount: 0,
+          },
+          notify_admin: true,
+        }).catch(() => {});
+
+        lastNotificationAt = now.toISOString();
+        results.notifications_sent++;
+      }
+
+      if (severity === 'severe') results.severe++;
+      if (severity === 'critical') results.critical++;
+
+      // ── Upsert scorecard ──
+      await upsertScorecard(base44, {
+        telematics_device_id: device.id,
+        vehicle_id: device.vehicle_id || '',
+        host_id: device.host_id || '',
+        vehicle_name: vehicleName,
+        host_name: hostName,
+        host_email: hostEmail,
+        device_unique_id: device.unique_id,
+        current_voltage: currentVoltage,
+        resting_voltage: restingVoltage,
+        drain_rate_v_per_hr: Math.round(drainRate * 100) / 100,
+        projected_hours_to_dead: projectedDead !== null ? Math.round(projectedDead * 10) / 10 : null,
+        severity,
+        battery_health_score: healthScore,
+        battery_health_label: healthLabel(healthScore),
+        power_save_active: powerSaveActive,
+        auto_remediated: autoRemediated,
+        auto_remediated_at: autoRemediatedAt,
+        remediation_verified: remediationVerified,
+        remediation_verified_at: remediationVerifiedAt,
+        voltage_samples_30min: sparkline,
+        ignition_status: device.ignition_status || 'unknown',
+        online_status: device.online_status || 'unknown',
+        last_notification_at: lastNotificationAt,
+        last_analysis_at: now.toISOString(),
+      }, results);
+    }
+
+    console.log(`[detectParasiteDraw] Analyzed ${results.analyzed} devices — severe:${results.severe} critical:${results.critical} auto-remediated:${results.auto_remediated} verified:${results.remediation_verified} notifications:${results.notifications_sent}`);
+    return Response.json({ ok: true, ...results, timestamp: now.toISOString() });
+  } catch (error) {
+    console.error('[detectParasiteDraw] Error:', error.message);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+});
+
+async function upsertScorecard(base44, data, results) {
+  const existing = await base44.asServiceRole.entities.BatteryHealthScorecard.filter({
+    telematics_device_id: data.telematics_device_id,
+  }, '-updated_date', 1).catch(() => []);
+
+  if (existing[0]) {
+    await base44.asServiceRole.entities.BatteryHealthScorecard.update(existing[0].id, data).catch(() => {});
+  } else {
+    await base44.asServiceRole.entities.BatteryHealthScorecard.create(data).catch(() => {});
+  }
+  results.scorecards_updated++;
+}

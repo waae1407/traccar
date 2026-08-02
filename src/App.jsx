@@ -129,6 +129,7 @@ import AdminNotificationCenter from '@/pages/admin/AdminNotificationCenter.jsx';
 import AdminNotificationPreferences from '@/pages/admin/AdminNotificationPreferences.jsx';
 import AdminNotificationMetrics from '@/pages/admin/AdminNotificationMetrics.jsx';
 import AdminTelematicsReconciliation from '@/pages/admin/AdminTelematicsReconciliation.jsx';
+import AdminBatteryHealth from '@/pages/admin/AdminBatteryHealth.jsx';
 import Insurance360 from '@/pages/admin/Insurance360.jsx';
 import HostSubscriptions from '@/pages/host/HostSubscriptions.jsx';
 import HostNotifications from '@/pages/host/HostNotifications.jsx';
@@ -136,6 +137,7 @@ import CustomerNotifications from '@/pages/customer/CustomerNotifications.jsx';
 import CustomerSubscriptions from '@/pages/customer/CustomerSubscriptions.jsx';
 import HostBusinessOperations from '@/pages/host/HostBusinessOperations.jsx';
 import HostTelematicsDashboard from '@/pages/host/HostTelematicsDashboard.jsx';
+import HostBatteryHealth from '@/pages/host/HostBatteryHealth.jsx';
 import HostTelematicsCommandTest from '@/pages/host/HostTelematicsCommandTest.jsx';
 import HostInstallers from '@/pages/host/HostInstallers.jsx';
 import HostFirstVehicleSetup from '@/pages/host/HostFirstVehicleSetup.jsx';
@@ -245,6 +247,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/expense-center" element={<HostExpenseCenter />} />
         <Route path="/host/maintenance-center" element={<HostMaintenanceCenter />} />
         <Route path="/host/telematics" element={<HostTelematicsDashboard />} />
+        <Route path="/host/battery-health" element={<HostBatteryHealth />} />
         <Route path="/host/alert360" element={<HostAlert360 />} />
         <Route path="/host/installers" element={<HostInstallers />} />
         <Route path="/host/vehicle-command-center" element={<VehicleCommandCenter mode="host" />} />
@@ -353,6 +356,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/notification-preferences" element={<AdminNotificationPreferences />} />
         <Route path="/admin/notification-metrics" element={<AdminNotificationMetrics />} />
         <Route path="/admin/telematics-reconciliation" element={<AdminTelematicsReconciliation />} />
+        <Route path="/admin/battery-health" element={<AdminBatteryHealth />} />
         <Route path="/admin/insurance360" element={<Insurance360 />} />
       </Route>
 
