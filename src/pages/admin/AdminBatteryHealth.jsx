@@ -16,6 +16,16 @@ export default function AdminBatteryHealth() {
     refetchInterval: 60_000,
   });
 
+  const [analyzing, setAnalyzing] = useState(false);
+  const handleRefresh = async () => {
+    setAnalyzing(true);
+    try {
+      await base44.functions.invoke('detectParasiteDraw', {});
+    } catch { /* ignore — refetch anyway */ }
+    await refetch();
+    setAnalyzing(false);
+  };
+
   const stats = {
     total: scorecards.length,
     healthy: scorecards.filter(s => s.severity === 'healthy').length,
@@ -39,9 +49,9 @@ export default function AdminBatteryHealth() {
           <h1 className="text-2xl font-black">Parasite Draw Monitor</h1>
           <p className="text-sm text-muted-foreground">Real-time battery drain detection across all vehicles. Auto-remediation active.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-2">
-          {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={analyzing || isFetching} className="gap-2">
+          {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          {analyzing ? 'Analyzing…' : 'Refresh'}
         </Button>
       </div>
 

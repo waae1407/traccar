@@ -25,6 +25,16 @@ export default function HostBatteryHealth() {
     refetchInterval: 60_000,
   });
 
+  const [analyzing, setAnalyzing] = useState(false);
+  const handleRefresh = async () => {
+    setAnalyzing(true);
+    try {
+      await base44.functions.invoke('detectParasiteDraw', {});
+    } catch { /* ignore */ }
+    await refetch();
+    setAnalyzing(false);
+  };
+
   const sorted = [...scorecards].sort((a, b) => {
     const order = { critical: 0, severe: 1, warning: 2, healthy: 3 };
     return (order[a.severity] ?? 4) - (order[b.severity] ?? 4) || (b.drain_rate_v_per_hr || 0) - (a.drain_rate_v_per_hr || 0);
@@ -38,9 +48,9 @@ export default function HostBatteryHealth() {
           <h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: 'var(--font-syne)' }}>Parasite Draw Monitor</h1>
           <p className="text-sm text-gray-500">Battery drain detection for your vehicles. Auto-remediation active.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-2">
-          {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
+        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={analyzing || isFetching} className="gap-2">
+          {analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          {analyzing ? 'Analyzing…' : 'Refresh'}
         </Button>
       </div>
 
