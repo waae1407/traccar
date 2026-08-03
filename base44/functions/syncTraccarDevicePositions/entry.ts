@@ -223,6 +223,45 @@ function ignitionStatus(position) {
   return 'unknown';
 }
 
+// ── Auto power-save on park ──
+// MT20 firmware clears the relay power-save setting every drive cycle (ACC on resets it).
+// Re-send 019,0 automatically whenever a device transitions from ignition-on to ignition-off.
+function sanitizeIdForPs(v = '') { return String(v).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
+function bytesToHexForPs(bytes) { return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase(); }
+
+function buildPowerSavePacket(deviceId) {
+  const sMarkHex = '0D0A2A4B5700';
+  const packetLenHex = '4400';
+  const cmdHex = '0200';
+  const gisIpHex = '741E649C';
+  const portHex = '5B9A';
+  const sEndHex = '0D0A';
+  const d = new Date();
+  const hhmmss = [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map(n => String(n).padStart(2, '0')).join('');
+  const ascii = `*KW,${sanitizeIdForPs(deviceId)},019,${hhmmss},0#`;
+  const sDataBytes = new TextEncoder().encode(ascii);
+  const padded = new Uint8Array(50);
+  padded.set(sDataBytes);
+  return { ascii, hex: `${sMarkHex}${packetLenHex}${cmdHex}${gisIpHex}${portHex}${bytesToHexForPs(padded)}${sEndHex}` };
+}
+
+async function sendPowerSaveOnPark(device) {
+  const traccarDeviceId = Number(device.traccar_device_id);
+  if (!Number.isFinite(traccarDeviceId)) return { ok: false, error: 'invalid_traccar_id' };
+  const { ascii, hex } = buildPowerSavePacket(device.unique_id);
+  try {
+    const res = await fetch(`${baseUrl()}/api/commands/send`, {
+      method: 'POST',
+      headers: { Authorization: authHeader(), 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ deviceId: traccarDeviceId, type: 'custom', attributes: { data: hex } }),
+    });
+    if (!res.ok) return { ok: false, error: `traccar_${res.status}` };
+    return { ok: true, ascii, hex };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 function retentionDays() {
   return 30;
 }
@@ -353,6 +392,7 @@ Deno.serve(async (req) => {
     let createdFromTraccar = 0;
     let retiredMissing = 0;
     let statusOnlyUpdated = 0;
+    let powerSaveAutoSent = 0;
     const skipped = [];
 
     for (const traccarDevice of traccarDevices || []) {
@@ -460,6 +500,32 @@ Deno.serve(async (req) => {
         payload.voltage_source = noranPacket.voltage_source || 'mt20_raw_packet';
         payload.voltage_last_seen_at = seenAt;
       }
+
+      // ── Auto power-save on ignition off ──
+      // MT20 firmware clears relay power-save on every ACC-on cycle.
+      // When ignition transitions on→off, re-send 019,0 so the relay releases after 60s.
+      const prevIgnition = local.ignition_status;
+      const newIgnition = payload.ignition_status;
+      if (prevIgnition === 'on' && newIgnition === 'off' && local.unique_id) {
+        const psResult = await sendPowerSaveOnPark(local);
+        if (psResult.ok) {
+          powerSaveAutoSent++;
+          await base44.asServiceRole.entities.ActivityEvent.create({
+            event_type: 'gps.device_config_traccar_sent',
+            actor_id: 'system',
+            actor_email: 'system@uride',
+            actor_role: 'system',
+            target_entity: 'TelematicsDevice',
+            target_id: local.id,
+            vehicle_id: local.vehicle_id || '',
+            summary: `Auto power-save on park: 019,0 sent to ${local.unique_id} (ignition on→off)`,
+            metadata: { source: 'syncTraccarDevicePositions', trigger: 'ignition_off_transition', ascii: psResult.ascii },
+            source: 'automation',
+            event_status: 'success',
+          }).catch(() => {});
+        }
+      }
+
       await base44.asServiceRole.entities.TelematicsDevice.update(local.id, payload);
       await base44.asServiceRole.entities.TelematicsPositionHistory.create({
         device_id: local.id,
@@ -480,7 +546,7 @@ Deno.serve(async (req) => {
     }
 
     const retention_deleted = await cleanupExpiredHistory(base44);
-    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, auto_linked: autoLinked, created_from_traccar: createdFromTraccar, retired_missing_from_traccar: retiredMissing, status_only_updated: statusOnlyUpdated, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
+    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, auto_linked: autoLinked, created_from_traccar: createdFromTraccar, retired_missing_from_traccar: retiredMissing, status_only_updated: statusOnlyUpdated, power_save_auto_sent: powerSaveAutoSent, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
   } catch (error) {
     await recordFailure(base44, error.message);
     return Response.json({ ok: false, error: error.message, warning: 'Location update delayed. Last known locations remain available.' }, { status: 500 });
