@@ -13,8 +13,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const APP_URL = 'https://uridehub.com';
-const ANALYSIS_WINDOW_MIN = 30;
-const SURFACE_CHARGE_SETTLE_MS = 60_000;
+const ANALYSIS_WINDOW_HOURS = 3;       // Look back 3 hours for a robust trend
+const SURFACE_CHARGE_SETTLE_MS = 30 * 60_000;  // Surface charge takes 30+ min to bleed off after parking
+const MIN_SETTLED_DATA_MS = 30 * 60_000;       // Need at least 30 min of settled data to calculate drain
 const DEAD_VOLTAGE = 10.5;
 const AUTO_REMEDIATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const NOTIFICATION_COOLDOWN_MS = 2 * 60 * 60 * 1000;
@@ -76,6 +77,14 @@ function extractVoltage(event) {
   return p.battery_voltage ?? p.power_voltage ?? p.external_voltage ?? p.voltage ?? null;
 }
 
+// ── Median of an array of numbers (robust against transient spikes) ──
+function median(arr) {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
 // ── Battery health score (0-100) ──
 function calcBatteryHealthScore(restingVoltage, drainRate) {
   let score = 100;
@@ -128,7 +137,7 @@ Deno.serve(async (req) => {
     if (!auth.ok) return auth.response;
 
     const now = new Date();
-    const since = new Date(now.getTime() - ANALYSIS_WINDOW_MIN * 60 * 1000).toISOString();
+    const since = new Date(now.getTime() - ANALYSIS_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
     const results = { analyzed: 0, scorecards_updated: 0, severe: 0, critical: 0, auto_remediated: 0, remediation_verified: 0, notifications_sent: 0 };
 
     // Fetch all active telematics devices (Noran MT20 only — that's what has voltage data)
@@ -204,24 +213,39 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Skip first 60s of surface charge bleed
+      // Skip first 30 min of surface charge bleed (alternator/module wake-up charge
+      // takes 30+ minutes to dissipate to true resting voltage)
       const firstParkedTime = parkedSamples[0].t;
       const settledSamples = parkedSamples.filter(s => s.t >= firstParkedTime + SURFACE_CHARGE_SETTLE_MS);
 
-      // Use settled samples for drain calculation; fall back to all parked if not enough settled
-      const drainSamples = settledSamples.length >= 2 ? settledSamples : parkedSamples;
-      const restingVoltage = drainSamples[drainSamples.length - 1].v;
+      // Need at least 30 min of settled data for a reliable drain calculation
+      const settledSpan = settledSamples.length >= 2
+        ? settledSamples[settledSamples.length - 1].t - settledSamples[0].t
+        : 0;
 
-      // Drain rate: (first - last) / hours_elapsed
+      let restingVoltage = currentVoltage;
       let drainRate = 0;
-      if (drainSamples.length >= 2) {
-        const first = drainSamples[0];
-        const last = drainSamples[drainSamples.length - 1];
-        const hoursElapsed = (last.t - first.t) / 3_600_000;
-        if (hoursElapsed > 0.01) {
-          drainRate = (first.v - last.v) / hoursElapsed;
-          if (drainRate < 0) drainRate = 0; // voltage recovering = no drain
+
+      if (settledSamples.length >= 2 && settledSpan >= MIN_SETTLED_DATA_MS) {
+        // Robust baseline: median of first 10 min of settled data (resists transient spikes)
+        // Robust current: median of last 10 min of settled data
+        const first10MinEnd = settledSamples[0].t + 10 * 60_000;
+        const last10MinStart = settledSamples[settledSamples.length - 1].t - 10 * 60_000;
+        const baselineSamples = settledSamples.filter(s => s.t <= first10MinEnd);
+        const currentSamples = settledSamples.filter(s => s.t >= last10MinStart);
+        const baselineV = baselineSamples.length > 0 ? median(baselineSamples.map(s => s.v)) : settledSamples[0].v;
+        const currentV = currentSamples.length > 0 ? median(currentSamples.map(s => s.v)) : settledSamples[settledSamples.length - 1].v;
+
+        restingVoltage = currentV;
+        const hoursElapsed = (currentSamples.length > 0 ? currentSamples[currentSamples.length - 1].t : settledSamples[settledSamples.length - 1].t) - (baselineSamples.length > 0 ? baselineSamples[0].t : settledSamples[0].t);
+        const hours = hoursElapsed / 3_600_000;
+        if (hours > 0.01) {
+          drainRate = (baselineV - currentV) / hours;
+          if (drainRate < 0) drainRate = 0; // voltage recovering or stable = no drain
         }
+      } else {
+        // Not enough settled data — use latest parked voltage as resting, no drain calc
+        restingVoltage = parkedSamples[parkedSamples.length - 1].v;
       }
 
       // Projected time-to-dead
@@ -235,11 +259,12 @@ Deno.serve(async (req) => {
       const healthScore = calcBatteryHealthScore(restingVoltage, drainRate);
       const severity = classifySeverity(restingVoltage, drainRate, projectedDead);
 
-      // Downsample for sparkline (max 12 points)
+      // Downsample for sparkline (max 12 points) — use settled samples if available
+      const sparkSource = settledSamples.length >= 2 ? settledSamples : parkedSamples;
       const sparkline = [];
-      const step = Math.max(1, Math.floor(parkedSamples.length / 12));
-      for (let i = 0; i < parkedSamples.length; i += step) {
-        sparkline.push({ t: new Date(parkedSamples[i].t).toISOString(), v: parkedSamples[i].v });
+      const step = Math.max(1, Math.floor(sparkSource.length / 12));
+      for (let i = 0; i < sparkSource.length; i += step) {
+        sparkline.push({ t: new Date(sparkSource[i].t).toISOString(), v: sparkSource[i].v });
       }
 
       // Check existing scorecard for auto-remediation state
