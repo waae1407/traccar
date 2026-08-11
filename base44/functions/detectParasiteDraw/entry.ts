@@ -153,6 +153,60 @@ function classifySeverity(restingVoltage, drainRate, projectedDead) {
   return 'healthy';
 }
 
+// ── Relay state & start status ──
+// Determines if the starter relay is OPEN (blocking starter) or CLOSED (allowing crank).
+// Looks at recent ActivityEvents to find the last relay command sent, plus device state.
+async function getLastRelayCommand(base44, deviceId) {
+  const events = await base44.asServiceRole.entities.ActivityEvent.filter({
+    event_type: 'gps.device_config_traccar_sent',
+    target_id: deviceId,
+  }, '-created_date', 5).catch(() => []);
+
+  for (const event of events) {
+    const ascii = event.metadata?.ascii || '';
+    const summary = (event.summary || '').toLowerCase();
+    if (ascii.includes('007,') || summary.includes('restore')) {
+      return { command: 'restore_starter', relay_state: 'closed', sent_at: event.created_date };
+    }
+    if (ascii.includes('019,') || summary.includes('power-save')) {
+      return { command: 'power_save', relay_state: 'open', sent_at: event.created_date };
+    }
+  }
+  return null;
+}
+
+function computeStartStatus(device, lastRelayCommand, restingVoltage) {
+  let relayState = 'unknown';
+  const lastRelayCommandType = lastRelayCommand?.command || null;
+  const lastRelayCommandAt = lastRelayCommand?.sent_at || null;
+
+  if (device.ignition_status === 'on') {
+    relayState = 'closed'; // ignition on = relay closed (firmware clears power-save on ACC)
+  } else if (lastRelayCommand) {
+    relayState = lastRelayCommand.relay_state;
+  } else if (device.starter_disabled) {
+    relayState = 'open';
+  } else {
+    relayState = 'closed'; // default: no command sent, no starter disable
+  }
+
+  let willStart = true;
+  let noStartReason = '';
+
+  if (relayState === 'open') {
+    willStart = false;
+    noStartReason = 'GPS relay is OPEN (blocking starter). Send "Restore Starter" command. This is a GPS device issue, not a mechanical problem.';
+  } else if (restingVoltage < 10.5) {
+    willStart = false;
+    noStartReason = 'Battery too low to crank — needs jump-start or charge.';
+  } else if (device.online_status === 'offline' && device.ignition_status !== 'on') {
+    willStart = false;
+    noStartReason = 'GPS device is offline — relay state unknown. Vehicle may need a jump-start to power on the GPS device.';
+  }
+
+  return { relayState, willStart, noStartReason, lastRelayCommandType, lastRelayCommandAt };
+}
+
 // ── Authorization ──
 async function authorize(base44, req) {
   const user = await base44.auth.me().catch(() => null);
@@ -244,6 +298,9 @@ Deno.serve(async (req) => {
           voltage_samples_30min: samples.slice(-12).map(s => ({ t: new Date(s.t).toISOString(), v: s.v })),
           ignition_status: device.ignition_status || 'unknown',
           online_status: device.online_status || 'unknown',
+          relay_state: device.ignition_status === 'on' ? 'closed' : 'unknown',
+          will_start: device.ignition_status === 'on' || (currentVoltage >= 10.5),
+          no_start_reason: currentVoltage < 10.5 ? 'Battery too low to crank — needs jump-start or charge.' : '',
           last_analysis_at: now.toISOString(),
         }, results);
         continue;
@@ -407,6 +464,10 @@ Deno.serve(async (req) => {
       if (severity === 'severe') results.severe++;
       if (severity === 'critical') results.critical++;
 
+      // ── Relay state & start status ──
+      const lastRelayCommand = await getLastRelayCommand(base44, device.id);
+      const startStatus = computeStartStatus(device, lastRelayCommand, restingVoltage);
+
       // ── Upsert scorecard ──
       await upsertScorecard(base44, {
         telematics_device_id: device.id,
@@ -424,6 +485,11 @@ Deno.serve(async (req) => {
         battery_health_score: healthScore,
         battery_health_label: healthLabel(healthScore),
         power_save_active: powerSaveActive,
+        relay_state: startStatus.relayState,
+        will_start: startStatus.willStart,
+        no_start_reason: startStatus.noStartReason,
+        last_relay_command: startStatus.lastRelayCommandType,
+        last_relay_command_at: startStatus.lastRelayCommandAt,
         auto_remediated: autoRemediated,
         auto_remediated_at: autoRemediatedAt,
         remediation_verified: remediationVerified,

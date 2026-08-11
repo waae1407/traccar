@@ -71,6 +71,33 @@
       "default": false,
       "description": "Whether relay power-save (019,0) is believed active"
     },
+    "relay_state": {
+      "type": "string",
+      "enum": [
+        "open",
+        "closed",
+        "unknown"
+      ],
+      "default": "unknown",
+      "description": "Current starter relay state \u2014 open = starter blocked, closed = starter can crank"
+    },
+    "will_start": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the vehicle should start given relay state + battery voltage + device status"
+    },
+    "no_start_reason": {
+      "type": "string",
+      "description": "Human-readable explanation when will_start is false"
+    },
+    "last_relay_command": {
+      "type": "string",
+      "description": "Last relay command sent: power_save (019,0) or restore_starter (007,1,0)"
+    },
+    "last_relay_command_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "auto_remediated": {
       "type": "boolean",
       "default": false,

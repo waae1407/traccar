@@ -70,6 +70,33 @@ export default function BatteryHealthScorecard({ scorecard, onClick, vehicle }) 
           <Badge className={config.badge}>{config.label}</Badge>
         </div>
 
+        {/* Start status banner */}
+        <div className={`rounded-lg px-3 py-2 flex items-center gap-2 ${
+          scorecard.will_start === false
+            ? 'bg-red-500/10 border border-red-500/20'
+            : 'bg-emerald-500/10 border border-emerald-500/20'
+        }`}>
+          {scorecard.will_start === false ? (
+            <>
+              <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-red-300">⚠ Won't Start</p>
+                <p className="text-[10px] text-red-400/70 truncate">
+                  {scorecard.relay_state === 'open' ? 'GPS relay OPEN — not mechanical' : (scorecard.no_start_reason || 'Unknown')}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-300">✓ Will Start</p>
+                <p className="text-[10px] text-emerald-400/60">Relay closed · battery OK</p>
+              </div>
+            </>
+          )}
+        </div>
+
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-lg bg-black/20 p-2 text-center">
             <Battery className="h-3 w-3 mx-auto text-muted-foreground mb-1" />

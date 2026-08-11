@@ -42,6 +42,39 @@ export default function BatteryHealthDetailDrawer({ scorecard, open, onOpenChang
             {scorecard.severity?.toUpperCase() || 'HEALTHY'}
           </Badge>
 
+          {/* Relay & Start Status */}
+          <div className="rounded-xl border border-border p-3 space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Relay & Start Status</p>
+            <div className="flex items-center gap-2">
+              {scorecard.will_start === false ? (
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              )}
+              <span className={`text-sm font-bold ${scorecard.will_start === false ? 'text-red-400' : 'text-emerald-400'}`}>
+                {scorecard.will_start === false ? "Vehicle Won't Start" : 'Vehicle Will Start'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2">
+              <Zap className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Relay state</span>
+              <span className={`text-sm font-bold ml-auto ${scorecard.relay_state === 'open' ? 'text-red-400' : scorecard.relay_state === 'closed' ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                {String(scorecard.relay_state || 'unknown').toUpperCase()}
+              </span>
+            </div>
+            {scorecard.no_start_reason && (
+              <div className="rounded-lg bg-red-500/5 border border-red-500/20 px-3 py-2">
+                <p className="text-xs text-red-300">{scorecard.no_start_reason}</p>
+              </div>
+            )}
+            {scorecard.last_relay_command && (
+              <p className="text-xs text-muted-foreground">
+                Last command: {scorecard.last_relay_command === 'power_save' ? 'Power-save (019,0) → relay OPEN' : 'Restore starter (007,1,0) → relay CLOSED'}
+                {scorecard.last_relay_command_at && ` · ${new Date(scorecard.last_relay_command_at).toLocaleString()}`}
+              </p>
+            )}
+          </div>
+
           {/* Key metrics */}
           <div className="space-y-2">
             <DetailRow icon={Battery} label="Resting voltage" value={`${scorecard.resting_voltage?.toFixed(2) || '—'} V`}
