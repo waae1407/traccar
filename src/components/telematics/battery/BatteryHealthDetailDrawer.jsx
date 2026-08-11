@@ -58,10 +58,23 @@ export default function BatteryHealthDetailDrawer({ scorecard, open, onOpenChang
             <div className="flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2">
               <Zap className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Relay state</span>
-              <span className={`text-sm font-bold ml-auto ${scorecard.relay_state === 'open' ? 'text-red-400' : scorecard.relay_state === 'closed' ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+              <span className={`text-sm font-bold ml-auto ${
+                scorecard.relay_state === 'open' && scorecard.will_start === false
+                  ? 'text-red-400'
+                  : scorecard.relay_state === 'open'
+                    ? 'text-sky-400'
+                    : scorecard.relay_state === 'closed'
+                      ? 'text-emerald-400'
+                      : 'text-muted-foreground'
+              }`}>
                 {String(scorecard.relay_state || 'unknown').toUpperCase()}
               </span>
             </div>
+            {scorecard.relay_state === 'open' && scorecard.will_start !== false && (
+              <div className="rounded-lg bg-sky-500/5 border border-sky-500/20 px-3 py-2">
+                <p className="text-xs text-sky-300">Power-save active — relay will auto-close when ignition turns on. This does NOT prevent starting.</p>
+              </div>
+            )}
             {scorecard.no_start_reason && (
               <div className="rounded-lg bg-red-500/5 border border-red-500/20 px-3 py-2">
                 <p className="text-xs text-red-300">{scorecard.no_start_reason}</p>
@@ -69,7 +82,7 @@ export default function BatteryHealthDetailDrawer({ scorecard, open, onOpenChang
             )}
             {scorecard.last_relay_command && (
               <p className="text-xs text-muted-foreground">
-                Last command: {scorecard.last_relay_command === 'power_save' ? 'Power-save (019,0) → relay OPEN' : 'Restore starter (007,1,0) → relay CLOSED'}
+                Last command: {scorecard.last_relay_command === 'power_save' ? 'Power-save (019,0) → relay open while parked (auto-closes on ignition)' : 'Restore starter (007,1,0) → relay closed'}
                 {scorecard.last_relay_command_at && ` · ${new Date(scorecard.last_relay_command_at).toLocaleString()}`}
               </p>
             )}

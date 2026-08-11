@@ -74,7 +74,7 @@ export default function BatteryHealthScorecard({ scorecard, onClick, vehicle }) 
         <div className={`rounded-lg px-3 py-2 flex items-center gap-2 ${
           scorecard.will_start === false
             ? 'bg-red-500/10 border border-red-500/20'
-            : scorecard.relay_state === 'closed'
+            : scorecard.relay_state === 'closed' || scorecard.relay_state === 'open'
               ? 'bg-emerald-500/10 border border-emerald-500/20'
               : 'bg-amber-500/10 border border-amber-500/20'
         }`}>
@@ -94,6 +94,14 @@ export default function BatteryHealthScorecard({ scorecard, onClick, vehicle }) 
               <div className="min-w-0">
                 <p className="text-xs font-bold text-emerald-300">✓ Will Start</p>
                 <p className="text-[10px] text-emerald-400/60">Relay closed · battery OK</p>
+              </div>
+            </>
+          ) : scorecard.relay_state === 'open' ? (
+            <>
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-300">✓ Will Start</p>
+                <p className="text-[10px] text-emerald-400/60">Power-save active — relay auto-closes on ignition</p>
               </div>
             </>
           ) : (

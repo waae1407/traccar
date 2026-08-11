@@ -193,15 +193,16 @@ function computeStartStatus(device, lastRelayCommand, restingVoltage) {
   let willStart = true;
   let noStartReason = '';
 
-  if (relayState === 'open') {
+  // Power-save (019,0) opens the relay WHILE PARKED, but the MT20 firmware
+  // auto-closes the relay when ignition turns on (ACC-on clears power-save).
+  // So power-save does NOT prevent starting — only an explicit starter kill
+  // (starter_disabled via 007,1,1) actually blocks the starter.
+  if (device.starter_disabled) {
     willStart = false;
-    noStartReason = 'GPS relay is OPEN (blocking starter). Send "Restore Starter" command. This is a GPS device issue, not a mechanical problem.';
+    noStartReason = 'Starter kill is ACTIVE (immobilized). Send "Restore Starter" command to re-enable. This is a GPS device issue, not a mechanical problem.';
   } else if (restingVoltage < 10.5) {
     willStart = false;
     noStartReason = 'Battery too low to crank — needs jump-start or charge.';
-  } else if (device.online_status === 'offline' && device.ignition_status !== 'on') {
-    willStart = false;
-    noStartReason = 'GPS device is offline — relay state unknown. Vehicle may need a jump-start to power on the GPS device.';
   }
 
   return { relayState, willStart, noStartReason, lastRelayCommandType, lastRelayCommandAt };
