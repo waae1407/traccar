@@ -82,7 +82,7 @@ export default function BatteryHealthDetailDrawer({ scorecard, open, onOpenChang
             )}
             {scorecard.last_relay_command && (
               <p className="text-xs text-muted-foreground">
-                Last command: {scorecard.last_relay_command === 'power_save' ? 'Power-save (019,0) → relay open while parked (auto-closes on ignition)' : 'Restore starter (007,1,0) → relay closed'}
+                Last command: {LAST_COMMAND_LABELS[scorecard.last_relay_command] || scorecard.last_relay_command}
                 {scorecard.last_relay_command_at && ` · ${new Date(scorecard.last_relay_command_at).toLocaleString()}`}
               </p>
             )}
@@ -177,3 +177,10 @@ function VoltageChart({ samples }) {
 }
 
 const DEAD_VOLTAGE = 10.5;
+
+const LAST_COMMAND_LABELS = {
+  power_save: 'Power-save ON (019,0) → relay open while parked (auto-closes on ignition)',
+  power_save_off: 'Power-save OFF (019,1) → relay closed',
+  restore_starter: 'Restore Starter (007,1,0) → relay closed',
+  starter_kill: 'Starter Kill (007,1,1) → relay OPEN — starter blocked',
+};

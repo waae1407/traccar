@@ -156,19 +156,51 @@ function classifySeverity(restingVoltage, drainRate, projectedDead) {
 // ── Relay state & start status ──
 // Determines if the starter relay is OPEN (blocking starter) or CLOSED (allowing crank).
 // Looks at recent ActivityEvents to find the last relay command sent, plus device state.
+//
+// MT20 relay commands and their direct relay impact:
+//   007,1,0  → Restore Starter  → relay CLOSED (starter can crank)
+//   007,1,1  → Starter Kill     → relay OPEN   (starter blocked — immobilized)
+//   019,0    → Power-save ON    → relay OPEN while parked (auto-closes on ignition)
+//   019,1    → Power-save OFF   → relay CLOSED
 async function getLastRelayCommand(base44, deviceId) {
   const events = await base44.asServiceRole.entities.ActivityEvent.filter({
     event_type: 'gps.device_config_traccar_sent',
     target_id: deviceId,
-  }, '-created_date', 5).catch(() => []);
+  }, '-created_date', 10).catch(() => []);
 
   for (const event of events) {
     const ascii = event.metadata?.ascii || '';
     const summary = (event.summary || '').toLowerCase();
-    if (ascii.includes('007,') || summary.includes('restore')) {
+
+    // Parse from ascii (most reliable) — full command format: *KW,ID,CCC,HHMMSS[,ARGS]#
+    // 007,1,1 = starter kill → relay OPEN
+    if (/007,\d{6},1,1/.test(ascii)) {
+      return { command: 'starter_kill', relay_state: 'open', sent_at: event.created_date };
+    }
+    // 007,1,0 = restore starter → relay CLOSED
+    if (/007,\d{6},1,0/.test(ascii)) {
       return { command: 'restore_starter', relay_state: 'closed', sent_at: event.created_date };
     }
-    if (ascii.includes('019,') || summary.includes('power-save')) {
+    // 019,0 = power-save ON → relay OPEN (while parked, auto-closes on ignition)
+    if (/019,\d{6},0/.test(ascii)) {
+      return { command: 'power_save', relay_state: 'open', sent_at: event.created_date };
+    }
+    // 019,1 = power-save OFF → relay CLOSED
+    if (/019,\d{6},1/.test(ascii)) {
+      return { command: 'power_save_off', relay_state: 'closed', sent_at: event.created_date };
+    }
+
+    // Fallback: parse from summary if ascii not available
+    if (summary.includes('starter kill') || summary.includes('immobiliz') || summary.includes('starter disable')) {
+      return { command: 'starter_kill', relay_state: 'open', sent_at: event.created_date };
+    }
+    if (summary.includes('restore')) {
+      return { command: 'restore_starter', relay_state: 'closed', sent_at: event.created_date };
+    }
+    if (summary.includes('power-save off') || summary.includes('power save off')) {
+      return { command: 'power_save_off', relay_state: 'closed', sent_at: event.created_date };
+    }
+    if (summary.includes('power-save') || summary.includes('power save')) {
       return { command: 'power_save', relay_state: 'open', sent_at: event.created_date };
     }
   }
@@ -193,11 +225,11 @@ function computeStartStatus(device, lastRelayCommand, restingVoltage) {
   let willStart = true;
   let noStartReason = '';
 
-  // Power-save (019,0) opens the relay WHILE PARKED, but the MT20 firmware
-  // auto-closes the relay when ignition turns on (ACC-on clears power-save).
-  // So power-save does NOT prevent starting — only an explicit starter kill
-  // (starter_disabled via 007,1,1) actually blocks the starter.
-  if (device.starter_disabled) {
+  // Only an explicit starter kill (007,1,1) or the starter_disabled flag
+  // actually blocks the starter. Power-save (019,0) opens the relay WHILE
+  // PARKED but the MT20 firmware auto-closes it when ignition turns on,
+  // so it does NOT prevent starting.
+  if (lastRelayCommand?.command === 'starter_kill' || device.starter_disabled) {
     willStart = false;
     noStartReason = 'Starter kill is ACTIVE (immobilized). Send "Restore Starter" command to re-enable. This is a GPS device issue, not a mechanical problem.';
   } else if (restingVoltage < 10.5) {

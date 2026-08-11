@@ -92,7 +92,7 @@
     },
     "last_relay_command": {
       "type": "string",
-      "description": "Last relay command sent: power_save (019,0) or restore_starter (007,1,0)"
+      "description": "Last relay command sent: power_save (019,0), power_save_off (019,1), restore_starter (007,1,0), or starter_kill (007,1,1)"
     },
     "last_relay_command_at": {
       "type": "string",
