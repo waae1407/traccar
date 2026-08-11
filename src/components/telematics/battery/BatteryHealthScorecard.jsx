@@ -101,7 +101,7 @@ export default function BatteryHealthScorecard({ scorecard, onClick, vehicle }) 
               <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
               <div className="min-w-0">
                 <p className="text-xs font-bold text-amber-300">Likely OK</p>
-                <p className="text-[10px] text-amber-400/60">Relay state unknown — awaiting sync</p>
+                <p className="text-[10px] text-amber-400/60">Relay state unknown — click Refresh to analyze</p>
               </div>
             </>
           )}
