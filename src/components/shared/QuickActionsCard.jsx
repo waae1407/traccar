@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Car, DollarSign, Wrench, Shield, Satellite, CalendarDays, BarChart3, Home, MapPin, Zap, UserPlus, ExternalLink } from "lucide-react";
+import { Car, DollarSign, Wrench, Shield, Satellite, CalendarDays, BarChart3, Home, MapPin, Zap, UserPlus, ExternalLink, Battery } from "lucide-react";
 
 const ADMIN_ACTIONS = [
   { label: "Add Vehicle", icon: Car, path: "/vehicles", color: "text-blue-400", bg: "bg-blue-500/10" },
@@ -10,6 +10,7 @@ const ADMIN_ACTIONS = [
   { label: "New Booking", icon: CalendarDays, path: "/bookings-admin", color: "text-pink-400", bg: "bg-pink-500/10" },
   { label: "Compliance Doc", icon: Shield, path: "/admin/compliance-center", color: "text-yellow-400", bg: "bg-yellow-500/10" },
   { label: "GPS Command", icon: Zap, path: "/admin/vehicle-command-center", color: "text-cyan-400", bg: "bg-cyan-500/10" },
+  { label: "Battery Health", icon: Battery, path: "/admin/battery-health", color: "text-lime-400", bg: "bg-lime-500/10" },
   { label: "Financial Center", icon: BarChart3, path: "/admin/financial-center", color: "text-emerald-400", bg: "bg-emerald-500/10" },
 ];
 

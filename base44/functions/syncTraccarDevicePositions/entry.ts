@@ -2,6 +2,13 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const PROVIDER_KEY = 'traccar_noran_mt20';
 
+// Voltage below which we send restore-starter (007,1,0) instead of power-save (019,0).
+// At 11.2V the MT20 is 2.2V above its 9V operating floor — reliable command reception.
+// Below this, the relay must be CLOSED so the vehicle can be jump-started if the
+// battery dies completely. Power-save (019,0) would leave the relay OPEN, preventing
+// jump-starts after a dead battery event.
+const RESTORE_VOLTAGE_THRESHOLD = 11.2;
+
 function authHeader() {
   const username = Deno.env.get('TRACCAR_USERNAME');
   const password = Deno.env.get('TRACCAR_PASSWORD');
@@ -262,6 +269,42 @@ async function sendPowerSaveOnPark(device) {
   }
 }
 
+// ── Restore starter (007,1,0) — closes the relay so the vehicle can crank ──
+// Sent when: (a) voltage ≤ RESTORE_VOLTAGE_THRESHOLD on ignition-off, or
+// (b) device comes back online after being offline >30 min (safety net).
+function buildRestoreStarterPacket(deviceId) {
+  const sMarkHex = '0D0A2A4B5700';
+  const packetLenHex = '4400';
+  const cmdHex = '0200';
+  const gisIpHex = '741E649C';
+  const portHex = '5B9A';
+  const sEndHex = '0D0A';
+  const d = new Date();
+  const hhmmss = [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map(n => String(n).padStart(2, '0')).join('');
+  const ascii = `*KW,${sanitizeIdForPs(deviceId)},007,${hhmmss},1,0#`;
+  const sDataBytes = new TextEncoder().encode(ascii);
+  const padded = new Uint8Array(50);
+  padded.set(sDataBytes);
+  return { ascii, hex: `${sMarkHex}${packetLenHex}${cmdHex}${gisIpHex}${portHex}${bytesToHexForPs(padded)}${sEndHex}` };
+}
+
+async function sendRestoreStarter(device) {
+  const traccarDeviceId = Number(device.traccar_device_id);
+  if (!Number.isFinite(traccarDeviceId)) return { ok: false, error: 'invalid_traccar_id' };
+  const { ascii, hex } = buildRestoreStarterPacket(device.unique_id);
+  try {
+    const res = await fetch(`${baseUrl()}/api/commands/send`, {
+      method: 'POST',
+      headers: { Authorization: authHeader(), 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ deviceId: traccarDeviceId, type: 'custom', attributes: { data: hex } }),
+    });
+    if (!res.ok) return { ok: false, error: `traccar_${res.status}` };
+    return { ok: true, ascii, hex };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 function retentionDays() {
   return 30;
 }
@@ -393,6 +436,7 @@ Deno.serve(async (req) => {
     let retiredMissing = 0;
     let statusOnlyUpdated = 0;
     let powerSaveAutoSent = 0;
+    let starterRestoreSent = 0;
     const skipped = [];
 
     for (const traccarDevice of traccarDevices || []) {
@@ -501,28 +545,84 @@ Deno.serve(async (req) => {
         payload.voltage_last_seen_at = seenAt;
       }
 
-      // ── Auto power-save on ignition off ──
+      // ── Voltage-gated relay control on ignition off ──
       // MT20 firmware clears relay power-save on every ACC-on cycle.
-      // When ignition transitions on→off, re-send 019,0 so the relay releases after 60s.
+      // When ignition transitions on→off:
+      //   - If voltage > 11.2V: send 019,0 (power-save) to prevent parasitic drain
+      //   - If voltage ≤ 11.2V: send 007,1,0 (restore starter) to ensure relay is CLOSED
+      //     so the vehicle can be jump-started if the battery dies completely.
       const prevIgnition = local.ignition_status;
       const newIgnition = payload.ignition_status;
+      const currentVoltage = payload.battery_voltage ?? local.battery_voltage ?? null;
+
       if (prevIgnition === 'on' && newIgnition === 'off' && local.unique_id) {
-        const psResult = await sendPowerSaveOnPark(local);
-        if (psResult.ok) {
-          powerSaveAutoSent++;
-          await base44.asServiceRole.entities.ActivityEvent.create({
-            event_type: 'gps.device_config_traccar_sent',
-            actor_id: 'system',
-            actor_email: 'system@uride',
-            actor_role: 'system',
-            target_entity: 'TelematicsDevice',
-            target_id: local.id,
-            vehicle_id: local.vehicle_id || '',
-            summary: `Auto power-save on park: 019,0 sent to ${local.unique_id} (ignition on→off)`,
-            metadata: { source: 'syncTraccarDevicePositions', trigger: 'ignition_off_transition', ascii: psResult.ascii },
-            source: 'automation',
-            event_status: 'success',
-          }).catch(() => {});
+        if (currentVoltage !== null && currentVoltage <= RESTORE_VOLTAGE_THRESHOLD) {
+          // Battery too low — restore starter relay instead of power-save
+          const restoreResult = await sendRestoreStarter(local);
+          if (restoreResult.ok) {
+            starterRestoreSent++;
+            await base44.asServiceRole.entities.ActivityEvent.create({
+              event_type: 'gps.device_config_traccar_sent',
+              actor_id: 'system',
+              actor_email: 'system@uride',
+              actor_role: 'system',
+              target_entity: 'TelematicsDevice',
+              target_id: local.id,
+              vehicle_id: local.vehicle_id || '',
+              summary: `Auto restore starter: 007,1,0 sent to ${local.unique_id} (voltage ${currentVoltage.toFixed(1)}V ≤ ${RESTORE_VOLTAGE_THRESHOLD}V)`,
+              metadata: { source: 'syncTraccarDevicePositions', trigger: 'low_voltage_ignition_off', voltage: currentVoltage, ascii: restoreResult.ascii },
+              source: 'automation',
+              event_status: 'success',
+            }).catch(() => {});
+          }
+        } else {
+          // Voltage healthy — send power-save as normal
+          const psResult = await sendPowerSaveOnPark(local);
+          if (psResult.ok) {
+            powerSaveAutoSent++;
+            await base44.asServiceRole.entities.ActivityEvent.create({
+              event_type: 'gps.device_config_traccar_sent',
+              actor_id: 'system',
+              actor_email: 'system@uride',
+              actor_role: 'system',
+              target_entity: 'TelematicsDevice',
+              target_id: local.id,
+              vehicle_id: local.vehicle_id || '',
+              summary: `Auto power-save on park: 019,0 sent to ${local.unique_id} (ignition on→off)`,
+              metadata: { source: 'syncTraccarDevicePositions', trigger: 'ignition_off_transition', ascii: psResult.ascii },
+              source: 'automation',
+              event_status: 'success',
+            }).catch(() => {});
+          }
+        }
+      }
+
+      // ── Restore starter on first heartbeat after offline (safety net) ──
+      // If device was offline >30 min and is now back, send 007,1,0 to clear any
+      // power-save relay state that persisted through the power loss. This ensures
+      // the vehicle can be jump-started after a dead battery event even if the
+      // pre-death restore command failed.
+      if (local.unique_id && local.last_seen_at) {
+        const prevSeenAt = new Date(local.last_seen_at).getTime();
+        const gapMs = seenAt ? new Date(seenAt).getTime() - prevSeenAt : 0;
+        if (gapMs > 30 * 60 * 1000) {
+          const restoreResult = await sendRestoreStarter(local);
+          if (restoreResult.ok) {
+            starterRestoreSent++;
+            await base44.asServiceRole.entities.ActivityEvent.create({
+              event_type: 'gps.device_config_traccar_sent',
+              actor_id: 'system',
+              actor_email: 'system@uride',
+              actor_role: 'system',
+              target_entity: 'TelematicsDevice',
+              target_id: local.id,
+              vehicle_id: local.vehicle_id || '',
+              summary: `Auto restore after offline: 007,1,0 sent to ${local.unique_id} (gap ${Math.round(gapMs / 60000)}min)`,
+              metadata: { source: 'syncTraccarDevicePositions', trigger: 'back_online_after_offline', gap_minutes: Math.round(gapMs / 60000), ascii: restoreResult.ascii },
+              source: 'automation',
+              event_status: 'success',
+            }).catch(() => {});
+          }
         }
       }
 
@@ -546,7 +646,7 @@ Deno.serve(async (req) => {
     }
 
     const retention_deleted = await cleanupExpiredHistory(base44);
-    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, auto_linked: autoLinked, created_from_traccar: createdFromTraccar, retired_missing_from_traccar: retiredMissing, status_only_updated: statusOnlyUpdated, power_save_auto_sent: powerSaveAutoSent, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
+    return Response.json({ ok: true, provider_key: PROVIDER_KEY, updated, auto_linked: autoLinked, created_from_traccar: createdFromTraccar, retired_missing_from_traccar: retiredMissing, status_only_updated: statusOnlyUpdated, power_save_auto_sent: powerSaveAutoSent, starter_restore_sent: starterRestoreSent, skipped_count: skipped.length, skipped, retention_days: retentionDays(), retention_deleted });
   } catch (error) {
     await recordFailure(base44, error.message);
     return Response.json({ ok: false, error: error.message, warning: 'Location update delayed. Last known locations remain available.' }, { status: 500 });

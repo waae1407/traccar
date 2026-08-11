@@ -19,6 +19,11 @@ const MIN_SETTLED_DATA_MS = 30 * 60_000;       // Need at least 30 min of settle
 const DEAD_VOLTAGE = 10.5;
 const AUTO_REMEDIATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const NOTIFICATION_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+// Voltage below which we send restore-starter (007,1,0) instead of power-save (019,0).
+// At 11.2V the MT20 is 2.2V above its 9V floor — reliable command reception.
+// Below this, the relay must be CLOSED so the vehicle can be jump-started after
+// the battery dies. Power-save (019,0) would leave the relay OPEN.
+const RESTORE_VOLTAGE_THRESHOLD = 11.2;
 
 // ── Thresholds ──
 const DRAIN = { healthy: 0.2, warning: 0.5, severe: 1.0 };
@@ -55,6 +60,37 @@ async function sendPowerSaveViaTraccar(device) {
   if (!baseUrl || !username || !password) return { ok: false, error: 'TRACCAR_NOT_CONFIGURED' };
 
   const ascii = buildPowerSaveAscii(device.unique_id, 0);
+  const hex = buildMt20WrappedPacket(ascii);
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/commands/send`, {
+      method: 'POST',
+      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: hex } }),
+    });
+    const text = await res.text();
+    let data; try { data = JSON.parse(text); } catch { data = { raw: text }; }
+    if (!res.ok) return { ok: false, error: `Traccar (${res.status})` };
+    return { ok: true, ascii, hex, response: data };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ── Restore starter (007,1,0) — closes the relay so the vehicle can crank ──
+// Sent instead of power-save when voltage ≤ RESTORE_VOLTAGE_THRESHOLD.
+function buildRestoreStarterAscii(deviceId) {
+  const d = new Date();
+  const hhmmss = [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map(n => String(n).padStart(2, '0')).join('');
+  return `*KW,${sanitizeId(deviceId)},007,${hhmmss},1,0#`;
+}
+
+async function sendRestoreStarterViaTraccar(device) {
+  const baseUrl = Deno.env.get('TRACCAR_BASE_URL');
+  const username = Deno.env.get('TRACCAR_USERNAME');
+  const password = Deno.env.get('TRACCAR_PASSWORD');
+  if (!baseUrl || !username || !password) return { ok: false, error: 'TRACCAR_NOT_CONFIGURED' };
+
+  const ascii = buildRestoreStarterAscii(device.unique_id);
   const hex = buildMt20WrappedPacket(ascii);
   try {
     const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/api/commands/send`, {
@@ -296,11 +332,17 @@ Deno.serve(async (req) => {
       }
 
       if (shouldAutoRemediate) {
-        const remResult = await sendPowerSaveViaTraccar(device);
+        // Voltage-gated: if voltage ≤ 11.2V, send restore-starter (007,1,0) to
+        // close the relay so the vehicle can be jump-started after the battery dies.
+        // Above 11.2V, send power-save (019,0) to stop the parasitic drain.
+        const isLowVoltage = restingVoltage <= RESTORE_VOLTAGE_THRESHOLD;
+        const remResult = isLowVoltage
+          ? await sendRestoreStarterViaTraccar(device)
+          : await sendPowerSaveViaTraccar(device);
         if (remResult.ok) {
           autoRemediated = true;
           autoRemediatedAt = now.toISOString();
-          powerSaveActive = true;
+          powerSaveActive = !isLowVoltage;
           results.auto_remediated++;
 
           await base44.asServiceRole.entities.ActivityEvent.create({
@@ -311,8 +353,10 @@ Deno.serve(async (req) => {
             target_entity: 'TelematicsDevice',
             target_id: device.id,
             vehicle_id: device.vehicle_id || '',
-            summary: `Auto-remediation: power-save (019,0) sent to ${device.unique_id} — drain ${drainRate.toFixed(2)}V/hr detected`,
-            metadata: { source: 'detectParasiteDraw', drain_rate: drainRate, resting_voltage: restingVoltage, severity, ascii: remResult.ascii },
+            summary: isLowVoltage
+              ? `Auto-remediation: restore-starter (007,1,0) sent to ${device.unique_id} — voltage ${restingVoltage.toFixed(1)}V ≤ ${RESTORE_VOLTAGE_THRESHOLD}V, relay CLOSED for jump-start safety`
+              : `Auto-remediation: power-save (019,0) sent to ${device.unique_id} — drain ${drainRate.toFixed(2)}V/hr detected`,
+            metadata: { source: 'detectParasiteDraw', drain_rate: drainRate, resting_voltage: restingVoltage, severity, is_low_voltage: isLowVoltage, command: isLowVoltage ? '007,1,0' : '019,0', ascii: remResult.ascii },
             source: 'automation',
             event_status: 'success',
           }).catch(() => {});
