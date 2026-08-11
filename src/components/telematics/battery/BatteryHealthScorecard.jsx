@@ -90,10 +90,12 @@ export default function BatteryHealthScorecard({ scorecard, onClick, vehicle }) 
             </>
           ) : scorecard.relay_state === 'closed' ? (
             <>
-              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <CheckCircle2 className={`h-4 w-4 shrink-0 ${(scorecard.resting_voltage || 13) < 11.5 ? 'text-yellow-400' : 'text-emerald-400'}`} />
               <div className="min-w-0">
-                <p className="text-xs font-bold text-emerald-300">✓ Will Start</p>
-                <p className="text-[10px] text-emerald-400/60">Relay closed · battery OK</p>
+                <p className={`text-xs font-bold ${(scorecard.resting_voltage || 13) < 11.5 ? 'text-yellow-300' : 'text-emerald-300'}`}>✓ Will Start</p>
+                <p className={`text-[10px] ${(scorecard.resting_voltage || 13) < 11.5 ? 'text-yellow-400/70' : 'text-emerald-400/60'}`}>
+                  Relay closed · {(scorecard.resting_voltage || 13) < 11.5 ? 'battery low — monitor' : 'battery OK'}
+                </p>
               </div>
             </>
           ) : scorecard.relay_state === 'open' ? (
