@@ -16,6 +16,16 @@ export default function AdminBatteryHealth() {
     refetchInterval: 60_000,
   });
 
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ['battery-health-vehicles'],
+    queryFn: () => base44.entities.Vehicle.list('-updated_date', 500),
+  });
+  const vehicleMap = React.useMemo(() => {
+    const map = new Map();
+    for (const v of vehicles) if (v.id) map.set(v.id, v);
+    return map;
+  }, [vehicles]);
+
   const [analyzing, setAnalyzing] = useState(false);
   const handleRefresh = async () => {
     setAnalyzing(true);
@@ -76,7 +86,7 @@ export default function AdminBatteryHealth() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sorted.map(sc => (
-            <BatteryHealthScorecard key={sc.id} scorecard={sc} onClick={() => setSelected(sc)} />
+            <BatteryHealthScorecard key={sc.id} scorecard={sc} vehicle={sc.vehicle_id ? vehicleMap.get(sc.vehicle_id) : null} onClick={() => setSelected(sc)} />
           ))}
         </div>
       )}

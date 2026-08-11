@@ -25,6 +25,17 @@ export default function HostBatteryHealth() {
     refetchInterval: 60_000,
   });
 
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ['host-battery-vehicles', host?.id],
+    queryFn: () => base44.entities.Vehicle.filter({ host_id: host.id }),
+    enabled: !!host?.id,
+  });
+  const vehicleMap = React.useMemo(() => {
+    const map = new Map();
+    for (const v of vehicles) if (v.id) map.set(v.id, v);
+    return map;
+  }, [vehicles]);
+
   const [analyzing, setAnalyzing] = useState(false);
   const handleRefresh = async () => {
     setAnalyzing(true);
@@ -66,7 +77,7 @@ export default function HostBatteryHealth() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map(sc => (
-            <BatteryHealthScorecard key={sc.id} scorecard={sc} onClick={() => setSelected(sc)} />
+            <BatteryHealthScorecard key={sc.id} scorecard={sc} vehicle={sc.vehicle_id ? vehicleMap.get(sc.vehicle_id) : null} onClick={() => setSelected(sc)} />
           ))}
         </div>
       )}

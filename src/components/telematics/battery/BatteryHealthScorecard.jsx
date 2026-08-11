@@ -40,10 +40,12 @@ function Sparkline({ samples }) {
   );
 }
 
-export default function BatteryHealthScorecard({ scorecard, onClick }) {
+export default function BatteryHealthScorecard({ scorecard, onClick, vehicle }) {
   const config = SEVERITY_CONFIG[scorecard.severity] || SEVERITY_CONFIG.healthy;
   const SevIcon = config.icon;
   const voltageColor = scorecard.resting_voltage < 11.8 ? 'text-red-400' : scorecard.resting_voltage < 12.2 ? 'text-yellow-400' : 'text-emerald-400';
+  const vehicleLabel = vehicle ? `${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''}`.trim().replace(/\s+/g, ' ') : '';
+  const vehicleVin = vehicle?.vin || '';
 
   return (
     <Card
@@ -61,8 +63,8 @@ export default function BatteryHealthScorecard({ scorecard, onClick }) {
               <SevIcon className={`h-4 w-4 text-${config.color}-400`} />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white truncate">{scorecard.vehicle_name || scorecard.device_unique_id}</p>
-              <p className="text-xs text-muted-foreground truncate">{scorecard.device_unique_id}</p>
+              <p className="text-sm font-bold text-white truncate">{vehicleLabel || scorecard.vehicle_name || scorecard.device_unique_id}</p>
+              <p className="text-xs text-muted-foreground truncate">{vehicleVin || scorecard.device_unique_id}</p>
             </div>
           </div>
           <Badge className={config.badge}>{config.label}</Badge>
