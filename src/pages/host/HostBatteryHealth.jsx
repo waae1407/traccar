@@ -36,6 +36,20 @@ export default function HostBatteryHealth() {
     return map;
   }, [vehicles]);
 
+  // Only show scorecards for devices that are installed AND production-enabled
+  const { data: devices = [] } = useQuery({
+    queryKey: ['host-battery-devices', host?.id],
+    queryFn: () => base44.entities.TelematicsDevice.filter({ host_id: host.id, provider_key: 'traccar_noran_mt20' }),
+    enabled: !!host?.id,
+  });
+  const productionDeviceIds = React.useMemo(() => {
+    const set = new Set();
+    for (const d of devices) {
+      if (d.install_status === 'installed' && d.production_commands_enabled) set.add(d.id);
+    }
+    return set;
+  }, [devices]);
+
   const [analyzing, setAnalyzing] = useState(false);
   const handleRefresh = async () => {
     setAnalyzing(true);
@@ -46,7 +60,9 @@ export default function HostBatteryHealth() {
     setAnalyzing(false);
   };
 
-  const sorted = [...scorecards].sort((a, b) => {
+  const productionScorecards = scorecards.filter(s => productionDeviceIds.has(s.telematics_device_id));
+
+  const sorted = [...productionScorecards].sort((a, b) => {
     const order = { critical: 0, severe: 1, warning: 2, healthy: 3 };
     return (order[a.severity] ?? 4) - (order[b.severity] ?? 4) || (b.drain_rate_v_per_hr || 0) - (a.drain_rate_v_per_hr || 0);
   });

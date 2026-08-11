@@ -26,6 +26,19 @@ export default function AdminBatteryHealth() {
     return map;
   }, [vehicles]);
 
+  // Only show scorecards for devices that are installed AND production-enabled
+  const { data: devices = [] } = useQuery({
+    queryKey: ['battery-health-devices'],
+    queryFn: () => base44.entities.TelematicsDevice.filter({ provider_key: 'traccar_noran_mt20' }, '-updated_date', 500),
+  });
+  const productionDeviceIds = React.useMemo(() => {
+    const set = new Set();
+    for (const d of devices) {
+      if (d.install_status === 'installed' && d.production_commands_enabled) set.add(d.id);
+    }
+    return set;
+  }, [devices]);
+
   const [analyzing, setAnalyzing] = useState(false);
   const handleRefresh = async () => {
     setAnalyzing(true);
@@ -36,16 +49,18 @@ export default function AdminBatteryHealth() {
     setAnalyzing(false);
   };
 
+  const productionScorecards = scorecards.filter(s => productionDeviceIds.has(s.telematics_device_id));
+
   const stats = {
-    total: scorecards.length,
-    healthy: scorecards.filter(s => s.severity === 'healthy').length,
-    warning: scorecards.filter(s => s.severity === 'warning').length,
-    severe: scorecards.filter(s => s.severity === 'severe').length,
-    critical: scorecards.filter(s => s.severity === 'critical').length,
-    autoRemediated: scorecards.filter(s => s.auto_remediated).length,
+    total: productionScorecards.length,
+    healthy: productionScorecards.filter(s => s.severity === 'healthy').length,
+    warning: productionScorecards.filter(s => s.severity === 'warning').length,
+    severe: productionScorecards.filter(s => s.severity === 'severe').length,
+    critical: productionScorecards.filter(s => s.severity === 'critical').length,
+    autoRemediated: productionScorecards.filter(s => s.auto_remediated).length,
   };
 
-  const filtered = sevFilter === 'all' ? scorecards : scorecards.filter(s => s.severity === sevFilter);
+  const filtered = sevFilter === 'all' ? productionScorecards : productionScorecards.filter(s => s.severity === sevFilter);
   const sorted = [...filtered].sort((a, b) => {
     const order = { critical: 0, severe: 1, warning: 2, healthy: 3 };
     return (order[a.severity] ?? 4) - (order[b.severity] ?? 4) || (b.drain_rate_v_per_hr || 0) - (a.drain_rate_v_per_hr || 0);

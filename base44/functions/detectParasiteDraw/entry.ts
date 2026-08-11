@@ -286,6 +286,9 @@ Deno.serve(async (req) => {
     for (const device of devices) {
       if (['retired', 'suspended'].includes(device.lifecycle_status)) continue;
       if (!device.traccar_device_id) continue;
+      // Only track devices that are physically installed AND production-enabled.
+      if (device.install_status !== 'installed') continue;
+      if (!device.production_commands_enabled) continue;
       results.analyzed++;
 
       const vehicle = device.vehicle_id ? vehicleMap.get(device.vehicle_id) : null;
