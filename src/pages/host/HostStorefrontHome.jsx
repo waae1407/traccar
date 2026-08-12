@@ -10,7 +10,7 @@ import RentForFreeBanner from "@/components/customer/booknow/RentForFreeBanner";
 import BookNowRtoBanner from "@/components/customer/booknow/BookNowRtoBanner";
 import BookNowVehicleGrid from "@/components/customer/booknow/BookNowVehicleGrid";
 import useUserLocation from "@/hooks/useUserLocation";
-import { CalendarCheck, Key, ChevronRight, CreditCard } from "lucide-react";
+import { CalendarCheck, Key, ChevronRight, CreditCard, Shield, Zap, Clock, Star, Car, Search, FileCheck } from "lucide-react";
 import { canonicalCheckoutUrl, isCustomDomainHost } from "@/lib/customDomain";
 import HostTrustPanel from "@/components/trust/HostTrustPanel";
 import StorefrontLeadCapture from "@/components/host/storefront/StorefrontLeadCapture";
@@ -182,19 +182,40 @@ export default function HostStorefrontHome() {
           if (isCustomDomainHost()) window.location.href = canonicalCheckoutUrl(params);
           else navigate(`/checkout?${params.toString()}`);
         }}
-        className="mx-5 mt-5 mb-5 rounded-3xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block min-h-[210px]"
+        className="mx-5 mt-5 mb-5 rounded-3xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block min-h-[260px] shadow-lg"
         style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${secondaryColor} 100%)` }}>
         {coverImageUrl && <img src={coverImageUrl} alt="Storefront hero" className="absolute inset-0 h-full w-full object-cover" />}
-        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${brandColor}dd, ${secondaryColor}aa), linear-gradient(to top, rgba(0,0,0,.45), transparent)` }} />
-        <div className="absolute -top-6 -right-6 h-28 w-28 rounded-full opacity-20 bg-white" />
-        <div className="relative px-5 py-6 flex h-full min-h-[210px] flex-col justify-end gap-3">
+        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${brandColor}dd, ${secondaryColor}aa), linear-gradient(to top, rgba(0,0,0,.55), transparent 60%)` }} />
+        <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full opacity-10 bg-white" />
+        <div className="absolute top-20 -left-8 h-24 w-24 rounded-full opacity-10 bg-white" />
+        <div className="relative px-5 py-6 flex h-full min-h-[260px] flex-col justify-end gap-3">
+          {/* Trust badges row */}
+          {(hostRating.count > 0 || completedTrips > 0 || available.length > 0) && (
+            <div className="flex flex-wrap gap-2 mb-1">
+              {hostRating.count > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-[10px] font-bold text-white">
+                  <Star className="h-3 w-3 fill-white" /> {hostRating.rating.toFixed(1)} ({hostRating.count})
+                </span>
+              )}
+              {completedTrips > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-[10px] font-bold text-white">
+                  <Car className="h-3 w-3" /> {completedTrips}+ trips
+                </span>
+              )}
+              {available.length > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-[10px] font-bold text-white">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" /> {available.length} available
+                </span>
+              )}
+            </div>
+          )}
           <div>
             <p className="text-white font-black text-2xl leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
               {brand?.hero_title || "Find Your Ride"}
             </p>
             <p className="text-white/82 text-sm mt-2 max-w-sm">{brand?.hero_subtitle || "Start earning today — get a car in minutes"}</p>
           </div>
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/18 px-4 py-2 text-xs font-black text-white backdrop-blur-sm">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/18 px-4 py-2 text-xs font-black text-white backdrop-blur-sm border border-white/20">
             {brand?.cta_button_text || "Book Now"}
             <ChevronRight className="h-4 w-4" />
           </span>
@@ -215,14 +236,58 @@ export default function HostStorefrontHome() {
 
       {/* Headline */}
       <div className="px-5 mb-5 mt-2">
-        {user && <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Hi {user.full_name?.split(" ")[0]} 👋</p>}
-        <h1 className="text-3xl font-black" style={{ fontFamily: "var(--font-syne)", background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-          {brand?.hero_title || "Find Your Ride"}
+        {user && <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Welcome back{user.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}</p>}
+        <h1 className="text-3xl font-black leading-tight" style={{ fontFamily: "var(--font-syne)", background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+          {brand?.business_display_name || brand?.hero_title || "Find Your Ride"}
         </h1>
         {brand?.about_text && <p className="text-gray-500 text-sm mt-3 leading-relaxed">{brand.about_text}</p>}
       </div>
 
       <HostTrustPanel labels={hostLabels} rating={hostRating.rating} reviewCount={hostRating.count} completedTrips={completedTrips} />
+
+      {/* Value props — why rent with us */}
+      <div className="px-5 mb-5">
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { icon: Zap, label: "Instant", sub: "Approval" },
+            { icon: Shield, label: "No Credit", sub: "Check" },
+            { icon: Clock, label: "24/7", sub: "Support" },
+          ].map((item, i) => (
+            <div key={i} className="rounded-2xl bg-white border border-gray-100 p-3 flex flex-col items-center text-center shadow-sm">
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center mb-1.5"
+                style={{ background: `linear-gradient(135deg, ${brandColor}15, ${secondaryColor}15)` }}>
+                <item.icon className="h-4 w-4" style={{ color: brandColor }} strokeWidth={2} />
+              </div>
+              <p className="text-xs font-black text-gray-900 leading-tight">{item.label}</p>
+              <p className="text-[10px] text-gray-400 leading-tight">{item.sub}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* How it works */}
+      <div className="px-5 mb-5">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">How It Works</p>
+        <div className="space-y-2.5">
+          {[
+            { icon: Search, step: "1", title: "Browse & Pick", desc: "Choose from available vehicles" },
+            { icon: FileCheck, step: "2", title: "Quick Approval", desc: "No credit check — get approved fast" },
+            { icon: Car, step: "3", title: "Drive Away", desc: "Pick up your car and hit the road" },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-2xl bg-white border border-gray-100 p-3 shadow-sm">
+              <div className="relative h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
+                <item.icon className="h-4 w-4 text-white" strokeWidth={2} />
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-white text-[9px] font-black flex items-center justify-center" style={{ color: brandColor }}>{item.step}</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900 leading-tight">{item.title}</p>
+                <p className="text-xs text-gray-400 leading-tight mt-0.5">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {reservationRequestOnly && (
         <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
