@@ -10,6 +10,12 @@
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
+        // OneSignal is configured for uridehub.com only — skip init on custom
+        // host storefront domains to avoid "Can only be used on" errors.
+        var host = window.location.hostname.toLowerCase();
+        var isCanonical = host === "uridehub.com" || host === "www.uridehub.com" ||
+                          host === "localhost" || host === "127.0.0.1";
+        if (!isCanonical) return;
         await OneSignal.init({
           appId: "3edc6b4e-bc99-4f51-af70-b7ca29004e64",
           promptOptions: {

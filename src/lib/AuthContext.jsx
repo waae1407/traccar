@@ -100,14 +100,12 @@ export const AuthProvider = ({ children }) => {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
-      
-      // If user auth fails, it might be an expired token
-      if (error.status === 401 || error.status === 403) {
-        setAuthError({
-          type: 'auth_required',
-          message: 'Authentication required'
-        });
-      }
+      setUser(null);
+      // A 401/403 on me() just means the user isn't logged in (e.g. visiting a
+      // public storefront on a custom domain with a stale token from another
+      // domain). Don't set authError — that would block public pages from
+      // rendering. authError is only set when the public-settings endpoint
+      // explicitly returns auth_required/user_not_registered.
     }
   };
 
