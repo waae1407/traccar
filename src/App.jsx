@@ -162,11 +162,16 @@ const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
+    const hostname = window.location.hostname.toLowerCase();
+    const isCustomDomain = !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(hostname)
+      && !hostname.includes("base44");
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background">
+      <div className={`fixed inset-0 flex items-center justify-center ${isCustomDomain ? "" : "bg-background"}`}
+        style={isCustomDomain ? { background: "#f8f8fa" } : undefined}>
         <div className="flex flex-col items-center gap-3">
           <img src={LOGO_ICON} alt="uRide" className="h-12 w-12 rounded-full animate-pulse" />
-          <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 rounded-full animate-spin"
+            style={{ borderColor: isCustomDomain ? "#e5e7eb" : undefined, borderTopColor: isCustomDomain ? "#e91e8c" : undefined }} />
         </div>
       </div>
     );

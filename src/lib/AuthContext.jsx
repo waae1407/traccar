@@ -38,12 +38,20 @@ export const AuthProvider = ({ children }) => {
         const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
         setAppPublicSettings(publicSettings);
         
-        // If we got the app public settings successfully, check if user is authenticated
-        if (appParams.token) {
+        // On custom host storefront domains, don't block rendering on the auth
+        // check — the storefront is a public page. Resolve auth in the background
+        // so the page renders immediately (fixes first-visit black screen).
+        const hostname = window.location.hostname.toLowerCase();
+        const isCustomDomain = !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(hostname)
+          && !hostname.includes("base44");
+
+        if (appParams.token && !isCustomDomain) {
           await checkUserAuth();
         } else {
           setIsLoadingAuth(false);
           setIsAuthenticated(false);
+          // Fire-and-forget on custom domains so user state still resolves
+          if (appParams.token && isCustomDomain) checkUserAuth();
         }
         setIsLoadingPublicSettings(false);
       } catch (appError) {
