@@ -40,12 +40,12 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
         boxShadow: featured ? "0 4px 20px hsl(338 90% 56% / 0.12)" : "0 1px 4px rgba(0,0,0,0.06)",
       }}
     >
-      {/* Image */}
-      <div className="relative overflow-hidden" style={{ height: presentationStyle === "compact" ? "130px" : presentationStyle === "editorial" ? "240px" : featured ? "210px" : "190px" }}>
+      {/* Image — object-contain shows the full photo without cropping */}
+      <div className="relative overflow-hidden" style={{ aspectRatio: "4/3", background: "linear-gradient(135deg, #f9fafb, #f3f4f6)" }}>
         <img
           src={v.image_url || PLACEHOLDER}
           alt={`${v.make} ${v.model}`}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)" }} />

@@ -23,7 +23,7 @@ export default function VehicleDetailSheet({ vehicle, onClose, onBook, user, rev
         {/* Image */}
         <div className="relative h-56 bg-gradient-to-br from-gray-100 to-gray-200">
           {vehicle.image_url ? (
-            <img src={vehicle.image_url} alt="" className="w-full h-full object-cover" />
+            <img src={vehicle.image_url} alt="" className="w-full h-full object-contain" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-7xl">🚗</div>
           )}
