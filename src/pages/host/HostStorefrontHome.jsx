@@ -10,7 +10,7 @@ import RentForFreeBanner from "@/components/customer/booknow/RentForFreeBanner";
 import BookNowRtoBanner from "@/components/customer/booknow/BookNowRtoBanner";
 import BookNowVehicleGrid from "@/components/customer/booknow/BookNowVehicleGrid";
 import useUserLocation from "@/hooks/useUserLocation";
-import { CalendarCheck, Key, ChevronRight, CreditCard, Shield, Zap, Clock, Star, Car, Search, FileCheck } from "lucide-react";
+import { CalendarCheck, Key, ChevronRight, CreditCard, Shield, Zap, Clock, Star, Car } from "lucide-react";
 import { canonicalCheckoutUrl, isCustomDomainHost } from "@/lib/customDomain";
 import HostTrustPanel from "@/components/trust/HostTrustPanel";
 import StorefrontLeadCapture from "@/components/host/storefront/StorefrontLeadCapture";
@@ -260,30 +260,6 @@ export default function HostStorefrontHome() {
               </div>
               <p className="text-xs font-black text-gray-900 leading-tight">{item.label}</p>
               <p className="text-[10px] text-gray-400 leading-tight">{item.sub}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* How it works */}
-      <div className="px-5 mb-5">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">How It Works</p>
-        <div className="space-y-2.5">
-          {[
-            { icon: Search, step: "1", title: "Browse & Pick", desc: "Choose from available vehicles" },
-            { icon: FileCheck, step: "2", title: "Quick Approval", desc: "No credit check — get approved fast" },
-            { icon: Car, step: "3", title: "Drive Away", desc: "Pick up your car and hit the road" },
-          ].map((item, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-2xl bg-white border border-gray-100 p-3 shadow-sm">
-              <div className="relative h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
-                <item.icon className="h-4 w-4 text-white" strokeWidth={2} />
-                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-white text-[9px] font-black flex items-center justify-center" style={{ color: brandColor }}>{item.step}</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-900 leading-tight">{item.title}</p>
-                <p className="text-xs text-gray-400 leading-tight mt-0.5">{item.desc}</p>
-              </div>
             </div>
           ))}
         </div>
