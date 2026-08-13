@@ -7,10 +7,18 @@ import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  // On custom host storefront domains, initialize loading flags to false so
+  // the splash screen never renders — not even for a single frame. The
+  // storefront is public and doesn't need auth or public-settings to render.
+  const _isCustomDomainInit = typeof window !== "undefined" && (() => {
+    const h = window.location.hostname.toLowerCase();
+    return !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(h) && !h.includes("base44");
+  })();
+
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(!_isCustomDomainInit);
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(!_isCustomDomainInit);
   const [authError, setAuthError] = useState(null);
   const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
 
