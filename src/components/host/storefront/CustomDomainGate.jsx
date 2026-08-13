@@ -31,9 +31,30 @@ export default function CustomDomainGate({ children }) {
   });
 
   if (!isCustomDomainHost()) return children || null;
-  // No splash screen — render a blank light page that matches the storefront
-  // background so the transition to content is seamless.
-  if (isLoading) return <div className="min-h-screen" style={{ background: "#f8f8fa" }} />;
+
+  // Checkout must always run on the canonical domain (Stripe, session, etc).
+  // Redirect immediately without waiting for the domain resolver query.
+  if (pathname.startsWith("/checkout")) {
+    window.location.replace(canonicalUrl(`${pathname}${window.location.search}`));
+    return null;
+  }
+
+  // If the path is already at a storefront route (/host/:slug), render children
+  // immediately — don't block on the domain resolver query. The
+  // HostStorefrontLayout will fetch brand settings by slug directly.
+  if (pathname.startsWith("/host/")) return children || null;
+
+  // For "/" and other paths, we need the resolver query to know the slug.
+  // Show a minimal branded loading page (not blank white) while it fetches.
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#f8f8fa" }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: "#e5e7eb", borderTopColor: "#e91e8c" }} />
+        </div>
+      </div>
+    );
+  }
 
   const record = records[0];
   if (record?.active && record?.verification_status === "verified" && record?.business_slug) {

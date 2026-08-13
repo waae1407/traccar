@@ -8,11 +8,21 @@
     <meta name="description" content="uRide Car Rental Management System - Fleet, Bookings, Payments & Rent-to-Own" />
     <script>
       // On custom host storefront domains, set a light background immediately
-      // to prevent a dark/black flash before the SPA renders.
+      // to prevent a dark/black flash before the SPA renders, AND clear any
+      // stale auth token from localStorage. The storefront is a public page —
+      // a stale/expired token from a previous login causes 401s on every API
+      // call, which blocks rendering (white screen). The SDK's getAccessToken()
+      // falls back to localStorage, so we must clear it before any JS loads.
       (function() {
         var host = window.location.hostname.toLowerCase();
         var isCustom = !["localhost","127.0.0.1","uridehub.com","www.uridehub.com"].includes(host) && !host.includes("base44");
-        if (isCustom) document.documentElement.style.background = "#f8f8fa";
+        if (isCustom) {
+          document.documentElement.style.background = "#f8f8fa";
+          try {
+            localStorage.removeItem("base44_access_token");
+            sessionStorage.removeItem("base44_access_token");
+          } catch(e) {}
+        }
       })();
     </script>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
