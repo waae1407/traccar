@@ -113,8 +113,10 @@ export const AuthProvider = ({ children }) => {
 
   const checkUserAuth = async () => {
     try {
-      // Now check if the user is authenticated
-      setIsLoadingAuth(true);
+      // Resolve the current user without re-blocking the loading screen.
+      // (isLoadingAuth starts true and is set to false by checkAppState once
+      // the initial gate passes; we must not set it back to true here or
+      // background auth resolution on custom domains re-triggers the splash.)
       const currentUser = await base44.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);

@@ -31,7 +31,9 @@ export default function CustomDomainGate({ children }) {
   });
 
   if (!isCustomDomainHost()) return children || null;
-  if (isLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="h-8 w-8 border-4 border-gray-200 border-t-pink-500 rounded-full animate-spin" /></div>;
+  // No splash screen — render a blank light page that matches the storefront
+  // background so the transition to content is seamless.
+  if (isLoading) return <div className="min-h-screen" style={{ background: "#f8f8fa" }} />;
 
   const record = records[0];
   if (record?.active && record?.verification_status === "verified" && record?.business_slug) {
