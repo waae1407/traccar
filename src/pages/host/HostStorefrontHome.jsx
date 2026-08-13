@@ -182,8 +182,8 @@ export default function HostStorefrontHome() {
           if (isCustomDomainHost()) window.location.href = canonicalCheckoutUrl(params);
           else navigate(`/checkout?${params.toString()}`);
         }}
-        className="mx-5 mt-5 mb-5 rounded-3xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block min-h-[280px] shadow-xl"
-        style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${secondaryColor} 100%)`, boxShadow: `0 12px 40px ${brandColor}30, 0 4px 12px rgba(0,0,0,0.08)` }}>
+        className="mx-5 mt-5 mb-5 rounded-3xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block min-h-[260px] shadow-lg"
+        style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${secondaryColor} 100%)` }}>
         {coverImageUrl && <img src={coverImageUrl} alt="Storefront hero" className="absolute inset-0 h-full w-full object-cover" />}
         <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${brandColor}dd, ${secondaryColor}aa), linear-gradient(to top, rgba(0,0,0,.55), transparent 60%)` }} />
         <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full opacity-10 bg-white" />
@@ -253,8 +253,8 @@ export default function HostStorefrontHome() {
             { icon: Shield, label: "No Credit", sub: "Check" },
             { icon: Clock, label: "24/7", sub: "Support" },
           ].map((item, i) => (
-            <div key={i} className="rounded-2xl bg-white border border-gray-100 p-3 flex flex-col items-center text-center shadow-sm transition-shadow hover:shadow-md">
-              <div className="h-10 w-10 rounded-xl flex items-center justify-center mb-1.5"
+            <div key={i} className="rounded-2xl bg-white border border-gray-100 p-3 flex flex-col items-center text-center shadow-sm">
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center mb-1.5"
                 style={{ background: `linear-gradient(135deg, ${brandColor}15, ${secondaryColor}15)` }}>
                 <item.icon className="h-4 w-4" style={{ color: brandColor }} strokeWidth={2} />
               </div>
@@ -274,11 +274,11 @@ export default function HostStorefrontHome() {
             { icon: FileCheck, step: "2", title: "Quick Approval", desc: "No credit check — get approved fast" },
             { icon: Car, step: "3", title: "Drive Away", desc: "Pick up your car and hit the road" },
           ].map((item, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-2xl bg-white border border-gray-100 p-3.5 shadow-sm transition-shadow hover:shadow-md">
-              <div className="relative h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0"
+            <div key={i} className="flex items-center gap-3 rounded-2xl bg-white border border-gray-100 p-3 shadow-sm">
+              <div className="relative h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
                 <item.icon className="h-4 w-4 text-white" strokeWidth={2} />
-                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-white text-[9px] font-black flex items-center justify-center ring-1 ring-black/5" style={{ color: brandColor }}>{item.step}</span>
+                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-white text-[9px] font-black flex items-center justify-center" style={{ color: brandColor }}>{item.step}</span>
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold text-gray-900 leading-tight">{item.title}</p>

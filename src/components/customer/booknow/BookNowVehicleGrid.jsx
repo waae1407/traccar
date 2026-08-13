@@ -33,13 +33,11 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
   return (
     <div
       onClick={() => onSelect(v)}
-      className={`w-full text-left overflow-hidden active:scale-[0.98] transition-all duration-300 relative group cursor-pointer ${presentationStyle === "compact" ? "rounded-xl" : presentationStyle === "editorial" ? "rounded-[1.75rem]" : "rounded-2xl"}`}
+      className={`w-full text-left overflow-hidden active:scale-[0.97] transition-all duration-200 relative group cursor-pointer ${presentationStyle === "compact" ? "rounded-xl" : presentationStyle === "editorial" ? "rounded-[1.75rem]" : "rounded-2xl"}`}
       style={{
         background: "#fff",
         border: "1px solid #e5e7eb",
-        boxShadow: featured
-          ? "0 8px 28px hsl(338 90% 56% / 0.10), 0 2px 8px rgba(0,0,0,0.04)"
-          : "0 2px 8px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03)",
+        boxShadow: featured ? "0 4px 20px hsl(338 90% 56% / 0.12)" : "0 1px 4px rgba(0,0,0,0.06)",
       }}
     >
       {/* Image — object-contain shows the full photo without cropping */}
@@ -50,7 +48,7 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
           className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.45) 0%, transparent 35%)" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)" }} />
 
         {/* Top-left badges */}
         <div className="absolute top-3 left-3 flex gap-1.5">
@@ -89,11 +87,11 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
         </div>
 
         {/* Price */}
-        <div className="absolute bottom-3 left-3 flex items-baseline gap-0.5">
-          <span className="text-white text-2xl font-extrabold tracking-tight drop-shadow-sm" style={{ fontFamily: "var(--font-syne)" }}>
+        <div className="absolute bottom-3 left-3">
+          <span className="text-white text-xl font-bold" style={{ fontFamily: "var(--font-syne)" }}>
             ${v.weekly_rate || "—"}
           </span>
-          <span className="text-white/70 text-xs font-medium">/wk</span>
+          <span className="text-white/50 text-xs font-normal">/wk</span>
         </div>
 
         {/* Availability summary */}
@@ -106,7 +104,7 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
 
       {/* Info */}
       <div className="p-4">
-        <p className="font-bold text-gray-900 text-base tracking-tight truncate">{v.year} {v.make} {v.model}</p>
+        <p className="font-bold text-gray-900 text-base truncate">{v.year} {v.make} {v.model}</p>
         <div className="flex items-center gap-2 mt-1">
           <div className="flex items-center gap-0.5">
             <MapPin className="h-3 w-3 text-gray-400" />
@@ -240,7 +238,7 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
         </div>
       </div>
 
-      <div className={presentationStyle === "compact" ? "grid grid-cols-2 gap-3" : presentationStyle === "editorial" ? "grid grid-cols-1 gap-5" : "grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6"}>
+      <div className={presentationStyle === "compact" ? "grid grid-cols-2 gap-3" : presentationStyle === "editorial" ? "grid grid-cols-1 gap-5" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
         {vehicles.map((v, i) => (
           <VehicleCard
             key={v.id}

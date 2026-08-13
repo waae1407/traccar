@@ -51,15 +51,13 @@ export default function HostStorefrontLayout() {
 
   return (
     <div className="min-h-screen" style={{ fontFamily: "var(--font-inter)", background: "#f8f8fa", color: "#111827" }}>
-      {/* Desktop sidebar backdrop — subtle gradient on large screens */}
-      <div className="hidden lg:block fixed inset-0 pointer-events-none" style={{ background: "linear-gradient(105deg, #f8f8fa 0%, #f3f4f6 100%)" }} />
       {/* Top bar */}
       <header className="sticky top-0 z-40 px-5 h-16 flex items-center justify-between max-w-2xl mx-auto w-full"
-        style={{ background: "rgba(255,255,255,0.88)", backdropFilter: "blur(24px) saturate(180%)", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
         <div className="flex items-center gap-2.5">
           {logoUrl
-            ? <img src={logoUrl} alt={displayName} className="h-9 w-9 rounded-xl object-cover shadow-sm ring-1 ring-black/5" />
-            : <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm"
+            ? <img src={logoUrl} alt={displayName} className="h-8 w-8 rounded-xl object-cover shadow-sm" />
+            : <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm"
                 style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
                 {displayName.charAt(0)}
               </div>}
@@ -68,7 +66,7 @@ export default function HostStorefrontLayout() {
           </span>
         </div>
         <Link to={`${base}/account`}>
-          <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm ring-1 ring-black/5 transition-transform active:scale-95"
+          <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
             style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
             <User className="h-4 w-4" />
           </div>
@@ -106,7 +104,7 @@ export default function HostStorefrontLayout() {
 
       {/* Bottom nav — branded colors */}
       <nav className="fixed bottom-0 left-0 right-0 z-50"
-        style={{ background: "rgba(255,255,255,0.88)", backdropFilter: "blur(24px) saturate(180%)", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+        style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
         <div className="flex items-center justify-around h-[72px] w-full max-w-2xl mx-auto px-1">
           {tabs.map((tab) => {
             const isActive = location.pathname === tab.path ||
@@ -117,12 +115,12 @@ export default function HostStorefrontLayout() {
                 className="flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all min-w-[60px] relative"
                 style={{ color: isActive ? brandColor : "#9ca3af" }}>
                 {isActive && (
-                  <span className="absolute top-1.5 inset-x-3 h-1 rounded-full"
+                  <span className="absolute top-1 inset-x-2 h-0.5 rounded-full"
                     style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }} />
                 )}
-                <div className="h-9 w-9 rounded-xl flex items-center justify-center transition-all"
-                  style={{ background: isActive ? `${brandColor}15` : "transparent" }}>
-                  <tab.icon style={{ height: 20, width: 20, color: isActive ? brandColor : "#9ca3af" }}
+                <div className="h-8 w-8 rounded-xl flex items-center justify-center transition-all"
+                  style={{ background: isActive ? `${brandColor}18` : "transparent" }}>
+                  <tab.icon style={{ height: 18, width: 18, color: isActive ? brandColor : "#9ca3af" }}
                     strokeWidth={isActive ? 2.5 : 1.8} />
                 </div>
                 <span className="text-[10px] font-bold tracking-wide leading-none">{tab.label}</span>
