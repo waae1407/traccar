@@ -6,6 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>uRide Car Rental</title>
     <meta name="description" content="uRide Car Rental Management System - Fleet, Bookings, Payments & Rent-to-Own" />
+    <script>
+      // On custom host storefront domains, set a light background immediately
+      // to prevent a dark/black flash before the SPA renders.
+      (function() {
+        var host = window.location.hostname.toLowerCase();
+        var isCustom = !["localhost","127.0.0.1","uridehub.com","www.uridehub.com"].includes(host) && !host.includes("base44");
+        if (isCustom) document.documentElement.style.background = "#f8f8fa";
+      })();
+    </script>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];

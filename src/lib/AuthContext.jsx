@@ -20,38 +20,53 @@ export const AuthProvider = ({ children }) => {
 
   const checkAppState = async () => {
     try {
+      // On custom host storefront domains, unblock rendering immediately —
+      // the storefront is a public page and doesn't need to wait for auth
+      // or public-settings fetches. Both resolve in the background.
+      const hostname = window.location.hostname.toLowerCase();
+      const isCustomDomain = !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(hostname)
+        && !hostname.includes("base44");
+
+      if (isCustomDomain) {
+        setIsLoadingPublicSettings(false);
+        setIsLoadingAuth(false);
+        setAuthError(null);
+        // Fire-and-forget: resolve user state in the background
+        if (appParams.token) checkUserAuth();
+        // Fetch public settings in the background (non-blocking)
+        const appClient = createAxiosClient({
+          baseURL: `/api/apps/public`,
+          headers: { 'X-App-Id': appParams.appId },
+          token: appParams.token,
+          interceptResponses: true
+        });
+        appClient.get(`/prod/public-settings/by-id/${appParams.appId}`)
+          .then(setAppPublicSettings)
+          .catch(() => {});
+        return;
+      }
+
       setIsLoadingPublicSettings(true);
       setAuthError(null);
-      
-      // First, check app public settings (with token if available)
-      // This will tell us if auth is required, user not registered, etc.
+
       const appClient = createAxiosClient({
         baseURL: `/api/apps/public`,
         headers: {
           'X-App-Id': appParams.appId
         },
-        token: appParams.token, // Include token if available
+        token: appParams.token,
         interceptResponses: true
       });
-      
+
       try {
         const publicSettings = await appClient.get(`/prod/public-settings/by-id/${appParams.appId}`);
         setAppPublicSettings(publicSettings);
-        
-        // On custom host storefront domains, don't block rendering on the auth
-        // check — the storefront is a public page. Resolve auth in the background
-        // so the page renders immediately (fixes first-visit black screen).
-        const hostname = window.location.hostname.toLowerCase();
-        const isCustomDomain = !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(hostname)
-          && !hostname.includes("base44");
 
-        if (appParams.token && !isCustomDomain) {
+        if (appParams.token) {
           await checkUserAuth();
         } else {
           setIsLoadingAuth(false);
           setIsAuthenticated(false);
-          // Fire-and-forget on custom domains so user state still resolves
-          if (appParams.token && isCustomDomain) checkUserAuth();
         }
         setIsLoadingPublicSettings(false);
       } catch (appError) {

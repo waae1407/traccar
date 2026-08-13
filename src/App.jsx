@@ -170,8 +170,8 @@ const AuthenticatedApp = () => {
         style={isCustomDomain ? { background: "#f8f8fa" } : undefined}>
         <div className="flex flex-col items-center gap-3">
           <img src={LOGO_ICON} alt="uRide" className="h-12 w-12 rounded-full animate-pulse" />
-          <div className="w-8 h-8 border-4 rounded-full animate-spin"
-            style={{ borderColor: isCustomDomain ? "#e5e7eb" : undefined, borderTopColor: isCustomDomain ? "#e91e8c" : undefined }} />
+          <div className={`w-8 h-8 border-4 rounded-full animate-spin ${isCustomDomain ? "" : "border-muted border-t-primary"}`}
+            style={isCustomDomain ? { borderColor: "#e5e7eb", borderTopColor: "#e91e8c" } : undefined} />
         </div>
       </div>
     );
