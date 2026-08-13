@@ -74,6 +74,14 @@ export default function SessionContinuityManager() {
 
   useEffect(() => {
     const handleAuthFailure = (event) => {
+      // On custom host storefront domains, never redirect to login on a 401.
+      // The storefront is a public page — a stale token from another domain
+      // can cause a 401 on me() and we must not bounce the visitor to login.
+      const host = window.location.hostname.toLowerCase();
+      const isCustomDomain = !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(host)
+        && !host.includes("base44");
+      if (isCustomDomain) return;
+
       const error = event?.reason || event?.detail || event;
       const status = error?.status || error?.response?.status;
       const reason = error?.data?.extra_data?.reason || error?.response?.data?.extra_data?.reason;

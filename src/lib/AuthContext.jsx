@@ -31,9 +31,12 @@ export const AuthProvider = ({ children }) => {
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
         setAuthError(null);
-        // Fire-and-forget: resolve user state in the background
-        if (appParams.token) checkUserAuth();
-        // Fetch public settings in the background (non-blocking)
+        // Do NOT call checkUserAuth() on custom domains. The storefront is a
+        // public page — calling base44.auth.me() with a stale token from
+        // another domain returns 401, which can trigger the global
+        // unhandledrejection listener in SessionContinuityManager and redirect
+        // to the login page (causing a white screen). User state is simply null.
+        // Fetch public settings in the background (non-blocking, no auth needed)
         const appClient = createAxiosClient({
           baseURL: `/api/apps/public`,
           headers: { 'X-App-Id': appParams.appId },
