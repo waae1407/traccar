@@ -56,14 +56,16 @@ export default function HostStorefrontLayout() {
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
         <div className="flex items-center gap-2.5">
           {logoUrl
-            ? <img src={logoUrl} alt={displayName} className="h-8 w-8 rounded-xl object-cover shadow-sm" />
-            : <div className="h-8 w-8 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm"
-                style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
-                {displayName.charAt(0)}
-              </div>}
-          <span className="font-black text-gray-900 text-lg tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>
-            {displayName}
-          </span>
+            ? <img src={logoUrl} alt={displayName} className="h-10 w-10 rounded-xl object-cover shadow-md ring-1 ring-black/5" />
+            : <>
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm"
+                    style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
+                  {displayName.charAt(0)}
+                </div>
+                <span className="font-black text-gray-900 text-lg tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>
+                  {displayName}
+                </span>
+              </>}
         </div>
         <Link to={`${base}/account`}>
           <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
