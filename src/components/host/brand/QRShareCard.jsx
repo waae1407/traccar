@@ -17,25 +17,35 @@ export default function QRShareCard({ slug, hostId }) {
   });
   const customDomain = domains[0];
 
-  const protocol = "https://";
-  const url = customDomain?.domain
-    ? `${protocol}${customDomain.domain.replace(/^https?:\/\//, "")}`
-    : `${window.location.origin}/host/${slug}`;
+  // The share URL goes through the server-side preview endpoint so that
+  // messaging-app crawlers (which don't execute JS) see the host's logo and
+  // business name in the link preview. Human visitors are redirected to the
+  // live storefront by the endpoint.
+  const origin = window.location.origin;
+  const previewEndpoint = `${origin}/api/functions/getStorefrontSharePreview`;
+  const shareUrl = customDomain?.domain
+    ? `${previewEndpoint}?domain=${encodeURIComponent(customDomain.domain)}&slug=${encodeURIComponent(slug)}`
+    : `${previewEndpoint}?slug=${encodeURIComponent(slug)}`;
+
+  // The direct storefront URL (for QR code — humans scan and land directly)
+  const directUrl = customDomain?.domain
+    ? `https://${customDomain.domain.replace(/^https?:\/\//, "")}`
+    : `${origin}/host/${slug}`;
 
   useEffect(() => {
-    if (canvasRef.current && url) {
-      QRCode.toCanvas(canvasRef.current, url, { width: 120, margin: 1, color: { dark: "#0f0c29", light: "#ffffff" } });
+    if (canvasRef.current && directUrl) {
+      QRCode.toCanvas(canvasRef.current, directUrl, { width: 120, margin: 1, color: { dark: "#0f0c29", light: "#ffffff" } });
     }
-  }, [url]);
+  }, [directUrl]);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShare = () => {
-    if (navigator.share) navigator.share({ title: "My Rental Store", url });
+    if (navigator.share) navigator.share({ title: "My Rental Store", url: shareUrl });
     else handleCopy();
   };
 
@@ -62,10 +72,11 @@ export default function QRShareCard({ slug, hostId }) {
       <div className="flex items-center gap-4">
         <canvas ref={canvasRef} onClick={downloadQR} className="rounded-xl cursor-pointer flex-shrink-0" title="Click to download QR" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-gray-400 mb-1.5 font-medium">Your storefront URL</p>
+          <p className="text-xs text-gray-400 mb-1.5 font-medium">Your share link</p>
           <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 mb-3">
-            <p className="text-xs font-mono text-gray-600 truncate">{url}</p>
+            <p className="text-xs font-mono text-gray-600 truncate">{shareUrl}</p>
           </div>
+          <p className="text-[10px] text-gray-400 mb-3">Uses your logo in link previews on iMessage, WhatsApp &amp; social media.</p>
           <div className="flex gap-2">
             <button onClick={handleCopy} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold border-2 border-gray-200 text-gray-600 hover:border-pink-300 hover:text-pink-600 transition-all">
               {copied ? <><Check className="h-3.5 w-3.5 text-emerald-500" /><span className="text-emerald-600">Copied!</span></> : <><Copy className="h-3.5 w-3.5" />Copy</>}
