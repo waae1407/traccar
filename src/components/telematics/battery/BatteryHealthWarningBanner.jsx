@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { Battery, ArrowUpRight } from "lucide-react";
 
 /**
- * Dashboard warning banner showing vehicles with battery voltage < 12.7V
+ * Dashboard warning banner showing vehicles with battery voltage ≤ 12.0V
  * or non-healthy severity. Renders with remediation instructions for both
  * admin (dark theme) and host (light theme) dashboards.
  */
@@ -20,11 +20,11 @@ export default function BatteryHealthWarningBanner({ role = "admin", hostId }) {
     refetchInterval: 60_000,
   });
 
-  // Vehicles needing attention: voltage < 12.7 or severity != healthy
+  // Vehicles needing attention: voltage ≤ 12.0 or severity != healthy
   const needsAttention = scorecards.filter(
     (s) =>
       (s.severity && s.severity !== "healthy") ||
-      (s.resting_voltage != null && s.resting_voltage < 12.7 && s.resting_voltage > 0)
+      (s.resting_voltage != null && s.resting_voltage <= 12.0 && s.resting_voltage > 0)
   );
 
   if (needsAttention.length === 0) return null;

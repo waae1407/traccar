@@ -415,12 +415,13 @@ Deno.serve(async (req) => {
       }
 
       // ── Auto-remediation ──
+      // Trigger ONLY when voltage ≤ 12.0V (ALERT_VOLTAGE), not at 12.7V.
       let autoRemediated = existing?.auto_remediated || false;
       let autoRemediatedAt = existing?.auto_remediated_at || null;
       let powerSaveActive = existing?.power_save_active || false;
       let shouldAutoRemediate = false;
 
-      if ((severity === 'warning' || severity === 'severe' || severity === 'critical') && !autoRemediated) {
+      if (restingVoltage <= ALERT_VOLTAGE && !autoRemediated) {
         const cooldownExpired = !autoRemediatedAt || (now.getTime() - new Date(autoRemediatedAt).getTime() > AUTO_REMEDIATION_COOLDOWN_MS);
         if (cooldownExpired) {
           shouldAutoRemediate = true;
@@ -507,6 +508,19 @@ Deno.serve(async (req) => {
       // ── Relay state & start status ──
       const lastRelayCommand = await getLastRelayCommand(base44, device.id);
       const startStatus = computeStartStatus(device, lastRelayCommand, restingVoltage);
+
+      // Sync power_save_active from the last detected relay command.
+      // If a power-save (019,0) was sent (manually or by auto-remediation), the
+      // relay is OPEN while parked → power_save_active = true.
+      // If power-save-off (019,1), restore-starter (007,1,0), or starter-kill
+      // (007,1,1) was the last command, power-save is no longer active.
+      if (lastRelayCommand) {
+        if (lastRelayCommand.command === 'power_save') {
+          powerSaveActive = true;
+        } else if (['power_save_off', 'restore_starter', 'starter_kill'].includes(lastRelayCommand.command)) {
+          powerSaveActive = false;
+        }
+      }
 
       // ── Upsert scorecard ──
       await upsertScorecard(base44, {

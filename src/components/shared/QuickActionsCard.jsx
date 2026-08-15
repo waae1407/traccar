@@ -55,7 +55,7 @@ export default function QuickActionsCard({ role = "admin", onOpenDrawer }) {
   const batteryWarningCount = scorecards.filter(
     (s) =>
       (s.severity && s.severity !== "healthy") ||
-      (s.resting_voltage != null && s.resting_voltage < 12.7 && s.resting_voltage > 0)
+      (s.resting_voltage != null && s.resting_voltage <= 12.0 && s.resting_voltage > 0)
   ).length;
 
   return (
