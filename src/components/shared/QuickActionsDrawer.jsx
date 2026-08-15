@@ -59,6 +59,7 @@ const HOST_SECTIONS = [
     label: "Fleet",
     color: "text-blue-600",
     items: [
+      { label: "My Vehicles", icon: Car, path: "/host/vehicles" },
       { label: "Upload Compliance Doc", icon: Shield, path: "/host/compliance" },
       { label: "Send GPS Command", icon: Zap, path: "/host/vehicle-command-center" },
       { label: "Find Installer", icon: MapPin, path: "/host/installers" },

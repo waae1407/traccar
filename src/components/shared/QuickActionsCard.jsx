@@ -15,7 +15,8 @@ const ADMIN_ACTIONS = [
 ];
 
 const HOST_ACTIONS = [
-  { label: "Add Vehicle", icon: Car, path: "/host/vehicles/setup", color: "text-blue-600", bg: "bg-blue-50" },
+  { label: "My Vehicles", icon: Car, path: "/host/vehicles", color: "text-blue-600", bg: "bg-blue-50" },
+  { label: "Add Vehicle", icon: Car, path: "/host/vehicles/setup", color: "text-indigo-600", bg: "bg-indigo-50" },
   { label: "Add Expense", icon: DollarSign, path: "/host/expenses", color: "text-green-600", bg: "bg-green-50" },
   { label: "Add Maintenance", icon: Wrench, path: "/host/maintenance", color: "text-orange-600", bg: "bg-orange-50" },
   { label: "Compliance Doc", icon: Shield, path: "/host/compliance", color: "text-yellow-600", bg: "bg-yellow-50" },
