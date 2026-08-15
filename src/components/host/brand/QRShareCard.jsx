@@ -1,17 +1,32 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Copy, Check, Share2, QrCode } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { Copy, Check, Share2, QrCode, Globe } from "lucide-react";
 import QRCode from "qrcode";
 
-export default function QRShareCard({ slug }) {
+export default function QRShareCard({ slug, hostId }) {
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
-  const url = `${window.location.origin}/host/${slug}`;
+
+  // Look up the host's verified, active custom domain. When one exists we
+  // share the branded URL instead of the internal uridehub.com path.
+  const { data: domains = [] } = useQuery({
+    queryKey: ["qr-share-custom-domain", hostId],
+    queryFn: () => base44.entities.HostCustomDomain.filter({ host_id: hostId, active: true, verification_status: "verified" }),
+    enabled: !!hostId,
+  });
+  const customDomain = domains[0];
+
+  const protocol = "https://";
+  const url = customDomain?.domain
+    ? `${protocol}${customDomain.domain.replace(/^https?:\/\//, "")}`
+    : `${window.location.origin}/host/${slug}`;
 
   useEffect(() => {
-    if (canvasRef.current && slug) {
+    if (canvasRef.current && url) {
       QRCode.toCanvas(canvasRef.current, url, { width: 120, margin: 1, color: { dark: "#0f0c29", light: "#ffffff" } });
     }
-  }, [slug, url]);
+  }, [url]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(url);
@@ -38,6 +53,11 @@ export default function QRShareCard({ slug }) {
       <div className="flex items-center gap-2 mb-3">
         <QrCode className="h-4 w-4 text-pink-500" />
         <p className="font-bold text-gray-900 text-sm">Share Your Store</p>
+        {customDomain?.domain && (
+          <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-emerald-700">
+            <Globe className="h-3 w-3" /> Custom domain
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-4">
         <canvas ref={canvasRef} onClick={downloadQR} className="rounded-xl cursor-pointer flex-shrink-0" title="Click to download QR" />

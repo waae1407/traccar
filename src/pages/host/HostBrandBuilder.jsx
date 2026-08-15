@@ -587,7 +587,7 @@ export default function HostBrandBuilder() {
             </div>
           </div>
 
-          {isLive && <QRShareCard slug={form.business_slug} />}
+          {isLive && <QRShareCard slug={form.business_slug} hostId={host?.id} />}
 
           <HostCustomDomainManager host={host} brand={form} />
         </div>
