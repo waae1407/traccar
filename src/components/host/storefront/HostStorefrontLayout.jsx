@@ -1,10 +1,23 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Outlet, Link, useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Home, CalendarDays, Activity, HelpCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Inject/update a <meta> or <link> tag in <head>. When the tag already exists
+// (by attrKey/attrValue), update its content; otherwise create it.
+function upsertHeadTag(tagName, attrKey, attrValue, contentKey, content) {
+  let el = document.head.querySelector(`${tagName}[${attrKey}="${attrValue}"]`);
+  if (!el) {
+    el = document.createElement(tagName);
+    el.setAttribute(attrKey, attrValue);
+    document.head.appendChild(el);
+  }
+  el.setAttribute(contentKey, content);
+  return el;
+}
 
 export default function HostStorefrontLayout() {
   const { businessSlug } = useParams();
@@ -35,6 +48,23 @@ export default function HostStorefrontLayout() {
   const brandHsl = brandColor.startsWith("#") && brandColor.length === 7 ? hexToHslStr(brandColor) : "338 90% 56%";
   const logoUrl = brand?.logo_url;
   const displayName = brand?.business_display_name || "uRide";
+
+  // Dynamically inject the host's logo as the favicon and Open Graph share
+  // preview image so that when the storefront URL is shared on social media
+  // or messaging apps, the host's brand appears instead of the default
+  // uRideHub logo from index.html.
+  useEffect(() => {
+    if (!logoUrl) return;
+    upsertHeadTag("link", "rel", "icon", "href", logoUrl);
+    upsertHeadTag("link", "rel", "apple-touch-icon", "href", logoUrl);
+    upsertHeadTag("meta", "property", "og:image", "content", logoUrl);
+    upsertHeadTag("meta", "property", "og:title", "content", displayName);
+    upsertHeadTag("meta", "property", "og:description", "content", brand?.hero_subtitle || brand?.about_text || `Book your next ride with ${displayName}`);
+    upsertHeadTag("meta", "property", "og:url", "content", window.location.href);
+    upsertHeadTag("meta", "name", "twitter:card", "content", "summary_large_image");
+    upsertHeadTag("meta", "name", "twitter:image", "content", logoUrl);
+    upsertHeadTag("meta", "name", "twitter:title", "content", displayName);
+  }, [logoUrl, displayName, brand?.hero_subtitle, brand?.about_text]);
 
   const base = `/host/${businessSlug}`;
 
