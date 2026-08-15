@@ -54,11 +54,12 @@ export default function HostStorefrontLayout() {
       {/* Top bar */}
       <header className="sticky top-0 z-40 px-5 h-16 flex items-center justify-between max-w-2xl mx-auto w-full"
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-        <div className="flex items-center gap-2.5">
+        <Link to={base} className="flex items-center gap-2.5 group active:scale-95 transition-transform">
           {logoUrl
-            ? <img src={logoUrl} alt={displayName} className="h-10 w-10 rounded-xl object-cover shadow-md ring-1 ring-black/5" />
+            ? <img src={logoUrl} alt={displayName}
+                className="h-12 w-12 rounded-full object-contain shadow-md ring-1 ring-black/5 bg-white p-0.5 group-hover:shadow-lg transition-shadow" />
             : <>
-                <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-sm"
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-sm"
                     style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
                   {displayName.charAt(0)}
                 </div>
@@ -66,7 +67,7 @@ export default function HostStorefrontLayout() {
                   {displayName}
                 </span>
               </>}
-        </div>
+        </Link>
         <Link to={`${base}/account`}>
           <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
             style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
