@@ -12,6 +12,7 @@ import PaymentOperationalAlertPanel from "@/components/payments/PaymentOperation
 import FleetSnapshotCard from "@/components/dashboard/FleetSnapshotCard";
 import QuickActionsCard from "@/components/shared/QuickActionsCard";
 import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
+import BatteryHealthWarningBanner from "@/components/telematics/battery/BatteryHealthWarningBanner";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid
@@ -201,6 +202,8 @@ export default function Dashboard() {
     <div className="space-y-6 animate-fade-in-up">
       <QuickActionsCard role="admin" onOpenDrawer={() => setQaOpen(true)} />
       <QuickActionsDrawer open={qaOpen} onClose={() => setQaOpen(false)} role="admin" />
+
+      <BatteryHealthWarningBanner role="admin" />
 
       <PaymentOperationalAlertPanel scope="admin" limit={3} />
 

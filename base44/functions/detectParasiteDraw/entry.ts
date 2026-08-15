@@ -27,7 +27,10 @@ const RESTORE_VOLTAGE_THRESHOLD = 11.2;
 
 // ── Thresholds ──
 const DRAIN = { healthy: 0.2, warning: 0.5, severe: 1.0 };
-const VOLTAGE = { healthy: 12.2, warning: 11.8, severe: 11.5, critical: 10.8 };
+const VOLTAGE = { healthy: 12.7, warning: 12.0, severe: 11.5, critical: 10.8 };
+// Send alert email to host+admin when voltage drops to this level
+const ALERT_VOLTAGE = 12.0;
+const REMEDIATION_NOTE = 'Please start the vehicle and allow it to run for at least 30 minutes to recharge the battery.';
 
 // ── MT20 packet building (replicated from bulkSendNoranRelayPowerSave) ──
 function sanitizeId(v = '') { return String(v).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
@@ -417,7 +420,7 @@ Deno.serve(async (req) => {
       let powerSaveActive = existing?.power_save_active || false;
       let shouldAutoRemediate = false;
 
-      if ((severity === 'severe' || severity === 'critical') && !autoRemediated) {
+      if ((severity === 'warning' || severity === 'severe' || severity === 'critical') && !autoRemediated) {
         const cooldownExpired = !autoRemediatedAt || (now.getTime() - new Date(autoRemediatedAt).getTime() > AUTO_REMEDIATION_COOLDOWN_MS);
         if (cooldownExpired) {
           shouldAutoRemediate = true;
@@ -458,17 +461,18 @@ Deno.serve(async (req) => {
 
       // ── Notifications ──
       let lastNotificationAt = existing?.last_notification_at || null;
-      const shouldNotify = (severity === 'severe' || severity === 'critical') &&
+      const shouldNotify = (restingVoltage <= ALERT_VOLTAGE || severity === 'severe' || severity === 'critical') &&
         (!lastNotificationAt || (now.getTime() - new Date(lastNotificationAt).getTime() > NOTIFICATION_COOLDOWN_MS));
 
       if (shouldNotify && host) {
-        const severityLabel = severity === 'critical' ? 'CRITICAL' : 'SEVERE';
+        const severityLabel = severity === 'critical' ? 'CRITICAL' : severity === 'severe' ? 'SEVERE' : 'WARNING';
         const title = `🔋 ${severityLabel} Battery Drain — ${vehicleName}`;
         const message = `Parasitic drain detected on ${vehicleName} (${device.unique_id}).\n\n` +
           `Voltage: ${restingVoltage.toFixed(1)}V\n` +
           `Drain rate: ${drainRate.toFixed(2)}V/hr\n` +
           (projectedDead !== null ? `Battery dead in ~${projectedDead.toFixed(1)} hours\n` : '') +
-          (autoRemediated ? `\n✅ Power-save auto-applied — relay released.` : '') +
+          (autoRemediated ? `\n✅ Power-save auto-applied — relay released.\n` : '') +
+          `\n⚠️ ${REMEDIATION_NOTE}\n` +
           `\nView details: ${APP_URL}${device.host_id ? '/host/telematics' : '/admin/battery-health'}`;
 
         await base44.asServiceRole.functions.invoke('routePlatformNotification', {

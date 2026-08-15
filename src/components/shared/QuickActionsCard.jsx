@@ -1,5 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { Car, DollarSign, Wrench, Shield, Satellite, CalendarDays, BarChart3, Home, MapPin, Zap, UserPlus, ExternalLink, Battery } from "lucide-react";
 
 const ADMIN_ACTIONS = [
@@ -30,6 +33,30 @@ const HOST_ACTIONS = [
 export default function QuickActionsCard({ role = "admin", onOpenDrawer }) {
   const isAdmin = role === "admin";
   const actions = isAdmin ? ADMIN_ACTIONS : HOST_ACTIONS;
+  const { user } = useAuth();
+
+  // Fetch battery health scorecards to show a warning badge on the Battery Health icon
+  const { data: hosts = [] } = useQuery({
+    queryKey: ["qa-host", user?.email],
+    queryFn: () => base44.entities.Host.filter({ email: user?.email }),
+    enabled: !!user?.email && role === "host",
+  });
+  const hostId = hosts[0]?.id;
+
+  const { data: scorecards = [] } = useQuery({
+    queryKey: ["qa-battery-warnings", role, hostId],
+    queryFn: () =>
+      role === "admin"
+        ? base44.entities.BatteryHealthScorecard.list("-updated_date", 200)
+        : base44.entities.BatteryHealthScorecard.filter({ host_id: hostId }),
+    enabled: role === "admin" || !!hostId,
+    refetchInterval: 60_000,
+  });
+  const batteryWarningCount = scorecards.filter(
+    (s) =>
+      (s.severity && s.severity !== "healthy") ||
+      (s.resting_voltage != null && s.resting_voltage < 12.7 && s.resting_voltage > 0)
+  ).length;
 
   return (
     <div className={`rounded-2xl border p-4 ${isAdmin ? "border-white/[0.07]" : "border-gray-100 bg-white shadow-sm"}`}
@@ -50,8 +77,13 @@ export default function QuickActionsCard({ role = "admin", onOpenDrawer }) {
         {actions.map(action => (
           <Link key={action.path} to={action.path}
             className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all group text-center ${isAdmin ? "hover:bg-white/[0.06] active:bg-white/[0.09]" : "hover:bg-gray-50 active:bg-gray-100"}`}>
-            <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${action.bg}`}>
+            <div className={`h-9 w-9 rounded-xl flex items-center justify-center relative ${action.bg}`}>
               <action.icon className={`h-4 w-4 ${action.color}`} />
+              {action.label === "Battery Health" && batteryWarningCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border border-white/20">
+                  {batteryWarningCount}
+                </span>
+              )}
             </div>
             <span className={`text-[10px] font-medium leading-tight text-center ${isAdmin ? "text-white/50 group-hover:text-white/80" : "text-gray-600 group-hover:text-gray-900"} transition-colors`}>
               {action.label}

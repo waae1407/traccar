@@ -14,6 +14,7 @@ import HostSmartReadinessPanel from "@/components/host/HostSmartReadinessPanel";
 import QuickActionsCard from "@/components/shared/QuickActionsCard";
 import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
 import FleetProtectionWidget from "@/components/gps/FleetProtectionWidget";
+import BatteryHealthWarningBanner from "@/components/telematics/battery/BatteryHealthWarningBanner";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -113,6 +114,8 @@ export default function HostDashboard() {
           </div>
         </div>
       </div>
+
+      <BatteryHealthWarningBanner role="host" hostId={host?.id} />
 
       <PaymentOperationalAlertPanel scope="host" hostId={host.id} limit={3} />
 
