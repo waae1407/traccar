@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Car, Users, DollarSign, Wrench, Shield, Satellite, CalendarDays, BarChart3, Search, Home, ExternalLink, Zap, UserPlus, MapPin } from "lucide-react";
+import { X, Car, Users, DollarSign, Wrench, Shield, Satellite, CalendarDays, BarChart3, Search, Home, ExternalLink, Zap, UserPlus, MapPin, Battery } from "lucide-react";
 
 const ADMIN_SECTIONS = [
   {
@@ -62,6 +62,7 @@ const HOST_SECTIONS = [
       { label: "My Vehicles", icon: Car, path: "/host/vehicles" },
       { label: "Upload Compliance Doc", icon: Shield, path: "/host/compliance" },
       { label: "Send GPS Command", icon: Zap, path: "/host/vehicle-command-center" },
+      { label: "Battery Health", icon: Battery, path: "/host/battery-health" },
       { label: "Find Installer", icon: MapPin, path: "/host/installers" },
       { label: "GPS / Telematics", icon: Satellite, path: "/host/telematics" },
     ],
