@@ -154,7 +154,7 @@ function healthLabel(score) {
 function classifySeverity(restingVoltage, drainRate, projectedDead) {
   if (restingVoltage < VOLTAGE.critical || (projectedDead !== null && projectedDead < 4)) return 'critical';
   if (drainRate > DRAIN.severe || restingVoltage < VOLTAGE.severe) return 'severe';
-  if (drainRate > DRAIN.warning || restingVoltage < VOLTAGE.healthy) return 'warning';
+  if (drainRate > DRAIN.warning || restingVoltage <= VOLTAGE.warning) return 'warning';
   return 'healthy';
 }
 
