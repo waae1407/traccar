@@ -28,6 +28,8 @@ const RESTORE_VOLTAGE_THRESHOLD = 11.2;
 // ── Thresholds ──
 const DRAIN = { healthy: 0.2, warning: 0.5, severe: 1.0 };
 const VOLTAGE = { healthy: 12.7, warning: 12.0, severe: 11.5, critical: 10.8 };
+// Auto-remediation (auto-send power-save) triggers below this voltage.
+const REMEDIATION_VOLTAGE = 12.7;
 // Send alert email to host+admin when voltage drops to this level
 const ALERT_VOLTAGE = 12.0;
 const REMEDIATION_NOTE = 'Please start the vehicle and allow it to run for at least 30 minutes to recharge the battery.';
@@ -415,13 +417,13 @@ Deno.serve(async (req) => {
       }
 
       // ── Auto-remediation ──
-      // Trigger ONLY when voltage ≤ 12.0V (ALERT_VOLTAGE), not at 12.7V.
+      // Trigger when voltage < 12.7V (REMEDIATION_VOLTAGE).
       let autoRemediated = existing?.auto_remediated || false;
       let autoRemediatedAt = existing?.auto_remediated_at || null;
       let powerSaveActive = existing?.power_save_active || false;
       let shouldAutoRemediate = false;
 
-      if (restingVoltage <= ALERT_VOLTAGE && !autoRemediated) {
+      if (restingVoltage < REMEDIATION_VOLTAGE && !autoRemediated) {
         const cooldownExpired = !autoRemediatedAt || (now.getTime() - new Date(autoRemediatedAt).getTime() > AUTO_REMEDIATION_COOLDOWN_MS);
         if (cooldownExpired) {
           shouldAutoRemediate = true;
