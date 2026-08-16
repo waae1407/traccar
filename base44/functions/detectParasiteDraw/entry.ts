@@ -13,7 +13,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const APP_URL = 'https://uridehub.com';
-const ANALYSIS_WINDOW_HOURS = 3;       // Look back 3 hours for a robust trend
+const ANALYSIS_WINDOW_HOURS = 24;      // Cap lookback at 24h (adaptive: uses parked_at → now)
 const SURFACE_CHARGE_SETTLE_MS = 30 * 60_000;  // Surface charge takes 30+ min to bleed off after parking
 const MIN_SETTLED_DATA_MS = 30 * 60_000;       // Need at least 30 min of settled data to calculate drain
 const DEAD_VOLTAGE = 10.5;
@@ -124,6 +124,31 @@ function median(arr) {
   const sorted = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+// ── Linear regression (least-squares fit) for drain rate ──
+// Fits voltage vs time across ALL settled samples. The slope IS the drain rate.
+// Far more reliable than two-point comparison, especially for slow parasitic
+// draws where the total delta over the window is near sensor resolution (0.1V).
+// More parked time = more points = more confident slope.
+function linearRegression(points) {
+  const n = points.length;
+  if (n < 2) return null;
+  const sumT = points.reduce((s, p) => s + p.t, 0);
+  const sumV = points.reduce((s, p) => s + p.v, 0);
+  const sumTT = points.reduce((s, p) => s + p.t * p.t, 0);
+  const sumTV = points.reduce((s, p) => s + p.t * p.v, 0);
+  const meanT = sumT / n;
+  const meanV = sumV / n;
+  const denom = sumTT - n * meanT * meanT;
+  if (denom === 0) return null; // zero variance in time = flat
+  const slope = (sumTV - n * meanT * meanV) / denom;   // V per ms
+  const intercept = meanV - slope * meanT;
+  // R² — confidence of the fit (1 = perfect, 0 = no correlation)
+  const ssTot = points.reduce((s, p) => s + (p.v - meanV) ** 2, 0);
+  const ssRes = points.reduce((s, p) => s + (p.v - (intercept + slope * p.t)) ** 2, 0);
+  const r2 = ssTot === 0 ? 1 : 1 - ssRes / ssTot;
+  return { slope, intercept, r2 };
 }
 
 // ── Battery health score (0-100) ──
@@ -265,7 +290,7 @@ Deno.serve(async (req) => {
     if (!auth.ok) return auth.response;
 
     const now = new Date();
-    const since = new Date(now.getTime() - ANALYSIS_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
+    const capMs = now.getTime() - ANALYSIS_WINDOW_HOURS * 60 * 60 * 1000;
     const results = { analyzed: 0, scorecards_updated: 0, severe: 0, critical: 0, auto_remediated: 0, remediation_verified: 0, notifications_sent: 0 };
 
     // Fetch all active telematics devices (Noran MT20 only — that's what has voltage data)
@@ -303,10 +328,16 @@ Deno.serve(async (req) => {
       const hostEmail = host?.email || '';
 
       // Fetch events for this device in the analysis window
+      // Adaptive window: start from parked_at if available, capped at 24h.
+      // Uses all data since the vehicle parked — more points = more reliable
+      // regression slope, especially for slow parasitic draws.
+      const parkedAtMs = device.parked_at ? new Date(device.parked_at).getTime() : null;
+      const windowStartMs = parkedAtMs ? Math.max(parkedAtMs, capMs) : capMs;
+      const windowStartIso = new Date(windowStartMs).toISOString();
       const events = await base44.asServiceRole.entities.TelematicsEvent.filter({
         telematics_device_id: device.id,
-        created_at: { $gte: since },
-      }, 'created_at', 200).catch(() => []);
+        created_at: { $gte: windowStartIso },
+      }, 'created_at', 500).catch(() => []);
 
       // Extract voltage samples
       const samples = events
@@ -361,21 +392,24 @@ Deno.serve(async (req) => {
       let drainRate = 0;
 
       if (settledSamples.length >= 2 && settledSpan >= MIN_SETTLED_DATA_MS) {
-        // Robust baseline: median of first 10 min of settled data (resists transient spikes)
-        // Robust current: median of last 10 min of settled data
-        const first10MinEnd = settledSamples[0].t + 10 * 60_000;
-        const last10MinStart = settledSamples[settledSamples.length - 1].t - 10 * 60_000;
-        const baselineSamples = settledSamples.filter(s => s.t <= first10MinEnd);
-        const currentSamples = settledSamples.filter(s => s.t >= last10MinStart);
-        const baselineV = baselineSamples.length > 0 ? median(baselineSamples.map(s => s.v)) : settledSamples[0].v;
-        const currentV = currentSamples.length > 0 ? median(currentSamples.map(s => s.v)) : settledSamples[settledSamples.length - 1].v;
-
-        restingVoltage = currentV;
-        const hoursElapsed = (currentSamples.length > 0 ? currentSamples[currentSamples.length - 1].t : settledSamples[settledSamples.length - 1].t) - (baselineSamples.length > 0 ? baselineSamples[0].t : settledSamples[0].t);
-        const hours = hoursElapsed / 3_600_000;
-        if (hours > 0.01) {
-          drainRate = (baselineV - currentV) / hours;
+        // Linear regression across ALL settled samples — slope = drain rate.
+        // Uses every data point instead of two 10-min slices, giving a far more
+        // reliable slope for slow parasitic draws where total delta is near
+        // sensor resolution (0.1V). More parked time = more points = better fit.
+        const reg = linearRegression(settledSamples.map(s => ({ t: s.t, v: s.v })));
+        if (reg) {
+          // Slope is V/ms; convert to V/hr. Negative slope = voltage dropping = drain.
+          drainRate = -reg.slope * 3_600_000;
           if (drainRate < 0) drainRate = 0; // voltage recovering or stable = no drain
+          // Resting voltage = median of last 20 min of settled data (robust current reading)
+          const last20MinStart = settledSamples[settledSamples.length - 1].t - 20 * 60_000;
+          const recentSamples = settledSamples.filter(s => s.t >= last20MinStart);
+          restingVoltage = recentSamples.length > 0
+            ? median(recentSamples.map(s => s.v))
+            : settledSamples[settledSamples.length - 1].v;
+        } else {
+          // Regression failed (zero variance) — voltage is perfectly flat
+          restingVoltage = median(settledSamples.map(s => s.v));
         }
       } else {
         // Not enough settled data — use latest parked voltage as resting, no drain calc
