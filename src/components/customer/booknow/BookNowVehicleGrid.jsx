@@ -33,15 +33,15 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
   return (
     <div
       onClick={() => onSelect(v)}
-      className={`w-full text-left overflow-hidden active:scale-[0.97] transition-all duration-200 relative group cursor-pointer ${presentationStyle === "compact" ? "rounded-xl" : presentationStyle === "editorial" ? "rounded-[1.75rem]" : "rounded-2xl"}`}
+      className={`w-full text-left overflow-hidden active:scale-[0.97] transition-all duration-300 relative group cursor-pointer hover:-translate-y-1 hover:shadow-2xl ${presentationStyle === "compact" ? "rounded-xl" : presentationStyle === "editorial" ? "rounded-[1.75rem]" : "rounded-2xl"}`}
       style={{
         background: "#fff",
-        border: "1px solid #e5e7eb",
-        boxShadow: featured ? "0 4px 20px hsl(338 90% 56% / 0.12)" : "0 1px 4px rgba(0,0,0,0.06)",
+        border: "1px solid rgba(0,0,0,0.06)",
+        boxShadow: featured ? "0 4px 20px hsl(338 90% 56% / 0.12)" : "0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04)",
       }}
     >
       {/* Image */}
-      <div className="relative overflow-hidden" style={{ height: presentationStyle === "compact" ? "130px" : presentationStyle === "editorial" ? "240px" : featured ? "210px" : "190px" }}>
+      <div className="relative overflow-hidden" style={{ aspectRatio: presentationStyle === "compact" ? "16/10" : "4/3" }}>
         <img
           src={v.image_url || PLACEHOLDER}
           alt={`${v.make} ${v.model}`}
@@ -50,28 +50,27 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
         />
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)" }} />
 
-        {/* Top-left badges */}
+        {/* Top-left badges — unified frosted glass style */}
         <div className="absolute top-3 left-3 flex gap-1.5">
           {v.rent_to_own_eligible && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold text-white"
-              style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/30 bg-black/30 backdrop-blur-sm">
               <Zap className="h-2.5 w-2.5" fill="white" />RTO
             </span>
           )}
           {featured && (
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-yellow-300 bg-yellow-500/20 border border-yellow-500/30">
-              ⭐ Top Pick
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/30 bg-black/30 backdrop-blur-sm">
+              ★ Top Pick
             </span>
           )}
           {v.instant_booking_enabled !== false && (
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-white bg-blue-500/80 backdrop-blur-sm">
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold text-white border border-white/30 bg-black/30 backdrop-blur-sm">
               ⚡ Instant
             </span>
           )}
         </div>
 
-        {/* Favorite + Quick View top-right */}
-        <div className="absolute top-3 right-3 flex gap-1.5">
+        {/* Favorite + Quick View top-right — hover only on desktop */}
+        <div className="absolute top-3 right-3 flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
             onClick={handleFavorite}
             className="h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center hover:bg-white transition-colors"
@@ -88,23 +87,21 @@ function VehicleCard({ v, onSelect, featured = false, reviews = [], signalSnapsh
 
         {/* Price */}
         <div className="absolute bottom-3 left-3">
-          <span className="text-white text-xl font-bold" style={{ fontFamily: "var(--font-syne)" }}>
+          <span className="text-white text-2xl md:text-3xl font-black" style={{ fontFamily: "var(--font-syne)" }}>
             ${v.weekly_rate || "—"}
           </span>
-          <span className="text-white/50 text-xs font-normal">/wk</span>
-        </div>
-
-        {/* Availability summary */}
-        <div className="absolute bottom-3 right-3">
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/90 text-white text-[9px] font-bold backdrop-blur-sm">
-            ● Available
-          </span>
+          <span className="text-white/60 text-xs md:text-sm font-medium">/wk</span>
         </div>
       </div>
 
       {/* Info */}
-      <div className="p-4">
-        <p className="font-bold text-gray-900 text-base truncate">{v.year} {v.make} {v.model}</p>
+      <div className="p-4 md:p-5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-bold text-gray-900 text-base truncate">{v.year} {v.make} {v.model}</p>
+          <span className="flex items-center gap-1 flex-shrink-0 text-[10px] font-semibold text-emerald-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Available
+          </span>
+        </div>
         <div className="flex items-center gap-2 mt-1">
           <div className="flex items-center gap-0.5">
             <MapPin className="h-3 w-3 text-gray-400" />
@@ -226,9 +223,10 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
         <div>
-          <h2 className="font-bold text-gray-900 text-base" style={{ fontFamily: "var(--font-syne)" }}>
+          <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.15em] text-gray-400 mb-1">Available Fleet</p>
+          <h2 className="font-bold text-gray-900 text-lg md:text-xl" style={{ fontFamily: "var(--font-syne)" }}>
             {isExpandedRadius ? "Nearest Available Rides" : "Nearby Rides"}
           </h2>
           <p className="text-gray-400 text-xs mt-0.5">
@@ -238,7 +236,7 @@ export default function BookNowVehicleGrid({ vehicles, isLoading, location, onSe
         </div>
       </div>
 
-      <div className={presentationStyle === "compact" ? "grid grid-cols-2 gap-3" : presentationStyle === "editorial" ? "grid grid-cols-1 gap-5" : "grid grid-cols-1 sm:grid-cols-2 gap-4"}>
+      <div className={presentationStyle === "compact" ? "grid grid-cols-2 gap-3" : presentationStyle === "editorial" ? "grid grid-cols-1 gap-5" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6"}>
         {vehicles.map((v, i) => (
           <VehicleCard
             key={v.id}

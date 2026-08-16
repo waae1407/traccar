@@ -175,6 +175,7 @@ export default function HostStorefrontHome() {
 
   return (
     <div className="min-h-screen pb-4 bg-gray-50">
+      <div className="mx-auto w-full max-w-6xl">
       {/* Branded hero banner */}
       <button
         onClick={() => {
@@ -182,40 +183,46 @@ export default function HostStorefrontHome() {
           if (isCustomDomainHost()) window.location.href = canonicalCheckoutUrl(params);
           else navigate(`/checkout?${params.toString()}`);
         }}
-        className="mx-5 mt-5 mb-5 rounded-3xl overflow-hidden relative w-[calc(100%-2.5rem)] text-left active:scale-[0.98] transition-transform block min-h-[260px] shadow-lg"
+        className="mt-5 mb-6 md:mb-8 rounded-3xl md:rounded-[2rem] overflow-hidden relative w-full text-left active:scale-[0.98] transition-transform block min-h-[280px] md:min-h-[360px] shadow-xl"
         style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${secondaryColor} 100%)` }}>
         {coverImageUrl && <img src={coverImageUrl} alt="Storefront hero" className="absolute inset-0 h-full w-full object-cover" />}
-        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${brandColor}dd, ${secondaryColor}aa), linear-gradient(to top, rgba(0,0,0,.55), transparent 60%)` }} />
-        <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full opacity-10 bg-white" />
-        <div className="absolute top-20 -left-8 h-24 w-24 rounded-full opacity-10 bg-white" />
-        <div className="relative px-5 py-6 flex h-full min-h-[260px] flex-col justify-end gap-3">
+        <div className="absolute inset-0" style={{
+          background: coverImageUrl
+            ? "linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.0) 35%, rgba(0,0,0,0.7) 100%)"
+            : `linear-gradient(135deg, ${brandColor}dd, ${secondaryColor}aa), linear-gradient(to top, rgba(0,0,0,.55), transparent 60%)`
+        }} />
+        {!coverImageUrl && <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full opacity-10 bg-white blur-3xl" />}
+        <div className="relative px-6 md:px-10 py-8 md:py-12 flex h-full min-h-[280px] md:min-h-[360px] flex-col justify-end gap-4">
           {/* Trust badges row */}
           {(hostRating.count > 0 || completedTrips > 0 || available.length > 0) && (
             <div className="flex flex-wrap gap-2 mb-1">
               {hostRating.count > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-[10px] font-bold text-white">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-[10px] md:text-xs font-bold text-white border border-white/20">
                   <Star className="h-3 w-3 fill-white" /> {hostRating.rating.toFixed(1)} ({hostRating.count})
                 </span>
               )}
               {completedTrips > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-[10px] font-bold text-white">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-[10px] md:text-xs font-bold text-white border border-white/20">
                   <Car className="h-3 w-3" /> {completedTrips}+ trips
                 </span>
               )}
               {available.length > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-[10px] font-bold text-white">
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-[10px] md:text-xs font-bold text-white border border-white/20">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" /> {available.length} available
                 </span>
               )}
             </div>
           )}
           <div>
-            <p className="text-white font-black text-2xl leading-tight" style={{ fontFamily: "var(--font-syne)" }}>
-              {brand?.hero_title || "Find Your Ride"}
+            <p className="text-white/70 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mb-2">
+              {showRto ? "Weekly Rentals · Rent to Own" : "Premium Weekly Rentals"}
             </p>
-            <p className="text-white/82 text-sm mt-2 max-w-sm">{brand?.hero_subtitle || "Start earning today — get a car in minutes"}</p>
+            <h1 className="text-white font-black leading-[1.05] text-3xl md:text-5xl lg:text-6xl" style={{ fontFamily: "var(--font-syne)" }}>
+              {brand?.hero_title || "Find Your Ride"}
+            </h1>
+            <p className="text-white/80 text-sm md:text-base mt-3 max-w-md">{brand?.hero_subtitle || "Start earning today — get a car in minutes"}</p>
           </div>
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/18 px-4 py-2 text-xs font-black text-white backdrop-blur-sm border border-white/20">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-xs md:text-sm font-black shadow-lg" style={{ color: brandColor }}>
             {brand?.cta_button_text || "Book Now"}
             <ChevronRight className="h-4 w-4" />
           </span>
@@ -235,38 +242,38 @@ export default function HostStorefrontHome() {
       />
 
       {/* Headline */}
-      <div className="px-5 mb-5 mt-2">
+      <div className="px-5 mb-6 md:mb-8 mt-2">
         {user && <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Welcome back{user.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}</p>}
-        <h1 className="text-3xl font-black leading-tight" style={{ fontFamily: "var(--font-syne)", background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+        <h2 className="text-2xl md:text-3xl font-black leading-tight" style={{ fontFamily: "var(--font-syne)", background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
           {brand?.business_display_name || brand?.hero_title || "Find Your Ride"}
-        </h1>
-        {brand?.about_text && <p className="text-gray-500 text-sm mt-3 leading-relaxed">{brand.about_text}</p>}
+        </h2>
+        {brand?.about_text && <p className="text-gray-500 text-sm md:text-base mt-3 max-w-2xl leading-relaxed">{brand.about_text}</p>}
       </div>
 
       <HostTrustPanel labels={hostLabels} rating={hostRating.rating} reviewCount={hostRating.count} completedTrips={completedTrips} />
 
       {/* Value props — why rent with us */}
-      <div className="px-5 mb-5">
-        <div className="grid grid-cols-3 gap-2.5">
+      <div className="px-5 mb-6 md:mb-8">
+        <div className="grid grid-cols-3 gap-2.5 md:gap-4">
           {[
             { icon: Zap, label: "Instant", sub: "Approval" },
             { icon: Shield, label: "No Credit", sub: "Check" },
             { icon: Clock, label: "24/7", sub: "Support" },
           ].map((item, i) => (
-            <div key={i} className="rounded-2xl bg-white border border-gray-100 p-3 flex flex-col items-center text-center shadow-sm">
-              <div className="h-9 w-9 rounded-xl flex items-center justify-center mb-1.5"
+            <div key={i} className="rounded-2xl bg-white border border-gray-100 p-3 md:p-4 flex flex-col items-center text-center shadow-sm">
+              <div className="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center mb-1.5"
                 style={{ background: `linear-gradient(135deg, ${brandColor}15, ${secondaryColor}15)` }}>
-                <item.icon className="h-4 w-4" style={{ color: brandColor }} strokeWidth={2} />
+                <item.icon className="h-4 w-4 md:h-5 md:w-5" style={{ color: brandColor }} strokeWidth={2} />
               </div>
-              <p className="text-xs font-black text-gray-900 leading-tight">{item.label}</p>
-              <p className="text-[10px] text-gray-400 leading-tight">{item.sub}</p>
+              <p className="text-xs md:text-sm font-black text-gray-900 leading-tight">{item.label}</p>
+              <p className="text-[10px] md:text-xs text-gray-400 leading-tight">{item.sub}</p>
             </div>
           ))}
         </div>
       </div>
 
       {reservationRequestOnly && (
-        <div className="mx-5 mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+        <div className="mx-5 md:mx-0 mb-6 md:mb-8 rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
           <CreditCard className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-black text-amber-900">Connect Stripe to enable instant online booking.</p>
@@ -279,7 +286,7 @@ export default function HostStorefrontHome() {
       {showRentForFree && <RentForFreeBanner />}
 
       {/* Booking type toggles */}
-      <div className="px-5 mb-5">
+      <div className="px-5 mb-6 md:mb-8">
         <div className="flex gap-3 mb-4">
           {BOOKING_TYPES.map((a) => {
             const isActive = bookingType === a.type;
@@ -339,6 +346,7 @@ export default function HostStorefrontHome() {
           presentationStyle={inventoryPresentationStyle}
         />
       )}
+      </div>
 
       <VehicleDetailSheet
         vehicle={selectedVehicle}

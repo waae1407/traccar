@@ -79,35 +79,72 @@ export default function HostStorefrontLayout() {
     { label: "Account", icon: User, path: `${base}/account` },
   ];
 
+  const isActive = (tabPath) =>
+    location.pathname === tabPath ||
+    (tabPath !== base && tabPath !== "/" && location.pathname.startsWith(tabPath)) ||
+    (tabPath === base && location.pathname === base);
+
   return (
-    <div className="min-h-screen" style={{ fontFamily: "var(--font-inter)", background: "#f8f8fa", color: "#111827" }}>
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 px-5 h-16 flex items-center justify-between max-w-2xl mx-auto w-full"
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: "var(--font-inter)", background: "#f8f8fa", color: "#111827" }}>
+      {/* Top bar — responsive, unified container */}
+      <header className="sticky top-0 z-40 w-full"
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-        <Link to={base} className="flex items-center gap-2.5 group active:scale-95 transition-transform">
-          {logoUrl
-            ? <img src={logoUrl} alt={displayName}
-                className="h-12 w-12 rounded-full object-contain shadow-md ring-1 ring-black/5 bg-white p-0.5 group-hover:shadow-lg transition-shadow" />
-            : <>
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-sm"
-                    style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
-                  {displayName.charAt(0)}
-                </div>
-                <span className="font-black text-gray-900 text-lg tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>
-                  {displayName}
-                </span>
-              </>}
-        </Link>
-        <Link to={`${base}/account`}>
-          <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
-            style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
-            <User className="h-4 w-4" />
-          </div>
-        </Link>
+        <div className="mx-auto w-full max-w-6xl px-5 md:px-8 h-16 md:h-20 flex items-center justify-between">
+          <Link to={base} className="flex items-center gap-2.5 group active:scale-95 transition-transform">
+            {logoUrl
+              ? <img src={logoUrl} alt={displayName}
+                  className="h-12 w-12 md:h-16 md:w-16 lg:h-20 lg:w-20 rounded-full object-contain shadow-md ring-1 ring-black/5 bg-white group-hover:shadow-lg transition-shadow" />
+              : <>
+                  <div className="h-10 w-10 md:h-14 md:w-14 lg:h-16 lg:w-16 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-xl lg:text-2xl shadow-sm"
+                      style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
+                    {displayName.charAt(0)}
+                  </div>
+                </>}
+            {/* Wordmark — visible on md+ alongside logo */}
+            <span className={cn("font-black tracking-tight hidden md:inline", logoUrl ? "text-gray-900 text-xl lg:text-2xl" : "text-gray-900 text-lg md:text-xl lg:text-2xl")}
+              style={{ fontFamily: "var(--font-syne)" }}>
+              {displayName}
+            </span>
+          </Link>
+
+          {/* Desktop nav links */}
+          <nav className="hidden md:flex items-center gap-1">
+            {tabs.map((tab) => {
+              const active = isActive(tab.path);
+              return (
+                <Link key={tab.path} to={tab.path}
+                  className="flex items-center gap-1.5 px-3 lg:px-4 py-2 rounded-full text-sm font-semibold transition-all"
+                  style={{
+                    background: active ? `${brandColor}14` : "transparent",
+                    color: active ? brandColor : "#6b7280",
+                  }}>
+                  <tab.icon style={{ height: 16, width: 16 }} strokeWidth={active ? 2.5 : 1.8} />
+                  <span className="hidden lg:inline">{tab.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Account icon — desktop */}
+          <Link to={`${base}/account`} className="hidden md:flex">
+            <div className="h-10 w-10 lg:h-11 lg:w-11 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
+              style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
+              <User className="h-4 w-4" />
+            </div>
+          </Link>
+
+          {/* Account icon — mobile */}
+          <Link to={`${base}/account`} className="md:hidden">
+            <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
+              style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>
+              <User className="h-4 w-4" />
+            </div>
+          </Link>
+        </div>
       </header>
 
       {/* Page content — force light theme so child pages don't inherit dark global CSS vars */}
-      <main className="pb-28" style={{
+      <main className="flex-1 pb-28 md:pb-12" style={{
         "--background": "0 0% 97%",
         "--foreground": "222 28% 7%",
         "--card": "0 0% 100%",
@@ -127,34 +164,49 @@ export default function HostStorefrontLayout() {
         <Outlet context={{ brand, businessSlug, user }} />
       </main>
 
-      {/* Powered by uRideHub strip */}
-      <div className="fixed bottom-[72px] left-0 right-0 z-40 flex justify-center pointer-events-none">
+      {/* Footer — desktop only */}
+      <footer className="hidden md:block border-t" style={{ borderColor: "rgba(0,0,0,0.06)", background: "#fff" }}>
+        <div className="mx-auto w-full max-w-6xl px-8 py-8 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            {logoUrl
+              ? <img src={logoUrl} alt={displayName} className="h-8 w-8 rounded-full object-contain" />
+              : <div className="h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                  style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }}>{displayName.charAt(0)}</div>}
+            <span className="font-bold text-gray-700 text-sm" style={{ fontFamily: "var(--font-syne)" }}>{displayName}</span>
+          </div>
+          <Link to="/" className="inline-flex items-center gap-1.5 text-xs text-gray-400 font-medium">
+            <span>Powered by</span>
+            <span className="font-bold text-gray-600">uRideHub</span>
+          </Link>
+        </div>
+      </footer>
+
+      {/* Powered by uRideHub strip — mobile only */}
+      <div className="md:hidden fixed bottom-[72px] left-0 right-0 z-40 flex justify-center pointer-events-none">
         <Link to="/" className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/70 shadow-sm mb-1">
           <span className="text-[10px] text-gray-400 font-medium">Powered by</span>
           <span className="text-[10px] font-bold text-gray-600">uRideHub</span>
         </Link>
       </div>
 
-      {/* Bottom nav — branded colors */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50"
+      {/* Bottom nav — mobile only, branded colors */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50"
         style={{ background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
         <div className="flex items-center justify-around h-[72px] w-full max-w-2xl mx-auto px-1">
           {tabs.map((tab) => {
-            const isActive = location.pathname === tab.path ||
-              (tab.path !== base && tab.path !== "/" && location.pathname.startsWith(tab.path)) ||
-              (tab.path === base && location.pathname === base);
+            const active = isActive(tab.path);
             return (
               <Link key={tab.path} to={tab.path}
                 className="flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all min-w-[60px] relative"
-                style={{ color: isActive ? brandColor : "#9ca3af" }}>
-                {isActive && (
+                style={{ color: active ? brandColor : "#9ca3af" }}>
+                {active && (
                   <span className="absolute top-1 inset-x-2 h-0.5 rounded-full"
                     style={{ background: `linear-gradient(135deg, ${brandColor}, ${secondaryColor})` }} />
                 )}
                 <div className="h-8 w-8 rounded-xl flex items-center justify-center transition-all"
-                  style={{ background: isActive ? `${brandColor}18` : "transparent" }}>
-                  <tab.icon style={{ height: 18, width: 18, color: isActive ? brandColor : "#9ca3af" }}
-                    strokeWidth={isActive ? 2.5 : 1.8} />
+                  style={{ background: active ? `${brandColor}18` : "transparent" }}>
+                  <tab.icon style={{ height: 18, width: 18, color: active ? brandColor : "#9ca3af" }}
+                    strokeWidth={active ? 2.5 : 1.8} />
                 </div>
                 <span className="text-[10px] font-bold tracking-wide leading-none">{tab.label}</span>
               </Link>
