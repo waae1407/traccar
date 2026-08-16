@@ -64,8 +64,21 @@ Deno.serve(async (req) => {
     const brandColor = brand?.brand_color || '#e91e8c';
     const secondaryColor = brand?.secondary_color || '#7c3aed';
 
-    // Build the redirect URL — use the request origin so it works on custom domains too
-    const redirectUrl = `${url.origin}${storefrontPath}`;
+    // Build the redirect URL. When a verified custom domain exists, use it as
+    // the canonical URL so social share previews show the branded domain
+    // instead of uridehub.com. Fall back to the request origin + storefront path.
+    let canonicalDomain = '';
+    if (brand?.host_id) {
+      const customDomains = await base44.asServiceRole.entities.HostCustomDomain.filter(
+        { host_id: brand.host_id, active: true, verification_status: 'verified' },
+        '-updated_date',
+        1
+      ).catch(() => []);
+      canonicalDomain = customDomains[0]?.domain || '';
+    }
+    const redirectUrl = canonicalDomain
+      ? `https://${canonicalDomain.replace(/^https?:\/\//, '')}`
+      : `${url.origin}${storefrontPath}`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">

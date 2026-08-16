@@ -74,6 +74,15 @@ export default function HostBrandBuilder() {
     enabled: !!host?.id,
   });
 
+  // Look up the host's verified custom domain so the UI shows the branded URL
+  // instead of the internal uridehub.com/host/slug path.
+  const { data: customDomains = [] } = useQuery({
+    queryKey: ["brand-builder-custom-domain", host?.id],
+    queryFn: () => base44.entities.HostCustomDomain.filter({ host_id: host.id, active: true, verification_status: "verified" }),
+    enabled: !!host?.id,
+  });
+  const verifiedDomain = customDomains[0]?.domain;
+
   const defaultSlug = host?.business_name?.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "";
 
   const [form, setForm] = useState({
@@ -92,6 +101,12 @@ export default function HostBrandBuilder() {
       setForm(f => ({ ...f, business_slug: defaultSlug, business_display_name: host.business_name || host.full_name || "" }));
     }
   }, [existingBrand, host]);
+
+  // Compute the display URL — uses the verified custom domain when available,
+  // falls back to the internal uridehub.com/host/slug path.
+  const displayUrl = verifiedDomain
+    ? `https://${verifiedDomain.replace(/^https?:\/\//, "")}`
+    : (form.business_slug ? `uridehub.com/host/${form.business_slug}` : "");
 
   // Handle return from Stripe Connect via HostPayouts redirect
   useEffect(() => {
@@ -295,7 +310,9 @@ export default function HostBrandBuilder() {
                 placeholder="my-rental-store" />
             </div>
             {form.business_slug && (
-              <p className="text-xs text-emerald-600 font-semibold mt-1.5">✓ Your link: uridehub.com/host/{form.business_slug}</p>
+              <p className="text-xs text-emerald-600 font-semibold mt-1.5">
+                ✓ Your link: {verifiedDomain ? displayUrl : `uridehub.com/host/${form.business_slug}`}
+              </p>
             )}
           </div>
 
@@ -538,7 +555,7 @@ export default function HostBrandBuilder() {
             <div className="space-y-2 mb-6">
               {[
                 { label: "Store Name", value: form.business_display_name || "Not set", done: !!form.business_display_name },
-                { label: "URL", value: form.business_slug ? `uridehub.com/host/${form.business_slug}` : "Not set", done: !!form.business_slug },
+                { label: "URL", value: verifiedDomain || (form.business_slug ? `uridehub.com/host/${form.business_slug}` : "Not set"), done: !!form.business_slug },
                 { label: "Logo", value: form.logo_url ? "Uploaded ✓" : "Not added", done: !!form.logo_url },
                 { label: "Headline", value: form.hero_title || "Not set", done: !!form.hero_title },
                 { label: "Theme", value: form.layout_template || "Not set", done: !!form.layout_template },
@@ -561,7 +578,7 @@ export default function HostBrandBuilder() {
 
               {isLive ? (
                 <div className="space-y-2">
-                  <a href={`/host/${form.business_slug}`} target="_blank" rel="noreferrer"
+                  <a href={verifiedDomain ? displayUrl : `/host/${form.business_slug}`} target="_blank" rel="noreferrer"
                     className="w-full py-3.5 rounded-2xl font-bold text-white flex items-center justify-center gap-2 shadow-lg"
                     style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
                     <ExternalLink className="h-4 w-4" /> Visit My Live Store
