@@ -32,6 +32,7 @@ function Sparkline({ samples }) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
   const color = volts[volts.length - 1] < 11.8 ? '#ef4444' : volts[volts.length - 1] < 12.2 ? '#eab308' : '#10b981';
+  // Note: < 12.2V = yellow (warning), < 11.8V = red (critical zone)
   return (
     <svg width={w} height={h} className="overflow-visible">
       <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

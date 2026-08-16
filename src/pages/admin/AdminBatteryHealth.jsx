@@ -54,13 +54,17 @@ export default function AdminBatteryHealth() {
   const stats = {
     total: productionScorecards.length,
     healthy: productionScorecards.filter(s => s.severity === 'healthy').length,
-    warning: productionScorecards.filter(s => s.severity === 'warning').length,
-    severe: productionScorecards.filter(s => s.severity === 'severe').length,
-    critical: productionScorecards.filter(s => s.severity === 'critical').length,
+    // "Warning" encompasses all non-healthy vehicles (warning + severe + critical)
+    // so a single stat card surfaces everything that needs attention.
+    warning: productionScorecards.filter(s => s.severity !== 'healthy').length,
     autoRemediated: productionScorecards.filter(s => s.auto_remediated).length,
   };
 
-  const filtered = sevFilter === 'all' ? productionScorecards : productionScorecards.filter(s => s.severity === sevFilter);
+  const filtered = sevFilter === 'all'
+    ? productionScorecards
+    : sevFilter === 'warning'
+      ? productionScorecards.filter(s => s.severity !== 'healthy')
+      : productionScorecards.filter(s => s.severity === sevFilter);
   const sorted = [...filtered].sort((a, b) => {
     const order = { critical: 0, severe: 1, warning: 2, healthy: 3 };
     return (order[a.severity] ?? 4) - (order[b.severity] ?? 4) || (b.drain_rate_v_per_hr || 0) - (a.drain_rate_v_per_hr || 0);
@@ -80,12 +84,10 @@ export default function AdminBatteryHealth() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard label="Total" value={stats.total} icon={Battery} active={sevFilter === 'all'} onClick={() => setSevFilter('all')} />
         <StatCard label="Healthy" value={stats.healthy} icon={Activity} color="emerald" active={sevFilter === 'healthy'} onClick={() => setSevFilter(sevFilter === 'healthy' ? 'all' : 'healthy')} />
         <StatCard label="Warning" value={stats.warning} icon={AlertTriangle} color="yellow" active={sevFilter === 'warning'} onClick={() => setSevFilter(sevFilter === 'warning' ? 'all' : 'warning')} />
-        <StatCard label="Severe" value={stats.severe} icon={AlertTriangle} color="orange" active={sevFilter === 'severe'} onClick={() => setSevFilter(sevFilter === 'severe' ? 'all' : 'severe')} />
-        <StatCard label="Critical" value={stats.critical} icon={AlertTriangle} color="red" active={sevFilter === 'critical'} onClick={() => setSevFilter(sevFilter === 'critical' ? 'all' : 'critical')} />
         <StatCard label="Auto-Remediated" value={stats.autoRemediated} icon={Activity} color="sky" />
       </div>
 

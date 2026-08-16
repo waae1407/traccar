@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { Battery, ArrowUpRight } from "lucide-react";
 
 /**
- * Dashboard warning banner showing vehicles with battery voltage ≤ 12.0V
+ * Dashboard warning banner showing vehicles with battery voltage ≤ 12.2V
  * or non-healthy severity. Renders with remediation instructions for both
  * admin (dark theme) and host (light theme) dashboards.
  */
@@ -20,11 +20,11 @@ export default function BatteryHealthWarningBanner({ role = "admin", hostId }) {
     refetchInterval: 60_000,
   });
 
-  // Vehicles needing attention: voltage ≤ 12.0 or severity != healthy
+  // Vehicles needing attention: voltage ≤ 12.2 or severity != healthy
   const needsAttention = scorecards.filter(
     (s) =>
       (s.severity && s.severity !== "healthy") ||
-      (s.resting_voltage != null && s.resting_voltage <= 12.0 && s.resting_voltage > 0)
+      (s.resting_voltage != null && s.resting_voltage <= 12.2 && s.resting_voltage > 0)
   );
 
   if (needsAttention.length === 0) return null;
@@ -68,7 +68,7 @@ export default function BatteryHealthWarningBanner({ role = "admin", hostId }) {
               {needsAttention.length} Vehicle{needsAttention.length > 1 ? "s" : ""} Need Battery Attention
             </p>
             <p className={`text-xs mt-1 ${isAdmin ? "text-white/50" : "text-gray-600"}`}>
-              ⚠️ Please start the vehicle and allow it to run for at least 30 minutes to recharge the battery.
+              ⚠️ Please jump-start the vehicle and keep it running for at least 30 minutes — the battery is at approximately 50% capacity.
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               {sorted.slice(0, 4).map((s) => (

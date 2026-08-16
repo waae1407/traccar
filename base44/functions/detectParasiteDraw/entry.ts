@@ -27,12 +27,12 @@ const RESTORE_VOLTAGE_THRESHOLD = 11.2;
 
 // ── Thresholds ──
 const DRAIN = { healthy: 0.2, warning: 0.5, severe: 1.0 };
-const VOLTAGE = { healthy: 12.7, warning: 12.0, severe: 11.5, critical: 10.8 };
+const VOLTAGE = { healthy: 12.7, warning: 12.2, severe: 11.5, critical: 10.8 };
 // Auto-remediation (auto-send power-save) triggers below this voltage.
 const REMEDIATION_VOLTAGE = 12.7;
-// Send alert email to host+admin when voltage drops to this level
-const ALERT_VOLTAGE = 12.0;
-const REMEDIATION_NOTE = 'Please start the vehicle and allow it to run for at least 30 minutes to recharge the battery.';
+// Send alert email to host+admin when voltage drops to this level (12.2V ≈ 50% capacity)
+const ALERT_VOLTAGE = 12.2;
+const REMEDIATION_NOTE = 'Please jump-start the vehicle and keep it running for at least 30 minutes to recharge the battery — it is currently at approximately 50% capacity.';
 
 // ── MT20 packet building (replicated from bulkSendNoranRelayPowerSave) ──
 function sanitizeId(v = '') { return String(v).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80); }
