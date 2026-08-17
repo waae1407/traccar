@@ -335,6 +335,8 @@ export default function CheckoutFlow() {
           const pricing = calculateRentalPrice(v, rentalDays);
           let dueNow = type === "Monthly" || type === "Commercial"
             ? (v.monthly_rate || (v.weekly_rate || 0) * 4)
+            : type === "Rent-to-Own"
+            ? (v.weekly_rate || 0)
             : pricing ? pricing.total : (v.weekly_rate || 0);
 
           // PRICING GUARD: Never allow weekly_rate to be used as a daily rate
