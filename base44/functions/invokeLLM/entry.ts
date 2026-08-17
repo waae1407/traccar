@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       requestBody.tools = [{ googleSearch: {} }];
     }
 
-    const model = "gemini-1.5-flash-latest";
+    const model = "gemini-flash-latest";
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
     const response = await fetch(endpoint, {
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     console.error("invokeLLM error:", error);
     await base44.asServiceRole.entities.AIUsageLog.create({
       provider: "google",
-      model: "gemini-1.5-flash-latest",
+      model: "gemini-flash-latest",
       function_name: "invokeLLM",
       user_id: user ? user.id : null,
       success: false,
