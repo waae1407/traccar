@@ -94,11 +94,24 @@ export default function StepContract({ booking, vehicle, user, saveAndAdvance })
   const contractHTML = `${baseContractHTML}${templateHTML}${policyHTML}`;
   const contractVersion = activeTemplate?.version || templateConfig.version;
 
-  const providerName = isFleetOSContract ? (host?.business_name || host?.full_name || "Host Business") : "uRide";
+  const hostBusinessName = host?.business_name || host?.full_name || "Host Business";
+  const providerName = isFleetOSContract ? hostBusinessName : "uRide";
+  // For Marketplace Partner (non-FleetOS): uRide processes payments and enforces
+  // (starter kill, grace periods) on behalf of the host, but the host owns the
+  // vehicle and is responsible for repossession/forfeiture/title transfer.
   const commonClauses = isFleetOSContract
     ? COMMON_CLAUSES.map((clause) => ({ ...clause, text: clause.text.replaceAll("uRide", providerName) }))
-    : COMMON_CLAUSES;
-  const clauses = isRTO ? [...commonClauses, RTO_CLAUSE] : commonClauses;
+    : COMMON_CLAUSES.map((clause) => {
+        // For marketplace partner, split uRide (processor) vs host (owner) in
+        // repossession and RTO clauses to avoid legal ambiguity.
+        if (clause.id === "repossession_policy") {
+          return { ...clause, text: `I understand that if a payment fails and is not cured within the grace period, uRide may remotely disable the vehicle on behalf of ${hostBusinessName}, and ${hostBusinessName} may repossess the vehicle at my expense. All associated repossession costs will be my responsibility.` };
+        }
+        return clause;
+      });
+  const clauses = isRTO
+    ? [...commonClauses, isFleetOSContract ? RTO_CLAUSE : { ...RTO_CLAUSE, text: RTO_CLAUSE.text.replace("uRide", hostBusinessName) }]
+    : commonClauses;
 
   // initials state: { clause_id: string }
   const [initials, setInitials, clearInitialsDraft] = usePersistentFormDraft(
