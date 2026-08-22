@@ -11,8 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap, List } from 'lucide-react';
+import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap, List, FileText } from 'lucide-react';
 import { format } from 'date-fns';
+import ContractViewer from '@/components/contracts/ContractViewer';
 
 function SBadge({ status }) {
   const map = { active: 'bg-green-500/20 text-green-400', confirmed: 'bg-green-500/20 text-green-400', approved: 'bg-blue-500/20 text-blue-400', payment_due: 'bg-yellow-500/20 text-yellow-400', suspended: 'bg-red-500/20 text-red-400', paid: 'bg-green-500/20 text-green-400', failed: 'bg-red-500/20 text-red-400', signed: 'bg-green-500/20 text-green-400', completed: 'bg-muted text-muted-foreground', cancelled: 'bg-muted text-muted-foreground' };
@@ -28,6 +29,7 @@ export default function HostBooking360() {
   const [view, setView] = useState('list'); // 'list' or 'detail'
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showContract, setShowContract] = useState(false);
 
   // Fetch host's bookings for list view
   const { data: hosts = [] } = useQuery({
@@ -190,6 +192,14 @@ export default function HostBooking360() {
             </Card>
           </div>
 
+          {/* View & Download Contract */}
+          {b.contract_status === 'signed' && b.contract_html && (
+            <Button onClick={() => setShowContract(true)} variant="outline" className="w-full">
+              <FileText className="h-4 w-4 mr-2" />
+              View & Download Signed Contract
+            </Button>
+          )}
+
           {/* Lifecycle Section */}
           <Card className="bg-card border-border">
             <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Activity className="h-4 w-4 text-primary" />Rental Lifecycle</CardTitle></CardHeader>
@@ -273,6 +283,10 @@ export default function HostBooking360() {
             </TabsContent>
           </Tabs>
         </div>
+      )}
+
+      {showContract && b && (
+        <ContractViewer booking={b} onClose={() => setShowContract(false)} viewerRole="host" />
       )}
     </div>
   );

@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap, RotateCcw, ArrowLeft, GitBranch } from 'lucide-react';
+import { Search, CreditCard, Car, User, CheckCircle, XCircle, AlertTriangle, Activity, Zap, RotateCcw, ArrowLeft, GitBranch, FileText } from 'lucide-react';
 import { format, isValid } from 'date-fns';
+import ContractViewer from '@/components/contracts/ContractViewer';
 
 function SBadge({ status }) {
   const map = { active: 'bg-green-500/20 text-green-400', confirmed: 'bg-green-500/20 text-green-400', approved: 'bg-blue-500/20 text-blue-400', payment_due: 'bg-yellow-500/20 text-yellow-400', suspended: 'bg-red-500/20 text-red-400', paid: 'bg-green-500/20 text-green-400', failed: 'bg-red-500/20 text-red-400', signed: 'bg-green-500/20 text-green-400', completed: 'bg-muted text-muted-foreground', cancelled: 'bg-muted text-muted-foreground' };
@@ -40,6 +41,7 @@ export default function Booking360() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [searchResults, setSearchResults] = useState(null);
+  const [showContract, setShowContract] = useState(false);
 
   // URL param auto-load: /admin/booking-360?id=<booking_id> or ?booking_id=<...>
   useEffect(() => {
@@ -163,6 +165,14 @@ export default function Booking360() {
               </CardContent>
             </Card>
           </div>
+
+          {/* View & Download Contract */}
+          {b.contract_status === 'signed' && b.contract_html && (
+            <Button onClick={() => setShowContract(true)} variant="outline" className="w-full">
+              <FileText className="h-4 w-4 mr-2" />
+              View & Download Signed Contract
+            </Button>
+          )}
 
           {/* Rental Lifecycle Section */}
           <Card className="bg-card border-border">
@@ -308,6 +318,10 @@ export default function Booking360() {
             </TabsContent>
           </Tabs>
         </div>
+      )}
+
+      {showContract && b && (
+        <ContractViewer booking={b} onClose={() => setShowContract(false)} viewerRole="admin" />
       )}
     </div>
   );
