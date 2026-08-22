@@ -143,6 +143,7 @@ import HostInstallers from '@/pages/host/HostInstallers.jsx';
 import HostFirstVehicleSetup from '@/pages/host/HostFirstVehicleSetup.jsx';
 import HostPaymentAlerts from '@/pages/host/HostPaymentAlerts.jsx';
 import HostOnboardingSuccess from '@/pages/host/HostOnboardingSuccess.jsx';
+import HostPlatformAgreement from '@/pages/host/HostPlatformAgreement.jsx';
 import PublicHostStorefront from '@/pages/PublicHostStorefront';
 import HostStorefrontLayout from '@/components/host/storefront/HostStorefrontLayout';
 import CustomDomainGate from '@/components/host/storefront/CustomDomainGate';
@@ -260,6 +261,7 @@ const AuthenticatedApp = () => {
         <Route path="/host/gps-store" element={<HostGPSStore />} />
         <Route path="/host/subscriptions" element={<HostSubscriptions />} />
         <Route path="/host/notifications" element={<HostNotifications />} />
+        <Route path="/host/platform-agreement" element={<HostPlatformAgreement />} />
       </Route>
 
       {/* ── PUBLIC HOST STOREFRONTS — white-labeled customer app ── */}

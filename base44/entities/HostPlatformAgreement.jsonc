@@ -1,0 +1,120 @@
+{
+  "name": "HostPlatformAgreement",
+  "type": "object",
+  "properties": {
+    "host_id": {
+      "type": "string",
+      "description": "Host this agreement belongs to"
+    },
+    "host_email": {
+      "type": "string",
+      "description": "Host email for lookup and notifications"
+    },
+    "host_name": {
+      "type": "string",
+      "description": "Denormalized host business name or full name at time of signing"
+    },
+    "plan_type": {
+      "type": "string",
+      "enum": [
+        "marketplace_partner",
+        "fleetos_professional",
+        "hybrid_growth"
+      ],
+      "description": "Platform plan selected by the host"
+    },
+    "plan_label": {
+      "type": "string",
+      "description": "Human-readable plan label at time of signing"
+    },
+    "commission_rate": {
+      "type": "number",
+      "description": "Commission rate agreed to (e.g. 0.08 = 8%)"
+    },
+    "monthly_subscription_amount": {
+      "type": "number",
+      "description": "Monthly subscription amount for paid plans"
+    },
+    "agreement_version": {
+      "type": "string",
+      "description": "Version of the platform agreement template used"
+    },
+    "agreement_html": {
+      "type": "string",
+      "description": "Full HTML content of the agreement at time of signing"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_signature",
+        "signed",
+        "superseded"
+      ],
+      "default": "pending_signature",
+      "description": "Agreement lifecycle status"
+    },
+    "signed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the host signed the agreement"
+    },
+    "signature_name": {
+      "type": "string",
+      "description": "Typed legal name of the signer"
+    },
+    "signature_user_id": {
+      "type": "string",
+      "description": "User ID of the signer"
+    },
+    "signature_email": {
+      "type": "string",
+      "description": "Email of the signer"
+    },
+    "signature_ip_address": {
+      "type": "string",
+      "description": "IP address captured at signing"
+    },
+    "signature_device_info": {
+      "type": "string",
+      "description": "User agent / device info captured at signing"
+    },
+    "signed_via": {
+      "type": "string",
+      "enum": [
+        "onboarding",
+        "backfill",
+        "plan_change",
+        "admin_override"
+      ],
+      "description": "How the agreement was initiated"
+    },
+    "backfill_notified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the backfill notification was sent to this host"
+    },
+    "backfill_notification_sent": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the host was notified to sign this agreement during backfill"
+    },
+    "superseded_by_agreement_id": {
+      "type": "string",
+      "description": "ID of the agreement that superseded this one (on plan change)"
+    },
+    "superseded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this agreement was superseded"
+    }
+  },
+  "required": [
+    "host_id",
+    "host_email",
+    "plan_type",
+    "agreement_version"
+  ],
+  "unique_fields": [
+    "host_id"
+  ]
+}
