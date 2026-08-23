@@ -2,8 +2,10 @@
  * detectParasiteDraw — Parasitic battery drain detection & auto-remediation
  *
  * Runs every 5 minutes. For each parked MT20 device:
- *   1. Analyzes voltage samples from the last 30 minutes
- *   2. Calculates drain rate (V/hr), projected time-to-dead, battery health score
+ *   1. Analyzes all voltage samples since parked_at (capped at 24h), skipping the
+ *      first 90s of surface charge. Requires ≥10 min of settled data.
+ *   2. Calculates drain rate (V/hr) via linear regression, with R² confidence
+ *      gating to suppress unreliable fits. Projects time-to-dead, health score
  *   3. Creates/updates a BatteryHealthScorecard
  *   4. Auto-remediates severe drains by sending power-save (019,0) via Traccar
  *   5. Verifies previous auto-remediations succeeded
@@ -14,8 +16,17 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const APP_URL = 'https://uridehub.com';
 const ANALYSIS_WINDOW_HOURS = 24;      // Cap lookback at 24h (adaptive: uses parked_at → now)
-const SURFACE_CHARGE_SETTLE_MS = 30 * 60_000;  // Surface charge takes 30+ min to bleed off after parking
-const MIN_SETTLED_DATA_MS = 30 * 60_000;       // Need at least 30 min of settled data to calculate drain
+// Surface-charge settle: skip the first 90s after parking — alternator/module
+// wake-up charge bleeds off quickly, and including it inflates resting voltage.
+const SURFACE_CHARGE_SETTLE_MS = 90 * 1000;
+// Minimum settled window before computing a drain rate. Shorter windows are too
+// noisy to be actionable (sensor resolution is ~0.1V; need enough span to see a
+// real downward trend emerge from the noise).
+const MIN_SETTLED_DATA_MS = 10 * 60_000;
+// R² confidence threshold for the regression slope. Below this, a non-trivial
+// drain rate is treated as unreliable (noise, not a real trend) and suppressed.
+// Flat data (slope ≈ 0) is always trusted regardless of R².
+const MIN_R2_FOR_DRAIN = 0.3;
 const DEAD_VOLTAGE = 10.5;
 const AUTO_REMEDIATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const NOTIFICATION_COOLDOWN_MS = 2 * 60 * 60 * 1000;
@@ -401,6 +412,13 @@ Deno.serve(async (req) => {
           // Slope is V/ms; convert to V/hr. Negative slope = voltage dropping = drain.
           drainRate = -reg.slope * 3_600_000;
           if (drainRate < 0) drainRate = 0; // voltage recovering or stable = no drain
+          // R² confidence gating: a low R² with a non-trivial drain means the
+          // fit is unreliable (noisy data, ignition blips, sensor jitter). Only
+          // trust the drain rate if the fit is confident OR the slope is near-zero
+          // (flat data legitimately has low R² — that's "no drain", not "unknown").
+          if (drainRate > DRAIN.warning && reg.r2 < MIN_R2_FOR_DRAIN) {
+            drainRate = 0;
+          }
           // Resting voltage = median of last 20 min of settled data (robust current reading)
           const last20MinStart = settledSamples[settledSamples.length - 1].t - 20 * 60_000;
           const recentSamples = settledSamples.filter(s => s.t >= last20MinStart);
