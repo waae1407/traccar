@@ -43,9 +43,16 @@ async function checkDedup(base44, event_type, related_entity_id, recipient_email
 }
 
 async function sendEmail(base44, to, subject, body) {
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  if (!RESEND_API_KEY || !to || !subject || !body) return { ok: false, error: "MISSING_CONFIG" };
   try {
-    await base44.asServiceRole.integrations.Core.SendEmail({ to, subject, body, from_name: "uRide" });
-    return { ok: true };
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: "uRide <noreply@uridehub.com>", to: [to], subject, html: body }),
+    });
+    const data = await res.json();
+    return res.ok ? { ok: true, id: data.id } : { ok: false, error: data.message || "Email failed" };
   } catch (e) {
     return { ok: false, error: e.message };
   }
