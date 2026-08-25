@@ -39,11 +39,6 @@ export const AuthProvider = ({ children }) => {
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
         setAuthError(null);
-        // Do NOT call checkUserAuth() on custom domains. The storefront is a
-        // public page — calling base44.auth.me() with a stale token from
-        // another domain returns 401, which can trigger the global
-        // unhandledrejection listener in SessionContinuityManager and redirect
-        // to the login page (causing a white screen). User state is simply null.
         // Fetch public settings in the background (non-blocking, no auth needed)
         const appClient = createAxiosClient({
           baseURL: `/api/apps/public`,
@@ -54,6 +49,14 @@ export const AuthProvider = ({ children }) => {
         appClient.get(`/prod/public-settings/by-id/${appParams.appId}`)
           .then(setAppPublicSettings)
           .catch(() => {});
+        // Resolve auth in the background so authenticated pages (Account,
+        // Bookings) work on custom domain storefronts. A 401 from a stale
+        // token is caught by checkUserAuth()'s try/catch, and the
+        // SessionContinuityManager already guards against redirecting on
+        // custom domains — so this is safe and won't cause a white screen.
+        if (appParams.token) {
+          checkUserAuth();
+        }
         return;
       }
 
