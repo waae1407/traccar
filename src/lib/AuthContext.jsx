@@ -140,6 +140,17 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
       setUser(null);
+      // If the token is stale/expired, clear it from localStorage so the next
+      // page load doesn't send a bad token on every API call (which causes
+      // 401s on custom domain storefronts). This lets public queries work
+      // cleanly while the user sees the sign-in prompt.
+      const status = error?.status || error?.response?.status;
+      if (status === 401 || status === 403) {
+        try {
+          localStorage.removeItem('base44_access_token');
+          localStorage.removeItem('token');
+        } catch (e) {}
+      }
       // A 401/403 on me() just means the user isn't logged in (e.g. visiting a
       // public storefront on a custom domain with a stale token from another
       // domain). Don't set authError — that would block public pages from
