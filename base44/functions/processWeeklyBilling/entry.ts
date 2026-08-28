@@ -109,7 +109,7 @@ async function applyReceivableOffset(base44, hostId, amount, now) {
   return Math.round(totalOffset * 100) / 100;
 }
 
-async function authorizeScheduledBillingRun(base44, body) {
+async function authorizeScheduledBillingRun(base44, body, req) {
   const user = await base44.auth.me().catch(() => null);
   if (user) {
     if (user.role !== 'admin') {
@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
-    const authorization = await authorizeScheduledBillingRun(base44, body);
+    const authorization = await authorizeScheduledBillingRun(base44, body, req);
     if (!authorization.allowed) return authorization.response;
 
     // This function is called by a scheduled automation — verify admin or automation context

@@ -144,7 +144,7 @@ async function applyReceivableOffset(base44, hostId, amount, now) {
   return Math.round(totalOffset * 100) / 100;
 }
 
-async function authorizeScheduledGracePeriodRun(base44, body) {
+async function authorizeScheduledGracePeriodRun(base44, body, req) {
   const user = await base44.auth.me().catch(() => null);
   if (user) {
     if (user.role !== 'admin') {
@@ -164,6 +164,10 @@ async function authorizeScheduledGracePeriodRun(base44, body) {
     });
     return { allowed: true };
   }
+
+  // External cron (GitHub Actions) — shared secret header
+  const isCronBilling = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
+  if (isCronBilling) return { allowed: true };
 
   const args = body?.args || {};
   const automation = body?.automation || {};
@@ -685,7 +689,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => ({}));
-    const authorization = await authorizeScheduledGracePeriodRun(base44, body);
+    const authorization = await authorizeScheduledGracePeriodRun(base44, body, req);
     if (!authorization.allowed) return authorization.response;
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
     const now = new Date();
