@@ -816,8 +816,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const stripeOptions = isFleetOS ? { stripeAccount: commerce.stripe_account_id } : {};
-        const paymentIntent = await stripe.paymentIntents.create({
+        const paymentIntentParams = {
           amount: Math.round(grossedAmount * 100),
           currency: "usd",
           customer: booking.stripe_customer_id,
@@ -826,7 +825,10 @@ Deno.serve(async (req) => {
           confirm: true,
           description: isFleetOS ? `Host payment recovery retry ${retryAttempt} — ${booking.vehicle_name}` : `uRide payment recovery retry ${retryAttempt} — ${booking.vehicle_name}`,
           metadata: { booking_request_id: booking.id, payment_recovery_retry: `${retryAttempt}`, billing_context: isFleetOS ? 'fleetos_host_direct_payment' : 'rental_marketplace_payment', payment_processor: isFleetOS ? 'host_stripe' : 'uride_stripe' },
-        }, stripeOptions);
+        };
+        const paymentIntent = isFleetOS
+          ? await stripe.paymentIntents.create(paymentIntentParams, { stripeAccount: commerce.stripe_account_id })
+          : await stripe.paymentIntents.create(paymentIntentParams);
 
         if (paymentIntent.status === "succeeded") {
           await restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now, isFleetOS);
