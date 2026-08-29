@@ -127,7 +127,7 @@ async function authorizeScheduledBillingRun(base44, body, req) {
       source: 'admin_panel',
       event_status: 'warning',
     });
-    return { allowed: true };
+    return { allowed: true, isManualAdminRun: true };
   }
 
   // External cron (GitHub Actions) — shared secret header
@@ -144,7 +144,7 @@ async function authorizeScheduledBillingRun(base44, body, req) {
     return { allowed: false, response: Response.json({ error: 'Unauthorized scheduled function caller' }, { status: 401 }) };
   }
 
-  return { allowed: true };
+  return { allowed: true, isManualAdminRun: false };
 }
 
 async function resolveMarketplaceFee(base44, booking = {}) {
@@ -196,6 +196,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const authorization = await authorizeScheduledBillingRun(base44, body, req);
     if (!authorization.allowed) return authorization.response;
+    const isManualAdminRun = !!authorization.isManualAdminRun;
 
     // This function is called by a scheduled automation — verify admin or automation context
     const today = new Date();
@@ -344,10 +345,22 @@ Deno.serve(async (req) => {
         }, stripeOptions);
 
         if (paymentIntent.status === "succeeded") {
-          // Calculate next billing date: anchor to current next_billing_date + 7
-          const anchorDate = new Date(booking.next_billing_date + "T00:00:00");
-          anchorDate.setDate(anchorDate.getDate() + 7);
-          const nextBillingDate = anchorDate.toISOString().split("T")[0];
+          // Calculate next billing date.
+          // Manual admin runs snap to next Monday so billing stays on the weekly Monday cadence.
+          // Automatic cron runs anchor to current next_billing_date + 7 days as before.
+          let nextBillingDate;
+          if (isManualAdminRun) {
+            const now = new Date();
+            const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+            let daysUntilMonday = (1 - dayOfWeek + 7) % 7;
+            if (daysUntilMonday === 0) daysUntilMonday = 7; // today is Monday → next Monday
+            now.setDate(now.getDate() + daysUntilMonday);
+            nextBillingDate = now.toISOString().split("T")[0];
+          } else {
+            const anchorDate = new Date(booking.next_billing_date + "T00:00:00");
+            anchorDate.setDate(anchorDate.getDate() + 7);
+            nextBillingDate = anchorDate.toISOString().split("T")[0];
+          }
 
           await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
             payment_status: "paid",
