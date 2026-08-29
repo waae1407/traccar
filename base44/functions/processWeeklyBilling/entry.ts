@@ -347,22 +347,11 @@ Deno.serve(async (req) => {
           : await stripe.paymentIntents.create(paymentIntentParams);
 
         if (paymentIntent.status === "succeeded") {
-          // Calculate next billing date.
-          // Manual admin runs snap to next Monday so billing stays on the weekly Monday cadence.
-          // Automatic cron runs anchor to current next_billing_date + 7 days as before.
-          let nextBillingDate;
-          if (isManualAdminRun) {
-            const now = new Date();
-            const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-            let daysUntilMonday = (1 - dayOfWeek + 7) % 7;
-            if (daysUntilMonday === 0) daysUntilMonday = 7; // today is Monday → next Monday
-            now.setDate(now.getDate() + daysUntilMonday);
-            nextBillingDate = now.toISOString().split("T")[0];
-          } else {
-            const anchorDate = new Date(booking.next_billing_date + "T00:00:00");
-            anchorDate.setDate(anchorDate.getDate() + 7);
-            nextBillingDate = anchorDate.toISOString().split("T")[0];
-          }
+          // IMMUTABLE BILLING ANCHOR: next_billing_date is always derived from start_date + (weekNum × 7).
+          // Manual admin runs and late collections never re-anchor the cadence.
+          const anchorStart = new Date(booking.start_date + "T00:00:00");
+          anchorStart.setDate(anchorStart.getDate() + weekNum * 7);
+          const nextBillingDate = anchorStart.toISOString().split("T")[0];
 
           await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
             payment_status: "paid",

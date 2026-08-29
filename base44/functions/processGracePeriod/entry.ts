@@ -312,8 +312,11 @@ function friendlyPaymentRetryMessage(booking, retryAttempt, errorMessage) {
 }
 
 async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now, skipPayout = false) {
-  const nextDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const nextBillingDate = nextDate.toISOString().split("T")[0];
+  // IMMUTABLE BILLING ANCHOR: next_billing_date derived from start_date + (paymentWeekNumber × 7).
+  // Late recovery never re-anchors the cadence.
+  const anchorStart = new Date(booking.start_date + "T00:00:00");
+  anchorStart.setDate(anchorStart.getDate() + paymentWeekNumber * 7);
+  const nextBillingDate = anchorStart.toISOString().split("T")[0];
   const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
 
   if ((booking.starter_disabled || booking.moovetrax_kill_active) && deviceId) {
