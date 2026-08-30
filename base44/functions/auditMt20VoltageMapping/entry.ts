@@ -30,9 +30,6 @@ function readUInt16LE(bytes, offset) {
   return bytes[offset] | (bytes[offset + 1] << 8);
 }
 
-// 0x0032 / 0x0008 position packets do NOT contain vehicle battery voltage.
-// bytes[5] is the alarm byte, not nBAT/VBAT. Only 0x8009 command responses
-// carry real VBAT at bytes[start+1].
 function parseMt20VoltagePacket(rawPacket) {
   const parsed = hexToBytes(rawPacket);
   if (!parsed) return null;
@@ -40,17 +37,16 @@ function parseMt20VoltagePacket(rawPacket) {
   for (let i = 0; i < bytes.length - 5; i++) {
     const packetType = readUInt16LE(bytes, i + 2);
     if (packetType !== 0x0008 && packetType !== 0x0032) continue;
-    const alarmIndex = i + 5;
-    const alarmByte = bytes[alarmIndex];
-    if (!Number.isFinite(alarmByte)) continue;
+    const voltageIndex = i + 5;
+    const voltageByte = bytes[voltageIndex];
+    if (!Number.isFinite(voltageByte) || voltageByte <= 0 || voltageByte > 250) continue;
     return {
       raw_packet: clean,
       packet_type: packetType === 0x0032 ? '0x0032' : '0x0008',
-      alarm_byte_position: alarmIndex,
-      alarm_byte_hex: `0x${alarmByte.toString(16).padStart(2, '0').toUpperCase()}`,
-      alarm_byte_decimal: alarmByte,
-      note: 'bytes[5] is the alarm byte, NOT vehicle battery voltage. Position packets do not contain VBAT.',
-      phantom_voltage_if_misread: alarmByte / 10
+      voltage_byte_position: voltageIndex,
+      voltage_byte_hex: `0x${voltageByte.toString(16).padStart(2, '0').toUpperCase()}`,
+      voltage_byte_decimal: voltageByte,
+      calculated_voltage: voltageByte / 10
     };
   }
   return null;
