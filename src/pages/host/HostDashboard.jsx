@@ -15,6 +15,7 @@ import QuickActionsCard from "@/components/shared/QuickActionsCard";
 import QuickActionsDrawer from "@/components/shared/QuickActionsDrawer";
 import FleetProtectionWidget from "@/components/gps/FleetProtectionWidget";
 import BatteryHealthWarningBanner from "@/components/telematics/battery/BatteryHealthWarningBanner";
+import StripeConnectPostIt from "@/components/host/StripeConnectPostIt";
 
 const StatCard = ({ label, value, sub, icon: Icon, color, bg, href }) => {
   const inner = (
@@ -155,7 +156,7 @@ export default function HostDashboard() {
 
       {smartReadinessActive && <HostSmartReadinessPanel readiness={readiness} storeUrl={storeUrl} />}
 
-      {hasLiveVehicles && !host.stripe_onboarding_complete && <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-yellow-200 bg-yellow-50"><div className="flex items-center gap-3"><AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" /><div><p className="text-sm font-bold text-yellow-900">Set Up Your Payouts</p><p className="text-xs text-yellow-700">Complete Stripe Connect onboarding to receive automatic fleet payouts.</p></div></div><Link to="/host/payouts" className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-yellow-800 bg-yellow-200 hover:bg-yellow-300 transition-all">Set Up →</Link></div>}
+      <StripeConnectPostIt host={host} />
 
       {expiringDocs.length > 0 && <div className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-red-200 bg-red-50"><div className="flex items-center gap-3"><AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0" /><div><p className="text-sm font-bold text-red-900">{expiringDocs.length} Document{expiringDocs.length > 1 ? "s" : ""} Need Attention</p><p className="text-xs text-red-700">Insurance or registration documents expiring soon.</p></div></div><Link to="/host/compliance" className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-red-800 bg-red-200 hover:bg-red-300 transition-all">View →</Link></div>}
 
