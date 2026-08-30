@@ -114,16 +114,6 @@ export default function HostBusinessOperations() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["host-payment-settings", host?.id] })
   });
 
-  const enableUridePayments = useMutation({
-    mutationFn: () => base44.functions.invoke("enableUridePayments", { host_id: host.id }),
-    onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ["operator-plan"] });
-      qc.invalidateQueries({ queryKey: ["host-payment-settings", host?.id] });
-      qc.invalidateQueries({ queryKey: ["host-commerce-profile", host?.id] });
-      if (res.data?.url) window.location.href = res.data.url;
-    }
-  });
-
   // Handle Stripe subscription return (after "Start Free Trial" checkout)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -214,7 +204,7 @@ export default function HostBusinessOperations() {
         </div>
       )}
 
-      {plan && host && <PaymentSetupBuilder plan={plan} settings={settings} saving={savePaymentSettings.isPending} enabling={enableUridePayments.isPending} onSave={(data) => savePaymentSettings.mutate(data)} onEnableUridePayments={() => enableUridePayments.mutate()} />}
+      {plan && host && <PaymentSetupBuilder plan={plan} settings={settings} saving={savePaymentSettings.isPending} onSave={(data) => savePaymentSettings.mutate(data)} />}
       {!profile && !plan && <div className="rounded-2xl bg-white border border-gray-100 p-5 text-gray-500">No smart setup profile found yet.</div>}
     </div>
   );

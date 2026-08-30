@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { CreditCard, ExternalLink, Eye, Save } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const METHOD_OPTIONS = ["Zelle", "Cash App", "Venmo", "Manual invoice", "Bank transfer", "Cash", "Other"];
 
@@ -80,15 +81,15 @@ export default function PaymentSetupBuilder({ plan, settings, saving, enabling, 
         <Badge className={urideActive ? "bg-emerald-500 text-white" : "bg-gray-900 text-white"}>{currentModeLabel}</Badge>
       </div>
 
-      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 flex items-center justify-between gap-3">
+      <div className={`rounded-2xl border p-4 flex items-center justify-between gap-3 ${urideActive ? "border-emerald-200 bg-emerald-50" : "border-blue-200 bg-blue-50"}`}>
         <div>
-          <p className="text-sm font-black text-gray-900">uRideHub Payments: {urideActive ? "On" : "Off"}</p>
-          <p className="text-xs text-gray-500 mt-1">Automated Stripe checkout and host payouts can be enabled anytime.</p>
+          <p className="text-sm font-black text-gray-900">uRideHub Payments: {urideActive ? "Active" : "Not connected"}</p>
+          <p className="text-xs text-gray-500 mt-1">{urideActive ? "Stripe checkout and automatic payouts are live." : "Connect your bank on the Payouts page to activate automatic checkout and payouts — no separate enable step needed."}</p>
         </div>
         {!urideActive && (
-          <Button onClick={onEnableUridePayments} disabled={enabling} className="rounded-xl bg-pink-600 hover:bg-pink-700 text-white">
-            <ExternalLink className="h-4 w-4" /> {enabling ? "Opening…" : "Enable uRideHub Payments"}
-          </Button>
+          <Link to="/host/payouts" className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-gray-900 hover:bg-gray-800 whitespace-nowrap">
+            <ExternalLink className="h-4 w-4" /> Go to Payouts
+          </Link>
         )}
       </div>
 
