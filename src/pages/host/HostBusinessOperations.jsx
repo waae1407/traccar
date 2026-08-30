@@ -142,7 +142,7 @@ export default function HostBusinessOperations() {
     if (!returned || !host?.id || !plan?.id) return;
 
     base44.functions.invoke("getStripeConnectStatus", { host_id: host.id }).then(async (res) => {
-      if (!res.data?.charges_enabled && !res.data?.onboarding_complete) return;
+      if (!res.data?.payouts_enabled) return;
       const now = new Date().toISOString();
       await base44.entities.Host.update(host.id, { stripe_onboarding_complete: true });
       const isFleetOS = commerceProfile?.plan_type === "fleetos_professional" || plan.selected_mode === "fleetos_professional";

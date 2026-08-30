@@ -44,6 +44,17 @@ export default function HostPayouts() {
   });
   const currentPaymentSettings = paymentSettings[0];
 
+  // Live Stripe Connect status — source of truth for payout readiness (DB flag can be stale)
+  const { data: stripeStatus } = useQuery({
+    queryKey: ["stripe-connect-status", host?.id],
+    queryFn: () => base44.functions.invoke("getStripeConnectStatus", { host_id: host.id }),
+    enabled: !!host?.id && !!host?.stripe_account_id,
+    staleTime: 60_000,
+  });
+  const payoutsEnabled = stripeStatus?.data?.payouts_enabled;
+  // While loading, fall back to DB flag to avoid flicker
+  const stripeVerified = payoutsEnabled !== undefined ? payoutsEnabled : host?.stripe_onboarding_complete;
+
   const { data: allPayouts = [], isLoading: loadingPayouts } = useQuery({
     queryKey: ["host-payouts", host?.id],
     queryFn: () => base44.entities.HostPayout.filter({ host_id: host.id }, "-created_date", 500),
@@ -200,7 +211,7 @@ export default function HostPayouts() {
     setCheckingReturn(true);
     base44.functions.invoke("getStripeConnectStatus", { host_id: host.id })
       .then(async res => {
-        if (res.data?.charges_enabled || res.data?.onboarding_complete) {
+        if (res.data?.payouts_enabled) {
           const now = new Date().toISOString();
           await base44.entities.Host.update(host.id, { stripe_onboarding_complete: true });
           const plans = await base44.entities.OperatorPlanConfiguration.filter({ host_id: host.id }, "-updated_date", 1);
@@ -395,7 +406,7 @@ export default function HostPayouts() {
             </div>
           </div>
         </div>
-      ) : host && !host.stripe_onboarding_complete && !checkingReturn ? (
+      ) : host && !stripeVerified && !checkingReturn ? (
         <div className="p-5 rounded-2xl border border-yellow-200 bg-yellow-50">
           <div className="flex items-start gap-4">
             <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
@@ -414,7 +425,7 @@ export default function HostPayouts() {
             </div>
           </div>
         </div>
-      ) : host?.stripe_onboarding_complete && (
+      ) : stripeVerified && (
         <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50 flex items-center gap-3">
           <CheckCircle2 className="h-5 w-5 text-emerald-500" />
           <div>
