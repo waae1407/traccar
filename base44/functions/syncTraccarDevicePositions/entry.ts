@@ -169,31 +169,13 @@ function parseNoranCandidate(bytes, start) {
   };
 }
 
-function parseNoranPositionPacket(bytes) {
-  for (let i = 0; i < bytes.length - 5; i++) {
-    const command = readUInt16(bytes, i + 2);
-    if (command !== 0x0032 && command !== 0x0008) continue;
-    const voltageByte = bytes[i + 5];
-    if (!Number.isFinite(voltageByte) || voltageByte <= 0 || voltageByte > 250) continue;
-    return {
-      command: command === 0x0032 ? '0x0032' : '0x0008',
-      bEnable: bytes[i + 4],
-      nBAT: voltageByte,
-      VBAT: voltageByte,
-      battery_voltage: voltageByte / 10,
-      power_voltage: voltageByte / 10,
-      external_voltage: voltageByte / 10,
-      voltage_source: command === 0x0032 ? 'mt20_0032_nBAT' : 'mt20_0008_vBAT'
-    };
-  }
-  return null;
-}
-
+// NOTE: 0x0032 / 0x0008 position upload packets do NOT contain vehicle battery
+// voltage. bytes[5] in those packets is the alarm byte, not nBAT/VBAT. Reading
+// it as voltage produced phantom readings (e.g. alarm byte 118 → 11.8V).
+// Vehicle voltage is only available from 0x8009 command responses, handled below.
 function parseNoranMt20ResponsePacket(value) {
   const bytes = hexToBytes(value);
   if (!bytes) return null;
-  const positionPacket = parseNoranPositionPacket(bytes);
-  if (positionPacket) return positionPacket;
   for (let i = 0; i < bytes.length - 1; i++) {
     if ((bytes[i] === 0x80 && bytes[i + 1] === 0x09) || (bytes[i] === 0x09 && bytes[i + 1] === 0x80)) {
       const candidates = [i + 2, i + 8].map((start) => parseNoranCandidate(bytes, start)).filter(Boolean);
