@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Clock, Eye, FileText, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock, Eye, FileText, ShieldAlert } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import PaymentAlertInsight from "./PaymentAlertInsight";
 
 const OPEN_STATUSES = ["new", "notified", "acknowledged", "under_review", "retry_scheduled", "escalated"];
 const STYLE = {
-  critical: "border-red-300 bg-yellow-50 text-red-900",
-  warning: "border-amber-300 bg-yellow-50 text-amber-900",
+  critical: "border-red-400 bg-red-50 text-red-900",
+  warning: "border-amber-300 bg-amber-50 text-amber-900",
   info: "border-blue-200 bg-blue-50 text-blue-900",
 };
 
@@ -22,6 +22,7 @@ function appendAudit(alert, actionType, actorRole, actorId, previousStatus, newS
 export default function PaymentOperationalAlertPanel({ scope = "admin", hostId = null, compact = false, limit = 3, title = "Payment Operations Alerts" }) {
   const qc = useQueryClient();
   const [noteDraft, setNoteDraft] = useState({});
+  const [expandedAlerts, setExpandedAlerts] = useState({});
   const { data: alerts = [] } = useQuery({
     queryKey: ["payment-operational-alerts", scope, hostId],
     queryFn: () => scope === "host" && hostId
@@ -57,44 +58,54 @@ export default function PaymentOperationalAlertPanel({ scope = "admin", hostId =
   if (openAlerts.length === 0) return null;
 
   return (
-    <div className="rounded-3xl border-2 border-yellow-300 bg-yellow-50 p-4 shadow-[0_10px_30px_rgba(234,179,8,0.18)] rotate-[-0.2deg]">
+    <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-yellow-700" />
+          <ShieldAlert className="h-5 w-5 text-gray-600" />
           <div>
-            <h3 className="font-black text-yellow-950 text-sm">{title}</h3>
-            <p className="text-xs text-yellow-700">Visible until acknowledged, reviewed, or resolved.</p>
+            <h3 className="font-black text-gray-900 text-sm">{title}</h3>
+            <p className="text-xs text-gray-500">Tap an alert to expand. Visible until acknowledged, reviewed, or resolved.</p>
           </div>
         </div>
-        {scope === "admin" && <Link to="/admin/payment-alerts" className="text-xs font-black text-yellow-900 underline">Open Center</Link>}
+        {scope === "admin" && <Link to="/admin/payment-alerts" className="text-xs font-black text-gray-700 underline">Open Center</Link>}
       </div>
       <div className="space-y-3">
         {openAlerts.map(alert => {
           const note = noteDraft[alert.id] || "";
+          const isExpanded = !!expandedAlerts[alert.id];
           return (
             <div key={alert.id} className={`rounded-2xl border p-3 ${STYLE[alert.severity] || STYLE.warning}`}>
-              <div className="flex items-start justify-between gap-3">
+              <div
+                onClick={() => setExpandedAlerts(p => ({ ...p, [alert.id]: !p[alert.id] }))}
+                className="flex items-start justify-between gap-3 cursor-pointer"
+              >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] font-black uppercase tracking-wide">{alert.severity}</span>
+                    <span className={`text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded ${alert.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-200 text-amber-800"}`}>{alert.severity}</span>
                     <span className="text-[10px] font-bold opacity-60">{alert.billing_context?.replace(/_/g, ' ')}</span>
                   </div>
                   <p className="font-black text-sm mt-1">{alert.title}</p>
-                  <p className="text-xs mt-1 opacity-80">{alert.message}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {alert.severity === "critical" ? <AlertTriangle className="h-5 w-5 text-red-600" /> : <Clock className="h-5 w-5" />}
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+              {isExpanded && (
+                <div className="mt-2">
+                  <p className="text-xs opacity-80">{alert.message}</p>
                   {!compact && <p className="text-xs mt-2 font-semibold">Action: {alert.recommended_action}</p>}
                   <PaymentAlertInsight alert={alert} scope={scope} compact={compact} />
-                </div>
-                {alert.severity === "critical" ? <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0" /> : <Clock className="h-5 w-5 flex-shrink-0" />}
-              </div>
-              {!compact && (
-                <div className="mt-3 space-y-2">
-                  <input value={note} onChange={e => setNoteDraft(p => ({ ...p, [alert.id]: e.target.value }))} placeholder="Add note / resolution notes" className="w-full rounded-xl border border-black/10 bg-white/70 px-3 py-2 text-xs outline-none" />
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => updateAlert.mutate({ alert, status: "acknowledged", actionType: "acknowledged", note })} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10 flex items-center gap-1"><Eye className="h-3 w-3" /> Acknowledge</button>
-                    <button onClick={() => updateAlert.mutate({ alert, status: "under_review", actionType: "marked_under_review", note })} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10 flex items-center gap-1"><FileText className="h-3 w-3" /> Under review</button>
-                    <button onClick={() => updateAlert.mutate({ alert, status: "resolved", actionType: "resolved", note })} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Resolve</button>
-
-                  </div>
+                  {!compact && (
+                    <div className="mt-3 space-y-2">
+                      <input value={note} onChange={e => setNoteDraft(p => ({ ...p, [alert.id]: e.target.value }))} placeholder="Add note / resolution notes" className="w-full rounded-xl border border-black/10 bg-white/70 px-3 py-2 text-xs outline-none" />
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => updateAlert.mutate({ alert, status: "acknowledged", actionType: "acknowledged", note })} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10 flex items-center gap-1"><Eye className="h-3 w-3" /> Acknowledge</button>
+                        <button onClick={() => updateAlert.mutate({ alert, status: "under_review", actionType: "marked_under_review", note })} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10 flex items-center gap-1"><FileText className="h-3 w-3" /> Under review</button>
+                        <button onClick={() => updateAlert.mutate({ alert, status: "resolved", actionType: "resolved", note })} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Resolve</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
