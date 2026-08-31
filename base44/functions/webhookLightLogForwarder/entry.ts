@@ -1034,6 +1034,55 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── VOLTAGE FAST PATH: routine 0x0032 voltage packets (160/hr) ──
+    // These are high-volume routine telemetry. Skip TelematicsEvent creation + Alert360
+    // (saves 2 credits + 1 function invocation per packet).
+    // KEEP command response matching — 0x0032 packets complete locate commands.
+    // Combine device update + session tracking into ONE write (saves another credit).
+    if (parsed.message_type === 'mt20_voltage_0032' && device?.id) {
+      const sourceIpRaw = String(body?.source_ip || body?.sourceIp || '').trim() || null;
+      const sourcePort = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':').pop() : null;
+      const sourceIpOnly = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':')[0] : sourceIpRaw;
+
+      // Single combined device update: voltage + session tracking + position
+      await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+        ...parsed.device_updates,
+        ...(Number.isFinite(parsed.voltage) ? { voltage_last_seen_at: timestamp } : {}),
+        last_seen_at: timestamp,
+        last_inbound_packet_at: timestamp,
+        last_inbound_packet_type: 'position',
+        last_inbound_source: parsed.source || 'forwarded_log',
+        last_inbound_raw_hex: (parsed.raw_packet_hex || '').slice(0, 20)
+      }).catch((err) => console.error('[voltage-fast-path] device update failed:', err.message));
+
+      // KEEP command response matching — 0x0032 completes locate commands
+      let voltage_command_processing = null;
+      try {
+        voltage_command_processing = isCommandReply(parsed)
+          ? await processCommandResponse(base44, device, parsed, timestamp)
+          : null;
+      } catch (cmdError) {
+        console.error('[voltage-fast-path] Command processing error:', cmdError.message);
+        voltage_command_processing = { error: true, message: cmdError.message };
+      }
+
+      console.log(`[VOLTAGE_FAST_PATH] unique_id=${device.unique_id || device.id} voltage=${parsed.voltage} command_matched=${!!voltage_command_processing?.command_matched}`);
+      return Response.json({
+        ok: true,
+        message_type: parsed.message_type,
+        event_id: '',
+        device_updated: true,
+        device_id: device.id,
+        voltage: parsed.voltage,
+        packet_type: parsed.packet_type,
+        packet_type_name: 'voltage (fast path — device updated, command matching preserved)',
+        can_complete_locate: true,
+        source: parsed.source,
+        command_processing: voltage_command_processing,
+        fast_path: true
+      });
+    }
+
     const rawPayload = { ...body, parsed_forwarded_log: parsed };
     if (Number.isFinite(parsed.voltage)) {
       rawPayload.battery_voltage = parsed.voltage;
