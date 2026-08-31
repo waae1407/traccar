@@ -505,6 +505,14 @@ async function validateWebhookRequest(base44, req, body) {
 
 Deno.serve(async (req) => {
   try {
+    // ── EARLY SCANNER BLOCK: Check IP before ANY async work or client creation ──
+    // This runs before req.json() and before createClientFromRequest, so scanner
+    // hits cost ZERO credits (no function body execution beyond this check).
+    const earlyClientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
+    if (SCANNER_IP_BLOCKLIST.has(earlyClientIp)) {
+      return Response.json({ error: 'Blocked' }, { status: 403 });
+    }
+
     const base44 = createClientFromRequest(req);
     const body = await req.json().catch(() => null);
     const validation = await validateWebhookRequest(base44, req, body);
