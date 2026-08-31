@@ -398,8 +398,7 @@ function isValidTimestamp(value) {
 // ── Known scanner/bot IPs that repeatedly hit this endpoint with malformed payloads ──
 // Each hit costs 2+ credits (function invocation + ActivityEvent write). Block them
 // before any database operation to eliminate the credit drain entirely.
-// [FORCE-REDEPLOY 2026-08-31-v4] Scanner still creating ActivityEvents — deployed code is stale.
-const SCANNER_IP_BLOCKLIST = ['198.71.50.237'];  // Array instead of Set to force recompile
+const SCANNER_IP_BLOCKLIST = ['198.71.50.237'];  // Repeatedly sending malformed payloads ~160/hr
 
 async function validateWebhookRequest(base44, req, body) {
   // ── SCANNER IP BLOCKLIST: Return immediately before any DB operations ──
