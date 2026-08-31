@@ -374,18 +374,11 @@ async function createSafetyEventIfNeeded(base44, { body, eventType, device, prov
 }
 
 async function logSecurityEvent(base44, { eventType, providerKey = '', providerId = '', summary, metadata = {} }) {
-  await base44.asServiceRole.entities.ActivityEvent.create({
-    event_type: 'gps.command_failed',
-    actor_id: 'webhook',
-    actor_email: 'provider-webhook',
-    actor_role: 'system',
-    target_entity: providerId ? 'TelematicsProviderConfig' : 'WebhookRequest',
-    target_id: providerId,
-    summary,
-    metadata: { security_event_type: eventType, provider_key: providerKey, ...metadata },
-    source: 'webhook',
-    event_status: 'error',
-  });
+  // SILENT: This endpoint is effectively dead — all real telematics traffic flows through
+  // webhookLightLogForwarder. The only traffic here is scanner/bot noise hitting with
+  // invalid secrets, missing keys, etc. Creating ActivityEvent records for each attempt
+  // wastes ~120 credits/hr. Return silently — no ActivityEvent, no credit cost.
+  console.warn(`[receiveTelematicsWebhook] Security event (silent): ${eventType} — ${summary}`);
 }
 
 function getProvidedSecret(req, body) {
@@ -490,19 +483,8 @@ async function validateWebhookRequest(base44, req, body) {
     return { ok: false, response: Response.json({ error: 'Unsupported webhook event type' }, { status: 400 }) };
   }
 
-  await base44.asServiceRole.entities.ActivityEvent.create({
-    event_type: 'gps.command_sent',
-    actor_id: 'webhook',
-    actor_email: 'provider-webhook',
-    actor_role: 'system',
-    target_entity: 'TelematicsProviderConfig',
-    target_id: provider.id,
-    summary: `Telematics webhook accepted for ${providerKey}`,
-    metadata: { provider_key: providerKey, replay_key: replayKey, webhook_accepted: true },
-    source: 'webhook',
-    event_status: 'success',
-  });
-
+  // SILENT: Skip "webhook accepted" ActivityEvent — redundant with the TelematicsEvent
+  // created later in the handler. Saves 1 credit per accepted webhook.
   return { ok: true, providerKey, provider };
 }
 

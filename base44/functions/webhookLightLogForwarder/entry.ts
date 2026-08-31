@@ -1036,9 +1036,10 @@ Deno.serve(async (req) => {
 
     // ── VOLTAGE FAST PATH: routine 0x0032 voltage packets (160/hr) ──
     // These are high-volume routine telemetry. Skip TelematicsEvent creation + Alert360
-    // (saves 2 credits + 1 function invocation per packet).
+    // (saves 2 credits + 1 function invocation per packet = ~480 credits/hr).
     // KEEP command response matching — 0x0032 packets complete locate commands.
     // Combine device update + session tracking into ONE write (saves another credit).
+    // [REDEPLOY TOUCH 2026-08-31] Force fresh deployment of voltage fast path.
     if (parsed.message_type === 'mt20_voltage_0032' && device?.id) {
       const sourceIpRaw = String(body?.source_ip || body?.sourceIp || '').trim() || null;
       const sourcePort = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':').pop() : null;
