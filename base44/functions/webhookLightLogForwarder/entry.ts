@@ -1000,19 +1000,32 @@ Deno.serve(async (req) => {
     const timestamp = normalizeTimestamp(parsed.device_timestamp || body.timestamp || body.deviceTime || body.serverTime || now);
     const device = await findDevice(base44, body, parsed);
 
-    // ── HEARTBEAT: SKIP ENTIRELY — zero DB operations, zero credits consumed ──
-    // Heartbeats (0x000f) only refresh the UDP NAT session between the device and Traccar.
-    // Traccar handles this internally — it doesn't need our webhook to process the heartbeat.
-    // The heartbeat-delay command gate was removed (commands now sent immediately via Traccar API).
-    // syncTraccarDevicePositions polls Traccar for online_status, so device online state is covered.
-    // No code reads last_heartbeat_received_at anymore — zero commands use 'pending_waiting_for_next_heartbeat'.
-    // Returning immediately saves ~12,000 credits/day with zero functional impact.
+    // ── HEARTBEAT FAST PATH: single DB update, skip TelematicsEvent/Alert360/command matching ──
+    // Heartbeats (0x000f) refresh the UDP NAT session between device and Traccar.
+    // Traccar handles the actual session refresh — our webhook just needs to timestamp it.
+    // The heartbeat-delay command gate was removed (commands now sent immediately via Traccar API),
+    // but we keep last_heartbeat_received_at current in case command reliability degrades and
+    // we need to re-enable the gate. This single update saves ~80% vs the full pipeline.
     if (isHeartbeatPacket(parsed)) {
+      if (device?.id) {
+        const sourceIpRaw = String(body?.source_ip || body?.sourceIp || '').trim() || null;
+        const sourcePort = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':').pop() : null;
+        const sourceIpOnly = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':')[0] : sourceIpRaw;
+        await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+          online_status: 'online',
+          last_seen_at: timestamp,
+          last_heartbeat_received_at: timestamp,
+          last_heartbeat_source_ip: sourceIpOnly || null,
+          last_heartbeat_source_port: sourcePort || null
+        }).catch((err) => console.error('[heartbeat-fast-path] device update failed:', err.message));
+      }
       return Response.json({
         ok: true,
-        ignored: true,
-        reason: 'Heartbeat skipped — Traccar handles UDP session refresh; no system dependency on heartbeat data',
-        packet_type: parsed.packet_type
+        packet_type: parsed.packet_type,
+        packet_type_name: 'heartbeat (fast path — session timestamped)',
+        heartbeat_received: true,
+        device_updated: !!device,
+        fast_path: true
       });
     }
 
