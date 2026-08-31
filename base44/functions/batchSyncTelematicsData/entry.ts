@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
 
     let updated = 0;
     let notFound = 0;
+    let skippedInactive = 0;
     let errors = 0;
     const deviceIds = [];
 
@@ -55,6 +56,17 @@ Deno.serve(async (req) => {
         const device = matches[0];
         if (!device) {
           notFound++;
+          continue;
+        }
+
+        // Skip devices not actively deployed — inventory/retired/unassigned devices
+        // that are powered on but not installed waste a DB write per cycle.
+        const isInactive = !device.vehicle_id ||
+          device.lifecycle_status === 'inventory' ||
+          device.lifecycle_status === 'retired' ||
+          device.assigned_status === 'unassigned';
+        if (isInactive) {
+          skippedInactive++;
           continue;
         }
 
@@ -102,6 +114,7 @@ Deno.serve(async (req) => {
       unique_devices: deviceMap.size,
       devices_updated: updated,
       devices_not_found: notFound,
+      devices_skipped_inactive: skippedInactive,
       errors
     });
   } catch (error) {
