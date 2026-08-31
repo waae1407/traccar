@@ -398,16 +398,14 @@ function isValidTimestamp(value) {
 // ── Known scanner/bot IPs that repeatedly hit this endpoint with malformed payloads ──
 // Each hit costs 2+ credits (function invocation + ActivityEvent write). Block them
 // before any database operation to eliminate the credit drain entirely.
-// [FORCE-REDEPLOY 2026-08-31-v2] Scanner still creating ActivityEvents — deployed code is stale.
-const SCANNER_IP_BLOCKLIST = new Set([
-  '198.71.50.237',  // Repeatedly sending malformed payloads ~160/hr — draining 7,700 credits/day
-]);
+// [FORCE-REDEPLOY 2026-08-31-v4] Scanner still creating ActivityEvents — deployed code is stale.
+const SCANNER_IP_BLOCKLIST = ['198.71.50.237'];  // Array instead of Set to force recompile
 
 async function validateWebhookRequest(base44, req, body) {
   // ── SCANNER IP BLOCKLIST: Return immediately before any DB operations ──
   // This saves 2 credits per hit (function invocation + ActivityEvent write).
   const clientIp = getClientIp(req);
-  if (SCANNER_IP_BLOCKLIST.has(clientIp)) {
+  if (SCANNER_IP_BLOCKLIST.includes(clientIp)) {
     return { ok: false, response: Response.json({ error: 'Blocked' }, { status: 403 }) };
   }
 
@@ -509,7 +507,8 @@ Deno.serve(async (req) => {
     // This runs before req.json() and before createClientFromRequest, so scanner
     // hits cost ZERO credits (no function body execution beyond this check).
     const earlyClientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || 'unknown';
-    if (SCANNER_IP_BLOCKLIST.has(earlyClientIp)) {
+    if (SCANNER_IP_BLOCKLIST.includes(earlyClientIp)) {
+      console.log(`[receiveTelematicsWebhook] Blocked scanner IP: ${earlyClientIp}`);
       return Response.json({ error: 'Blocked' }, { status: 403 });
     }
 
