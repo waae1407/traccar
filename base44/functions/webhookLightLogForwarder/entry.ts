@@ -406,6 +406,9 @@ function parseForwardedMessage(body) {
 }
 
 async function findDevice(base44, body, parsed) {
+  // Deduplicate candidates — parsed.device_unique_id and body.device_unique_id are often the same value.
+  // Without dedup, the same value was tried against all 5 fields multiple times = 10+ redundant reads.
+  const seen = new Set();
   const candidates = [
     parsed.device_unique_id,
     body.device_unique_id,
@@ -414,15 +417,31 @@ async function findDevice(base44, body, parsed) {
     body.traccar_device_id,
     body.provider_device_id,
     body.imei
-  ].map((value) => String(value || '').trim()).filter(Boolean);
+  ].map((value) => String(value || '').trim()).filter((value) => {
+    if (!value || seen.has(value)) return false;
+    seen.add(value);
+    return true;
+  });
 
-  const fields = ['unique_id', 'device_imei', 'provider_device_id', 'traccar_device_id', 'moovetrax_device_id'];
+  if (candidates.length === 0) return null;
+
+  // ── FAST LOOKUP: Try unique_id first for ALL candidates (1 read per candidate) ──
+  // For MT20, unique_id is the primary identifier and matches 99% of the time.
+  // This reduces unknown-device lookups from 5+ reads to 1 read per candidate.
   for (const candidate of candidates) {
-    for (const field of fields) {
-      const matches = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: PROVIDER_KEY, [field]: candidate });
-      if (matches[0]) return matches[0];
-    }
+    const matches = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: PROVIDER_KEY, unique_id: candidate });
+    if (matches[0]) return matches[0];
   }
+
+  // ── FALLBACK: Try device_imei for candidates that didn't match unique_id ──
+  // Only needed for devices registered by IMEI instead of unique_id (rare for MT20).
+  for (const candidate of candidates) {
+    const matches = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: PROVIDER_KEY, device_imei: candidate });
+    if (matches[0]) return matches[0];
+  }
+
+  // Unknown device — return null without trying provider_device_id, traccar_device_id, moovetrax_device_id.
+  // Those fields are for other providers (MooveTrax, etc.), not MT20.
   return null;
 }
 

@@ -395,7 +395,21 @@ function isValidTimestamp(value) {
   return Number.isFinite(time) && Math.abs(Date.now() - time) <= WEBHOOK_TIMESTAMP_TOLERANCE_MS;
 }
 
+// ── Known scanner/bot IPs that repeatedly hit this endpoint with malformed payloads ──
+// Each hit costs 2+ credits (function invocation + ActivityEvent write). Block them
+// before any database operation to eliminate the credit drain entirely.
+const SCANNER_IP_BLOCKLIST = new Set([
+  '198.71.50.237',  // Repeatedly sending malformed payloads ~38/hr
+]);
+
 async function validateWebhookRequest(base44, req, body) {
+  // ── SCANNER IP BLOCKLIST: Return immediately before any DB operations ──
+  // This saves 2 credits per hit (function invocation + ActivityEvent write).
+  const clientIp = getClientIp(req);
+  if (SCANNER_IP_BLOCKLIST.has(clientIp)) {
+    return { ok: false, response: Response.json({ error: 'Blocked' }, { status: 403 }) };
+  }
+
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     // Silent reject — malformed payloads are scanner/bot noise, not security events worth logging.
     return { ok: false, response: Response.json({ error: 'Malformed payload' }, { status: 400 }) };
