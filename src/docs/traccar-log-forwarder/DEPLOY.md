@@ -1,23 +1,45 @@
-# Noran MT20 Log Forwarder — Deployment Guide
+# MT20 Log Forwarder — Deployment Guide
+
+## Source of Truth
+
+The forwarder script lives in this GitHub repo at:
+```
+src/docs/traccar-log-forwarder/forwarder.py
+```
+
+Deploy path on Traccar server:
+```
+/opt/traccar/log-forwarder/forwarder.py
+```
+
+Environment config:
+```
+/opt/traccar/log-forwarder/.env
+```
+
+---
 
 ## What this does
 
 Tails `/opt/traccar/logs/tracker-server.log` in real time and forwards inbound
-Noran device packets to Base44 `webhookLightLogForwarder`.
+Noran MT20 device packets to Base44.
 
-**Newly added:** `0f000000` heartbeat lines are now forwarded, which refreshes
-the Base44 UDP session freshness timestamp and auto-dispatches any commands
-queued as `pending_waiting_for_fresh_session`.
+**v2 batching:** Heartbeat (0x000f) and position/voltage (0x0032) packets are
+buffered locally and flushed every 5 minutes to `batchSyncTelematicsData`,
+reducing credit consumption by ~94%. Command ACKs (0x8009) are still forwarded
+in real-time for urgent command matching.
 
-## Packet types forwarded
+---
 
-| Hex prefix | Type             | Purpose                         |
-|------------|------------------|---------------------------------|
-| `0f000000` | heartbeat        | MT20 keepalive — NAT refresh ✅ NEW |
-| `28003200` | position         | Position upload (0x0032)        |
-| `08000000` | position         | Legacy position (0x0008)        |
-| `22000300` | alarm            | Alarm upload (0x0003)           |
-| `29000980` | command_response | Command ACK (0x8009)            |
+## Packet types
+
+| Hex prefix | Type             | Routing     | Purpose                      |
+|------------|------------------|-------------|------------------------------|
+| `0f000000` | heartbeat        | **BATCHED** | MT20 keepalive — NAT refresh |
+| `28003200` | position (0x0032)| **BATCHED** | Position + voltage upload     |
+| `08000000` | position (0x0008)| **BATCHED** | Legacy position upload        |
+| `22000300` | alarm (0x0003)   | REAL-TIME   | Alarm upload                 |
+| `29000980` | command ACK      | **REAL-TIME**| Command response (0x8009)    |
 
 **NOT forwarded:** outbound `noran >` server ACK lines.
 
@@ -33,70 +55,79 @@ pip3 install requests
 
 ## Step 2 — Copy forwarder to server
 
+From your local machine (clone of this repo):
 ```bash
-sudo cp noran_forwarder.py /opt/traccar/noran_forwarder.py
-sudo chmod +x /opt/traccar/noran_forwarder.py
+scp src/docs/traccar-log-forwarder/forwarder.py traccar-server:/opt/traccar/log-forwarder/forwarder.py
+```
+
+Or on the server directly:
+```bash
+sudo cp forwarder.py /opt/traccar/log-forwarder/forwarder.py
+sudo chmod +x /opt/traccar/log-forwarder/forwarder.py
 ```
 
 ---
 
-## Step 3 — Run self-test (validation)
+## Step 3 — Set environment variables
+
+Edit `/opt/traccar/log-forwarder/.env`:
 
 ```bash
-python3 /opt/traccar/noran_forwarder.py --validate
+# Real-time endpoint (command ACKs)
+BASE44_WEBHOOK_URL=https://deft-urban-ride-flow.base44.app/functions/webhookLightLogForwarder
+
+# Batch endpoint (heartbeat + position) — NEW in v2
+BATCH_WEBHOOK_URL=https://deft-urban-ride-flow.base44.app/functions/batchSyncTelematicsData
+
+# Shared secret (must match Base44 TRACCAR_WEBHOOK_SECRET)
+TRACCAR_WEBHOOK_SECRET=your_secret_here
+
+# Log file path
+LOG_FILE=/opt/traccar/logs/tracker-server.log
+
+# Provider key
+PROVIDER_KEY=traccar_noran_mt20
+
+# Fallback device ID
+DEVICE_UNIQUE_ID=NR09G00001
+
+# Batching config
+BATCH_ENABLED=true
+BATCH_INTERVAL_S=300
 ```
 
-Expected output:
-```
-  [PASS] heartbeat
-  [PASS] position_0032
-  [PASS] alarm_0003
-  [PASS] outbound_skip
-  [PASS] irrelevant_line
-
-✓ MT20 HEARTBEAT FORWARDING COMPLETE — all self-tests passed
-```
-
-If any FAIL, do not proceed.
+> `TRACCAR_WEBHOOK_SECRET` must match the `TRACCAR_WEBHOOK_SECRET` secret set in Base44.
+> If `BATCH_WEBHOOK_URL` is not set, the forwarder falls back to real-time for all packets (zero risk).
 
 ---
 
-## Step 4 — Set environment variables
-
-Edit `/etc/default/noran-forwarder` (create if missing):
+## Step 4 — Restart the service
 
 ```bash
-sudo tee /etc/default/noran-forwarder << 'EOF'
-TRACCAR_LOG_PATH=/opt/traccar/logs/tracker-server.log
-BASE44_WEBHOOK_URL=https://YOUR_APP_ID.base44.app/api/functions/webhookLightLogForwarder
-BASE44_WEBHOOK_SECRET=YOUR_TRACCAR_WEBHOOK_SECRET
-FORWARD_PROVIDER_KEY=traccar_noran_mt20
-EOF
-```
-
-> Replace `YOUR_APP_ID` and `YOUR_TRACCAR_WEBHOOK_SECRET` with your actual values.
-> `BASE44_WEBHOOK_SECRET` must match the `TRACCAR_WEBHOOK_SECRET` secret set in Base44.
-
----
-
-## Step 5 — Install as systemd service
-
-```bash
-sudo cp noran-forwarder.service /etc/systemd/system/noran-forwarder.service
-sudo systemctl daemon-reload
-sudo systemctl enable noran-forwarder
-sudo systemctl start noran-forwarder
+sudo systemctl restart noran-forwarder
 ```
 
 Check status:
 ```bash
 sudo systemctl status noran-forwarder
-journalctl -u noran-forwarder -f
+sudo journalctl -u noran-forwarder -f
+```
+
+You should see:
+```
+Starting uRideHub MT20 forwarder v2 (batched): /opt/traccar/logs/tracker-server.log
+Batch enabled: True, interval: 300s
+Batch webhook: https://deft-urban-ride-flow.base44.app/functions/batchSyncTelematicsData
+```
+
+And every 5 minutes:
+```
+[batch] Flushed 47 entries for 6 devices (total flushed: 47)
 ```
 
 ---
 
-## Step 6 — Validation checklist
+## Step 5 — Verify
 
 ### A. Confirm heartbeat lines appear in Traccar log
 
@@ -104,82 +135,56 @@ journalctl -u noran-forwarder -f
 tail -f /opt/traccar/logs/tracker-server.log | grep "noran <" | grep "0f000000"
 ```
 
-Expected:
-```
-2026-06-17 09:24:36 INFO: [U798a3519: noran < 185.166.245.60] 0f0000004e52303947353139303200
-```
-
-### B. Confirm forwarder logs forwarded heartbeat
+### B. Confirm batch flushes in forwarder logs
 
 ```bash
-journalctl -u noran-forwarder -f
+sudo journalctl -u noran-forwarder -f | grep batch
 ```
 
-Expected log line:
-```
-forwarded heartbeat NR09G51902 prefix=0f000000 src=185.166.245.60
+### C. Confirm command ACKs still forward in real-time
+
+```bash
+sudo journalctl -u noran-forwarder -f | grep "command ACK"
 ```
 
-### C. Confirm Base44 device record updated
+### D. Confirm Base44 device record updated
 
-Run in Base44 exec tool or admin console:
+Run in Base44 exec tool:
 ```js
 const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ unique_id: 'NR09G51902' });
-return { last_inbound_packet_type: devices[0].last_inbound_packet_type, last_inbound_packet_at: devices[0].last_inbound_packet_at };
-```
-
-Expected:
-```json
-{ "last_inbound_packet_type": "handshake", "last_inbound_packet_at": "<current timestamp>" }
-```
-
-### D. Confirm pending command auto-dispatches on heartbeat
-
-1. Submit a `locate` command while device is idle (will park as `pending_waiting_for_fresh_session`)
-2. Wait for next heartbeat (~30s)
-3. Confirm command transitions to `sent` in TelematicsCommand
-
-### E. Confirm tcpdump shows outbound UDP after heartbeat
-
-On the Traccar server:
-```bash
-sudo tcpdump -i any -nn 'udp and len > 50' -A 2>/dev/null | grep -A2 "\*KW"
-```
-
-Expected within ~2s of heartbeat:
-```
-*KW,NR09G51902,000,HHMMSS#
-```
-
-### F. Confirm Traccar log shows outgoing command
-
-```bash
-tail -f /opt/traccar/logs/tracker-server.log | grep "noran >"
-```
-
-Expected after auto-dispatch:
-```
-... [U...: noran > 185.166.245.60] 0d0a2a4b57...
+return {
+  last_inbound_packet_type: devices[0].last_inbound_packet_type,
+  last_inbound_packet_at: devices[0].last_inbound_packet_at,
+  voltage: devices[0].voltage,
+  voltage_source: devices[0].voltage_source
+};
 ```
 
 ---
 
-## Upgrading from previous version
+## Upgrading from v1
 
-If you had a previous forwarder running, **stop it first**:
-
-```bash
-sudo systemctl stop noran-forwarder
-```
-
-Then replace the script file and restart:
+If you had the previous forwarder running:
 
 ```bash
-sudo cp noran_forwarder.py /opt/traccar/noran_forwarder.py
-sudo systemctl start noran-forwarder
+# Backup
+sudo cp /opt/traccar/log-forwarder/forwarder.py /opt/traccar/log-forwarder/forwarder_v1_backup.py
+
+# Copy new version
+sudo cp forwarder.py /opt/traccar/log-forwarder/forwarder.py
+
+# Add BATCH_WEBHOOK_URL to .env
+sudo nano /opt/traccar/log-forwarder/.env
+# Add: BATCH_WEBHOOK_URL=https://deft-urban-ride-flow.base44.app/functions/batchSyncTelematicsData
+
+# Restart
+sudo systemctl restart noran-forwarder
 ```
 
-The forwarder always seeks to **EOF on startup** — it will not replay old log lines.
+The forwarder seeks to EOF on startup — it will not replay old log lines.
+
+**Instant rollback:** Remove the `BATCH_WEBHOOK_URL` line from `.env` and restart.
+The forwarder immediately reverts to real-time for all packets.
 
 ---
 
@@ -187,9 +192,22 @@ The forwarder always seeks to **EOF on startup** — it will not replay old log 
 
 | Symptom | Check |
 |---------|-------|
-| No heartbeat lines in Traccar log | Device may be offline or heartbeat interval too long (should be ≤30s) |
-| Forwarder logs FAILED | Check `BASE44_WEBHOOK_URL` and `BASE44_WEBHOOK_SECRET` |
-| Base44 returns 401 | `BASE44_WEBHOOK_SECRET` mismatch |
+| No heartbeat lines in Traccar log | Device may be offline or heartbeat interval too long |
+| `[batch] BATCH_WEBHOOK_URL not set` | Add `BATCH_WEBHOOK_URL` to `.env` file |
+| Forwarder logs FAILED | Check `BASE44_WEBHOOK_URL` and `TRACCAR_WEBHOOK_SECRET` |
+| Base44 returns 401 | `TRACCAR_WEBHOOK_SECRET` mismatch |
 | Base44 returns `ignored: true` | Packet hex not matching any parser — check raw hex |
 | Device still shows `udp_session_status: stale` | Heartbeat not arriving within 90s window |
 | `last_inbound_packet_type` still `position` | Old forwarder running alongside new one — kill old PID |
+
+---
+
+## GitHub Actions Cron (separate from forwarder)
+
+Scheduled Base44 function calls are handled by GitHub Actions, not Base44
+scheduled automations — saves ~2,300 credits/day. See:
+- `.github/workflows/zero-credit-cron.yml` (in your GitHub repo)
+- `src/docs/ZERO_CREDIT_CRON.md` (setup guide)
+
+**Note:** The Base44 GitHub sync app cannot write to `.github/workflows/`, so
+workflow changes must be made directly in your GitHub repo.

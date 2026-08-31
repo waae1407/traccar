@@ -2,7 +2,11 @@
 """
 uRideHub MT20 Forwarder v2 — Batched Off-Platform Edition
 ==========================================================
-Based on your production forwarder, with batching added for routine packets.
+Source of truth: this file lives in the GitHub repo at
+  src/docs/traccar-log-forwarder/forwarder.py
+
+Deploy path on Traccar server:
+  /opt/traccar/log-forwarder/forwarder.py
 
 BATCHING STRATEGY:
   - Heartbeat (0x000f) + Voltage/Position (0x0032) → BATCHED every 5 min
@@ -12,17 +16,15 @@ CREDIT SAVINGS:
   Before: ~360 packets/hr × 1 credit/packet = 360 credits/hr
   After:  ~12 batch calls/hr + ~10 real-time ACKs/hr = ~22 credits/hr (94% reduction)
 
-NEW ENV VARS (add to /opt/traccar/log-forwarder/.env):
-  BATCH_WEBHOOK_URL   URL to batchSyncTelematicsData endpoint
-  BATCH_ENABLED       "true" to enable (default: true)
-  BATCH_INTERVAL_S    Flush interval in seconds (default: 300)
-
-EXISTING ENV VARS (unchanged):
-  BASE44_WEBHOOK_URL     URL to webhookLightLogForwarder (real-time ACKs)
+ENV VARS (in /opt/traccar/log-forwarder/.env):
+  BASE44_WEBHOOK_URL      URL to webhookLightLogForwarder (real-time ACKs)
+  BATCH_WEBHOOK_URL       URL to batchSyncTelematicsData (batched routine)
   TRACCAR_WEBHOOK_SECRET  Shared secret
-  LOG_FILE              Path to tracker-server.log
-  PROVIDER_KEY           Provider key
-  DEVICE_UNIQUE_ID      Fallback device ID
+  LOG_FILE                Path to tracker-server.log
+  PROVIDER_KEY             Provider key (default: traccar_noran_mt20)
+  DEVICE_UNIQUE_ID        Fallback device ID
+  BATCH_ENABLED           "true" to enable batching (default: true)
+  BATCH_INTERVAL_S        Flush interval in seconds (default: 300)
 """
 
 import os
