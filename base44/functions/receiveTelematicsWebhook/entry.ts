@@ -404,7 +404,7 @@ function isValidTimestamp(value) {
 
 async function validateWebhookRequest(base44, req, body) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    await logSecurityEvent(base44, { eventType: 'malformed_payload', summary: 'Telematics webhook rejected: malformed payload', metadata: { ip: getClientIp(req) } });
+    // Silent reject — malformed payloads are scanner/bot noise, not security events worth logging.
     return { ok: false, response: Response.json({ error: 'Malformed payload' }, { status: 400 }) };
   }
 
