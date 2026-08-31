@@ -1034,6 +1034,22 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── UNKNOWN-DEVICE FAST PATH: skip all processing for unrecognized devices ──
+    // Scanner/bot noise sends packets with device IDs not in our database.
+    // Creating TelematicsEvent records for these wastes credits. Skip entirely.
+    if (parsed.message_type === 'mt20_voltage_0032' && !device?.id) {
+      return Response.json({
+        ok: true,
+        message_type: parsed.message_type,
+        device_updated: false,
+        device_id: '',
+        voltage: parsed.voltage,
+        packet_type: parsed.packet_type,
+        fast_path: true,
+        reason: 'unknown_device_skipped'
+      });
+    }
+
     // ── VOLTAGE FAST PATH: routine 0x0032 voltage packets (160/hr) ──
     // These are high-volume routine telemetry. Skip TelematicsEvent creation + Alert360
     // (saves 2 credits + 1 function invocation per packet = ~480 credits/hr).
