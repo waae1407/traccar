@@ -1000,11 +1000,39 @@ Deno.serve(async (req) => {
     const timestamp = normalizeTimestamp(parsed.device_timestamp || body.timestamp || body.deviceTime || body.serverTime || now);
     const device = await findDevice(base44, body, parsed);
 
-    // ── HEARTBEAT: process through full pipeline (reverted from fast path) ──
-    // Heartbeats (0x000f) flow through the normal pipeline: TelematicsEvent, device update,
-    // UDP session tracking, and Alert360. The freshness gate in sendTelematicsCommand reads
-    // last_heartbeat_received_at (written by updateDeviceUdpSession below) to ensure commands
-    // only send when the UDP session is fresh. Reverted to full processing for reliability testing.
+    // ── HEARTBEAT FAST PATH: single DB write, skip TelematicsEvent/Alert360/command matching ──
+    // Heartbeats (0x000f) only need to refresh the UDP NAT session timestamp.
+    // The freshness gate in sendTelematicsCommand reads ONLY last_heartbeat_received_at,
+    // so we write that one field (plus session tracking) and return early.
+    // This saves ~70% of credits vs the full pipeline (1 DB write instead of 3+ + Alert360 call).
+    // CRITICAL: last_heartbeat_received_at MUST be written here or the freshness gate breaks.
+    if (isHeartbeatPacket(parsed)) {
+      if (device?.id) {
+        const sourceIpRaw = String(body?.source_ip || body?.sourceIp || '').trim() || null;
+        const sourcePort = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':').pop() : null;
+        const sourceIpOnly = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':')[0] : sourceIpRaw;
+        await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+          online_status: 'online',
+          last_seen_at: timestamp,
+          last_inbound_packet_at: timestamp,
+          last_inbound_packet_type: 'heartbeat',
+          last_inbound_source: parsed.source || 'forwarded_log',
+          last_heartbeat_received_at: timestamp,
+          last_heartbeat_source_ip: sourceIpOnly || null,
+          last_heartbeat_source_port: sourcePort || null
+        }).catch((err) => console.error('[heartbeat-fast-path] device update failed:', err.message));
+        console.log(`[HEARTBEAT_FAST_PATH] unique_id=${device.unique_id || device.id} last_heartbeat_at=${timestamp}`);
+      }
+      return Response.json({
+        ok: true,
+        packet_type: parsed.packet_type,
+        packet_type_name: 'heartbeat (fast path — session timestamped)',
+        heartbeat_received: true,
+        device_updated: !!device,
+        device_id: device?.id || '',
+        fast_path: true
+      });
+    }
 
     const rawPayload = { ...body, parsed_forwarded_log: parsed };
     if (Number.isFinite(parsed.voltage)) {
