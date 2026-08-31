@@ -398,6 +398,7 @@ function isValidTimestamp(value) {
 // ── Known scanner/bot IPs that repeatedly hit this endpoint with malformed payloads ──
 // Each hit costs 2+ credits (function invocation + ActivityEvent write). Block them
 // before any database operation to eliminate the credit drain entirely.
+// [FORCE-REDEPLOY 2026-08-31] Touch to trigger fresh deployment propagation.
 const SCANNER_IP_BLOCKLIST = new Set([
   '198.71.50.237',  // Repeatedly sending malformed payloads ~38/hr
 ]);

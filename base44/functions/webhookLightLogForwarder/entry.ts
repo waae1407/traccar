@@ -428,6 +428,7 @@ async function findDevice(base44, body, parsed) {
   // ── FAST LOOKUP: Try unique_id first for ALL candidates (1 read per candidate) ──
   // For MT20, unique_id is the primary identifier and matches 99% of the time.
   // This reduces unknown-device lookups from 5+ reads to 1 read per candidate.
+  // [FORCE-REDEPLOY 2026-08-31] Touch to trigger fresh deployment propagation.
   for (const candidate of candidates) {
     const matches = await base44.asServiceRole.entities.TelematicsDevice.filter({ provider_key: PROVIDER_KEY, unique_id: candidate });
     if (matches[0]) return matches[0];
