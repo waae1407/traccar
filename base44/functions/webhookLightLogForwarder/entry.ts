@@ -1000,34 +1000,11 @@ Deno.serve(async (req) => {
     const timestamp = normalizeTimestamp(parsed.device_timestamp || body.timestamp || body.deviceTime || body.serverTime || now);
     const device = await findDevice(base44, body, parsed);
 
-    // ── HEARTBEAT FAST PATH: single DB update, skip TelematicsEvent/Alert360/command matching ──
-    // Heartbeats (0x000f) refresh the UDP NAT session between device and Traccar.
-    // Traccar handles the actual session refresh — our webhook just needs to timestamp it.
-    // The heartbeat-delay command gate was removed (commands now sent immediately via Traccar API),
-    // but we keep last_heartbeat_received_at current in case command reliability degrades and
-    // we need to re-enable the gate. This single update saves ~80% vs the full pipeline.
-    if (isHeartbeatPacket(parsed)) {
-      if (device?.id) {
-        const sourceIpRaw = String(body?.source_ip || body?.sourceIp || '').trim() || null;
-        const sourcePort = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':').pop() : null;
-        const sourceIpOnly = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':')[0] : sourceIpRaw;
-        await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-          online_status: 'online',
-          last_seen_at: timestamp,
-          last_heartbeat_received_at: timestamp,
-          last_heartbeat_source_ip: sourceIpOnly || null,
-          last_heartbeat_source_port: sourcePort || null
-        }).catch((err) => console.error('[heartbeat-fast-path] device update failed:', err.message));
-      }
-      return Response.json({
-        ok: true,
-        packet_type: parsed.packet_type,
-        packet_type_name: 'heartbeat (fast path — session timestamped)',
-        heartbeat_received: true,
-        device_updated: !!device,
-        fast_path: true
-      });
-    }
+    // ── HEARTBEAT: process through full pipeline (reverted from fast path) ──
+    // Heartbeats (0x000f) flow through the normal pipeline: TelematicsEvent, device update,
+    // UDP session tracking, and Alert360. The freshness gate in sendTelematicsCommand reads
+    // last_heartbeat_received_at (written by updateDeviceUdpSession below) to ensure commands
+    // only send when the UDP session is fresh. Reverted to full processing for reliability testing.
 
     const rawPayload = { ...body, parsed_forwarded_log: parsed };
     if (Number.isFinite(parsed.voltage)) {
