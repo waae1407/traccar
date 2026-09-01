@@ -12,6 +12,7 @@ on:
     - cron: '0 8 * * *'
     - cron: '0 13 * * 1'
     - cron: '0 9 * * 1'
+    - cron: '0 15 * * *'
     - cron: '0 16 * * *'
   workflow_dispatch: {}
 
@@ -121,10 +122,24 @@ jobs:
           BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          for fn in auditBookingIntegrity auditNotificationIntegrity checkOverdueAndIncompleteBookings auditPricingIntegrity processGracePeriod dealer360HoldExpiryAlerts processWeeklyBilling checkComplianceExpiry calculateFleetUtilization; do
+          for fn in auditBookingIntegrity auditNotificationIntegrity checkOverdueAndIncompleteBookings auditPricingIntegrity processGracePeriod dealer360HoldExpiryAlerts checkComplianceExpiry calculateFleetUtilization; do
             code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
             echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
           done
+
+  weekly-billing:
+    if: github.event.schedule == '0 15 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger weekly billing (isolated)
+        env:
+          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -s --max-time 540 -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/processWeeklyBilling" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
+          echo "processWeeklyBilling HTTP $code"; head -c 1000 /tmp/body; echo
+
   daily-9am-pt:
     if: github.event.schedule == '0 16 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
