@@ -453,6 +453,13 @@ Deno.serve(async (req) => {
     }
 
     for (const local of localDevices) {
+      // ── Skip retired devices — no position updates, no history writes, no relay commands ──
+      // Retired devices are decommissioned hardware. Processing them wastes credits on
+      // entity updates + position history creates for devices that will never report again.
+      if (local.lifecycle_status === 'retired') {
+        skipped.push({ id: local.id, unique_id: local.unique_id, reason: 'retired_skipped' });
+        continue;
+      }
       let traccarId = String(local.traccar_device_id || local.provider_device_id || '').trim();
       let traccarDevice = traccarById.get(traccarId);
       if (!traccarDevice && local.unique_id) {
