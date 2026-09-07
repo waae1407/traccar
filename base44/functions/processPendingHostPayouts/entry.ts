@@ -155,8 +155,6 @@ Deno.serve(async (req) => {
             platform: 'uride',
             reserve_window_completed: 'true',
           },
-        }, {
-          idempotency_key: `payout:${payout.id}`,
         });
 
         await base44.asServiceRole.entities.HostPayout.update(payout.id, {
