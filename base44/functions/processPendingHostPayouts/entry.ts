@@ -35,8 +35,22 @@ Deno.serve(async (req) => {
       hold_reason: 'reserve_window',
     }, '-created_date', 50);
 
-    for (const payout of pendingPayouts) {
-      results.details.push({ id: payout.id, host_name: payout.host_name, net: payout.net_host_payout });
+    // Also find payouts stuck on_hold due to Stripe balance sweeping (retryable)
+    const stuckPayouts = await base44.asServiceRole.entities.HostPayout.filter({
+      status: 'on_hold_stripe_balance',
+    }, '-created_date', 50);
+
+    // Also find failed payouts that haven't exceeded max retries
+    const failedPayouts = await base44.asServiceRole.entities.HostPayout.filter({
+      status: 'failed',
+    }, '-created_date', 50);
+    const retryableFailed = failedPayouts.filter(p => (p.retry_attempt_count || 0) < (p.max_retry_attempts || 5));
+
+    const allPayouts = [...pendingPayouts, ...stuckPayouts, ...retryableFailed];
+
+    for (const payout of allPayouts) {
+      const isRetry = payout.status !== 'pending';
+      results.details.push({ id: payout.id, host_name: payout.host_name, net: payout.net_host_payout, retry: isRetry });
 
       // ── Resolve release_after dynamically from confirmed pickup ──
       // The 48-hour chargeback hold starts at pickup_completed_at, not at payment.
@@ -150,6 +164,8 @@ Deno.serve(async (req) => {
           stripe_transfer_id: transfer.id,
           payout_date: now.toISOString().slice(0, 10),
           released_at: now.toISOString(),
+          hold_notes: null,
+          hold_reason: null,
         });
 
         if (payout.booking_request_id) {
@@ -183,12 +199,35 @@ Deno.serve(async (req) => {
 
         results.succeeded++;
       } catch (transferError) {
+        const isInsufficientFunds = transferError.code === 'insufficient_funds' || transferError.message?.includes('insufficient funds');
+        const newStatus = isInsufficientFunds ? 'on_hold_stripe_balance' : 'failed';
+        const attemptNum = (payout.retry_attempt_count || 0) + 1;
+
         await base44.asServiceRole.entities.HostPayout.update(payout.id, {
-          status: 'failed',
-          hold_notes: `Transfer failed: ${transferError.message}`,
-          retry_attempt_count: (payout.retry_attempt_count || 0) + 1,
+          status: newStatus,
+          hold_notes: `Transfer failed (attempt ${attemptNum}/${payout.max_retry_attempts || 5}): ${transferError.message}`,
+          retry_attempt_count: attemptNum,
           last_retry_at: now.toISOString(),
+          failure_history: [...(payout.failure_history || []), {
+            attempted_at: now.toISOString(),
+            error_message: transferError.message,
+            retry_number: attemptNum,
+          }],
         });
+
+        // Notify admin on first insufficient-funds failure for this payout
+        if (isInsufficientFunds && attemptNum === 1) {
+          await base44.asServiceRole.entities.Notification.create({
+            recipient_email: 'admin',
+            recipient_role: 'admin',
+            title: '⚠️ Host Payout Blocked — Stripe Balance Swept',
+            body: `Payout ${payout.id} for ${payout.host_name} ($${payout.net_host_payout}) failed: Stripe auto-swept the platform balance. Set payouts to MANUAL in Stripe Dashboard → Settings → Payouts to fix permanently.`,
+            type: 'alert',
+            severity: 'critical',
+            category: 'payouts',
+          }).catch(() => {});
+        }
+
         results.failed++;
         console.error(`[ProcessPayouts] Transfer failed for ${payout.id}:`, transferError.message);
       }

@@ -46,26 +46,14 @@ Deno.serve(async (req) => {
       if (currentSchedule === 'manual') {
         results.manualPayouts = { status: 'already_manual', account_id: account.id };
       } else {
-        // Direct API call — Stripe SDK blocks updating your own account
-        const response = await fetch(`https://api.stripe.com/v1/accounts/${account.id}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('STRIPE_SECRET_KEY')}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            'settings[payouts][schedule][interval]': 'manual',
-          }),
-        });
-        const updated = await response.json();
-        if (updated.error) {
-          throw new Error(updated.error.message);
-        }
+        // Stripe API does NOT allow updating your own account's payout schedule.
+        // This must be done manually in the Stripe Dashboard.
         results.manualPayouts = {
-          status: 'switched_to_manual',
-          account_id: updated.id,
-          previous_schedule: currentSchedule,
-          new_schedule: updated.settings?.payouts?.schedule?.interval,
+          status: 'manual_action_required',
+          account_id: account.id,
+          current_schedule: currentSchedule,
+          dashboard_url: 'https://dashboard.stripe.com/settings/payouts',
+          instructions: 'Go to Stripe Dashboard → Settings → Payouts → Change schedule from Automatic to Manual. This prevents Stripe from sweeping the balance before host transfers can execute.',
         };
       }
     } catch (e) {
