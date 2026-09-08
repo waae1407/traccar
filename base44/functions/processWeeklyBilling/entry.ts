@@ -207,6 +207,29 @@ Deno.serve(async (req) => {
       autopay_enabled: true,
     });
 
+    // ── IMMUTABLE BILLING ANCHOR SELF-HEAL ───────────────────────────────────
+    // Recalculate next_billing_date from start_date + (billing_week_number × 7).
+    // This corrects any drift caused by late collections, manual admin runs, or
+    // bugs in earlier versions. The billing schedule is IMMUTABLE — it is always
+    // anchored to the original rental start_date, never to the collection date.
+    for (const b of activeBookings) {
+      if (!b.start_date || !b.next_billing_date) continue;
+      if (!['approved', 'confirmed', 'active', 'checked_out'].includes(b.booking_status)) continue;
+      if (b.clean_return_status === 'approved_clean') continue;
+
+      const anchorDate = new Date(b.start_date + "T00:00:00");
+      anchorDate.setDate(anchorDate.getDate() + (b.billing_week_number || 1) * 7);
+      const anchoredNext = anchorDate.toISOString().split("T")[0];
+
+      if (anchoredNext !== b.next_billing_date) {
+        console.log(`[WeeklyBilling] SELF-HEAL: ${b.id} next_billing_date ${b.next_billing_date} → ${anchoredNext} (anchored to start_date ${b.start_date}, week ${b.billing_week_number})`);
+        await base44.asServiceRole.entities.BookingRequest.update(b.id, {
+          next_billing_date: anchoredNext,
+        });
+        b.next_billing_date = anchoredNext;
+      }
+    }
+
     // ── STATUS GUARD ──────────────────────────────────────────────────────────
     // WHITELIST: only process active/confirmed/approved bookings.
     // payment_due, grace_period, suspended are INTENTIONALLY excluded — those states
@@ -237,7 +260,11 @@ Deno.serve(async (req) => {
 
       const nextBilling = new Date(b.next_billing_date);
       nextBilling.setHours(0, 0, 0, 0);
-      return nextBilling.getTime() === today.getTime();
+      // Charge on or after the anchored billing date — catches past-due charges
+      // that were missed (e.g., billing function didn't run, or date was corrected
+      // by the self-heal above). Safe because the status guard already excludes
+      // payment_due/grace_period/suspended bookings (owned by processGracePeriod).
+      return nextBilling.getTime() <= today.getTime();
     });
 
     // ── DEFERRED BILLING LOG ──────────────────────────────────────────────────
