@@ -1,0 +1,37 @@
+{
+  "name": "Audit \u2014 Booking Status Changed",
+  "description": "Writes ActivityEvent when booking_status changes. Covers admin-driven transitions (approved, rejected, active, completed, cancelled). Skips automation-managed states (payment_due, grace_period, suspended) to avoid duplicate writes with processGracePeriod.",
+  "trigger": {
+    "condition": "${ (.trigger.changed_fields | index(\"booking_status\") != null) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "BookingRequest"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "audit_booking_status_changed",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "auditBookingStatus",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "auditBookingStatus"
+  }
+}

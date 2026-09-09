@@ -1,0 +1,37 @@
+{
+  "name": "Auto-create booking communication threads",
+  "description": "Creates operational communication threads when bookings are approved or cancellation is requested.",
+  "trigger": {
+    "condition": "${ ((.trigger.data.booking_status == \"approved\" or .trigger.data.booking_status == \"confirmed\" or .trigger.data.booking_status == \"cancellation_requested\") or (.trigger.changed_fields | index(\"cancellation_requested_at\") != null)) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "BookingRequest"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_create_booking_communication_threads",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoCreateCommunicationThread",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "autoCreateCommunicationThread"
+  }
+}

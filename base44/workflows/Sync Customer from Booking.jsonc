@@ -1,0 +1,38 @@
+{
+  "name": "Sync Customer from Booking",
+  "description": "Auto-creates or updates a Customer record whenever a BookingRequest reaches pending_review or beyond (payment completed).",
+  "trigger": {
+    "condition": "${ (.trigger.data.booking_status == \"pending_review\" or .trigger.data.booking_status == \"approved\" or .trigger.data.booking_status == \"confirmed\" or .trigger.data.booking_status == \"active\" or .trigger.data.booking_status == \"completed\") }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update"
+      ],
+      "entity_name": "BookingRequest"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "sync_customer_from_booking",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "syncCustomerFromBooking",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "syncCustomerFromBooking"
+  }
+}

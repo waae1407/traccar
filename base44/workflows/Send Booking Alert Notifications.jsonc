@@ -1,0 +1,37 @@
+{
+  "name": "Send Booking Alert Notifications",
+  "description": "Sends alerts to host/admin when booking has issues: pickup inspection incomplete after start date, rental overdue past end date, or return review required.",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"booking_status\") != null) or (.trigger.data.booking_status == \"return_pending_host_review\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "BookingRequest"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "send_booking_alert_notifications",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "sendBookingAlertNotifications",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "sendBookingAlertNotifications"
+  }
+}

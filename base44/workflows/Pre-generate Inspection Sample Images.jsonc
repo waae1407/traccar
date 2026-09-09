@@ -1,0 +1,38 @@
+{
+  "name": "Pre-generate Inspection Sample Images",
+  "description": "When a booking becomes active/approved/confirmed, pre-generate all 6 inspection sample images in the background and store them on the booking record.",
+  "trigger": {
+    "condition": "${ ((.trigger.data.booking_status == \"active\" or .trigger.data.booking_status == \"approved\" or .trigger.data.booking_status == \"confirmed\") and (.trigger.data.vehicle_image != null)) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update"
+      ],
+      "entity_name": "BookingRequest"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "pre_generate_inspection_sample_images",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "generateInspectionSamples",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "generateInspectionSamples"
+  }
+}

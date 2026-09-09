@@ -1,0 +1,37 @@
+{
+  "name": "Notify Admin \u2014 New Host Application",
+  "description": "Fires whenever a new Host record is created (i.e. someone submits the Become a Host form). Sends an email alert to all admin users with applicant details and a direct link to the review page.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "Host"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "notify_admin_new_host_application",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "notifyAdminNewHost",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "notifyAdminNewHost"
+  }
+}
