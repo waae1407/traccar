@@ -342,35 +342,20 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
   const nextBillingDate = anchorStart.toISOString().split("T")[0];
   const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
 
+  let starterRestoreOk = true;
+  let starterRestoreError = null;
+  let starterRestoreHeartbeatStale = false;
+
   if ((booking.starter_disabled || booking.moovetrax_kill_active) && deviceId) {
     const restoreResult = await starterInterrupt(base44, booking, false);
-    if (!restoreResult.ok) {
-      console.log(`[PaymentEnforcement] Starter restore command failed for ${booking.id}: ${restoreResult.error} — payment is still recovered, starter will be restored on next cycle`);
-    }
+    starterRestoreOk = restoreResult.ok;
+    starterRestoreError = restoreResult.error || null;
+    starterRestoreHeartbeatStale = !!restoreResult.heartbeat_stale;
   }
 
-  await createPaymentAlert(base44, {
-    alert_type: 'payment_recovered',
-    severity: 'info',
-    billing_context: 'weekly_billing',
-    booking_id: booking.id,
-    host_id: booking.host_id || '',
-    customer_id: booking.user_id || '',
-    vehicle_id: booking.vehicle_id || '',
-    renter_email: booking.user_email || '',
-    stripe_payment_intent_id: paymentIntent.id,
-    related_entity_type: 'BookingRequest',
-    related_entity_id: booking.id,
-    title: 'Payment recovered',
-    message: `Payment recovered for ${booking.vehicle_name || booking.id}. Starter access restored if it had been disabled.`,
-    recommended_action: 'Confirm booking and payment records are healthy.',
-    financial_impact_amount: grossedAmount,
-    currency: paymentIntent.currency || 'usd',
-    retry_attempts: retryAttempt,
-    source: 'processGracePeriod'
-  });
-
-  await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+  // If restore failed (heartbeat stale or other error), keep starter_disabled=true so the system
+  // knows the device still has the starter killed. The restore will be retried on the next cycle.
+  const bookingUpdate = {
     booking_status: "active",
     payment_status: "paid",
     rental_lifecycle_phase: "active",
@@ -380,28 +365,107 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     last_retry_at: null,
     payment_failure_started_at: null,
     starter_disable_scheduled_at: null,
-    starter_disabled: false,
-    moovetrax_kill_active: false,
-    starter_disable_pending: false,
     final_reminder_sent: false,
     grace_period_started_at: null,
     grace_period_ends_at: null,
     suspension_triggered_at: null,
     suspended_at: null,
     next_billing_date: nextBillingDate,
-  });
+  };
+
+  if (starterRestoreOk) {
+    bookingUpdate.starter_disabled = false;
+    bookingUpdate.moovetrax_kill_active = false;
+    bookingUpdate.starter_disable_pending = false;
+  } else {
+    // Restore failed — keep starter_disabled=true so the device state is accurately reflected.
+    // The restore-retry path in the main loop will retry on the next cycle when heartbeat is fresh.
+    bookingUpdate.starter_disabled = true;
+    bookingUpdate.moovetrax_kill_active = true;
+    bookingUpdate.starter_disable_pending = false;
+  }
+
+  await base44.asServiceRole.entities.BookingRequest.update(booking.id, bookingUpdate);
+
+  if (starterRestoreOk) {
+    await createPaymentAlert(base44, {
+      alert_type: 'payment_recovered',
+      severity: 'info',
+      billing_context: 'weekly_billing',
+      booking_id: booking.id,
+      host_id: booking.host_id || '',
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      renter_email: booking.user_email || '',
+      stripe_payment_intent_id: paymentIntent.id,
+      related_entity_type: 'BookingRequest',
+      related_entity_id: booking.id,
+      title: 'Payment recovered — starter restored',
+      message: `Payment recovered for ${booking.vehicle_name || booking.id}. Starter access restored through freshness gate (UDP session verified).`,
+      recommended_action: 'Confirm booking and payment records are healthy.',
+      financial_impact_amount: grossedAmount,
+      currency: paymentIntent.currency || 'usd',
+      retry_attempts: retryAttempt,
+      source: 'processGracePeriod'
+    });
+  } else {
+    await createPaymentAlert(base44, {
+      alert_type: 'payment_recovered',
+      severity: 'warning',
+      billing_context: 'weekly_billing',
+      booking_id: booking.id,
+      host_id: booking.host_id || '',
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      renter_email: booking.user_email || '',
+      stripe_payment_intent_id: paymentIntent.id,
+      related_entity_type: 'BookingRequest',
+      related_entity_id: booking.id,
+      title: starterRestoreHeartbeatStale
+        ? 'Payment recovered — starter restore PENDING (device heartbeat stale)'
+        : 'Payment recovered — starter restore FAILED',
+      message: starterRestoreHeartbeatStale
+        ? `Payment recovered for ${booking.vehicle_name || booking.id}, but the telematics device heartbeat is stale — the starter restore command was not sent (UDP session expired). The starter remains disabled. The system will automatically retry on the next cycle when the device sends a fresh heartbeat.`
+        : `Payment recovered for ${booking.vehicle_name || booking.id}, but the starter restore command failed: ${starterRestoreError}. The starter remains disabled. The system will retry on the next cycle.`,
+      recommended_action: starterRestoreHeartbeatStale
+        ? 'Wait for device heartbeat to refresh (typically 2-3 minutes). The next processGracePeriod run will retry automatically.'
+        : 'Check telematics device status and command logs. Manually restore starter if needed.',
+      financial_impact_amount: grossedAmount,
+      currency: paymentIntent.currency || 'usd',
+      retry_attempts: retryAttempt,
+      source: 'processGracePeriod'
+    });
+
+    await logEvent(base44, {
+      event_type: 'gps.command_failed',
+      target_id: booking.id,
+      host_id: booking.host_id || '',
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      customer_id: booking.user_email || '',
+      summary: `Starter restore failed after payment recovery for ${booking.vehicle_name || booking.id}: ${starterRestoreError}`,
+      metadata: { error: starterRestoreError, heartbeat_stale: starterRestoreHeartbeatStale, starter_still_disabled: true, payment_recovered: true },
+      event_status: 'warning',
+    });
+  }
 
   // DELEGATE TO CENTRAL ROUTER for payment recovery notification
+  const restoreMessage = starterRestoreOk
+    ? `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active and starter access has been restored. Next billing: ${nextBillingDate}.`
+    : starterRestoreHeartbeatStale
+      ? `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active. Starter access will be restored automatically within a few minutes once your vehicle's GPS device reconnects. Next billing: ${nextBillingDate}.`
+      : `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active. Starter access restore is pending — please contact support if your vehicle doesn't start within 15 minutes. Next billing: ${nextBillingDate}.`;
+
   await base44.asServiceRole.functions.invoke('routePlatformNotification', {
     event_type: 'payment_recovered',
-    severity: 'info',
+    severity: starterRestoreOk ? 'info' : 'warning',
     category: 'payments',
-    title: "Payment received — starter access restored",
-    message: `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active and starter access has been restored. Next billing: ${nextBillingDate}.`,
+    title: starterRestoreOk ? "Payment received — starter access restored" : "Payment received — starter restore pending",
+    message: restoreMessage,
     booking_id: booking.id,
     customer_id: booking.user_id,
     action_url: '/my-bookings',
-    metadata: { next_billing_date: nextBillingDate, starter_restored: true },
+    metadata: { next_billing_date: nextBillingDate, starter_restored: starterRestoreOk, starter_restore_pending: !starterRestoreOk },
   }).catch(e => console.error('[GracePeriod] recovery notification failed:', e.message));
 
   await logEvent(base44, {
@@ -1034,7 +1098,57 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[PaymentEnforcement] Complete — disabled:${results.disabled} recovered:${results.recovered} retried:${results.retried} skipped:${results.skipped}`);
+    // ── RESTORE RETRY: Active/paid bookings where starter is still disabled from a previous failed restore ──
+    // These are bookings where payment was recovered but the starter restore command failed (heartbeat stale).
+    // The device still has the starter killed — we need to retry the restore through the freshness gate.
+    try {
+      const activePaidDisabled = await base44.asServiceRole.entities.BookingRequest.filter({
+        booking_status: "active",
+        payment_status: "paid",
+        starter_disabled: true,
+      });
+      let restoredCount = 0;
+      for (const booking of activePaidDisabled) {
+        if (!booking.vehicle_id) continue;
+        const device = await resolveTelematicsDeviceForBooking(base44, booking.vehicle_id);
+        if (!device) {
+          await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+            starter_disabled: false,
+            moovetrax_kill_active: false,
+          });
+          continue;
+        }
+        const restoreResult = await starterInterrupt(base44, booking, false);
+        if (restoreResult.ok) {
+          await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+            starter_disabled: false,
+            moovetrax_kill_active: false,
+          });
+          restoredCount++;
+          await logEvent(base44, {
+            event_type: 'gps.reinstate_confirmed',
+            target_id: booking.id,
+            host_id: booking.host_id || '',
+            booking_id: booking.id,
+            vehicle_id: booking.vehicle_id || '',
+            customer_id: booking.user_email || '',
+            summary: `Starter restore succeeded on retry for ${booking.vehicle_name || booking.id} — freshness gate passed`,
+            metadata: { deferred_restore: true, heartbeat_freshness_verified: true },
+            event_status: 'success',
+          });
+        } else {
+          console.log(`[PaymentEnforcement] Restore retry still failing for ${booking.id}: ${restoreResult.error}`);
+        }
+      }
+      if (restoredCount > 0) {
+        console.log(`[PaymentEnforcement] Restored ${restoredCount} previously-stuck starters`);
+      }
+      results.restored_retry = restoredCount;
+    } catch (restoreRetryErr) {
+      console.error('[PaymentEnforcement] Restore retry loop error:', restoreRetryErr.message);
+    }
+
+    console.log(`[PaymentEnforcement] Complete — disabled:${results.disabled} recovered:${results.recovered} retried:${results.retried} skipped:${results.skipped} restored_retry:${results.restored_retry || 0}`);
     return Response.json({ ok: true, ...results, total_failed_payment_bookings: enforcementBookings.length, policy: '2-hour starter-disable recovery window' });
   } catch (error) {
     console.error("[PaymentEnforcement] Fatal error:", error.message);
