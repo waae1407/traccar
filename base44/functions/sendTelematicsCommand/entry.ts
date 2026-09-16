@@ -10,9 +10,8 @@ const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
 const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90;
 
 // ── HEARTBEAT FRESHNESS GATE — LOCKED VALUES ──
-// MT20 devices heartbeat every 30-60s; 90s matches the UDP NAT session expiry window.
-const MAX_HEARTBEAT_AGE_MS = 90 * 1000;
-const HEARTBEAT_POLL_INTERVAL_MS = 3000;
+const MAX_HEARTBEAT_AGE_MS = 10000;
+const HEARTBEAT_POLL_INTERVAL_MS = 500;
 const HEARTBEAT_POLL_TIMEOUT_MS = 30000;
 
 const TRACCAR_TEST_UNIQUE_ID = 'NR09G00002';
@@ -246,57 +245,26 @@ function ratePolicy(trafficClass, commandType, maxPerMinute) {
 }
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-async function getTraccarDeviceLastUpdate(uniqueId) {
-  const traccarDevice = await findTraccarDeviceByUniqueId(uniqueId);
-  if (!traccarDevice) return null;
-  return traccarDevice.lastUpdate ? new Date(traccarDevice.lastUpdate).getTime() : null;
-}
-
 async function ensureFreshHeartbeat(base44, deviceId) {
   const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ id: deviceId });
   const device = devices[0];
   if (!device) return { fresh: false, reason: 'device_not_found', age_ms: null };
 
-  // Step 1: Check the TelematicsDevice entity's last_heartbeat_received_at (updated by webhook or batch sync)
   const lastHb = new Date(device.last_heartbeat_received_at || 0).getTime();
   const ageMs = Date.now() - lastHb;
 
   if (ageMs <= MAX_HEARTBEAT_AGE_MS) {
-    return { fresh: true, age_ms: ageMs, waited: false, source: 'entity' };
+    return { fresh: true, age_ms: ageMs, waited: false };
   }
 
-  // Step 2: Query Traccar API directly for the device's real-time lastUpdate.
-  // The entity's heartbeat may be stale (only updated by batch sync every 15 min),
-  // but Traccar has the real-time UDP session status.
-  const traccarLastUpdate = await getTraccarDeviceLastUpdate(device.unique_id);
-  if (traccarLastUpdate) {
-    const traccarAgeMs = Date.now() - traccarLastUpdate;
-    if (traccarAgeMs <= MAX_HEARTBEAT_AGE_MS) {
-      // Update the entity so subsequent checks are fast
-      await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-        last_heartbeat_received_at: new Date(traccarLastUpdate).toISOString(),
-        last_seen_at: new Date(traccarLastUpdate).toISOString(),
-      }).catch(() => {});
-      return { fresh: true, age_ms: traccarAgeMs, waited: false, source: 'traccar_api' };
-    }
-  }
-
-  // Step 3: Poll Traccar API for a fresh heartbeat (device may be between heartbeat intervals)
   const startTime = Date.now();
-  let lastCheckedUpdate = traccarLastUpdate || lastHb;
   while (Date.now() - startTime < HEARTBEAT_POLL_TIMEOUT_MS) {
     await sleep(HEARTBEAT_POLL_INTERVAL_MS);
-    const freshUpdate = await getTraccarDeviceLastUpdate(device.unique_id);
-    if (freshUpdate && freshUpdate > lastCheckedUpdate) {
-      const freshAge = Date.now() - freshUpdate;
-      if (freshAge <= MAX_HEARTBEAT_AGE_MS) {
-        await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-          last_heartbeat_received_at: new Date(freshUpdate).toISOString(),
-          last_seen_at: new Date(freshUpdate).toISOString(),
-        }).catch(() => {});
-        return { fresh: true, age_ms: freshAge, waited: true, wait_ms: Date.now() - startTime, source: 'traccar_api_poll' };
-      }
-      lastCheckedUpdate = freshUpdate;
+    const refreshed = (await base44.asServiceRole.entities.TelematicsDevice.filter({ id: deviceId }))[0];
+    if (!refreshed) return { fresh: false, reason: 'device_not_found', age_ms: null, waited: true, wait_ms: Date.now() - startTime };
+    const newHb = new Date(refreshed.last_heartbeat_received_at || 0).getTime();
+    if (newHb > lastHb) {
+      return { fresh: true, age_ms: Date.now() - newHb, waited: true, wait_ms: Date.now() - startTime };
     }
   }
 
