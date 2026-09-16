@@ -9,12 +9,14 @@ Deploy path on Traccar server:
   /opt/traccar/log-forwarder/forwarder.py
 
 BATCHING STRATEGY:
-  - Heartbeat (0x000f) + Voltage/Position (0x0032) → BATCHED every 5 min
+  - Heartbeat (0x000f) → REAL-TIME (needed for freshness gate in sendTelematicsCommand)
+  - Voltage/Position (0x0032) → BATCHED every 5 min
   - Command ACK (0x8009) → REAL-TIME (urgent, needed for command matching)
 
 CREDIT SAVINGS:
   Before: ~360 packets/hr × 1 credit/packet = 360 credits/hr
-  After:  ~12 batch calls/hr + ~10 real-time ACKs/hr = ~22 credits/hr (94% reduction)
+  After:  ~12 batch calls/hr + ~10 real-time ACKs/hr + ~360 heartbeat calls/hr = ~382 credits/hr
+  Note: Heartbeats CANNOT be batched — the freshness gate requires <10s staleness.
 
 ENV VARS (in /opt/traccar/log-forwarder/.env):
   BASE44_WEBHOOK_URL      URL to webhookLightLogForwarder (real-time ACKs)
@@ -354,26 +356,17 @@ def main():
     print(f"Batch enabled: {BATCH_ENABLED}, interval: {BATCH_INTERVAL_S}s", flush=True)
     print(f"Real-time webhook: {webhook_url}", flush=True)
     print(f"Batch webhook: {BATCH_WEBHOOK_URL or '(not set — batching disabled)'}", flush=True)
-    print(f"Packet types: 0x0032 (position→batch), 0x8009 (ACK→real-time), 0x000f (heartbeat→batch)", flush=True)
+    print(f"Packet types: 0x0032 (position→batch), 0x8009 (ACK→real-time), 0x000f (heartbeat→REAL-TIME)", flush=True)
 
     while True:
         for line in follow_file(log_file):
             for match in HEX_RE.findall(line):
                 try:
-                    # Heartbeat — BATCH if enabled, otherwise real-time
+                    # Heartbeat — ALWAYS real-time (freshness gate in sendTelematicsCommand requires <10s staleness)
                     if ": noran <" in line and is_mt20_heartbeat_000f(match):
                         device = extract_device_id_from_hex(match) or device_id
-                        source_ip = extract_source_ip(line)
-
-                        if BATCH_ENABLED and BATCH_WEBHOOK_URL:
-                            add_to_batch(device, "heartbeat", match, source_ip)
-                            # Check flush timer
-                            if time.time() - LAST_FLUSH >= BATCH_INTERVAL_S:
-                                flush_batch()
-                        else:
-                            # Fallback: real-time forward (original behavior)
-                            result = post_heartbeat(webhook_url, secret, provider_key, device, match, line)
-                            print(f"[MT20_HEARTBEAT] Forwarded: {device} {result}", flush=True)
+                        result = post_heartbeat(webhook_url, secret, provider_key, device, match, line)
+                        print(f"[MT20_HEARTBEAT] Forwarded: {device} {result}", flush=True)
                         continue
 
                     # Voltage/Position — BATCH if enabled, otherwise real-time
