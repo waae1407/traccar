@@ -258,16 +258,16 @@ Deno.serve(async (req) => {
 
     // ── Email/SMS Fallback for Critical Unresolved ────────────────────────
     if (severity === 'critical') {
-      // Email fallback after 15 minutes (simplified: send immediately for critical)
-      for (const user of [...recipients.admins, ...recipients.hosts]) {
+      // Email fallback — send to admins, hosts, AND customers for critical notifications
+      for (const user of [...recipients.admins, ...recipients.hosts, ...recipients.customers]) {
         if (user.email) {
           const emailResult = await sendEmail(base44, user.email, `[uRide ${severity.toUpperCase()}] ${title}`, message);
           results.email.push({ role: user.role || 'admin', email: user.email, ...emailResult });
         }
       }
       
-      // SMS for critical host/admin issues
-      for (const user of [...recipients.admins, ...recipients.hosts]) {
+      // SMS for critical issues — send to admins, hosts, AND customers
+      for (const user of [...recipients.admins, ...recipients.hosts, ...recipients.customers]) {
         if (user.phone) {
           const smsResult = await sendSMS(user.phone, `uRide ${severity.toUpperCase()}: ${title}. ${APP_URL}${action_url || '/dashboard'}`);
           results.sms.push({ role: user.role || 'admin', phone: user.phone, ...smsResult });
