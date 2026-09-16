@@ -243,9 +243,24 @@ async function sendEmail(base44, to, subject, body) {
   return true;
 }
 
+async function resolveTelematicsDeviceForBooking(base44, vehicleId) {
+  if (!vehicleId) return null;
+  const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ vehicle_id: vehicleId });
+  return devices.find(d => d.lifecycle_status !== 'retired' && d.production_commands_enabled === true) || devices[0] || null;
+}
+
 async function starterInterrupt(base44, booking, disable) {
   const commandType = disable ? 'disable_starter' : 'restore_starter';
+
+  // Resolve the actual telematics device — sendTelematicsCommand requires telematics_device_id or unique_id
+  const device = await resolveTelematicsDeviceForBooking(base44, booking.vehicle_id);
+  if (!device) {
+    return { ok: false, error: 'no_device_found', message: 'No telematics device linked to this vehicle.' };
+  }
+
   const response = await base44.asServiceRole.functions.invoke('sendTelematicsCommand', {
+    telematics_device_id: device.id,
+    unique_id: device.unique_id,
     vehicle_id: booking.vehicle_id,
     booking_id: booking.id,
     command_type: commandType,
@@ -254,7 +269,15 @@ async function starterInterrupt(base44, booking, disable) {
     reason: disable ? 'Payment enforcement: failed payment recovery window expired.' : 'Payment enforcement: payment recovered, restoring starter access.',
     confirm_starter_command: true
   });
-  return { ok: true, response: response.data };
+
+  const data = response.data || {};
+  // Check for heartbeat freshness gate failure or other errors
+  if (data.error || response.status >= 400) {
+    const isHeartbeatStale = String(data.error || '').includes('heartbeat stale') || String(data.error || '').includes('UDP session expired');
+    return { ok: false, error: data.error || 'command_failed', heartbeat_stale: isHeartbeatStale, response: data };
+  }
+
+  return { ok: true, response: data };
 }
 
 async function getVehicleDevice(base44, vehicleId) {
@@ -320,7 +343,10 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
   const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
 
   if ((booking.starter_disabled || booking.moovetrax_kill_active) && deviceId) {
-    await starterInterrupt(base44, booking, false);
+    const restoreResult = await starterInterrupt(base44, booking, false);
+    if (!restoreResult.ok) {
+      console.log(`[PaymentEnforcement] Starter restore command failed for ${booking.id}: ${restoreResult.error} — payment is still recovered, starter will be restored on next cycle`);
+    }
   }
 
   await createPaymentAlert(base44, {
@@ -611,9 +637,108 @@ async function disableStarterAfterWindow(base44, booking, now) {
     return;
   }
 
-  // Safe to send starter interrupt
-  await starterInterrupt(base44, booking, true);
+  // Safe to send starter interrupt — goes through heartbeat freshness gate in sendTelematicsCommand
+  const interruptResult = await starterInterrupt(base44, booking, true);
 
+  // Heartbeat stale — device UDP session expired, command NOT sent. Mark as pending for retry.
+  if (!interruptResult.ok && interruptResult.heartbeat_stale) {
+    await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+      booking_status: 'suspended',
+      suspension_triggered_at: now.toISOString(),
+      suspended_at: now.toISOString(),
+      starter_disabled: false,
+      moovetrax_kill_active: false,
+      starter_disable_pending: true,
+    });
+
+    await createPaymentAlert(base44, {
+      alert_type: 'weekly_billing_failed',
+      severity: 'critical',
+      billing_context: 'weekly_billing',
+      booking_id: booking.id,
+      host_id: booking.host_id || '',
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      renter_email: booking.user_email || '',
+      related_entity_type: 'BookingRequest',
+      related_entity_id: booking.id,
+      title: 'Starter disable PENDING — device heartbeat stale (UDP session expired)',
+      message: `Grace period expired for ${booking.vehicle_name || booking.id} but the telematics device heartbeat is stale — the UDP NAT session has expired and the device would silently drop the command. Starter disable deferred until the device sends a fresh heartbeat. The system will automatically retry on the next grace period cycle.`,
+      recommended_action: 'Wait for device heartbeat to refresh (typically 2-3 minutes). The next processGracePeriod run will retry automatically. Verify device connectivity if this persists.',
+      financial_impact_amount: booking.weekly_rate || 0,
+      currency: 'usd',
+      source: 'processGracePeriod'
+    });
+
+    await logEvent(base44, {
+      event_type: 'payment.starter_disable_pending_heartbeat_stale',
+      target_id: booking.id,
+      host_id: booking.host_id || '',
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      customer_id: booking.user_email || '',
+      summary: `Starter disable deferred — device heartbeat stale for ${booking.vehicle_name || booking.id}. Will retry when heartbeat refreshes.`,
+      metadata: {
+        heartbeat_stale: true,
+        udp_session_expired: true,
+        safety_check: safetyCheck,
+        starter_disable_pending: true,
+        authoritative_workflow: 'processGracePeriod'
+      },
+      event_status: 'warning',
+    });
+
+    await notifyGraceExpired(base44, booking, true, true);
+    return;
+  }
+
+  // Other command failure — log and mark as pending for retry
+  if (!interruptResult.ok) {
+    await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+      booking_status: 'suspended',
+      suspension_triggered_at: now.toISOString(),
+      suspended_at: now.toISOString(),
+      starter_disabled: false,
+      moovetrax_kill_active: false,
+      starter_disable_pending: true,
+    });
+
+    await createPaymentAlert(base44, {
+      alert_type: 'weekly_billing_failed',
+      severity: 'critical',
+      billing_context: 'weekly_billing',
+      booking_id: booking.id,
+      host_id: booking.host_id || '',
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      renter_email: booking.user_email || '',
+      related_entity_type: 'BookingRequest',
+      related_entity_id: booking.id,
+      title: 'Starter disable FAILED — command error',
+      message: `Starter disable command failed for ${booking.vehicle_name || booking.id}: ${interruptResult.error}. Command will be retried on the next cycle.`,
+      recommended_action: 'Check telematics device status and command logs. Verify device is online and production commands are enabled.',
+      financial_impact_amount: booking.weekly_rate || 0,
+      currency: 'usd',
+      source: 'processGracePeriod'
+    });
+
+    await logEvent(base44, {
+      event_type: 'gps.command_failed',
+      target_id: booking.id,
+      host_id: booking.host_id || '',
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      customer_id: booking.user_email || '',
+      summary: `Starter disable command failed for ${booking.vehicle_name || booking.id}: ${interruptResult.error}`,
+      metadata: { error: interruptResult.error, starter_disable_pending: true, safety_check: safetyCheck },
+      event_status: 'error',
+    });
+
+    await notifyGraceExpired(base44, booking, true, true);
+    return;
+  }
+
+  // Command sent successfully through freshness gate
   await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
     booking_status: 'suspended',
     suspension_triggered_at: now.toISOString(),
@@ -635,7 +760,7 @@ async function disableStarterAfterWindow(base44, booking, now) {
     related_entity_type: 'BookingRequest',
     related_entity_id: booking.id,
     title: `Starter interrupt sent after ${RECOVERY_WINDOW_HOURS}h grace period`,
-    message: `Payment remains unpaid after ${RECOVERY_WINDOW_HOURS}-hour grace period for ${booking.vehicle_name || booking.id}. Starter interrupt command sent (vehicle confirmed parked). No engine shutdown command was issued.`,
+    message: `Payment remains unpaid after ${RECOVERY_WINDOW_HOURS}-hour grace period for ${booking.vehicle_name || booking.id}. Starter interrupt command sent through heartbeat freshness gate (vehicle confirmed parked, UDP session verified fresh). No engine shutdown command was issued.`,
     recommended_action: 'Restore starter immediately after successful payment or admin override.',
     financial_impact_amount: booking.weekly_rate || 0,
     currency: 'usd',
@@ -650,13 +775,14 @@ async function disableStarterAfterWindow(base44, booking, now) {
     booking_id: booking.id,
     vehicle_id: booking.vehicle_id || '',
     customer_id: booking.user_email || '',
-    summary: `Starter interrupt sent after ${RECOVERY_WINDOW_HOURS}h grace for ${booking.vehicle_name || booking.id}`,
+    summary: `Starter interrupt sent after ${RECOVERY_WINDOW_HOURS}h grace for ${booking.vehicle_name || booking.id} — freshness gate passed`,
     metadata: {
       starter_interrupt_only: true,
       no_engine_shutdown: true,
       safety_check: safetyCheck,
       scheduled_at: booking.starter_disable_scheduled_at,
       device_command_sent: true,
+      heartbeat_freshness_verified: true,
       authoritative_workflow: 'processGracePeriod'
     },
     event_status: 'warning',
@@ -730,28 +856,44 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Retry starter disable for pending-disable bookings (vehicle was running when grace expired)
+      // Retry starter disable for pending-disable bookings (vehicle was running or heartbeat was stale when grace expired)
       if (booking.booking_status === "suspended" && booking.starter_disable_pending && !booking.starter_disabled) {
         const safetyCheck = await checkVehicleSafeForStarterDisable(base44, booking.vehicle_id);
         const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
         if (safetyCheck.safe && deviceId) {
-          await starterInterrupt(base44, booking, true);
-          await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-            starter_disabled: true,
-            moovetrax_kill_active: true,
-            starter_disable_pending: false,
-          });
-          await logEvent(base44, {
-            event_type: 'payment.starter_disabled',
-            target_id: booking.id,
-            host_id: booking.host_id || '',
-            booking_id: booking.id,
-            vehicle_id: booking.vehicle_id || '',
-            customer_id: booking.user_email || '',
-            summary: `Deferred starter interrupt now sent — vehicle confirmed parked for ${booking.vehicle_name || booking.id}`,
-            metadata: { safety_check: safetyCheck, deferred_send: true, starter_interrupt_only: true },
-            event_status: 'warning',
-          });
+          const retryResult = await starterInterrupt(base44, booking, true);
+          if (retryResult.ok) {
+            await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+              starter_disabled: true,
+              moovetrax_kill_active: true,
+              starter_disable_pending: false,
+            });
+            await logEvent(base44, {
+              event_type: 'payment.starter_disabled',
+              target_id: booking.id,
+              host_id: booking.host_id || '',
+              booking_id: booking.id,
+              vehicle_id: booking.vehicle_id || '',
+              customer_id: booking.user_email || '',
+              summary: `Deferred starter interrupt now sent — vehicle confirmed parked, freshness gate passed for ${booking.vehicle_name || booking.id}`,
+              metadata: { safety_check: safetyCheck, deferred_send: true, starter_interrupt_only: true, heartbeat_freshness_verified: true },
+              event_status: 'warning',
+            });
+          } else {
+            // Still stale or failed — keep pending, will retry next cycle
+            console.log(`[PaymentEnforcement] Deferred starter retry still failing for ${booking.id}: ${retryResult.error}`);
+            await logEvent(base44, {
+              event_type: 'gps.command_failed',
+              target_id: booking.id,
+              host_id: booking.host_id || '',
+              booking_id: booking.id,
+              vehicle_id: booking.vehicle_id || '',
+              customer_id: booking.user_email || '',
+              summary: `Deferred starter retry still failing for ${booking.vehicle_name || booking.id}: ${retryResult.error}`,
+              metadata: { error: retryResult.error, heartbeat_stale: retryResult.heartbeat_stale, starter_disable_pending: true },
+              event_status: 'warning',
+            });
+          }
         }
         // Continue to allow retry attempt even after pending-disable check
       }
