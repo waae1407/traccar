@@ -509,9 +509,13 @@ Deno.serve(async (req) => {
       const totalDistanceMeters = position.attributes?.totalDistance || 0;
       const deviceMiles = totalDistanceMeters * 0.000621371;
       
+      // Always trust Traccar's already-decoded coordinates (position.latitude/longitude).
+      // The Noran hex parser's coordinateFromRaw() guesses scale factors and can pick
+      // the wrong one, producing incorrect lat/lng that doesn't match the Traccar map.
+      // The Noran packet is only used for supplementary data (voltage, speed, direction).
       const payload = {
-        last_latitude: noranPacket?.latitude ?? position.latitude,
-        last_longitude: noranPacket?.longitude ?? position.longitude,
+        last_latitude: position.latitude,
+        last_longitude: position.longitude,
         last_seen_at: seenAt,
         speed: Number(noranPacket?.speed ?? position.speed ?? 0),
         course: Number(noranPacket?.direction ?? position.course ?? 0),
