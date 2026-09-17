@@ -244,7 +244,7 @@ export default function TelematicsMap({
         ) : (
           <MapContainer center={center} zoom={compact ? 9 : 5} scrollWheelZoom={!compact} style={{ height: "100%", width: "100%" }}>
             <FleetMapAutoFit positions={markerPositions} compact={compact} fitRequest={fitRequest} />
-            <TileLayer attribution='&copy; OpenStreetMap contributors &copy; CARTO' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+            <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             {filtered.map(device => {
               const vehicle = vehicleById[device.vehicle_id];
               const host = hostById[device.host_id];
