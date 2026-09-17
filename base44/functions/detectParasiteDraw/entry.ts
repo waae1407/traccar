@@ -475,7 +475,13 @@ Deno.serve(async (req) => {
       let powerSaveActive = existing?.power_save_active || false;
       let shouldAutoRemediate = false;
 
-      if (restingVoltage < REMEDIATION_VOLTAGE && !autoRemediated) {
+      // Payment-enforcement guard: if a starter kill is active (payment enforcement),
+      // do NOT send power-save or restore-starter — both would override the starter
+      // kill and potentially re-enable the vehicle. Still notify so the host/admin
+      // can jump-start or address the drain manually without undoing the kill.
+      const starterKillActive = device.starter_disabled === true;
+
+      if (restingVoltage < REMEDIATION_VOLTAGE && !autoRemediated && !starterKillActive) {
         const cooldownExpired = !autoRemediatedAt || (now.getTime() - new Date(autoRemediatedAt).getTime() > AUTO_REMEDIATION_COOLDOWN_MS);
         if (cooldownExpired) {
           shouldAutoRemediate = true;
@@ -512,6 +518,21 @@ Deno.serve(async (req) => {
             event_status: 'success',
           }).catch(() => {});
         }
+      } else if (starterKillActive && restingVoltage < REMEDIATION_VOLTAGE) {
+        // Log that auto-remediation was suppressed to preserve the payment starter kill.
+        await base44.asServiceRole.entities.ActivityEvent.create({
+          event_type: 'gps.device_config_traccar_sent',
+          actor_id: 'system',
+          actor_email: 'system@uride',
+          actor_role: 'system',
+          target_entity: 'TelematicsDevice',
+          target_id: device.id,
+          vehicle_id: device.vehicle_id || '',
+          summary: `Auto-remediation SUPPRESSED on ${device.unique_id} — starter kill active (payment enforcement). Drain ${drainRate.toFixed(2)}V/hr, voltage ${restingVoltage.toFixed(1)}V. Notifying host/admin to address manually.`,
+          metadata: { source: 'detectParasiteDraw', drain_rate: drainRate, resting_voltage: restingVoltage, severity, starter_kill_active: true, auto_remediation_suppressed: true },
+          source: 'automation',
+          event_status: 'warning',
+        }).catch(() => {});
       }
 
       // ── Notifications ──
@@ -527,6 +548,7 @@ Deno.serve(async (req) => {
           `Drain rate: ${drainRate.toFixed(2)}V/hr\n` +
           (projectedDead !== null ? `Battery dead in ~${projectedDead.toFixed(1)} hours\n` : '') +
           (autoRemediated ? `\n✅ Power-save auto-applied — relay released.\n` : '') +
+          (starterKillActive && !autoRemediated ? `\n🔒 Auto-remediation suppressed — starter kill is active (payment enforcement). Do NOT send power-save or restore-starter, as this would re-enable the vehicle.\n` : '') +
           `\n⚠️ ${REMEDIATION_NOTE}\n` +
           `\nView details: ${APP_URL}${device.host_id ? '/host/telematics' : '/admin/battery-health'}`;
 
