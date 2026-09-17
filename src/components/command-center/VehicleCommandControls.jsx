@@ -7,6 +7,8 @@ import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
 import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
 import { useCommandProgress, PHASES } from "@/hooks/useCommandProgress";
 import CommandProgressOverlay from "@/components/telematics/CommandProgressOverlay";
+import DriveHistoryReplay from "@/components/telematics/DriveHistoryReplay";
+import { Route } from "lucide-react";
 
 const COMMANDS = {
   remote: [
@@ -25,6 +27,7 @@ const COMMANDS = {
 
 export default function VehicleCommandControls({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter, onCommand }) {
   const progress = useCommandProgress();
+  const [showReplay, setShowReplay] = useState(false);
   const allowedCustomer = ["lock", "unlock", "alarm_pulse"];
 
   const visible = (group) => COMMANDS[group].filter((command) => {
@@ -86,31 +89,46 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {mode !== "customer" && (
-        <ControlSection
-          title="Remote Controls"
-          subtitle="Readiness-filtered commands routed through sendTelematicsCommand."
-          commands={visible("remote")}
-          isBusy={isBusy}
-          activeCommand={progress.commandType}
-          phase={progress.phase}
-          onSend={send}
-        />
+    <div className="space-y-4">
+      {device?.id && device?.traccar_device_id && (
+        <Button
+          variant="outline"
+          onClick={() => setShowReplay(true)}
+          className="w-full h-12 rounded-2xl border-border/50 bg-gradient-to-br from-primary/10 to-transparent text-primary hover:from-primary/20 text-sm font-bold"
+        >
+          <Route className="mr-2 h-4 w-4" />
+          Drive History & Replay
+        </Button>
       )}
-      <div className="space-y-3">
-        <ControlSection
-          title={mode === "customer" ? "Vehicle Controls" : "Security Controls"}
-          subtitle={mode === "customer" ? "Quick actions to locate, lock, or unlock your vehicle." : "Starter controls require reason and confirmation."}
-          commands={visible("security")}
-          isBusy={isBusy}
-          activeCommand={progress.commandType}
-          phase={progress.phase}
-          onSend={send}
-        />
-        {vehicle?.id && ["admin", "host"].includes(mode) && (
-          <TelematicsAlarmControls vehicleId={vehicle.id} role={mode} onResult={onCommand} />
+      {showReplay && device?.id && (
+        <DriveHistoryReplay vehicle={vehicle} device={device} mode={mode} onClose={() => setShowReplay(false)} />
+      )}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {mode !== "customer" && (
+          <ControlSection
+            title="Remote Controls"
+            subtitle="Readiness-filtered commands routed through sendTelematicsCommand."
+            commands={visible("remote")}
+            isBusy={isBusy}
+            activeCommand={progress.commandType}
+            phase={progress.phase}
+            onSend={send}
+          />
         )}
+        <div className="space-y-3">
+          <ControlSection
+            title={mode === "customer" ? "Vehicle Controls" : "Security Controls"}
+            subtitle={mode === "customer" ? "Quick actions to locate, lock, or unlock your vehicle." : "Starter controls require reason and confirmation."}
+            commands={visible("security")}
+            isBusy={isBusy}
+            activeCommand={progress.commandType}
+            phase={progress.phase}
+            onSend={send}
+          />
+          {vehicle?.id && ["admin", "host"].includes(mode) && (
+            <TelematicsAlarmControls vehicleId={vehicle.id} role={mode} onResult={onCommand} />
+          )}
+        </div>
       </div>
 
       <CommandProgressOverlay
