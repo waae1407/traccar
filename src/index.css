@@ -162,6 +162,9 @@
   .table-row-hover:hover {
     background: hsl(var(--primary) / 0.06) !important;
   }
+  .map-tiles-muted {
+    filter: grayscale(0.85) brightness(1.18) contrast(0.92);
+  }
   .luxury-telematics-popup .leaflet-popup-content-wrapper {
     background: transparent;
     border-radius: 20px;

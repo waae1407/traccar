@@ -326,7 +326,7 @@ export default function DriveHistoryReplay({ vehicle, device, mode, onClose }) {
           <div className="flex-1 relative">
             <MapContainer center={mapCenter} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
               <RouteAutoFit positions={positions} />
-              <TileLayer attribution='&copy; Esri' url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}" />
+              <TileLayer attribution='&copy; Esri, HERE, Garmin' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" className="map-tiles-muted" />
               {/* Colored route segments */}
               {segments.map((seg, i) => (
                 <Polyline key={i} positions={[seg.from, seg.to]} pathOptions={{ color: seg.color, weight: 5, opacity: 0.85 }} />
