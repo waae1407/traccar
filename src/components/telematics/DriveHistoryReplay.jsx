@@ -150,7 +150,7 @@ export default function DriveHistoryReplay({ vehicle, device, mode, onClose }) {
         return;
       }
       setPositions(data.positions);
-      setCurrentIndex(0);
+      setCurrentIndex(data.positions.length - 1);
       setPhase("playback");
     } catch (err) {
       setError(err.message || "Failed to load route data");
@@ -204,7 +204,8 @@ export default function DriveHistoryReplay({ vehicle, device, mode, onClose }) {
   }, [positions]);
 
   const currentPos = positions[currentIndex];
-  const mapCenter = positions.length > 0 ? [positions[0].lat, positions[0].lng] : [39.5, -98.35];
+  const lastPos = positions[positions.length - 1];
+  const mapCenter = lastPos ? [lastPos.lat, lastPos.lng] : [39.5, -98.35];
 
   return (
     <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
