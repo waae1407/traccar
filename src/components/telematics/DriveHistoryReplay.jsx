@@ -326,7 +326,7 @@ export default function DriveHistoryReplay({ vehicle, device, mode, onClose }) {
           <div className="flex-1 relative">
             <MapContainer center={mapCenter} zoom={13} scrollWheelZoom style={{ height: "100%", width: "100%" }}>
               <RouteAutoFit positions={positions} />
-              <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <TileLayer attribution='&copy; Esri, HERE, Garmin' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" />
               {/* Colored route segments */}
               {segments.map((seg, i) => (
                 <Polyline key={i} positions={[seg.from, seg.to]} pathOptions={{ color: seg.color, weight: 5, opacity: 0.85 }} />
@@ -342,9 +342,9 @@ export default function DriveHistoryReplay({ vehicle, device, mode, onClose }) {
             </MapContainer>
 
             {/* Speed legend */}
-            <div className="absolute bottom-4 left-4 z-[1000] rounded-xl bg-white/95 dark:bg-card/95 backdrop-blur p-2.5 shadow-lg border border-border">
-              <p className="text-[10px] font-black text-foreground mb-1.5">0 - 60 mph</p>
+            <div className="absolute bottom-4 left-4 z-[1000] rounded-lg bg-white px-2.5 py-2 shadow-lg">
               <div className="h-2.5 w-28 rounded-full" style={{ background: "linear-gradient(to right, rgb(0,0,255), rgb(0,255,0), rgb(255,0,0))" }} />
+              <p className="mt-1.5 text-center text-[11px] font-bold text-black">0 - 60 mph</p>
             </div>
 
             {/* Speed badge for current position */}
