@@ -79,6 +79,13 @@ export default function VehicleCommandCenter({ mode = "admin" }) {
     await Promise.all([refetchCommands(), refetchDevices(), refetchBookings()]);
   };
 
+  const handleRefreshLocation = async () => {
+    if (selectedDevice?.id) {
+      await base44.functions.invoke("syncSingleTraccarPosition", { telematics_device_id: selectedDevice.id }).catch(() => {});
+    }
+    await refetchDevices();
+  };
+
   if (isCustomer && !user) return <LoginRequired />;
   if (isCustomer && bookings.length > 0 && !customerBooking) return <ExpiredAccess mode={mode} />;
   if (!selectedVehicle) return <EmptyCommandCenter mode={mode} />;
@@ -91,7 +98,7 @@ export default function VehicleCommandCenter({ mode = "admin" }) {
         <VehicleStatusCard mode={mode} vehicle={selectedVehicle} device={selectedDevice} provider={selectedProvider} booking={selectedBooking} hostOwnsVehicle={hostOwnsVehicle} allowStarter={allowStarter} />
         <section className="space-y-3">
           <h2 className="text-lg font-black text-slate-950">Live Map</h2>
-          <TelematicsMap role={mode} devices={selectedDevice ? [selectedDevice] : []} vehicles={[selectedVehicle]} hosts={host ? [host] : []} bookings={selectedBooking ? [selectedBooking] : []} providers={mode === "customer" ? [] : providers} height={mode === "customer" ? 320 : 460} showFilters={false} refreshLabel="Refresh location" onRefresh={refetchDevices} />
+          <TelematicsMap role={mode} devices={selectedDevice ? [selectedDevice] : []} vehicles={[selectedVehicle]} hosts={host ? [host] : []} bookings={selectedBooking ? [selectedBooking] : []} providers={mode === "customer" ? [] : providers} height={mode === "customer" ? 320 : 460} showFilters={false} refreshLabel="Refresh location" onRefresh={handleRefreshLocation} />
         </section>
         <VehicleCommandControls mode={mode} vehicle={selectedVehicle} device={selectedDevice} provider={selectedProvider} booking={selectedBooking} hostOwnsVehicle={hostOwnsVehicle} allowStarter={allowStarter} onCommand={refreshAfterCommand} />
         <div className="grid gap-4 lg:grid-cols-2">
