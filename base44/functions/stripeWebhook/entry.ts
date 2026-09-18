@@ -560,6 +560,144 @@ async function resolveMarketplaceFee(base44, booking = {}) {
   return { feeRate, operatorMode, bookingSource, fallbackUsed, reason };
 }
 
+// ── Automated Starter Restoration After Payment Success ─────────────────────
+// When a rental payment succeeds via webhook, automatically restore the starter
+// if it was disabled by payment enforcement. Eliminates all manual intervention.
+async function restoreStarterAfterPayment(base44, booking, paymentIntentId, grossAmount) {
+  if (!booking) return { restored: false, reason: 'no_booking' };
+  if (['completed', 'cancelled'].includes(booking.booking_status)) {
+    return { restored: false, reason: 'booking_closed' };
+  }
+
+  const wasStarterDisabled = booking.starter_disabled === true || booking.moovetrax_kill_active === true;
+
+  // Resolve the telematics device for this vehicle
+  let device = null;
+  if (booking.vehicle_id) {
+    const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ vehicle_id: booking.vehicle_id });
+    device = devices.find(d => d.lifecycle_status !== 'retired' && d.production_commands_enabled === true) || devices[0] || null;
+  }
+
+  let starterRestoreOk = !wasStarterDisabled;
+  let starterRestoreError = null;
+
+  if (wasStarterDisabled && device) {
+    try {
+      const response = await base44.asServiceRole.functions.invoke('sendTelematicsCommand', {
+        telematics_device_id: device.id,
+        unique_id: device.unique_id,
+        vehicle_id: booking.vehicle_id,
+        booking_id: booking.id,
+        command_type: 'restore_starter',
+        service_context: 'payment_enforcement',
+        source: 'stripe_webhook',
+        reason: 'Automated payment recovery: payment succeeded, restoring starter access.',
+        confirm_starter_command: true,
+      });
+      const data = response.data || response || {};
+      if (!data.error && (response.status || 200) < 400) {
+        starterRestoreOk = true;
+      } else {
+        starterRestoreError = data.error || 'command_failed';
+      }
+    } catch (e) {
+      starterRestoreError = e.message;
+    }
+  } else if (wasStarterDisabled && !device) {
+    starterRestoreError = 'no_device_found';
+  }
+
+  // Clear all failure/suspension fields and restore booking to active
+  const bookingUpdate = {
+    booking_status: 'active',
+    rental_lifecycle_phase: 'active',
+    payment_failure_attempts: 0,
+    payment_failure_reason: null,
+    last_payment_failure_at: null,
+    last_retry_at: null,
+    payment_failure_started_at: null,
+    starter_disable_scheduled_at: null,
+    suspended_at: null,
+    suspension_triggered_at: null,
+    grace_period_started_at: null,
+    grace_period_ends_at: null,
+  };
+
+  if (starterRestoreOk) {
+    bookingUpdate.starter_disabled = false;
+    bookingUpdate.moovetrax_kill_active = false;
+  }
+
+  await base44.asServiceRole.entities.BookingRequest.update(booking.id, bookingUpdate);
+
+  // Clear device flag if restore succeeded
+  if (device && starterRestoreOk) {
+    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+      starter_disabled: false,
+    }).catch(() => {});
+  }
+
+  // Update vehicle status to Active Rental
+  if (booking.vehicle_id) {
+    await base44.asServiceRole.entities.Vehicle.update(booking.vehicle_id, {
+      status: 'Active Rental',
+    }).catch(() => {});
+  }
+
+  // Resolve related operational alerts
+  try {
+    const now = new Date().toISOString();
+    const opAlerts = await base44.asServiceRole.entities.OperationalAlert.filter({
+      $or: [{ related_booking_id: booking.id }, { source_entity_id: booking.id }],
+    });
+    for (const alert of opAlerts) {
+      if (!['resolved', 'dismissed', 'closed'].includes(alert.status)) {
+        await base44.asServiceRole.entities.OperationalAlert.update(alert.id, {
+          status: 'resolved',
+          resolved_at: now,
+          resolved_by: 'stripe_webhook_auto_restore',
+          resolution_notes: 'Payment succeeded — starter restored automatically.',
+        });
+      }
+    }
+    const payAlerts = await base44.asServiceRole.entities.PaymentOperationalAlert.filter({ booking_id: booking.id });
+    for (const alert of payAlerts) {
+      if (!['resolved', 'dismissed', 'closed'].includes(alert.status)) {
+        await base44.asServiceRole.entities.PaymentOperationalAlert.update(alert.id, {
+          status: 'resolved',
+          resolved_at: now,
+          resolved_by: 'stripe_webhook_auto_restore',
+          resolution_notes: 'Payment succeeded — starter restored automatically.',
+        });
+      }
+    }
+  } catch (e) {
+    console.error('[AutoRestore] Alert resolution failed:', e.message);
+  }
+
+  // Log the restoration event
+  await logEvent(base44, {
+    event_type: 'gps.reinstate_sent',
+    actor_id: 'stripe_webhook',
+    actor_email: 'stripe@stripe.com',
+    actor_role: 'stripe',
+    target_entity: 'TelematicsDevice',
+    target_id: device?.id || '',
+    vehicle_id: booking.vehicle_id || '',
+    booking_id: booking.id,
+    host_id: booking.host_id || '',
+    customer_id: booking.user_email || '',
+    summary: starterRestoreOk
+      ? `Starter restored automatically after payment recovery — $${grossAmount} received`
+      : `Starter restore attempted but failed: ${starterRestoreError}`,
+    metadata: { payment_intent_id: paymentIntentId, amount: grossAmount, device_id: device?.id, restore_ok: starterRestoreOk, error: starterRestoreError },
+    source: 'webhook',
+    event_status: starterRestoreOk ? 'success' : 'warning',
+  });
+
+  return { restored: starterRestoreOk, error: starterRestoreError };
+}
+
 Deno.serve(async (req) => {
   const body = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -756,6 +894,11 @@ Deno.serve(async (req) => {
                 metadata: { payment_intent_id: pi.id, amount: grossAmount, billing_context: billingContext, payout_isolated: true },
                 source: 'webhook',
               });
+
+              // ── Auto-restore starter after payment recovery ──
+              if (booking) {
+                await restoreStarterAfterPayment(base44, booking, pi.id, grossAmount);
+              }
             }
           }
           break;
@@ -772,6 +915,11 @@ Deno.serve(async (req) => {
                 stripe_customer_id: pi.customer || booking.stripe_customer_id || ''
               });
               await base44.asServiceRole.functions.invoke('autoApproveBooking', { booking_request_id: bookingRequestId, source: 'stripe_webhook_host_stripe' }).catch((error) => console.error('[AutoApprove]', error.message));
+
+              // ── Auto-restore starter after payment recovery ──
+              if (booking) {
+                await restoreStarterAfterPayment(base44, booking, pi.id, pi.amount / 100);
+              }
             }
           }
           break;
@@ -980,7 +1128,10 @@ Deno.serve(async (req) => {
               metadata: { payment_intent_id: pi.id, amount: pi.amount / 100, receipt_url: receiptUrl },
               source: 'webhook',
             });
-            
+
+            // ── Auto-restore starter after payment success ──
+            await restoreStarterAfterPayment(base44, booking, pi.id, grossAmount);
+
             // WEBHOOK HEALTH: Mark as processed
             await updateWebhookEventLog(base44, event.id, {
               handler_status: 'processed',

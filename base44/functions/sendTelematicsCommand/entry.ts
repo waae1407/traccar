@@ -416,7 +416,7 @@ Deno.serve(async (req) => {
     if (!user && installerInstallTest) user = { id: 'installer-workflow', email: body.installer_email || 'installer-workflow@uridehub.com', role: 'installer' };
     if (!user) {
       const serviceCommand = COMMAND_ALIASES[body.command_type || body.command] || (body.command_type || body.command);
-      if (body.service_context === 'payment_enforcement' && body.source === 'processGracePeriod' && body.booking_id && STARTER_COMMANDS.includes(serviceCommand)) {
+      if (body.service_context === 'payment_enforcement' && ['processGracePeriod', 'stripe_webhook'].includes(body.source) && body.booking_id && STARTER_COMMANDS.includes(serviceCommand)) {
         user = { id: 'payment-enforcement', email: 'automation@uridehub.com', role: 'admin' };
       }
     }
@@ -479,9 +479,12 @@ Deno.serve(async (req) => {
       if (accessError) return Response.json({ error: accessError }, { status: 403 });
     }
     if (STARTER_COMMANDS.includes(commandType) && !adminDeviceCommandTest && !installerInstallTest) {
-      const hasReason = String(body.reason || '').trim().length >= 5;
-      const confirmed = body.confirm_starter_command === true || body.starter_confirmation === true;
-      if (!hasReason || !confirmed) return Response.json({ error: 'Starter commands require a reason and explicit confirmation.' }, { status: 400 });
+      const isPaymentEnforcement = body.service_context === 'payment_enforcement' && ['processGracePeriod', 'stripe_webhook'].includes(body.source);
+      if (!isPaymentEnforcement) {
+        const hasReason = String(body.reason || '').trim().length >= 5;
+        const confirmed = body.confirm_starter_command === true || body.starter_confirmation === true;
+        if (!hasReason || !confirmed) return Response.json({ error: 'Starter commands require a reason and explicit confirmation.' }, { status: 400 });
+      }
     }
     if (adminDeviceCommandTest && STARTER_COMMANDS.includes(commandType) && await hasActiveRental(base44, vehicle?.id || device.vehicle_id) && body.admin_starter_override !== true) {
       return Response.json({ error: 'Starter commands are blocked on active rentals unless explicit admin override is provided.' }, { status: 403 });
