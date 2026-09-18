@@ -60,8 +60,19 @@ function getPeriodRange(period, customFrom, customTo) {
 
 function speedColor(mph) {
   const t = Math.min(Math.max(mph, 0) / 60, 1);
-  const hue = 240 - t * 240;
-  return `hsl(${hue}, 90%, 50%)`;
+  let r, g, b;
+  if (t < 0.5) {
+    const t2 = t * 2;
+    r = 0;
+    g = Math.round(255 * t2);
+    b = Math.round(255 * (1 - t2));
+  } else {
+    const t2 = (t - 0.5) * 2;
+    r = Math.round(255 * t2);
+    g = Math.round(255 * (1 - t2));
+    b = 0;
+  }
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 function formatTimestamp(ts) {
@@ -333,7 +344,7 @@ export default function DriveHistoryReplay({ vehicle, device, mode, onClose }) {
             {/* Speed legend */}
             <div className="absolute bottom-4 left-4 z-[1000] rounded-xl bg-white/95 dark:bg-card/95 backdrop-blur p-2.5 shadow-lg border border-border">
               <p className="text-[10px] font-black text-foreground mb-1.5">0 - 60 mph</p>
-              <div className="h-2.5 w-28 rounded-full" style={{ background: "linear-gradient(to right, hsl(240,90%,50%), hsl(180,90%,50%), hsl(120,90%,50%), hsl(60,90%,50%), hsl(0,90%,50%))" }} />
+              <div className="h-2.5 w-28 rounded-full" style={{ background: "linear-gradient(to right, rgb(0,0,255), rgb(0,255,0), rgb(255,0,0))" }} />
             </div>
 
             {/* Speed badge for current position */}
