@@ -237,11 +237,12 @@ function parseMt20CommandResponse8009(body) {
       smoke = sliced[tail - 1];
       gsm   = sliced[tail - 2];
     }
-    // VBAT is at fixed offset +5 from packet start (same position as nBAT in position packets)
-    const vbatRaw = bytes[i + 5];
-    if (Number.isFinite(vbatRaw) && vbatRaw > 0 && vbatRaw <= 250) {
-      vbat = vbatRaw / 10;
-    }
+    // 0x8009 command ACK packets do NOT contain car battery voltage.
+    // Unlike 0x0032 position packets (which have nBAT at offset +5), the 0x8009
+    // has a 6-byte GIS IP+port header before the payload. Offset +5 is the 2nd
+    // octet of the GIS IP address, NOT a VBAT reading. Extracting it produces
+    // a garbage voltage (IP_octet / 10) that overwrites the correct car battery
+    // voltage set by 0x0032 packets. Only 0x0032/0x0008 packets carry car voltage.
 
     // cErrorCode semantic
     let cErrorCode_status = 'unknown';
@@ -273,14 +274,7 @@ function parseMt20CommandResponse8009(body) {
       cErrorCode_status,
       device_unique_id,
       device_updates: {
-        online_status: 'online',
-        ...(Number.isFinite(vbat) ? {
-          battery_voltage: vbat,
-          power_voltage: vbat,
-          external_voltage: vbat,
-          voltage: vbat,
-          voltage_source: 'forwarded_log_mt20_8009_VBAT'
-        } : {})
+        online_status: 'online'
       }
     };
   }
