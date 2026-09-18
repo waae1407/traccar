@@ -684,6 +684,19 @@ Deno.serve(async (req) => {
         release_strategy: 'immediate_traccar_api',
         release_triggered_by: 'command_request'
       });
+
+      // Sync device.starter_disabled for payment-enforcement kills/restores only.
+      // This ensures detectParasiteDraw sees the flag and suppresses auto-restore
+      // (007,1,0) that would override a payment kill. Manual host/admin kills
+      // are intentionally left untouched so battery auto-remediation can still run.
+      if (body.service_context === 'payment_enforcement' && STARTER_COMMANDS.includes(commandType)) {
+        const isKill = commandType === 'disable_starter';
+        await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+          starter_disabled: isKill,
+        }).catch(() => {});
+        console.log(`[sendTelematicsCommand] Synced device.starter_disabled=${isKill} for payment enforcement on ${device.unique_id}`);
+      }
+
       return Response.json({ 
         ok: true, 
         command_id: commandAudit.id, 
