@@ -37,7 +37,7 @@ export default function InstallerLocatorMap({ installers = [], center }) {
     <div className="h-[360px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <MapContainer center={mapCenter} zoom={located.length ? 10 : 4} style={{ height: '100%', width: '100%' }}>
         <InstallerMapController center={mapCenter} located={located} />
-        <TileLayer attribution="&copy; OpenStreetMap contributors &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+        <TileLayer attribution='&copy; Esri, HERE, Garmin' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" className="map-tiles-muted" />
         {located.map(installer => (
           <Marker key={installer.id} position={[Number(installer.business_latitude), Number(installer.business_longitude)]} icon={markerIcon(installer.installer_status)}>
             <Popup>

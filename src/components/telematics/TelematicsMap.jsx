@@ -244,7 +244,7 @@ export default function TelematicsMap({
         ) : (
           <MapContainer center={center} zoom={compact ? 9 : 5} scrollWheelZoom={!compact} style={{ height: "100%", width: "100%" }}>
             <FleetMapAutoFit positions={markerPositions} compact={compact} fitRequest={fitRequest} />
-            <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer attribution='&copy; Esri, HERE, Garmin' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" className="map-tiles-muted" />
             {filtered.map(device => {
               const vehicle = vehicleById[device.vehicle_id];
               const host = hostById[device.host_id];
