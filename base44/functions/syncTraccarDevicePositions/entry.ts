@@ -430,6 +430,41 @@ Deno.serve(async (req) => {
       if (uniqueId) localByUniqueId.set(uniqueId, local);
     }
 
+    // ── Deduplicate traccar_device_id mappings (prevention guard) ──
+    // Traccar is authoritative: each traccar device has exactly one uniqueId.
+    // If multiple local devices claim the same traccar_device_id, keep only the
+    // one whose unique_id matches Traccar's uniqueId and clear the rest. This
+    // prevents the "two vehicles share one tracker" bug that caused map/replay
+    // location disagreements. Runs as a no-op when no duplicates exist.
+    let deduped = 0;
+    const traccarIdClaims = new Map();
+    for (const local of localDevices) {
+      const tid = String(local.traccar_device_id || local.provider_device_id || '').trim();
+      if (!tid) continue;
+      if (!traccarIdClaims.has(tid)) traccarIdClaims.set(tid, []);
+      traccarIdClaims.get(tid).push(local);
+    }
+    for (const [tid, claimants] of traccarIdClaims) {
+      if (claimants.length < 2) continue;
+      const traccarDev = traccarById.get(tid);
+      if (!traccarDev) continue;
+      const correctUniqueId = normalizeKey(traccarDev.uniqueId);
+      for (const local of claimants) {
+        if (normalizeKey(local.unique_id) === correctUniqueId) continue; // rightful owner
+        // Stale/wrong mapping — clear it
+        await base44.asServiceRole.entities.TelematicsDevice.update(local.id, {
+          traccar_device_id: '',
+          provider_device_id: '',
+        }).catch(() => {});
+        deduped += 1;
+        if (localByTraccarId.get(tid) === local) {
+          localByTraccarId.delete(tid);
+          const rightful = claimants.find(l => normalizeKey(l.unique_id) === correctUniqueId);
+          if (rightful) localByTraccarId.set(tid, rightful);
+        }
+      }
+    }
+
     let updated = 0;
     let autoLinked = 0;
     let createdFromTraccar = 0;
