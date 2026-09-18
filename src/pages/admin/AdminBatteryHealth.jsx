@@ -114,7 +114,7 @@ export default function AdminBatteryHealth() {
         </div>
       )}
 
-      <BatteryHealthDetailDrawer scorecard={selected} open={!!selected} onOpenChange={(o) => !o && setSelected(null)} />
+      <BatteryHealthDetailDrawer scorecard={selected} device={selected ? deviceMap.get(selected.telematics_device_id) : null} open={!!selected} onOpenChange={(o) => !o && setSelected(null)} />
     </div>
   );
 }

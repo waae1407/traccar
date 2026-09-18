@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Battery, BatteryLow, BatteryWarning, AlertTriangle, CheckCircle2, Zap, Clock, Activity, Power } from 'lucide-react';
+import { Battery, BatteryLow, BatteryWarning, AlertTriangle, CheckCircle2, Zap, Clock, Activity } from 'lucide-react';
+import KillSwitchIndicator from './KillSwitchIndicator';
 
 const SEVERITY_CONFIG = {
   healthy: { color: 'emerald', icon: CheckCircle2, label: 'Healthy', badge: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
@@ -42,7 +43,6 @@ function Sparkline({ samples }) {
 }
 
 export default function BatteryHealthScorecard({ scorecard, onClick, vehicle, device }) {
-  const killSwitchOn = device?.starter_disabled === true;
   const config = SEVERITY_CONFIG[scorecard.severity] || SEVERITY_CONFIG.healthy;
   const SevIcon = config.icon;
   const voltageColor = scorecard.resting_voltage < 11.8 ? 'text-red-400' : scorecard.resting_voltage < 12.2 ? 'text-yellow-400' : 'text-emerald-400';
@@ -119,20 +119,8 @@ export default function BatteryHealthScorecard({ scorecard, onClick, vehicle, de
           )}
         </div>
 
-        {/* Kill switch status indicator */}
-        <div className={`flex items-center gap-2 rounded-lg px-3 py-1.5 border ${
-          killSwitchOn
-            ? 'bg-red-500/10 border-red-500/25'
-            : 'bg-emerald-500/8 border-emerald-500/20'
-        }`}>
-          <Power className={`h-3.5 w-3.5 shrink-0 ${killSwitchOn ? 'text-red-400' : 'text-emerald-400'}`} />
-          <span className={`text-xs font-bold ${killSwitchOn ? 'text-red-300' : 'text-emerald-300'}`}>
-            {killSwitchOn ? 'Kill Switch ON' : 'Kill Switch OFF'}
-          </span>
-          <span className={`text-[10px] ${killSwitchOn ? 'text-red-400/60' : 'text-emerald-400/50'}`}>
-            {killSwitchOn ? '· Starter blocked' : '· Starter enabled'}
-          </span>
-        </div>
+        {/* Smart kill switch indicator — reconciles flag, relay state, and last ACKed command */}
+        <KillSwitchIndicator device={device} scorecard={scorecard} />
 
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-lg bg-black/20 p-2 text-center">

@@ -2,6 +2,7 @@ import React from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Battery, Activity, Clock, Zap, CheckCircle2, AlertTriangle, Gauge } from 'lucide-react';
+import KillSwitchIndicator from './KillSwitchIndicator';
 
 const SEVERITY_BADGE = {
   healthy: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
@@ -22,7 +23,7 @@ function DetailRow({ icon: Icon, label, value, valueClass }) {
   );
 }
 
-export default function BatteryHealthDetailDrawer({ scorecard, open, onOpenChange }) {
+export default function BatteryHealthDetailDrawer({ scorecard, device, open, onOpenChange }) {
   if (!scorecard) return null;
   const samples = scorecard.voltage_samples_30min || [];
 
@@ -45,6 +46,7 @@ export default function BatteryHealthDetailDrawer({ scorecard, open, onOpenChang
           {/* Relay & Start Status */}
           <div className="rounded-xl border border-border p-3 space-y-2">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Relay & Start Status</p>
+            <KillSwitchIndicator device={device} scorecard={scorecard} />
             <div className="flex items-center gap-2">
               {scorecard.will_start === false ? (
                 <AlertTriangle className="h-5 w-5 text-red-400" />
