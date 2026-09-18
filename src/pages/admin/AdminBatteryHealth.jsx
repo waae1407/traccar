@@ -39,6 +39,12 @@ export default function AdminBatteryHealth() {
     return set;
   }, [devices]);
 
+  const deviceMap = React.useMemo(() => {
+    const map = new Map();
+    for (const d of devices) if (d.id) map.set(d.id, d);
+    return map;
+  }, [devices]);
+
   const [analyzing, setAnalyzing] = useState(false);
   const handleRefresh = async () => {
     setAnalyzing(true);
@@ -103,7 +109,7 @@ export default function AdminBatteryHealth() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sorted.map(sc => (
-            <BatteryHealthScorecard key={sc.id} scorecard={sc} vehicle={sc.vehicle_id ? vehicleMap.get(sc.vehicle_id) : null} onClick={() => setSelected(sc)} />
+            <BatteryHealthScorecard key={sc.id} scorecard={sc} vehicle={sc.vehicle_id ? vehicleMap.get(sc.vehicle_id) : null} device={deviceMap.get(sc.telematics_device_id)} onClick={() => setSelected(sc)} />
           ))}
         </div>
       )}
