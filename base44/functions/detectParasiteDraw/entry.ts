@@ -204,12 +204,31 @@ function classifySeverity(restingVoltage, drainRate, projectedDead) {
 //   019,0    → Power-save ON    → relay OPEN while parked (auto-closes on ignition)
 //   019,1    → Power-save OFF   → relay CLOSED
 async function getLastRelayCommand(base44, deviceId) {
-  const events = await base44.asServiceRole.entities.ActivityEvent.filter({
-    event_type: 'gps.device_config_traccar_sent',
-    target_id: deviceId,
-  }, '-created_date', 10).catch(() => []);
+  // Query all relay-affecting event types: config commands (power-save/restore from
+  // auto-remediation) AND payment-enforcement kills/reinstates. Merge and sort by
+  // date so the MOST RECENT relay command wins — critical for not showing a stale
+  // power-save when a payment kill was sent afterward.
+  const eventTypes = [
+    'gps.device_config_traccar_sent',
+    'gps.kill_sent',
+    'gps.kill_confirmed',
+    'gps.reinstate_sent',
+    'gps.reinstate_confirmed',
+  ];
 
-  for (const event of events) {
+  const allEvents = [];
+  for (const eventType of eventTypes) {
+    const events = await base44.asServiceRole.entities.ActivityEvent.filter({
+      event_type: eventType,
+      target_id: deviceId,
+    }, '-created_date', 10).catch(() => []);
+    allEvents.push(...events);
+  }
+
+  // Sort descending by created_date — newest first
+  allEvents.sort((a, b) => new Date(b.created_date).getTime() - new Date(a.created_date).getTime());
+
+  for (const event of allEvents) {
     const ascii = event.metadata?.ascii || '';
     const summary = (event.summary || '').toLowerCase();
 
@@ -235,7 +254,7 @@ async function getLastRelayCommand(base44, deviceId) {
     if (summary.includes('starter kill') || summary.includes('immobiliz') || summary.includes('starter disable')) {
       return { command: 'starter_kill', relay_state: 'open', sent_at: event.created_date };
     }
-    if (summary.includes('restore')) {
+    if (summary.includes('reinstate') || summary.includes('restore starter') || summary.includes('restore')) {
       return { command: 'restore_starter', relay_state: 'closed', sent_at: event.created_date };
     }
     if (summary.includes('power-save off') || summary.includes('power save off')) {
@@ -362,7 +381,16 @@ Deno.serve(async (req) => {
       // Only analyze parked (ignition off) samples after surface charge settle
       const parkedSamples = samples.filter(s => s.ign === false);
       if (parkedSamples.length === 0) {
-        // Device is driving or no parked data — update scorecard with minimal data
+        // Device is driving or no parked data — update scorecard with minimal data.
+        // Still compute relay state from last command + starter_disabled flag so
+        // payment-enforcement kills are reflected even without voltage data.
+        const lastRelayCmd = await getLastRelayCommand(base44, device.id);
+        const startStatus = computeStartStatus(device, lastRelayCmd, currentVoltage);
+        let earlyPowerSaveActive = false;
+        if (lastRelayCmd) {
+          if (lastRelayCmd.command === 'power_save') earlyPowerSaveActive = true;
+          else if (['power_save_off', 'restore_starter', 'starter_kill'].includes(lastRelayCmd.command)) earlyPowerSaveActive = false;
+        }
         await upsertScorecard(base44, {
           telematics_device_id: device.id,
           vehicle_id: device.vehicle_id || '',
@@ -381,9 +409,12 @@ Deno.serve(async (req) => {
           voltage_samples_30min: samples.slice(-12).map(s => ({ t: new Date(s.t).toISOString(), v: s.v })),
           ignition_status: device.ignition_status || 'unknown',
           online_status: device.online_status || 'unknown',
-          relay_state: device.ignition_status === 'on' ? 'closed' : 'unknown',
-          will_start: device.ignition_status === 'on' || (currentVoltage >= 10.5),
-          no_start_reason: currentVoltage < 10.5 ? 'Battery too low to crank — needs jump-start or charge.' : '',
+          power_save_active: earlyPowerSaveActive,
+          relay_state: startStatus.relayState,
+          will_start: startStatus.willStart,
+          no_start_reason: startStatus.noStartReason,
+          last_relay_command: startStatus.lastRelayCommandType,
+          last_relay_command_at: startStatus.lastRelayCommandAt,
           last_analysis_at: now.toISOString(),
         }, results);
         continue;
