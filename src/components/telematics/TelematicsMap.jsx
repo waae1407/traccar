@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import TelematicsVehiclePopup from "@/components/telematics/TelematicsVehiclePopup";
 import { getVehicleDisplayName, getVehicleMapLabel } from "@/lib/vehicleDisplayName";
+import { buildVehicleHealthIcon } from "@/lib/telematics/vehicleHealthMarker";
 
 const ACTIVE_VEHICLE_STATUSES = ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"];
 const ACTIVE_BOOKING_STATUSES = ["active", "confirmed", "approved", "pending_review"];
@@ -252,14 +253,9 @@ export default function TelematicsMap({
               const fresh = locationFreshness(device);
               const position = getResolvedMapPosition(device, vehicle);
               const displayName = getVehicleDisplayName(vehicle, device);
-              const mapLabel = escapeHtml(getVehicleMapLabel(vehicle, device));
-              const icon = L.divIcon({
-                html: `<div title="${escapeHtml(displayName)}" style="display:flex;align-items:center;gap:6px;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.35));"><div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;background:${markerColor(fresh)};border-radius:50%;border:2px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.3);flex:0 0 auto;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></div><div style="max-width:118px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(15,23,42,0.16);background:rgba(255,255,255,0.94);color:#0f172a;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800;line-height:1;">${mapLabel}</div></div>`,
-                className: "vehicle-map-marker",
-                iconSize: [166, 42],
-                iconAnchor: [18, 18],
-                popupAnchor: [0, -18]
-              });
+              const mapLabel = getVehicleMapLabel(vehicle, device);
+              const iconConfig = buildVehicleHealthIcon(device, mapLabel, role);
+              const icon = L.divIcon(iconConfig);
               return (
                 <Marker key={device.id} position={position} icon={icon}>
                   <Popup className="luxury-telematics-popup">
