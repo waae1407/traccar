@@ -2,8 +2,8 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, Car, CalendarDays, DollarSign,
-  Wrench, ChevronLeft, ChevronRight, ChevronDown, BarChart3, X, Building2, Gift, Home, Wallet, Zap,
-  Shield, MapPin, ClipboardList, Activity, MessageSquare, Star, Camera, ShieldAlert, Satellite, Settings, Network, ShieldCheck, ArrowRightLeft,
+  Wrench, ChevronLeft, ChevronRight, ChevronDown, BarChart3, X, Building2, Gift, Home, Zap,
+  Shield, Activity, MessageSquare, Star, Camera, Satellite, Settings, ShieldCheck, ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TenantSwitcher from "@/components/layout/TenantSwitcher";
@@ -23,6 +23,9 @@ const menuSections = [
       { label: "Financial Center", icon: DollarSign, path: "/admin/financial-center" },
       { label: "Telematics Center", icon: Satellite, path: "/admin/telematics-center" },
       { label: "Compliance Center", icon: Shield, path: "/admin/compliance-center" },
+      { label: "Expense Center", icon: DollarSign, path: "/admin/expense-center" },
+      { label: "Maintenance Center", icon: Wrench, path: "/admin/maintenance-center" },
+      { label: "Vehicle Commands", icon: Zap, path: "/admin/vehicle-command-center" },
     ],
   },
   {
@@ -38,14 +41,6 @@ const menuSections = [
     ],
   },
   {
-    label: "Smart Centers",
-    icon: Wrench,
-    items: [
-      { label: "Smart Expense Center", icon: DollarSign, path: "/admin/expense-center" },
-      { label: "Smart Maintenance Center", icon: Wrench, path: "/admin/maintenance-center" },
-    ],
-  },
-  {
     label: "Accounts",
     icon: Users,
     items: [
@@ -53,29 +48,6 @@ const menuSections = [
       { label: "Hosts", icon: Home, path: "/admin/hosts", badgeKey: "pendingHosts" },
       { label: "Vehicles", icon: Car, path: "/vehicles" },
       { label: "Bookings", icon: CalendarDays, path: "/bookings-admin" },
-    ],
-  },
-  {
-    label: "Financial (Legacy)",
-    icon: DollarSign,
-    items: [
-      { label: "Payments", icon: DollarSign, path: "/payments" },
-      { label: "Host Payouts", icon: Wallet, path: "/admin/payouts" },
-      { label: "Payment Alerts", icon: ShieldAlert, path: "/admin/payment-alerts" },
-      { label: "P&L Dashboard", icon: BarChart3, path: "/admin/pnl" },
-    ],
-  },
-  {
-    label: "Telematics (Legacy)",
-    icon: Satellite,
-    items: [
-      { label: "GPS Monitor", icon: MapPin, path: "/admin/gps-monitor" },
-      { label: "Vehicle Command Center", icon: Zap, path: "/admin/vehicle-command-center" },
-      { label: "Telematics Setup", icon: Satellite, path: "/admin/telematics" },
-      { label: "Command Verification", icon: Zap, path: "/admin/telematics-command-test" },
-      { label: "Telematics Operations", icon: Activity, path: "/admin/telematics-operations" },
-      { label: "Telematics Rollout", icon: BarChart3, path: "/admin/telematics-rollout" },
-      { label: "Network Readiness", icon: Satellite, path: "/admin/traccar-readiness" },
     ],
   },
   {
@@ -96,8 +68,8 @@ const menuSections = [
       { label: "Referrals", icon: Gift, path: "/referrals" },
       { label: "Installers", icon: Wrench, path: "/admin/installers" },
       { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
-      { label: "Companies", icon: Building2, path: "/companies", superadminOnly: true },
       { label: "AI Oracle", icon: Zap, path: "/admin/ai-chat" },
+      { label: "Companies", icon: Building2, path: "/companies", superadminOnly: true },
     ],
   },
 ];
@@ -108,6 +80,19 @@ const quickLinks = [
 ];
 
 // Internal-only tools — kept for direct URL access, removed from sidebar nav:
+// FINANCIAL LEGACY (superseded by Financial Center):
+// /payments                      (legacy — superseded by /admin/financial-center)
+// /admin/payouts                 (legacy — superseded by /admin/financial-center)
+// /admin/payment-alerts          (legacy — superseded by /admin/financial-center)
+// /admin/pnl                     (legacy — superseded by /admin/financial-center)
+// TELEMATICS LEGACY (superseded by Telematics Center):
+// /admin/gps-monitor             (legacy — superseded by /admin/telematics-center)
+// /admin/telematics              (legacy setup — superseded by /admin/telematics-center)
+// /admin/telematics-operations   (legacy — superseded by /admin/operations-center)
+// /admin/telematics-rollout      (deployment tool — direct URL only)
+// /admin/traccar-readiness       (setup tool — direct URL only)
+// /admin/telematics-command-test (testing lab — direct URL only)
+// OTHER INTERNAL:
 // /admin/expenses-preview        (duplicate preview route)
 // /admin/maintenance-v2          (duplicate route)
 // /admin/recurring-expenses-preview (duplicate preview route)
