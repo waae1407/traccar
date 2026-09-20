@@ -7,6 +7,17 @@
     <title>uRide Car Rental</title>
     <meta name="description" content="uRide Car Rental Management System - Fleet, Bookings, Payments & Rent-to-Own" />
     <script>
+      // Layer 2: Redirect all *.base44.app traffic to the canonical production domain.
+      // Prevents the internal Base44 subdomain from appearing in browser permission
+      // prompts (location, camera, notifications), address bars, or shared links.
+      (function() {
+        var host = window.location.hostname.toLowerCase();
+        if (host.includes("base44") && host !== "localhost" && host !== "127.0.0.1") {
+          window.location.replace("https://uridehub.com" + window.location.pathname + window.location.search + window.location.hash);
+        }
+      })();
+    </script>
+    <script>
       // On custom host storefront domains, set a light background immediately
       // to prevent a dark/black flash before the SPA renders, AND clear any
       // stale auth token from localStorage. The storefront is a public page —
