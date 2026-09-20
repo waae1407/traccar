@@ -90,14 +90,14 @@ async function createPaymentAlert(base44, payload) {
   }
 }
 
-async function alreadyProcessedInitialPayout(base44, { paymentIntentId, bookingRequestId, periodStart, periodEnd }) {
+async function alreadyProcessedInitialPayout(base44, { paymentIntentId, bookingRequestId }) {
+  // Only check for duplicates of THIS specific PaymentIntent — never block by period overlap.
+  // Weekly rentals share the same booking.start_date/end_date across all billing cycles, so a
+  // period-based check would incorrectly block every subsequent weekly payment after the first.
   const paymentLogs = paymentIntentId ? await base44.asServiceRole.entities.PaymentLog.filter({ stripe_payment_intent_id: paymentIntentId }) : [];
+  if (paymentLogs.length > 0) return true;
   const payouts = bookingRequestId ? await base44.asServiceRole.entities.HostPayout.filter({ booking_request_id: bookingRequestId }) : [];
-  const duplicatePayout = payouts.some((p) =>
-    p.stripe_payment_intent_id === paymentIntentId ||
-    (p.status === 'paid' && p.period_start === periodStart && p.period_end === periodEnd && !!p.stripe_transfer_id)
-  );
-  return paymentLogs.length > 0 || duplicatePayout;
+  return payouts.some((p) => p.stripe_payment_intent_id === paymentIntentId);
 }
 
 async function applyReceivableOffset(base44, hostId, amount, now) {
@@ -1166,6 +1166,27 @@ Deno.serve(async (req) => {
         if (bookingRequestId) {
           const failedBookings = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingRequestId });
           const failedBooking = failedBookings[0];
+
+          // STALE FAILURE GUARD: If the booking was already paid via a newer PaymentIntent,
+          // this failure webhook is from an old/retried attempt — do NOT overwrite the paid state.
+          if (failedBooking && failedBooking.payment_status === 'paid' && failedBooking.stripe_payment_intent_id && failedBooking.stripe_payment_intent_id !== pi.id) {
+            await logEvent(base44, {
+              event_type: 'payment.retry_deferred',
+              actor_id: 'stripe_webhook',
+              actor_email: 'stripe@stripe.com',
+              actor_role: 'stripe',
+              target_entity: 'BookingRequest',
+              target_id: bookingRequestId,
+              booking_id: bookingRequestId,
+              summary: `Stale payment_failed webhook ignored — booking already paid via newer PI ${failedBooking.stripe_payment_intent_id} (failed PI was ${pi.id})`,
+              metadata: { failed_pi: pi.id, current_pi: failedBooking.stripe_payment_intent_id, reason: pi.last_payment_error?.message },
+              source: 'webhook',
+              event_status: 'warning',
+            });
+            await updateWebhookEventLog(base44, event.id, { handler_status: 'ignored', ignored_reason: 'stale_failure_booking_already_paid', handler_completed: new Date().toISOString(), booking_request_id: bookingRequestId, payment_intent_id: pi.id }).catch(() => {});
+            break;
+          }
+
           let failedHostEmail = '';
           if (failedBooking?.host_id) {
             const failedHosts = await base44.asServiceRole.entities.Host.filter({ id: failedBooking.host_id });
