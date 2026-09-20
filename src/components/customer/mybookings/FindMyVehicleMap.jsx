@@ -5,7 +5,6 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { buildVehicleHealthIcon } from "@/lib/telematics/vehicleHealthMarker";
 
 const ALLOWED_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 
@@ -112,7 +111,7 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
         />
-        <Marker position={[lat, lng]} icon={L.divIcon(buildVehicleHealthIcon(device, '', 'customer'))} />
+        <Marker position={[lat, lng]} icon={createVehicleIcon()} />
       </MapContainer>
 
       {/* Hide Leaflet attribution */}
