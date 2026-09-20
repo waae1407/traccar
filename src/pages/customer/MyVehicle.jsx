@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -278,6 +279,9 @@ function DiagRow({ label, value, isAlert }) {
 
 export default function MyVehicle() {
   const { user, isLoading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const deepLinkedBookingId = searchParams.get("booking_id");
+  const isAdminPreview = !!deepLinkedBookingId;
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [commandLoading, setCommandLoading] = useState(null);
   const [isLocked, setIsLocked] = useState(true); // Optimistic lock state
@@ -300,18 +304,22 @@ export default function MyVehicle() {
   }, []);
 
   const { data: bookings = [], isLoading: bookingsLoading, error: bookingsError } = useQuery({
-    queryKey: ["my-vehicle-bookings", user?.email],
+    queryKey: ["my-vehicle-bookings", user?.email, deepLinkedBookingId],
     queryFn: async () => {
+      if (deepLinkedBookingId) {
+        const bookingRecord = await base44.entities.BookingRequest.get(deepLinkedBookingId);
+        return [bookingRecord];
+      }
       const results = await base44.entities.BookingRequest.filter({ user_email: user?.email });
       console.log('[MyVehicle] Bookings loaded:', results.length, results.map(b => ({ id: b.id, status: b.booking_status, vehicle: b.vehicle_name })));
       return results;
     },
-    enabled: !!user?.email && !authLoading,
+    enabled: deepLinkedBookingId ? true : (!!user?.email && !authLoading),
     refetchInterval: 30_000,
   });
 
   const activeRentals = bookings.filter(isOperationalRental).sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
-  const booking = activeRentals[0];
+  const booking = deepLinkedBookingId ? bookings[0] : activeRentals[0];
   const isOverdueRental = isOverdue(booking);
   
   // Debug logging

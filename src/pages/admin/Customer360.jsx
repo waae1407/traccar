@@ -144,8 +144,8 @@ export default function Customer360() {
                 </div>
                 {ab.vehicle_id && (
                   <div className="mt-3 flex gap-2">
-                    <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => navigate(`/admin/vehicle-command-center?vehicle_id=${ab.vehicle_id}`)}>
-                      <Satellite className="h-3.5 w-3.5 mr-1.5" /> Find My Vehicle
+                    <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => navigate(`/my-vehicle?booking_id=${ab.id}`)}>
+                      <Satellite className="h-3.5 w-3.5 mr-1.5" /> Customer Vehicle UI
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => navigate(`/admin/vehicle-360?vehicle_id=${ab.vehicle_id}`)}>
                       <Car className="h-3.5 w-3.5 mr-1.5" /> Vehicle 360
