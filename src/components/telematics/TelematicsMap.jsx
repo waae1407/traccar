@@ -6,6 +6,7 @@ import { RefreshCw, Satellite, TimerReset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import TelematicsVehiclePopup from "@/components/telematics/TelematicsVehiclePopup";
+import VehicleHealthLegend from "@/components/telematics/VehicleHealthLegend";
 import { getVehicleDisplayName, getVehicleMapLabel } from "@/lib/vehicleDisplayName";
 import { buildVehicleHealthIcon } from "@/lib/telematics/vehicleHealthMarker";
 
@@ -243,9 +244,10 @@ export default function TelematicsMap({
         {filtered.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center p-6 text-center text-muted-foreground"><TimerReset className="mb-2 h-7 w-7" /><p className="text-sm font-semibold">No cached GPS locations available yet.</p><p className="text-xs">Locations appear after the next Traccar position sync.</p></div>
         ) : (
-          <MapContainer center={center} zoom={compact ? 9 : 5} scrollWheelZoom={!compact} style={{ height: "100%", width: "100%" }}>
+          <MapContainer center={center} zoom={compact ? 9 : 5} scrollWheelZoom={!compact} style={{ height: "100%", width: "100%", position: "relative" }}>
             <FleetMapAutoFit positions={markerPositions} compact={compact} fitRequest={fitRequest} />
             <TileLayer attribution='&copy; Esri, HERE, Garmin' url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" className="map-tiles-muted" />
+            {!compact && <VehicleHealthLegend audience={role} />}
             {filtered.map(device => {
               const vehicle = vehicleById[device.vehicle_id];
               const host = hostById[device.host_id];
