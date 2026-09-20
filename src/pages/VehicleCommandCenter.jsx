@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import VehicleCommandHeader from "@/components/command-center/VehicleCommandHeader";
@@ -27,7 +28,9 @@ function isActiveCustomerBooking(booking) {
 export default function VehicleCommandCenter({ mode = "admin" }) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [searchParams] = useSearchParams();
+  const initialVehicleId = searchParams.get("vehicle_id") || "";
+  const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicleId);
   const isCustomer = mode === "customer";
 
   const { data: hosts = [] } = useQuery({ queryKey: ["vcc-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user.email }), enabled: !!user?.email && mode === "host" });
@@ -61,6 +64,12 @@ export default function VehicleCommandCenter({ mode = "admin" }) {
     if (isCustomer && customerBooking?.vehicle_id) setSelectedVehicleId(customerBooking.vehicle_id);
     else if (!selectedVehicleId && vehicles[0]?.id) setSelectedVehicleId(vehicles[0].id);
   }, [isCustomer, customerBooking?.vehicle_id, vehicles, selectedVehicleId]);
+
+  // Keep deep-link in sync: if a vehicle_id was passed via URL but isn't in the
+  // loaded list yet, keep it selected so it resolves once vehicles load.
+  useEffect(() => {
+    if (initialVehicleId && !selectedVehicleId) setSelectedVehicleId(initialVehicleId);
+  }, [initialVehicleId, selectedVehicleId]);
 
   const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) || vehicles[0];
   const selectedDevice = devices.find((device) => device.vehicle_id === selectedVehicle?.id || device.id === selectedVehicle?.telematics_device_id);

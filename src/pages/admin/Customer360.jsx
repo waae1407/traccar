@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, User, CreditCard, Car, Calendar, AlertTriangle, MessageSquare, Activity, Shield, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
+import { Search, User, CreditCard, Car, Calendar, AlertTriangle, MessageSquare, Activity, Shield, CheckCircle, XCircle, Clock, Zap, MapPin, Satellite } from 'lucide-react';
 import { format } from 'date-fns';
 
 function StatusBadge({ status }) {
@@ -142,6 +142,16 @@ export default function Customer360() {
                   <div><p className="text-muted-foreground text-xs">Contract</p><StatusBadge status={ab.contract_status} /></div>
                   <div><p className="text-muted-foreground text-xs">ID Verification</p><StatusBadge status={ab.verification_status} /></div>
                 </div>
+                {ab.vehicle_id && (
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => navigate(`/admin/vehicle-command-center?vehicle_id=${ab.vehicle_id}`)}>
+                      <Satellite className="h-3.5 w-3.5 mr-1.5" /> Find My Vehicle
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/admin/vehicle-360?vehicle_id=${ab.vehicle_id}`)}>
+                      <Car className="h-3.5 w-3.5 mr-1.5" /> Vehicle 360
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
