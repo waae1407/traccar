@@ -194,9 +194,9 @@ export const masterMenuSections = [
     icon: Car,
     items: [
       { id: "host-vehicles", label: "All Vehicles", icon: Car, paths: { host: "/host/vehicles" }, roles: ["host"] },
-      { id: "host-gps", label: "GPS & Location", icon: MapPin, paths: { host: "/host/telematics" }, roles: ["host"] },
-      { id: "host-vehicle-commands", label: "Vehicle Commands", icon: Zap, paths: { host: "/host/vehicle-command-center" }, roles: ["host"] },
-      { id: "host-gps-store", label: "GPS Store", icon: Shield, paths: { host: "/host/gps-store" }, roles: ["host"] },
+      { id: "host-gps", label: "Track My Vehicles", icon: MapPin, paths: { host: "/host/telematics" }, roles: ["host"] },
+      { id: "host-vehicle-commands", label: "Remote Controls", icon: Zap, paths: { host: "/host/vehicle-command-center" }, roles: ["host"] },
+      { id: "host-gps-store", label: "Buy GPS Devices", icon: Shield, paths: { host: "/host/gps-store" }, roles: ["host"] },
       { id: "host-maintenance", label: "Maintenance & Repairs", icon: Wrench, paths: { host: "/host/maintenance" }, roles: ["host"] },
     ],
   },
@@ -205,7 +205,7 @@ export const masterMenuSections = [
     icon: CalendarDays,
     items: [
       { id: "host-booking-360", label: "Active Rentals", icon: CalendarDays, paths: { host: "/host/booking-360" }, roles: ["host"] },
-      { id: "host-return-reviews", label: "Returns to Review", icon: ClipboardList, paths: { host: "/host/return-reviews" }, roles: ["host"] },
+      { id: "host-return-reviews", label: "Pending Return Approvals", icon: ClipboardList, paths: { host: "/host/return-reviews" }, roles: ["host"] },
       { id: "host-rto", label: "RTO Contracts", icon: Shield, paths: { host: "/host/rto" }, roles: ["host"] },
       { id: "host-communications", label: "Customer Messages", icon: MessageSquare, paths: { host: "/host/communications" }, roles: ["host"] },
     ],
@@ -216,8 +216,8 @@ export const masterMenuSections = [
     items: [
       { id: "host-payouts", label: "Earnings & Payouts", icon: Wallet, paths: { host: "/host/payouts" }, roles: ["host"] },
       { id: "host-expenses", label: "Expenses", icon: DollarSign, paths: { host: "/host/expenses" }, roles: ["host"] },
-      { id: "host-payment-alerts", label: "Payment Alerts", icon: ShieldAlert, paths: { host: "/host/payment-alerts" }, roles: ["host"] },
-      { id: "host-pnl", label: "P&L Dashboard", icon: BarChart3, paths: { host: "/host/pnl" }, roles: ["host"] },
+      { id: "host-payment-alerts", label: "Renter Payment Issues", icon: ShieldAlert, paths: { host: "/host/payment-alerts" }, roles: ["host"] },
+      { id: "host-pnl", label: "Profit & Revenue", icon: BarChart3, paths: { host: "/host/pnl" }, roles: ["host"] },
       { id: "host-reports", label: "Reports", icon: BarChart3, paths: { host: "/host/reports" }, roles: ["host"] },
     ],
   },
@@ -226,15 +226,14 @@ export const masterMenuSections = [
     icon: Users,
     items: [
       { id: "host-customers", label: "Customer List", icon: Users, paths: { host: "/host/customers" }, roles: ["host"] },
-      { id: "host-customer-360", label: "Customer Details", icon: Users, paths: { host: "/host/customer-360" }, roles: ["host"] },
     ],
   },
   {
     label: "Compliance",
     icon: Shield,
     items: [
-      { id: "host-compliance", label: "Vehicle Compliance", icon: ClipboardList, paths: { host: "/host/compliance" }, roles: ["host"] },
-      { id: "host-verification", label: "My Documents", icon: Shield, paths: { host: "/host/verification" }, roles: ["host"] },
+      { id: "host-compliance", label: "Vehicle Documents", icon: ClipboardList, paths: { host: "/host/compliance" }, roles: ["host"] },
+      { id: "host-verification", label: "My Business Verification", icon: Shield, paths: { host: "/host/verification" }, roles: ["host"] },
       { id: "host-platform-agreement", label: "Platform Agreement", icon: ShieldCheck, paths: { host: "/host/platform-agreement" }, roles: ["host"] },
     ],
   },
@@ -245,16 +244,16 @@ export const masterMenuSections = [
       { id: "host-brand", label: "Brand & Storefront", icon: Settings, paths: { host: "/host/brand" }, roles: ["host"] },
       { id: "host-business-operations", label: "Business Settings", icon: Settings, paths: { host: "/host/business-operations" }, roles: ["host"] },
       { id: "host-subscriptions", label: "Subscriptions", icon: CreditCard, paths: { host: "/host/subscriptions" }, roles: ["host"] },
-      { id: "host-dealer360", label: "Dealer Network", icon: ArrowRightLeft, paths: { host: "/host/dealer360" }, roles: ["host"] },
+      { id: "host-dealer360", label: "Dealer Network", icon: ArrowRightLeft, paths: { host: "/host/dealer360" }, roles: ["host"], requiresDealer: true },
     ],
   },
   {
-    label: "Alerts & Help",
+    label: "Help & Alerts",
     icon: Bell,
     items: [
-      { id: "host-alert360", label: "All Alerts", icon: ShieldAlert, paths: { host: "/host/alert360" }, roles: ["host"] },
+      { id: "host-ai", label: "Help & Support", icon: MessageSquare, paths: { host: "/host/chat" }, roles: ["host"] },
+      { id: "host-alert360", label: "Vehicle & Safety Alerts", icon: ShieldAlert, paths: { host: "/host/alert360" }, roles: ["host"] },
       { id: "host-notifications", label: "Notifications", icon: Bell, paths: { host: "/host/notifications" }, roles: ["host"], badgeKey: "unreadNotifications" },
-      { id: "host-ai", label: "AI Assistant", icon: MessageSquare, paths: { host: "/host/chat" }, roles: ["host"] },
     ],
   },
 ];

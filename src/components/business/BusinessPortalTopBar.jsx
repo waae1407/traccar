@@ -19,7 +19,7 @@ const pageMeta = {
   "/payments": { title: "Payments", subtitle: "Revenue & payment tracking" },
   "/host/payments": { title: "Payments", subtitle: "Revenue & payment tracking" },
   "/admin/pnl": { title: "P&L Dashboard", subtitle: "Profitability and performance" },
-  "/host/pnl": { title: "P&L Dashboard", subtitle: "Profitability and performance" },
+  "/host/pnl": { title: "Profit & Revenue", subtitle: "Profitability and performance" },
   "/admin/payouts": { title: "Payouts", subtitle: "Host payout operations" },
   "/host/payouts": { title: "Payouts", subtitle: "Transfer and payout history" },
   "/admin/expenses": { title: "Expenses", subtitle: "Cost tracking and review" },
@@ -63,9 +63,9 @@ export default function BusinessPortalTopBar({ onMenuClick, role = "admin" }) {
         <Button variant="ghost" size="icon" className="lg:hidden text-white/60 hover:text-white hover:bg-white/10" onClick={onMenuClick}>
           <Menu className="h-5 w-5" />
         </Button>
-        <div className="hidden sm:block">
-          <h1 className="text-lg font-syne font-bold text-white leading-tight">{meta.title}</h1>
-          <p className="text-[11px] text-white/35 leading-none mt-0.5">{meta.subtitle}</p>
+        <div>
+          <h1 className="text-base sm:text-lg font-syne font-bold text-white leading-tight truncate max-w-[140px] sm:max-w-none">{meta.title}</h1>
+          <p className="text-[11px] text-white/35 leading-none mt-0.5 hidden sm:block">{meta.subtitle}</p>
         </div>
       </div>
 
@@ -77,6 +77,11 @@ export default function BusinessPortalTopBar({ onMenuClick, role = "admin" }) {
             className="pl-9 pr-4 h-9 w-64 rounded-xl text-sm bg-white/[0.06] border border-white/[0.08] text-white/80 placeholder:text-white/25 focus:outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && searchQuery.trim()) {
+                navigate(role === "host" ? `/host/customer-360?q=${encodeURIComponent(searchQuery.trim())}` : `/admin/customer-360?q=${encodeURIComponent(searchQuery.trim())}`);
+              }
+            }}
           />
         </div>
 
@@ -100,9 +105,12 @@ export default function BusinessPortalTopBar({ onMenuClick, role = "admin" }) {
           <span className="hidden sm:inline">Quick Actions</span>
         </button>
 
-        <button className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl bg-gradient-to-r from-primary/20 to-purple-500/20 border border-primary/30 text-primary text-xs font-medium hover:from-primary/30 hover:to-purple-500/30 transition-all">
+        <button
+          onClick={() => navigate(role === "host" ? "/host/chat" : "/admin/ai-chat")}
+          className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-xl bg-gradient-to-r from-primary/20 to-purple-500/20 border border-primary/30 text-primary text-xs font-medium hover:from-primary/30 hover:to-purple-500/30 transition-all"
+        >
           <Sparkles className="h-3.5 w-3.5" />
-          <span>{role === "host" ? "Business Insights" : "AI Insights"}</span>
+          <span>{role === "host" ? "Ask AI" : "AI Insights"}</span>
         </button>
 
         <AccountMenu role={role} accountPath={role === "host" ? "/host/dashboard" : "/dashboard"} />

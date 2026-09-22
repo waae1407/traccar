@@ -26,7 +26,7 @@ const HOST_ACTIONS = [
   { label: "Find Installer", icon: MapPin, path: "/host/installers", color: "text-purple-600", bg: "bg-purple-50" },
   { label: "GPS Command", icon: Zap, path: "/host/vehicle-command-center", color: "text-cyan-600", bg: "bg-cyan-50" },
   { label: "Battery Health", icon: Battery, path: "/host/battery-health", color: "text-lime-600", bg: "bg-lime-50" },
-  { label: "Financial Center", icon: BarChart3, path: "/host/pnl", color: "text-emerald-600", bg: "bg-emerald-50" },
+  { label: "Profit & Revenue", icon: BarChart3, path: "/host/pnl", color: "text-emerald-600", bg: "bg-emerald-50" },
   { label: "View Storefront", icon: ExternalLink, path: "/host/brand", color: "text-pink-600", bg: "bg-pink-50" },
 ];
 

@@ -192,7 +192,7 @@ export default function HostDashboard() {
               { label: "Add Vehicle", sub: "List or manage inventory", href: "/host/vehicles/setup", icon: Car, color: "text-blue-600", bg: "bg-blue-50" },
               { label: "View Payouts", sub: "Track transfers & earnings", href: "/host/payouts", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
               { label: "Brand Builder", sub: "Customize your storefront", href: "/host/brand", icon: Sparkles, color: "text-pink-600", bg: "bg-pink-50" },
-              { label: "Reports & Exports", sub: "P&L reports and downloads", href: "/host/pnl", icon: BarChart2, color: "text-violet-600", bg: "bg-violet-50" },
+              { label: "Reports & Exports", sub: "Profit reports and downloads", href: "/host/pnl", icon: BarChart2, color: "text-violet-600", bg: "bg-violet-50" },
               { label: "Maintenance", sub: "Track service needs", href: "/host/maintenance", icon: Wrench, color: "text-orange-600", bg: "bg-orange-50" },
               { label: "Customers", sub: "Manage your renters", href: "/host/customers", icon: Users, color: "text-cyan-600", bg: "bg-cyan-50" },
             ].map(item => <Link key={item.href} to={item.href} className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 bg-white hover:border-pink-200 hover:shadow-sm transition-all group"><div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 ${item.bg}`}><item.icon className={`h-4 w-4 ${item.color}`} /></div><div className="min-w-0"><p className="text-sm font-semibold text-gray-800 group-hover:text-gray-900 transition-colors leading-snug">{item.label}</p><p className="text-[11px] text-gray-500 leading-snug mt-0.5">{item.sub}</p></div></Link>)}
