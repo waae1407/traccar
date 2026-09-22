@@ -31,7 +31,7 @@ jobs:
           BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          for fn in manageBookingHold processAlert360Escalations; do
+          for fn in manageBookingHold processAlert360Escalations checkGeofenceAlerts processGPSScheduleRules; do
             echo "::group::$fn"
             code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
             echo "HTTP $code"; head -c 400 /tmp/body; echo; echo "::endgroup::"
@@ -122,7 +122,7 @@ jobs:
           BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          for fn in auditBookingIntegrity auditNotificationIntegrity checkOverdueAndIncompleteBookings auditPricingIntegrity processGracePeriod dealer360HoldExpiryAlerts checkComplianceExpiry calculateFleetUtilization; do
+          for fn in auditBookingIntegrity auditNotificationIntegrity checkOverdueAndIncompleteBookings auditPricingIntegrity processGracePeriod dealer360HoldExpiryAlerts checkComplianceExpiry calculateFleetUtilization processGPSSubscriptionStatus; do
             code=$(curl -s -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/$fn" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
             echo "$fn HTTP $code"; head -c 400 /tmp/body; echo
           done
