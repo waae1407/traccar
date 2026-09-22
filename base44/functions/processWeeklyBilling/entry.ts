@@ -45,6 +45,14 @@ function classifyPaymentConfidence({ paymentIntentId } = {}) {
   return paymentIntentId ? 'trusted' : 'unresolved';
 }
 
+function computeWeekNumberFromBillingDate(startDate, billingDate) {
+  if (!startDate || !billingDate) return 1;
+  const start = new Date(startDate + "T00:00:00");
+  const billing = new Date(billingDate + "T00:00:00");
+  const diffDays = Math.round((billing.getTime() - start.getTime()) / 86400000);
+  return Math.floor(diffDays / 7) + 1;
+}
+
 async function createPaymentAlert(base44, payload) {
   try {
     await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', payload);
@@ -326,7 +334,7 @@ Deno.serve(async (req) => {
           resolvedHostId = vehicles[0]?.host_id || '';
         }
 
-        const weekNum = (booking.billing_week_number || 1) + 1;
+        const weekNum = computeWeekNumberFromBillingDate(booking.start_date, booking.next_billing_date);
         const referralCredit = booking.pending_referral_credit || 0;
         const baseAmount = Math.max(0, (booking.weekly_rate || 0) - referralCredit);
 

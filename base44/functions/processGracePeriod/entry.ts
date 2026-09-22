@@ -80,6 +80,14 @@ function classifyPaymentConfidence({ paymentIntentId } = {}) {
   return paymentIntentId ? 'trusted' : 'unresolved';
 }
 
+function computeWeekNumberFromBillingDate(startDate, billingDate) {
+  if (!startDate || !billingDate) return 1;
+  const start = new Date(startDate + "T00:00:00");
+  const billing = new Date(billingDate + "T00:00:00");
+  const diffDays = Math.round((billing.getTime() - start.getTime()) / 86400000);
+  return Math.floor(diffDays / 7) + 1;
+}
+
 async function createPaymentAlert(base44, payload) {
   try {
     await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', payload);
@@ -335,59 +343,126 @@ function friendlyPaymentRetryMessage(booking, retryAttempt, errorMessage) {
 }
 
 async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now, skipPayout = false) {
-  // IMMUTABLE BILLING ANCHOR: next_billing_date derived from start_date + (paymentWeekNumber × 7).
-  // Late recovery never re-anchors the cadence.
+  // IMMUTABLE BILLING ANCHOR: week_number derived from the billing date being paid,
+  // NOT from the booking's live billing_week_number counter (which can drift).
+  const paymentWeekNumber = computeWeekNumberFromBillingDate(booking.start_date, booking.next_billing_date);
   const anchorStart = new Date(booking.start_date + "T00:00:00");
   anchorStart.setDate(anchorStart.getDate() + paymentWeekNumber * 7);
   const nextBillingDate = anchorStart.toISOString().split("T")[0];
+
+  // RESTORATION GATE: Vehicle stays suspended until ALL past-due billing dates are paid.
+  // next_billing_date > today means no more past-due weeks remain.
+  const nextBillingDateObj = new Date(nextBillingDate + "T00:00:00");
+  const todayObj = new Date(now.toISOString().split("T")[0] + "T00:00:00");
+  const allPastDueCleared = nextBillingDateObj.getTime() > todayObj.getTime();
+
   const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
 
   let starterRestoreOk = true;
   let starterRestoreError = null;
   let starterRestoreHeartbeatStale = false;
 
-  if ((booking.starter_disabled || booking.moovetrax_kill_active) && deviceId) {
+  // Only attempt starter restore when all past-due weeks are cleared
+  if (allPastDueCleared && (booking.starter_disabled || booking.moovetrax_kill_active) && deviceId) {
     const restoreResult = await starterInterrupt(base44, booking, false);
     starterRestoreOk = restoreResult.ok;
     starterRestoreError = restoreResult.error || null;
     starterRestoreHeartbeatStale = !!restoreResult.heartbeat_stale;
+  } else if (!allPastDueCleared) {
+    starterRestoreOk = false;
+    starterRestoreError = 'past_due_weeks_remain';
   }
 
-  // If restore failed (heartbeat stale or other error), keep starter_disabled=true so the system
-  // knows the device still has the starter killed. The restore will be retried on the next cycle.
   const bookingUpdate = {
-    booking_status: "active",
     payment_status: "paid",
-    rental_lifecycle_phase: "active",
     payment_failure_attempts: 0,
     payment_failure_reason: null,
     last_payment_failure_at: null,
     last_retry_at: null,
-    payment_failure_started_at: null,
-    starter_disable_scheduled_at: null,
-    final_reminder_sent: false,
-    grace_period_started_at: null,
-    grace_period_ends_at: null,
-    suspension_triggered_at: null,
-    suspended_at: null,
     next_billing_date: nextBillingDate,
+    billing_week_number: paymentWeekNumber,
   };
 
-  if (starterRestoreOk) {
-    bookingUpdate.starter_disabled = false;
-    bookingUpdate.moovetrax_kill_active = false;
-    bookingUpdate.starter_disable_pending = false;
+  if (allPastDueCleared) {
+    // All past-due cleared — fully restore
+    bookingUpdate.booking_status = "active";
+    bookingUpdate.rental_lifecycle_phase = "active";
+    bookingUpdate.payment_failure_started_at = null;
+    bookingUpdate.starter_disable_scheduled_at = null;
+    bookingUpdate.final_reminder_sent = false;
+    bookingUpdate.grace_period_started_at = null;
+    bookingUpdate.grace_period_ends_at = null;
+    bookingUpdate.suspension_triggered_at = null;
+    bookingUpdate.suspended_at = null;
+
+    if (starterRestoreOk) {
+      bookingUpdate.starter_disabled = false;
+      bookingUpdate.moovetrax_kill_active = false;
+      bookingUpdate.starter_disable_pending = false;
+    } else {
+      bookingUpdate.starter_disabled = true;
+      bookingUpdate.moovetrax_kill_active = true;
+      bookingUpdate.starter_disable_pending = false;
+    }
   } else {
-    // Restore failed — keep starter_disabled=true so the device state is accurately reflected.
-    // The restore-retry path in the main loop will retry on the next cycle when heartbeat is fresh.
+    // Past-due weeks remain — keep suspended, set payment_status to failed for next retry
+    bookingUpdate.booking_status = "suspended";
+    bookingUpdate.payment_status = "failed";
+    bookingUpdate.payment_failure_attempts = 0;
+    bookingUpdate.last_retry_at = null;
     bookingUpdate.starter_disabled = true;
     bookingUpdate.moovetrax_kill_active = true;
-    bookingUpdate.starter_disable_pending = false;
   }
 
   await base44.asServiceRole.entities.BookingRequest.update(booking.id, bookingUpdate);
 
-  if (starterRestoreOk) {
+  if (!allPastDueCleared) {
+    // Partial payment — past-due weeks remain, vehicle stays suspended
+    await createPaymentAlert(base44, {
+      alert_type: 'weekly_billing_failed',
+      severity: 'critical',
+      billing_context: 'weekly_billing',
+      booking_id: booking.id,
+      host_id: booking.host_id || '',
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      renter_email: booking.user_email || '',
+      stripe_payment_intent_id: paymentIntent.id,
+      related_entity_type: 'BookingRequest',
+      related_entity_id: booking.id,
+      title: `Week ${paymentWeekNumber} paid — past-due weeks remain`,
+      message: `Payment for week ${paymentWeekNumber} ($${grossedAmount}) was received, but past-due billing dates remain. Vehicle stays suspended until all are caught up. Next billing date: ${nextBillingDate}.`,
+      recommended_action: 'Customer must pay all past-due weeks before vehicle access is restored.',
+      financial_impact_amount: grossedAmount,
+      currency: paymentIntent.currency || 'usd',
+      retry_attempts: retryAttempt,
+      source: 'processGracePeriod'
+    });
+
+    await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'partial_payment_received',
+      severity: 'warning',
+      category: 'payments',
+      title: 'Payment Received — Vehicle Still Suspended',
+      message: `Your payment for week ${paymentWeekNumber} was received, but your vehicle remains suspended until all past-due payments are caught up. Next billing date: ${nextBillingDate}.`,
+      booking_id: booking.id,
+      customer_id: booking.user_id,
+      action_url: '/my-bookings',
+      metadata: { week_paid: paymentWeekNumber, next_billing_date: nextBillingDate, all_past_due_cleared: false },
+    }).catch(e => console.error('[GracePeriod] partial payment notification failed:', e.message));
+
+    await logEvent(base44, {
+      event_type: 'payment.partial_recovery',
+      target_id: booking.id,
+      host_id: booking.host_id || '',
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      customer_id: booking.user_email || '',
+      summary: `Week ${paymentWeekNumber} paid for ${booking.vehicle_name || booking.id} — past-due weeks remain, vehicle stays suspended`,
+      metadata: { payment_intent_id: paymentIntent.id, amount: baseAmount, week_paid: paymentWeekNumber, next_billing_date: nextBillingDate, all_past_due_cleared: false },
+      event_status: 'warning',
+    });
+  } else if (starterRestoreOk) {
     await createPaymentAlert(base44, {
       alert_type: 'payment_recovered',
       severity: 'info',
@@ -449,24 +524,26 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     });
   }
 
-  // DELEGATE TO CENTRAL ROUTER for payment recovery notification
-  const restoreMessage = starterRestoreOk
-    ? `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active and starter access has been restored. Next billing: ${nextBillingDate}.`
-    : starterRestoreHeartbeatStale
-      ? `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active. Starter access will be restored automatically within a few minutes once your vehicle's GPS device reconnects. Next billing: ${nextBillingDate}.`
-      : `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active. Starter access restore is pending — please contact support if your vehicle doesn't start within 15 minutes. Next billing: ${nextBillingDate}.`;
+  // DELEGATE TO CENTRAL ROUTER for payment recovery notification (only when fully restored)
+  if (allPastDueCleared) {
+    const restoreMessage = starterRestoreOk
+      ? `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active and starter access has been restored. Next billing: ${nextBillingDate}.`
+      : starterRestoreHeartbeatStale
+        ? `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active. Starter access will be restored automatically within a few minutes once your vehicle's GPS device reconnects. Next billing: ${nextBillingDate}.`
+        : `Your payment for ${booking.vehicle_name} was processed successfully. Your rental is active. Starter access restore is pending — please contact support if your vehicle doesn't start within 15 minutes. Next billing: ${nextBillingDate}.`;
 
-  await base44.asServiceRole.functions.invoke('routePlatformNotification', {
-    event_type: 'payment_recovered',
-    severity: starterRestoreOk ? 'info' : 'warning',
-    category: 'payments',
-    title: starterRestoreOk ? "Payment received — starter access restored" : "Payment received — starter restore pending",
-    message: restoreMessage,
-    booking_id: booking.id,
-    customer_id: booking.user_id,
-    action_url: '/my-bookings',
-    metadata: { next_billing_date: nextBillingDate, starter_restored: starterRestoreOk, starter_restore_pending: !starterRestoreOk },
-  }).catch(e => console.error('[GracePeriod] recovery notification failed:', e.message));
+    await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'payment_recovered',
+      severity: starterRestoreOk ? 'info' : 'warning',
+      category: 'payments',
+      title: starterRestoreOk ? "Payment received — starter access restored" : "Payment received — starter restore pending",
+      message: restoreMessage,
+      booking_id: booking.id,
+      customer_id: booking.user_id,
+      action_url: '/my-bookings',
+      metadata: { next_billing_date: nextBillingDate, starter_restored: starterRestoreOk, starter_restore_pending: !starterRestoreOk },
+    }).catch(e => console.error('[GracePeriod] recovery notification failed:', e.message));
+  }
 
   await logEvent(base44, {
     event_type: 'payment.succeeded',
@@ -480,7 +557,6 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
   });
 
   const paymentPaidAt = now.toISOString();
-  const paymentWeekNumber = (booking.billing_week_number || 1) + 1;
   const sourceType = classifyPaymentSource({ paymentIntentId: paymentIntent.id });
   const paymentDedupeKey = generatePaymentDedupeKey({
     sourceType,
@@ -500,7 +576,7 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     vehicle_id: booking.vehicle_id,
     vehicle_name: booking.vehicle_name || '',
     week_number: paymentWeekNumber,
-    billing_period_start: now.toISOString().slice(0, 10),
+    billing_period_start: booking.next_billing_date || now.toISOString().slice(0, 10),
     billing_period_end: nextBillingDate,
     amount: grossedAmount,
     currency: paymentIntent.currency || 'usd',

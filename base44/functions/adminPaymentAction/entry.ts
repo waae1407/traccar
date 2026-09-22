@@ -51,6 +51,14 @@ function resolvePlatformFee({ planMode, grossAmount, paymentMethod = 'stripe', o
 }
 // ---------------------------------------------------------------------------
 
+function computeWeekNumberFromBillingDate(startDate, billingDate) {
+  if (!startDate || !billingDate) return 1;
+  const start = new Date(startDate + "T00:00:00");
+  const billing = new Date(billingDate + "T00:00:00");
+  const diffDays = Math.round((billing.getTime() - start.getTime()) / 86400000);
+  return Math.floor(diffDays / 7) + 1;
+}
+
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), { apiVersion: "2023-10-16" });
 
 async function logEvent(base44, adminEmail, data) {
@@ -398,7 +406,7 @@ Deno.serve(async (req) => {
           return Response.json({ error: "amount is required and must be positive" }, { status: 400 });
         }
 
-        const weekNum = week_number || booking.billing_week_number || 0;
+        const weekNum = week_number || computeWeekNumberFromBillingDate(booking.start_date, billing_period_start || booking.next_billing_date) || 0;
         const today = new Date().toISOString().slice(0, 10);
         const dedupeKey = `payment:admin_manual:${booking_request_id}:week:${weekNum}:amount:${payAmount}:date:${today}:method:${payment_method}:ref:${external_reference || 'none'}`;
 
@@ -532,6 +540,15 @@ Deno.serve(async (req) => {
         let telematicsNote = null;
 
         if (needsRestore) {
+          // RESTORATION GATE: Advance next_billing_date, only restore if all past-due cleared
+          const anchorStart = booking.start_date ? new Date(booking.start_date + "T00:00:00") : new Date();
+          anchorStart.setDate(anchorStart.getDate() + weekNum * 7);
+          const newNextBillingDate = anchorStart.toISOString().split("T")[0];
+          const nextBillingDateObj = new Date(newNextBillingDate + "T00:00:00");
+          const todayObj = new Date(new Date().toISOString().split("T")[0] + "T00:00:00");
+          const allPastDueCleared = nextBillingDateObj.getTime() > todayObj.getTime();
+
+          if (allPastDueCleared) {
           // Update booking to active/paid — clear all failure and restriction flags
           await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
             booking_status: 'active',
@@ -548,6 +565,8 @@ Deno.serve(async (req) => {
             suspension_triggered_at: null,
             grace_period_started_at: null,
             grace_period_ends_at: null,
+            billing_week_number: weekNum,
+            next_billing_date: newNextBillingDate,
           });
 
           // Update vehicle status
@@ -629,6 +648,41 @@ Deno.serve(async (req) => {
           });
 
           restored = true;
+          } else {
+            // Past-due weeks remain — keep suspended, advance billing pointers
+            await base44.asServiceRole.entities.BookingRequest.update(booking_request_id, {
+              booking_status: 'suspended',
+              payment_status: 'failed',
+              payment_failure_attempts: 0,
+              payment_failure_reason: `Week ${weekNum} paid but past-due billing dates remain`,
+              last_retry_at: null,
+              billing_week_number: weekNum,
+              next_billing_date: newNextBillingDate,
+            });
+
+            await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+              event_type: 'partial_payment_received',
+              severity: 'warning',
+              category: 'payments',
+              title: 'Payment Received — Vehicle Still Suspended',
+              message: `Your payment for week ${weekNum} was received, but your vehicle remains suspended until all past-due payments are caught up. Next billing date: ${newNextBillingDate}.`,
+              booking_id: booking_request_id,
+              customer_id: booking.user_id,
+              action_url: '/my-bookings',
+              metadata: { week_paid: weekNum, next_billing_date: newNextBillingDate },
+            }).catch(() => {});
+
+            await logEvent(base44, user.email, {
+              event_type: 'payment.partial_recovery',
+              target_id: booking_request_id,
+              booking_id: booking_request_id,
+              vehicle_id: booking.vehicle_id || '',
+              host_id: booking.host_id || '',
+              summary: `Admin manual payment for week ${weekNum} — past-due weeks remain, vehicle stays suspended`,
+              metadata: { week_paid: weekNum, next_billing_date: newNextBillingDate, all_past_due_cleared: false },
+              event_status: 'warning',
+            });
+          }
         } else {
           // Booking already active — just log the payment, no state change needed
           await logEvent(base44, user.email, {

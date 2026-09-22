@@ -78,6 +78,14 @@ function classifyPaymentConfidence({ paymentIntentId } = {}) {
   return paymentIntentId ? 'trusted' : 'unresolved';
 }
 
+function computeWeekNumberFromBillingDate(startDate, billingDate) {
+  if (!startDate || !billingDate) return 1;
+  const start = new Date(startDate + "T00:00:00");
+  const billing = new Date(billingDate + "T00:00:00");
+  const diffDays = Math.round((billing.getTime() - start.getTime()) / 86400000);
+  return Math.floor(diffDays / 7) + 1;
+}
+
 function getBillingContext(metadata = {}) {
   return metadata.billing_context || (metadata.booking_request_id ? 'rental_marketplace_payment' : 'unknown');
 }
@@ -569,6 +577,19 @@ async function restoreStarterAfterPayment(base44, booking, paymentIntentId, gros
     return { restored: false, reason: 'booking_closed' };
   }
 
+  // Re-fetch booking to get latest state (may have been updated by processGracePeriod/processWeeklyBilling)
+  const freshBookings = await base44.asServiceRole.entities.BookingRequest.filter({ id: booking.id });
+  if (freshBookings[0]) booking = freshBookings[0];
+
+  // RESTORATION GATE: Only restore to active if all past-due billing dates are cleared.
+  const nextBillingDateObj = new Date((booking.next_billing_date || booking.start_date) + "T00:00:00");
+  const todayObj = new Date(new Date().toISOString().split("T")[0] + "T00:00:00");
+  const allPastDueCleared = nextBillingDateObj.getTime() > todayObj.getTime();
+  if (!allPastDueCleared) {
+    console.log(`[AutoRestore] Skipped — past-due weeks remain for booking ${booking.id} (next_billing_date: ${booking.next_billing_date})`);
+    return { restored: false, reason: 'past_due_weeks_remain' };
+  }
+
   const wasStarterDisabled = booking.starter_disabled === true || booking.moovetrax_kill_active === true;
 
   // Resolve the telematics device for this vehicle
@@ -827,7 +848,7 @@ Deno.serve(async (req) => {
               const balanceTransactionId = typeof chargeData?.balance_transaction === 'string' ? chargeData.balance_transaction : chargeData?.balance_transaction?.id || '';
               const grossAmount = pi.amount / 100;
               const paidAt = new Date().toISOString();
-              const paymentWeekNumber = (booking.billing_week_number || 1) + 1;
+              const paymentWeekNumber = computeWeekNumberFromBillingDate(booking.start_date, booking.next_billing_date || booking.start_date);
               const dedupeKey = generatePaymentDedupeKey({ sourceType: 'grace_retry', bookingId: bookingRequestId, weekNumber: paymentWeekNumber, amount: grossAmount, paidAt, paymentIntentId: pi.id, paymentMethod: 'stripe' });
 
               await base44.asServiceRole.entities.BookingRequest.update(bookingRequestId, {
@@ -1063,7 +1084,7 @@ Deno.serve(async (req) => {
 
             const existingPaymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({ stripe_payment_intent_id: pi.id });
             if (existingPaymentLogs.length === 0 && grossAmount > 0) {
-              const weekNumber = booking.billing_week_number || Number(pi.metadata?.week_number) || 1;
+              const weekNumber = computeWeekNumberFromBillingDate(booking.start_date, booking.next_billing_date || booking.start_date) || Number(pi.metadata?.week_number) || 1;
               const paidAt = new Date().toISOString();
               const sourceType = classifyPaymentSource({ paymentIntentId: pi.id, recordedBy: 'stripe_webhook' });
               const dedupeKey = generatePaymentDedupeKey({ sourceType, bookingId: bookingRequestId, weekNumber, amount: grossAmount, paidAt, paymentIntentId: pi.id, paymentMethod: 'stripe' });
