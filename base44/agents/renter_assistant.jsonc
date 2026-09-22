@@ -69,7 +69,7 @@
       ]
     }
   ],
-  "model": "automatic",
+  "model": "gpt_5_mini",
   "memory_config": {
     "enabled": true,
     "scope": "user",
