@@ -169,9 +169,15 @@ export default function GPSActivate() {
       if (myHost && selectedVehicleId) {
         deviceData.host_id = myHost.id;
         deviceData.vehicle_id = selectedVehicleId;
+        deviceData.device_mode = 'rental';
         await base44.entities.Vehicle.update(selectedVehicleId, { telematics_provider: 'other', telematics_device_id: form.imei });
-      } else if (!myHost && form.vin) {
-        deviceData.vin = form.vin;
+      } else {
+        // GPS-only customer — personal mode, full owner control
+        deviceData.device_mode = 'personal';
+        deviceData.owner_user_id = user?.id || '';
+        deviceData.owner_email = user?.email || form.email || '';
+        deviceData.controls_enabled = true;
+        if (form.vin) deviceData.vin = form.vin;
       }
 
       const device = await base44.entities.TelematicsDevice.create(deviceData);

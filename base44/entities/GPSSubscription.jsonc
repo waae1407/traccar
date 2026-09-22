@@ -17,8 +17,20 @@
     "plan_name": {
       "type": "string"
     },
+    "billing_cycle": {
+      "type": "string",
+      "enum": [
+        "monthly",
+        "annual"
+      ],
+      "default": "monthly"
+    },
     "monthly_price": {
       "type": "number"
+    },
+    "annual_price": {
+      "type": "number",
+      "description": "Annual price if billing_cycle is annual"
     },
     "stripe_subscription_id": {
       "type": "string"
@@ -34,7 +46,9 @@
         "past_due",
         "cancelled",
         "unpaid",
-        "paused"
+        "paused",
+        "control_disabled",
+        "deactivated"
       ],
       "default": "active"
     },
@@ -64,6 +78,35 @@
     },
     "customer_name": {
       "type": "string"
+    },
+    "past_due_since": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the subscription first went past_due"
+    },
+    "control_disabled_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When remote controls were disabled due to non-payment (day 5)"
+    },
+    "tracking_disabled_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When tracking was disabled due to non-payment (day 30)"
+    },
+    "dunning_email_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of dunning emails sent"
+    },
+    "last_dunning_email_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reactivated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When subscription was reactivated after payment update"
     }
   },
   "required": [

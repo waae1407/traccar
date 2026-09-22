@@ -1,0 +1,99 @@
+{
+  "name": "GeofenceAlert",
+  "type": "object",
+  "properties": {
+    "customer_user_id": {
+      "type": "string",
+      "description": "Owner of this geofence alert"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "telematics_device_id": {
+      "type": "string",
+      "description": "Device/vehicle being monitored"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "alert_name": {
+      "type": "string",
+      "description": "User-friendly label e.g. 'Home geofence'"
+    },
+    "alert_type": {
+      "type": "string",
+      "enum": [
+        "parked_movement",
+        "radius_breach",
+        "curfew"
+      ],
+      "default": "parked_movement",
+      "description": "parked_movement = notify if vehicle moves >radius miles from parked location; radius_breach = notify if leaves fixed radius; curfew = notify if moves during hours"
+    },
+    "radius_miles": {
+      "type": "number",
+      "default": 0.5,
+      "description": "Movement threshold in miles"
+    },
+    "center_lat": {
+      "type": "number",
+      "description": "Center latitude for radius_breach type"
+    },
+    "center_lon": {
+      "type": "number",
+      "description": "Center longitude for radius_breach type"
+    },
+    "parked_lat": {
+      "type": "number",
+      "description": "Last known parked latitude (for parked_movement, auto-updated)"
+    },
+    "parked_lon": {
+      "type": "number",
+      "description": "Last known parked longitude (for parked_movement, auto-updated)"
+    },
+    "curfew_start_hour": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 23,
+      "description": "Start hour for curfew alerts (0-23)"
+    },
+    "curfew_end_hour": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 23,
+      "description": "End hour for curfew alerts (0-23)"
+    },
+    "auto_kill_on_breach": {
+      "type": "boolean",
+      "default": false,
+      "description": "Automatically disable starter when geofence breached"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "last_alerted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time an alert was triggered (for suppression)"
+    },
+    "suppress_minutes": {
+      "type": "number",
+      "default": 15,
+      "description": "Minimum minutes between repeated alerts"
+    },
+    "last_check_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "breach_count": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "customer_user_id",
+    "telematics_device_id",
+    "alert_type"
+  ]
+}

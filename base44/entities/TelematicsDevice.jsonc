@@ -8,6 +8,28 @@
     "provider_key": {
       "type": "string"
     },
+    "device_mode": {
+      "type": "string",
+      "enum": [
+        "personal",
+        "rental"
+      ],
+      "default": "rental",
+      "description": "personal = GPS-only owner (full 6 controls, no marketplace); rental = host-listed (platform-controlled). Transitions personal->rental when owner starts renting."
+    },
+    "owner_user_id": {
+      "type": "string",
+      "description": "For personal mode: the GPS-only customer who owns this device. For rental mode: null (host_id is used instead)."
+    },
+    "owner_email": {
+      "type": "string",
+      "description": "For personal mode: the GPS-only owner's email."
+    },
+    "controls_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether remote controls are enabled for this device. Set to false when GPS subscription is past_due beyond grace period."
+    },
     "provider_type": {
       "type": "string",
       "enum": [

@@ -1,0 +1,85 @@
+{
+  "name": "GPSScheduleRule",
+  "type": "object",
+  "properties": {
+    "customer_user_id": {
+      "type": "string",
+      "description": "Owner of this schedule rule"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "telematics_device_id": {
+      "type": "string",
+      "description": "Device this rule controls"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "rule_name": {
+      "type": "string",
+      "description": "User-friendly label e.g. 'Auto-lock at night'"
+    },
+    "command_type": {
+      "type": "string",
+      "enum": [
+        "lock",
+        "unlock",
+        "disable_starter",
+        "restore_starter",
+        "alarm_pulse"
+      ],
+      "description": "Command to execute at the scheduled time"
+    },
+    "trigger_type": {
+      "type": "string",
+      "enum": [
+        "daily_time",
+        "parked_duration",
+        "sunset"
+      ],
+      "default": "daily_time",
+      "description": "daily_time = specific time each day; parked_duration = after parked N minutes; sunset = at sunset"
+    },
+    "trigger_time": {
+      "type": "string",
+      "description": "HH:MM format for daily_time trigger"
+    },
+    "trigger_parked_minutes": {
+      "type": "number",
+      "description": "Minutes parked before triggering (for parked_duration)"
+    },
+    "active_days": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6
+      },
+      "description": "Days of week (0=Sun, 6=Sat). Empty = every day",
+      "default": []
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "last_triggered_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "next_trigger_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "trigger_count": {
+      "type": "number",
+      "default": 0
+    }
+  },
+  "required": [
+    "customer_user_id",
+    "telematics_device_id",
+    "command_type",
+    "trigger_type"
+  ]
+}

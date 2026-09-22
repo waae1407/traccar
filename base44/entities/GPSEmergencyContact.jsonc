@@ -1,0 +1,49 @@
+{
+  "name": "GPSEmergencyContact",
+  "type": "object",
+  "properties": {
+    "customer_user_id": {
+      "type": "string",
+      "description": "Owner who configured this contact"
+    },
+    "customer_email": {
+      "type": "string"
+    },
+    "contact_name": {
+      "type": "string",
+      "description": "Name of the emergency contact"
+    },
+    "contact_phone": {
+      "type": "string",
+      "description": "Phone number for SMS/call alerts"
+    },
+    "contact_email": {
+      "type": "string",
+      "description": "Email for alert notifications"
+    },
+    "relationship": {
+      "type": "string",
+      "description": "Relationship to owner e.g. 'Spouse', 'Parent'"
+    },
+    "is_primary": {
+      "type": "boolean",
+      "default": false
+    },
+    "receive_sms": {
+      "type": "boolean",
+      "default": true
+    },
+    "receive_email": {
+      "type": "boolean",
+      "default": true
+    },
+    "receive_push": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "customer_user_id",
+    "contact_name"
+  ]
+}
