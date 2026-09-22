@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useOutletContext } from "react-router-dom";
 import { Send, Bot, Plus, HelpCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import EscalateToHostBanner from "@/components/customer/EscalateToHostBanner";
 
 const AGENT = "renter_assistant";
 
@@ -157,6 +158,9 @@ export default function RenterAIChat() {
           )}
           <div ref={bottomRef} />
         </div>
+
+        {/* Escalation to host — vivid, always visible above the input */}
+        <EscalateToHostBanner brandColor={brandColor} secondaryColor={secondaryColor} />
 
         <div className="px-3 py-3 border-t border-gray-100 bg-white">
           <div className="flex gap-2 items-end">
