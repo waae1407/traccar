@@ -20,7 +20,9 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { subject, message, priority = 'normal' } = await req.json();
+    const { subject, message } = await req.json();
+    // ALL escalations are treated as urgent/critical — notify host via all channels
+    const priority = 'urgent';
     if (!message || !message.trim()) {
       return Response.json({ error: 'A message describing your issue is required' }, { status: 400 });
     }
@@ -58,7 +60,7 @@ Deno.serve(async (req) => {
     }, '-created_date', 5);
 
     const now = new Date().toISOString();
-    const slaHours = priority === 'urgent' ? 2 : priority === 'high' ? 4 : 24;
+    const slaHours = 2; // urgent — 2 hour SLA
     const threadSubject = subject?.trim() || `Support request — ${activeBooking.vehicle_name || 'your rental'}`;
 
     let thread;
@@ -80,7 +82,8 @@ Deno.serve(async (req) => {
         unread_count_host: 1,
         unread_count_customer: 0,
         unread_count_admin: 1,
-        escalation_flag: priority === 'urgent',
+        escalation_flag: true,
+        priority: 'urgent',
         archived: false,
         frozen: false,
         sla_response_due_at: new Date(Date.now() + slaHours * 60 * 60 * 1000).toISOString(),
@@ -110,12 +113,14 @@ Deno.serve(async (req) => {
       status: 'awaiting_host',
       unread_count_host: (thread.unread_count_host || 0) + 1,
       unread_count_admin: (thread.unread_count_admin || 0) + 1,
+      escalation_flag: true,
+      priority: 'urgent',
     });
 
-    // Notify the host via in-app + push
+    // Notify the host via ALL channels (critical severity → in-app + email + SMS + push)
     await base44.asServiceRole.functions.invoke('routePlatformNotification', {
       event_type: 'host_support_escalation',
-      severity: priority === 'urgent' ? 'critical' : 'warning',
+      severity: 'critical',
       category: 'system',
       title: `📨 ${user.full_name || user.email} needs help`,
       message: `${user.full_name || 'A customer'} escalated a support issue from the AI chat about ${activeBooking.vehicle_name || 'their rental'}: "${message.trim().slice(0, 120)}${message.length > 120 ? '…' : ''}" — Please respond in your Messages.`,

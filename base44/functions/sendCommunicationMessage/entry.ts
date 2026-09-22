@@ -107,6 +107,91 @@ Deno.serve(async (req) => {
       metadata: { communication_action: internal_note ? 'internal_note_added' : 'message_sent', attachment_count: attachments.length },
     }).catch(() => {});
 
+    // ── ESCALATION THREAD REPLIES: notify the other party via ALL channels (critical) ──
+    // When a reply is sent in an escalation thread (support_ticket with escalation_flag),
+    // the recipient gets notified via in-app + email + SMS + push.
+    if (!internal_note && thread.thread_type === 'support_ticket' && thread.escalation_flag) {
+      const replyPreview = (body || 'Attachment shared').slice(0, 120);
+      const senderLabel = isAdmin ? 'Admin' : isHost ? 'Host' : 'Customer';
+
+      if (isHost || isCustomer) {
+        // Host or customer replied → notify admins (critical, all channels)
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'escalation_reply_received',
+          severity: 'critical',
+          category: 'system',
+          title: `↩️ ${senderLabel} replied to escalation: ${thread.subject}`,
+          message: `${senderLabel} ${user.full_name || user.email} replied: "${replyPreview}${body.length > 120 ? '…' : ''}"`,
+          host_id: thread.host_id || '',
+          customer_id: thread.customer_id || '',
+          action_url: '/admin/communications',
+          metadata: { thread_id: thread.id, reply_sender_role: senderRole, escalation_thread: true },
+          source_function: 'sendCommunicationMessage',
+        }).catch(e => console.error('[sendCommunicationMessage] escalation reply admin notification failed:', e.message));
+      }
+
+      if (isAdmin && thread.host_id) {
+        // Admin replied → notify the host (critical, all channels)
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'escalation_reply_received',
+          severity: 'critical',
+          category: 'system',
+          title: `↩️ Admin replied to your support request`,
+          message: `Admin ${user.full_name || 'team'} replied: "${replyPreview}${body.length > 120 ? '…' : ''}"`,
+          host_id: thread.host_id,
+          action_url: '/host/communications',
+          metadata: { thread_id: thread.id, reply_sender_role: senderRole, escalation_thread: true },
+          source_function: 'sendCommunicationMessage',
+        }).catch(e => console.error('[sendCommunicationMessage] escalation reply host notification failed:', e.message));
+      }
+
+      if (isAdmin && thread.customer_id) {
+        // Admin replied → notify the customer (critical, all channels)
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'escalation_reply_received',
+          severity: 'critical',
+          category: 'system',
+          title: `↩️ Admin replied to your support request`,
+          message: `Admin ${user.full_name || 'team'} replied: "${replyPreview}${body.length > 120 ? '…' : ''}"`,
+          customer_id: thread.customer_id,
+          action_url: '/messages',
+          metadata: { thread_id: thread.id, reply_sender_role: senderRole, escalation_thread: true },
+          source_function: 'sendCommunicationMessage',
+        }).catch(e => console.error('[sendCommunicationMessage] escalation reply customer notification failed:', e.message));
+      }
+
+      if (isHost && thread.customer_id) {
+        // Host replied → notify the customer (critical, all channels)
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'escalation_reply_received',
+          severity: 'critical',
+          category: 'system',
+          title: `↩️ Your host replied to your support request`,
+          message: `Your host replied: "${replyPreview}${body.length > 120 ? '…' : ''}"`,
+          customer_id: thread.customer_id,
+          host_id: thread.host_id || '',
+          action_url: '/messages',
+          metadata: { thread_id: thread.id, reply_sender_role: senderRole, escalation_thread: true },
+          source_function: 'sendCommunicationMessage',
+        }).catch(e => console.error('[sendCommunicationMessage] escalation reply customer notification failed:', e.message));
+      }
+
+      if (isCustomer && thread.host_id) {
+        // Customer replied → notify the host (critical, all channels)
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'escalation_reply_received',
+          severity: 'critical',
+          category: 'system',
+          title: `↩️ Customer replied to your support request`,
+          message: `${user.full_name || user.email} replied: "${replyPreview}${body.length > 120 ? '…' : ''}"`,
+          host_id: thread.host_id,
+          action_url: '/host/communications',
+          metadata: { thread_id: thread.id, reply_sender_role: senderRole, escalation_thread: true },
+          source_function: 'sendCommunicationMessage',
+        }).catch(e => console.error('[sendCommunicationMessage] escalation reply host notification failed:', e.message));
+      }
+    }
+
     return Response.json({ message });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Send, Bot, Plus, MessageSquare } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import EscalateToAdminBanner from "@/components/host/EscalateToAdminBanner";
 
 const AGENT = "host_assistant";
 
@@ -152,6 +153,9 @@ export default function HostAIChat() {
           )}
           <div ref={bottomRef} />
         </div>
+
+        {/* Escalation to admin — urgent, all channels */}
+        <EscalateToAdminBanner />
 
         <div className="px-4 py-3 border-t border-gray-100 bg-white">
           <div className="flex gap-2 items-end">
