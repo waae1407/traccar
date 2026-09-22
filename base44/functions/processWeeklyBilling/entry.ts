@@ -363,6 +363,16 @@ Deno.serve(async (req) => {
             payment_status: 'due_soon',
             payment_failure_reason: reason,
           });
+          // ── NOTIFY HOST: billing skipped ──
+          if (resolvedHostId) {
+            const skipHosts = await base44.asServiceRole.entities.Host.filter({ id: resolvedHostId });
+            if (skipHosts[0]) {
+              await notifyHostOfBillingOutcome(base44, {
+                booking, host: skipHosts[0], outcome: 'skipped', weekNum, amount,
+                skipReason: reason,
+              });
+            }
+          }
           results.push({ id: booking.id, status: 'fleetos_manual_payment_required' });
           continue;
         }
@@ -456,6 +466,18 @@ Deno.serve(async (req) => {
               });
 
               console.log(`[WeeklyBilling] ✓ Host transfer ${transfer.id} — $${hostAmount} to ${host.stripe_account_id}`);
+
+              // ── NOTIFY HOST: payment succeeded + payout sent ──
+              await notifyHostOfBillingOutcome(base44, {
+                booking, host: resolvedHost, outcome: 'succeeded', weekNum, amount,
+                netPayout: hostAmount, platformFee, stripeFee, nextBillingDate,
+              });
+            } else if (resolvedHost) {
+              // Host Stripe not connected — notify host that payout is held
+              await notifyHostOfBillingOutcome(base44, {
+                booking, host: resolvedHost, outcome: 'succeeded', weekNum, amount,
+                netPayout: null, platformFee: 0, stripeFee, nextBillingDate,
+              });
             }
           }
 
@@ -604,6 +626,62 @@ Deno.serve(async (req) => {
   }
 });
 
+async function notifyHostOfBillingOutcome(base44, { booking, host, outcome, weekNum, amount, netPayout, platformFee, stripeFee, failureReason, skipReason, nextBillingDate }) {
+  if (!host?.email) return;
+  const customerName = booking.customer_full_name || booking.user_email || 'Customer';
+  const vehicleName = booking.vehicle_name || 'Vehicle';
+  const weekLabel = weekNum ? `Week ${weekNum} — ` : '';
+
+  let title, message, severity, event_type;
+
+  if (outcome === 'succeeded') {
+    const payoutLine = netPayout != null
+      ? ` Your net payout of $${netPayout.toFixed(2)} (after $${platformFee.toFixed(2)} platform fee and $${stripeFee.toFixed(2)} Stripe fee) has been transferred to your Stripe account.`
+      : '';
+    title = `✅ ${weekLabel}Payment Received — ${customerName}`;
+    message = `${customerName}'s payment of $${amount.toFixed(2)} for ${vehicleName} succeeded.${payoutLine}${nextBillingDate ? ` Next charge: ${nextBillingDate}.` : ''}`;
+    severity = 'info';
+    event_type = 'host_weekly_payment_succeeded';
+  } else if (outcome === 'failed') {
+    title = `⚠️ ${weekLabel}Payment Failed — ${customerName}`;
+    message = `${customerName}'s payment of $${amount.toFixed(2)} for ${vehicleName} FAILED. Reason: ${failureReason}. The customer has a recovery window to resolve this before vehicle access is restricted.`;
+    severity = 'warning';
+    event_type = 'host_weekly_payment_failed';
+  } else if (outcome === 'skipped') {
+    title = `⏭️ ${weekLabel}Billing Skipped — ${customerName}`;
+    message = `Billing for ${customerName}'s ${vehicleName} was skipped. Reason: ${skipReason}`;
+    severity = 'warning';
+    event_type = 'host_weekly_payment_skipped';
+  }
+
+  // 1. In-app + push notification via central router
+  await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+    event_type,
+    severity,
+    category: 'payments',
+    title,
+    message,
+    booking_id: booking.id,
+    host_id: host.id,
+    vehicle_id: booking.vehicle_id || '',
+    action_url: '/host/payouts',
+    metadata: { outcome, week_number: weekNum, amount, net_payout: netPayout, customer_name: customerName, vehicle_name: vehicleName },
+    source_function: 'processWeeklyBilling',
+  }).catch(e => console.error('[WeeklyBilling] host in-app notification failed:', e.message));
+
+  // 2. Direct email to host (routePlatformNotification only emails for critical severity)
+  try {
+    await base44.asServiceRole.integrations.Core.SendEmail({
+      to: host.email,
+      subject: title,
+      body: message,
+      from_name: 'uRide Billing',
+    });
+  } catch (e) {
+    console.error('[WeeklyBilling] host email failed:', e.message);
+  }
+}
+
 async function schedulePreChargeWarning(base44, booking, nextBillingDate, amount, weekNum) {
   // Create a notification scheduled for 24hrs before — since we can't schedule future notifications,
   // we store the upcoming charge date and a separate daily function sends these warnings
@@ -618,9 +696,11 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
   const warningMessage = `Your payment failed. Please update your payment method or contact support. Vehicle access may be restricted after ${recoveryWindowHours} hours if payment is not resolved.`;
 
   let hostEmail = '';
+  let hostRecord = null;
   if (booking.host_id) {
     const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
     hostEmail = hosts[0]?.email || '';
+    hostRecord = hosts[0];
   }
 
   await createPaymentAlert(base44, {
@@ -680,6 +760,16 @@ async function handleFailedPayment(base44, booking, reason, attemptNum) {
     },
     notify_admin: true, // Critical payment failures notify admins
   }).catch(e => console.error('[WeeklyBilling] payment failure notification failed:', e.message));
+
+  // ── NOTIFY HOST: customer payment failed with reason ──
+  if (hostRecord) {
+    await notifyHostOfBillingOutcome(base44, {
+      booking, host: hostRecord, outcome: 'failed',
+      weekNum: booking.billing_week_number || 1,
+      amount: booking.weekly_rate || 0,
+      failureReason: reason,
+    });
+  }
 
   await logEvent(base44, {
     event_type: 'payment.failed',

@@ -342,6 +342,52 @@ function friendlyPaymentRetryMessage(booking, retryAttempt, errorMessage) {
   return `Payment recovery retry ${retryAttempt} failed for ${booking.vehicle_name || booking.id}: ${errorMessage}`;
 }
 
+async function notifyHostOfPaymentRecovery(base44, { booking, outcome, weekNum, amount, netPayout, starterRestored, pastDueRemain, nextBillingDate }) {
+  if (!booking.host_id) return;
+  const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id }).catch(() => []);
+  const host = hosts[0];
+  if (!host?.email) return;
+
+  const customerName = booking.customer_full_name || booking.user_email || 'Customer';
+  const vehicleName = booking.vehicle_name || 'Vehicle';
+  let title, message;
+
+  if (outcome === 'recovered') {
+    title = `✅ Payment Recovered — ${customerName}`;
+    message = `${customerName}'s payment of $${amount.toFixed(2)} for ${vehicleName} (Week ${weekNum}) was recovered after a previous failure. ${starterRestored ? 'Vehicle starter access has been restored.' : 'Starter restore is pending — the vehicle GPS device needs to reconnect.'}${netPayout != null ? ` Your net payout of $${netPayout.toFixed(2)} has been transferred to your Stripe account.` : ''} Next billing: ${nextBillingDate}.`;
+  } else if (outcome === 'partial') {
+    title = `⚠️ Partial Payment — ${customerName}`;
+    message = `${customerName} paid Week ${weekNum} ($${amount.toFixed(2)}) for ${vehicleName}, but past-due weeks remain. The vehicle stays suspended until all past-due payments are caught up. Next billing: ${nextBillingDate}.`;
+  }
+
+  // In-app + push notification
+  await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+    event_type: outcome === 'recovered' ? 'host_payment_recovered' : 'host_partial_payment',
+    severity: outcome === 'recovered' ? 'info' : 'warning',
+    category: 'payments',
+    title,
+    message,
+    booking_id: booking.id,
+    host_id: host.id,
+    vehicle_id: booking.vehicle_id || '',
+    action_url: '/host/payouts',
+    metadata: { outcome, week_number: weekNum, amount, net_payout: netPayout, customer_name: customerName, vehicle_name: vehicleName },
+    source_function: 'processGracePeriod',
+  }).catch(e => console.error('[GracePeriod] host in-app notification failed:', e.message));
+
+  // Direct email to host
+  try {
+    await base44.asServiceRole.integrations.Core.SendEmail({
+      to: host.email,
+      subject: title,
+      body: message,
+      from_name: 'uRide Billing',
+    });
+  } catch (e) {
+    console.error('[GracePeriod] host email failed:', e.message);
+  }
+}
+
 async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount, stripeFee, baseAmount, retryAttempt, now, skipPayout = false) {
   // IMMUTABLE BILLING ANCHOR: week_number derived from the billing date being paid,
   // NOT from the booking's live billing_week_number counter (which can drift).
@@ -451,6 +497,12 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
       metadata: { week_paid: paymentWeekNumber, next_billing_date: nextBillingDate, all_past_due_cleared: false },
     }).catch(e => console.error('[GracePeriod] partial payment notification failed:', e.message));
 
+    // ── NOTIFY HOST: partial payment, past-due weeks remain ──
+    await notifyHostOfPaymentRecovery(base44, {
+      booking, outcome: 'partial', weekNum: paymentWeekNumber, amount: grossedAmount,
+      netPayout: null, starterRestored: false, pastDueRemain: true, nextBillingDate,
+    });
+
     await logEvent(base44, {
       event_type: 'payment.partial_recovery',
       target_id: booking.id,
@@ -543,6 +595,12 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
       action_url: '/my-bookings',
       metadata: { next_billing_date: nextBillingDate, starter_restored: starterRestoreOk, starter_restore_pending: !starterRestoreOk },
     }).catch(e => console.error('[GracePeriod] recovery notification failed:', e.message));
+
+    // ── NOTIFY HOST: payment recovered, vehicle restored ──
+    await notifyHostOfPaymentRecovery(base44, {
+      booking, outcome: 'recovered', weekNum: paymentWeekNumber, amount: grossedAmount,
+      netPayout: null, starterRestored: starterRestoreOk, pastDueRemain: false, nextBillingDate,
+    });
   }
 
   await logEvent(base44, {
@@ -1169,6 +1227,43 @@ Deno.serve(async (req) => {
           },
           event_status: 'error',
         });
+
+        // ── NOTIFY HOST: recovery retry failed with reason ──
+        if (booking.host_id) {
+          const retryHosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id }).catch(() => []);
+          const retryHost = retryHosts[0];
+          if (retryHost?.email) {
+            const customerName = booking.customer_full_name || booking.user_email || 'Customer';
+            const vehicleName = booking.vehicle_name || 'Vehicle';
+            const hostTitle = `⚠️ Payment Retry ${newAttempts} Failed — ${customerName}`;
+            const hostMessage = `${customerName}'s payment recovery retry ${newAttempts} for ${vehicleName} failed. Reason: ${retryErr.message}. The customer still has time to resolve this before vehicle access is restricted. Next retry scheduled in ${RETRY_INTERVAL_MINUTES / 60} hour(s).`;
+
+            await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+              event_type: 'host_payment_retry_failed',
+              severity: 'warning',
+              category: 'payments',
+              title: hostTitle,
+              message: hostMessage,
+              booking_id: booking.id,
+              host_id: retryHost.id,
+              vehicle_id: booking.vehicle_id || '',
+              action_url: '/host/payments',
+              metadata: { retry_attempt: newAttempts, failure_reason: retryErr.message, customer_name: customerName, vehicle_name: vehicleName },
+              source_function: 'processGracePeriod',
+            }).catch(e => console.error('[GracePeriod] host retry-fail notification failed:', e.message));
+
+            try {
+              await base44.asServiceRole.integrations.Core.SendEmail({
+                to: retryHost.email,
+                subject: hostTitle,
+                body: hostMessage,
+                from_name: 'uRide Billing',
+              });
+            } catch (e) {
+              console.error('[GracePeriod] host retry-fail email failed:', e.message);
+            }
+          }
+        }
 
         results.retried++;
       }
