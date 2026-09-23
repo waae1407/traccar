@@ -1,5 +1,5 @@
 // Scheduled — sends role-aware email + SMS to leads who haven't converted yet
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 async function sendEmail(to, subject, html, fromName = "uRide") {
