@@ -328,9 +328,12 @@ export default function GPSCheckout() {
                 <Select value={pkg} onValueChange={setPkg}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="device_only">Device Only — $149</SelectItem>
-                    <SelectItem value="device_subscription">Device + Subscription — $149 + $14.99/mo</SelectItem>
-                    <SelectItem value="host_contactless_kit">Fleet Partner Kit — $130 + $14.99/mo (Approved Hosts Only)</SelectItem>
+                    {products.map(p => {
+                      const price = p.is_discount_active && p.sale_price > 0 ? p.sale_price : p.device_price;
+                      const sub = p.monthly_subscription_price > 0 ? ` + $${p.monthly_subscription_price}/mo` : '';
+                      const label = p.package_type === 'host_contactless_kit' ? `${p.name} — $${price}${sub} (Approved Hosts Only)` : `${p.name} — $${price}${sub}`;
+                      return <SelectItem key={p.package_type} value={p.package_type}>{label}</SelectItem>;
+                    })}
                   </SelectContent>
                 </Select>
               </div>

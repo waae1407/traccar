@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── CONFIRM: Create Stripe subscription with payment method ──
+    // ── CONFIRM: Create or reuse Stripe subscription with payment method ──
     if (action === 'confirm') {
       if (!payment_method_id) return Response.json({ error: 'payment_method_id is required for confirm' }, { status: 400 });
 
@@ -89,33 +89,66 @@ Deno.serve(async (req) => {
         await stripe.customers.update(stripeCustomerId, { invoice_settings: { default_payment_method: payment_method_id } });
       } catch (_) { /* already attached is fine */ }
 
-      // Create Stripe price (inline)
-      const price = await stripe.prices.create({
-        unit_amount: Math.round(TRIAL_MONTHLY_PRICE * 100),
-        currency: 'usd',
-        recurring: { interval: 'month' },
-        product_data: {
-          name: PLAN_NAME,
-          metadata: { source: 'trial_activation' },
-        },
-      });
-
-      // Create subscription
-      const subscription = await stripe.subscriptions.create({
-        customer: stripeCustomerId,
-        items: [{ price: price.id }],
-        payment_behavior: 'default_incomplete',
-        payment_settings: { save_default_payment_method: 'on_subscription' },
-        expand: ['latest_invoice.payment_intent'],
-        metadata: {
-          billing_context: 'gps_contactless_subscription',
-          device_id,
-          host_id: device.host_id || '',
-          customer_user_id: user.id,
-          customer_email: user.email,
-          source: 'trial_activation',
-        },
-      });
+      // Reuse existing Stripe subscription if one already exists for this GPSSubscription
+      let subscription;
+      let price;
+      if (sub?.stripe_subscription_id) {
+        try {
+          subscription = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+          // Ensure the default payment method is updated on the existing subscription
+          subscription = await stripe.subscriptions.update(sub.stripe_subscription_id, {
+            default_payment_method: payment_method_id,
+            metadata: {
+              billing_context: 'gps_contactless_subscription',
+              device_id,
+              host_id: device.host_id || '',
+              customer_user_id: user.id,
+              customer_email: user.email,
+              source: 'trial_activation',
+            },
+          });
+        } catch (_) {
+          subscription = null; // fall through to create
+        }
+      }
+      if (!subscription) {
+        // Reuse cached Stripe price if available, otherwise create and cache it
+        const products = await base44.asServiceRole.entities.GPSProduct.filter({ package_type: 'device_subscription' });
+        const product = products[0];
+        let price;
+        if (product?.stripe_price_id) {
+          try { price = await stripe.prices.retrieve(product.stripe_price_id); } catch (_) { price = null; }
+        }
+        if (!price) {
+          price = await stripe.prices.create({
+            unit_amount: Math.round(TRIAL_MONTHLY_PRICE * 100),
+            currency: 'usd',
+            recurring: { interval: 'month' },
+            product_data: {
+              name: PLAN_NAME,
+              metadata: { source: 'trial_activation' },
+            },
+          });
+          if (product) {
+            await base44.asServiceRole.entities.GPSProduct.update(product.id, { stripe_price_id: price.id }).catch(() => {});
+          }
+        }
+        subscription = await stripe.subscriptions.create({
+          customer: stripeCustomerId,
+          items: [{ price: price.id }],
+          payment_behavior: 'default_incomplete',
+          payment_settings: { save_default_payment_method: 'on_subscription' },
+          expand: ['latest_invoice.payment_intent'],
+          metadata: {
+            billing_context: 'gps_contactless_subscription',
+            device_id,
+            host_id: device.host_id || '',
+            customer_user_id: user.id,
+            customer_email: user.email,
+            source: 'trial_activation',
+          },
+        });
+      }
 
       const now = new Date().toISOString();
       const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : now;

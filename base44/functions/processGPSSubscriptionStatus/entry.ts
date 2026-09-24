@@ -126,10 +126,11 @@ Deno.serve(async (req) => {
     }
 
     // ── Reactivation check: subscriptions that returned to active ──
+    // Use $ne: null to avoid matching fields that were set to null (MongoDB $exists matches null values)
     const reactivatable = await base44.asServiceRole.entities.GPSSubscription.filter({
       subscription_status: 'active',
       payment_status: 'paid',
-      control_disabled_at: { $exists: true },
+      control_disabled_at: { $ne: null, $exists: true },
     }, '-created_date', 100);
 
     for (const sub of reactivatable) {

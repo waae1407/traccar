@@ -204,6 +204,7 @@ Deno.serve(async (req) => {
       device_ids: [],
       refund_status: 'none',
       refund_amount: 0,
+      monthly_subscription_price: monthlySubPrice,
     });
 
     // 6. Stripe customer

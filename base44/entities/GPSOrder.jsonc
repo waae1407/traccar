@@ -136,6 +136,10 @@
     "stripe_customer_id": {
       "type": "string"
     },
+    "stripe_payment_method_id": {
+      "type": "string",
+      "description": "Payment method from checkout PI, reused for subscription creation"
+    },
     "order_status": {
       "type": "string",
       "enum": [
@@ -215,6 +219,11 @@
     "delivered_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "monthly_subscription_price": {
+      "type": "number",
+      "default": 0,
+      "description": "Monthly subscription price from product at time of order"
     }
   },
   "required": [

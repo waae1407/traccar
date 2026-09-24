@@ -332,7 +332,8 @@ Deno.serve(async (req) => {
     await notify(base44, { type: status, host, device, vehicle, record, failedTests });
 
     // ── Auto-create 7-day free trial subscription on successful installation ──
-    if (testsPassed && vehicle && host) {
+    // Covers both host fleet vehicles AND personal (GPS-only) devices
+    if (testsPassed) {
       try {
         const existingSubs = await base44.asServiceRole.entities.GPSSubscription.filter(
           { device_id: device.id, subscription_status: { $in: ['active', 'trialing'] } },
@@ -340,29 +341,41 @@ Deno.serve(async (req) => {
         );
         if (existingSubs.length === 0) {
           const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-          await base44.asServiceRole.entities.GPSSubscription.create({
-            customer_user_id: host.user_id || '',
-            host_id: host.id,
-            device_id: device.id,
-            plan_name: 'Contactless360 GPS Monthly',
-            billing_cycle: 'monthly',
-            monthly_price: 14.99,
-            subscription_status: 'trialing',
-            payment_status: 'pending',
-            current_period_start: now,
-            current_period_end: trialEnd.toISOString(),
-            customer_email: host.email,
-            customer_name: host.business_name || host.full_name || '',
-          });
-          await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-            subscription_status: 'trialing',
-          });
-          await safeSendEmail(base44, {
-            to: host.email,
-            subject: '🎉 Your 7-Day GPS Free Trial is Active',
-            body: `<p>Your GPS device has been installed and a 7-day free trial has started.</p><p>You have full access to all GPS tracking and remote control features.</p><p>To continue after the trial, activate your subscription for $14.99/month — just click the "Activate" button in your app.</p>`,
-          });
-          console.log(`[trial] Created 7-day trial for device ${device.unique_id}, host ${host.email}`);
+          // Resolve owner context: host fleet vehicle vs personal GPS-only device
+          const isPersonal = device.device_mode === 'personal' || (!host && !vehicle);
+          const trialOwnerUserId = isPersonal ? (device.owner_user_id || '') : (host?.user_id || '');
+          const trialHostId = isPersonal ? '' : (host?.id || '');
+          const trialEmail = isPersonal ? (device.owner_email || '') : (host?.email || '');
+          const trialName = isPersonal ? '' : (host?.business_name || host?.full_name || '');
+
+          if (!trialEmail) {
+            console.error('[trial-creation] No owner email resolved — skipping trial');
+          } else {
+            await base44.asServiceRole.entities.GPSSubscription.create({
+              customer_user_id: trialOwnerUserId,
+              host_id: trialHostId,
+              device_id: device.id,
+              plan_name: 'Contactless360 GPS Monthly',
+              billing_cycle: 'monthly',
+              monthly_price: 14.99,
+              subscription_status: 'trialing',
+              payment_status: 'pending',
+              current_period_start: now,
+              current_period_end: trialEnd.toISOString(),
+              customer_email: trialEmail,
+              customer_name: trialName,
+            });
+            await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+              subscription_status: 'trialing',
+              controls_enabled: true,
+            });
+            await safeSendEmail(base44, {
+              to: trialEmail,
+              subject: '🎉 Your 7-Day GPS Free Trial is Active',
+              body: `<p>Your GPS device has been installed and a 7-day free trial has started.</p><p>You have full access to all GPS tracking and remote control features.</p><p>To continue after the trial, activate your subscription for $14.99/month — just click the "Activate" button in your app.</p>`,
+            });
+            console.log(`[trial] Created 7-day trial for device ${device.unique_id}, owner ${trialEmail} (${isPersonal ? 'personal' : 'host'})`);
+          }
         }
       } catch (e) {
         console.error('[trial-creation] failed:', e.message);

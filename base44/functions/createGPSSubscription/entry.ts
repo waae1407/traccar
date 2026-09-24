@@ -43,16 +43,32 @@ Deno.serve(async (req) => {
       } catch (_) { /* already attached is fine */ }
     }
 
-    // Create Stripe price on the fly (inline)
-    const price = await stripe.prices.create({
-      unit_amount: Math.round(monthly_price * 100),
-      currency: 'usd',
-      recurring: { interval: 'month' },
-      product_data: {
-        name: plan_name || `Contactless360 GPS Subscription`,
-        metadata: { package_type: order.package_type || '' },
-      },
-    });
+    // Reuse cached Stripe price if available, otherwise create and cache it
+    let price;
+    const products = await base44.asServiceRole.entities.GPSProduct.filter({ package_type: order.package_type || 'device_subscription' });
+    const product = products[0];
+    if (product?.stripe_price_id) {
+      try {
+        price = await stripe.prices.retrieve(product.stripe_price_id);
+      } catch (_) {
+        price = null; // price was deleted in Stripe, recreate below
+      }
+    }
+    if (!price) {
+      price = await stripe.prices.create({
+        unit_amount: Math.round(monthly_price * 100),
+        currency: 'usd',
+        recurring: { interval: 'month' },
+        product_data: {
+          name: plan_name || `Contactless360 GPS Subscription`,
+          metadata: { package_type: order.package_type || '' },
+        },
+      });
+      // Cache the price ID on the product
+      if (product) {
+        await base44.asServiceRole.entities.GPSProduct.update(product.id, { stripe_price_id: price.id }).catch(() => {});
+      }
+    }
 
     // Create subscription — use default_incomplete so it succeeds even without default PM attached yet
     // The webhook (invoice.payment_succeeded) will activate it once the payment method is confirmed

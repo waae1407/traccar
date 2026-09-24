@@ -128,9 +128,15 @@ export default function GPSActivate() {
     setError(null);
 
     try {
-      // BLOCKER 4: Check for duplicate IMEI (check both unique_id and imei fields)
-      const existingByUid = await base44.entities.TelematicsDevice.filter({ unique_id: form.imei });
-      const existingByImei = existingByUid.length === 0 ? await base44.entities.TelematicsDevice.filter({ imei: form.imei }) : existingByUid;
+      // BLOCKER 4: Check for duplicate IMEI (check both unique_id and imei fields) + validate format
+      const imeiClean = form.imei.trim();
+      if (!/^\d{15}$/.test(imeiClean)) {
+        setError('IMEI must be exactly 15 digits. Check the device label and try again.');
+        setLoading(false);
+        return;
+      }
+      const existingByUid = await base44.entities.TelematicsDevice.filter({ unique_id: imeiClean });
+      const existingByImei = existingByUid.length === 0 ? await base44.entities.TelematicsDevice.filter({ imei: imeiClean }) : existingByUid;
       if (existingByImei.length > 0) {
         setError('This device is already activated. Each IMEI can only be registered once.');
         setLoading(false);
@@ -149,15 +155,18 @@ export default function GPSActivate() {
       }
 
       // Build device record — unique_id is the required primary key (IMEI for contactless360)
+      // subscription_status starts as 'none' — only set to 'active' after subscription is confirmed
+      const isDeviceOnly = freshOrder.package_type === 'device_only';
       const deviceData = {
-        unique_id: form.imei,
-        device_unique_id: form.imei,
-        imei: form.imei,
+        unique_id: imeiClean,
+        device_unique_id: imeiClean,
+        imei: imeiClean,
         provider_key: 'contactless360',
         provider_type: 'contactless360',
         online_status: 'offline',
         activation_status: 'activated',
-        subscription_status: 'active',
+        subscription_status: isDeviceOnly ? 'none' : 'none',
+        controls_enabled: false,
         supports_starter_interrupt: true,
         supports_contactless: true,
         sim_provider: form.sim_provider || '',
@@ -170,13 +179,12 @@ export default function GPSActivate() {
         deviceData.host_id = myHost.id;
         deviceData.vehicle_id = selectedVehicleId;
         deviceData.device_mode = 'rental';
-        await base44.entities.Vehicle.update(selectedVehicleId, { telematics_provider: 'other', telematics_device_id: form.imei });
+        await base44.entities.Vehicle.update(selectedVehicleId, { telematics_provider: 'other', telematics_device_id: imeiClean });
       } else {
-        // GPS-only customer — personal mode, full owner control
+        // GPS-only customer — personal mode
         deviceData.device_mode = 'personal';
         deviceData.owner_user_id = user?.id || '';
         deviceData.owner_email = user?.email || form.email || '';
-        deviceData.controls_enabled = true;
         if (form.vin) deviceData.vin = form.vin;
       }
 
@@ -227,12 +235,23 @@ export default function GPSActivate() {
         }).catch(err => ({ data: { error: err.message, subscription_failed: true } }));
 
         if (subRes?.data?.subscription_failed) {
-          // Mark activation incomplete
+          // Rollback: mark device + order so customer can retry via TrialActivationBanner
+          await base44.entities.TelematicsDevice.update(device.id, {
+            subscription_status: 'none',
+            controls_enabled: false,
+            activation_status: 'subscription_failed',
+          }).catch(() => {});
           await base44.entities.GPSOrder.update(freshOrder.id, { activation_status: 'subscription_failed' });
-          setError('Subscription setup failed. Your device was registered but monitoring service could not be activated. Please contact support.');
+          setError('Subscription setup failed. Your device was registered but monitoring could not be activated. You can retry activation from your GPS dashboard or contact support.');
           setLoading(false);
           return;
         }
+
+        // Subscription succeeded — enable controls and set active status
+        await base44.entities.TelematicsDevice.update(device.id, {
+          subscription_status: 'active',
+          controls_enabled: true,
+        }).catch(() => {});
       }
 
       setSuccess(true);

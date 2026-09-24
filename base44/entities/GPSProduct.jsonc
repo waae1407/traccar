@@ -86,6 +86,10 @@
       "type": "number",
       "default": 0
     },
+    "stripe_price_id": {
+      "type": "string",
+      "description": "Cached Stripe Price ID for the monthly subscription \u2014 created once and reused to avoid orphaned prices"
+    },
     "activation_fee": {
       "type": "number",
       "default": 0
