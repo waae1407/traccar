@@ -1,274 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useAuth } from "@/lib/AuthContext";
 import AccountMenu from "@/components/shared/AccountMenu";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Zap, ArrowLeft, AlertCircle, Loader2, CreditCard } from 'lucide-react';
+import { CheckCircle, Zap, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react';
+import ActivationPaymentSheet from '@/components/gps/ActivationPaymentSheet';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 
 export default function GPSActivate() {
   const { user: authUser } = useAuth();
-  const urlParams = new URLSearchParams(window.location.search);
-  const navigate = useNavigate();
-  const [form, setForm] = useState({
-    order_number: urlParams.get('order') || '',
-    email: urlParams.get('email') || '',
-    imei: '',
-    year: '', make: '', model: '', vin: '', plate: '',
-    use_type: 'personal',
-    sim_provider: '',
-    installation_status: 'self_installed',
-  });
+  const [imei, setImei] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
-  const [order, setOrder] = useState(null);
-  const [hostVehicles, setHostVehicles] = useState([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
-  const [user, setUser] = useState(null);
-  const [myHost, setMyHost] = useState(null);
-  const [step, setStep] = useState(1);
-  const [activatedDevice, setActivatedDevice] = useState(null);
-
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-
-  // Auto-fill email for authenticated users
-  useEffect(() => {
-    base44.auth.me().then(u => {
-      setUser(u);
-      if (u?.email && !form.email) set('email', u.email);
-    }).catch(() => {});
-  }, []);
-
-  const lookupOrder = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const u = await base44.auth.me().catch(() => null);
-      setUser(u);
-      if (u) {
-        const hosts = await base44.entities.Host.filter({ email: u.email });
-        const hostByUser = await base44.entities.Host.filter({ user_id: u.id });
-        const host = hosts[0] || hostByUser[0];
-        if (host) {
-          setMyHost(host);
-          const vehicles = await base44.entities.Vehicle.filter({ host_id: host.id });
-          setHostVehicles(vehicles);
-        }
-      }
-
-      const orders = await base44.entities.GPSOrder.filter({ order_number: form.order_number });
-      if (!orders.length) {
-        setError('Order not found. Please check your order number.');
-        setLoading(false);
-        return;
-      }
-
-      const foundOrder = orders[0];
-
-      // Validate email match
-      if (foundOrder.customer_email?.toLowerCase().trim() !== form.email.toLowerCase().trim()) {
-        setError('Email does not match the order on file.');
-        setLoading(false);
-        return;
-      }
-
-      // BLOCKER 3: Require paid order
-      if (foundOrder.payment_status !== 'paid') {
-        setError('Payment has not been confirmed. Please complete payment before activating this device.');
-        // Log blocked activation attempt
-        base44.entities.ActivityEvent.create({
-          event_type: 'gps.command_failed',
-          actor_id: u?.id || 'guest',
-          actor_email: form.email,
-          actor_role: 'customer',
-          target_entity: 'GPSOrder',
-          target_id: foundOrder.id,
-          summary: `GPS activation blocked — payment not confirmed for order ${form.order_number}`,
-          metadata: { order_number: form.order_number, payment_status: foundOrder.payment_status },
-          source: 'customer_app',
-          event_status: 'warning',
-        }).catch(() => {});
-        setLoading(false);
-        return;
-      }
-
-      // BLOCKER 5: Check if already fully activated
-      const deviceIds = foundOrder.device_ids || [];
-      const qty = foundOrder.quantity || 1;
-      if (deviceIds.length >= qty) {
-        setError(`This order has already been fully activated (${qty} of ${qty} devices).`);
-        setLoading(false);
-        return;
-      }
-
-      if (['cancelled', 'refunded'].includes(foundOrder.order_status)) {
-        setError('This order is no longer active and cannot be used for activation.');
-        setLoading(false);
-        return;
-      }
-
-      setOrder(foundOrder);
-      setStep(2);
-    } catch (e) {
-      setError(e.message);
-    }
-    setLoading(false);
-  };
+  const [device, setDevice] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleActivate = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    const imeiClean = imei.trim();
+    if (!/^\d{15}$/.test(imeiClean)) {
+      setError('IMEI must be exactly 15 digits.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // BLOCKER 4: Check for duplicate IMEI (check both unique_id and imei fields) + validate format
-      const imeiClean = form.imei.trim();
-      if (!/^\d{15}$/.test(imeiClean)) {
-        setError('IMEI must be exactly 15 digits. Check the device label and try again.');
-        setLoading(false);
-        return;
-      }
-      const existingByUid = await base44.entities.TelematicsDevice.filter({ unique_id: imeiClean });
-      const existingByImei = existingByUid.length === 0 ? await base44.entities.TelematicsDevice.filter({ imei: imeiClean }) : existingByUid;
-      if (existingByImei.length > 0) {
-        setError('This device is already activated. Each IMEI can only be registered once.');
+      // Find device by IMEI (unique_id)
+      const devices = await base44.entities.TelematicsDevice.filter({ unique_id: imeiClean });
+      if (!devices.length) {
+        setError('Device not found. Check the 15-digit IMEI on your device label.');
         setLoading(false);
         return;
       }
 
-      // BLOCKER 5: Re-validate quantity limit before creating
-      const freshOrders = await base44.entities.GPSOrder.filter({ order_number: form.order_number });
-      const freshOrder = freshOrders[0];
-      const currentDeviceIds = freshOrder?.device_ids || [];
-      const qty = freshOrder?.quantity || 1;
-      if (currentDeviceIds.length >= qty) {
-        setError(`Activation limit reached. This order allows ${qty} device(s) and all have been activated.`);
+      const found = devices[0];
+
+      // Already activated with active subscription
+      if (found.subscription_status === 'active' || found.subscription_status === 'trialing') {
+        setError('This device is already activated.');
         setLoading(false);
         return;
       }
 
-      // Build device record — unique_id is the required primary key (IMEI for contactless360)
-      // subscription_status starts as 'none' — only set to 'active' after subscription is confirmed
-      const isDeviceOnly = freshOrder.package_type === 'device_only';
-      const deviceData = {
-        unique_id: imeiClean,
-        device_unique_id: imeiClean,
-        imei: imeiClean,
-        provider_key: 'contactless360',
-        provider_type: 'contactless360',
-        online_status: 'offline',
-        activation_status: 'activated',
-        subscription_status: isDeviceOnly ? 'none' : 'none',
-        controls_enabled: false,
-        supports_starter_interrupt: true,
-        supports_contactless: true,
-        sim_provider: form.sim_provider || '',
-        installation_type: form.installation_status,
-        lifecycle_status: 'provisioned',
-        assigned_status: 'unassigned',
-      };
-
-      if (myHost && selectedVehicleId) {
-        deviceData.host_id = myHost.id;
-        deviceData.vehicle_id = selectedVehicleId;
-        deviceData.device_mode = 'rental';
-        await base44.entities.Vehicle.update(selectedVehicleId, { telematics_provider: 'other', telematics_device_id: imeiClean });
-      } else {
-        // GPS-only customer — personal mode
-        deviceData.device_mode = 'personal';
-        deviceData.owner_user_id = user?.id || '';
-        deviceData.owner_email = user?.email || form.email || '';
-        if (form.vin) deviceData.vin = form.vin;
-      }
-
-      const device = await base44.entities.TelematicsDevice.create(deviceData);
-      setActivatedDevice(device);
-
-      // Update order device_ids + activation_status
-      const newDeviceIds = [...currentDeviceIds, device.id];
-      const newActivationStatus = newDeviceIds.length >= qty ? 'activated' : 'partially_activated';
-      await base44.entities.GPSOrder.update(freshOrder.id, {
-        device_ids: newDeviceIds,
-        activation_status: newActivationStatus,
-        order_status: newActivationStatus === 'activated' ? 'active' : 'activation_pending',
-      });
-
-      // Audit log
-      await base44.entities.ActivityEvent.create({
-        event_type: 'gps.device_online',
-        actor_id: user?.id || 'guest',
-        actor_email: form.email,
-        actor_role: myHost ? 'host' : 'customer',
-        target_entity: 'TelematicsDevice',
-        target_id: device.id,
-        host_id: myHost?.id || '',
-        summary: `GPS device activated: IMEI ${form.imei} for order ${form.order_number}`,
-        metadata: { imei: form.imei, order_id: freshOrder.id, vehicle_id: selectedVehicleId || '', device_id: device.id },
-        source: myHost ? 'host_portal' : 'customer_app',
-        event_status: 'success',
-      }).catch(() => {});
-
-      // Notify
-      await base44.functions.invoke('sendEmail', {
-        to: form.email,
-        subject: '✅ Your Contactless360 GPS Device is Activated',
-        body: `Your GPS device (IMEI: ${form.imei}) has been successfully activated for order ${form.order_number}. It may take up to 10 minutes to appear online.`,
-      }).catch(() => {});
-
-      // BLOCKER 6: Create subscription if needed
-      if (freshOrder.package_type !== 'device_only') {
-        // Resolve monthly price from order unit_price chain or fallback
-        const monthlyPrice = freshOrder.monthly_subscription_price || 14.99;
-        const subRes = await base44.functions.invoke('createGPSSubscription', {
-          order_id: freshOrder.id,
-          device_id: device.id,
-          monthly_price: monthlyPrice,
-          plan_name: freshOrder.package_type === 'host_contactless_kit' ? 'Contactless360 Host Kit Monthly' : 'Contactless360 GPS Monthly',
-          stripe_customer_id: freshOrder.stripe_customer_id || '',
-        }).catch(err => ({ data: { error: err.message, subscription_failed: true } }));
-
-        if (subRes?.data?.subscription_failed) {
-          // Rollback: mark device + order so customer can retry via TrialActivationBanner
-          await base44.entities.TelematicsDevice.update(device.id, {
-            subscription_status: 'none',
-            controls_enabled: false,
-            activation_status: 'subscription_failed',
-          }).catch(() => {});
-          await base44.entities.GPSOrder.update(freshOrder.id, { activation_status: 'subscription_failed' });
-          setError('Subscription setup failed. Your device was registered but monitoring could not be activated. You can retry activation from your GPS dashboard or contact support.');
-          setLoading(false);
-          return;
-        }
-
-        // Subscription succeeded — enable controls and set active status
-        await base44.entities.TelematicsDevice.update(device.id, {
-          subscription_status: 'active',
-          controls_enabled: true,
-        }).catch(() => {});
-      }
-
-      setSuccess(true);
-    } catch (e) {
-      setError(e.message);
-      // Audit blocked/failed activation
-      await base44.entities.ActivityEvent.create({
-        event_type: 'gps.command_failed',
-        actor_id: user?.id || 'guest',
-        actor_email: form.email,
-        actor_role: myHost ? 'host' : 'customer',
-        target_entity: 'GPSOrder',
-        summary: `GPS activation failed for order ${form.order_number}: ${e.message}`,
-        metadata: { imei: form.imei, error: e.message },
-        source: 'customer_app',
-        event_status: 'error',
-      }).catch(() => {});
+      setDevice(found);
+      setShowPayment(true);
+    } catch (err) {
+      setError(err.message);
     }
     setLoading(false);
   };
@@ -281,16 +66,9 @@ export default function GPSActivate() {
             <CheckCircle className="w-10 h-10 text-green-400" />
           </div>
           <img src={LOGO} alt="Contactless360" className="h-10 mx-auto object-contain" />
-          <h2 className="text-2xl font-syne font-bold text-white">Device Activated!</h2>
-          <p className="text-muted-foreground">Your Contactless360 GPS device has been registered and is initializing. It may take up to 10 minutes to appear online.</p>
-          <div className="flex gap-3 justify-center flex-wrap">
-            {myHost ? (
-              <Link to="/host/telematics"><Button className="gradient-primary">View in Host Portal</Button></Link>
-            ) : (
-              <Link to="/customer/gps"><Button className="gradient-primary">My GPS Devices</Button></Link>
-            )}
-            <Link to="/gps"><Button variant="outline">Back to GPS Store</Button></Link>
-          </div>
+          <h2 className="text-2xl font-syne font-bold text-white">Activated!</h2>
+          <p className="text-muted-foreground">Your GPS is live. It may take up to 10 minutes to appear online.</p>
+          <Link to="/customer/gps"><Button className="gradient-primary">Go to My GPS</Button></Link>
         </div>
       </div>
     );
@@ -311,131 +89,45 @@ export default function GPSActivate() {
         </div>
       </nav>
 
-      <div className="max-w-xl mx-auto px-6 py-12 space-y-8">
+      <div className="max-w-md mx-auto px-6 py-16 space-y-8">
         <div className="text-center space-y-2">
-          <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Device Activation</Badge>
-          <h1 className="text-3xl font-syne font-bold text-white">Activate Your Device</h1>
-          <p className="text-muted-foreground">Register your Contactless360 GPS and assign it to a vehicle.</p>
+          <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Activate</Badge>
+          <h1 className="text-3xl font-syne font-bold text-white">Enter Your IMEI</h1>
+          <p className="text-muted-foreground text-sm">15 digits on your device label. $14.99/mo after 7-day free trial.</p>
         </div>
 
         {error && (
           <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-3 text-red-400 text-sm">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <div>
-              {error}
-              {error.includes('complete payment') && (
-                <div className="mt-2">
-                  <Link to="/gps/checkout"><Button size="sm" className="gradient-primary"><CreditCard className="w-3 h-3" /> Complete Payment</Button></Link>
-                </div>
-              )}
-            </div>
+            <span>{error}</span>
           </div>
         )}
 
-        {step === 1 && (
-          <div className="space-y-4 glass rounded-2xl p-6">
-            <h2 className="font-semibold text-white">Step 1: Verify Your Order</h2>
-            <div className="space-y-1">
-              <Label>Order Number *</Label>
-              <Input value={form.order_number} onChange={e => set('order_number', e.target.value)} placeholder="C360-XXXXXX" />
-            </div>
-            <div className="space-y-1">
-              <Label>Email Address *</Label>
-              <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="your@email.com" />
-            </div>
-            <Button onClick={lookupOrder} className="w-full gradient-primary" disabled={loading || !form.order_number || !form.email}>
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</> : 'Verify Order'}
-            </Button>
-            <p className="text-xs text-center text-muted-foreground">
-              No order yet? <Link to="/gps/checkout" className="text-yellow-400 hover:underline">Buy a device first</Link>
-            </p>
-          </div>
-        )}
+        <form onSubmit={handleActivate} className="space-y-4 glass rounded-2xl p-6">
+          <Input
+            value={imei}
+            onChange={e => setImei(e.target.value.replace(/\D/g, '').slice(0, 15))}
+            placeholder="15-digit IMEI"
+            inputMode="numeric"
+            className="text-center text-lg font-mono tracking-wider"
+          />
+          <Button type="submit" className="w-full gradient-primary glow-sm" disabled={loading || imei.length !== 15}>
+            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Checking…</> : <><Zap className="w-4 h-4" /> Activate</>}
+          </Button>
+        </form>
 
-        {step === 2 && order && (
-          <form onSubmit={handleActivate} className="space-y-5 glass rounded-2xl p-6">
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-green-500/10 border border-green-500/30">
-              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
-              <div className="text-sm text-green-300">
-                Order <strong>{order.order_number}</strong> verified — {order.device_ids?.length || 0}/{order.quantity} device(s) activated
-              </div>
-            </div>
-
-            <h2 className="font-semibold text-white">Step 2: Device & Vehicle Info</h2>
-
-            <div className="space-y-1">
-              <Label>Device IMEI / Serial Number *</Label>
-              <Input required value={form.imei} onChange={e => set('imei', e.target.value)} placeholder="15-digit IMEI" />
-              <p className="text-xs text-muted-foreground">Found on device label or box</p>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Vehicle Use Type</Label>
-              <Select value={form.use_type} onValueChange={v => set('use_type', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">Personal Vehicle</SelectItem>
-                  <SelectItem value="host_fleet">Host Fleet Vehicle</SelectItem>
-                  <SelectItem value="dealer">Dealer Vehicle</SelectItem>
-                  <SelectItem value="rental">Rental</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {myHost && hostVehicles.length > 0 && (
-              <div className="space-y-1">
-                <Label>Assign to Host Vehicle (optional)</Label>
-                <Select value={selectedVehicleId} onValueChange={setSelectedVehicleId}>
-                  <SelectTrigger><SelectValue placeholder="Select a vehicle" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={null}>No vehicle yet</SelectItem>
-                    {hostVehicles.map(v => (
-                      <SelectItem key={v.id} value={v.id}>{v.year} {v.make} {v.model} — {v.plate || v.vin || 'No plate'}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {(!myHost || !selectedVehicleId) && (
-              <>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1"><Label>Year</Label><Input value={form.year} onChange={e => set('year', e.target.value)} placeholder="2022" /></div>
-                  <div className="space-y-1"><Label>Make</Label><Input value={form.make} onChange={e => set('make', e.target.value)} placeholder="Toyota" /></div>
-                  <div className="space-y-1"><Label>Model</Label><Input value={form.model} onChange={e => set('model', e.target.value)} placeholder="Camry" /></div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1"><Label>VIN</Label><Input value={form.vin} onChange={e => set('vin', e.target.value)} placeholder="17-char VIN" /></div>
-                  <div className="space-y-1"><Label>Plate (optional)</Label><Input value={form.plate} onChange={e => set('plate', e.target.value)} placeholder="ABC-1234" /></div>
-                </div>
-              </>
-            )}
-
-            <div className="space-y-1">
-              <Label>SIM Provider (if known)</Label>
-              <Input value={form.sim_provider} onChange={e => set('sim_provider', e.target.value)} placeholder="e.g. T-Mobile, AT&T, Global" />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Installation Status</Label>
-              <Select value={form.installation_status} onValueChange={v => set('installation_status', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="self_installed">Self Installed</SelectItem>
-                  <SelectItem value="professional_installed">Professional Installed</SelectItem>
-                  <SelectItem value="not_yet_installed">Not Yet Installed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button type="submit" size="lg" className="w-full gradient-primary glow-sm" disabled={loading || !form.imei}>
-              <Zap className="w-4 h-4" />
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Activating…</> : 'Activate Device'}
-            </Button>
-          </form>
-        )}
+        <p className="text-xs text-center text-muted-foreground">
+          Don't have a device? <Link to="/gps" className="text-yellow-400 hover:underline">Buy one</Link>
+        </p>
       </div>
+
+      {showPayment && device && (
+        <ActivationPaymentSheet
+          deviceId={device.id}
+          onClose={() => setShowPayment(false)}
+          onSuccess={() => { setShowPayment(false); setSuccess(true); }}
+        />
+      )}
     </div>
   );
 }
