@@ -330,6 +330,45 @@ Deno.serve(async (req) => {
     }
 
     await notify(base44, { type: status, host, device, vehicle, record, failedTests });
+
+    // ── Auto-create 7-day free trial subscription on successful installation ──
+    if (testsPassed && vehicle && host) {
+      try {
+        const existingSubs = await base44.asServiceRole.entities.GPSSubscription.filter(
+          { device_id: device.id, subscription_status: { $in: ['active', 'trialing'] } },
+          '-created_date', 5
+        );
+        if (existingSubs.length === 0) {
+          const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+          await base44.asServiceRole.entities.GPSSubscription.create({
+            customer_user_id: host.user_id || '',
+            host_id: host.id,
+            device_id: device.id,
+            plan_name: 'Contactless360 GPS Monthly',
+            billing_cycle: 'monthly',
+            monthly_price: 14.99,
+            subscription_status: 'trialing',
+            payment_status: 'pending',
+            current_period_start: now,
+            current_period_end: trialEnd.toISOString(),
+            customer_email: host.email,
+            customer_name: host.business_name || host.full_name || '',
+          });
+          await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+            subscription_status: 'trialing',
+          });
+          await safeSendEmail(base44, {
+            to: host.email,
+            subject: '🎉 Your 7-Day GPS Free Trial is Active',
+            body: `<p>Your GPS device has been installed and a 7-day free trial has started.</p><p>You have full access to all GPS tracking and remote control features.</p><p>To continue after the trial, activate your subscription for $14.99/month — just click the "Activate" button in your app.</p>`,
+          });
+          console.log(`[trial] Created 7-day trial for device ${device.unique_id}, host ${host.email}`);
+        }
+      } catch (e) {
+        console.error('[trial-creation] failed:', e.message);
+      }
+    }
+
     return Response.json({ ok: true, status, lifecycle_status: nextLifecycleStatus, message: testsPassed ? 'Installation complete and production lifecycle updated.' : 'Correction needed. Admin/host has been notified and installer can retry.', record, vehicle });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

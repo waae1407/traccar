@@ -13,6 +13,7 @@ import SafetyEventsPanel from "@/components/telematics/safety/SafetyEventsPanel"
 import { getVehicleDisplayName } from "@/lib/vehicleDisplayName";
 import { businessText, commandLabel, statusLabel } from "@/components/telematics/command-test/businessLanguage";
 import InstallerLocatorCTA from "@/components/installers/InstallerLocatorCTA";
+import TrialActivationBanner from "@/components/gps/TrialActivationBanner";
 import { getDeviceFreshness } from "@/lib/telematics/telematicsReporting";
 
 export default function HostTelematicsDashboard() {
@@ -24,10 +25,15 @@ export default function HostTelematicsDashboard() {
   const { data: commands = [] } = useQuery({ queryKey: ["host-telematics-commands", host?.id], queryFn: () => base44.entities.TelematicsCommand.filter({ host_id: host.id }), enabled: !!host?.id, refetchInterval: 30000 });
   const { data: providers = [] } = useQuery({ queryKey: ["host-telematics-providers"], queryFn: () => base44.entities.TelematicsProviderConfig.list("provider_key", 100) });
   const { data: bookings = [] } = useQuery({ queryKey: ["host-telematics-bookings", host?.id], queryFn: () => base44.entities.BookingRequest.filter({ host_id: host.id }), enabled: !!host?.id, refetchInterval: 60_000 });
+  const { data: gpsSubscriptions = [] } = useQuery({ queryKey: ["host-gps-subscriptions", host?.id], queryFn: () => base44.entities.GPSSubscription.filter({ host_id: host.id }, '-created_date', 50), enabled: !!host?.id });
 
   return <div className="space-y-5">
     <div><p className="text-xs font-black text-pink-600 uppercase tracking-widest">Telematics</p><h1 className="text-2xl font-black text-gray-900" style={{ fontFamily: "var(--font-syne)" }}>Fleet Controls</h1><p className="text-sm text-gray-500">Near-real-time vehicle location, device health, and approved actions for your vehicles.</p></div>
       <a href="/host/battery-health" className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">🔋 Battery Health Monitor</a>
+    {devices.filter(d => d.subscription_status === 'trialing' || d.subscription_status === 'none' || !d.subscription_status).filter(d => d.install_status === 'installed' || ['live_ready', 'live_enabled', 'installation_completed', 'installation_completed_unlinked'].includes(d.lifecycle_status)).map(device => {
+      const sub = gpsSubscriptions.find(s => s.device_id === device.id);
+      return <TrialActivationBanner key={device.id} device={device} subscription={sub} onActivated={refetchDevices} theme="light" />;
+    })}
     <InstallerLocatorCTA source="telematics_setup" title="Need an Installer?" description="Find a verified installer near you." />
     <TelematicsMap role="host" devices={devices} vehicles={vehicles} hosts={host ? [host] : []} bookings={bookings} providers={providers} height={520} showFilters showRefresh refreshLabel="Refresh My Fleet" onRefresh={refetchDevices} />
     <SafetyEventsPanel role="host" title="Safety Events" />

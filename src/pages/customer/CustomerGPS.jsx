@@ -9,6 +9,7 @@ import GeofenceConfig from '@/components/gps/GeofenceConfig';
 import EmergencyContactsManager from '@/components/gps/EmergencyContactsManager';
 import StartRentingButton from '@/components/gps/StartRentingButton';
 import SubscriptionPastDueBanner from '@/components/gps/SubscriptionPastDueBanner';
+import TrialActivationBanner from '@/components/gps/TrialActivationBanner';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 
@@ -162,6 +163,13 @@ export default function CustomerGPS() {
                 </a>
               )}
             </div>
+
+            {/* Trial Activation Banner */}
+            <TrialActivationBanner
+              device={activeDevice}
+              subscription={activeSubscription}
+              onActivated={loadData}
+            />
 
             {/* Past Due Banner */}
             <SubscriptionPastDueBanner

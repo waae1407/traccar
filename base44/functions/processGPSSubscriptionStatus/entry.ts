@@ -168,6 +168,82 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Trial expiry handling ──
+    const TRIAL_REMINDER_DAYS = [4, 6];
+
+    const trialingSubs = await base44.asServiceRole.entities.GPSSubscription.filter({
+      subscription_status: 'trialing',
+    }, '-created_date', 500);
+
+    results.trialing_checked = trialingSubs.length;
+
+    for (const sub of trialingSubs) {
+      try {
+        const periodEnd = sub.current_period_end ? new Date(sub.current_period_end) : null;
+        if (!periodEnd) continue;
+
+        const periodStart = sub.current_period_start ? new Date(sub.current_period_start) : new Date(sub.created_date || Date.now());
+        const daysIntoTrial = Math.floor((now.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+        const daysRemaining = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Send reminder emails on day 4 and 6
+        if (TRIAL_REMINDER_DAYS.includes(daysIntoTrial) && sub.dunning_email_count < TRIAL_REMINDER_DAYS.indexOf(daysIntoTrial) + 1) {
+          const isUrgent = daysIntoTrial >= 6;
+          try {
+            await base44.asServiceRole.integrations.Core.SendEmail({
+              to: sub.customer_email,
+              subject: isUrgent ? '⏰ LAST DAY: Activate your GPS subscription today' : 'Your GPS free trial ends soon — activate now',
+              body: isUrgent
+                ? `Your 7-day free trial ends today. Activate your subscription now at $14.99/month to keep your GPS tracking and remote controls active. Open your app and click the Activate button.`
+                : `Your 7-day free trial ends in ${daysRemaining} day(s). Activate your subscription now at $14.99/month to avoid any interruption to your GPS tracking and remote controls. Open your app and click the Activate button.`,
+              from_name: 'Contactless360 GPS',
+            });
+          } catch (e) {
+            results.errors.push(`Trial email to ${sub.customer_email}: ${e.message}`);
+          }
+          await base44.asServiceRole.entities.GPSSubscription.update(sub.id, {
+            dunning_email_count: (sub.dunning_email_count || 0) + 1,
+            last_dunning_email_at: now.toISOString(),
+          });
+          results.trial_reminders_sent = (results.trial_reminders_sent || 0) + 1;
+        }
+
+        // Trial expired — convert to past_due and disable controls
+        if (now.getTime() >= periodEnd.getTime()) {
+          await base44.asServiceRole.entities.GPSSubscription.update(sub.id, {
+            subscription_status: 'past_due',
+            past_due_since: now.toISOString(),
+            dunning_email_count: 0,
+          });
+
+          if (sub.device_id) {
+            const trialDevices = await base44.asServiceRole.entities.TelematicsDevice.filter({ id: sub.device_id }, '-created_date', 1);
+            if (trialDevices[0]) {
+              await base44.asServiceRole.entities.TelematicsDevice.update(trialDevices[0].id, {
+                subscription_status: 'past_due',
+                controls_enabled: false,
+              });
+            }
+          }
+
+          try {
+            await base44.asServiceRole.integrations.Core.SendEmail({
+              to: sub.customer_email,
+              subject: 'Your free trial has ended — activate to restore controls',
+              body: `Your 7-day free trial has ended. Remote controls have been disabled. Activate your subscription at $14.99/month to restore all features. Open your app and click the Activate button.`,
+              from_name: 'Contactless360 GPS',
+            });
+          } catch (e) {
+            results.errors.push(`Trial expiry email: ${e.message}`);
+          }
+
+          results.trials_expired = (results.trials_expired || 0) + 1;
+        }
+      } catch (e) {
+        results.errors.push(`Trial sub ${sub.id}: ${e.message}`);
+      }
+    }
+
     return Response.json({ ok: true, ...results });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
