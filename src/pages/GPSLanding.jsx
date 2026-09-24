@@ -257,7 +257,6 @@ export default function GPSLanding() {
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur border-b border-border">
         <Link to="/"><img src={LOGO} alt="Contactless360" className="h-8 object-contain" /></Link>
         <div className="flex items-center gap-3">
-          <Link to="/gps/activate"><Button variant="outline" size="sm">Activate Device</Button></Link>
           <Link to="/gps/checkout"><Button size="sm" className="gradient-primary">Buy Device</Button></Link>
           {user
             ? <AccountMenu role={user.role === "admin" ? "admin" : user.role === "host" ? "host" : "user"} accountPath="/customer/gps" extraItems={[{ label: "My GPS", icon: MapPin, path: "/customer/gps" }]} compact />
@@ -287,9 +286,6 @@ export default function GPSLanding() {
                 <Button size="lg" className="gradient-primary glow-sm font-semibold">
                   <Package className="w-4 h-4" /> Buy + Activate
                 </Button>
-              </Link>
-              <Link to="/gps/activate">
-                <Button size="lg" variant="outline"><Zap className="w-4 h-4" /> Activate Device</Button>
               </Link>
               <Link to="/host/gps-store">
                 <Button size="lg" variant="ghost">For Hosts <ArrowRight className="w-4 h-4" /></Button>
@@ -383,9 +379,6 @@ export default function GPSLanding() {
           <div className="flex justify-center gap-4 flex-wrap">
             <Link to="/gps/checkout?pkg=device_subscription">
               <Button size="lg" className="gradient-primary glow-sm">Buy + Activate</Button>
-            </Link>
-            <Link to="/gps/activate">
-              <Button size="lg" variant="outline">Activate Existing Device</Button>
             </Link>
           </div>
         </div>
