@@ -33,6 +33,18 @@ Deno.serve(async (req) => {
     } catch (_) { /* invalid ID format */ }
     if (!device) return Response.json({ error: 'Device not found' }, { status: 404 });
 
+    // Ownership guard: only allow activation of unassigned inventory or devices already owned by this user
+    const isUnassignedInventory = !device.owner_user_id && !device.host_id &&
+      ['inventory', 'provisioned', 'not_yet_installed'].includes(device.lifecycle_status || 'inventory');
+    const isOwnedByUser = device.owner_user_id === user.id;
+    if (!isUnassignedInventory && !isOwnedByUser) {
+      return Response.json({ error: 'This device is already assigned to another account. Contact support if you believe this is an error.' }, { status: 403 });
+    }
+    // Block if already has an active/trialing subscription
+    if (['active', 'trialing'].includes(device.subscription_status || '')) {
+      return Response.json({ error: 'This device is already activated.' }, { status: 409 });
+    }
+
     // Find existing subscription for this device
     const existingSubs = await base44.asServiceRole.entities.GPSSubscription.filter({ device_id }, '-created_date', 5);
     let sub = existingSubs.find(s => ['trialing', 'active', 'past_due', 'control_disabled'].includes(s.subscription_status)) || existingSubs[0];
@@ -188,10 +200,15 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Update device
+      // Update device — claim ownership + mark as personal GPS customer
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
         subscription_status: 'active',
         controls_enabled: true,
+        owner_user_id: user.id,
+        owner_email: user.email,
+        device_mode: 'personal',
+        lifecycle_status: 'live_ready',
+        activation_status: 'activated',
       });
 
       // Dual-write SubscriptionItem

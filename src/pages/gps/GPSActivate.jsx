@@ -22,6 +22,13 @@ export default function GPSActivate() {
 
   const handleActivate = async (e) => {
     e.preventDefault();
+
+    // Auth gate — require sign-in before IMEI lookup
+    if (!authUser) {
+      base44.auth.redirectToLogin('/gps/activate');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -46,6 +53,16 @@ export default function GPSActivate() {
       // Already activated with active subscription
       if (found.subscription_status === 'active' || found.subscription_status === 'trialing') {
         setError('This device is already activated.');
+        setLoading(false);
+        return;
+      }
+
+      // Ownership/assignment check — only allow unassigned inventory or own devices
+      const isUnassigned = !found.owner_user_id && !found.host_id &&
+        ['inventory', 'provisioned', 'not_yet_installed', undefined].includes(found.lifecycle_status);
+      const isOwnDevice = found.owner_user_id === authUser.id;
+      if (!isUnassigned && !isOwnDevice) {
+        setError('This device is already assigned to another account. Contact support if you believe this is an error.');
         setLoading(false);
         return;
       }
@@ -103,18 +120,28 @@ export default function GPSActivate() {
           </div>
         )}
 
-        <form onSubmit={handleActivate} className="space-y-4 glass rounded-2xl p-6">
-          <Input
-            value={imei}
-            onChange={e => setImei(e.target.value.replace(/\D/g, '').slice(0, 15))}
-            placeholder="15-digit IMEI"
-            inputMode="numeric"
-            className="text-center text-lg font-mono tracking-wider"
-          />
-          <Button type="submit" className="w-full gradient-primary glow-sm" disabled={loading || imei.length !== 15}>
-            {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Checking…</> : <><Zap className="w-4 h-4" /> Activate</>}
-          </Button>
-        </form>
+        {authUser ? (
+          <form onSubmit={handleActivate} className="space-y-4 glass rounded-2xl p-6">
+            <Input
+              value={imei}
+              onChange={e => setImei(e.target.value.replace(/\D/g, '').slice(0, 15))}
+              placeholder="15-digit IMEI"
+              inputMode="numeric"
+              className="text-center text-lg font-mono tracking-wider"
+            />
+            <Button type="submit" className="w-full gradient-primary glow-sm" disabled={loading || imei.length !== 15}>
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Checking…</> : <><Zap className="w-4 h-4" /> Activate</>}
+            </Button>
+          </form>
+        ) : (
+          <div className="glass rounded-2xl p-8 text-center space-y-4">
+            <AlertCircle className="w-10 h-10 text-yellow-400 mx-auto" />
+            <p className="text-sm text-muted-foreground">Sign in to activate your GPS device.</p>
+            <Button onClick={() => base44.auth.redirectToLogin('/gps/activate')} className="gradient-primary glow-sm">
+              Sign In to Continue
+            </Button>
+          </div>
+        )}
 
         <p className="text-xs text-center text-muted-foreground">
           Don't have a device? <Link to="/gps" className="text-yellow-400 hover:underline">Buy one</Link>
