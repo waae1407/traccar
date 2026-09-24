@@ -31,6 +31,11 @@ export default function PublicHome() {
   useEffect(() => {
     let cancelled = false;
     const routeCustomer = async () => {
+      // Contactless360 subdomain → GPS landing page
+      if (window.location.hostname === "c360.uridehub.com") {
+        navigate("/gps", { replace: true });
+        return;
+      }
       if (user?.role === "admin") navigate("/dashboard", { replace: true });
       else if (user?.role === "host") navigate("/host/dashboard", { replace: true });
       else if (user?.email) {
