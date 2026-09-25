@@ -376,7 +376,7 @@ export default function MyVehicle() {
     ? intervalToDuration({ start: new Date(), end: new Date(`${booking.end_date}T23:59:59`) })
     : null;
   const remainingStr = remainingTime
-    ? `${remainingTime.days ? remainingTime.days + 'd ' : ''}${remainingTime.hours || 0}h ${remainingTime.minutes || 0}m`
+    ? `${remainingTime.months ? remainingTime.months + 'mo ' : ''}${remainingTime.days || 0}d ${remainingTime.hours || 0}h ${remainingTime.minutes || 0}m`
     : "N/A";
 
   const handleCommand = async (type) => {
@@ -955,9 +955,13 @@ export default function MyVehicle() {
               {booking ? (
                 <>
                   <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
-                  {/* Gradient fade so the map bleeds into the dark card */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 48, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(24,25,30,0.92) 0%, rgba(24,25,30,0) 100%)" }} />
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 32, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(19,20,24,0.85) 0%, rgba(19,20,24,0) 100%)" }} />
+                  {/* Dark overlay to tone down light map tiles so they blend with the dark theme */}
+                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(12,13,16,0.45)" }} />
+                  {/* Edge gradient fades so the map bleeds into the dark card */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 60, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(24,25,30,0.98) 0%, rgba(24,25,30,0.4) 50%, rgba(24,25,30,0) 100%)" }} />
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 44, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(19,20,24,0.95) 0%, rgba(19,20,24,0.3) 60%, rgba(19,20,24,0) 100%)" }} />
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 32, pointerEvents: "none", zIndex: 300, background: "linear-gradient(90deg, rgba(24,25,30,0.7) 0%, rgba(24,25,30,0) 100%)" }} />
+                  <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 32, pointerEvents: "none", zIndex: 300, background: "linear-gradient(270deg, rgba(24,25,30,0.7) 0%, rgba(24,25,30,0) 100%)" }} />
                   <button 
                     onClick={() => {
                       if (device?.last_latitude && device?.last_longitude) {
