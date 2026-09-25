@@ -162,6 +162,12 @@
   .table-row-hover:hover {
     background: hsl(var(--primary) / 0.06) !important;
   }
+  .control-tap {
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .control-tap:active {
+    transform: scale(0.95);
+  }
   .map-tiles-muted {
     filter: grayscale(0.85) brightness(1.18) contrast(0.92);
   }

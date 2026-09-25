@@ -951,7 +951,7 @@ export default function MyVehicle() {
                 </div>
               </div>
             </div>
-            <div style={{ height: 200, position: "relative" }}>
+            <div style={{ height: 240, position: "relative" }}>
               {booking ? (
                 <>
                   <div style={{ position: "absolute", inset: 0, filter: "saturate(0.7) brightness(0.55) contrast(1.08)" }}>
@@ -971,11 +971,12 @@ export default function MyVehicle() {
                       }
                     }}
                     style={{
-                      position: "absolute", bottom: 12, right: 12, zIndex: 400,
-                      background: "#2F80FF", border: "none", borderRadius: 20,
-                      padding: "8px 16px", display: "flex", alignItems: "center", gap: 6,
+                      position: "absolute", bottom: 14, right: 14, zIndex: 400,
+                      background: "rgba(47,128,255,0.85)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 20,
+                      padding: "9px 18px", display: "flex", alignItems: "center", gap: 6,
                       color: "#FFF", fontSize: 12, fontWeight: 700, cursor: "pointer",
-                      boxShadow: "0 4px 12px rgba(47,128,255,0.4)"
+                      backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+                      boxShadow: "0 4px 16px rgba(47,128,255,0.35), inset 0 1px 0 rgba(255,255,255,0.2)"
                     }}
                   >
                     <Navigation size={14} color="#FFFFFF" style={{ transform: "rotate(45deg)", marginBottom: 2 }} />
@@ -1018,7 +1019,7 @@ export default function MyVehicle() {
               </p>
             </div>
 
-            <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.08)", margin: "0 10px" }} />
+            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.05)", margin: "0 8px" }} />
 
             {/* Remaining */}
             <div style={{ flex: 1 }}>
@@ -1035,7 +1036,7 @@ export default function MyVehicle() {
               <p style={{ fontSize: 10, color: "#6B6B70", fontWeight: 400, marginTop: 1 }}>until return</p>
             </div>
 
-            <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.08)", margin: "0 10px" }} />
+            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.05)", margin: "0 8px" }} />
 
             {/* Payment Status */}
             <div 
@@ -1086,7 +1087,7 @@ export default function MyVehicle() {
               <button
                 onClick={() => booking && handleCommand("lock")}
                 disabled={!!commandLoading || dropoffInspectionComplete}
-                className={commandLoading === "lock" ? "btn-loading-spin" : ""}
+                className={`control-tap ${commandLoading === "lock" ? "btn-loading-spin" : ""}`}
                 style={{
                   position: "relative",
                   aspectRatio: "4/3",
@@ -1117,7 +1118,7 @@ export default function MyVehicle() {
               <button
                 onClick={() => booking && handleCommand("unlock")}
                 disabled={!!commandLoading || dropoffInspectionComplete}
-                className={commandLoading === "unlock" ? "btn-loading-spin" : ""}
+                className={`control-tap ${commandLoading === "unlock" ? "btn-loading-spin" : ""}`}
                 style={{
                   position: "relative",
                   aspectRatio: "4/3",
@@ -1144,7 +1145,7 @@ export default function MyVehicle() {
               <button
                 onClick={() => booking && handleCommand("find")}
                 disabled={!!commandLoading || dropoffInspectionComplete}
-                className={commandLoading === "find" ? "btn-loading-spin" : ""}
+                className={`control-tap ${commandLoading === "find" ? "btn-loading-spin" : ""}`}
                 style={{
                   position: "relative",
                   aspectRatio: "4/3",
