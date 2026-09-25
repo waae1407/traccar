@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Shield, Zap, Package, AlertCircle, CheckCircle, RefreshCw, Satellite, Battery, Signal, Power, Settings } from 'lucide-react';
+import { MapPin, Shield, Zap, Package, AlertCircle, CheckCircle, RefreshCw, Satellite, Battery, Signal, Power, Settings, Wrench } from 'lucide-react';
 import GPSControlPanel from '@/components/gps/GPSControlPanel';
 import GPSScheduleManager from '@/components/gps/GPSScheduleManager';
 import GeofenceConfig from '@/components/gps/GeofenceConfig';
@@ -163,6 +163,49 @@ export default function CustomerGPS() {
                 </a>
               )}
             </div>
+
+            {/* Installation Status Card */}
+            {activeDevice.install_status && activeDevice.install_status !== 'not_started' && (
+              <div className="glass rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Wrench size={16} color="#E91E8C" />
+                  <h2 className="text-sm font-bold text-white">Installation Status</h2>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {activeDevice.install_status === 'installed' ? (
+                      <CheckCircle className="w-5 h-5 text-green-400" />
+                    ) : activeDevice.install_status === 'correction_needed' || activeDevice.install_status === 'failed' ? (
+                      <AlertCircle className="w-5 h-5 text-red-400" />
+                    ) : (
+                      <Wrench className="w-5 h-5 text-yellow-400" />
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-white capitalize">
+                        {activeDevice.install_status?.replace(/_/g, ' ')}
+                      </p>
+                      {activeDevice.installation_completed_at && (
+                        <p className="text-xs text-white/40">
+                          Completed {new Date(activeDevice.installation_completed_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-white/40">Type</p>
+                    <p className="text-sm text-white/70 capitalize">
+                      {activeDevice.installation_type?.replace(/_/g, ' ') || 'Not specified'}
+                    </p>
+                  </div>
+                </div>
+                {activeDevice.install_status === 'correction_needed' && (
+                  <div className="flex items-center gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>Installation needs attention. Contact your installer or support.</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Trial Activation Banner */}
             <TrialActivationBanner

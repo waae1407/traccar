@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, ArrowRight, Package, Tag, Loader2 } from 'lucide-react';
+import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, ArrowRight, Package, Tag, Loader2, Wrench, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
@@ -340,6 +340,52 @@ export default function GPSLanding() {
                 <p className="text-sm text-muted-foreground">{f.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* INSTALLATION */}
+      <section className="py-20 max-w-7xl mx-auto px-6">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          <div className="space-y-5">
+            <div className="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center">
+              <Wrench className="w-6 h-6 text-yellow-400" />
+            </div>
+            <h2 className="text-3xl font-syne font-bold text-white">Professional Installation, Your Choice</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              Contactless360 is designed for straightforward self-installation, but if you prefer professional help, we've compiled a directory of independent auto shops and mobile installers who can assist.
+            </p>
+            <p className="text-sm text-muted-foreground/70 leading-relaxed">
+              These installers are unaffiliated third-party businesses — not uRide employees or partners. The directory is provided as a convenience to help you find local help. You arrange and pay the installer directly.
+            </p>
+            <Link to="/installers">
+              <Button size="lg" variant="outline">
+                <Search className="w-4 h-4" /> Find an Installer Near You <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          <div className="glass rounded-2xl p-8 space-y-4">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-white text-sm">Self-Install Friendly</p>
+                <p className="text-sm text-muted-foreground">Plug-and-play wiring with clear instructions. Most installs take 30-45 minutes.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-white text-sm">Independent Installer Directory</p>
+                <p className="text-sm text-muted-foreground">Browse local shops and mobile installers. You choose, you pay directly.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-white text-sm">Installer Portal Support</p>
+                <p className="text-sm text-muted-foreground">Your installer can use our portal to register the device, run tests, and trigger your activation link.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

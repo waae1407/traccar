@@ -333,55 +333,29 @@ Deno.serve(async (req) => {
 
     await notify(base44, { type: status, host, device, vehicle, record, failedTests });
 
-    // ── Auto-create 7-day free trial subscription on successful installation ──
-    // Covers both host fleet vehicles AND personal (GPS-only) devices
+    // ── Send activation nudge email for personal (non-host) devices ──
+    // Email-link based activation complies with Stripe's explicit consent
+    // requirement for subscriptions. Host fleet vehicles are managed by the
+    // host through their own billing flow — no nudge needed.
     if (testsPassed) {
-      try {
-        const existingSubs = await base44.asServiceRole.entities.GPSSubscription.filter(
-          { device_id: device.id, subscription_status: { $in: ['active', 'trialing'] } },
-          '-created_date', 5
-        );
-        if (existingSubs.length === 0) {
-          const trialEnd = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-          // Resolve owner context: host fleet vehicle vs personal GPS-only device
-          const isPersonal = device.device_mode === 'personal' || (!host && !vehicle);
-          const trialOwnerUserId = isPersonal ? (device.owner_user_id || '') : (host?.user_id || '');
-          const trialHostId = isPersonal ? '' : (host?.id || '');
-          const trialEmail = isPersonal ? (device.owner_email || customerEmail || '') : (host?.email || customerEmail || '');
-          const trialName = isPersonal ? '' : (host?.business_name || host?.full_name || '');
-
-          if (!trialEmail) {
-            console.error('[trial-creation] No owner email resolved — skipping trial');
-          } else {
-            await base44.asServiceRole.entities.GPSSubscription.create({
-              customer_user_id: trialOwnerUserId,
-              host_id: trialHostId,
-              device_id: device.id,
-              plan_name: 'Contactless360 GPS Monthly',
-              billing_cycle: 'monthly',
-              monthly_price: 14.99,
-              subscription_status: 'trialing',
-              payment_status: 'pending',
-              current_period_start: now,
-              current_period_end: trialEnd.toISOString(),
-              customer_email: trialEmail,
-              customer_name: trialName,
-            });
-            await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-              subscription_status: 'trialing',
-              controls_enabled: true,
-              ...(isPersonal && customerEmail && !device.owner_email ? { owner_email: customerEmail, device_mode: 'personal' } : {}),
-            });
-            await safeSendEmail(base44, {
-              to: trialEmail,
-              subject: '🎉 Your 7-Day GPS Free Trial is Active',
-              body: `<p>Your GPS device has been installed and a 7-day free trial has started.</p><p>You have full access to all GPS tracking and remote control features.</p><p>To continue after the trial, activate your subscription for $14.99/month — just click the "Activate" button in your app.</p>`,
-            });
-            console.log(`[trial] Created 7-day trial for device ${device.unique_id}, owner ${trialEmail} (${isPersonal ? 'personal' : 'host'})`);
-          }
+      const isPersonal = !host && !vehicle;
+      if (isPersonal && customerEmail) {
+        try {
+          await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+            owner_email: customerEmail,
+            device_mode: 'personal',
+            subscription_status: 'none',
+            controls_enabled: true,
+          });
+          await base44.asServiceRole.functions.invoke('sendGPSActivationNudge', {
+            imei: device.unique_id || device.imei || deviceIdentifier,
+            customer_email: customerEmail,
+            customer_phone: customerPhone,
+          });
+          console.log(`[activation-nudge] Sent to ${customerEmail} for device ${device.unique_id}`);
+        } catch (e) {
+          console.error('[activation-nudge] failed:', e.message);
         }
-      } catch (e) {
-        console.error('[trial-creation] failed:', e.message);
       }
     }
 
