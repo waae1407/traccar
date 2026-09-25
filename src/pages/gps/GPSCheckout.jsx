@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Package, ArrowLeft, Shield, Loader2, AlertCircle, Tag } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import C360SignInInterstitial from '@/components/auth/C360SignInInterstitial';
+import { isCustomDomainHost } from '@/components/host/storefront/CustomDomainGate';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
@@ -174,8 +176,14 @@ export default function GPSCheckout() {
   const [stripeInstance, setStripeInstance] = useState(null);
   // Fleet kit eligibility: null=loading, 'ELIGIBLE'=ok, or a denial reason string
   const [fleetEligibilityReason, setFleetEligibilityReason] = useState(null);
+  const [showC360SignIn, setShowC360SignIn] = useState(false);
 
   const selectedProduct = products.find(p => p.package_type === pkg);
+
+  const handleSignIn = () => {
+    if (isCustomDomainHost()) setShowC360SignIn(true);
+    else base44.auth.redirectToLogin('/gps/checkout');
+  };
   const isFleetKit = pkg === 'host_contactless_kit';
   const fleetKitBlocked = isFleetKit && fleetEligibilityReason !== null && fleetEligibilityReason !== 'ELIGIBLE';
 
@@ -276,7 +284,7 @@ export default function GPSCheckout() {
           </Link>
           {user
             ? <AccountMenu role={user.role === "admin" ? "admin" : user.role === "host" ? "host" : "user"} accountPath="/customer/gps" compact />
-            : <Link to="/account"><Button variant="ghost" size="sm">Sign In</Button></Link>
+            : <Button variant="ghost" size="sm" onClick={handleSignIn}>Sign In</Button>
           }
         </div>
       </nav>
@@ -313,7 +321,7 @@ export default function GPSCheckout() {
                     <Button size="sm" className="gradient-primary">Buy First Device Setup</Button>
                   </Link>
                   {fleetEligibilityReason === 'NOT_LOGGED_IN'
-                    ? <Link to="/account"><Button size="sm" variant="outline">Log In</Button></Link>
+                    ? <Button size="sm" variant="outline" onClick={handleSignIn}>Log In</Button>
                     : <Link to="/become-a-host"><Button size="sm" variant="outline">Become a Fleet Partner</Button></Link>
                   }
                 </div>
@@ -426,6 +434,8 @@ export default function GPSCheckout() {
           </div>
         </div>
       </div>
+
+      {showC360SignIn && <C360SignInInterstitial onClose={() => setShowC360SignIn(false)} />}
     </div>
   );
 }

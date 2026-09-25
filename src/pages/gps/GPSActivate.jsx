@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Zap, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react';
 import ActivationPaymentSheet from '@/components/gps/ActivationPaymentSheet';
+import C360SignInInterstitial from '@/components/auth/C360SignInInterstitial';
+import { isCustomDomainHost } from '@/components/host/storefront/CustomDomainGate';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 
@@ -19,6 +21,12 @@ export default function GPSActivate() {
   const [device, setDevice] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showC360SignIn, setShowC360SignIn] = useState(false);
+
+  const handleSignIn = () => {
+    if (isCustomDomainHost()) setShowC360SignIn(true);
+    else base44.auth.redirectToLogin('/gps/activate');
+  };
 
   const handleActivate = async (e) => {
     e.preventDefault();
@@ -101,7 +109,7 @@ export default function GPSActivate() {
           </Link>
           {authUser
             ? <AccountMenu role={authUser.role === "admin" ? "admin" : authUser.role === "host" ? "host" : "user"} accountPath="/customer/gps" compact />
-            : <Link to="/account"><Button variant="ghost" size="sm">Sign In</Button></Link>
+            : <Button variant="ghost" size="sm" onClick={handleSignIn}>Sign In</Button>
           }
         </div>
       </nav>
@@ -137,7 +145,7 @@ export default function GPSActivate() {
           <div className="glass rounded-2xl p-8 text-center space-y-4">
             <AlertCircle className="w-10 h-10 text-yellow-400 mx-auto" />
             <p className="text-sm text-muted-foreground">Sign in to activate your GPS device.</p>
-            <Button onClick={() => base44.auth.redirectToLogin('/gps/activate')} className="gradient-primary glow-sm">
+            <Button onClick={handleSignIn} className="gradient-primary glow-sm">
               Sign In to Continue
             </Button>
           </div>
@@ -155,6 +163,8 @@ export default function GPSActivate() {
           onSuccess={() => { setShowPayment(false); setSuccess(true); }}
         />
       )}
+
+      {showC360SignIn && <C360SignInInterstitial onClose={() => setShowC360SignIn(false)} />}
     </div>
   );
 }

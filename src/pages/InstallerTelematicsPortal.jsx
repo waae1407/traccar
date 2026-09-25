@@ -1,5 +1,6 @@
 import { uploadFile } from "@/utils/uploadFile";
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,9 @@ import CameraBarcodeScanner from "@/components/telematics/CameraBarcodeScanner";
 import InstallerTestingStep from "@/components/telematics/installer/InstallerTestingStep";
 import InstallerHelpChat from "@/components/telematics/installer/InstallerHelpChat";
 import PreferredInstallerJoinBox from "@/components/installers/PreferredInstallerJoinBox";
+import { isCustomDomainHost } from "@/components/host/storefront/CustomDomainGate";
+
+const C360_LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 import {
   ArrowLeft,
   Camera,
@@ -850,9 +854,19 @@ export default function InstallerTelematicsPortal() {
     return <SuccessScreen result={result} form={form} vehicleLookup={vehicleLookup} />;
   }
 
+  const isC360 = isCustomDomainHost();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-slate-50 to-pink-50 pb-28 text-slate-900 sm:p-6">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 xl:px-8">
+        {isC360 && (
+          <div className="flex items-center justify-between py-3 mb-2">
+            <Link to="/gps" className="flex items-center gap-2">
+              <img src={C360_LOGO} alt="Contactless360" className="h-7 object-contain" />
+            </Link>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Installer Portal</span>
+          </div>
+        )}
         <StepProgress currentStep={currentStep} completed={completed} />
         <div className="py-6 pb-32">
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}

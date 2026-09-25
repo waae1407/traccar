@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { MapPin, Shield, Zap, Package, AlertCircle, CheckCircle, RefreshCw, Satellite, Battery, Signal, Power, Settings, Wrench } from 'lucide-react';
 import GPSControlPanel from '@/components/gps/GPSControlPanel';
 import GPSScheduleManager from '@/components/gps/GPSScheduleManager';
@@ -10,6 +11,8 @@ import EmergencyContactsManager from '@/components/gps/EmergencyContactsManager'
 import StartRentingButton from '@/components/gps/StartRentingButton';
 import SubscriptionPastDueBanner from '@/components/gps/SubscriptionPastDueBanner';
 import TrialActivationBanner from '@/components/gps/TrialActivationBanner';
+import C360SignInInterstitial from '@/components/auth/C360SignInInterstitial';
+import { isCustomDomainHost } from '@/components/host/storefront/CustomDomainGate';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 
@@ -23,6 +26,7 @@ export default function CustomerGPS() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showC360SignIn, setShowC360SignIn] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -49,7 +53,8 @@ export default function CustomerGPS() {
         setActiveSubscription(linkedSub);
       }
     } catch (e) {
-      base44.auth.redirectToLogin('/customer/gps');
+      if (isCustomDomainHost()) { setLoading(false); setShowC360SignIn(true); }
+      else base44.auth.redirectToLogin('/customer/gps');
       return;
     }
     setLoading(false);
@@ -92,7 +97,20 @@ export default function CustomerGPS() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <>
+        <div className="min-h-screen bg-background flex items-center justify-center px-6">
+          <div className="max-w-md w-full text-center space-y-6">
+            <img src={LOGO} alt="Contactless360" className="h-10 mx-auto object-contain" />
+            <p className="text-muted-foreground">Sign in to access your GPS dashboard.</p>
+            <Button onClick={() => setShowC360SignIn(true)} className="gradient-primary">Sign In</Button>
+          </div>
+        </div>
+        {showC360SignIn && <C360SignInInterstitial onClose={() => setShowC360SignIn(false)} />}
+      </>
+    );
+  }
 
   const battInfo = getBatteryInfo(activeDevice);
   const gps = freshness(activeDevice);

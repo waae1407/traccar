@@ -8,8 +8,10 @@ import InstallerSearchControls from '@/components/installers/InstallerSearchCont
 import InstallerResultsSummary from '@/components/installers/InstallerResultsSummary';
 import { ChevronDown } from 'lucide-react';
 import { filterAndRankInstallers } from '@/lib/installers/installerLocatorUtils';
+import { isCustomDomainHost } from '@/components/host/storefront/CustomDomainGate';
 
-const LOGO_ICON = 'https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg';
+const URIDE_LOGO = 'https://media.base44.com/images/public/user_68d033161412d5b125c58fda/e0b7fe7d9_94087D67-9034-4A3E-BA7B-C9592E9A9CC8.jpeg';
+const C360_LOGO = 'https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png';
 
 async function geocodeSearch(query) {
   const value = String(query || '').trim();
@@ -68,19 +70,23 @@ export default function Installers() {
     navigator.geolocation?.getCurrentPosition(pos => setCenter({ lat: pos.coords.latitude, lon: pos.coords.longitude }));
   };
 
+  const isC360 = isCustomDomainHost();
+  const logo = isC360 ? C360_LOGO : URIDE_LOGO;
+  const brandName = isC360 ? 'Contactless360' : 'uRide';
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-          <Link to="/" className="flex items-center gap-2 font-black"><img src={LOGO_ICON} alt="uRide" className="h-8 w-8 rounded-xl object-cover" /> uRide</Link>
+          <Link to="/" className="flex items-center gap-2 font-black"><img src={logo} alt={brandName} className={isC360 ? "h-8 object-contain" : "h-8 w-8 rounded-xl object-cover"} /> {brandName}</Link>
           <Link to="/installer/telematics" className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">Installer Portal</Link>
         </div>
       </header>
       <main className="mx-auto max-w-6xl space-y-5 px-5 py-8">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">uRide Installer Network</p>
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">{brandName} Installer Network</p>
           <h1 className="mt-2 text-4xl font-black tracking-tight">Find GPS and vehicle security installers</h1>
-          <p className="mt-2 max-w-2xl text-slate-600">Search for installer leads near you. Verification badges show progress based on successful uRide installation tests.</p>
+          <p className="mt-2 max-w-2xl text-slate-600">Search for installer leads near you. Verification badges show progress based on successful {brandName} installation tests.</p>
         </div>
         <InstallerSearchControls query={query} setQuery={setQuery} radius={radius} setRadius={setRadius} onSearch={handleSearch} onCurrentLocation={useCurrentLocation} loading={loadingSearch} />
         <InstallerResultsSummary installers={visible} />
