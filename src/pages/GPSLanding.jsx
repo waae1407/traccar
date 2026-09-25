@@ -260,6 +260,7 @@ export default function GPSLanding() {
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur border-b border-border">
         <Link to="/"><img src={LOGO} alt="Contactless360" className="h-8 object-contain" /></Link>
         <div className="flex items-center gap-3">
+          <Link to="/installers"><Button size="sm" variant="ghost">Installers</Button></Link>
           <Link to="/gps/checkout"><Button size="sm" className="gradient-primary">Buy Device</Button></Link>
           {user
             ? <AccountMenu role={user.role === "admin" ? "admin" : user.role === "host" ? "host" : "user"} accountPath="/customer/gps" extraItems={[{ label: "My GPS", icon: MapPin, path: "/customer/gps" }]} compact />

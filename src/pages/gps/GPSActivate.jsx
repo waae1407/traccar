@@ -104,6 +104,7 @@ export default function GPSActivate() {
       <nav className="flex items-center justify-between px-6 py-4 border-b border-border">
         <Link to="/gps"><img src={LOGO} alt="Contactless360" className="h-8 object-contain" /></Link>
         <div className="flex items-center gap-3">
+          <Link to="/installers" className="text-sm text-muted-foreground hover:text-white">Installers</Link>
           <Link to="/gps" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-white">
             <ArrowLeft className="w-4 h-4" /> Back
           </Link>
