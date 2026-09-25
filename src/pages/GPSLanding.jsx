@@ -7,6 +7,8 @@ import { base44 } from '@/api/base44Client';
 import { useAuth } from "@/lib/AuthContext";
 import AccountMenu from "@/components/shared/AccountMenu";
 import FleetEligibilityModal from '@/components/gps/FleetEligibilityModal';
+import C360SignInInterstitial from '@/components/auth/C360SignInInterstitial';
+import { isCustomDomainHost } from '@/components/host/storefront/CustomDomainGate';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
@@ -207,6 +209,7 @@ export default function GPSLanding() {
   const [eligibilityData, setEligibilityData] = useState(null);
   const [checking, setChecking] = useState(false);
   const [lastEligibilityReason, setLastEligibilityReason] = useState(null);
+  const [showC360SignIn, setShowC360SignIn] = useState(false);
 
   useEffect(() => {
     base44.entities.GPSProduct.filter({ is_active: true, is_public: true }, 'sort_order', 10)
@@ -260,7 +263,9 @@ export default function GPSLanding() {
           <Link to="/gps/checkout"><Button size="sm" className="gradient-primary">Buy Device</Button></Link>
           {user
             ? <AccountMenu role={user.role === "admin" ? "admin" : user.role === "host" ? "host" : "user"} accountPath="/customer/gps" extraItems={[{ label: "My GPS", icon: MapPin, path: "/customer/gps" }]} compact />
-            : <Link to="/account"><Button variant="ghost" size="sm">Sign In</Button></Link>
+            : isCustomDomainHost()
+              ? <Button variant="ghost" size="sm" onClick={() => setShowC360SignIn(true)}>Sign In</Button>
+              : <Link to="/account"><Button variant="ghost" size="sm">Sign In</Button></Link>
           }
         </div>
       </nav>
@@ -440,6 +445,8 @@ export default function GPSLanding() {
         reason={modalReason}
         eligibilityData={eligibilityData}
       />
+
+      {showC360SignIn && <C360SignInInterstitial onClose={() => setShowC360SignIn(false)} />}
     </div>
   );
 }
