@@ -104,9 +104,9 @@ export default function CustomDomainGate({ children }) {
     );
   }
   // Brand/marketing domain with no storefront record — redirect root to the
-  // installer portal so the platform launches automatically.
+  // GPS landing page so the platform launches automatically.
   if (!record) {
-    if (pathname === "/") return <Navigate to="/installer/telematics" replace />;
+    if (pathname === "/") return <Navigate to="/gps" replace />;
     return children || null;
   }
 
