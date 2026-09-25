@@ -101,15 +101,10 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
         zoomControl={false}
         style={{ height: "100%", width: "100%", background: "#0a0b0e" }}
       >
-        {/* Dark blue-black Carto tiles — most premium dark style available */}
         <TileLayer
-          attribution=""
-          url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
-        />
-        {/* Labels layer on top, styled minimally */}
-        <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
+          attribution='&copy; Esri, HERE, Garmin'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+          className="map-tiles-muted"
         />
         <Marker position={[lat, lng]} icon={createVehicleIcon()} />
       </MapContainer>
