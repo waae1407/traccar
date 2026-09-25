@@ -31,10 +31,26 @@ export default function CustomDomainGate({ children }) {
     try { return localStorage.getItem(cachedSlugKey); } catch (e) { return null; }
   })();
 
+  // Public non-storefront pages (installer portal, GPS pages, marketplace, etc.)
+  // render directly on any domain — they are not host storefronts and must not
+  // be blocked by the domain resolver or trigger any API calls.
+  const PUBLIC_BYPASS_PREFIXES = [
+    "/installer/telematics",
+    "/installers",
+    "/gps",
+    "/privacy",
+    "/terms",
+    "/become-a-host",
+    "/operator-questionnaire",
+    "/marketplace",
+    "/swap",
+  ];
+  const isPublicPath = PUBLIC_BYPASS_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
+
   const { data: records = [] } = useQuery({
     queryKey: ["custom-domain-resolver", hostname],
     queryFn: () => base44.entities.HostCustomDomain.filter({ normalized_domain: hostname }),
-    enabled: isCustomDomainHost(),
+    enabled: isCustomDomainHost() && !isPublicPath,
     retry: false,
   });
 
@@ -56,22 +72,8 @@ export default function CustomDomainGate({ children }) {
     return null;
   }
 
-  // Public non-storefront pages (installer portal, GPS pages, marketplace, etc.)
-  // render directly on any domain — they are not host storefronts and must not
-  // be blocked by the domain resolver. This fixes the permanent spinner on
-  // brand domains like c360.uridehub.com/installer/telematics.
-  const PUBLIC_BYPASS_PREFIXES = [
-    "/installer/telematics",
-    "/installers",
-    "/gps",
-    "/privacy",
-    "/terms",
-    "/become-a-host",
-    "/operator-questionnaire",
-    "/marketplace",
-    "/swap",
-  ];
-  if (PUBLIC_BYPASS_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"))) {
+  // Public non-storefront pages bypass the storefront gate entirely.
+  if (isPublicPath) {
     return children || null;
   }
 
