@@ -372,11 +372,11 @@ export default function MyVehicle() {
     refetchInterval: 300000,
   });
 
-  const remainingTime = booking?.end_date
-    ? intervalToDuration({ start: new Date(), end: new Date(`${booking.end_date}T23:59:59`) })
+  const remainingDays = booking?.end_date
+    ? Math.max(0, Math.ceil((new Date(`${booking.end_date}T23:59:59`).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
-  const remainingStr = remainingTime
-    ? `${remainingTime.months ? remainingTime.months + 'mo ' : ''}${remainingTime.days || 0}d ${remainingTime.hours || 0}h ${remainingTime.minutes || 0}m`
+  const remainingStr = remainingDays != null
+    ? `${remainingDays}d`
     : "N/A";
 
   const handleCommand = async (type) => {
