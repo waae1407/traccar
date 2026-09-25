@@ -71,6 +71,8 @@ function createInitialForm() {
     baseline_odometer: "",
     installer_name: "",
     installer_signature_name: "",
+    customer_email: "",
+    customer_phone: "",
     installation_notes: "",
     install_photos: []
   };
@@ -410,6 +412,15 @@ function PhotosStep({ photoSlots, additionalPhotos, uploadingSlot, uploadRequire
             <Input className="h-14 rounded-3xl border-slate-200 bg-white px-5 text-slate-950 placeholder:text-slate-400" placeholder="Confirm installer signature" value={form.installer_signature_name} onChange={e => update("installer_signature_name", e.target.value)} />
           </div>
           <Textarea className="rounded-3xl border-slate-200 bg-white px-5 py-4 text-slate-950 placeholder:text-slate-400" placeholder="Optional installer notes" value={form.installation_notes} onChange={e => update("installation_notes", e.target.value)} />
+          <div className="mt-2 border-t border-slate-100 pt-4">
+            <FieldLabel>Customer Email (Optional)</FieldLabel>
+            <Input type="email" className="h-14 rounded-3xl border-slate-200 bg-white px-5 text-slate-950 placeholder:text-slate-400" placeholder="customer@email.com" value={form.customer_email} onChange={e => update("customer_email", e.target.value)} />
+            <p className="mt-1.5 text-xs font-medium text-slate-400">We'll send the customer a link to activate their subscription after install.</p>
+          </div>
+          <div className="mt-3">
+            <FieldLabel>Customer Phone (Optional)</FieldLabel>
+            <Input type="tel" className="h-14 rounded-3xl border-slate-200 bg-white px-5 text-slate-950 placeholder:text-slate-400" placeholder="(555) 123-4567" value={form.customer_phone} onChange={e => update("customer_phone", e.target.value)} />
+          </div>
         </div>
       </LuxuryCard>
     </div>

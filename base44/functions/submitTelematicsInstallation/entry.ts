@@ -169,6 +169,8 @@ Deno.serve(async (req) => {
     const deviceIdentifier = getDeviceIdentifier(body);
     const vin = normalizeVin(body.vin);
     const now = new Date().toISOString();
+    const customerEmail = String(body.customer_email || '').trim().toLowerCase();
+    const customerPhone = String(body.customer_phone || '').replace(/[^0-9+]/g, '');
 
     if (!deviceIdentifier) return Response.json({ error: 'Physical device barcode is required' }, { status: 400 });
     if (!vin || vin.length !== 17) return Response.json({ error: 'A valid 17-character VIN is required' }, { status: 400 });
@@ -345,7 +347,7 @@ Deno.serve(async (req) => {
           const isPersonal = device.device_mode === 'personal' || (!host && !vehicle);
           const trialOwnerUserId = isPersonal ? (device.owner_user_id || '') : (host?.user_id || '');
           const trialHostId = isPersonal ? '' : (host?.id || '');
-          const trialEmail = isPersonal ? (device.owner_email || '') : (host?.email || '');
+          const trialEmail = isPersonal ? (device.owner_email || customerEmail || '') : (host?.email || customerEmail || '');
           const trialName = isPersonal ? '' : (host?.business_name || host?.full_name || '');
 
           if (!trialEmail) {
@@ -368,6 +370,7 @@ Deno.serve(async (req) => {
             await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
               subscription_status: 'trialing',
               controls_enabled: true,
+              ...(isPersonal && customerEmail && !device.owner_email ? { owner_email: customerEmail, device_mode: 'personal' } : {}),
             });
             await safeSendEmail(base44, {
               to: trialEmail,
