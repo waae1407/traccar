@@ -829,27 +829,10 @@ export default function MyVehicle() {
               <div>
                 <p style={{ fontSize: 26, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.4px", maxWidth: 280, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  {/* Row 1 */}
                   <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                      <Satellite size={13} color={isDemo || device?.online_status === "online" ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
-                      {isDemo || device?.online_status === "online" ? "Online" : "Offline"}
-                    </span>
                     <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
                       <Car size={13} color={isDemo || isBookingActive || (!pickupInspectionComplete && booking) ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
                       {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
-                    </span>
-                  </div>
-
-                  {/* Row 2 */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
-                      {isLocked ? (
-                        <Lock size={13} color="#30D158" strokeWidth={2.5} />
-                      ) : (
-                        <Unlock size={13} color="#FF453A" strokeWidth={2.5} />
-                      )}
-                      {isLocked ? "Locked" : "Unlocked"}
                     </span>
                     {(() => {
                       const isSmokingAllowed = vehicle?.smoking_allowed === true;
