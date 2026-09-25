@@ -954,11 +954,9 @@ export default function MyVehicle() {
             <div style={{ height: 240, position: "relative" }}>
               {booking ? (
                 <>
-                  <div style={{ position: "absolute", inset: 0, filter: "saturate(0.7) brightness(0.55) contrast(1.08)" }}>
-                    <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
-                  </div>
+                  <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
                   {/* Dark overlay to tone down light map tiles so they blend with the dark theme */}
-                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(12,13,16,0.5)" }} />
+                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(12,13,16,0.45)" }} />
                   {/* Edge gradient fades so the map bleeds into the dark card */}
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 60, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(24,25,30,0.98) 0%, rgba(24,25,30,0.4) 50%, rgba(24,25,30,0) 100%)" }} />
                   <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 44, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(19,20,24,0.95) 0%, rgba(19,20,24,0.3) 60%, rgba(19,20,24,0) 100%)" }} />
