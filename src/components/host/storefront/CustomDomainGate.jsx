@@ -56,6 +56,25 @@ export default function CustomDomainGate({ children }) {
     return null;
   }
 
+  // Public non-storefront pages (installer portal, GPS pages, marketplace, etc.)
+  // render directly on any domain — they are not host storefronts and must not
+  // be blocked by the domain resolver. This fixes the permanent spinner on
+  // brand domains like c360.uridehub.com/installer/telematics.
+  const PUBLIC_BYPASS_PREFIXES = [
+    "/installer/telematics",
+    "/installers",
+    "/gps",
+    "/privacy",
+    "/terms",
+    "/become-a-host",
+    "/operator-questionnaire",
+    "/marketplace",
+    "/swap",
+  ];
+  if (PUBLIC_BYPASS_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"))) {
+    return children || null;
+  }
+
   // If the path is already at a storefront route (/host/:slug), render children
   // immediately — don't block on the domain resolver query.
   if (pathname.startsWith("/host/")) return children || null;
