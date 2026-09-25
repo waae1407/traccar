@@ -47,7 +47,7 @@ export default function CustomDomainGate({ children }) {
   ];
   const isPublicPath = PUBLIC_BYPASS_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
 
-  const { data: records = [] } = useQuery({
+  const { data: records = [], isLoading: isResolving } = useQuery({
     queryKey: ["custom-domain-resolver", hostname],
     queryFn: () => base44.entities.HostCustomDomain.filter({ normalized_domain: hostname }),
     enabled: isCustomDomainHost() && !isPublicPath,
@@ -92,14 +92,19 @@ export default function CustomDomainGate({ children }) {
   }
 
   // No cache — need the resolver query. Show a minimal branded loading page
-  // (matching the storefront bg) while it fetches.
+  // (matching the storefront bg) while it fetches. Once the query completes
+  // with no storefront record, this is a brand/marketing domain (not a host
+  // storefront) — render the public page directly instead of spinning forever.
   const record = records[0];
-  if (!record) {
+  if (!record && isResolving) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#f8f8fa" }}>
         <div className="w-8 h-8 border-4 rounded-full animate-spin" style={{ borderColor: "#e5e7eb", borderTopColor: "#e91e8c" }} />
       </div>
     );
+  }
+  if (!record) {
+    return children || null;
   }
 
   if (record?.active && record?.verification_status === "verified" && record?.business_slug) {
