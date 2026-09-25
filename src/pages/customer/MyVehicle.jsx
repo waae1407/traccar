@@ -955,6 +955,9 @@ export default function MyVehicle() {
               {booking ? (
                 <>
                   <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+                  {/* Gradient fade so the map bleeds into the dark card */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 48, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(24,25,30,0.92) 0%, rgba(24,25,30,0) 100%)" }} />
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 32, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(19,20,24,0.85) 0%, rgba(19,20,24,0) 100%)" }} />
                   <button 
                     onClick={() => {
                       if (device?.last_latitude && device?.last_longitude) {
