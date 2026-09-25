@@ -103,7 +103,10 @@ export default function CustomDomainGate({ children }) {
       </div>
     );
   }
+  // Brand/marketing domain with no storefront record — redirect root to the
+  // installer portal so the platform launches automatically.
   if (!record) {
+    if (pathname === "/") return <Navigate to="/installer/telematics" replace />;
     return children || null;
   }
 
