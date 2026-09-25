@@ -829,8 +829,8 @@ export default function MyVehicle() {
               <div>
                 <p style={{ fontSize: 26, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.4px", maxWidth: 280, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                    <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 5 }}>
                       <Car size={13} color={isDemo || isBookingActive || (!pickupInspectionComplete && booking) ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
                       {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
                     </span>
@@ -870,7 +870,7 @@ export default function MyVehicle() {
                       }
 
                       return (
-                        <span style={{ color: "rgba(255,255,255,0.76)", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", gap: 0 }}>
+                        <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 0 }}>
                           {icon}
                           {label} <span className={pulse ? "text-monitor-pulse" : ""} style={{ color: statusColor, marginLeft: 4 }}>{statusText}</span>
                         </span>
@@ -954,9 +954,11 @@ export default function MyVehicle() {
             <div style={{ height: 200, position: "relative" }}>
               {booking ? (
                 <>
-                  <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+                  <div style={{ position: "absolute", inset: 0, filter: "saturate(0.7) brightness(0.55) contrast(1.08)" }}>
+                    <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+                  </div>
                   {/* Dark overlay to tone down light map tiles so they blend with the dark theme */}
-                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(12,13,16,0.45)" }} />
+                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(12,13,16,0.5)" }} />
                   {/* Edge gradient fades so the map bleeds into the dark card */}
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 60, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(24,25,30,0.98) 0%, rgba(24,25,30,0.4) 50%, rgba(24,25,30,0) 100%)" }} />
                   <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 44, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(19,20,24,0.95) 0%, rgba(19,20,24,0.3) 60%, rgba(19,20,24,0) 100%)" }} />
@@ -1029,8 +1031,8 @@ export default function MyVehicle() {
                 </svg>
                 <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Remaining</p>
               </div>
-              <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{remainingStr}</p>
-              <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 400 }}>remaining</p>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F7", letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{remainingStr}</p>
+              <p style={{ fontSize: 10, color: "#6B6B70", fontWeight: 400, marginTop: 1 }}>until return</p>
             </div>
 
             <div style={{ width: 1, height: 32, background: "rgba(255,255,255,0.08)", margin: "0 10px" }} />
@@ -1101,7 +1103,7 @@ export default function MyVehicle() {
                 }}
               >
                 <div className="btn-loading-content">
-                  <Lock size={26} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={1.5} style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(48,209,88,0.15))" : "drop-shadow(0 2px 8px rgba(255,69,58,0.15))" }} />
+                  <Lock size={28} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 10px rgba(255,69,58,0.2))" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
                     <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
@@ -1130,7 +1132,7 @@ export default function MyVehicle() {
                 }}
               >
                 <div className="btn-loading-content">
-                  <Unlock size={26} color="#FFFFFF" strokeWidth={1.5} style={{ filter: "drop-shadow(0 2px 8px rgba(255,255,255,0.15))" }} />
+                  <Unlock size={28} color="#FFFFFF" strokeWidth={2.2} style={{ filter: "drop-shadow(0 2px 10px rgba(255,255,255,0.2))" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
                     <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
@@ -1167,7 +1169,7 @@ export default function MyVehicle() {
                 </div>
               </button>
             </div>
-            <p style={{ fontSize: 11, color: "#71717A", textAlign: "center", marginTop: 8 }}>
+            <p style={{ fontSize: 11.5, color: "#A1A1AA", textAlign: "center", marginTop: 10, fontWeight: 450 }}>
               Lock and unlock available after pickup
             </p>
           </div>
