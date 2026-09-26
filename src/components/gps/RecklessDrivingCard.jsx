@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { ShieldCheck, ShieldAlert, X, Activity, Gauge, Zap, RotateCcw, Car, TrendingUp } from "lucide-react";
+import { ShieldCheck, ShieldAlert, X, Activity, Gauge, Zap, RotateCcw, Car, TrendingUp, MapPin, ChevronDown, Clock } from "lucide-react";
 
 /**
  * RecklessDrivingCard — Pass/Fail monitoring card for the customer remote control screen.
@@ -107,9 +107,89 @@ export default function RecklessDrivingCard({ device }) {
   );
 }
 
+// ── Evidence Row ───────────────────────────────────────────────
+function formatEvidenceTime(ts) {
+  if (!ts) return "--";
+  try {
+    const d = new Date(ts);
+    return d.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return ts;
+  }
+}
+
+function EvidenceRow({ detail, index }) {
+  const [showMap, setShowMap] = useState(false);
+  const lat = detail.lat || detail.latitude;
+  const lon = detail.lon || detail.longitude;
+  const hasCoords = lat != null && lon != null && lat !== 0 && lon !== 0;
+
+  // Build a short evidence summary from available fields
+  const summaryParts = [];
+  if (detail.max_speed != null) summaryParts.push(`${detail.max_speed} mph`);
+  if (detail.duration_s != null) summaryParts.push(`${detail.duration_s}s`);
+  if (detail.from_speed != null && detail.to_speed != null) summaryParts.push(`${detail.from_speed}→${detail.to_speed} mph`);
+  if (detail.estimated_0_to_60_s != null) summaryParts.push(`0-60 in ${detail.estimated_0_to_60_s}s`);
+  if (detail.heading_delta_deg != null) summaryParts.push(`${detail.heading_delta_deg}° turn`);
+  if (detail.speed_mph != null) summaryParts.push(`${detail.speed_mph} mph`);
+  if (detail.cycle != null) summaryParts.push(`Cycle ${detail.cycle}`);
+  if (detail.burst != null) summaryParts.push(`Burst ${detail.burst}`);
+
+  const timeStr = formatEvidenceTime(detail.timestamp || detail.start);
+
+  return (
+    <div className="ml-12 rounded-lg border border-red-500/15 bg-red-950/20 overflow-hidden">
+      <button
+        onClick={() => hasCoords && setShowMap(!showMap)}
+        className="w-full flex items-center gap-2 p-2 text-left"
+        style={{ cursor: hasCoords ? "pointer" : "default" }}
+      >
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[10px] font-bold text-red-400/60">#{index + 1}</span>
+          <Clock size={11} color="#FF453A" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] text-white/80 font-medium">{timeStr}</p>
+          {summaryParts.length > 0 && (
+            <p className="text-[10px] text-white/40">{summaryParts.join(" · ")}</p>
+          )}
+        </div>
+        {hasCoords && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <MapPin size={11} color="#FF453A" />
+            <span className="text-[9px] text-white/40 font-mono">
+              {lat.toFixed(4)}, {lon.toFixed(4)}
+            </span>
+          </div>
+        )}
+      </button>
+      {showMap && hasCoords && (
+        <div className="border-t border-red-500/15">
+          <a
+            href={`https://www.google.com/maps?q=${lat},${lon}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            <MapPin size={12} />
+            View Location on Map
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Breakdown Sheet ─────────────────────────────────────────────
 function RecklessDrivingSheet({ data, isLoading, onClose }) {
   const patterns = data?.patterns || {};
+  const [expandedPattern, setExpandedPattern] = useState(null);
 
   const PATTERN_META = [
     { key: "sustained_high_speed", icon: Gauge, label: "Sustained High Speed" },
@@ -172,7 +252,7 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
               </p>
               <p className="text-xs text-white/50">
                 {data?.status === "fail"
-                  ? "Reckless driving patterns were detected in your recent trip"
+                  ? "Tap each pattern below to view evidence with timestamps and locations"
                   : "No reckless driving patterns detected — you're driving safely"}
               </p>
             </div>
@@ -186,40 +266,80 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
           </p>
           <div className="space-y-2">
             {PATTERN_META.map((meta) => {
-              const pattern = patterns[meta.key] || { detected: false };
+              const pattern = patterns[meta.key] || { detected: false, details: [] };
               const Icon = meta.icon;
               const passed = !pattern.detected;
+              const details = pattern.details || [];
+              const isExpanded = expandedPattern === meta.key;
               return (
                 <div
                   key={meta.key}
-                  className="flex items-start gap-3 rounded-xl border p-3"
+                  className="rounded-xl border overflow-hidden"
                   style={{
                     background: passed ? "rgba(48,209,88,0.04)" : "rgba(255,69,58,0.06)",
                     borderColor: passed ? "rgba(48,209,88,0.15)" : "rgba(255,69,58,0.2)",
                   }}
                 >
-                  <div
-                    className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{
-                      background: passed ? "rgba(48,209,88,0.1)" : "rgba(255,69,58,0.1)",
-                    }}
+                  <button
+                    onClick={() => !passed && setExpandedPattern(isExpanded ? null : meta.key)}
+                    className="w-full flex items-start gap-3 p-3"
+                    style={{ cursor: passed ? "default" : "pointer" }}
                   >
-                    <Icon size={18} color={passed ? "#30D158" : "#FF453A"} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-bold text-white">{meta.label}</p>
-                      <span
-                        className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
-                        style={{
-                          background: passed ? "rgba(48,209,88,0.15)" : "rgba(255,69,58,0.15)",
-                          color: passed ? "#30D158" : "#FF453A",
-                        }}
-                      >
-                        {passed ? "PASS" : "FAIL"}
-                      </span>
+                    <div
+                      className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: passed ? "rgba(48,209,88,0.1)" : "rgba(255,69,58,0.1)",
+                      }}
+                    >
+                      <Icon size={18} color={passed ? "#30D158" : "#FF453A"} />
                     </div>
-                  </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-white">{meta.label}</p>
+                        <div className="flex items-center gap-1.5">
+                          {!passed && details.length > 0 && (
+                            <span
+                              className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                              style={{ background: "rgba(255,69,58,0.2)", color: "#FF453A" }}
+                            >
+                              {details.length}x
+                            </span>
+                          )}
+                          <span
+                            className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
+                            style={{
+                              background: passed ? "rgba(48,209,88,0.15)" : "rgba(255,69,58,0.15)",
+                              color: passed ? "#30D158" : "#FF453A",
+                            }}
+                          >
+                            {passed ? "PASS" : "FAIL"}
+                          </span>
+                          {!passed && (
+                            <ChevronDown
+                              size={14}
+                              color="#FF453A"
+                              style={{
+                                transform: isExpanded ? "rotate(180deg)" : "none",
+                                transition: "transform 0.2s",
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Evidence breakdown for failed patterns */}
+                  {!passed && isExpanded && details.length > 0 && (
+                    <div className="px-3 pb-3 space-y-1.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-red-400/60 mb-1 pl-12">
+                        Evidence ({details.length} occurrence{details.length > 1 ? "s" : ""})
+                      </p>
+                      {details.map((d, i) => (
+                        <EvidenceRow key={i} detail={d} index={i} />
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

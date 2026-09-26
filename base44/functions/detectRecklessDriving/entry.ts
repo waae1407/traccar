@@ -53,7 +53,9 @@ function analyzeTrip(positions) {
           start: new Date(sustainedStart).toISOString(),
           end: sorted[i].timestamp,
           max_speed: Math.max(sustainedStartSpeed, speed),
-          duration_s: Math.round(duration)
+          duration_s: Math.round(duration),
+          lat: Number(sorted[i].latitude || 0),
+          lon: Number(sorted[i].longitude || 0)
         });
         break;
       }
@@ -79,7 +81,9 @@ function analyzeTrip(positions) {
           from_speed: Math.round(s1),
           to_speed: Math.round(s2),
           estimated_0_to_60_s: Math.round(estimated0to60 * 10) / 10,
-          timestamp: sorted[i].timestamp
+          timestamp: sorted[i].timestamp,
+          lat: Number(sorted[i].latitude || 0),
+          lon: Number(sorted[i].longitude || 0)
         });
         break;
       }
@@ -99,7 +103,9 @@ function analyzeTrip(positions) {
       patterns.hard_cornering_chain.details.push({
         timestamp: sorted[i].timestamp,
         heading_delta_deg: Math.round(delta),
-        speed_mph: Math.round(speed)
+        speed_mph: Math.round(speed),
+        lat: Number(sorted[i].latitude || 0),
+        lon: Number(sorted[i].longitude || 0)
       });
     }
   }
@@ -128,7 +134,9 @@ function analyzeTrip(positions) {
       state = 'stopped';
       patterns.stop_and_dash_cycle.details.push({
         cycle: cycles,
-        timestamp: sorted[i + 1].timestamp
+        timestamp: sorted[i + 1].timestamp,
+        lat: Number(sorted[i + 1].latitude || 0),
+        lon: Number(sorted[i + 1].longitude || 0)
       });
     }
   }
@@ -139,20 +147,49 @@ function analyzeTrip(positions) {
   // ── Pattern 5: Sustained speeding bursts — 2+ separate 80+ mph events ──
   let speedingBursts = 0;
   let inBurst = false;
+  let burstStart = null;
+  let burstStartSpeed = 0;
+  let burstMaxSpeed = 0;
   for (const pos of sorted) {
     const speed = Number(pos.speed || 0);
     if (speed > SUSTAINED_SPEEDING_MPH) {
       if (!inBurst) {
         speedingBursts++;
         inBurst = true;
+        burstStart = pos.timestamp;
+        burstStartSpeed = speed;
+        burstMaxSpeed = speed;
+      } else {
+        burstMaxSpeed = Math.max(burstMaxSpeed, speed);
       }
     } else {
+      if (inBurst && burstStart) {
+        patterns.sustained_speeding_bursts.details.push({
+          burst: speedingBursts,
+          start: burstStart,
+          end: pos.timestamp,
+          max_speed: Math.round(burstMaxSpeed),
+          lat: Number(pos.latitude || 0),
+          lon: Number(pos.longitude || 0)
+        });
+      }
       inBurst = false;
+      burstStart = null;
+      burstMaxSpeed = 0;
     }
+  }
+  if (inBurst && burstStart) {
+    patterns.sustained_speeding_bursts.details.push({
+      burst: speedingBursts,
+      start: burstStart,
+      end: sorted[sorted.length - 1].timestamp,
+      max_speed: Math.round(burstMaxSpeed),
+      lat: Number(sorted[sorted.length - 1].latitude || 0),
+      lon: Number(sorted[sorted.length - 1].longitude || 0)
+    });
   }
   if (speedingBursts >= SUSTAINED_SPEEDING_MIN_BURSTS) {
     patterns.sustained_speeding_bursts.detected = true;
-    patterns.sustained_speeding_bursts.details = [{ burst_count: speedingBursts }];
   }
 
   return patterns;
