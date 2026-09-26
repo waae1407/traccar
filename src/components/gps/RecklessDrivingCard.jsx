@@ -33,7 +33,7 @@ export default function RecklessDrivingCard({ device }) {
       {/* ── Pass / Fail Card ── */}
       <button
         onClick={() => setShowBreakdown(true)}
-        className="w-full flex items-center justify-between rounded-2xl border p-4 transition-all active:scale-[0.98] control-tap"
+        className="monitoring-ring w-full flex items-center justify-between rounded-2xl border p-4 transition-all active:scale-[0.98] control-tap"
         style={{
           background: isFail
             ? "linear-gradient(135deg, rgba(255,69,58,0.12), rgba(183,28,28,0.08))"
@@ -42,6 +42,9 @@ export default function RecklessDrivingCard({ device }) {
           boxShadow: isFail
             ? "0 0 20px rgba(255,69,58,0.15)"
             : "0 0 20px rgba(48,209,88,0.12)",
+          "--ring-color": isFail
+            ? "rgba(255,69,58,0.85)"
+            : "rgba(48,209,88,0.75)",
         }}
       >
         <div className="flex items-center gap-3">
@@ -109,11 +112,11 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
   const patterns = data?.patterns || {};
 
   const PATTERN_META = [
-    { key: "sustained_high_speed", icon: Gauge, label: "Sustained High Speed", desc: "Speed > 90 mph for 30+ seconds" },
-    { key: "rapid_accel_burst", icon: Zap, label: "Rapid Acceleration Burst", desc: "0→60 mph in under 8 seconds" },
-    { key: "hard_cornering_chain", icon: RotateCcw, label: "Hard Cornering Chain", desc: "3+ sharp turns at 45+ mph" },
-    { key: "stop_and_dash_cycle", icon: Car, label: "Stop-and-Dash Cycle", desc: "Repeated hard accel + brake from stops" },
-    { key: "sustained_speeding_bursts", icon: TrendingUp, label: "Sustained Speeding Bursts", desc: "Multiple 80+ mph events in one trip" },
+    { key: "sustained_high_speed", icon: Gauge, label: "Sustained High Speed" },
+    { key: "rapid_accel_burst", icon: Zap, label: "Rapid Acceleration" },
+    { key: "hard_cornering_chain", icon: RotateCcw, label: "Hard Cornering" },
+    { key: "stop_and_dash_cycle", icon: Car, label: "Stop-and-Dash" },
+    { key: "sustained_speeding_bursts", icon: TrendingUp, label: "Sustained Speeding" },
   ];
 
   return (
@@ -216,12 +219,6 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
                         {passed ? "PASS" : "FAIL"}
                       </span>
                     </div>
-                    <p className="text-xs text-white/40 mt-0.5">{meta.desc}</p>
-                    {pattern.details && pattern.details.length > 0 && (
-                      <p className="text-[10px] text-white/30 mt-1">
-                        {pattern.details.length} occurrence{pattern.details.length > 1 ? "s" : ""} detected
-                      </p>
-                    )}
                   </div>
                 </div>
               );
@@ -232,8 +229,7 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
         {/* Footer note */}
         <div className="px-5 py-4">
           <p className="text-[11px] text-white/30 text-center leading-relaxed">
-            Monitoring analyzes GPS trip data in real time. Only sustained reckless patterns are flagged —
-            normal driving will always show PASS.
+            Monitoring is active during every trip. Normal driving always shows PASS.
           </p>
         </div>
       </div>
