@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Lock, Unlock, MapPin, Power, RotateCcw, Volume2, Siren, ShieldCheck, ShieldAlert, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import RecklessDrivingCard from "./RecklessDrivingCard";
 
 /**
  * GPSControlPanel — Full 7-button remote control for GPS-only personal vehicles.
@@ -177,6 +178,9 @@ export default function GPSControlPanel({ device, subscription, onRefresh }) {
           }}
         />
       </div>
+
+      {/* ── Reckless Driving Monitor (Pass/Fail) ── */}
+      <RecklessDrivingCard device={device} />
 
       {/* ── Controls Disabled Overlay ── */}
       {!controlsEnabled && (

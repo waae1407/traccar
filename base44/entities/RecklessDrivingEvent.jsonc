@@ -1,0 +1,71 @@
+{
+  "name": "RecklessDrivingEvent",
+  "type": "object",
+  "properties": {
+    "device_id": {
+      "type": "string",
+      "description": "TelematicsDevice this event was detected on"
+    },
+    "vehicle_id": {
+      "type": "string"
+    },
+    "host_id": {
+      "type": "string"
+    },
+    "customer_user_id": {
+      "type": "string",
+      "description": "Personal-mode owner or rental customer"
+    },
+    "booking_id": {
+      "type": "string",
+      "description": "Active booking if rental mode"
+    },
+    "trip_start": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "trip_end": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "patterns_detected": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "sustained_high_speed",
+          "rapid_accel_burst",
+          "hard_cornering_chain",
+          "stop_and_dash_cycle",
+          "sustained_speeding_bursts"
+        ]
+      }
+    },
+    "pattern_details": {
+      "type": "object",
+      "description": "Per-pattern detection details and evidence"
+    },
+    "is_reckless": {
+      "type": "boolean",
+      "default": false
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "none",
+        "warning",
+        "critical"
+      ],
+      "default": "none"
+    },
+    "max_speed_mph": {
+      "type": "number"
+    },
+    "duration_minutes": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "device_id"
+  ]
+}
