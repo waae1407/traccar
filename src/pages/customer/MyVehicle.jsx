@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X, AlertTriangle, Satellite, Banknote } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
+import SOSButton from "@/components/customer/sos/SOSButton";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -1324,6 +1325,9 @@ export default function MyVehicle() {
             </div>
           </div>
         )}
+
+        {/* ── SOS FLOATING BUTTON ── */}
+        <SOSButton booking={booking} device={device} />
 
         {/* ── BOTTOM NAVIGATION ── */}
         <div style={{
