@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Siren } from "lucide-react";
 import SOSSetupSheet from "./SOSSetupSheet";
 import SOSConfirmSheet from "./SOSConfirmSheet";
 
@@ -47,15 +46,15 @@ export default function SOSButton({ booking, device }) {
           bottom: 84,
           right: 20,
           zIndex: 60,
-          width: 56,
-          height: 56,
-          borderRadius: "50%",
+          height: 52,
+          padding: "0 20px 0 16px",
+          borderRadius: 26,
           background: "linear-gradient(135deg, #FF453A, #E03830)",
-          border: "2px solid rgba(255,255,255,0.15)",
-          boxShadow: "0 8px 24px rgba(255,69,58,0.4), 0 0 20px rgba(255,69,58,0.2)",
+          border: "2px solid rgba(255,255,255,0.2)",
+          boxShadow: "0 8px 24px rgba(255,69,58,0.45), 0 0 20px rgba(255,69,58,0.25)",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
+          gap: 8,
           cursor: "pointer",
           transition: "all 0.2s ease",
           animation: "pulse-glow 2.5s ease-in-out infinite",
@@ -63,7 +62,8 @@ export default function SOSButton({ booking, device }) {
         className="control-tap"
         aria-label="Emergency SOS"
       >
-        <Siren size={26} color="#FFF" strokeWidth={2.5} style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.3))" }} />
+        <span style={{ fontSize: 22, lineHeight: 1 }}>🆘</span>
+        <span style={{ fontSize: 16, fontWeight: 800, color: "#FFF", letterSpacing: "0.05em", textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>SOS</span>
       </button>
 
       {sheet === "setup" && (
