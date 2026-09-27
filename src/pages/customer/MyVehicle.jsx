@@ -1252,13 +1252,9 @@ export default function MyVehicle() {
             }}>
               {[
                 { label: "Connection", sub: device?.online_status === "offline" ? "Offline" : "Online", icon: Activity },
-                { label: "Ignition", sub: device?.ignition_status === "on" ? "On" : "Off", icon: Power },
-                { label: "Main Batt", sub: device?.power_voltage ? `${device.power_voltage}V` : "12.6V", icon: Battery },
-                { label: "Int. Batt", sub: device?.battery_voltage ? `${device.battery_voltage}V` : "4.1V", icon: Zap },
                 { label: "GPS Status", sub: gps.status === "online" ? "Active" : "Lost", icon: MapPin },
-                { label: "Speed", sub: device?.speed ? `${Math.round(device.speed)} mph` : "0 mph", icon: Gauge },
-                { label: "Cell Signal", sub: device?.signal_strength ? `${device.signal_strength}%` : "Strong", icon: Signal },
-                { label: "ACC Volt", sub: device?.voltage ? `${device.voltage}V` : "0.0V", icon: Activity },
+                { label: "Main Batt", sub: device?.power_voltage ? `${device.power_voltage}V` : "12.6V", icon: Battery },
+                { label: "Ignition", sub: device?.ignition_status === "on" ? "On" : "Off", icon: Power },
               ].map((item) => {
                 const Icon = item.icon || CheckCircle;
                 return (
