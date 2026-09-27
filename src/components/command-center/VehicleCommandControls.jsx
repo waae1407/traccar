@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, BellRing, CheckCircle2, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap } from "lucide-react";
+import { AlertTriangle, BellRing, CheckCircle2, Loader2, Lock, MapPin, RotateCcw, ShieldAlert, Unlock, Volume2, Zap, Cpu } from "lucide-react";
 import TelematicsService from "@/lib/telematics/TelematicsService";
 import { getCommandReadiness } from "@/lib/telematics/commandReadiness";
 import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmControls";
@@ -90,6 +90,21 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
   return (
     <div className="space-y-4">
+      {/* Device confirmation banner — shows the physical device that will
+          receive every command, so operators can verify before clicking. */}
+      {device?.id && (
+        <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-secondary/30 px-4 py-3">
+          <Cpu className="h-4 w-4 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-foreground">
+              Commands will be sent to device <span className="font-mono text-primary">{device.unique_id || device.id}</span>
+            </p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {device.traccar_device_id ? `Traccar ID: ${device.traccar_device_id}` : "No Traccar link"} · {device.online_status || "unknown status"}
+            </p>
+          </div>
+        </div>
+      )}
       {device?.id && device?.traccar_device_id && (
         <Button
           variant="outline"

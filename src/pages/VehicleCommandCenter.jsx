@@ -71,8 +71,17 @@ export default function VehicleCommandCenter({ mode = "admin" }) {
     if (initialVehicleId && !selectedVehicleId) setSelectedVehicleId(initialVehicleId);
   }, [initialVehicleId, selectedVehicleId]);
 
-  const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) || vehicles[0];
-  const selectedDevice = devices.find((device) => device.vehicle_id === selectedVehicle?.id || device.id === selectedVehicle?.telematics_device_id);
+  // Only fall back to vehicles[0] when no vehicle has been explicitly selected yet.
+  // Once a selection exists, a refetch gap must NOT silently switch vehicles —
+  // that's the root cause of commands landing on the wrong physical device.
+  const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) || (!selectedVehicleId ? vehicles[0] : undefined);
+
+  // Match device by vehicle_id first (authoritative link). Only fall back to
+  // telematics_device_id if no vehicle_id match exists, and never match on
+  // empty/null vehicle_id values which would cross-link to unassigned devices.
+  const selectedDevice = selectedVehicle
+    ? (devices.find((d) => d.vehicle_id === selectedVehicle.id) || devices.find((d) => d.id === selectedVehicle.telematics_device_id))
+    : undefined;
   const selectedBooking = isCustomer ? customerBooking : bookings.find((booking) => booking.vehicle_id === selectedVehicle?.id && ACTIVE_BOOKINGS.includes(booking.booking_status));
   const selectedProvider = mode === "customer" ? null : providers.find((provider) => provider.provider_key === selectedDevice?.provider_key);
   const hostOwnsVehicle = mode === "host" && !!host?.id && selectedVehicle?.host_id === host.id;
