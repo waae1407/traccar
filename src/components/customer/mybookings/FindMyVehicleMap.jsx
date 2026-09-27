@@ -113,9 +113,13 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
         style={{ height: "100%", width: "100%", background: "#0a0b0e" }}
       >
         <TileLayer
-          attribution='&copy; Esri, HERE, Garmin'
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-          className="map-tiles-muted"
+          attribution='&copy; Esri'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+          className="map-tiles-dark"
+        />
+        <TileLayer
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+          className="map-tiles-dark"
         />
         <Marker position={[lat, lng]} icon={createVehicleIcon()} />
         <MapRecenter lat={lat} lng={lng} />
