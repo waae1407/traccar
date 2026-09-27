@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { format, intervalToDuration } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X, AlertTriangle, Satellite, Banknote } from "lucide-react";
+import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, ChevronRight, Car, Calendar, Mail, Bell, Volume2, User, MessageSquare, MapPin, Shield, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning, Activity, Power, Battery, Gauge, Signal, Zap, Flame, ZapOff, Settings2, X, AlertTriangle, Satellite, Banknote } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 import SOSButton from "@/components/customer/sos/SOSButton";
@@ -706,6 +706,208 @@ export default function MyVehicle() {
         .text-monitor-pulse {
           animation: textMonitorPulse 2.5s ease-in-out infinite;
         }
+
+        /* ── Tesla-style capacitive control tiles ── */
+        .tesla-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .tesla-control {
+          border: 1px solid rgba(211,229,248,.16);
+          border-radius: 18px;
+          min-height: 112px;
+          padding: 15px 8px 12px;
+          background: linear-gradient(145deg, rgba(49,68,91,.96), rgba(28,43,63,.97));
+          color: #f4f8ff;
+          display: flex;
+          align-items: center;
+          flex-direction: column;
+          justify-content: center;
+          gap: 10px;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 10px 23px rgba(0,0,0,.22);
+          cursor: pointer;
+          transition: background .2s ease, box-shadow .2s ease, color .2s ease;
+          position: relative;
+          overflow: hidden;
+        }
+        .tesla-control:hover:not(:disabled) {
+          background: linear-gradient(145deg, #405771, #263c54);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 12px 28px rgba(0,0,0,.3);
+        }
+        .tesla-control:active:not(:disabled) {
+          color: #78e4e1;
+          box-shadow: inset 0 0 0 1px rgba(120,228,225,.38);
+        }
+        .tesla-control:focus-visible {
+          outline: 2px solid #78e4e1;
+          outline-offset: 3px;
+        }
+        .tesla-control:disabled { opacity: 0.45; cursor: default; }
+        .tesla-control svg {
+          width: 22px; height: 22px;
+          stroke: #78e4e1; fill: none;
+          stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+        }
+        .tesla-control b { font-size: 12px; font-weight: 550; letter-spacing: .02em; }
+        .tesla-control em { font-style: normal; color: #a5b9cf; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+
+        .tesla-control-loading {
+          overflow: hidden;
+          border-color: transparent !important;
+          box-shadow: 0 0 15px rgba(120,228,225,0.3) !important;
+        }
+        .tesla-control-loading::before {
+          content: '';
+          position: absolute;
+          top: 50%; left: 50%;
+          width: 250%; height: 250%;
+          background: conic-gradient(from 0deg, transparent 75%, rgba(120,228,225,0.85) 100%);
+          animation: borderSpin 1s linear infinite;
+          z-index: 0;
+        }
+        .tesla-control-loading::after {
+          content: '';
+          position: absolute;
+          inset: 1.5px;
+          background: linear-gradient(145deg, rgba(49,68,91,.96), rgba(28,43,63,.97));
+          border-radius: 16.5px;
+          z-index: 1;
+        }
+        .tesla-control-content {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          width: 100%;
+          height: 100%;
+        }
+
+        /* ── Tesla-style monospace telemetry health panel ── */
+        .tesla-health {
+          border-radius: 19px;
+          padding: 16px;
+          border: 1px solid rgba(206,227,250,.16);
+          background: linear-gradient(145deg, #172b40, #142338);
+          box-shadow: 0 18px 36px rgba(0,0,0,.22);
+          position: relative;
+          overflow: hidden;
+        }
+        .tesla-health::before {
+          content: '';
+          position: absolute;
+          right: -36px; top: -66px;
+          width: 155px; height: 155px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(120,228,225,.12), transparent 70%);
+          animation: teslaGlow 4s ease-in-out infinite;
+        }
+        .tesla-health-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+          position: relative;
+        }
+        .tesla-section-title {
+          font-size: 10px;
+          letter-spacing: .18em;
+          text-transform: uppercase;
+          color: #9eb2c8;
+          margin: 0;
+          font-weight: 600;
+        }
+        .tesla-health-live {
+          font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+          color: #9ceae4;
+          letter-spacing: .08em;
+          display: flex;
+          align-items: center;
+        }
+        .tesla-live-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          display: inline-block;
+          background: #78e4e1;
+          margin-right: 8px;
+          box-shadow: 0 0 13px #78e4e1;
+          animation: teslaGlow 2.2s ease-in-out infinite;
+        }
+        .tesla-health-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1px;
+          background: rgba(213,230,247,.12);
+          border: 1px solid rgba(213,230,247,.12);
+          border-radius: 13px;
+          overflow: hidden;
+          position: relative;
+        }
+        .tesla-metric {
+          background: #192b40;
+          padding: 13px 12px 12px;
+          min-height: 72px;
+        }
+        .tesla-metric label {
+          display: block;
+          color: #91a6bf;
+          font: 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+          text-transform: uppercase;
+          letter-spacing: .13em;
+        }
+        .tesla-metric strong {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin-top: 9px;
+          font: 500 14px ui-monospace, SFMono-Regular, Menlo, monospace;
+          color: #eef7ff;
+        }
+        .tesla-metric strong span {
+          color: #78e4e1;
+          font-size: 10px;
+        }
+        .tesla-health-footer {
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          margin-top: 13px;
+          color: #a4b6ca;
+          font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .tesla-health-footer i {
+          display: inline-block;
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: #80e5bd;
+          margin-right: 6px;
+          box-shadow: 0 0 9px #80e5bd;
+          animation: teslaGlow 2s ease-in-out infinite;
+        }
+        .tesla-diagnostics-btn {
+          width: 100%;
+          background: rgba(120,228,225,.06);
+          border: 1px solid rgba(120,228,225,.16);
+          border-radius: 13px;
+          padding: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 12px;
+          cursor: pointer;
+          transition: background .2s ease, border-color .2s ease;
+          color: #9ceae4;
+          font: 500 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+          letter-spacing: .04em;
+        }
+        .tesla-diagnostics-btn:hover {
+          background: rgba(120,228,225,.12);
+          border-color: rgba(120,228,225,.3);
+        }
+        @keyframes teslaGlow {
+          0%, 100% { opacity: .58; }
+          50% { opacity: 1; }
+        }
       `}</style>
       {inspectionTarget && (
         <VehicleInspectionSheet
@@ -1086,99 +1288,41 @@ export default function MyVehicle() {
 
           {/* ── REMOTE CONTROLS ── */}
           <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
-              Remote Controls
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-
-              {/* Lock */}
+            <p className="tesla-section-title" style={{ marginBottom: 12, color: "#8E8E93" }}>Remote Controls</p>
+            <div className="tesla-controls">
               <button
                 onClick={() => booking && handleCommand("lock")}
                 disabled={!!commandLoading || dropoffInspectionComplete}
-                className={`control-tap ${commandLoading === "lock" ? "btn-loading-spin" : ""}`}
-                style={{
-                  position: "relative",
-                  aspectRatio: "4/3",
-                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 24,
-                  padding: 0,
-                  boxShadow: isLocked 
-                    ? "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(48,209,88,0.05)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(255,255,255,0.02)",
-                  cursor: "pointer",
-                  opacity: dropoffInspectionComplete && commandLoading !== "lock" ? 0.45 : 1,
-                  transition: "all 0.2s ease-in-out",
-                }}
+                className={`tesla-control ${commandLoading === "lock" ? "tesla-control-loading" : ""}`}
               >
-                <div className="btn-loading-content">
-                  <Lock size={28} color={isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 10px rgba(255,255,255,0.2))" }} />
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
-                    <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
-                      {isLocked ? "Locked" : "Not Locked"}
-                    </p>
-                  </div>
+                <div className="tesla-control-content">
+                  <Lock size={22} color="#78e4e1" strokeWidth={1.6} />
+                  <b>Lock</b>
+                  <em>{isLocked ? "Locked" : "Not Locked"}</em>
                 </div>
               </button>
 
-              {/* Unlock */}
               <button
                 onClick={() => booking && handleCommand("unlock")}
                 disabled={!!commandLoading || dropoffInspectionComplete}
-                className={`control-tap ${commandLoading === "unlock" ? "btn-loading-spin" : ""}`}
-                style={{
-                  position: "relative",
-                  aspectRatio: "4/3",
-                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: !isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 24,
-                  padding: 0,
-                  boxShadow: !isLocked
-                    ? "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(48,209,88,0.05)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(255,255,255,0.02)",
-                  cursor: "pointer",
-                  opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
-                  transition: "all 0.2s ease-in-out",
-                }}
+                className={`tesla-control ${commandLoading === "unlock" ? "tesla-control-loading" : ""}`}
               >
-                <div className="btn-loading-content">
-                  <Unlock size={28} color={!isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 10px rgba(255,255,255,0.2))" }} />
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
-                    <p style={{ fontSize: 10, color: !isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
-                      {!isLocked ? "Unlocked" : "Doors"}
-                    </p>
-                  </div>
+                <div className="tesla-control-content">
+                  <Unlock size={22} color="#78e4e1" strokeWidth={1.6} />
+                  <b>Unlock</b>
+                  <em>{!isLocked ? "Unlocked" : "Doors"}</em>
                 </div>
               </button>
 
-              {/* Find Vehicle */}
               <button
                 onClick={() => booking && handleCommand("find")}
                 disabled={!!commandLoading || dropoffInspectionComplete}
-                className={`control-tap ${commandLoading === "find" ? "btn-loading-spin" : ""}`}
-                style={{
-                  position: "relative",
-                  aspectRatio: "4/3",
-                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1px solid rgba(47,128,255,0.2)",
-                  borderRadius: 24,
-                  padding: 0,
-                  boxShadow: !dropoffInspectionComplete
-                    ? "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 12px rgba(47,128,255,0.08)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.2)",
-                  opacity: dropoffInspectionComplete && commandLoading !== "find" ? 0.45 : 1,
-                  cursor: !dropoffInspectionComplete ? "pointer" : "default",
-                  transition: "all 0.2s ease-in-out",
-                }}
+                className={`tesla-control ${commandLoading === "find" ? "tesla-control-loading" : ""}`}
               >
-                <div className="btn-loading-content">
-                  <HornIcon color="#2F80FF" />
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Find</p>
-                    <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Vehicle</p>
-                  </div>
+                <div className="tesla-control-content">
+                  <Volume2 size={22} color="#78e4e1" strokeWidth={1.6} />
+                  <b>Find</b>
+                  <em>Vehicle</em>
                 </div>
               </button>
             </div>
@@ -1229,51 +1373,54 @@ export default function MyVehicle() {
 
           {/* ── VEHICLE HEALTH ── */}
           <div style={{ marginBottom: 10 }}>
-            <div className="flex items-center justify-between mb-2">
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Vehicle Health
-              </p>
-            </div>
-            <div style={{
-              background: "#17181C",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 22,
-              padding: "16px 8px",
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "16px 4px",
-            }}>
-              {[
-                { label: "Connection", sub: device?.online_status === "offline" ? "Offline" : "Online", icon: Activity },
-                { label: "Ignition", sub: device?.ignition_status === "on" ? "On" : "Off", icon: Power },
-                { label: "Main Batt", sub: device?.power_voltage ? `${device.power_voltage}V` : "12.6V", icon: Battery },
-                { label: "Int. Batt", sub: device?.battery_voltage ? `${device.battery_voltage}V` : "4.1V", icon: Zap },
-                { label: "GPS Status", sub: gps.status === "online" ? "Active" : "Lost", icon: MapPin },
-                { label: "Speed", sub: device?.speed ? `${Math.round(device.speed)} mph` : "0 mph", icon: Gauge },
-                { label: "Cell Signal", sub: device?.signal_strength ? `${device.signal_strength}%` : "Strong", icon: Signal },
-                { label: "ACC Volt", sub: device?.voltage ? `${device.voltage}V` : "0.0V", icon: Activity },
-              ].map((item) => {
-                const Icon = item.icon || CheckCircle;
-                return (
-                  <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                    <Icon size={18} color="#30D158" style={{ filter: "drop-shadow(0 2px 8px rgba(48,209,88,0.4))" }} />
-                    <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
-                  </div>
-                );
-              })}
+            <div className="tesla-health">
+              <div className="tesla-health-head">
+                <h2 className="tesla-section-title">Vehicle Health</h2>
+                <span className="tesla-health-live"><i className="tesla-live-dot" />LIVE</span>
+              </div>
+              <div className="tesla-health-grid">
+                <div className="tesla-metric">
+                  <label>Connection</label>
+                  <strong>{device?.online_status === "offline" ? "Offline" : "Online"} <span>{device?.online_status === "offline" ? "DOWN" : "UP"}</span></strong>
+                </div>
+                <div className="tesla-metric">
+                  <label>Ignition</label>
+                  <strong>{device?.ignition_status === "on" ? "On" : "Off"} <span>STATE</span></strong>
+                </div>
+                <div className="tesla-metric">
+                  <label>Main Batt</label>
+                  <strong>{device?.power_voltage ? device.power_voltage.toFixed(1) : "12.6"} <span>V</span></strong>
+                </div>
+                <div className="tesla-metric">
+                  <label>Int. Batt</label>
+                  <strong>{device?.battery_voltage ? device.battery_voltage.toFixed(1) : "4.1"} <span>V</span></strong>
+                </div>
+                <div className="tesla-metric">
+                  <label>GPS Status</label>
+                  <strong>{gps.status === "online" ? "Active" : "Lost"} <span>GPS</span></strong>
+                </div>
+                <div className="tesla-metric">
+                  <label>Speed</label>
+                  <strong>{device?.speed ? Math.round(device.speed) : 0} <span>MPH</span></strong>
+                </div>
+                <div className="tesla-metric">
+                  <label>Cell Signal</label>
+                  <strong>{device?.signal_strength || 100} <span>%</span></strong>
+                </div>
+                <div className="tesla-metric">
+                  <label>ACC Volt</label>
+                  <strong>{device?.voltage ? device.voltage.toFixed(1) : "0.0"} <span>V</span></strong>
+                </div>
+              </div>
+              <div className="tesla-health-footer">
+                <span><i />{parkedStr || "Parked"}</span>
+                <span>{displayAddress?.city_state || "Unknown"}</span>
+              </div>
             </div>
 
-            <button
-              onClick={() => setShowDiagnostics(true)}
-              style={{
-                width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 16, padding: "12px", display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 8, marginTop: 12, cursor: "pointer", transition: "all 0.2s"
-              }}
-            >
-              <Settings2 size={16} color="#A1A1AA" />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#E4E4E7" }}>View Full Diagnostics</span>
+            <button onClick={() => setShowDiagnostics(true)} className="tesla-diagnostics-btn">
+              <Settings2 size={16} color="#9ceae4" />
+              View Full Diagnostics
             </button>
           </div>
 
