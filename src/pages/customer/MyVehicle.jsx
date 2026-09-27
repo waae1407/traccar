@@ -374,11 +374,18 @@ export default function MyVehicle() {
     refetchInterval: 300000,
   });
 
-  const remainingDays = booking?.end_date
-    ? Math.max(0, Math.ceil((new Date(`${booking.end_date}T23:59:59`).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : null;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const endDateMs = booking?.end_date ? new Date(`${booking.end_date}T23:59:59`).getTime() : null;
+  const diffMs = endDateMs ? Math.max(0, endDateMs - now) : null;
+  const remainingDays = diffMs != null ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) : null;
+  const remainingHours = diffMs != null ? Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) : null;
   const remainingStr = remainingDays != null
-    ? `${remainingDays}d`
+    ? (remainingDays > 0 ? `${remainingDays}d ${remainingHours}h` : `${remainingHours}h`)
     : "N/A";
 
   const handleCommand = async (type) => {
