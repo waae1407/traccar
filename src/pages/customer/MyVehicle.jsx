@@ -9,6 +9,7 @@ import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap"
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 import SOSButton from "@/components/customer/sos/SOSButton";
 import RecklessDrivingCard from "@/components/gps/RecklessDrivingCard";
+import VehicleHealthGrid from "@/components/customer/myvehicle/VehicleHealthGrid";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -1235,50 +1236,7 @@ export default function MyVehicle() {
           )}
 
           {/* ── VEHICLE HEALTH ── */}
-          <div style={{ marginBottom: 10 }}>
-            <div className="flex items-center justify-between mb-2">
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Vehicle Health
-              </p>
-            </div>
-            <div style={{
-              background: "#17181C",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 22,
-              padding: "16px 8px",
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "16px 4px",
-            }}>
-              {[
-                { label: "Connection", sub: device?.online_status === "offline" ? "Offline" : "Online", icon: Activity },
-                { label: "GPS Status", sub: gps.status === "online" ? "Active" : "Lost", icon: MapPin },
-                { label: "Main Batt", sub: device?.power_voltage ? `${device.power_voltage}V` : "12.6V", icon: Battery },
-                { label: "Ignition", sub: device?.ignition_status === "on" ? "On" : "Off", icon: Power },
-              ].map((item) => {
-                const Icon = item.icon || CheckCircle;
-                return (
-                  <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                    <Icon size={18} color="#30D158" style={{ filter: "drop-shadow(0 2px 8px rgba(48,209,88,0.4))" }} />
-                    <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => setShowDiagnostics(true)}
-              style={{
-                width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 16, padding: "12px", display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 8, marginTop: 12, cursor: "pointer", transition: "all 0.2s"
-              }}
-            >
-              <Settings2 size={16} color="#A1A1AA" />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#E4E4E7" }}>View Full Diagnostics</span>
-            </button>
-          </div>
+          <VehicleHealthGrid device={device} gps={gps} onOpenDiagnostics={() => setShowDiagnostics(true)} />
 
         </div>
 
