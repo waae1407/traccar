@@ -409,14 +409,23 @@ export default function MyVehicle() {
       return;
     }
 
+    // Guard: device and vehicle must be loaded before sending any command
+    if (!device?.id) {
+      const { toast } = await import("sonner");
+      console.error("[MyVehicle] Command blocked — device not loaded yet", { type, deviceId: device?.id, vehicleId: vehicle?.id });
+      toast.error("Device still loading", { description: "Please wait a moment and try again." });
+      setTimeout(() => setCommandLoading(null), 1500);
+      return;
+    }
+
     setCommandLoading(type);
     try {
       const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
       const { toast } = await import("sonner");
       if (type === "lock" || type === "unlock") {
         await TelematicsService.sendCommand({
-      telematics_device_id: device?.id,
-      vehicle_id: vehicle?.id,
+      telematics_device_id: device.id,
+      vehicle_id: vehicle?.id || booking?.vehicle_id,
       booking_id: booking?.id,
       command_type: type,
       source: "vehicle_command_center",
@@ -424,15 +433,20 @@ export default function MyVehicle() {
     toast.success(`Vehicle ${type}ed`);
     setIsLocked(type === "lock");
   } else if (type === "find") {
-        await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device?.id });
+        await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device.id });
         toast.success("Vehicle alarm activated!");
         if (device?.last_latitude && device?.last_longitude) {
           window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
         }
       }
     } catch (err) {
+      console.error("[MyVehicle] Command failed:", type, err);
       const { toast } = await import("sonner");
-      toast.error("Command failed");
+      const errorMsg = err?.message || err?.error || (typeof err === "string" ? err : "Unknown error");
+      const isAuthError = err?.status === 401 || err?.message?.includes("Unauthorized") || err?.error?.includes("Unauthorized");
+      toast.error(isAuthError ? "Session expired — please sign in again" : "Command failed", {
+        description: isAuthError ? undefined : errorMsg,
+      });
     }
     setTimeout(() => setCommandLoading(null), 2000);
   };
