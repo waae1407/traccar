@@ -1,10 +1,21 @@
-import React from "react";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import React, { useEffect } from "react";
+import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import { MapPin } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+// Re-centers the map when the vehicle position changes (Leaflet ignores center prop after mount)
+function MapRecenter({ lat, lng }) {
+  const map = useMap();
+  useEffect(() => {
+    if (lat && lng) {
+      map.panTo([lat, lng], { animate: true, duration: 0.5 });
+    }
+  }, [lat, lng, map]);
+  return null;
+}
 
 const ALLOWED_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 
@@ -107,6 +118,7 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
           className="map-tiles-muted"
         />
         <Marker position={[lat, lng]} icon={createVehicleIcon()} />
+        <MapRecenter lat={lat} lng={lng} />
       </MapContainer>
 
       {/* Hide Leaflet attribution */}
