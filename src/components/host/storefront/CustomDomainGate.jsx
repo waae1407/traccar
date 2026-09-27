@@ -65,6 +65,11 @@ export default function CustomDomainGate({ children }) {
 
   if (!isCustomDomainHost()) return children || null;
 
+  // Builder/editor preview runs in an iframe — skip all storefront redirects
+  // so the previewed route renders directly. Real custom domains are top-level
+  // windows, so this guard never fires in production.
+  if (window.self !== window.top) return children || null;
+
   // Checkout must always run on the canonical domain (Stripe, session, etc).
   // Redirect immediately without waiting for the domain resolver query.
   if (pathname.startsWith("/checkout")) {
