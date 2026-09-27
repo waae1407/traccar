@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Activity, MapPin, Battery, Power, X, Zap, Settings2, AlertTriangle } from "lucide-react";
+import { Activity, Shield, Battery, Satellite, X, Zap, Settings2, AlertTriangle } from "lucide-react";
 
 function getBatteryInfo(device) {
   const voltage = device?.power_voltage || device?.battery_voltage || 0;
@@ -42,6 +42,25 @@ function getBatteryInfo(device) {
   return { pct, label, color, voltage: voltage.toFixed(1), isLow, isCritical };
 }
 
+function getSecurityInfo(device) {
+  const breaches = [];
+  if (device?.door_open) breaches.push("Door Open");
+  if (device?.trunk_open) breaches.push("Trunk Open");
+  if (device?.shock_alarm) breaches.push("Impact Detected");
+  if (device?.power_cut_alarm) breaches.push("Power Cut");
+  if (device?.starter_disabled) breaches.push("Starter Disabled");
+
+  if (breaches.length === 0) {
+    return { label: "Secure", color: "#30D158", breaches: [], detail: "All security systems normal" };
+  }
+  return {
+    label: breaches.length === 1 ? breaches[0] : `${breaches.length} Alerts`,
+    color: "#FF453A",
+    breaches,
+    detail: breaches.join(", "),
+  };
+}
+
 function formatTime(value) {
   if (!value) return "Unknown";
   const d = new Date(value);
@@ -56,18 +75,22 @@ function formatTime(value) {
 export default function VehicleHealthGrid({ device, gps, onOpenDiagnostics }) {
   const [selected, setSelected] = useState(null);
   const battInfo = getBatteryInfo(device);
+  const secInfo = getSecurityInfo(device);
+
+  const isTowed = device?.movement_alarm === true;
+  const isOffline = device?.online_status === "offline";
 
   const monitors = [
     {
       key: "connection",
       label: "Connection",
-      sub: device?.online_status === "offline" ? "Offline" : "Online",
+      sub: isOffline ? "Offline" : "Online",
       icon: Activity,
-      color: device?.online_status === "offline" ? "#FF453A" : "#30D158",
+      color: isOffline ? "#FF453A" : "#30D158",
       detail: {
         title: "Connection Status",
         rows: [
-          { label: "Status", value: device?.online_status === "offline" ? "Offline" : "Online", alert: device?.online_status === "offline" },
+          { label: "Status", value: isOffline ? "Offline" : "Online", alert: isOffline },
           { label: "Last Seen", value: formatTime(device?.last_seen_at) },
           { label: "Signal Strength", value: device?.signal_strength ? `${device.signal_strength}%` : "N/A" },
           { label: "Protocol", value: device?.provider_type?.toUpperCase() || "N/A" },
@@ -75,25 +98,25 @@ export default function VehicleHealthGrid({ device, gps, onOpenDiagnostics }) {
       },
     },
     {
-      key: "gps",
-      label: "GPS Status",
-      sub: gps.status === "online" ? "Active" : "Lost",
-      icon: MapPin,
-      color: gps.status === "online" ? "#30D158" : "#FF453A",
+      key: "security",
+      label: "Security",
+      sub: secInfo.label,
+      icon: Shield,
+      color: secInfo.color,
       detail: {
-        title: "GPS Status",
+        title: "Security Status",
         rows: [
-          { label: "Status", value: gps.status === "online" ? "Active" : "Lost", alert: gps.status !== "online" },
-          { label: "Last Update", value: formatTime(device?.location_updated_at) },
-          { label: "Latitude", value: device?.last_latitude ? device.last_latitude.toFixed(6) : "N/A" },
-          { label: "Longitude", value: device?.last_longitude ? device.last_longitude.toFixed(6) : "N/A" },
-          { label: "Speed", value: device?.speed ? `${Math.round(device.speed)} mph` : "0 mph" },
+          { label: "Doors", value: device?.door_open ? "Open" : "Closed", alert: device?.door_open },
+          { label: "Trunk", value: device?.trunk_open ? "Open" : "Closed", alert: device?.trunk_open },
+          { label: "Impact / Shock", value: device?.shock_alarm ? "Triggered" : "Clear", alert: device?.shock_alarm },
+          { label: "Power Supply", value: device?.power_cut_alarm ? "Cut" : "Normal", alert: device?.power_cut_alarm },
+          { label: "Starter Circuit", value: device?.starter_disabled ? "Disabled" : "Normal", alert: device?.starter_disabled },
         ],
       },
     },
     {
       key: "battery",
-      label: "Main Batt",
+      label: "Battery",
       sub: battInfo.pct > 0 ? `${battInfo.pct}%` : "N/A",
       icon: Battery,
       color: battInfo.color,
@@ -111,17 +134,18 @@ export default function VehicleHealthGrid({ device, gps, onOpenDiagnostics }) {
       },
     },
     {
-      key: "ignition",
-      label: "Ignition",
-      sub: device?.ignition_status === "on" ? "On" : "Off",
-      icon: Power,
-      color: device?.ignition_status === "on" ? "#30D158" : "#71717A",
+      key: "tow",
+      label: "Tow Watch",
+      sub: isTowed ? "Moving!" : "Parked",
+      icon: Satellite,
+      color: isTowed ? "#FF453A" : "#30D158",
       detail: {
-        title: "Ignition Status",
+        title: "Tow / Movement Detection",
         rows: [
-          { label: "Status", value: device?.ignition_status === "on" ? "On" : "Off" },
+          { label: "Status", value: isTowed ? "Movement Detected" : "Stationary", alert: isTowed },
+          { label: "Parked Since", value: device?.parked_at ? formatTime(device.parked_at) : "N/A" },
+          { label: "Last Position", value: device?.last_latitude ? `${device.last_latitude.toFixed(4)}, ${device.last_longitude.toFixed(4)}` : "N/A" },
           { label: "Speed", value: device?.speed ? `${Math.round(device.speed)} mph` : "0 mph" },
-          { label: "Heading", value: device?.course != null ? `${Math.round(device.course)}°` : "N/A" },
         ],
       },
     },
