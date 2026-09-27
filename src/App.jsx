@@ -166,6 +166,10 @@ const AuthenticatedApp = () => {
     const hostname = window.location.hostname.toLowerCase();
     const isCustomDomain = !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(hostname)
       && !hostname.includes("base44");
+    const isBuilderPreview = window.self !== window.top;
+    // In the builder preview iframe, AuthContext initializes loading flags to
+    // false, so this block should never fire there — but keep it as a safety
+    // net so we never show a splash inside the editor.
     return (
       <div className={`fixed inset-0 flex items-center justify-center ${isCustomDomain ? "" : "bg-background"}`}
         style={isCustomDomain ? { background: "#f8f8fa" } : undefined}>

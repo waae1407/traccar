@@ -7,12 +7,15 @@ import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  // On custom host storefront domains, initialize loading flags to false so
-  // the splash screen never renders — not even for a single frame. The
-  // storefront is public and doesn't need auth or public-settings to render.
+  // On custom host storefront domains OR inside the builder preview iframe,
+  // initialize loading flags to false so the splash screen never renders —
+  // not even for a single frame. The storefront is public and the preview
+  // needs to render immediately without waiting for auth/public-settings.
   const _isCustomDomainInit = typeof window !== "undefined" && (() => {
     const h = window.location.hostname.toLowerCase();
-    return !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(h) && !h.includes("base44");
+    const isCustomDomain = !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(h) && !h.includes("base44");
+    const isBuilderPreview = window.self !== window.top;
+    return isCustomDomain || isBuilderPreview;
   })();
 
   const [user, setUser] = useState(null);
@@ -28,14 +31,16 @@ export const AuthProvider = ({ children }) => {
 
   const checkAppState = async () => {
     try {
-      // On custom host storefront domains, unblock rendering immediately —
-      // the storefront is a public page and doesn't need to wait for auth
-      // or public-settings fetches. Both resolve in the background.
+      // On custom host storefront domains OR inside the builder preview iframe,
+      // unblock rendering immediately — the storefront is a public page and the
+      // preview needs to render without waiting for auth/public-settings fetches.
+      // Both resolve in the background.
       const hostname = window.location.hostname.toLowerCase();
       const isCustomDomain = !["localhost", "127.0.0.1", "uridehub.com", "www.uridehub.com"].includes(hostname)
         && !hostname.includes("base44");
+      const isBuilderPreview = window.self !== window.top;
 
-      if (isCustomDomain) {
+      if (isCustomDomain || isBuilderPreview) {
         setIsLoadingPublicSettings(false);
         setIsLoadingAuth(false);
         setAuthError(null);
