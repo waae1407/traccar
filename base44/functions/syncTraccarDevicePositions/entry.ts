@@ -564,10 +564,20 @@ Deno.serve(async (req) => {
         device_mileage: Math.round(deviceMiles)
       };
 
-      if (payload.speed === 0) {
-        payload.parked_at = local.parked_at || seenAt;
-      } else {
+      // ── Parked detection: use speed OR odometer delta ──
+      // The Noran MT20 often reports speed=0 even when the vehicle is moving
+      // (firmware/protocol issue). Traccar's totalDistance is calculated from
+      // GPS positions and IS reliable. If totalDistance increased since the
+      // last sync, the vehicle moved — clear parked_at regardless of speed.
+      const prevDistance = Number(local.traccar_total_distance_meters || 0);
+      const distanceDelta = totalDistanceMeters - prevDistance;
+      const distanceIncreased = distanceDelta > 15; // >15m tolerance for GPS jitter
+      const isMoving = payload.speed > 0 || distanceIncreased;
+
+      if (isMoving) {
         payload.parked_at = null;
+      } else {
+        payload.parked_at = local.parked_at || seenAt;
       }
 
       // Also update Vehicle Virtual Odometer if linked
