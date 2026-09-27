@@ -19,38 +19,59 @@ function MapRecenter({ lat, lng }) {
 
 const ALLOWED_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 
-// Premium pulsing dot representing the vehicle
+// Tesla-style orbital vehicle marker — cyan core, radar pulse rings, orbital halo
 function createVehicleIcon() {
   const iconHtml = `
-    <div style="position:relative;width:40px;height:40px; display:flex; align-items:center; justify-content:center;">
-      <!-- Pulsing outer ring -->
+    <div style="position:relative;width:64px;height:64px; display:flex; align-items:center; justify-content:center;">
+      <!-- Orbital ring (static) -->
       <div style="
         position:absolute;
         width: 100%;
         height: 100%;
         border-radius: 50%;
-        background: rgba(47,128,255,0.3);
-        animation: mapPulse 2s ease-in-out infinite;
+        border: 1px solid rgba(120,228,225,0.2);
         z-index: 0;
       "></div>
-      
-      <!-- Inner blue dot -->
+
+      <!-- Radar pulse 1 -->
+      <div style="
+        position:absolute;
+        width: 60%;
+        height: 60%;
+        border-radius: 50%;
+        background: rgba(120,228,225,0.25);
+        animation: orbitalPulse 3s ease-out infinite;
+        z-index: 0;
+      "></div>
+
+      <!-- Radar pulse 2 (offset) -->
+      <div style="
+        position:absolute;
+        width: 60%;
+        height: 60%;
+        border-radius: 50%;
+        background: rgba(120,228,225,0.15);
+        animation: orbitalPulse 3s ease-out infinite;
+        animation-delay: 1.5s;
+        z-index: 0;
+      "></div>
+
+      <!-- Inner cyan core -->
       <div style="
         position:relative;
-        width: 16px;
-        height: 16px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
-        background: #2F80FF;
-        border: 2.5px solid #FFFFFF;
-        box-shadow: 0 0 10px rgba(47,128,255,0.8);
-        z-index: 1;
+        background: #78e4e1;
+        border: 2px solid rgba(255,255,255,0.92);
+        box-shadow: 0 0 12px rgba(120,228,225,0.9), 0 0 28px rgba(120,228,225,0.35);
+        z-index: 2;
       "></div>
-      
+
       <style>
-        @keyframes mapPulse {
-          0% { transform: scale(0.8); opacity: 0.8; }
-          50% { transform: scale(1.5); opacity: 0.2; }
-          100% { transform: scale(0.8); opacity: 0.8; }
+        @keyframes orbitalPulse {
+          0% { transform: scale(0.3); opacity: 0.8; }
+          100% { transform: scale(2.2); opacity: 0; }
         }
       </style>
     </div>
@@ -59,8 +80,8 @@ function createVehicleIcon() {
   return L.divIcon({
     html: iconHtml,
     className: "",
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
+    iconSize: [64, 64],
+    iconAnchor: [32, 32],
   });
 }
 
@@ -105,34 +126,33 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
 
   return (
     <div style={{
-      position: "relative", height: "100%", width: "100%", background: "#050506",
-      WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)",
+      position: "relative", height: "100%", width: "100%", background: "#0a1420",
+      WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%)",
       WebkitMaskComposite: "source-in",
-      maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)",
+      maskImage: "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 8%, black 92%, transparent 100%)",
       maskComposite: "intersect",
     }}>
       <MapContainer
         center={[lat, lng]}
-        zoom={15}
+        zoom={16}
         scrollWheelZoom={false}
         zoomControl={false}
-        style={{ height: "100%", width: "100%", background: "#050506" }}
+        style={{ height: "100%", width: "100%", background: "#0a1420" }}
       >
         <TileLayer
           attribution='&copy; Esri'
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-          className="map-tiles-dark"
-        />
-        <TileLayer
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
-          className="map-tiles-dark"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          className="tesla-orbital-tiles"
         />
         <Marker position={[lat, lng]} icon={createVehicleIcon()} />
         <MapRecenter lat={lat} lng={lng} />
       </MapContainer>
 
-      {/* Hide Leaflet attribution */}
-      <style>{`.leaflet-control-attribution { display: none !important; }`}</style>
+      {/* Tesla orbital map styling */}
+      <style>{`
+        .leaflet-control-attribution { display: none !important; }
+        .tesla-orbital-tiles { filter: brightness(0.6) contrast(1.15) saturate(0.7) hue-rotate(185deg); }
+      `}</style>
     </div>
   );
 }
