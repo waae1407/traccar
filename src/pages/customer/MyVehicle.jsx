@@ -959,10 +959,10 @@ export default function MyVehicle() {
                   {/* Subtle tint to harmonize tiles with the canvas */}
                   <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(5,5,6,0.25)" }} />
                   {/* Edge gradient fades — map dissolves seamlessly into the canvas */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 80, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(5,5,6,0.92) 0%, rgba(5,5,6,0.5) 45%, rgba(5,5,6,0) 100%)" }} />
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 70, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(5,5,6,0.95) 0%, rgba(5,5,6,0.4) 55%, rgba(5,5,6,0) 100%)" }} />
-                  <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 48, pointerEvents: "none", zIndex: 300, background: "linear-gradient(90deg, rgba(5,5,6,0.85) 0%, rgba(5,5,6,0) 100%)" }} />
-                  <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 48, pointerEvents: "none", zIndex: 300, background: "linear-gradient(270deg, rgba(5,5,6,0.85) 0%, rgba(5,5,6,0) 100%)" }} />
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 110, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(5,5,6,1) 0%, rgba(5,5,6,0.85) 25%, rgba(5,5,6,0.4) 60%, rgba(5,5,6,0) 100%)" }} />
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(5,5,6,1) 0%, rgba(5,5,6,0.85) 25%, rgba(5,5,6,0.4) 60%, rgba(5,5,6,0) 100%)" }} />
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 70, pointerEvents: "none", zIndex: 300, background: "linear-gradient(90deg, rgba(5,5,6,1) 0%, rgba(5,5,6,0.85) 25%, rgba(5,5,6,0.3) 65%, rgba(5,5,6,0) 100%)" }} />
+                  <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 70, pointerEvents: "none", zIndex: 300, background: "linear-gradient(270deg, rgba(5,5,6,1) 0%, rgba(5,5,6,0.85) 25%, rgba(5,5,6,0.3) 65%, rgba(5,5,6,0) 100%)" }} />
                   <button 
                     onClick={() => {
                       if (device?.last_latitude && device?.last_longitude) {

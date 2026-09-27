@@ -79,7 +79,7 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
 
   if (!canShow) {
     return (
-      <div style={{ height: "100%", width: "100%", background: "#0a0b0e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ height: "100%", width: "100%", background: "#050506", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", padding: 16 }}>
           <MapPin style={{ margin: "0 auto 8px", color: "#3a3a3a", width: 20, height: 20 }} />
           <p style={{ fontSize: 12, color: "#4a4a4a", fontWeight: 500 }}>Vehicle location available during active rental</p>
@@ -94,7 +94,7 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
 
   if (!lat || !lng) {
     return (
-      <div style={{ height: "100%", width: "100%", background: "#0a0b0e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ height: "100%", width: "100%", background: "#050506", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", padding: 16 }}>
           <MapPin style={{ margin: "0 auto 8px", color: "#3a3a3a", width: 20, height: 20 }} />
           <p style={{ fontSize: 12, color: "#4a4a4a", fontWeight: 500 }}>Waiting for GPS location...</p>
@@ -104,13 +104,13 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
   }
 
   return (
-    <div style={{ position: "relative", height: "100%", width: "100%", background: "#0a0b0e" }}>
+    <div style={{ position: "relative", height: "100%", width: "100%", background: "#050506" }}>
       <MapContainer
         center={[lat, lng]}
         zoom={15}
         scrollWheelZoom={false}
         zoomControl={false}
-        style={{ height: "100%", width: "100%", background: "#0a0b0e" }}
+        style={{ height: "100%", width: "100%", background: "#050506" }}
       >
         <TileLayer
           attribution='&copy; Esri'
