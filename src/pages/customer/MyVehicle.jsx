@@ -916,14 +916,13 @@ export default function MyVehicle() {
         {/* Scroll content */}
         <div style={{ padding: "0 15px", paddingBottom: 80, marginTop: 4, position: "relative", zIndex: 5 }}>
 
-          {/* ── MAP CARD ── */}
+          {/* ── MAP CARD — borderless, bleeds into canvas ── */}
           <div style={{
-            background: "linear-gradient(180deg, rgba(29,30,35,0.96), rgba(19,20,24,0.98))",
-            border: "1px solid rgba(255,255,255,0.05)",
-            borderRadius: 28,
+            background: "transparent",
+            border: "none",
+            borderRadius: 0,
             overflow: "hidden",
             marginBottom: 12,
-            boxShadow: "0 18px 50px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)",
           }}>
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-start gap-3">
@@ -957,13 +956,13 @@ export default function MyVehicle() {
               {booking ? (
                 <>
                   <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
-                  {/* Dark overlay to tone down light map tiles so they blend with the dark theme */}
-                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(12,13,16,0.45)" }} />
-                  {/* Edge gradient fades so the map bleeds into the dark card */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 60, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(24,25,30,0.98) 0%, rgba(24,25,30,0.4) 50%, rgba(24,25,30,0) 100%)" }} />
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 44, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(19,20,24,0.95) 0%, rgba(19,20,24,0.3) 60%, rgba(19,20,24,0) 100%)" }} />
-                  <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 32, pointerEvents: "none", zIndex: 300, background: "linear-gradient(90deg, rgba(24,25,30,0.7) 0%, rgba(24,25,30,0) 100%)" }} />
-                  <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 32, pointerEvents: "none", zIndex: 300, background: "linear-gradient(270deg, rgba(24,25,30,0.7) 0%, rgba(24,25,30,0) 100%)" }} />
+                  {/* Subtle tint to harmonize tiles with the canvas */}
+                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(5,5,6,0.25)" }} />
+                  {/* Edge gradient fades — map dissolves seamlessly into the canvas */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 80, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(5,5,6,0.92) 0%, rgba(5,5,6,0.5) 45%, rgba(5,5,6,0) 100%)" }} />
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 70, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(5,5,6,0.95) 0%, rgba(5,5,6,0.4) 55%, rgba(5,5,6,0) 100%)" }} />
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 48, pointerEvents: "none", zIndex: 300, background: "linear-gradient(90deg, rgba(5,5,6,0.85) 0%, rgba(5,5,6,0) 100%)" }} />
+                  <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 48, pointerEvents: "none", zIndex: 300, background: "linear-gradient(270deg, rgba(5,5,6,0.85) 0%, rgba(5,5,6,0) 100%)" }} />
                   <button 
                     onClick={() => {
                       if (device?.last_latitude && device?.last_longitude) {
