@@ -104,7 +104,13 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
   }
 
   return (
-    <div style={{ position: "relative", height: "100%", width: "100%", background: "#050506" }}>
+    <div style={{
+      position: "relative", height: "100%", width: "100%", background: "#050506",
+      WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)",
+      WebkitMaskComposite: "source-in",
+      maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)",
+      maskComposite: "intersect",
+    }}>
       <MapContainer
         center={[lat, lng]}
         zoom={15}

@@ -958,11 +958,6 @@ export default function MyVehicle() {
                   <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
                   {/* Subtle tint to harmonize tiles with the canvas */}
                   <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(5,5,6,0.25)" }} />
-                  {/* Edge gradient fades — map dissolves seamlessly into the canvas */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 110, pointerEvents: "none", zIndex: 300, background: "linear-gradient(180deg, rgba(5,5,6,1) 0%, rgba(5,5,6,0.85) 25%, rgba(5,5,6,0.4) 60%, rgba(5,5,6,0) 100%)" }} />
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, pointerEvents: "none", zIndex: 300, background: "linear-gradient(0deg, rgba(5,5,6,1) 0%, rgba(5,5,6,0.85) 25%, rgba(5,5,6,0.4) 60%, rgba(5,5,6,0) 100%)" }} />
-                  <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: 70, pointerEvents: "none", zIndex: 300, background: "linear-gradient(90deg, rgba(5,5,6,1) 0%, rgba(5,5,6,0.85) 25%, rgba(5,5,6,0.3) 65%, rgba(5,5,6,0) 100%)" }} />
-                  <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 70, pointerEvents: "none", zIndex: 300, background: "linear-gradient(270deg, rgba(5,5,6,1) 0%, rgba(5,5,6,0.85) 25%, rgba(5,5,6,0.3) 65%, rgba(5,5,6,0) 100%)" }} />
                   <button 
                     onClick={() => {
                       if (device?.last_latitude && device?.last_longitude) {
@@ -1091,23 +1086,23 @@ export default function MyVehicle() {
                   position: "relative",
                   aspectRatio: "4/3",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,69,58,0.15)",
+                  border: isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.1)",
                   borderRadius: 24,
                   padding: 0,
                   boxShadow: isLocked 
                     ? "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(48,209,88,0.05)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(255,69,58,0.05)",
+                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(255,255,255,0.02)",
                   cursor: "pointer",
                   opacity: dropoffInspectionComplete && commandLoading !== "lock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Lock size={28} color={isLocked ? "#30D158" : "#FF453A"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 10px rgba(255,69,58,0.2))" }} />
+                  <Lock size={28} color={isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 10px rgba(255,255,255,0.2))" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
-                    <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#FF453A", lineHeight: 1.2, fontWeight: 500 }}>
-                      {isLocked ? "Locked" : "Unlocked"}
+                    <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                      {isLocked ? "Locked" : "Not Locked"}
                     </p>
                   </div>
                 </div>
@@ -1122,20 +1117,24 @@ export default function MyVehicle() {
                   position: "relative",
                   aspectRatio: "4/3",
                   background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  border: !isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.1)",
                   borderRadius: 24,
                   padding: 0,
-                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(255,255,255,0.02)",
+                  boxShadow: !isLocked
+                    ? "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(48,209,88,0.05)"
+                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(255,255,255,0.02)",
                   cursor: "pointer",
                   opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Unlock size={28} color="#FFFFFF" strokeWidth={2.2} style={{ filter: "drop-shadow(0 2px 10px rgba(255,255,255,0.2))" }} />
+                  <Unlock size={28} color={!isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 10px rgba(255,255,255,0.2))" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
-                    <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Doors</p>
+                    <p style={{ fontSize: 10, color: !isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                      {!isLocked ? "Unlocked" : "Doors"}
+                    </p>
                   </div>
                 </div>
               </button>
