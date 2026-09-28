@@ -42,6 +42,10 @@ export default function SOSButton({ booking, device }) {
       <button
         onClick={handleTap}
         style={{
+          position: "fixed",
+          bottom: 84,
+          right: 20,
+          zIndex: 60,
           height: 52,
           width: 52,
           padding: 0,
@@ -55,7 +59,6 @@ export default function SOSButton({ booking, device }) {
           cursor: "pointer",
           transition: "all 0.2s ease",
           animation: "pulse-glow 2.5s ease-in-out infinite",
-          flexShrink: 0,
         }}
         className="control-tap"
         aria-label="Emergency SOS"

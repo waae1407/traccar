@@ -938,6 +938,9 @@ export default function MyVehicle() {
         {/* Scroll content */}
         <div style={{ padding: "0 15px", paddingBottom: 80, marginTop: 4, position: "relative", zIndex: 5 }}>
 
+          {/* ── SOS FLOATING BUTTON (fixed, stays while scrolling) ── */}
+        <SOSButton booking={booking} device={device} />
+
           {/* ── MAP CARD — borderless, bleeds into canvas ── */}
           <div style={{
             background: "transparent",
@@ -973,7 +976,6 @@ export default function MyVehicle() {
                   </div>
                 </div>
               </div>
-              <SOSButton booking={booking} device={device} />
             </div>
             <div style={{ height: 240, position: "relative" }}>
               {booking ? (
