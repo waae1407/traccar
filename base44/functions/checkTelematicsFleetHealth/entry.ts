@@ -3,6 +3,52 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const STALE_HOURS = 6;
 const OFFLINE_HOURS = 12;
 
+// ── Self-healing: if a device is online on Traccar but its cached position is
+// >30 min stale, the 15-min sync cron likely failed. Fetch the live position
+// directly from Traccar and update the DB so the map never goes stale.
+const POSITION_STALE_MINUTES = 30;
+
+function traccarBaseUrl() {
+  return String(Deno.env.get('TRACCAR_BASE_URL') || '').replace(/\/$/, '');
+}
+function traccarAuth() {
+  const u = Deno.env.get('TRACCAR_USERNAME');
+  const p = Deno.env.get('TRACCAR_PASSWORD');
+  return `Basic ${btoa(`${u}:${p}`)}`;
+}
+
+async function selfHealStalePosition(base44, device) {
+  const traccarId = String(device.traccar_device_id || device.provider_device_id || '').trim();
+  if (!traccarId) return { repaired: false, reason: 'no_traccar_id' };
+  try {
+    const res = await fetch(`${traccarBaseUrl()}/api/positions?deviceId=${traccarId}`, {
+      headers: { Authorization: traccarAuth(), Accept: 'application/json' }
+    });
+    if (!res.ok) return { repaired: false, reason: `traccar_${res.status}` };
+    const positions = await res.json();
+    if (!Array.isArray(positions) || positions.length === 0) return { repaired: false, reason: 'no_positions' };
+    const latest = positions[positions.length - 1];
+    if (typeof latest.latitude !== 'number' || typeof latest.longitude !== 'number') return { repaired: false, reason: 'invalid_coords' };
+    const seenAt = latest.fixTime || latest.deviceTime || latest.serverTime || new Date().toISOString();
+    const speedMph = Number(latest.speed ?? 0) * 2.23694;
+    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+      last_latitude: latest.latitude,
+      last_longitude: latest.longitude,
+      last_seen_at: seenAt,
+      location_updated_at: new Date().toISOString(),
+      location_source: 'traccar',
+      speed: speedMph,
+      course: Number(latest.course || 0),
+      heading: Number(latest.course || 0),
+      address: latest.address || device.address || '',
+      online_status: 'online',
+    });
+    return { repaired: true, lat: latest.latitude, lng: latest.longitude };
+  } catch (e) {
+    return { repaired: false, reason: e.message };
+  }
+}
+
 async function authorize(base44, body) {
   const user = await base44.auth.me().catch(() => null);
   if (user) return user.role === 'admin' ? { ok: true } : { ok: false, response: Response.json({ error: 'Forbidden' }, { status: 403 }) };
@@ -65,6 +111,25 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Self-healing: repair stale cached positions for online devices ──
+    // If the 15-min sync cron failed, online devices will have stale
+    // location_updated_at. Fetch live positions from Traccar directly.
+    let selfHealed = 0;
+    const selfHealFailures = [];
+    for (const device of devices) {
+      if (['retired', 'suspended'].includes(device.lifecycle_status)) continue;
+      if (device.online_status !== 'online') continue;
+      const locUpdated = device.location_updated_at ? new Date(device.location_updated_at) : null;
+      const staleMin = locUpdated ? (now.getTime() - locUpdated.getTime()) / 60000 : Infinity;
+      if (staleMin <= POSITION_STALE_MINUTES) continue;
+      const result = await selfHealStalePosition(base44, device);
+      if (result.repaired) {
+        selfHealed++;
+      } else {
+        selfHealFailures.push({ unique_id: device.unique_id, reason: result.reason });
+      }
+    }
+
     for (const command of commands.filter(c => ['failed', 'expired'].includes(c.queue_status || c.status))) {
       commandFailures++;
       await alert(base44, {
@@ -84,7 +149,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return Response.json({ ok: true, checked_devices: devices.length, stale_gps: staleGps, offline_devices: offline, command_failures: commandFailures, installation_failures: installFailures });
+    return Response.json({ ok: true, checked_devices: devices.length, stale_gps: staleGps, offline_devices: offline, command_failures: commandFailures, installation_failures: installFailures, self_healed_positions: selfHealed, self_heal_failures: selfHealFailures });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
