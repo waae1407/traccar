@@ -42,26 +42,25 @@ export default function SOSButton({ booking, device }) {
       <button
         onClick={handleTap}
         style={{
-          width: "100%",
-          height: 48,
+          height: 52,
+          width: 52,
           padding: 0,
-          borderRadius: 16,
+          borderRadius: "50%",
           background: "linear-gradient(135deg, #B71C1C, #7F0000)",
-          border: "1px solid rgba(255,255,255,0.18)",
-          boxShadow: "0 6px 20px rgba(127,0,0,0.4), 0 0 16px rgba(183,28,28,0.2)",
+          border: "2px solid rgba(255,255,255,0.18)",
+          boxShadow: "0 8px 24px rgba(127,0,0,0.5), 0 0 20px rgba(183,28,28,0.3)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: 8,
           cursor: "pointer",
           transition: "all 0.2s ease",
           animation: "pulse-glow 2.5s ease-in-out infinite",
+          flexShrink: 0,
         }}
         className="control-tap"
         aria-label="Emergency SOS"
       >
-        <span style={{ fontSize: 15, fontWeight: 800, color: "#FFF", letterSpacing: "0.12em", textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>SOS</span>
-        <span style={{ fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>Emergency</span>
+        <span style={{ fontSize: 17, fontWeight: 800, color: "#FFF", letterSpacing: "0.08em", textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>SOS</span>
       </button>
 
       {sheet === "setup" && (
