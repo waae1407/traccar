@@ -43,7 +43,7 @@ export default function SOSButton({ booking, device }) {
         onClick={handleTap}
         style={{
           position: "fixed",
-          bottom: 84,
+          top: 290,
           right: 20,
           zIndex: 60,
           height: 52,
