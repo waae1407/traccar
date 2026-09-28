@@ -20,16 +20,28 @@ function MapRecenter({ lat, lng }) {
 const ALLOWED_STATUSES = ["active", "approved", "confirmed", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 
 // Tesla-style orbital vehicle marker — cyan core, radar pulse rings, orbital halo
-function createVehicleIcon() {
+function createVehicleIcon(isStale = false) {
+  const coreColor = isStale ? "#FF9F0A" : "#78e4e1";
+  const ringBorder = isStale ? "rgba(255,159,10,0.25)" : "rgba(120,228,225,0.2)";
+  const pulse1Bg = isStale ? "rgba(255,159,10,0.25)" : "rgba(120,228,225,0.25)";
+  const pulse2Bg = isStale ? "rgba(255,159,10,0.15)" : "rgba(120,228,225,0.15)";
+  const glowShadow = isStale
+    ? "0 0 12px rgba(255,159,10,0.9), 0 0 28px rgba(255,159,10,0.35)"
+    : "0 0 12px rgba(120,228,225,0.9), 0 0 28px rgba(120,228,225,0.35)";
+  const labelHtml = isStale
+    ? `<div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:rgba(255,159,10,0.95);color:#1A1A1A;font-size:9px;font-weight:800;letter-spacing:0.05em;padding:2px 7px;border-radius:6px;white-space:nowrap;z-index:3;box-shadow:0 2px 8px rgba(0,0,0,0.4);">DELAYED</div>`
+    : "";
+
   const iconHtml = `
     <div style="position:relative;width:64px;height:64px; display:flex; align-items:center; justify-content:center;">
+      ${labelHtml}
       <!-- Orbital ring (static) -->
       <div style="
         position:absolute;
         width: 100%;
         height: 100%;
         border-radius: 50%;
-        border: 1px solid rgba(120,228,225,0.2);
+        border: 1px solid ${ringBorder};
         z-index: 0;
       "></div>
 
@@ -39,7 +51,7 @@ function createVehicleIcon() {
         width: 60%;
         height: 60%;
         border-radius: 50%;
-        background: rgba(120,228,225,0.25);
+        background: ${pulse1Bg};
         animation: orbitalPulse 3s ease-out infinite;
         z-index: 0;
       "></div>
@@ -50,21 +62,21 @@ function createVehicleIcon() {
         width: 60%;
         height: 60%;
         border-radius: 50%;
-        background: rgba(120,228,225,0.15);
+        background: ${pulse2Bg};
         animation: orbitalPulse 3s ease-out infinite;
         animation-delay: 1.5s;
         z-index: 0;
       "></div>
 
-      <!-- Inner cyan core -->
+      <!-- Inner core -->
       <div style="
         position:relative;
         width: 14px;
         height: 14px;
         border-radius: 50%;
-        background: #78e4e1;
+        background: ${coreColor};
         border: 2px solid rgba(255,255,255,0.92);
-        box-shadow: 0 0 12px rgba(120,228,225,0.9), 0 0 28px rgba(120,228,225,0.35);
+        box-shadow: ${glowShadow};
         z-index: 2;
       "></div>
 
@@ -98,6 +110,32 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
     refetchInterval: 60_000,
   });
 
+  const device = devices[0];
+
+  // ── Live position: pull directly from Traccar every 20s ──
+  // Bypasses the 15-min cron cache so the map shows real-time GPS.
+  // syncSingleTraccarPosition also writes to the DB, refreshing the cache for
+  // all consumers (address, VehicleCommandCenter, etc.).
+  const { data: livePos } = useQuery({
+    queryKey: ["live-vehicle-position", device?.id],
+    queryFn: () => base44.functions.invoke("syncSingleTraccarPosition", { telematics_device_id: device.id }),
+    enabled: !!device?.id && canShow,
+    refetchInterval: 20_000,
+    retry: 1,
+  });
+
+  const liveLat = livePos?.position?.lat;
+  const liveLng = livePos?.position?.lng;
+  const liveSeenAt = livePos?.seen_at;
+
+  const lat = liveLat || device?.last_latitude;
+  const lng = liveLng || device?.last_longitude;
+
+  // Staleness: "delayed" if the effective fix time is >2 min old.
+  // Uses the live Traccar fix time when available, falls back to DB last_seen_at.
+  const effectiveSeenAt = liveSeenAt || device?.last_seen_at;
+  const isStale = !effectiveSeenAt || (Date.now() - new Date(effectiveSeenAt).getTime() > 2 * 60 * 1000);
+
   if (!canShow) {
     return (
       <div style={{ height: "100%", width: "100%", background: "#050506", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -108,10 +146,6 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
       </div>
     );
   }
-
-  const device = devices[0];
-  const lat = device?.last_latitude;
-  const lng = device?.last_longitude;
 
   if (!lat || !lng) {
     return (
@@ -144,9 +178,25 @@ export default function FindMyVehicleMap({ booking, compact = false, vehicleColo
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           className="tesla-orbital-tiles"
         />
-        <Marker position={[lat, lng]} icon={createVehicleIcon()} />
+        <Marker position={[lat, lng]} icon={createVehicleIcon(isStale)} />
         <MapRecenter lat={lat} lng={lng} />
       </MapContainer>
+
+      {/* Delayed GPS indicator */}
+      {isStale && (
+        <div style={{
+          position: "absolute", top: 10, left: 10, zIndex: 400,
+          background: "rgba(255,159,10,0.92)", color: "#1A1A1A",
+          fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
+          padding: "4px 10px", borderRadius: 8,
+          display: "flex", alignItems: "center", gap: 5,
+          backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#1A1A1A" }} />
+          DELAYED GPS
+        </div>
+      )}
 
       {/* Tesla orbital map styling */}
       <style>{`

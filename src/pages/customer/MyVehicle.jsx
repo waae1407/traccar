@@ -345,7 +345,7 @@ export default function MyVehicle() {
     queryKey: ["my-vehicle-device", booking?.vehicle_id],
     queryFn: () => base44.entities.TelematicsDevice.filter({ vehicle_id: booking?.vehicle_id }),
     enabled: !!booking?.vehicle_id,
-    refetchInterval: 30_000,
+    refetchInterval: 20_000,
   });
   const device = devices[0];
   const gps = freshness(device);
