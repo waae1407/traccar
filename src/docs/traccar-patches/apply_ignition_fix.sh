@@ -3,7 +3,7 @@
 # Patches NoranProtocolDecoder.java to extract ACC/ignition from bEnable byte bit 1
 #
 # Usage:
-#   cd /tmp/traccar-src && bash /path/to/apply_ignition_fix.sh
+#   cd /root/traccar && bash /path/to/apply_ignition_fix.sh
 #   # then: ./gradlew clean assemble -x test && sudo cp target/tracker-server.jar /opt/traccar/
 
 set -e
@@ -12,7 +12,7 @@ DECODER_FILE="src/main/java/org/traccar/protocol/NoranProtocolDecoder.java"
 
 if [ ! -f "$DECODER_FILE" ]; then
     echo "❌ NoranProtocolDecoder.java not found at $DECODER_FILE"
-    echo "   Run from the Traccar source root (e.g. /tmp/traccar-src)"
+    echo "   Run from /root/traccar (Traccar source root on this server)"
     exit 1
 fi
 

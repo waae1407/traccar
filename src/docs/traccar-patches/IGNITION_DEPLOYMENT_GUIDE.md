@@ -3,10 +3,10 @@
 ## Prerequisites
 
 - SSH access to the Traccar server
-- Traccar source already cloned at `/tmp/traccar-src` (from prior patches)
-- If not, clone it first:
+- **Traccar source is at `/root/traccar`** on this server (confirmed 2026-09-29)
+- If it's ever missing, clone fresh:
   ```bash
-  cd /tmp && git clone https://github.com/traccar/traccar.git traccar-src
+  cd /root && git clone https://github.com/traccar/traccar.git
   ```
 
 ---
@@ -178,7 +178,7 @@ If you're already SSH'd in and `/tmp/traccar-src` exists:
 
 ```bash
 # 1. Patch
-cd /tmp/traccar-src && python3 -c "
+cd /root/traccar && python3 -c "
 f='src/main/java/org/traccar/protocol/NoranProtocolDecoder.java'
 c=open(f).read()
 old='position.setValid(BitUtil.check(buf.readUnsignedByte(), 0));'
@@ -193,6 +193,5 @@ print('done')
 # 3. Deploy
 sudo systemctl stop traccar
 sudo cp /opt/traccar/tracker-server.jar /opt/traccar/tracker-server.jar.bak
-sudo cp target/tracker-server.jar /opt/traccar/tracker-server.jar
+sudo cp /root/traccar/target/tracker-server.jar /opt/traccar/tracker-server.jar
 sudo systemctl start traccar
-``
