@@ -233,12 +233,41 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── BILLING SELF-HEAL: detect missed weekly billing runs ──
+    // The daily processWeeklyBilling cron can be skipped by GitHub Actions.
+    // When that happens, bookings stay "paid" with a stale next_billing_date
+    // and the customer sees a misleading "Paid / Next: [past date]" on the UI.
+    // This check runs every 15 min: if any active booking has next_billing_date
+    // in the past with payment_status still "paid" from the previous week,
+    // trigger processWeeklyBilling to attempt the charge (it's idempotent —
+    // only charges when next_billing_date <= today).
+    let billingSelfHealTriggered = 0;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const staleBillingBookings = paidBookings.filter((b) => {
+        if (!['active', 'checked_out', 'confirmed', 'approved'].includes(b.booking_status)) return false;
+        if (!b.next_billing_date || !b.autopay_enabled) return false;
+        if (b.billing_stopped_at) return false;
+        const nextBilling = new Date(b.next_billing_date + 'T00:00:00');
+        return nextBilling.getTime() <= today.getTime();
+      });
+      if (staleBillingBookings.length > 0) {
+        console.log(`[AuditPayment360Integrity] SELF-HEAL: ${staleBillingBookings.length} booking(s) with stale next_billing_date — triggering processWeeklyBilling`);
+        await base44.asServiceRole.functions.invoke('processWeeklyBilling', {});
+        billingSelfHealTriggered = staleBillingBookings.length;
+      }
+    } catch (e) {
+      console.error('[AuditPayment360Integrity] Billing self-heal failed:', e.message);
+    }
+
     const summary = {
       total_alerts: alertsCreated.length,
       alert_types: alertsCreated.reduce((acc, a) => {
         acc[a.type] = (acc[a.type] || 0) + 1;
         return acc;
       }, {}),
+      billing_self_heal_triggered: billingSelfHealTriggered,
       timestamp: new Date().toISOString(),
     };
 
