@@ -17,6 +17,7 @@ export default function TrialSignupCard() {
     "24/7 monitoring dashboard",
     "Smart battery & smoke alerts",
     "Trip history & speed alerts",
+    "Contactless rental ready",
   ];
 
   return (
