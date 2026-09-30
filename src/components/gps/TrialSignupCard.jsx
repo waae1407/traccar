@@ -10,6 +10,9 @@ export default function TrialSignupCard() {
   const trialFeatures = [
     "Full GPS tracking & alerts",
     "Remote lock/unlock & immobilizer",
+    "SOS emergency alerts",
+    "Drag race & reckless driving detection",
+    "Tow & theft detection",
     "Geofence & movement alerts",
     "24/7 monitoring dashboard",
     "Smart battery & smoke alerts",
