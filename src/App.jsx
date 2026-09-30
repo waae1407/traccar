@@ -120,6 +120,7 @@ import HostDealer360 from '@/pages/host/HostDealer360.jsx';
 import GPSLanding from '@/pages/GPSLanding.jsx';
 import GPSCheckout from '@/pages/gps/GPSCheckout.jsx';
 import GPSActivate from '@/pages/gps/GPSActivate.jsx';
+import TrialCheckout from '@/pages/gps/TrialCheckout.jsx';
 import CustomerGPS from '@/pages/customer/CustomerGPS.jsx';
 import HostGPSStore from '@/pages/host/HostGPSStore.jsx';
 import AdminGPSStore from '@/pages/admin/AdminGPSStore.jsx';
@@ -211,6 +212,7 @@ const AuthenticatedApp = () => {
       <Route path="/gps" element={<GPSLanding />} />
       <Route path="/gps/checkout" element={<GPSCheckout />} />
       <Route path="/gps/activate" element={<GPSActivate />} />
+      <Route path="/gps/trial" element={<TrialCheckout />} />
 
       {/* ── PUBLIC PAGES (no login required, no layout) ── */}
       <Route path="/become-a-host" element={<BecomeAHost />} />

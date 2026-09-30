@@ -38,6 +38,10 @@
     "stripe_customer_id": {
       "type": "string"
     },
+    "stripe_payment_method_id": {
+      "type": "string",
+      "description": "Saved payment method from trial signup, used for $100 device fee if not returned"
+    },
     "subscription_status": {
       "type": "string",
       "enum": [
@@ -107,6 +111,60 @@
       "type": "string",
       "format": "date-time",
       "description": "When subscription was reactivated after payment update"
+    },
+    "trial_started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the 90-day free trial began"
+    },
+    "trial_end_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the 90-day trial ends and subscription auto-activates"
+    },
+    "trial_reminder_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the 2-week trial-end reminder was sent (day 76)"
+    },
+    "canceled_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the user canceled their trial or subscription"
+    },
+    "cancel_reason": {
+      "type": "string",
+      "description": "Reason for cancellation"
+    },
+    "return_window_ends_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "14-day deadline to return the device after cancellation"
+    },
+    "return_label_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the prepaid return label was emailed"
+    },
+    "device_return_warning_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the day-12 'device not received' warning was sent"
+    },
+    "device_returned_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the admin confirmed the device was returned"
+    },
+    "device_fee_charged_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the $100 device-not-returned fee was charged"
+    },
+    "device_fee_amount": {
+      "type": "number",
+      "default": 100,
+      "description": "Device fee charged if not returned within 14 days of cancellation"
     }
   },
   "required": [

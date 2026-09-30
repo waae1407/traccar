@@ -224,6 +224,16 @@
       "type": "number",
       "default": 0,
       "description": "Monthly subscription price from product at time of order"
+    },
+    "is_trial_order": {
+      "type": "boolean",
+      "default": false,
+      "description": "True for 90-day free trial orders (free shipping, no charge during trial)"
+    },
+    "trial_end_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the 90-day trial ends for this order"
     }
   },
   "required": [
