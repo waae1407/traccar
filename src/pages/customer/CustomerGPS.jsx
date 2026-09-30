@@ -11,6 +11,7 @@ import EmergencyContactsManager from '@/components/gps/EmergencyContactsManager'
 import StartRentingButton from '@/components/gps/StartRentingButton';
 import SubscriptionPastDueBanner from '@/components/gps/SubscriptionPastDueBanner';
 import TrialActivationBanner from '@/components/gps/TrialActivationBanner';
+import TrialStatusBanner from '@/components/gps/TrialStatusBanner';
 import C360SignInInterstitial from '@/components/auth/C360SignInInterstitial';
 import { isCustomDomainHost } from '@/components/host/storefront/CustomDomainGate';
 
@@ -225,7 +226,13 @@ export default function CustomerGPS() {
               </div>
             )}
 
-            {/* Trial Activation Banner */}
+            {/* 90-Day Trial Status + Cancel */}
+            <TrialStatusBanner
+              subscription={activeSubscription}
+              onCancelComplete={loadData}
+            />
+
+            {/* Trial Activation Banner (legacy activation flow) */}
             <TrialActivationBanner
               device={activeDevice}
               subscription={activeSubscription}
@@ -359,8 +366,8 @@ export default function CustomerGPS() {
               <div className="glass rounded-2xl p-8 border border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-yellow-600/3 text-center space-y-4">
                 <Shield className="w-10 h-10 text-yellow-400 mx-auto" />
                 <h3 className="font-syne font-bold text-white">Protect Your Vehicle with Contactless360</h3>
-                <p className="text-muted-foreground text-sm">Live GPS tracking, geofence alerts, remote controls, and theft recovery starting at $149.</p>
-                <Link to="/gps"><button className="rounded-xl px-5 py-2.5 text-sm font-bold text-white" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Explore GPS Plans</button></Link>
+                <p className="text-muted-foreground text-sm">Free 90-day trial — full GPS tracking, geofence alerts, remote controls. No charge during trial.</p>
+                <Link to="/gps/trial"><button className="rounded-xl px-5 py-2.5 text-sm font-bold text-white" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Start Free Trial</button></Link>
               </div>
             )}
           </>

@@ -1,0 +1,45 @@
+{
+  "name": "GPS Trial Lifecycle \u2014 Daily",
+  "description": "Daily 1pm PT: sends 14-day trial-end reminders, converts expired trials to active, sends day-12 return warnings, charges $100 device fee on day 14 if device not returned.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "gps_trial_lifecycle_daily",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_trial_lifecycle": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "processGPSTrialLifecycle",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Process GPS trial lifecycle",
+            "description": "Reminders, expiry, return warnings, device fees"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 20 * * *",
+      "one_time_date": null,
+      "timezone": "America/Los_Angeles",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

@@ -174,13 +174,41 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.SubscriptionItem.create({ ...itemPayload, created_at: now });
     }
 
-    // Notify
+    // Notify customer
     await base44.asServiceRole.entities.Notification.create({
       user_email: order.customer_email,
+      recipient_email: order.customer_email,
+      recipient_role: 'customer',
       title: '✅ GPS Subscription Active',
       body: `Your Contactless360 GPS subscription ($${monthly_price}/mo) is now active. Device tracking is live.`,
-      type: 'system',
+      type: 'success',
+      category: 'subscriptions',
+      severity: 'info',
+      source_function: 'createGPSSubscription',
     }).catch(() => {});
+
+    // Notify all admins of new paid subscription
+    try {
+      const allUsers = await base44.asServiceRole.entities.User.list('-created_date', 100);
+      const admins = allUsers.filter(u => u.role === 'admin');
+      for (const admin of admins) {
+        await base44.asServiceRole.entities.Notification.create({
+          recipient_user_id: admin.id,
+          recipient_email: admin.email,
+          recipient_role: 'admin',
+          title: '💳 New GPS Subscription Activated',
+          body: `${order.customer_email} activated a paid GPS subscription ($${monthly_price}/mo). Stripe: ${subscription.id}`,
+          type: 'success',
+          category: 'subscriptions',
+          severity: 'info',
+          source_function: 'createGPSSubscription',
+          related_entity_type: 'GPSSubscription',
+          related_entity_id: sub.id,
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.error('[createGPSSubscription] admin notification failed:', e.message);
+    }
 
     // Audit log
     await base44.asServiceRole.entities.ActivityEvent.create({

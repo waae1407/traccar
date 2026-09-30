@@ -280,6 +280,30 @@ Deno.serve(async (req) => {
       source_function: 'startGPSTrial',
     }).catch(() => {});
 
+    // ── 10. Notify all admins of new trial signup ──
+    try {
+      const allUsers = await base44.asServiceRole.entities.User.list('-created_date', 100);
+      const admins = allUsers.filter(u => u.role === 'admin');
+      for (const admin of admins) {
+        await base44.asServiceRole.entities.Notification.create({
+          recipient_user_id: admin.id,
+          recipient_email: admin.email,
+          recipient_role: 'admin',
+          title: '🎉 New GPS Trial Signup',
+          body: `${customer_name} (${customer_email}) started a 90-day free trial. Order: ${orderNum}. $${MONTHLY_PRICE}/mo starts ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`,
+          type: 'success',
+          category: 'subscriptions',
+          severity: 'info',
+          source_function: 'startGPSTrial',
+          related_entity_type: 'GPSOrder',
+          related_entity_id: order.id,
+          metadata: { order_id: order.id, subscription_id: sub.id, customer_email },
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.error('[startGPSTrial] admin notification failed:', e.message);
+    }
+
     return Response.json({
       success: true,
       order_id: order.id,

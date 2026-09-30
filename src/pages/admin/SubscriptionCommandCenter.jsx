@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, XCircle, AlertTriangle, DollarSign, Users, Zap, RefreshCw, Play } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, DollarSign, Users, Zap, RefreshCw, Play, Clock, Package, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_COLORS = {
@@ -42,6 +42,7 @@ function MetricCard({ label, value, sub, color, warn }) {
 
 export default function SubscriptionCommandCenter() {
   const [migrationLog, setMigrationLog] = useState(null);
+  const [confirmingReturn, setConfirmingReturn] = useState(null);
 
   const { data: accounts = [], isLoading: loadingAccounts, refetch: refetchAccounts } = useQuery({
     queryKey: ["sub-accounts"],
@@ -55,6 +56,10 @@ export default function SubscriptionCommandCenter() {
     queryKey: ["sub-alerts"],
     queryFn: () => base44.entities.SubscriptionAlert.list("-created_at", 200),
   });
+  const { data: gpsSubs = [], refetch: refetchGpsSubs } = useQuery({
+    queryKey: ["gps-subs-admin"],
+    queryFn: () => base44.entities.GPSSubscription.list("-created_date", 500),
+  });
 
   const dryRunMigration = useMutation({
     mutationFn: () => base44.functions.invoke("migrateSubscriptionsToUnified", { dry_run: true }).then(r => r.data),
@@ -64,6 +69,16 @@ export default function SubscriptionCommandCenter() {
     mutationFn: () => base44.functions.invoke("migrateSubscriptionsToUnified", { dry_run: false }).then(r => r.data),
     onSuccess: (d) => { setMigrationLog({ ...d, mode: "LIVE" }); refetchAccounts(); refetchItems(); },
   });
+
+  const confirmReturn = useMutation({
+    mutationFn: (subId) => base44.functions.invoke("confirmGPSDeviceReturn", { subscription_id: subId }).then(r => r.data),
+    onSuccess: () => { setConfirmingReturn(null); refetchGpsSubs(); },
+  });
+
+  const trialingSubs = gpsSubs.filter(s => s.subscription_status === "trialing");
+  const cancelledSubs = gpsSubs.filter(s => s.subscription_status === "cancelled" && !s.device_returned_at && !s.device_fee_charged_at);
+  const returnedSubs = gpsSubs.filter(s => s.device_returned_at);
+  const feeChargedSubs = gpsSubs.filter(s => s.device_fee_charged_at);
 
   const activeAccounts = accounts.filter(a => a.status === "active");
   const pastDueAccounts = accounts.filter(a => a.status === "past_due");
@@ -136,7 +151,7 @@ export default function SubscriptionCommandCenter() {
 
       <Tabs defaultValue="overview">
         <TabsList className="flex-wrap h-auto gap-1">
-          {[["overview","Overview"],["accounts","Accounts"],["items","Items"],["failed","Failed Payments"],["gps","GPS Subscriptions"],["host","Host Plans"],["alerts","Alerts"]].map(([v,l]) => (
+          {[["overview","Overview"],["trials","Trials"],["returns","Returns"],["accounts","Accounts"],["items","Items"],["failed","Failed Payments"],["gps","GPS Subscriptions"],["host","Host Plans"],["alerts","Alerts"]].map(([v,l]) => (
             <TabsTrigger key={v} value={v}>{l}</TabsTrigger>
           ))}
         </TabsList>
@@ -170,6 +185,78 @@ export default function SubscriptionCommandCenter() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="trials" className="mt-4 space-y-3">
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <MetricCard label="Active Trials" value={trialingSubs.length} color="text-blue-400" sub="90-day free" />
+            <MetricCard label="Pending Returns" value={cancelledSubs.length} color="text-yellow-400" sub="14-day window" warn={cancelledSubs.length > 0} />
+            <MetricCard label="Devices Returned" value={returnedSubs.length} color="text-green-400" />
+          </div>
+          {trialingSubs.length === 0 && <p className="text-muted-foreground text-sm">No active trials.</p>}
+          {trialingSubs.map(s => {
+            const daysLeft = s.trial_end_at ? Math.ceil((new Date(s.trial_end_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+            return (
+              <div key={s.id} className="rounded-lg bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm flex justify-between items-start">
+                <div>
+                  <p className="font-medium text-blue-400 flex items-center gap-2"><Clock className="w-3.5 h-3.5" /> {s.customer_name || s.customer_email}</p>
+                  <p className="text-muted-foreground text-xs mt-1">{s.customer_email} · ${s.monthly_price}/mo · Trial ends {s.trial_end_at ? format(new Date(s.trial_end_at), "MMM d, yyyy") : "—"}</p>
+                  {s.trial_reminder_sent_at && <p className="text-yellow-400 text-xs mt-1">Reminder sent {format(new Date(s.trial_reminder_sent_at), "MMM d")}</p>}
+                </div>
+                <div className="text-right">
+                  <Badge className="text-xs bg-blue-500/20 text-blue-400">{daysLeft}d left</Badge>
+                </div>
+              </div>
+            );
+          })}
+        </TabsContent>
+
+        <TabsContent value="returns" className="mt-4 space-y-3">
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <MetricCard label="Pending Returns" value={cancelledSubs.length} color="text-yellow-400" warn={cancelledSubs.length > 0} />
+            <MetricCard label="Returned" value={returnedSubs.length} color="text-green-400" />
+            <MetricCard label="Fees Charged" value={feeChargedSubs.length} color="text-red-400" warn={feeChargedSubs.length > 0} />
+          </div>
+          {cancelledSubs.length === 0 && <p className="text-muted-foreground text-sm">No pending device returns.</p>}
+          {cancelledSubs.map(s => {
+            const daysLeft = s.return_window_ends_at ? Math.ceil((new Date(s.return_window_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+            const isOverdue = daysLeft <= 0;
+            return (
+              <div key={s.id} className={`rounded-lg px-4 py-3 text-sm border ${isOverdue ? "bg-red-500/10 border-red-500/20" : "bg-yellow-500/10 border-yellow-500/20"}`}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium flex items-center gap-2"><Package className="w-3.5 h-3.5 text-yellow-400" /> {s.customer_name || s.customer_email}</p>
+                    <p className="text-muted-foreground text-xs mt-1">{s.customer_email} · Cancelled {s.canceled_at ? format(new Date(s.canceled_at), "MMM d") : "—"}</p>
+                    <p className={`text-xs mt-1 ${isOverdue ? "text-red-400" : "text-yellow-400"}`}>
+                      {isOverdue ? "Return window expired — fee pending" : `${daysLeft} day(s) left to return`}
+                    </p>
+                    {s.device_return_warning_sent_at && <p className="text-orange-400 text-xs mt-1">⚠ Warning sent {format(new Date(s.device_return_warning_sent_at), "MMM d")}</p>}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setConfirmingReturn(s.id)}
+                    disabled={confirmingReturn === s.id && confirmReturn.isPending}
+                  >
+                    {confirmingReturn === s.id && confirmReturn.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5 mr-1" />}
+                    Confirm Returned
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {confirmingReturn && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+              <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full space-y-4">
+                <h3 className="font-bold text-white">Confirm Device Returned?</h3>
+                <p className="text-sm text-muted-foreground">This will close the subscription with no device fee. The customer will be notified.</p>
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1" onClick={() => setConfirmingReturn(null)}>Cancel</Button>
+                  <Button className="flex-1 bg-green-500 hover:bg-green-600 text-white" onClick={() => confirmReturn.mutate(confirmingReturn)}>Confirm Return</Button>
+                </div>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="accounts" className="mt-4 space-y-2">

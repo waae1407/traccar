@@ -122,6 +122,29 @@ Deno.serve(async (req) => {
       event_status: 'warning',
     }).catch(() => {});
 
+    // ── 8. Notify admins of cancellation ──
+    try {
+      const allUsers = await base44.asServiceRole.entities.User.list('-created_date', 100);
+      const admins = allUsers.filter(u => u.role === 'admin');
+      for (const admin of admins) {
+        await base44.asServiceRole.entities.Notification.create({
+          recipient_user_id: admin.id,
+          recipient_email: admin.email,
+          recipient_role: 'admin',
+          title: '⚠️ GPS Trial/Subscription Cancelled',
+          body: `${sub.customer_email} cancelled their GPS ${sub.subscription_status === 'trialing' ? 'trial' : 'subscription'}. 14-day return window started. $${DEVICE_FEE} fee if device not returned by ${returnWindowEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`,
+          type: 'alert',
+          category: 'subscriptions',
+          severity: 'warning',
+          source_function: 'cancelGPSTrial',
+          related_entity_type: 'GPSSubscription',
+          related_entity_id: sub.id,
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.error('[cancelGPSTrial] admin notification failed:', e.message);
+    }
+
     return Response.json({
       success: true,
       return_window_ends_at: returnWindowEnd.toISOString(),
