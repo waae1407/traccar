@@ -28,9 +28,9 @@ function GoldCircleBtn({ icon, label, onClick, loading, disabled }) {
           height: 76,
           borderRadius: "50%",
           background: "radial-gradient(circle at 50% 40%, rgba(50,44,20,0.9), rgba(10,10,10,0.92))",
-          border: `2px solid ${GOLD}`,
+          border: `1.5px solid ${GOLD}`,
           boxShadow:
-            `0 0 24px ${GOLD}99, 0 0 6px ${GOLD}80, inset 0 0 16px ${GOLD}4D`,
+            `0 0 20px ${GOLD}66, 0 0 4px ${GOLD}80, inset 0 0 14px ${GOLD}33`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

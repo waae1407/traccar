@@ -38,11 +38,11 @@ export default function VehicleTopCard({ addressLine, statusLabel = "PARKED" }) 
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: "#50C878",
-              boxShadow: "0 0 8px #50C878",
+              background: "#39FF14",
+              boxShadow: "0 0 8px #39FF14",
             }}
           />
-          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.04em", color: "#50C878" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.04em", color: "#39FF14" }}>
             ACTIVE
           </span>
         </div>
@@ -67,11 +67,11 @@ export default function VehicleTopCard({ addressLine, statusLabel = "PARKED" }) 
           </span>
         </div>
       </div>
-      <div style={{ textAlign: "center", marginTop: 6, display: "flex", justifyContent: "center", gap: 10, alignItems: "baseline" }}>
-        <span style={{ fontSize: 15, fontWeight: 600, color: GOLD, letterSpacing: "0.02em" }}>
+      <div style={{ marginTop: 6, display: "flex", justifyContent: "center", gap: 8, alignItems: "baseline", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: GOLD, letterSpacing: "0.02em", flexShrink: 0 }}>
           {timeStr}
         </span>
-        <span style={{ fontSize: 16, fontWeight: 700, color: "#FFF", letterSpacing: "0.02em" }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#FFF", letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
           {addressLine}
         </span>
       </div>
