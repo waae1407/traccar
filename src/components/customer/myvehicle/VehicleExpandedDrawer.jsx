@@ -1,6 +1,6 @@
 import React from "react";
 import { format } from "date-fns";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Bell, SlidersHorizontal } from "lucide-react";
 import SOSButton from "@/components/customer/sos/SOSButton";
 
 function getSecurityInfo(device) {
@@ -186,8 +186,73 @@ export default function VehicleExpandedDrawer({
 
       {/* Action buttons */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {/* PANIC/SOS */}
-        <SOSButton booking={booking} device={device} inline variant="pill" />
+        {/* Two side-by-side circular buttons: NOTIFY + PANIC/SOS */}
+        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+          <button
+            onClick={() => (window.location.href = "/notifications")}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 6,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+            }}
+            className="control-tap"
+          >
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: "50%",
+                background: "rgba(10,10,12,0.8)",
+                border: "2px solid rgba(212,175,55,0.55)",
+                boxShadow:
+                  "0 0 18px rgba(212,175,55,0.25), inset 0 0 12px rgba(212,175,55,0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+              }}
+            >
+              <Bell size={22} color="#D4AF37" strokeWidth={2.2} />
+            </div>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#D4AF37",
+                letterSpacing: "0.1em",
+              }}
+            >
+              NOTIFY
+            </span>
+          </button>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <SOSButton booking={booking} device={device} inline />
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#FF4C4C",
+                letterSpacing: "0.1em",
+              }}
+            >
+              PANIC/SOS
+            </span>
+          </div>
+        </div>
 
         {/* END YOUR RENTAL */}
         {!dropoffInspectionComplete && isBookingActive && (
@@ -236,7 +301,7 @@ export default function VehicleExpandedDrawer({
           }}
           className="control-tap"
         >
-          <span style={{ fontSize: 14 }}>⎈</span> VIEW FULL DIAGNOSTICS
+          <SlidersHorizontal size={16} color="#FFF" /> VIEW FULL DIAGNOSTICS
         </button>
       </div>
     </div>
