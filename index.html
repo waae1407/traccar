@@ -12,7 +12,9 @@
       // prompts (location, camera, notifications), address bars, or shared links.
       (function() {
         var host = window.location.hostname.toLowerCase();
-        if (host.includes("base44") && host !== "localhost" && host !== "127.0.0.1") {
+        var inBuilderFrame = false;
+        try { inBuilderFrame = window.self !== window.top; } catch (e) { inBuilderFrame = true; }
+        if (!inBuilderFrame && host.includes("base44") && host !== "localhost" && host !== "127.0.0.1") {
           window.location.replace("https://uridehub.com" + window.location.pathname + window.location.search + window.location.hash);
         }
       })();
