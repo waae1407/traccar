@@ -55,7 +55,7 @@ export default function MyVehicleOverlay({
 
       {!expanded && (
         <div style={{
-          position: "absolute", top: "46%", left: 0, right: 0,
+          position: "absolute", top: "64%", left: 0, right: 0,
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: "0 20px", pointerEvents: "none",
         }}>
