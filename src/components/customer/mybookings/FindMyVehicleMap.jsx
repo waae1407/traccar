@@ -182,30 +182,8 @@ export default function FindMyVehicleMap({
     );
   }
 
-  if (!lat || !lng) {
-    return (
-      <div
-        style={{
-          height: "100%",
-          width: "100%",
-          background: "#000",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div style={{ textAlign: "center", padding: 16 }}>
-          <MapPin
-            style={{ margin: "0 auto 8px", color: "#3a3a3a", width: 20, height: 20 }}
-          />
-          <p style={{ fontSize: 12, color: "#4a4a4a", fontWeight: 500 }}>
-            Waiting for GPS location...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // Always render the map container so the ref is available for the init effect.
+  // Loading/stale messages are overlaid on top.
   return (
     <div
       style={{
@@ -216,7 +194,28 @@ export default function FindMyVehicleMap({
       }}
     >
       <div ref={mapContainer} style={{ height: "100%", width: "100%" }} />
-      {isStale && (
+      {(!lat || !lng) && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#0a0a0a",
+          }}
+        >
+          <div style={{ textAlign: "center", padding: 16 }}>
+            <MapPin
+              style={{ margin: "0 auto 8px", color: "#3a3a3a", width: 20, height: 20 }}
+            />
+            <p style={{ fontSize: 12, color: "#4a4a4a", fontWeight: 500 }}>
+              Waiting for GPS location...
+            </p>
+          </div>
+        </div>
+      )}
+      {isStale && lat && lng && (
         <div
           style={{
             position: "absolute",

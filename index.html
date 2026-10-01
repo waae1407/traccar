@@ -12,11 +12,18 @@
       // prompts (location, camera, notifications), address bars, or shared links.
       (function() {
         var host = window.location.hostname.toLowerCase();
-        var inBuilderFrame = false;
-        try { inBuilderFrame = window.self !== window.top; } catch (e) { inBuilderFrame = true; }
-        if (!inBuilderFrame && host.includes("base44") && host !== "localhost" && host !== "127.0.0.1") {
-          window.location.replace("https://uridehub.com" + window.location.pathname + window.location.search + window.location.hash);
-        }
+        if (!host.includes("base44") || host === "localhost" || host === "127.0.0.1") return;
+        // Delay redirect to let the builder/preview bridge (window.__base44_preview)
+        // signal that we're inside the builder — if so, skip the redirect entirely.
+        var checks = 0;
+        var timer = setInterval(function() {
+          if (window.__base44_preview || ++checks > 8) {
+            clearInterval(timer);
+            if (window.__base44_preview) return;
+            try { if (window.self !== window.top) return; } catch (e) { return; }
+            window.location.replace("https://uridehub.com" + window.location.pathname + window.location.search + window.location.hash);
+          }
+        }, 50);
       })();
     </script>
     <script>
