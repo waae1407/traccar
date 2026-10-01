@@ -1,30 +1,13 @@
-import React, { useState, useEffect } from "react";
-
-const GOLD = "#F9D479";
+import React from "react";
 
 export default function VehicleTopCard({ addressLine, statusLabel = "PARKED" }) {
-  const [timeStr, setTimeStr] = useState("");
-
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      const h12 = now.getHours() % 12 || 12;
-      const ampm = now.getHours() >= 12 ? "PM" : "AM";
-      const mm = String(now.getMinutes()).padStart(2, "0");
-      setTimeStr(`${h12}:${mm} ${ampm}`);
-    };
-    update();
-    const t = setInterval(update, 10_000);
-    return () => clearInterval(t);
-  }, []);
-
   return (
     <div
       style={{
         borderRadius: 20,
         padding: "10px 16px 12px",
         background:
-          "linear-gradient(135deg, rgba(28,28,28,0.78) 0%, rgba(18,18,18,0.78) 55%, rgba(14,14,14,0.82) 100%)",
+          "linear-gradient(135deg, rgba(22,70,40,0.72) 0%, rgba(14,18,16,0.72) 55%, rgba(12,14,14,0.78) 100%)",
         backdropFilter: "blur(18px)",
         WebkitBackdropFilter: "blur(18px)",
         border: "1px solid rgba(255,255,255,0.14)",
@@ -38,11 +21,11 @@ export default function VehicleTopCard({ addressLine, statusLabel = "PARKED" }) 
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: "#39FF14",
-              boxShadow: "0 0 8px #39FF14",
+              background: "#50C878",
+              boxShadow: "0 0 8px #50C878",
             }}
           />
-          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.04em", color: "#39FF14" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.04em", color: "#50C878" }}>
             ACTIVE
           </span>
         </div>
@@ -55,23 +38,20 @@ export default function VehicleTopCard({ addressLine, statusLabel = "PARKED" }) 
               fontSize: 14,
               fontWeight: 700,
               letterSpacing: "0.04em",
-              color: GOLD,
-              border: `1.5px solid ${GOLD}`,
+              color: "#E6C45A",
+              border: "1.5px solid rgba(212,175,55,0.85)",
               borderRadius: 999,
               padding: "2px 14px",
               background: "rgba(20,16,4,0.6)",
-              boxShadow: `0 0 10px ${GOLD}40`,
+              boxShadow: "0 0 10px rgba(212,175,55,0.25)",
             }}
           >
             {statusLabel}
           </span>
         </div>
       </div>
-      <div style={{ marginTop: 6, display: "flex", justifyContent: "center", gap: 8, alignItems: "baseline", whiteSpace: "nowrap" }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: GOLD, letterSpacing: "0.02em", flexShrink: 0 }}>
-          {timeStr}
-        </span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#FFF", letterSpacing: "0.02em", whiteSpace: "nowrap" }}>
+      <div style={{ textAlign: "center", marginTop: 6 }}>
+        <span style={{ fontSize: 16, fontWeight: 700, color: "#FFF", letterSpacing: "0.02em" }}>
           {addressLine}
         </span>
       </div>

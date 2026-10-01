@@ -28,7 +28,7 @@ export default function MyVehicleOverlay({
       pointerEvents: "none", boxSizing: "border-box",
       paddingTop: "max(10px, env(safe-area-inset-top))",
       paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      fontFamily: "'Barlow Condensed', 'Oswald', -apple-system, sans-serif",
     }}>
       <div style={{ ...COL, padding: "0 12px", pointerEvents: "auto", flexShrink: 0 }}>
         <VehicleTopCard addressLine={addressLine} statusLabel={statusLabel} />
@@ -45,18 +45,17 @@ export default function MyVehicleOverlay({
         <div style={{
           position: "absolute", top: "calc(50% + 14px)", left: "50%", transform: "translateX(-50%)",
           display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 14px 4px 10px", borderRadius: 999,
-          background: "linear-gradient(180deg, rgba(20,28,22,0.85), rgba(10,16,12,0.9))", border: "1px solid #F9D479",
-          boxShadow: "0 0 12px rgba(249,212,121,0.25)",
+          background: "linear-gradient(180deg, #1F6B40, #14492B)", border: "1.5px solid #4ADE80",
+          boxShadow: "0 0 14px rgba(74,222,128,0.35)",
         }}>
-          <CheckCircle2 size={16} color="#39FF14" />
-          <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.03em", color: "#39FF14" }}>SAFE DRIVER</span>
+          <CheckCircle2 size={16} color="#7DF0A5" />
+          <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.03em", color: "#8CF5B0" }}>SAFE DRIVER</span>
         </div>
       )}
 
       {!expanded && (
         <div style={{
-          position: "absolute", top: "calc(50% + 44px)", left: 0, right: 0,
-          transform: "translateY(-50%)",
+          position: "absolute", top: "46%", left: 0, right: 0,
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: "0 20px", pointerEvents: "none",
         }}>
