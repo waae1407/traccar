@@ -66,7 +66,7 @@ export default function SOSButton({ booking, device, inline = false, variant = "
         borderRadius: "50%",
         background: "radial-gradient(circle at 35% 30%, #FF6B5E, #E0271B 60%, #A50F08)",
         border: "2px solid rgba(255,255,255,0.3)",
-        boxShadow: "0 0 28px rgba(255,59,48,0.7), 0 4px 16px rgba(127,0,0,0.5)",
+        boxShadow: "0 0 12px rgba(255,59,48,0.35), 0 4px 12px rgba(127,0,0,0.4)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

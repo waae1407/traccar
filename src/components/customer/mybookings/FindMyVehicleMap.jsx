@@ -46,7 +46,7 @@ function createVehicleMarkerElement(isStale = false) {
   el.innerHTML = `
     <div style="position:relative;width:96px;height:120px;">
       ${labelHtml}
-      <svg width="96" height="120" viewBox="0 0 100 125" fill="none" style="filter: drop-shadow(0 0 16px rgba(212,175,55,0.8)) drop-shadow(0 0 32px rgba(212,175,55,0.4));">
+      <svg width="96" height="120" viewBox="0 0 100 125" fill="none" style="filter: drop-shadow(0 0 8px rgba(212,175,55,0.45));">
         <defs>
           <linearGradient id="pinGold" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stop-color="#F7DE8A"/>

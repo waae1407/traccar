@@ -74,7 +74,7 @@ export default function MyVehicleOverlay({
               width: 58, height: 58, borderRadius: "50%", cursor: "pointer",
               background: "radial-gradient(circle at 35% 30%, #5B9BFF, #2563EB 65%, #1A45B0)",
               border: "2px solid rgba(255,255,255,0.3)",
-              boxShadow: "0 0 26px rgba(47,128,255,0.65), 0 4px 16px rgba(0,20,80,0.5)",
+              boxShadow: "0 0 12px rgba(47,128,255,0.35), 0 4px 12px rgba(0,20,80,0.4)",
               display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "auto",
             }}
           >

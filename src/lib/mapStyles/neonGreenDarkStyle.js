@@ -84,7 +84,7 @@ export const neonGreenDarkStyle = {
         ["==", ["get", "class"], "runway"],
       ],
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 11, 2, 20, 12],
         "line-opacity": 0.4,
       },
@@ -101,7 +101,7 @@ export const neonGreenDarkStyle = {
         ["==", ["get", "class"], "taxiway"],
       ],
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 11, 0.5, 20, 5],
         "line-opacity": 0.3,
       },
@@ -129,10 +129,10 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 5, 3, 20, 20],
-        "line-blur": 4,
-        "line-opacity": 0.35,
+        "line-blur": 2,
+        "line-opacity": 0.16,
       },
     },
     {
@@ -147,10 +147,10 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 5, 2.5, 20, 16],
-        "line-blur": 3,
-        "line-opacity": 0.28,
+        "line-blur": 1.5,
+        "line-opacity": 0.12,
       },
     },
     {
@@ -165,10 +165,10 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 8, 2, 20, 12],
-        "line-blur": 2.5,
-        "line-opacity": 0.22,
+        "line-blur": 1.5,
+        "line-opacity": 0.10,
       },
     },
     {
@@ -183,10 +183,10 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 13, 1.5, 20, 8],
-        "line-blur": 2,
-        "line-opacity": 0.18,
+        "line-blur": 1,
+        "line-opacity": 0.08,
       },
     },
 
@@ -203,7 +203,7 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 5, 1.2, 20, 10],
       },
     },
@@ -219,7 +219,7 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 5, 1, 20, 8],
       },
     },
@@ -235,7 +235,7 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 8, 0.7, 20, 6],
       },
     },
@@ -251,7 +251,7 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 13, 0.4, 20, 4],
       },
     },
@@ -267,7 +267,7 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 15, 0.3, 20, 3],
         "line-opacity": 0.5,
       },
@@ -284,7 +284,7 @@ export const neonGreenDarkStyle = {
       ],
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#39ff14",
+        "line-color": "#5BC27A",
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 14, 0.2, 20, 2],
         "line-opacity": 0.35,
         "line-dasharray": [1, 1],
