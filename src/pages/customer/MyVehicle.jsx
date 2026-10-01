@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import {
-  Lock, Unlock, MapPin, Navigation, ChevronUp, ChevronDown,
-  Car, Calendar, Mail, Bell, User, Shield, AlertTriangle, X,
+  Lock, Unlock, MapPin, Navigation, Clock, ChevronRight,
+  Car, Calendar, Bell, User, Shield, AlertTriangle, X,
+  CheckCircle2, Signal, Wind, MessageCircle, Zap,
 } from "lucide-react";
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 import SOSButton from "@/components/customer/sos/SOSButton";
-import MyVehicleOverlay from "@/components/customer/myvehicle/MyVehicleOverlay";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -90,55 +90,77 @@ function DiagRow({ label, value, isAlert }) {
   );
 }
 
-// Gold circular control button
-function GoldCircleBtn({ icon, label, sub, onClick, loading, disabled }) {
+// Card-based control button (matches mockup aesthetic)
+function ControlButton({ icon: Icon, label, sub, onClick, loading, disabled, highlight }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`control-tap ${loading ? "btn-loading-spin" : ""}`}
+      className="control-tap"
       style={{
-        position: "relative",
+        background: "#1C1C1E",
+        borderRadius: 14,
+        border: highlight ? "2px solid #0A84FF" : "1px solid rgba(255,255,255,0.08)",
+        boxShadow: highlight ? "0 0 14px rgba(10,132,255,0.25)" : "none",
+        padding: "14px 8px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         gap: 6,
-        background: "none",
-        border: "none",
         cursor: disabled ? "default" : "pointer",
         opacity: disabled && !loading ? 0.4 : 1,
-        padding: 0,
-        transition: "all 0.2s ease-in-out",
+        minHeight: 90,
       }}
     >
-      <div
-        style={{
-          width: 68,
-          height: 68,
-          borderRadius: "50%",
-          background: "rgba(10,10,12,0.8)",
-          border: "2px solid rgba(212,175,55,0.55)",
-          boxShadow: "0 0 18px rgba(212,175,55,0.25), inset 0 0 12px rgba(212,175,55,0.08)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-        }}
-      >
-        <div className="btn-loading-content" style={{ gap: 0 }}>
-          {loading ? (
-            <div style={{ width: 22, height: 22, border: "2px solid rgba(212,175,55,0.3)", borderTopColor: "#D4AF37", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-          ) : (
-            icon
-          )}
-        </div>
-      </div>
-      <div style={{ textAlign: "center" }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: "#D4AF37", letterSpacing: "0.1em", margin: 0 }}>{label}</p>
-        <p style={{ fontSize: 8, color: "#71717A", margin: "1px 0 0", fontWeight: 500, letterSpacing: "0.04em" }}>{sub}</p>
-      </div>
+      {loading ? (
+        <div style={{ width: 22, height: 22, border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "#0A84FF", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      ) : (
+        <Icon size={22} color={highlight ? "#0A84FF" : "#F5F5F7"} strokeWidth={2} />
+      )}
+      <span style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F7" }}>{label}</span>
+      <span style={{ fontSize: 10, color: "#8E8E93" }}>{sub}</span>
     </button>
+  );
+}
+
+// Health indicator item with green/red check
+function HealthItem({ label, ok }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#1C1C1E", borderRadius: 12, padding: "10px 12px" }}>
+      <div style={{ width: 20, height: 20, borderRadius: "50%", background: ok ? "#30D158" : "#FF453A", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        {ok ? <CheckCircle2 size={14} color="#FFF" /> : <AlertTriangle size={14} color="#FFF" />}
+      </div>
+      <span style={{ fontSize: 12, color: "#8E8E93" }}>{label}</span>
+    </div>
+  );
+}
+
+// Circular progress ring (blue)
+function ProgressRing({ progress, label, sublabel }) {
+  const r = 28;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - progress);
+  return (
+    <div style={{ position: "relative", width: 72, height: 72, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <svg width="72" height="72" style={{ position: "absolute", transform: "rotate(-90deg)" }}>
+        <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="4" />
+        <circle cx="36" cy="36" r={r} fill="none" stroke="#0A84FF" strokeWidth="4" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset} />
+      </svg>
+      <div style={{ textAlign: "center" }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#FFF", margin: 0 }}>{label}</p>
+        <p style={{ fontSize: 9, color: "#8E8E93", margin: 0 }}>{sublabel}</p>
+      </div>
+    </div>
+  );
+}
+
+// Bottom nav item
+function NavItem({ to, icon: Icon, label, active }) {
+  return (
+    <Link to={to} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, textDecoration: "none", padding: "4px 8px" }}>
+      <Icon size={22} color={active ? "#0A84FF" : "#8E8E93"} />
+      <span style={{ fontSize: 10, color: active ? "#0A84FF" : "#8E8E93", fontWeight: active ? 600 : 400 }}>{label}</span>
+    </Link>
   );
 }
 
@@ -359,27 +381,20 @@ export default function MyVehicle() {
     } else { parkedStr = "Parked"; }
   }
 
+  // Rental progress for ring
+  const endDateTime = booking?.scheduled_end_at ? new Date(booking.scheduled_end_at) : (booking?.end_date ? new Date(`${booking.end_date}T23:59:59`) : null);
+  const startDateTime = booking?.start_date ? new Date(booking.start_date) : null;
+  const totalRentalMs = startDateTime && endDateTime ? endDateTime - startDateTime : null;
+  const elapsedMs = startDateTime ? Math.max(0, Date.now() - startDateTime) : 0;
+  const rentalProgress = totalRentalMs ? Math.min(1, elapsedMs / totalRentalMs) : 0;
+  const endDateStr = endDateTime ? format(endDateTime, "MMM d, yyyy") : "N/A";
+  const endTimeStr = endDateTime ? format(endDateTime, "h:mm a") : "";
+
   return (
-    <div className="dvh-fill" style={{ background: "#000", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em", position: "relative", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#000", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em", paddingBottom: 70 }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fade-in-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes borderSpin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
-        .btn-loading-spin { overflow: hidden; }
-        .btn-loading-spin > div:first-child::before {
-          content: ''; position: absolute; top: 50%; left: 50%;
-          width: 250%; height: 250%;
-          background: conic-gradient(from 0deg, transparent 75%, rgba(212,175,55,0.85) 100%);
-          animation: borderSpin 1s linear infinite;
-          z-index: 0;
-        }
-        .glass-panel {
-          background: rgba(8,8,10,0.72);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(212,175,55,0.18);
-        }
-        .dvh-fill { height: 100vh; height: 100dvh; }
       `}</style>
 
       {inspectionTarget && (
@@ -391,51 +406,180 @@ export default function MyVehicle() {
         />
       )}
 
-      {/* ═══ FULL BLEED MAP ═══ */}
-      <div style={{ position: "fixed", inset: 0, zIndex: 0, background: "#000" }}>
-        {booking ? (
-          <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
-        ) : (
-          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ textAlign: "center" }}>
-              <Car size={32} color="#333" style={{ margin: "0 auto 8px" }} />
-              <p style={{ color: "#555", fontSize: 13 }}>No active rental</p>
+      <div style={{ maxWidth: 430, margin: "0 auto", padding: "0 16px" }}>
+        {/* ═══ HEADER ═══ */}
+        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0" }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#FFF", margin: 0 }}>{name}</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: gps.status === "online" ? "#30D158" : "#8E8E93" }} />
+              <span style={{ fontSize: 13, color: "#8E8E93" }}>{gps.status === "online" ? "Online" : "Offline"} • {gps.label}</span>
             </div>
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Link to="/messages" style={{ textDecoration: "none" }}>
+              <MessageCircle size={22} color="#8E8E93" />
+            </Link>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#FF2D55", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#FFF" }}>
+              {(user?.full_name || user?.email || "R")[0].toUpperCase()}
+            </div>
+          </div>
+        </header>
+
+        {/* ═══ TOP INFO CARD ═══ */}
+        <div style={{ background: "#1C1C1E", borderRadius: 16, padding: 16, marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 24 }}>
+              <div>
+                <p style={{ fontSize: 20, fontWeight: 700, color: "#FFF", margin: 0 }}>{vehicle?.mileage ? `${Math.round(vehicle.mileage)} mi` : "—"}</p>
+                <p style={{ fontSize: 12, color: "#8E8E93", margin: "2px 0 0" }}>Mileage</p>
+              </div>
+              <div>
+                <p style={{ fontSize: 20, fontWeight: 700, color: "#FFF", margin: 0 }}>{battInfo.pct}%</p>
+                <p style={{ fontSize: 12, color: "#8E8E93", margin: "2px 0 0" }}>Battery</p>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <Signal size={18} color="#8E8E93" />
+              {isLocked ? <Lock size={18} color="#8E8E93" /> : <Unlock size={18} color="#8E8E93" />}
+              <Wind size={18} color="#8E8E93" />
+            </div>
+          </div>
+          <img src={vehicle?.image_url || PLACEHOLDER_CAR} alt={name} style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: 12 }} />
+        </div>
+
+        {/* ═══ MAP CARD ═══ */}
+        <div style={{ background: "#1C1C1E", borderRadius: 16, overflow: "hidden", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "12px 16px" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flex: 1, minWidth: 0 }}>
+              <MapPin size={16} color="#8E8E93" style={{ marginTop: 2, flexShrink: 0 }} />
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: "#FFF", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayAddress?.street || "Locating..."}</p>
+                <p style={{ fontSize: 12, color: "#8E8E93", margin: "1px 0 0" }}>{displayAddress?.city_state || ""}</p>
+                <p style={{ fontSize: 11, color: "#8E8E93", margin: "2px 0 0" }}>Updated {gps.label === "Live" ? "just now" : gps.label}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (device?.last_latitude && device?.last_longitude) {
+                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+                }
+              }}
+              className="control-tap"
+              style={{
+                width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.1)",
+                border: "none", display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", flexShrink: 0,
+              }}
+            >
+              <Navigation size={18} color="#FFF" />
+            </button>
+          </div>
+          <div style={{ height: 180, position: "relative" }}>
+            {booking ? (
+              <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+            ) : (
+              <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#0a0a0a" }}>
+                <Car size={32} color="#333" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ═══ RENTAL STATUS CARD ═══ */}
+        {booking && (
+          <div style={{ background: "#1C1C1E", borderRadius: 16, padding: "14px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <Clock size={14} color="#8E8E93" />
+                <span style={{ fontSize: 12, color: "#8E8E93" }}>Rental ends</span>
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#FFF", margin: 0 }}>{endDateStr}</p>
+              <p style={{ fontSize: 13, color: "#8E8E93", margin: "1px 0 0" }}>{endTimeStr}</p>
+            </div>
+            <ProgressRing progress={rentalProgress} label={remainingStr} sublabel="remaining" />
+            <div style={{ flex: 1, textAlign: "right" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end", marginBottom: 4 }}>
+                <Zap size={14} color="#8E8E93" />
+                <span style={{ fontSize: 12, color: "#8E8E93" }}>Battery</span>
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#FFF", margin: 0 }}>{battInfo.pct}%</p>
+              <p style={{ fontSize: 13, color: battInfo.color, margin: "1px 0 0" }}>{battInfo.label}</p>
+            </div>
+            <ChevronRight size={20} color="#8E8E93" />
+          </div>
         )}
+
+        {/* ═══ REMOTE CONTROLS ═══ */}
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#8E8E93", letterSpacing: "0.05em", margin: "0 0 10px" }}>REMOTE CONTROLS</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <ControlButton icon={MapPin} label="Find Vehicle" sub="Locate & alarm" onClick={() => handleCommand("find")} loading={commandLoading === "find"} disabled={!booking} highlight />
+            <ControlButton icon={Lock} label="Lock" sub="Secure doors" onClick={() => handleCommand("lock")} loading={commandLoading === "lock"} disabled={!booking || !pickupInspectionComplete} />
+            <ControlButton icon={Unlock} label="Unlock" sub="Open doors" onClick={() => handleCommand("unlock")} loading={commandLoading === "unlock"} disabled={!booking || !pickupInspectionComplete} />
+            <SOSButton booking={booking} device={device} variant="card" />
+          </div>
+          <p style={{ fontSize: 12, color: "#8E8E93", textAlign: "center", marginTop: 10 }}>
+            {pickupInspectionComplete ? "Remote controls active" : "Lock and unlock available after pickup"}
+          </p>
+        </div>
+
+        {/* ═══ END RENTAL ═══ */}
+        {booking && !dropoffInspectionComplete && isBookingActive && (
+          <button
+            onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
+            className="control-tap"
+            style={{
+              width: "100%", background: "rgba(255,69,58,0.08)", border: "1.5px solid rgba(255,69,58,0.4)",
+              borderRadius: 16, padding: "14px 16px", marginBottom: 12, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+            }}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(255,69,58,0.15)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Shield size={20} color="#FF453A" />
+            </div>
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#FF453A", margin: 0 }}>End Your Rental</p>
+              <p style={{ fontSize: 12, color: "#8E8E93", margin: "1px 0 0" }}>Complete return inspection to stop billing immediately</p>
+            </div>
+          </button>
+        )}
+
+        {/* ═══ VEHICLE HEALTH ═══ */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "#8E8E93", letterSpacing: "0.05em", margin: 0 }}>VEHICLE HEALTH</p>
+            <button onClick={() => setShowDiagnostics(true)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}>
+              <CheckCircle2 size={14} color="#30D158" />
+              <span style={{ fontSize: 12, color: "#30D158" }}>All systems normal</span>
+            </button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <HealthItem label="Vehicle Online" ok={gps.status === "online"} />
+            <HealthItem label="Doors Closed" ok={!device?.door_open} />
+            <HealthItem label="Battery Good" ok={battInfo.pct > 20} />
+            <HealthItem label="GPS Signal" ok={gps.status === "online"} />
+          </div>
+        </div>
       </div>
 
-      <MyVehicleOverlay
-        booking={booking}
-        device={device}
-        gps={gps}
-        battInfo={battInfo}
-        addressLine={
-          displayAddress
-            ? `${(displayAddress.street || displayAddress.poi || "LOCATING").toUpperCase()} • ${(displayAddress.city_state || "").split(",")[0].toUpperCase()}`
-            : "LOCATING VEHICLE..."
-        }
-        statusLabel={device?.speed > 0 ? "MOVING" : "PARKED"}
-        isReturnRequired={isReturnRequired}
-        isOverdueRental={isOverdueRental}
-        activeAlarms={activeAlarms}
-        isBookingActive={isBookingActive}
-        dropoffInspectionComplete={dropoffInspectionComplete}
-        remainingStr={remainingStr}
-        commandLoading={commandLoading}
-        onCommand={(type) => booking && handleCommand(type)}
-        expanded={expanded}
-        setExpanded={setExpanded}
-        onOpenDiagnostics={() => { setShowDiagnostics(true); setExpanded(false); }}
-        onEndRental={() => { setInspectionTarget({ booking, type: "dropoff" }); setExpanded(false); }}
-      />
+      {/* ═══ BOTTOM NAV ═══ */}
+      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#000", borderTop: "1px solid rgba(255,255,255,0.08)", padding: "8px 0 max(8px, env(safe-area-inset-bottom))", zIndex: 50 }}>
+        <div style={{ maxWidth: 430, margin: "0 auto", display: "flex", justifyContent: "space-around", alignItems: "center" }}>
+          <NavItem to="/my-vehicle" icon={Car} label="My Vehicle" active />
+          <NavItem to="/book-now" icon={Calendar} label="Book Now" />
+          <NavItem to="/messages" icon={MessageCircle} label="Messages" />
+          <NavItem to="/notifications" icon={Bell} label="Alerts" />
+          <NavItem to="/account" icon={User} label="Account" />
+        </div>
+      </nav>
 
       {/* ═══ DIAGNOSTICS BOTTOM SHEET ═══ */}
       {showDiagnostics && (
         <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={() => setShowDiagnostics(false)} />
           <div style={{
-            position: "relative", background: "#17181C", borderTop: "1px solid rgba(212,175,55,0.2)",
+            position: "relative", background: "#17181C", borderTop: "1px solid rgba(255,255,255,0.08)",
             borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: "24px 20px 40px",
             boxShadow: "0 -10px 40px rgba(0,0,0,0.5)", animation: "fade-in-up 0.3s ease-out",
             maxHeight: "85vh", display: "flex", flexDirection: "column",

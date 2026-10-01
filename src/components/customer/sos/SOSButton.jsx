@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -39,9 +40,26 @@ export default function SOSButton({ booking, device, inline = false, variant = "
     }
   };
 
+  const isCard = variant === "card";
   const isPill = variant === "pill";
 
-  const buttonStyle = isPill
+  const buttonStyle = isCard
+    ? {
+        width: "100%",
+        height: "100%",
+        minHeight: 90,
+        borderRadius: 14,
+        background: "#1C1C1E",
+        border: "2px solid rgba(255,69,58,0.5)",
+        boxShadow: "0 0 12px rgba(255,69,58,0.15)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
+        cursor: "pointer",
+      }
+    : isPill
     ? {
         display: "inline-flex",
         alignItems: "center",
@@ -101,7 +119,13 @@ export default function SOSButton({ booking, device, inline = false, variant = "
         className="control-tap"
         aria-label="Emergency SOS"
       >
-        {isPill ? (
+        {isCard ? (
+          <>
+            <Shield size={22} color="#FF453A" strokeWidth={2} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#FF453A" }}>SOS</span>
+            <span style={{ fontSize: 10, color: "#8E8E93" }}>Emergency</span>
+          </>
+        ) : isPill ? (
           <span>PANIC/SOS</span>
         ) : (
           <span
