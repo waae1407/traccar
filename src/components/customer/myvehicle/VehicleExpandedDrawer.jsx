@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { ChevronDown, Bell, SlidersHorizontal, Ban } from "lucide-react";
 import SOSButton from "@/components/customer/sos/SOSButton";
 
-const GOLD_BORDER = "2px solid rgba(212,175,55,0.75)";
+const GOLD_BORDER = "2px solid rgba(249,212,121,0.75)";
 
 function getSecurityLabel(device) {
   const breaches = [];
@@ -23,7 +23,7 @@ const pillBase = {
   borderRadius: 999,
   background: "rgba(20,20,20,0.55)",
   border: GOLD_BORDER,
-  boxShadow: "0 0 14px rgba(212,175,55,0.25)",
+  boxShadow: "0 0 14px rgba(249,212,121,0.25)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -69,7 +69,7 @@ export default function VehicleExpandedDrawer({
         onClick={onClose}
         style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "center", marginBottom: 8, padding: 0 }}
       >
-        <ChevronDown size={20} color="#E6C45A" />
+        <ChevronDown size={20} color="#F9D479" />
       </button>
 
       <p style={{ fontSize: 17, fontWeight: 600, color: isOverdueRental ? "#FF4C4C" : "#F5F5F7", margin: 0, lineHeight: 1.25, letterSpacing: "0.01em" }}>
@@ -86,7 +86,7 @@ export default function VehicleExpandedDrawer({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", gap: 12 }}>
           <button onClick={() => (window.location.href = "/notifications")} style={pillBase} className="control-tap" aria-label="Notifications">
-            <Bell size={26} color="#E6C45A" strokeWidth={2} />
+            <Bell size={26} color="#F9D479" strokeWidth={2} />
           </button>
           <div style={{ flex: "1 1 0", minWidth: 0, display: "flex" }}>
             <SOSButton booking={booking} device={device} variant="pill" />

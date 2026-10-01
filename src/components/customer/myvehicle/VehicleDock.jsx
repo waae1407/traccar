@@ -1,7 +1,7 @@
 import React from "react";
 import { Lock, Unlock, MapPin, ChevronUp } from "lucide-react";
 
-const GOLD = "#E6C45A";
+const GOLD = "#F9D479";
 
 function GoldCircleBtn({ icon, label, onClick, loading, disabled }) {
   return (
@@ -27,10 +27,10 @@ function GoldCircleBtn({ icon, label, onClick, loading, disabled }) {
           width: 76,
           height: 76,
           borderRadius: "50%",
-          background: "radial-gradient(circle at 50% 40%, rgba(60,50,18,0.9), rgba(10,10,10,0.92))",
-          border: "3px solid #D4AF37",
+          background: "radial-gradient(circle at 50% 40%, rgba(50,44,20,0.9), rgba(10,10,10,0.92))",
+          border: `2px solid ${GOLD}`,
           boxShadow:
-            "0 0 24px rgba(212,175,55,0.6), 0 0 6px rgba(255,215,0,0.5), inset 0 0 16px rgba(212,175,55,0.3)",
+            `0 0 24px ${GOLD}99, 0 0 6px ${GOLD}80, inset 0 0 16px ${GOLD}4D`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -38,7 +38,7 @@ function GoldCircleBtn({ icon, label, onClick, loading, disabled }) {
       >
         <div className="btn-loading-content" style={{ gap: 0 }}>
           {loading ? (
-            <div style={{ width: 24, height: 24, border: "2px solid rgba(212,175,55,0.3)", borderTopColor: "#D4AF37", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+            <div style={{ width: 24, height: 24, border: `2px solid ${GOLD}4D`, borderTopColor: GOLD, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
           ) : (
             icon
           )}
@@ -53,7 +53,7 @@ function GoldCircleBtn({ icon, label, onClick, loading, disabled }) {
 
 export default function VehicleDock({ commandLoading, disabled, onCommand }) {
   const off = !!commandLoading || disabled;
-  const iconProps = { size: 32, color: GOLD, strokeWidth: 2.2, fill: "rgba(212,175,55,0.35)" };
+  const iconProps = { size: 32, color: GOLD, strokeWidth: 2.2, fill: `${GOLD}59` };
   return (
     <div
       style={{
