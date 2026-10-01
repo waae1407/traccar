@@ -6,10 +6,23 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { neonGreenDarkStyle } from "@/lib/mapStyles/neonGreenDarkStyle";
 
-// Base44 Vite plugin doesn't support ?worker&url imports, so use CDN worker URL
-maplibregl.setWorkerUrl(
-  "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl-worker.mjs"
-);
+// Base44 Vite plugin doesn't support ?worker&url imports, and cross-origin
+// worker URLs are blocked by browsers. Fetch the worker script from CDN and
+// create a same-origin blob URL that MapLibre can use.
+let workerBlobUrlPromise = null;
+function getWorkerBlobUrl() {
+  if (!workerBlobUrlPromise) {
+    workerBlobUrlPromise = fetch(
+      "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl-worker.mjs"
+    )
+      .then((r) => r.text())
+      .then((text) => {
+        const blob = new Blob([text], { type: "application/javascript" });
+        return URL.createObjectURL(blob);
+      });
+  }
+  return workerBlobUrlPromise;
+}
 
 const ALLOWED_STATUSES = [
   "active",
@@ -55,6 +68,17 @@ export default function FindMyVehicleMap({
   const markerRef = useRef(null);
   const isStaleRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
+  const [workerReady, setWorkerReady] = useState(false);
+
+  // Load the MapLibre worker as a same-origin blob URL
+  useEffect(() => {
+    getWorkerBlobUrl()
+      .then((url) => {
+        maplibregl.setWorkerUrl(url);
+        setWorkerReady(true);
+      })
+      .catch((err) => console.error("[FindMyVehicleMap] Worker load failed:", err));
+  }, []);
 
   const canShow =
     ALLOWED_STATUSES.includes(booking?.booking_status) &&
@@ -96,9 +120,9 @@ export default function FindMyVehicleMap({
     !effectiveSeenAt ||
     Date.now() - new Date(effectiveSeenAt).getTime() > 2 * 60 * 1000;
 
-  // ── Initialize map when canShow becomes true ──
+  // ── Initialize map when canShow becomes true and worker is ready ──
   useEffect(() => {
-    if (!canShow || !mapContainer.current || mapRef.current) return;
+    if (!workerReady || !canShow || !mapContainer.current || mapRef.current) return;
 
     const center = lat && lng ? [lng, lat] : [-87.6298, 41.8781]; // Default: Chicago
 
@@ -120,7 +144,7 @@ export default function FindMyVehicleMap({
       markerRef.current = null;
       setMapReady(false);
     };
-  }, [canShow]);
+  }, [workerReady, canShow]);
 
   // ── Add/update marker when map is ready or coordinates change ──
   useEffect(() => {
