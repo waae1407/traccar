@@ -360,7 +360,7 @@ export default function MyVehicle() {
   }
 
   return (
-    <div style={{ background: "#000", minHeight: "100vh", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em", position: "relative", overflow: "hidden" }}>
+    <div className="dvh-fill" style={{ background: "#000", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em", position: "relative", overflow: "hidden" }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fade-in-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -379,6 +379,7 @@ export default function MyVehicle() {
           -webkit-backdrop-filter: blur(20px);
           border: 1px solid rgba(212,175,55,0.18);
         }
+        .dvh-fill { height: 100vh; height: 100dvh; }
       `}</style>
 
       {inspectionTarget && (
@@ -404,9 +405,19 @@ export default function MyVehicle() {
         )}
       </div>
 
-      {/* ═══ ALERT BANNERS (floating below header) ═══ */}
+      {/* ═══ FLEX OVERLAY ═══ */}
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 10,
+        display: "flex", flexDirection: "column",
+        pointerEvents: "none", boxSizing: "border-box",
+        paddingTop: "max(12px, env(safe-area-inset-top))",
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}>
+      {/* ═══ ALERT BANNERS ═══ */}
       {(isReturnRequired || isOverdueRental || activeAlarms.length > 0) && (
-        <div style={{ position: "fixed", top: 74, left: 16, right: 16, zIndex: 18, display: "flex", flexDirection: "column", gap: 6, maxWidth: 398, margin: "0 auto" }}>
+        <div style={{ order: 2, pointerEvents: "auto", flexShrink: 0, paddingTop: 6, maxWidth: 398, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
           {isReturnRequired && (
             <div style={{ background: "rgba(255,159,10,0.15)", border: "1px solid rgba(255,159,10,0.4)", borderRadius: 12, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, backdropFilter: "blur(10px)" }}>
               <Shield size={15} color="#FF9F0A" />
@@ -429,7 +440,7 @@ export default function MyVehicle() {
       )}
 
       {/* ═══ TOP HEADER — frosted glass ═══ */}
-      <div style={{ position: "fixed", top: 12, left: 16, right: 16, zIndex: 20, maxWidth: 398, margin: "0 auto" }}>
+      <div style={{ order: 1, pointerEvents: "auto", flexShrink: 0, maxWidth: 398, margin: "0 auto", width: "100%" }}>
         <div className="glass-panel" style={{ borderRadius: 16, padding: "10px 14px" }}>
           {/* Top row: status • title • parked badge */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -463,9 +474,10 @@ export default function MyVehicle() {
         </div>
       </div>
 
-      {/* ═══ CENTER CONTROLS — SAFE DRIVER + SOS + Navigate ═══ */}
+      {/* ═══ CENTER CONTROLS ═══ */}
+      <div style={{ order: 3, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, pointerEvents: "none", maxWidth: 430, margin: "0 auto", width: "100%" }}>
       {!expanded && (
-        <div style={{ position: "fixed", top: "38%", left: 0, right: 0, zIndex: 15, display: "flex", flexDirection: "column", alignItems: "center", gap: 20, maxWidth: 430, margin: "0 auto" }}>
+        <>
           {/* SAFE DRIVER badge */}
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
@@ -477,7 +489,7 @@ export default function MyVehicle() {
           </div>
 
           {/* SOS (left) + Navigate (right) */}
-          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "0 50px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "0 50px", pointerEvents: "auto" }}>
             <SOSButton booking={booking} device={device} inline />
             <button
               onClick={() => {
@@ -497,11 +509,12 @@ export default function MyVehicle() {
               <Navigation size={22} color="#2F80FF" style={{ transform: "rotate(45deg)" }} />
             </button>
           </div>
-        </div>
+        </>
       )}
+      </div>
 
-      {/* ═══ BOTTOM PANEL — frosted glass (gold buttons OR expanded content) ═══ */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 20, maxWidth: 430, margin: "0 auto" }}>
+      {/* ═══ BOTTOM PANEL ═══ */}
+      <div style={{ order: 4, pointerEvents: "auto", flexShrink: 0, maxWidth: 430, margin: "0 auto", width: "100%" }}>
         <div className="glass-panel" style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24, borderBottom: "none", padding: "16px 16px 0" }}>
           {!expanded ? (
             <>
@@ -593,6 +606,7 @@ export default function MyVehicle() {
             ))}
           </div>
         </div>
+      </div>
       </div>
 
       {/* ═══ DIAGNOSTICS BOTTOM SHEET ═══ */}
