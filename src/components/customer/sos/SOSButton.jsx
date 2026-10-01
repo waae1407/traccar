@@ -2,21 +2,25 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import { Bell } from "lucide-react";
 import SOSSetupSheet from "./SOSSetupSheet";
 import SOSConfirmSheet from "./SOSConfirmSheet";
 
 /**
- * SOSButton — Floating emergency button for the My Vehicle page.
+ * SOSButton — Emergency button for the My Vehicle page.
  *
- * - Floating, bottom-right, above the bottom nav (thumb-reachable)
- * - Tap → checks for emergency contact
- *   - No contact → shows SOSSetupSheet (how it works + contact form)
+ * - Default: floating, bottom-right, above the bottom nav
+ * - inline: positioned by parent container (circular red button)
+ * - variant="pill": pill-shaped button with gold outline + bell icon
+ *
+ * Tap → checks for emergency contact
+ *   - No contact → shows SOSSetupSheet
  *   - Contact exists → shows SOSConfirmSheet (hold-to-confirm trigger)
- * - Only visible when there's an active booking (not demo mode)
+ * Only visible when there's an active booking (not demo mode)
  */
-export default function SOSButton({ booking, device }) {
+export default function SOSButton({ booking, device, inline = false, variant = "circular" }) {
   const { user } = useAuth();
-  const [sheet, setSheet] = useState(null); // null | "setup" | "confirm"
+  const [sheet, setSheet] = useState(null);
 
   const { data: contacts = [], refetch } = useQuery({
     queryKey: ["sos-emergency-contacts", user?.id],
@@ -24,7 +28,6 @@ export default function SOSButton({ booking, device }) {
     enabled: !!user?.id,
   });
 
-  // Only show when there's a real active booking
   if (!booking) return null;
 
   const primaryContact = contacts.find((c) => c.is_primary) || contacts[0];
@@ -37,33 +40,86 @@ export default function SOSButton({ booking, device }) {
     }
   };
 
+  const isPill = variant === "pill";
+
+  const buttonStyle = isPill
+    ? {
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        padding: "12px 16px",
+        borderRadius: 14,
+        background: "rgba(255,76,76,0.06)",
+        border: "1px solid rgba(212,175,55,0.5)",
+        color: "#FF4C4C",
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        cursor: "pointer",
+        width: "100%",
+      }
+    : inline
+    ? {
+        height: 56,
+        width: 56,
+        padding: 0,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg, #FF4C4C, #B71C1C)",
+        border: "2px solid rgba(255,255,255,0.2)",
+        boxShadow: "0 0 20px rgba(255,76,76,0.4), 0 4px 16px rgba(127,0,0,0.4)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+      }
+    : {
+        position: "fixed",
+        top: 290,
+        right: 20,
+        zIndex: 60,
+        height: 52,
+        width: 52,
+        padding: 0,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg, #B71C1C, #7F0000)",
+        border: "2px solid rgba(255,255,255,0.18)",
+        boxShadow: "0 8px 24px rgba(127,0,0,0.5), 0 0 20px rgba(183,28,28,0.3)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+        animation: "pulse-glow 2.5s ease-in-out infinite",
+      };
+
   return (
     <>
       <button
         onClick={handleTap}
-        style={{
-          position: "fixed",
-          top: 290,
-          right: 20,
-          zIndex: 60,
-          height: 52,
-          width: 52,
-          padding: 0,
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, #B71C1C, #7F0000)",
-          border: "2px solid rgba(255,255,255,0.18)",
-          boxShadow: "0 8px 24px rgba(127,0,0,0.5), 0 0 20px rgba(183,28,28,0.3)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-          animation: "pulse-glow 2.5s ease-in-out infinite",
-        }}
+        style={buttonStyle}
         className="control-tap"
         aria-label="Emergency SOS"
       >
-        <span style={{ fontSize: 17, fontWeight: 800, color: "#FFF", letterSpacing: "0.08em", textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>SOS</span>
+        {isPill ? (
+          <>
+            <Bell size={14} color="#FF4C4C" />
+            <span>PANIC/SOS</span>
+          </>
+        ) : (
+          <span
+            style={{
+              fontSize: inline ? 15 : 17,
+              fontWeight: 800,
+              color: "#FFF",
+              letterSpacing: "0.08em",
+              textShadow: "0 1px 4px rgba(0,0,0,0.3)",
+            }}
+          >
+            SOS
+          </span>
+        )}
       </button>
 
       {sheet === "setup" && (
