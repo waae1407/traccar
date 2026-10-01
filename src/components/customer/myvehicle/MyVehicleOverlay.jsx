@@ -53,32 +53,41 @@ export default function MyVehicleOverlay({
         </div>
       )}
 
+      {!expanded && (
+        <div style={{
+          position: "absolute", top: "46%", left: 0, right: 0,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "0 20px", pointerEvents: "none",
+        }}>
+          <div style={{ pointerEvents: "auto" }}>
+            <SOSButton booking={booking} device={device} inline />
+          </div>
+          <button
+            className="control-tap"
+            aria-label="Navigate to vehicle"
+            onClick={() => {
+              if (device?.last_latitude && device?.last_longitude) {
+                window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+              }
+            }}
+            style={{
+              width: 58, height: 58, borderRadius: "50%", cursor: "pointer",
+              background: "radial-gradient(circle at 35% 30%, #5B9BFF, #2563EB 65%, #1A45B0)",
+              border: "2px solid rgba(255,255,255,0.3)",
+              boxShadow: "0 0 26px rgba(47,128,255,0.65), 0 4px 16px rgba(0,20,80,0.5)",
+              display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "auto",
+            }}
+          >
+            <CornerUpRight size={30} color="#FFF" strokeWidth={3} />
+          </button>
+        </div>
+      )}
+
       <div style={{ flex: 1 }} />
 
       <div style={{ ...COL, pointerEvents: "auto", flexShrink: 0 }}>
         {!expanded ? (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", padding: "0 20px", marginBottom: 12 }}>
-              <SOSButton booking={booking} device={device} inline />
-              <button
-                className="control-tap"
-                aria-label="Navigate to vehicle"
-                onClick={() => {
-                  if (device?.last_latitude && device?.last_longitude) {
-                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
-                  }
-                }}
-                style={{
-                  width: 58, height: 58, borderRadius: "50%", cursor: "pointer",
-                  background: "radial-gradient(circle at 35% 30%, #5B9BFF, #2563EB 65%, #1A45B0)",
-                  border: "2px solid rgba(255,255,255,0.3)",
-                  boxShadow: "0 0 26px rgba(47,128,255,0.65), 0 4px 16px rgba(0,20,80,0.5)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                <CornerUpRight size={30} color="#FFF" strokeWidth={3} />
-              </button>
-            </div>
             <VehicleDock commandLoading={commandLoading} disabled={dropoffInspectionComplete} onCommand={onCommand} />
             <MoreStrip onExpand={() => setExpanded(true)} />
           </>
