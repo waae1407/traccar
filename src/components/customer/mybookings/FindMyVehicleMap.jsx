@@ -6,22 +6,18 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { neonGreenDarkStyle } from "@/lib/mapStyles/neonGreenDarkStyle";
 
-// Base44 Vite plugin doesn't support ?worker&url imports, and cross-origin
-// worker URLs are blocked by browsers. Fetch the worker script from CDN and
-// create a same-origin blob URL that MapLibre can use.
-let workerBlobUrlPromise = null;
+// Inline the MapLibre worker source via Vite's ?raw import, then create a
+// same-origin blob URL. This avoids both the ?worker&url incompatibility with
+// the Base44 Vite plugin and cross-origin worker restrictions.
+import workerCode from "maplibre-gl/dist/maplibre-gl-worker.mjs?raw";
+
+let workerBlobUrl = null;
 function getWorkerBlobUrl() {
-  if (!workerBlobUrlPromise) {
-    workerBlobUrlPromise = fetch(
-      "https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl-worker.mjs"
-    )
-      .then((r) => r.text())
-      .then((text) => {
-        const blob = new Blob([text], { type: "application/javascript" });
-        return URL.createObjectURL(blob);
-      });
+  if (!workerBlobUrl) {
+    const blob = new Blob([workerCode], { type: "application/javascript" });
+    workerBlobUrl = URL.createObjectURL(blob);
   }
-  return workerBlobUrlPromise;
+  return workerBlobUrl;
 }
 
 const ALLOWED_STATUSES = [
@@ -72,8 +68,10 @@ export default function FindMyVehicleMap({
 
   // Load the MapLibre worker as a same-origin blob URL
   useEffect(() => {
+    console.log("[FindMyVehicleMap] Loading worker...");
     getWorkerBlobUrl()
       .then((url) => {
+        console.log("[FindMyVehicleMap] Worker blob URL created:", url?.substring(0, 50));
         maplibregl.setWorkerUrl(url);
         setWorkerReady(true);
       })
@@ -122,21 +120,31 @@ export default function FindMyVehicleMap({
 
   // ── Initialize map when canShow becomes true and worker is ready ──
   useEffect(() => {
+    console.log("[FindMyVehicleMap] init effect:", { workerReady, canShow, hasContainer: !!mapContainer.current, hasMap: !!mapRef.current });
     if (!workerReady || !canShow || !mapContainer.current || mapRef.current) return;
 
     const center = lat && lng ? [lng, lat] : [-87.6298, 41.8781]; // Default: Chicago
 
-    const map = new maplibregl.Map({
-      container: mapContainer.current,
-      style: neonGreenDarkStyle,
-      center,
-      zoom: 16,
-      interactive: false,
-      attributionControl: false,
-    });
+    try {
+      const map = new maplibregl.Map({
+        container: mapContainer.current,
+        style: neonGreenDarkStyle,
+        center,
+        zoom: 16,
+        interactive: false,
+        attributionControl: false,
+      });
 
-    map.on("load", () => setMapReady(true));
-    mapRef.current = map;
+      map.on("load", () => {
+        console.log("[FindMyVehicleMap] Map loaded!");
+        setMapReady(true);
+      });
+      map.on("error", (e) => console.error("[FindMyVehicleMap] Map error:", e));
+      mapRef.current = map;
+      console.log("[FindMyVehicleMap] Map created successfully");
+    } catch (err) {
+      console.error("[FindMyVehicleMap] Map creation failed:", err);
+    }
 
     return () => {
       map.remove();
