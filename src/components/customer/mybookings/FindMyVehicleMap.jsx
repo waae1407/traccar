@@ -140,7 +140,7 @@ export default function FindMyVehicleMap({
       container: mapContainer.current,
       style: neonGreenDarkStyle,
       center,
-      zoom: 17,
+      zoom: 14.7,
       interactive: false,
       attributionControl: false,
     });

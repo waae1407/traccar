@@ -1,5 +1,5 @@
 import React from "react";
-import { CornerUpRight, Shield, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle2 } from "lucide-react";
 import SOSButton from "@/components/customer/sos/SOSButton";
 import VehicleTopCard from "./VehicleTopCard";
 import VehicleDock, { MoreStrip } from "./VehicleDock";
@@ -78,7 +78,11 @@ export default function MyVehicleOverlay({
               display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "auto",
             }}
           >
-            <CornerUpRight size={30} color="#FFF" strokeWidth={3} />
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12.7 2.3a1 1 0 0 0-1.4 0l-9 9a1 1 0 0 0 0 1.4l9 9a1 1 0 0 0 1.4 0l9-9a1 1 0 0 0 0-1.4z" fill="#FFF" />
+              <path d="M8.5 16.5v-3.2a1.8 1.8 0 0 1 1.8-1.8H15" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M13.3 9.3l2.6 2.2-2.6 2.2" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         </div>
       )}
