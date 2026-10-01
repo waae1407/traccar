@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import maplibregl from "maplibre-gl";
+import maplibregl from "maplibre-gl/dist/maplibre-gl-csp.js";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapPin } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -13,9 +13,12 @@ let workerBlobUrlPromise = null;
 function getWorkerBlobUrl() {
   if (!workerBlobUrlPromise) {
     workerBlobUrlPromise = fetch(
-      "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl-worker.mjs"
+      "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl-csp-worker.js"
     )
-      .then((r) => r.text())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Worker fetch failed: ${r.status}`);
+        return r.text();
+      })
       .then((text) => {
         const blob = new Blob([text], { type: "application/javascript" });
         return URL.createObjectURL(blob);
