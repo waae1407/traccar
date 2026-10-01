@@ -44,15 +44,22 @@ function createVehicleMarkerElement(isStale = false) {
     ? `<div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:rgba(255,159,10,0.95);color:#1A1A1A;font-size:9px;font-weight:800;letter-spacing:0.05em;padding:2px 7px;border-radius:6px;white-space:nowrap;z-index:3;box-shadow:0 2px 8px rgba(0,0,0,0.4);">DELAYED</div>`
     : "";
   el.innerHTML = `
-    <div style="position:relative;width:48px;height:56px;display:flex;align-items:flex-start;justify-content:center;">
+    <div style="position:relative;width:96px;height:120px;">
       ${labelHtml}
-      <svg width="40" height="48" viewBox="0 0 24 28" fill="none" style="filter: drop-shadow(0 0 10px rgba(212,175,55,0.6));">
-        <path d="M12 0C7.5 0 4 3.5 4 8c0 6 8 20 8 20s8-14 8-20c0-4.5-3.5-8-8-8z" fill="#D4AF37" stroke="#FFD700" stroke-width="0.8"/>
-        <circle cx="12" cy="8" r="3.5" fill="#0a0a0a"/>
+      <svg width="96" height="120" viewBox="0 0 100 125" fill="none" style="filter: drop-shadow(0 0 16px rgba(212,175,55,0.8)) drop-shadow(0 0 32px rgba(212,175,55,0.4));">
+        <defs>
+          <linearGradient id="pinGold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#F7DE8A"/>
+            <stop offset="0.5" stop-color="#D4AF37"/>
+            <stop offset="1" stop-color="#8A6A1A"/>
+          </linearGradient>
+        </defs>
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M50 2C24 2 6 22 6 48c0 34 44 75 44 75s44-41 44-75C94 22 76 2 50 2zM50 28a20 20 0 1 0 0 40 20 20 0 0 0 0-40z" fill="url(#pinGold)" stroke="#FFE27A" stroke-width="1.5"/>
+        <circle cx="50" cy="48" r="20" fill="none" stroke="#7A5C14" stroke-width="2"/>
       </svg>
-      <div style="position:absolute;bottom:0;right:0px;width:18px;height:18px;border-radius:50%;background:#39FF14;border:2px solid #000;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(57,255,20,0.6);">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-          <path d="M5 12l5 5L20 7" stroke="#000" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <div style="position:absolute;top:58px;right:-4px;width:36px;height:36px;border-radius:50%;background:#0C2A1A;border:3px solid #4ADE80;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(74,222,128,0.6);">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12l5 5L20 7" stroke="#4ADE80" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
     </div>

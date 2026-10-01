@@ -11,7 +11,7 @@ import {
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 import SOSButton from "@/components/customer/sos/SOSButton";
-import VehicleExpandedDrawer from "@/components/customer/myvehicle/VehicleExpandedDrawer";
+import MyVehicleOverlay from "@/components/customer/myvehicle/MyVehicleOverlay";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -405,209 +405,30 @@ export default function MyVehicle() {
         )}
       </div>
 
-      {/* ═══ FLEX OVERLAY ═══ */}
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 10,
-        display: "flex", flexDirection: "column",
-        pointerEvents: "none", boxSizing: "border-box",
-        paddingTop: "max(12px, env(safe-area-inset-top))",
-        paddingBottom: "env(safe-area-inset-bottom)",
-        paddingLeft: "env(safe-area-inset-left)",
-        paddingRight: "env(safe-area-inset-right)",
-      }}>
-      {/* ═══ ALERT BANNERS ═══ */}
-      {(isReturnRequired || isOverdueRental || activeAlarms.length > 0) && (
-        <div style={{ order: 2, pointerEvents: "auto", flexShrink: 0, paddingTop: 6, maxWidth: 398, margin: "0 auto", width: "100%", display: "flex", flexDirection: "column", gap: 6 }}>
-          {isReturnRequired && (
-            <div style={{ background: "rgba(255,159,10,0.15)", border: "1px solid rgba(255,159,10,0.4)", borderRadius: 12, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, backdropFilter: "blur(10px)" }}>
-              <Shield size={15} color="#FF9F0A" />
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#FFF", margin: 0 }}>Return Inspection Required</p>
-            </div>
-          )}
-          {isOverdueRental && !isReturnRequired && (
-            <div style={{ background: "rgba(255,69,58,0.15)", border: "1px solid rgba(255,69,58,0.4)", borderRadius: 12, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, backdropFilter: "blur(10px)" }}>
-              <AlertTriangle size={15} color="#FF453A" />
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#FFF", margin: 0 }}>Rental Overdue — Return vehicle immediately</p>
-            </div>
-          )}
-          {activeAlarms.map(alarm => (
-            <div key={alarm.id} style={{ background: "rgba(255,69,58,0.15)", border: `1px solid ${alarm.color}`, borderRadius: 12, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, backdropFilter: "blur(10px)" }}>
-              <AlertTriangle size={15} color={alarm.color} />
-              <p style={{ fontSize: 12, fontWeight: 600, color: "#FFF", margin: 0 }}>{alarm.label}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ═══ TOP HEADER — frosted glass ═══ */}
-      <div style={{ order: 1, pointerEvents: "auto", flexShrink: 0, maxWidth: 398, margin: "0 auto", width: "100%" }}>
-        <div className="glass-panel" style={{ borderRadius: 16, padding: "10px 14px" }}>
-          {/* Top row: status • title • parked badge */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#39FF14", boxShadow: "0 0 8px #39FF14", flexShrink: 0 }} />
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "#39FF14" }}>ACTIVE</span>
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#FFF", letterSpacing: "0.06em" }}>MY VEHICLE</span>
-            <span style={{
-              fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: "#D4AF37",
-              border: "1px solid rgba(212,175,55,0.5)", borderRadius: 6, padding: "3px 8px",
-              background: "rgba(212,175,55,0.08)",
-            }}>
-              {parkedStr ? parkedStr.toUpperCase() : "PARKED"}
-            </span>
-          </div>
-          {/* Address row */}
-          <div style={{ textAlign: "center", marginTop: 6 }}>
-            <span style={{ fontSize: 10, color: "#A1A1AA", letterSpacing: "0.08em", fontWeight: 500 }}>
-              {displayAddress
-                ? `${(displayAddress.poi || displayAddress.street || "LOCATING").toUpperCase()} • ${(displayAddress.city_state || "").toUpperCase()}`
-                : "LOCATING VEHICLE..."
-              }
-            </span>
-          </div>
-          {distanceStr && (
-            <div style={{ textAlign: "center", marginTop: 2 }}>
-              <span style={{ fontSize: 9, color: "#89B4F8", fontWeight: 600, letterSpacing: "0.04em" }}>{distanceStr.toUpperCase()}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ═══ CENTER CONTROLS ═══ */}
-      <div style={{ order: 3, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, pointerEvents: "none", maxWidth: 430, margin: "0 auto", width: "100%" }}>
-      {!expanded && (
-        <>
-          {/* SAFE DRIVER badge */}
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            border: "1px solid rgba(57,255,20,0.5)", borderRadius: 999,
-            padding: "5px 14px", background: "rgba(57,255,20,0.05)",
-          }}>
-            <Shield size={12} color="#39FF14" />
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "#39FF14" }}>SAFE DRIVER</span>
-          </div>
-
-          {/* SOS (left) + Navigate (right) */}
-          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "0 50px", pointerEvents: "auto" }}>
-            <SOSButton booking={booking} device={device} inline />
-            <button
-              onClick={() => {
-                if (device?.last_latitude && device?.last_longitude) {
-                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
-                }
-              }}
-              style={{
-                width: 56, height: 56, borderRadius: "50%",
-                background: "rgba(47,128,255,0.12)", border: "2px solid rgba(47,128,255,0.6)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", boxShadow: "0 0 16px rgba(47,128,255,0.3)",
-                backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-              }}
-              className="control-tap"
-            >
-              <Navigation size={22} color="#2F80FF" style={{ transform: "rotate(45deg)" }} />
-            </button>
-          </div>
-        </>
-      )}
-      </div>
-
-      {/* ═══ BOTTOM PANEL ═══ */}
-      <div style={{ order: 4, pointerEvents: "auto", flexShrink: 0, maxWidth: 430, margin: "0 auto", width: "100%" }}>
-        <div className="glass-panel" style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24, borderBottom: "none", padding: "16px 16px 0" }}>
-          {!expanded ? (
-            <>
-              {/* Gold circular buttons */}
-              <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 12 }}>
-                <GoldCircleBtn
-                  icon={<Lock size={22} color={isLocked ? "#39FF14" : "#D4AF37"} strokeWidth={2.2} />}
-                  label="LOCK"
-                  sub={isLocked ? "LOCKED" : "OPEN"}
-                  onClick={() => booking && handleCommand("lock")}
-                  loading={commandLoading === "lock"}
-                  disabled={!!commandLoading || dropoffInspectionComplete}
-                />
-                <GoldCircleBtn
-                  icon={<MapPin size={22} color="#D4AF37" strokeWidth={2.2} />}
-                  label="LOCATE"
-                  sub="FIND"
-                  onClick={() => booking && handleCommand("find")}
-                  loading={commandLoading === "find"}
-                  disabled={!!commandLoading || dropoffInspectionComplete}
-                />
-                <GoldCircleBtn
-                  icon={<Unlock size={22} color={!isLocked ? "#39FF14" : "#D4AF37"} strokeWidth={2.2} />}
-                  label="UNLOCK"
-                  sub={isLocked ? "DOORS" : "OPEN"}
-                  onClick={() => booking && handleCommand("unlock")}
-                  loading={commandLoading === "unlock"}
-                  disabled={!!commandLoading || dropoffInspectionComplete}
-                />
-              </div>
-
-              {/* MORE handle */}
-              <button
-                onClick={() => setExpanded(true)}
-                style={{
-                  width: "100%", background: "none", border: "none", cursor: "pointer",
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-                  padding: "4px 0 8px",
-                }}
-              >
-                <ChevronUp size={16} color="#D4AF37" style={{ opacity: 0.7 }} />
-                <span style={{ fontSize: 8, fontWeight: 600, letterSpacing: "0.1em", color: "#D4AF37", opacity: 0.8 }}>
-                  MORE — RENTAL • VEHICLE HEALTH • ADVANCED CONTROLS
-                </span>
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Expanded content */}
-              <VehicleExpandedDrawer
-                booking={booking}
-                device={device}
-                gps={gps}
-                battInfo={battInfo}
-                isOverdueRental={isOverdueRental}
-                isReturnRequired={isReturnRequired}
-                isBookingActive={isBookingActive}
-                dropoffInspectionComplete={dropoffInspectionComplete}
-                remainingStr={remainingStr}
-                onClose={() => setExpanded(false)}
-                onOpenDiagnostics={() => { setShowDiagnostics(true); setExpanded(false); }}
-                onEndRental={() => { setInspectionTarget({ booking, type: "dropoff" }); setExpanded(false); }}
-              />
-            </>
-          )}
-
-          {/* Divider */}
-          <div style={{ height: 1, background: "rgba(212,175,55,0.15)", margin: "0 -16px" }} />
-
-          {/* Bottom nav */}
-          <div style={{ display: "flex", justifyContent: "space-around", padding: "8px 0 12px" }}>
-            {[
-              { icon: <Car size={20} />, label: "My Vehicle", path: "/my-vehicle", active: true },
-              { icon: <Calendar size={20} />, label: "Book Now", path: "/book-now", active: false },
-              { icon: <Mail size={20} />, label: "Messages", path: "/messages", active: false },
-              { icon: <Bell size={20} />, label: "Alerts", path: "/notifications", active: false },
-              { icon: <User size={20} />, label: "Account", path: "/account", active: false },
-            ].map((item) => (
-              <button
-                key={item.label}
-                onClick={() => window.location.href = item.path}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, position: "relative", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-              >
-                <span style={{ color: item.active ? "#D4AF37" : "#71717A" }}>{item.icon}</span>
-                <span style={{ fontSize: 8, fontWeight: item.active ? 700 : 400, color: item.active ? "#D4AF37" : "#71717A", letterSpacing: "0.02em" }}>
-                  {item.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-      </div>
+      <MyVehicleOverlay
+        booking={booking}
+        device={device}
+        gps={gps}
+        battInfo={battInfo}
+        addressLine={
+          displayAddress
+            ? `${(displayAddress.street || displayAddress.poi || "LOCATING").toUpperCase()} • ${(displayAddress.city_state || "").split(",")[0].toUpperCase()}`
+            : "LOCATING VEHICLE..."
+        }
+        statusLabel={device?.speed > 0 ? "MOVING" : "PARKED"}
+        isReturnRequired={isReturnRequired}
+        isOverdueRental={isOverdueRental}
+        activeAlarms={activeAlarms}
+        isBookingActive={isBookingActive}
+        dropoffInspectionComplete={dropoffInspectionComplete}
+        remainingStr={remainingStr}
+        commandLoading={commandLoading}
+        onCommand={(type) => booking && handleCommand(type)}
+        expanded={expanded}
+        setExpanded={setExpanded}
+        onOpenDiagnostics={() => { setShowDiagnostics(true); setExpanded(false); }}
+        onEndRental={() => { setInspectionTarget({ booking, type: "dropoff" }); setExpanded(false); }}
+      />
 
       {/* ═══ DIAGNOSTICS BOTTOM SHEET ═══ */}
       {showDiagnostics && (

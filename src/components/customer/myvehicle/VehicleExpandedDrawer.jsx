@@ -17,7 +17,8 @@ function getSecurityLabel(device) {
 }
 
 const pillBase = {
-  flex: 1,
+  flex: "1 1 0",
+  minWidth: 0,
   height: 56,
   borderRadius: 999,
   background: "rgba(20,20,20,0.55)",
@@ -87,7 +88,7 @@ export default function VehicleExpandedDrawer({
           <button onClick={() => (window.location.href = "/notifications")} style={pillBase} className="control-tap" aria-label="Notifications">
             <Bell size={26} color="#E6C45A" strokeWidth={2} />
           </button>
-          <div style={{ flex: 1, display: "flex" }}>
+          <div style={{ flex: "1 1 0", minWidth: 0, display: "flex" }}>
             <SOSButton booking={booking} device={device} variant="pill" />
           </div>
         </div>

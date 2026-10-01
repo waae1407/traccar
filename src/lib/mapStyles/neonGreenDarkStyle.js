@@ -2,6 +2,7 @@
 // Matches the "My Vehicle" mockup aesthetic. Uses free OpenFreeMap vector tiles (no API key).
 export const neonGreenDarkStyle = {
   version: 8,
+  glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
   sources: {
     openmaptiles: {
       type: "vector",
@@ -287,6 +288,26 @@ export const neonGreenDarkStyle = {
         "line-width": ["interpolate", ["exponential", 1.2], ["zoom"], 14, 0.2, 20, 2],
         "line-opacity": 0.35,
         "line-dasharray": [1, 1],
+      },
+    },
+    // ── Street name labels (mockup shows e.g. "W Monroe St") ──
+    {
+      id: "road_labels",
+      type: "symbol",
+      source: "openmaptiles",
+      "source-layer": "transportation_name",
+      minzoom: 14,
+      layout: {
+        "symbol-placement": "line",
+        "text-field": ["coalesce", ["get", "name:latin"], ["get", "name"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 14, 10, 18, 14],
+        "text-letter-spacing": 0.04,
+      },
+      paint: {
+        "text-color": "#C9F5D2",
+        "text-halo-color": "#050805",
+        "text-halo-width": 1.6,
       },
     },
   ],

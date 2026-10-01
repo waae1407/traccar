@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Bell } from "lucide-react";
 import SOSSetupSheet from "./SOSSetupSheet";
 import SOSConfirmSheet from "./SOSConfirmSheet";
 
@@ -47,27 +46,27 @@ export default function SOSButton({ booking, device, inline = false, variant = "
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 8,
-        padding: "12px 16px",
-        borderRadius: 14,
-        background: "rgba(255,76,76,0.06)",
-        border: "1px solid rgba(212,175,55,0.5)",
-        color: "#FF4C4C",
-        fontSize: 12,
+        height: 56,
+        borderRadius: 999,
+        background: "rgba(20,20,20,0.55)",
+        border: "2px solid rgba(212,175,55,0.75)",
+        boxShadow: "0 0 14px rgba(212,175,55,0.25)",
+        color: "#FF5A50",
+        fontSize: 20,
         fontWeight: 700,
-        letterSpacing: "0.08em",
+        letterSpacing: "0.03em",
         cursor: "pointer",
         width: "100%",
       }
     : inline
     ? {
-        height: 56,
-        width: 56,
+        height: 58,
+        width: 58,
         padding: 0,
         borderRadius: "50%",
-        background: "linear-gradient(135deg, #FF4C4C, #B71C1C)",
-        border: "2px solid rgba(255,255,255,0.2)",
-        boxShadow: "0 0 20px rgba(255,76,76,0.4), 0 4px 16px rgba(127,0,0,0.4)",
+        background: "radial-gradient(circle at 35% 30%, #FF6B5E, #E0271B 60%, #A50F08)",
+        border: "2px solid rgba(255,255,255,0.3)",
+        boxShadow: "0 0 28px rgba(255,59,48,0.7), 0 4px 16px rgba(127,0,0,0.5)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -103,10 +102,7 @@ export default function SOSButton({ booking, device, inline = false, variant = "
         aria-label="Emergency SOS"
       >
         {isPill ? (
-          <>
-            <Bell size={14} color="#FF4C4C" />
-            <span>PANIC/SOS</span>
-          </>
+          <span>PANIC/SOS</span>
         ) : (
           <span
             style={{
