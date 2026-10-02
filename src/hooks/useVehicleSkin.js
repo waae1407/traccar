@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 // "original" = pre-mockup UI (SAFE DRIVER pill, stronger glows) — default.
 // "neon" / "slate" = compact mockup UI with neon / slate map.
 export const VEHICLE_SKINS = [
-  { id: "original", label: "Original", blurb: "Safe Driver pill, stronger glow", mapStyleName: "neon", overlay: "original" },
+  { id: "original", label: "Original", blurb: "Satellite map, weather, Safe Driver", mapStyleName: "satellite", overlay: "original" },
   { id: "neon", label: "Neon", blurb: "Compact mockup, neon map", mapStyleName: "neon", overlay: "compact" },
   { id: "slate", label: "Slate", blurb: "Compact mockup, slate map", mapStyleName: "slate", overlay: "compact" },
 ];

@@ -7,6 +7,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { neonGreenDarkStyle } from "@/lib/mapStyles/neonGreenDarkStyle";
 import { mutedDarkSlateStyle } from "@/lib/mapStyles/mutedDarkSlateStyle";
+import { satelliteStyle } from "@/lib/mapStyles/satelliteStyle";
 
 // Base44 Vite plugin blocks ?worker&url and ?raw imports, and browsers block
 // cross-origin worker URLs. Fetch the worker script from CDN and create a
@@ -83,8 +84,10 @@ export default function FindMyVehicleMap({
   const [mapReady, setMapReady] = useState(false);
   const [workerReady, setWorkerReady] = useState(false);
   const [searchParams] = useSearchParams();
-  const slateRequested = mapStyleName === "slate" || searchParams.get("map") === "slate";
-  const mapStyle = slateRequested ? mutedDarkSlateStyle : neonGreenDarkStyle;
+  const mapStyle =
+    mapStyleName === "satellite" ? satelliteStyle
+    : (mapStyleName === "slate" || searchParams.get("map") === "slate") ? mutedDarkSlateStyle
+    : neonGreenDarkStyle;
 
   // Load the MapLibre worker as a same-origin blob URL
   useEffect(() => {
