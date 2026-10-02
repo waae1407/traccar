@@ -1,9 +1,54 @@
 import React from "react";
-import { Shield, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Shield, AlertTriangle, CheckCircle2, Sun, Moon, CloudRain, Snowflake, Cloud, CloudLightning } from "lucide-react";
 import SOSButton from "@/components/customer/sos/SOSButton";
 import VehicleTopCard from "./VehicleTopCard";
 import VehicleDock, { MoreStrip } from "./VehicleDock";
 import VehicleExpandedDrawer from "./VehicleExpandedDrawer";
+
+function getWeatherDisplay(weather) {
+  if (!weather?.current_weather) return null;
+  const { temperature, weathercode, is_day } = weather.current_weather;
+  const temp = Math.round(temperature) + "°";
+  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(weathercode))
+    return { icon: <CloudRain size={13} color="#89B4F8" />, label: "Rain", temp };
+  if ([71,73,75,77,85,86].includes(weathercode))
+    return { icon: <Snowflake size={13} color="#A7E4F2" />, label: "Snow", temp };
+  if ([95,96,99].includes(weathercode))
+    return { icon: <CloudLightning size={13} color="#C4A7E7" />, label: "Storm", temp };
+  if ([2,3,45,48].includes(weathercode))
+    return { icon: <Cloud size={13} color="#B5B9C2" />, label: "Cloudy", temp };
+  return is_day
+    ? { icon: <Sun size={13} color="#F8C455" />, label: "Clear", temp }
+    : { icon: <Moon size={13} color="#9EA5F1" />, label: "Clear", temp };
+}
+
+function WeatherChip({ device }) {
+  const { data: weather } = useQuery({
+    queryKey: ["vehicle-weather", device?.last_latitude, device?.last_longitude],
+    queryFn: async () => {
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${device.last_latitude}&longitude=${device.last_longitude}&current_weather=true&temperature_unit=fahrenheit`
+      );
+      return res.json();
+    },
+    enabled: !!device?.last_latitude && !!device?.last_longitude,
+    staleTime: 600000,
+  });
+  const w = getWeatherDisplay(weather);
+  if (!w) return null;
+  return (
+    <div style={{
+      display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px",
+      borderRadius: 999, background: "rgba(8,9,12,0.72)", backdropFilter: "blur(12px)",
+      WebkitBackdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.1)",
+    }}>
+      {w.icon}
+      <span style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F7" }}>{w.temp}</span>
+      <span style={{ fontSize: 11, fontWeight: 500, color: "#A1A1AA" }}>{w.label}</span>
+    </div>
+  );
+}
 
 // Frozen "original" skin — the My Vehicle UI before the compact mockup tweaks.
 // SAFE DRIVER pill + stronger button glows + standard arrow icon.
@@ -34,6 +79,9 @@ export default function MyVehicleOriginalOverlay({
     }}>
       <div style={{ ...COL, padding: "0 12px", pointerEvents: "auto", flexShrink: 0 }}>
         <VehicleTopCard addressLine={addressLine} statusLabel={statusLabel} />
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 6 }}>
+          <WeatherChip device={device} />
+        </div>
         {(isReturnRequired || isOverdueRental || activeAlarms.length > 0) && (
           <div style={{ paddingTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
             {isReturnRequired && <Banner icon={<Shield size={15} color="#FF9F0A" />} color="rgba(255,159,10,0.4)" bg="rgba(255,159,10,0.15)" text="Return Inspection Required" />}
