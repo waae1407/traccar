@@ -12,6 +12,10 @@ import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap"
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 import SOSButton from "@/components/customer/sos/SOSButton";
 import MyVehicleOverlay from "@/components/customer/myvehicle/MyVehicleOverlay";
+import MyVehicleOriginalOverlay from "@/components/customer/myvehicle/MyVehicleOriginalOverlay";
+import VehicleSkinPicker from "@/components/customer/myvehicle/VehicleSkinPicker";
+import { useVehicleSkin } from "@/hooks/useVehicleSkin";
+import { Palette } from "lucide-react";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -152,6 +156,9 @@ export default function MyVehicle() {
   const [isLocked, setIsLocked] = useState(true);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const { skin, setSkin, skinConfig } = useVehicleSkin();
+  const [showSkinPicker, setShowSkinPicker] = useState(false);
+  const OverlayComponent = skinConfig.overlay === "original" ? MyVehicleOriginalOverlay : MyVehicleOverlay;
 
   const { data: bookings = [], isLoading: bookingsLoading, error: bookingsError } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email, deepLinkedBookingId],
@@ -359,6 +366,11 @@ export default function MyVehicle() {
     } else { parkedStr = "Parked"; }
   }
 
+  const hoodVolt = device?.hood_wire_voltage ? (device.hood_wire_voltage + "V (Analog)") : "0.0V (Analog)";
+  const doorVolt = device?.door_wire_voltage ? (device.door_wire_voltage + "V (Analog)") : "0.0V (Analog)";
+  const smokeVolt = device?.smoke_voltage ? (device.smoke_voltage + "V (Analog)") : "0.0V (Analog)";
+  const mileageStr = device?.device_mileage ? (device.device_mileage.toLocaleString() + " miles") : "0 miles";
+
   return (
     <div className="dvh-fill" style={{ background: "#000", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em", position: "relative", overflow: "hidden" }}>
       <style>{`
@@ -394,7 +406,7 @@ export default function MyVehicle() {
       {/* ═══ FULL BLEED MAP ═══ */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, background: "#000" }}>
         {booking ? (
-          <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+          <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} mapStyleName={skinConfig.mapStyleName} />
         ) : (
           <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ textAlign: "center" }}>
@@ -405,7 +417,23 @@ export default function MyVehicle() {
         )}
       </div>
 
-      <MyVehicleOverlay
+      {/* ═══ SKIN PICKER BUTTON ═══ */}
+      <button
+        onClick={() => setShowSkinPicker(true)}
+        aria-label="Change vehicle skin"
+        className="control-tap"
+        style={{
+          position: "fixed", top: "max(12px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))",
+          zIndex: 80, width: 40, height: 40, borderRadius: "50%", cursor: "pointer",
+          background: "rgba(10,10,12,0.72)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
+        }}
+      >
+        <Palette size={18} color="#D4AF37" />
+      </button>
+
+      <OverlayComponent
         booking={booking}
         device={device}
         gps={gps}
@@ -429,6 +457,14 @@ export default function MyVehicle() {
         onOpenDiagnostics={() => { setShowDiagnostics(true); setExpanded(false); }}
         onEndRental={() => { setInspectionTarget({ booking, type: "dropoff" }); setExpanded(false); }}
       />
+
+      {showSkinPicker && (
+        <VehicleSkinPicker
+          currentSkin={skin}
+          onSelect={(id) => { setSkin(id); setShowSkinPicker(false); }}
+          onClose={() => setShowSkinPicker(false)}
+        />
+      )}
 
       {/* ═══ DIAGNOSTICS BOTTOM SHEET ═══ */}
       {showDiagnostics && (
@@ -458,8 +494,8 @@ export default function MyVehicle() {
                   <DiagRow label="Doors" value={device?.door_open ? "Open" : "Closed"} isAlert={device?.door_open} />
                   <DiagRow label="Trunk" value={device?.trunk_open ? "Open" : "Closed"} isAlert={device?.trunk_open} />
                   <DiagRow label="Starter Circuit" value={device?.starter_disabled ? "Disabled" : "Normal"} isAlert={device?.starter_disabled} />
-                  <DiagRow label="Hood Wire Volt" value={device?.hood_wire_voltage ? `${device.hood_wire_voltage}V (Analog)` : "0.0V (Analog)"} />
-                  <DiagRow label="Door Wire Volt" value={device?.door_wire_voltage ? `${device.door_wire_voltage}V (Analog)` : "0.0V (Analog)"} />
+                  <DiagRow label="Hood Wire Volt" value={hoodVolt} />
+                  <DiagRow label="Door Wire Volt" value={doorVolt} />
                 </div>
               </div>
 
@@ -479,7 +515,7 @@ export default function MyVehicle() {
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Environmental</p>
                 <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
                   <DiagRow label="Smoke Sensor" value={device?.smoke_detected ? "Detected" : "Clear"} isAlert={device?.smoke_detected} />
-                  <DiagRow label="Smoke Voltage" value={device?.smoke_voltage ? `${device.smoke_voltage}V (Analog)` : "0.0V (Analog)"} />
+                  <DiagRow label="Smoke Voltage" value={smokeVolt} />
                 </div>
               </div>
 
@@ -488,7 +524,7 @@ export default function MyVehicle() {
                 <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
                   <DiagRow label="Bluetooth" value={device?.bluetooth_on ? "Active" : "Inactive"} />
                   <DiagRow label="Direction Heading" value={getCompassDirection(device?.course)} />
-                  <DiagRow label="Device Mileage" value={device?.device_mileage ? `${device.device_mileage.toLocaleString()} miles` : "0 miles"} />
+                  <DiagRow label="Device Mileage" value={mileageStr} />
                 </div>
               </div>
             </div>

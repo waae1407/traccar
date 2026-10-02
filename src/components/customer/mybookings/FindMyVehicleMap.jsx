@@ -74,6 +74,7 @@ export default function FindMyVehicleMap({
   booking,
   compact = false,
   vehicleColor = "#2F80FF",
+  mapStyleName,
 }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
@@ -82,7 +83,8 @@ export default function FindMyVehicleMap({
   const [mapReady, setMapReady] = useState(false);
   const [workerReady, setWorkerReady] = useState(false);
   const [searchParams] = useSearchParams();
-  const mapStyle = searchParams.get("map") === "slate" ? mutedDarkSlateStyle : neonGreenDarkStyle;
+  const slateRequested = mapStyleName === "slate" || searchParams.get("map") === "slate";
+  const mapStyle = slateRequested ? mutedDarkSlateStyle : neonGreenDarkStyle;
 
   // Load the MapLibre worker as a same-origin blob URL
   useEffect(() => {
