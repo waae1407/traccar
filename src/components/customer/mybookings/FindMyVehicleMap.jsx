@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl/dist/maplibre-gl-csp.js";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapPin } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { neonGreenDarkStyle } from "@/lib/mapStyles/neonGreenDarkStyle";
+import { mutedDarkSlateStyle } from "@/lib/mapStyles/mutedDarkSlateStyle";
 
 // Base44 Vite plugin blocks ?worker&url and ?raw imports, and browsers block
 // cross-origin worker URLs. Fetch the worker script from CDN and create a
@@ -79,6 +81,8 @@ export default function FindMyVehicleMap({
   const isStaleRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [workerReady, setWorkerReady] = useState(false);
+  const [searchParams] = useSearchParams();
+  const mapStyle = searchParams.get("map") === "slate" ? mutedDarkSlateStyle : neonGreenDarkStyle;
 
   // Load the MapLibre worker as a same-origin blob URL
   useEffect(() => {
@@ -138,7 +142,7 @@ export default function FindMyVehicleMap({
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: neonGreenDarkStyle,
+      style: mapStyle,
       center,
       zoom: 14.7,
       interactive: false,
@@ -155,7 +159,7 @@ export default function FindMyVehicleMap({
       markerRef.current = null;
       setMapReady(false);
     };
-  }, [workerReady, canShow]);
+  }, [workerReady, canShow, mapStyle]);
 
   // ── Add/update marker when map is ready or coordinates change ──
   useEffect(() => {
