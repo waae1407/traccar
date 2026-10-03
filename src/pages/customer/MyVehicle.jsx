@@ -201,20 +201,19 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   const [commandLoading, setCommandLoading] = useState(null);
   const [isLocked, setIsLocked] = useState(true); // Optimistic lock state
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [showFooter, setShowFooter] = useState(true);
-  const lastScrollY = useRef(0);
+  const [showFooter, setShowFooter] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY.current + 5) {
-        setShowFooter(false);
-      } else if (currentScrollY < lastScrollY.current - 5) {
-        setShowFooter(true);
-      }
-      lastScrollY.current = currentScrollY;
+      const scrollY = window.scrollY;
+      const viewport = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      const distanceFromBottom = docHeight - (scrollY + viewport);
+      // Reveal the nav only when the user has scrolled to the very bottom
+      setShowFooter(distanceFromBottom < 80);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
