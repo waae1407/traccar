@@ -759,8 +759,8 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                     objectFit: "cover",
                     objectPosition: "center",
                     display: "block",
-                    opacity: 0.75,
-                    filter: "brightness(0.65) contrast(1.2) saturate(1.1)",
+                    opacity: 0.95,
+                    filter: "brightness(0.9) contrast(1.15) saturate(1.05)",
                     transform: "scale(1.05)",
                   }}
                 />
@@ -770,7 +770,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             <div style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(90deg, #050506 0%, #050506 15%, rgba(5,5,6,0.98) 35%, rgba(5,5,6,0.5) 60%, transparent 100%)",
+              background: "linear-gradient(90deg, #050506 0%, #050506 10%, rgba(5,5,6,0.92) 25%, rgba(5,5,6,0.35) 55%, transparent 85%)",
               zIndex: 2,
             }} />
             <div style={{

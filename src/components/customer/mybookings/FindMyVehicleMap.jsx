@@ -40,29 +40,22 @@ const ALLOWED_STATUSES = [
   "under_review",
 ];
 
-// Gold map pin with green checkmark badge — matches mockup aesthetic
+// White car icon on a soft blue glow pool — luxury premium aesthetic
 function createVehicleMarkerElement(isStale = false) {
   const el = document.createElement("div");
   const labelHtml = isStale
-    ? `<div style="position:absolute;top:-22px;left:50%;transform:translateX(-50%);background:rgba(255,159,10,0.95);color:#1A1A1A;font-size:9px;font-weight:800;letter-spacing:0.05em;padding:2px 7px;border-radius:6px;white-space:nowrap;z-index:3;box-shadow:0 2px 8px rgba(0,0,0,0.4);">DELAYED</div>`
+    ? `<div style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);background:rgba(255,159,10,0.95);color:#1A1A1A;font-size:9px;font-weight:800;letter-spacing:0.05em;padding:2px 7px;border-radius:6px;white-space:nowrap;z-index:3;box-shadow:0 2px 8px rgba(0,0,0,0.4);">DELAYED</div>`
     : "";
   el.innerHTML = `
-    <div style="position:relative;width:96px;height:120px;">
+    <div style="position:relative;width:80px;height:80px;">
       ${labelHtml}
-      <svg width="96" height="120" viewBox="0 0 100 125" fill="none" style="filter: drop-shadow(0 0 8px rgba(212,175,55,0.45));">
-        <defs>
-          <linearGradient id="pinGold" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#F7DE8A"/>
-            <stop offset="0.5" stop-color="#D4AF37"/>
-            <stop offset="1" stop-color="#8A6A1A"/>
-          </linearGradient>
-        </defs>
-        <path fill-rule="evenodd" clip-rule="evenodd" d="M50 2C24 2 6 22 6 48c0 34 44 75 44 75s44-41 44-75C94 22 76 2 50 2zM50 28a20 20 0 1 0 0 40 20 20 0 0 0 0-40z" fill="url(#pinGold)" stroke="#FFE27A" stroke-width="1.5"/>
-        <circle cx="50" cy="48" r="20" fill="none" stroke="#7A5C14" stroke-width="2"/>
-      </svg>
-      <div style="position:absolute;top:58px;right:-4px;width:36px;height:36px;border-radius:50%;background:#0C2A1A;border:3px solid #4ADE80;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(74,222,128,0.6);">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M5 12l5 5L20 7" stroke="#4ADE80" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;background:radial-gradient(circle, rgba(59,130,246,0.45) 0%, rgba(59,130,246,0.18) 45%, transparent 70%);filter:blur(2px);z-index:0;"></div>
+      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:radial-gradient(circle, rgba(59,130,246,0.55) 0%, rgba(59,130,246,0.25) 50%, transparent 75%);box-shadow:0 0 28px rgba(96,165,250,0.8), 0 0 56px rgba(59,130,246,0.4);z-index:1;display:flex;align-items:center;justify-content:center;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 1px 4px rgba(0,0,0,0.5));">
+          <path d="M5 11l1.5-4.5A2 2 0 018.4 5h7.2a2 2 0 011.9 1.5L19 11v6h-1v1.5a1 1 0 01-2 0V17H8v1.5a1 1 0 01-2 0V17H5v-6z" fill="#ffffff" stroke="#ffffff" stroke-width="0.5" stroke-linejoin="round"/>
+          <path d="M7 11h10" stroke="#1a1a2e" stroke-width="0.8" stroke-linecap="round" opacity="0.4"/>
+          <circle cx="8" cy="14.5" r="1.2" fill="#1a1a2e"/>
+          <circle cx="16" cy="14.5" r="1.2" fill="#1a1a2e"/>
         </svg>
       </div>
     </div>
@@ -177,7 +170,7 @@ export default function FindMyVehicleMap({
     } else {
       markerRef.current = new maplibregl.Marker({
         element: createVehicleMarkerElement(isStale),
-        anchor: "bottom",
+        anchor: "center",
       })
         .setLngLat([lng, lat])
         .addTo(map);
@@ -196,7 +189,7 @@ export default function FindMyVehicleMap({
     markerRef.current.remove();
     markerRef.current = new maplibregl.Marker({
       element: createVehicleMarkerElement(isStale),
-      anchor: "bottom",
+      anchor: "center",
     })
       .setLngLat([pos.lng, pos.lat])
       .addTo(map);
