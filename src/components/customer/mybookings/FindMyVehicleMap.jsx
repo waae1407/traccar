@@ -40,25 +40,19 @@ const ALLOWED_STATUSES = [
   "under_review",
 ];
 
-// White car icon inside a white drop-pin shape with soft blue glow aura
-function createVehicleMarkerElement(isStale = false) {
+// White top-down car sitting in a glowing blue light pool
+function createVehicleMarkerElement() {
   const el = document.createElement("div");
-  const labelHtml = isStale
-    ? `<div style="position:absolute;top:-24px;left:50%;transform:translateX(-50%);background:rgba(255,159,10,0.95);color:#1A1A1A;font-size:9px;font-weight:800;letter-spacing:0.05em;padding:2px 7px;border-radius:6px;white-space:nowrap;z-index:3;box-shadow:0 2px 8px rgba(0,0,0,0.4);">DELAYED</div>`
-    : "";
   el.innerHTML = `
-    <div style="position:relative;width:80px;height:80px;">
-      ${labelHtml}
-      <div style="position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;background:radial-gradient(circle, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0.12) 50%, transparent 70%);filter:blur(3px);z-index:0;"></div>
-      <svg width="44" height="56" viewBox="0 0 44 56" fill="none" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;filter:drop-shadow(0 0 12px rgba(59,130,246,0.6)) drop-shadow(0 2px 6px rgba(0,0,0,0.5));">
-        <path d="M22 2C11.5 2 3 10.5 3 21c0 12 19 31 19 31s19-19 19-31C41 10.5 32.5 2 22 2z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
-        <path d="M22 5C13.2 5 6 12.2 6 21c0 9.5 16 26 16 26s16-16.5 16-26C38 12.2 30.8 5 22 5z" fill="#1a1a1a" opacity="0.05"/>
-        <g transform="translate(10, 14) scale(1.0)">
-          <path d="M5 11l1.5-4.5A2 2 0 018.4 5h7.2a2 2 0 011.9 1.5L19 11v6h-1v1.5a1 1 0 01-2 0V17H8v1.5a1 1 0 01-2 0V17H5v-6z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="0.5" stroke-linejoin="round"/>
-          <path d="M7 11h10" stroke="#fff" stroke-width="0.8" stroke-linecap="round" opacity="0.5"/>
-          <circle cx="8" cy="14.5" r="1.2" fill="#1a1a1a"/>
-          <circle cx="16" cy="14.5" r="1.2" fill="#1a1a1a"/>
-        </g>
+    <div style="position:relative;width:110px;height:110px;pointer-events:none;">
+      <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(47,128,255,0.85) 0%, rgba(47,128,255,0.45) 28%, rgba(47,128,255,0.16) 50%, transparent 70%);"></div>
+      <div style="position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle, rgba(150,190,255,0.7) 0%, transparent 70%);filter:blur(5px);"></div>
+      <svg width="22" height="38" viewBox="0 0 22 38" fill="none" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);filter:drop-shadow(0 0 8px rgba(47,128,255,0.95)) drop-shadow(0 1px 2px rgba(0,0,0,0.6));">
+        <rect x="1" y="1" width="20" height="36" rx="7.5" fill="#FFFFFF"/>
+        <path d="M4.2 12 Q11 8.6 17.8 12 L16.6 16.6 Q11 15 5.4 16.6 Z" fill="#0B1220" opacity="0.85"/>
+        <path d="M5.4 28.2 Q11 29.8 16.6 28.2 L17.2 31.6 Q11 33.8 4.8 31.6 Z" fill="#0B1220" opacity="0.75"/>
+        <rect x="3.6" y="18" width="1.4" height="8.5" rx="0.7" fill="#0B1220" opacity="0.3"/>
+        <rect x="17" y="18" width="1.4" height="8.5" rx="0.7" fill="#0B1220" opacity="0.3"/>
       </svg>
     </div>
   `;
@@ -75,7 +69,6 @@ export default function FindMyVehicleMap({
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
-  const isStaleRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [workerReady, setWorkerReady] = useState(false);
   const [searchParams] = useSearchParams();
@@ -171,7 +164,7 @@ export default function FindMyVehicleMap({
       markerRef.current.setLngLat([lng, lat]);
     } else {
       markerRef.current = new maplibregl.Marker({
-        element: createVehicleMarkerElement(isStale),
+        element: createVehicleMarkerElement(),
         anchor: "center",
       })
         .setLngLat([lng, lat])
@@ -180,22 +173,6 @@ export default function FindMyVehicleMap({
     map.panTo([lng, lat], { duration: 500 });
   }, [mapReady, lat, lng]);
 
-  // ── Update stale indicator on marker ──
-  useEffect(() => {
-    if (isStale === isStaleRef.current) return;
-    isStaleRef.current = isStale;
-    const map = mapRef.current;
-    if (!map || !markerRef.current) return;
-
-    const pos = markerRef.current.getLngLat();
-    markerRef.current.remove();
-    markerRef.current = new maplibregl.Marker({
-      element: createVehicleMarkerElement(isStale),
-      anchor: "center",
-    })
-      .setLngLat([pos.lng, pos.lat])
-      .addTo(map);
-  }, [isStale]);
 
   if (!canShow) {
     return (
@@ -261,19 +238,19 @@ export default function FindMyVehicleMap({
             top: 10,
             left: 10,
             zIndex: 400,
-            background: "rgba(255,159,10,0.92)",
-            color: "#1A1A1A",
+            background: "rgba(10,10,12,0.78)",
+            border: "1px solid rgba(255,179,64,0.3)",
+            color: "#FFB340",
             fontSize: 10,
             fontWeight: 800,
-            letterSpacing: "0.05em",
-            padding: "4px 10px",
+            letterSpacing: "0.06em",
+            padding: "4px 9px",
             borderRadius: 8,
             display: "flex",
             alignItems: "center",
             gap: 5,
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
           }}
         >
           <span
@@ -281,7 +258,7 @@ export default function FindMyVehicleMap({
               width: 6,
               height: 6,
               borderRadius: "50%",
-              background: "#1A1A1A",
+              background: "#FFB340",
             }}
           />
           DELAYED GPS

@@ -17,6 +17,7 @@ import ClassicDiagnosticsSheet from "@/components/customer/myvehicle/ClassicDiag
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
+const LABEL_FONT = "'Barlow Condensed', sans-serif";
 
 function getDistanceMiles(lat1, lon1, lat2, lon2) {
   const R = 3959;
@@ -60,7 +61,7 @@ function getBatteryInfo(device) {
   }
 
   let label = "Good";
-  let color = "#30D158";
+  let color = "#50C878";
   if (voltage < 11.8) {
     label = "Critical";
     color = "#FF453A";
@@ -71,7 +72,7 @@ function getBatteryInfo(device) {
   
   if (device?.ignition_status === 'on' || voltage >= 13.0) {
     label = "Charging";
-    color = "#30D158";
+    color = "#50C878";
   }
 
   return { pct, label, color, voltage: voltage.toFixed(1) };
@@ -86,90 +87,17 @@ function freshness(device) {
   return { label: "Stale", status: "offline" };
 }
 
+// Weather chip — monochrome icon + temperature (no colored ambient effects)
 function getWeatherStyle(weather) {
-  const baseBg = "linear-gradient(180deg, #08090C 0%, #050506 100%)";
-  if (!weather?.current_weather) {
-    return {
-      icon: <Cloud size={14} color="#A1A1AA" strokeWidth={2.5} />,
-      label: "Weather",
-      temp: "--°",
-      ambientBg: baseBg,
-      rayClass: "",
-      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(255,255,255,0.06), transparent 40%)" }
-    };
-  }
-  
+  const iconProps = { size: 14, color: "#E4E4E7", strokeWidth: 2.5 };
+  if (!weather?.current_weather) return { icon: <Cloud {...iconProps} color="#A1A1AA" />, temp: "--°" };
   const { temperature, weathercode, is_day } = weather.current_weather;
-  const tempStr = `${Math.round(temperature)}°`;
-  
-  // Rain / Drizzle / Showers
-  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(weathercode)) {
-    return {
-      icon: <CloudRain size={14} color="#89B4F8" strokeWidth={2.5} />,
-      label: "Rain",
-      temp: tempStr,
-      ambientBg: baseBg,
-      rayClass: "rain-glow-active",
-      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(137,180,248,0.25) 0%, transparent 60%)" }
-    };
-  }
-  // Snow
-  if ([71,73,75,77,85,86].includes(weathercode)) {
-    return {
-      icon: <Snowflake size={14} color="#A7E4F2" strokeWidth={2.5} />,
-      label: "Snow",
-      temp: tempStr,
-      ambientBg: baseBg,
-      rayClass: "snow-glow-active",
-      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(167,228,242,0.25) 0%, transparent 60%)" }
-    };
-  }
-  // Thunderstorm
-  if ([95,96,99].includes(weathercode)) {
-    return {
-      icon: <CloudLightning size={14} color="#C4A7E7" strokeWidth={2.5} />,
-      label: "Storm",
-      temp: tempStr,
-      ambientBg: baseBg,
-      rayClass: "storm-glow-active",
-      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(196,167,231,0.25) 0%, transparent 60%)" }
-    };
-  }
-  // Cloudy / Fog
-  if ([2,3,45,48].includes(weathercode)) {
-    return {
-      icon: <Cloud size={14} color="#B5B9C2" strokeWidth={2.5} />,
-      label: "Cloudy",
-      temp: tempStr,
-      ambientBg: baseBg,
-      rayClass: "cloud-glow-active",
-      rayStyle: { background: "radial-gradient(circle at 100% 0%, rgba(181,185,194,0.2) 0%, transparent 60%)" }
-    };
-  }
-  // Clear / Mostly Clear
-  if (is_day) {
-    return {
-      icon: <Sun size={14} color="#F8C455" strokeWidth={2.5} />,
-      label: "Clear",
-      temp: tempStr,
-      ambientBg: baseBg,
-      rayClass: "sun-rays-active",
-      rayStyle: { 
-        background: "repeating-conic-gradient(from 180deg at 100% 0%, rgba(248,196,85,0.12) 0deg, rgba(248,196,85,0.12) 8deg, transparent 8deg, transparent 18deg), radial-gradient(circle at 100% 0%, rgba(255,230,150,0.4) 0%, transparent 50%)" 
-      }
-    };
-  } else {
-    return {
-      icon: <Moon size={14} color="#9EA5F1" strokeWidth={2.5} />,
-      label: "Clear",
-      temp: tempStr,
-      ambientBg: baseBg,
-      rayClass: "moon-beams-active",
-      rayStyle: { 
-        background: "repeating-conic-gradient(from 180deg at 100% 0%, rgba(158,165,241,0.06) 0deg, rgba(158,165,241,0.06) 12deg, transparent 12deg, transparent 25deg), radial-gradient(circle at 100% 0%, rgba(158,165,241,0.25) 0%, transparent 55%)" 
-      }
-    };
-  }
+  let Icon = is_day ? Sun : Moon;
+  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(weathercode)) Icon = CloudRain;
+  else if ([71,73,75,77,85,86].includes(weathercode)) Icon = Snowflake;
+  else if ([95,96,99].includes(weathercode)) Icon = CloudLightning;
+  else if ([2,3,45,48].includes(weathercode)) Icon = Cloud;
+  return { icon: <Icon {...iconProps} />, temp: `${Math.round(temperature)}°` };
 }
 
 // Signal bars SVG icon
@@ -180,7 +108,7 @@ function SignalBarsIcon({ strength = 100 }) {
     { x: 9, y: 3.5, h: 10.5, threshold: 50 },
     { x: 13.5, y: 0, h: 14, threshold: 75 },
   ];
-  const activeColor = strength > 25 ? "#30D158" : (strength > 0 ? "#FF9F0A" : "#FF453A");
+  const activeColor = strength > 25 ? "#50C878" : (strength > 0 ? "#FF9F0A" : "#FF453A");
   const inactiveColor = "rgba(255,255,255,0.15)";
   
   return (
@@ -225,7 +153,7 @@ function NoSmokingIcon() {
 }
 
 // Cigarette / Smoke SVG
-function CigaretteIcon({ color = "#30D158", isAlert = false }) {
+function CigaretteIcon({ color = "#50C878", isAlert = false }) {
   return (
     <div style={{ position: "relative", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 2 }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", zIndex: 2 }}>
@@ -479,7 +407,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   // Demo mode: no active booking — show preview with placeholder data
   const isDemo = !booking;
   const name = isDemo ? "2018 Toyota Mirai" : vehicleName(vehicle, booking);
-  const battInfo = isDemo ? { pct: 100, label: "Good", color: "#30D158", voltage: "12.8" } : getBatteryInfo(device);
+  const battInfo = isDemo ? { pct: 100, label: "Good", color: "#50C878", voltage: "12.8" } : getBatteryInfo(device);
   const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
   const dropoffInspectionComplete = booking?.return_exterior_photos?.length > 0 || booking?.return_interior_photos?.length > 0;
   const isBookingActive = !isDemo && booking
@@ -565,7 +493,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
         <div style={{
           position: "relative",
           overflow: "hidden",
-          background: weatherStyle.ambientBg,
+          background: "#050506",
           minHeight: "auto",
           paddingTop: 16,
           paddingBottom: 16,
@@ -628,18 +556,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             }} />
           </div>
 
-          {/* Dynamic weather rays layer (OVER vehicle, UNDER text) */}
-          <div className={weatherStyle.rayClass} style={{
-            position: "absolute",
-            top: 0, right: 0, bottom: 0, left: 0,
-            pointerEvents: "none",
-            zIndex: 1,
-            mixBlendMode: "screen",
-            WebkitMaskImage: "radial-gradient(circle at 100% 0%, black 10%, transparent 70%)",
-            maskImage: "radial-gradient(circle at 100% 0%, black 10%, transparent 70%)",
-            ...weatherStyle.rayStyle,
-          }} />
-
           {/* Foreground text content */}
           <div style={{ position: "relative", zIndex: 2 }}>
           {/* Return Required Banner */}
@@ -681,13 +597,13 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
           )}
 
             {/* Top row: name + icons */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
-              <div>
-                <p style={{ fontSize: 26, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, margin: 0, letterSpacing: "-0.4px", maxWidth: 280, textTransform: "capitalize" }}>{name.toLowerCase()}</p>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 16 }}>
+              <div style={{ flex: 1, minWidth: 0, textShadow: "0 1px 10px rgba(0,0,0,0.85)" }}>
+                <p style={{ fontSize: 22, fontWeight: 700, color: "#F5F5F7", lineHeight: 1.15, margin: 0, letterSpacing: "-0.4px", textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
                     <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 5 }}>
-                      <Car size={13} color={isDemo || isBookingActive || (!pickupInspectionComplete && booking) ? "#30D158" : "#8E8E93"} strokeWidth={2.5} />
+                      <Car size={13} color={isDemo || isBookingActive || (!pickupInspectionComplete && booking) ? "#50C878" : "#8E8E93"} strokeWidth={2.5} />
                       {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
                     </span>
                     {(() => {
@@ -700,7 +616,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                           icon = <NoSmokingIcon />;
                           label = "Smoke Sensor:";
                           statusText = "Clear";
-                          statusColor = "#30D158";
+                          statusColor = "#50C878";
                           pulse = true;
                         } else {
                           icon = <CigaretteIcon color="#FF453A" isAlert={true} />;
@@ -714,7 +630,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                           icon = <span style={{ fontSize: 14, filter: "grayscale(100%) opacity(0.6)", marginRight: 4 }}>🌬️</span>;
                           label = "Cabin Air:";
                           statusText = "Clear";
-                          statusColor = "#30D158";
+                          statusColor = "#50C878";
                           pulse = true;
                         } else {
                           icon = <span style={{ fontSize: 14, marginRight: 4 }}>⚠️</span>;
@@ -726,7 +642,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                       }
 
                       return (
-                        <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 0 }}>
+                        <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 0, whiteSpace: "nowrap" }}>
                           {icon}
                           {label} <span className={pulse ? "text-monitor-pulse" : ""} style={{ color: statusColor, marginLeft: 4 }}>{statusText}</span>
                         </span>
@@ -735,28 +651,30 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   </div>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                 <button
                   onClick={onOpenSkinPicker}
                   aria-label="Switch view"
                   className="control-tap"
-                  style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                 >
-                  <Layers size={16} color="#D4AF37" />
+                  <Layers size={15} color="#E4E4E7" />
                 </button>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 10px", height: 36, borderRadius: 18, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(10px)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 9px", height: 32, borderRadius: 16, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(10px)" }}>
                   {weatherStyle.icon}
                   <span style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7" }}>{weatherStyle.temp}</span>
                 </div>
                 <button
                   onClick={() => window.location.href = "/messages"}
-                  style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                  aria-label="Messages"
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                 >
-                  <MessageSquare size={16} color="#A1A1AA" />
+                  <MessageSquare size={15} color="#A1A1AA" />
                 </button>
                 <button
                   onClick={() => window.location.href = "/account"}
-                  style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg, #9B59B6, #E91E8C)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 15, border: "none", cursor: "pointer" }}
+                  aria-label="Account"
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 14, border: "1px solid rgba(255,255,255,0.16)", cursor: "pointer" }}
                 >
                   {user?.full_name?.charAt(0) || "R"}
                 </button>
@@ -830,7 +748,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                       position: "absolute", bottom: 14, right: 14, zIndex: 400,
                       background: "rgba(47,128,255,0.85)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 20,
                       padding: "9px 18px", display: "flex", alignItems: "center", gap: 6,
-                      color: "#FFF", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      color: "#FFF", fontSize: 14, fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.04em", textTransform: "uppercase", cursor: "pointer",
                       backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
                       boxShadow: "0 4px 16px rgba(47,128,255,0.35), inset 0 1px 0 rgba(255,255,255,0.2)"
                     }}
@@ -838,6 +756,9 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                     <Navigation size={14} color="#FFFFFF" style={{ transform: "rotate(45deg)", marginBottom: 2 }} />
                     Directions
                   </button>
+                  <div style={{ position: "absolute", bottom: 14, left: 14, zIndex: 400 }}>
+                    <SOSButton booking={booking} device={device} inline size={38} />
+                  </div>
                 </>
               ) : (
                 <div style={{ height: "100%", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -918,7 +839,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <p style={{ fontSize: 13, fontWeight: 650, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#F5F5F7", letterSpacing: "-0.1px" }}>
                 {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Action Needed" : (booking?.payment_status === "paid" || booking?.payment_status === "pending" || !booking ? "Paid" : "Due Soon")}
               </p>
-              <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#30D158", fontWeight: 500 }}>
+              <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#50C878", fontWeight: 500 }}>
                 {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Update Card" : (booking?.next_billing_date ? `Next: ${format(new Date(`${booking.next_billing_date}T12:00:00`), "MMM d")}` : "Up to date")}
               </p>
             </div>
@@ -933,7 +854,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
           {/* ── REMOTE CONTROLS ── */}
           <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
+            <p style={{ fontSize: 13, fontWeight: 800, fontFamily: LABEL_FONT, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
               Remote Controls
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
@@ -947,7 +868,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   position: "relative",
                   aspectRatio: "1/1",
                   background: "#1A1A1A",
-                  border: isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.08)",
+                  border: isLocked ? "1px solid rgba(80,200,120,0.15)" : "1px solid rgba(255,255,255,0.08)",
                   borderRadius: 18,
                   padding: 0,
                   cursor: "pointer",
@@ -956,10 +877,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 }}
               >
                 <div className="btn-loading-content">
-                  <Lock size={24} color={isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "none" }} />
+                  <Lock size={24} color={isLocked ? "#50C878" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(80,200,120,0.2))" : "none" }} />
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2 }}>Lock</p>
-                    <p style={{ fontSize: 9, color: isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Lock</p>
+                    <p style={{ fontSize: 10, marginTop: 2, color: isLocked ? "#50C878" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
                       {isLocked ? "Locked" : "Not Locked"}
                     </p>
                   </div>
@@ -975,7 +896,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   position: "relative",
                   aspectRatio: "1/1",
                   background: "#1A1A1A",
-                  border: !isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.08)",
+                  border: !isLocked ? "1px solid rgba(80,200,120,0.15)" : "1px solid rgba(255,255,255,0.08)",
                   borderRadius: 18,
                   padding: 0,
                   cursor: "pointer",
@@ -984,10 +905,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 }}
               >
                 <div className="btn-loading-content">
-                  <Unlock size={24} color={!isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "none" }} />
+                  <Unlock size={24} color={!isLocked ? "#50C878" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(80,200,120,0.2))" : "none" }} />
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2 }}>Unlock</p>
-                    <p style={{ fontSize: 9, color: !isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Unlock</p>
+                    <p style={{ fontSize: 10, marginTop: 2, color: !isLocked ? "#50C878" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
                       {!isLocked ? "Unlocked" : "Doors"}
                     </p>
                   </div>
@@ -1015,8 +936,8 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 <div className="btn-loading-content">
                   <HornIcon color="#3B82F6" />
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2 }}>Find Vehicle</p>
-                    <p style={{ fontSize: 9, color: "#60A5FA", lineHeight: 1.2, fontWeight: 500 }}>Flash &amp; Honk</p>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Find Vehicle</p>
+                    <p style={{ fontSize: 10, marginTop: 2, color: "#60A5FA", lineHeight: 1.2, fontWeight: 500 }}>Flash &amp; Honk</p>
                   </div>
                 </div>
               </button>
@@ -1056,27 +977,27 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
               }}>
-                <Shield size={18} color="#F87171" />
+                <Shield size={18} color="#FCA5A5" />
               </div>
               <div style={{ flex: 1, textAlign: "left" }}>
-                <p style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF" }}>End Your Rental</p>
-                <p style={{ fontSize: 11, color: "#A1A1AA", marginTop: 2 }}>Complete return inspection to stop billing immediately</p>
+                <p style={{ fontSize: 17, fontWeight: 800, color: "#FFFFFF", fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase", lineHeight: 1.1 }}>End Your Rental</p>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,0.78)", marginTop: 3 }}>Complete return inspection to stop billing immediately</p>
               </div>
-              <ChevronRight size={16} color="#71717A" />
+              <ChevronRight size={16} color="rgba(255,255,255,0.75)" />
             </button>
           )}
 
           {/* ── VEHICLE HEALTH ── */}
           <div style={{ marginBottom: 10 }}>
             <div className="flex items-center justify-between mb-3">
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              <p style={{ fontSize: 13, fontWeight: 800, fontFamily: LABEL_FONT, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase" }}>
                 Vehicle Health
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#30D158", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#50C878", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <CheckCircle size={10} color="#0a0a0a" strokeWidth={3} />
                 </div>
-                <span style={{ fontSize: 12, color: "#30D158", fontWeight: 500 }}>All systems normal</span>
+                <span style={{ fontSize: 14, color: "#50C878", fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.02em" }}>All systems normal</span>
               </div>
             </div>
             <div style={{
@@ -1097,14 +1018,14 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: "50%",
-                    background: item.ok ? "rgba(48,209,88,0.15)" : "rgba(255,69,58,0.15)",
-                    border: item.ok ? "1px solid rgba(48,209,88,0.3)" : "1px solid rgba(255,69,58,0.3)",
+                    background: item.ok ? "rgba(80,200,120,0.15)" : "rgba(255,69,58,0.15)",
+                    border: item.ok ? "1px solid rgba(80,200,120,0.3)" : "1px solid rgba(255,69,58,0.3)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    <CheckCircle size={16} color={item.ok ? "#30D158" : "#FF453A"} strokeWidth={2.5} />
+                    <CheckCircle size={16} color={item.ok ? "#50C878" : "#FF453A"} strokeWidth={2.5} />
                   </div>
                   <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.02em", color: "#FFFFFF", textAlign: "center", lineHeight: 1.1 }}>{item.sub}</p>
                 </div>
               ))}
             </div>
@@ -1118,7 +1039,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               }}
             >
               <Settings2 size={16} color="#A1A1AA" />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#E4E4E7" }}>View Full Diagnostics</span>
+              <span style={{ fontSize: 15, fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.04em", textTransform: "uppercase", color: "#E4E4E7" }}>View Full Diagnostics</span>
             </button>
           </div>
 
@@ -1126,9 +1047,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
         {/* Full Diagnostics Bottom Sheet */}
         {showDiagnostics && <ClassicDiagnosticsSheet device={device} onClose={() => setShowDiagnostics(false)} />}
-
-        {/* ── SOS FLOATING BUTTON ── */}
-        <SOSButton booking={booking} device={device} />
 
         {/* ── BOTTOM NAVIGATION ── */}
         <div style={{

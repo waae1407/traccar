@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -17,7 +18,7 @@ import SOSConfirmSheet from "./SOSConfirmSheet";
  *   - Contact exists → shows SOSConfirmSheet (hold-to-confirm trigger)
  * Only visible when there's an active booking (not demo mode)
  */
-export default function SOSButton({ booking, device, inline = false, variant = "circular" }) {
+export default function SOSButton({ booking, device, inline = false, variant = "circular", size = 58 }) {
   const { user } = useAuth();
   const [sheet, setSheet] = useState(null);
 
@@ -60,8 +61,8 @@ export default function SOSButton({ booking, device, inline = false, variant = "
       }
     : inline
     ? {
-        height: 58,
-        width: 58,
+        height: size,
+        width: size,
         padding: 0,
         borderRadius: "50%",
         background: "radial-gradient(circle at 35% 30%, #FF6B5E, #E0271B 60%, #A50F08)",
@@ -106,7 +107,7 @@ export default function SOSButton({ booking, device, inline = false, variant = "
         ) : (
           <span
             style={{
-              fontSize: inline ? 15 : 17,
+              fontSize: inline ? Math.round(size * 0.26) : 17,
               fontWeight: 800,
               color: "#FFF",
               letterSpacing: "0.08em",
@@ -118,22 +119,25 @@ export default function SOSButton({ booking, device, inline = false, variant = "
         )}
       </button>
 
-      {sheet === "setup" && (
+      {/* Sheets render at the document root so the button can sit inside any container */}
+      {sheet === "setup" && createPortal(
         <SOSSetupSheet
           onClose={() => setSheet(null)}
           onSaved={() => {
             refetch();
             setSheet(null);
           }}
-        />
+        />,
+        document.body
       )}
-      {sheet === "confirm" && primaryContact && (
+      {sheet === "confirm" && primaryContact && createPortal(
         <SOSConfirmSheet
           contact={primaryContact}
           booking={booking}
           device={device}
           onClose={() => setSheet(null)}
-        />
+        />,
+        document.body
       )}
     </>
   );
