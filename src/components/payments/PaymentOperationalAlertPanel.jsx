@@ -7,9 +7,9 @@ import PaymentAlertInsight from "./PaymentAlertInsight";
 
 const OPEN_STATUSES = ["new", "notified", "acknowledged", "under_review", "retry_scheduled", "escalated"];
 const STYLE = {
-  critical: "border-red-400 bg-red-50 text-red-900",
-  warning: "border-amber-300 bg-amber-50 text-amber-900",
-  info: "border-blue-200 bg-blue-50 text-blue-900",
+  critical: "border-red-500/40 bg-red-500/10 text-red-300",
+  warning: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  info: "border-blue-500/40 bg-blue-500/10 text-blue-300",
 };
 
 function appendAudit(alert, actionType, actorRole, actorId, previousStatus, newStatus, note) {
@@ -58,16 +58,16 @@ export default function PaymentOperationalAlertPanel({ scope = "admin", hostId =
   if (openAlerts.length === 0) return null;
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-3xl border border-white/[0.07] p-4" style={{ background: "#1A1A1A" }}>
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-gray-600" />
+          <ShieldAlert className="h-5 w-5 text-white/60" />
           <div>
-            <h3 className="font-black text-gray-900 text-sm">{title}</h3>
-            <p className="text-xs text-gray-500">Tap an alert to expand. Visible until acknowledged, reviewed, or resolved.</p>
+            <h3 className="font-black text-white text-sm">{title}</h3>
+            <p className="text-xs text-white/40">Tap an alert to expand. Visible until acknowledged, reviewed, or resolved.</p>
           </div>
         </div>
-        {scope === "admin" && <Link to="/admin/payment-alerts" className="text-xs font-black text-gray-700 underline">Open Center</Link>}
+        {scope === "admin" && <Link to="/admin/payment-alerts" className="text-xs font-black text-white/70 underline">Open Center</Link>}
       </div>
       <div className="space-y-3">
         {openAlerts.map(alert => {
@@ -81,13 +81,13 @@ export default function PaymentOperationalAlertPanel({ scope = "admin", hostId =
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded ${alert.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-200 text-amber-800"}`}>{alert.severity}</span>
+                    <span className={`text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded ${alert.severity === "critical" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400"}`}>{alert.severity}</span>
                     <span className="text-[10px] font-bold opacity-60">{alert.billing_context?.replace(/_/g, ' ')}</span>
                   </div>
                   <p className="font-black text-sm mt-1">{alert.title}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  {alert.severity === "critical" ? <AlertTriangle className="h-5 w-5 text-red-600" /> : <Clock className="h-5 w-5" />}
+                  {alert.severity === "critical" ? <AlertTriangle className="h-5 w-5 text-red-500" /> : <Clock className="h-5 w-5 text-white/60" />}
                   <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 </div>
               </div>
@@ -98,10 +98,10 @@ export default function PaymentOperationalAlertPanel({ scope = "admin", hostId =
                   <PaymentAlertInsight alert={alert} scope={scope} compact={compact} />
                   {!compact && (
                     <div className="mt-3 space-y-2">
-                      <input value={note} onChange={e => setNoteDraft(p => ({ ...p, [alert.id]: e.target.value }))} placeholder="Add note / resolution notes" className="w-full rounded-xl border border-black/10 bg-white/70 px-3 py-2 text-xs outline-none" />
+                      <input value={note} onChange={e => setNoteDraft(p => ({ ...p, [alert.id]: e.target.value }))} placeholder="Add note / resolution notes" className="w-full rounded-xl border border-white/10 bg-white/[0.05] text-white placeholder:text-white/30 px-3 py-2 text-xs outline-none" />
                       <div className="flex flex-wrap gap-2">
-                        <button onClick={() => updateAlert.mutate({ alert, status: "acknowledged", actionType: "acknowledged", note })} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10 flex items-center gap-1"><Eye className="h-3 w-3" /> Acknowledge</button>
-                        <button onClick={() => updateAlert.mutate({ alert, status: "under_review", actionType: "marked_under_review", note })} className="px-3 py-1.5 rounded-xl bg-white/70 text-xs font-bold border border-black/10 flex items-center gap-1"><FileText className="h-3 w-3" /> Under review</button>
+                        <button onClick={() => updateAlert.mutate({ alert, status: "acknowledged", actionType: "acknowledged", note })} className="px-3 py-1.5 rounded-xl bg-white/[0.05] text-white text-xs font-bold border border-white/10 flex items-center gap-1"><Eye className="h-3 w-3" /> Acknowledge</button>
+                        <button onClick={() => updateAlert.mutate({ alert, status: "under_review", actionType: "marked_under_review", note })} className="px-3 py-1.5 rounded-xl bg-white/[0.05] text-white text-xs font-bold border border-white/10 flex items-center gap-1"><FileText className="h-3 w-3" /> Under review</button>
                         <button onClick={() => updateAlert.mutate({ alert, status: "resolved", actionType: "resolved", note })} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Resolve</button>
                       </div>
                     </div>
