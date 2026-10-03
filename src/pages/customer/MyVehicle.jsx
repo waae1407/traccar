@@ -14,6 +14,7 @@ import MyVehicleCompact from "@/components/customer/myvehicle/MyVehicleCompact";
 import VehicleSkinPicker from "@/components/customer/myvehicle/VehicleSkinPicker";
 import MyVehicleClassicStyles from "@/components/customer/myvehicle/MyVehicleClassicStyles";
 import ClassicDiagnosticsSheet from "@/components/customer/myvehicle/ClassicDiagnosticsSheet";
+import MyVehicleActionDock from "@/components/customer/myvehicle/MyVehicleActionDock";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -655,7 +656,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
         </div>
 
         {/* Scroll content */}
-        <div style={{ padding: "0 15px", paddingBottom: 80, marginTop: 4, position: "relative", zIndex: 5 }}>
+        <div style={{ padding: "0 15px", paddingBottom: 150, marginTop: 4, position: "relative", zIndex: 5 }}>
 
           {/* ── MAP CARD — borderless, bleeds into canvas ── */}
           <div style={{
@@ -708,9 +709,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   >
                     <Navigation size={18} color="#FFFFFF" style={{ transform: "rotate(45deg)" }} />
                   </button>
-                  <div style={{ position: "absolute", bottom: 14, left: 14, zIndex: 400 }}>
-                    <SOSButton booking={booking} device={device} inline size={38} />
-                  </div>
                 </>
               ) : (
                 <div style={{ height: "100%", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -718,110 +716,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* ── REMOTE CONTROLS ── */}
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 800, fontFamily: LABEL_FONT, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
-              Remote Controls
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-
-              {/* Lock */}
-              <button
-                onClick={() => booking && handleCommand("lock")}
-                disabled={!!commandLoading || dropoffInspectionComplete}
-                className={`control-tap ${commandLoading === "lock" ? "btn-loading-spin" : ""}`}
-                style={{
-                  position: "relative",
-                  aspectRatio: "1/1",
-                  background: "#1A1A1A",
-                  border: isLocked ? "1px solid rgba(34,197,94,0.15)" : "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 18,
-                  padding: 0,
-                  cursor: "pointer",
-                  opacity: dropoffInspectionComplete && commandLoading !== "lock" ? 0.45 : 1,
-                  transition: "all 0.2s ease-in-out",
-                }}
-              >
-                <div className="btn-loading-content">
-                  <Lock size={24} color={isLocked ? "#22C55E" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(34,197,94,0.2))" : "none" }} />
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Lock</p>
-                    <p style={{ fontSize: 10, marginTop: 2, color: isLocked ? "#22C55E" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
-                      {isLocked ? "Locked" : "Not Locked"}
-                    </p>
-                  </div>
-                </div>
-              </button>
-
-              {/* Locate — highlighted with blue border, uses the map pin icon */}
-              <button
-                onClick={() => booking && handleCommand("find")}
-                disabled={!!commandLoading || dropoffInspectionComplete}
-                className={`control-tap ${commandLoading === "find" ? "btn-loading-spin" : ""}`}
-                style={{
-                  position: "relative",
-                  aspectRatio: "1/1",
-                  background: "rgba(47,128,255,0.08)",
-                  border: "1px solid rgba(59,130,246,0.4)",
-                  borderRadius: 18,
-                  padding: 0,
-                  boxShadow: "0 0 12px rgba(59,130,246,0.1)",
-                  opacity: dropoffInspectionComplete && commandLoading !== "find" ? 0.45 : 1,
-                  cursor: !dropoffInspectionComplete ? "pointer" : "default",
-                  transition: "all 0.2s ease-in-out",
-                }}
-              >
-                <div className="btn-loading-content">
-                  <svg width="26" height="34" viewBox="0 0 44 56" fill="none" style={{ filter: "drop-shadow(0 0 6px rgba(59,130,246,0.5))" }}>
-                    <path d="M22 2C11.5 2 3 10.5 3 21c0 12 19 31 19 31s19-19 19-31C41 10.5 32.5 2 22 2z" fill="#0A0A0A" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round"/>
-                    <path d="M15.5 19 L17.5 14.5 Q18 13.5 19.2 13.5 H24.8 Q26 13.5 26.5 14.5 L28.5 19 Z" fill="#FFFFFF"/>
-                    <path d="M17.6 18.3 L18.9 15.2 H25.1 L26.4 18.3 Z" fill="#0A0A0A"/>
-                    <rect x="13" y="19" width="18" height="7" rx="2" fill="#FFFFFF"/>
-                    <circle cx="16.5" cy="22.5" r="1.2" fill="#0A0A0A"/>
-                    <circle cx="27.5" cy="22.5" r="1.2" fill="#0A0A0A"/>
-                    <rect x="14" y="25" width="3.5" height="3" rx="1" fill="#FFFFFF"/>
-                    <rect x="26.5" y="25" width="3.5" height="3" rx="1" fill="#FFFFFF"/>
-                  </svg>
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Locate</p>
-                    <p style={{ fontSize: 10, marginTop: 2, color: "#60A5FA", lineHeight: 1.2, fontWeight: 500 }}>Flash &amp; Honk</p>
-                  </div>
-                </div>
-              </button>
-
-              {/* Unlock */}
-              <button
-                onClick={() => booking && handleCommand("unlock")}
-                disabled={!!commandLoading || dropoffInspectionComplete}
-                className={`control-tap ${commandLoading === "unlock" ? "btn-loading-spin" : ""}`}
-                style={{
-                  position: "relative",
-                  aspectRatio: "1/1",
-                  background: "#1A1A1A",
-                  border: !isLocked ? "1px solid rgba(34,197,94,0.15)" : "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 18,
-                  padding: 0,
-                  cursor: "pointer",
-                  opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
-                  transition: "all 0.2s ease-in-out",
-                }}
-              >
-                <div className="btn-loading-content">
-                  <Unlock size={24} color={!isLocked ? "#22C55E" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(34,197,94,0.2))" : "none" }} />
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Unlock</p>
-                    <p style={{ fontSize: 10, marginTop: 2, color: !isLocked ? "#22C55E" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
-                      {!isLocked ? "Unlocked" : "Doors"}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            </div>
-            <p style={{ fontSize: 11.5, color: "#A1A1AA", textAlign: "center", marginTop: 10, fontWeight: 450 }}>
-              Lock and unlock available after pickup
-            </p>
           </div>
 
           {/* ── RENTAL INFO CARD ── */}
@@ -1010,6 +904,17 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
         {/* Full Diagnostics Bottom Sheet */}
         {showDiagnostics && <ClassicDiagnosticsSheet device={device} onClose={() => setShowDiagnostics(false)} />}
+
+        {/* ── FIXED ACTION DOCK + FLOATING SOS (thumb-reachable, scroll-aware) ── */}
+        <MyVehicleActionDock
+          booking={booking}
+          device={device}
+          isLocked={isLocked}
+          commandLoading={commandLoading}
+          dropoffInspectionComplete={dropoffInspectionComplete}
+          onCommand={handleCommand}
+          visible={true}
+        />
 
         {/* ── BOTTOM NAVIGATION ── */}
         <div style={{
