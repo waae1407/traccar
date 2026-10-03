@@ -435,6 +435,8 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
     });
     toast.success(`Vehicle ${type}ed`);
     setIsLocked(type === "lock");
+  } else if (type === "climate") {
+    toast.info("Climate control", { description: "Remote climate start is not available on this vehicle." });
   } else if (type === "find") {
         await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device.id });
         toast.success("Vehicle alarm activated!");
@@ -1012,15 +1014,14 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
           {/* ── RENTAL INFO CARD ── */}
           <div style={{
-            background: "linear-gradient(180deg, rgba(29,30,35,0.96), rgba(19,20,24,0.98))",
-            border: "1px solid rgba(255,255,255,0.05)",
-            borderRadius: 28,
+            background: "#1A1A1A",
+            border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 18,
             padding: "16px 20px",
             display: "flex",
             alignItems: "center",
             gap: 0,
             marginBottom: 16,
-            boxShadow: "0 14px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)",
           }}>
             {/* Rental ends */}
             <div style={{ flex: 1 }}>
@@ -1100,7 +1101,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
               Remote Controls
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
 
               {/* Lock */}
               <button
@@ -1109,24 +1110,21 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 className={`control-tap ${commandLoading === "lock" ? "btn-loading-spin" : ""}`}
                 style={{
                   position: "relative",
-                  aspectRatio: "4/3",
-                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 24,
+                  aspectRatio: "1/1",
+                  background: "#1A1A1A",
+                  border: isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 18,
                   padding: 0,
-                  boxShadow: isLocked
-                    ? "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(48,209,88,0.05)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(255,255,255,0.02)",
                   cursor: "pointer",
                   opacity: dropoffInspectionComplete && commandLoading !== "lock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Lock size={28} color={isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 10px rgba(255,255,255,0.2))" }} />
+                  <Lock size={24} color={isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "none" }} />
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Lock</p>
-                    <p style={{ fontSize: 10, color: isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2 }}>Lock</p>
+                    <p style={{ fontSize: 9, color: isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
                       {isLocked ? "Locked" : "Not Locked"}
                     </p>
                   </div>
@@ -1140,55 +1138,76 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 className={`control-tap ${commandLoading === "unlock" ? "btn-loading-spin" : ""}`}
                 style={{
                   position: "relative",
-                  aspectRatio: "4/3",
-                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: !isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 24,
+                  aspectRatio: "1/1",
+                  background: "#1A1A1A",
+                  border: !isLocked ? "1px solid rgba(48,209,88,0.15)" : "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 18,
                   padding: 0,
-                  boxShadow: !isLocked
-                    ? "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(48,209,88,0.05)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 8px rgba(255,255,255,0.02)",
                   cursor: "pointer",
                   opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <Unlock size={28} color={!isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "drop-shadow(0 2px 10px rgba(255,255,255,0.2))" }} />
+                  <Unlock size={24} color={!isLocked ? "#30D158" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(48,209,88,0.2))" : "none" }} />
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 12, fontWeight: 550, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Unlock</p>
-                    <p style={{ fontSize: 10, color: !isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2 }}>Unlock</p>
+                    <p style={{ fontSize: 9, color: !isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
                       {!isLocked ? "Unlocked" : "Doors"}
                     </p>
                   </div>
                 </div>
               </button>
 
-              {/* Find Vehicle */}
+              {/* Climate */}
+              <button
+                onClick={() => booking && handleCommand("climate")}
+                disabled={!!commandLoading || dropoffInspectionComplete}
+                className={`control-tap ${commandLoading === "climate" ? "btn-loading-spin" : ""}`}
+                style={{
+                  position: "relative",
+                  aspectRatio: "1/1",
+                  background: "#1A1A1A",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 18,
+                  padding: 0,
+                  cursor: "pointer",
+                  opacity: dropoffInspectionComplete && commandLoading !== "climate" ? 0.45 : 1,
+                  transition: "all 0.2s ease-in-out",
+                }}
+              >
+                <div className="btn-loading-content">
+                  <FanIcon color="#FFFFFF" />
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2 }}>Climate</p>
+                    <p style={{ fontSize: 9, color: "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>AC / Heat</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Find Vehicle — highlighted with blue border */}
               <button
                 onClick={() => booking && handleCommand("find")}
                 disabled={!!commandLoading || dropoffInspectionComplete}
                 className={`control-tap ${commandLoading === "find" ? "btn-loading-spin" : ""}`}
                 style={{
                   position: "relative",
-                  aspectRatio: "4/3",
-                  background: "linear-gradient(180deg, #1B1C21 0%, #111216 100%)",
-                  border: "1px solid rgba(47,128,255,0.2)",
-                  borderRadius: 24,
+                  aspectRatio: "1/1",
+                  background: "rgba(47,128,255,0.08)",
+                  border: "1px solid rgba(59,130,246,0.4)",
+                  borderRadius: 18,
                   padding: 0,
-                  boxShadow: !dropoffInspectionComplete
-                    ? "inset 0 1px 0 rgba(255,255,255,0.04), 0 0 12px rgba(47,128,255,0.08)"
-                    : "inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 24px rgba(0,0,0,0.2)",
+                  boxShadow: "0 0 12px rgba(59,130,246,0.1)",
                   opacity: dropoffInspectionComplete && commandLoading !== "find" ? 0.45 : 1,
                   cursor: !dropoffInspectionComplete ? "pointer" : "default",
                   transition: "all 0.2s ease-in-out",
                 }}
               >
                 <div className="btn-loading-content">
-                  <HornIcon color="#2F80FF" />
+                  <HornIcon color="#3B82F6" />
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2, letterSpacing: "-0.05px" }}>Find</p>
-                    <p style={{ fontSize: 10, color: "#7C7C80", lineHeight: 1.2, fontWeight: 400 }}>Vehicle</p>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2 }}>Find Vehicle</p>
+                    <p style={{ fontSize: 9, color: "#60A5FA", lineHeight: 1.2, fontWeight: 500 }}>Flash &amp; Honk</p>
                   </div>
                 </div>
               </button>
@@ -1211,24 +1230,24 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               onClick={() => setInspectionTarget({ booking, type: "dropoff" })}
               style={{
                 width: "100%",
-                background: "rgba(255,69,58,0.05)",
-                border: "1px solid rgba(255,69,58,0.2)",
-                borderRadius: 22,
+                background: "#7F1D1D",
+                border: "1px solid rgba(248,113,113,0.25)",
+                borderRadius: 18,
                 padding: "14px 16px",
                 display: "flex", alignItems: "center", gap: 12,
                 marginBottom: 10,
                 cursor: "pointer",
-                boxShadow: "0 0 12px rgba(255,69,58,0.05)",
+                boxShadow: "0 4px 20px rgba(127,29,29,0.3)",
                 transition: "all 0.2s",
               }}
             >
               <div style={{
                 width: 38, height: 38, borderRadius: 12,
-                background: "rgba(255,69,58,0.15)",
+                background: "rgba(255,255,255,0.1)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 flexShrink: 0,
               }}>
-                <Shield size={18} color="#FF453A" />
+                <Shield size={18} color="#F87171" />
               </div>
               <div style={{ flex: 1, textAlign: "left" }}>
                 <p style={{ fontSize: 14, fontWeight: 700, color: "#FFFFFF" }}>End Your Rental</p>
@@ -1240,39 +1259,45 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
           {/* ── VEHICLE HEALTH ── */}
           <div style={{ marginBottom: 10 }}>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Vehicle Health
               </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#30D158", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <CheckCircle size={10} color="#0a0a0a" strokeWidth={3} />
+                </div>
+                <span style={{ fontSize: 12, color: "#30D158", fontWeight: 500 }}>All systems normal</span>
+              </div>
             </div>
             <div style={{
-              background: "#17181C",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 22,
-              padding: "16px 8px",
+              background: "#1A1A1A",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 18,
+              padding: "16px 12px",
               display: "grid",
               gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "16px 4px",
+              gap: 8,
             }}>
               {[
-                { label: "Connection", sub: device?.online_status === "offline" ? "Offline" : "Online", icon: Activity },
-                { label: "Ignition", sub: device?.ignition_status === "on" ? "On" : "Off", icon: Power },
-                { label: "Main Batt", sub: device?.power_voltage ? `${device.power_voltage}V` : "12.6V", icon: Battery },
-                { label: "Int. Batt", sub: device?.battery_voltage ? `${device.battery_voltage}V` : "4.1V", icon: Zap },
-                { label: "GPS Status", sub: gps.status === "online" ? "Active" : "Lost", icon: MapPin },
-                { label: "Speed", sub: device?.speed ? `${Math.round(device.speed)} mph` : "0 mph", icon: Gauge },
-                { label: "Cell Signal", sub: device?.signal_strength ? `${device.signal_strength}%` : "Strong", icon: Signal },
-                { label: "ACC Volt", sub: device?.voltage ? `${device.voltage}V` : "0.0V", icon: Activity },
-              ].map((item) => {
-                const Icon = item.icon || CheckCircle;
-                return (
-                  <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-                    <Icon size={18} color="#30D158" style={{ filter: "drop-shadow(0 2px 8px rgba(48,209,88,0.4))" }} />
-                    <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
+                { label: "Vehicle", sub: device?.online_status === "offline" ? "Offline" : "Online", ok: device?.online_status !== "offline" },
+                { label: "Doors", sub: device?.door_open ? "Open" : "Closed", ok: !device?.door_open },
+                { label: "Battery", sub: battInfo.label, ok: battInfo.label !== "Critical" },
+                { label: "Location", sub: gps.status === "online" ? "GPS Signal" : "No GPS", ok: gps.status === "online" },
+              ].map((item) => (
+                <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: "50%",
+                    background: item.ok ? "rgba(48,209,88,0.15)" : "rgba(255,69,58,0.15)",
+                    border: item.ok ? "1px solid rgba(48,209,88,0.3)" : "1px solid rgba(255,69,58,0.3)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <CheckCircle size={16} color={item.ok ? "#30D158" : "#FF453A"} strokeWidth={2.5} />
                   </div>
-                );
-              })}
+                  <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "#FFFFFF", textAlign: "center", lineHeight: 1.2 }}>{item.sub}</p>
+                </div>
+              ))}
             </div>
 
             <button

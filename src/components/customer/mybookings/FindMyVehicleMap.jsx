@@ -40,7 +40,7 @@ const ALLOWED_STATUSES = [
   "under_review",
 ];
 
-// White car icon on a soft blue glow pool — luxury premium aesthetic
+// White car icon inside a white drop-pin shape with soft blue glow aura
 function createVehicleMarkerElement(isStale = false) {
   const el = document.createElement("div");
   const labelHtml = isStale
@@ -49,15 +49,17 @@ function createVehicleMarkerElement(isStale = false) {
   el.innerHTML = `
     <div style="position:relative;width:80px;height:80px;">
       ${labelHtml}
-      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;background:radial-gradient(circle, rgba(59,130,246,0.45) 0%, rgba(59,130,246,0.18) 45%, transparent 70%);filter:blur(2px);z-index:0;"></div>
-      <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:radial-gradient(circle, rgba(59,130,246,0.55) 0%, rgba(59,130,246,0.25) 50%, transparent 75%);box-shadow:0 0 28px rgba(96,165,250,0.8), 0 0 56px rgba(59,130,246,0.4);z-index:1;display:flex;align-items:center;justify-content:center;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 1px 4px rgba(0,0,0,0.5));">
-          <path d="M5 11l1.5-4.5A2 2 0 018.4 5h7.2a2 2 0 011.9 1.5L19 11v6h-1v1.5a1 1 0 01-2 0V17H8v1.5a1 1 0 01-2 0V17H5v-6z" fill="#ffffff" stroke="#ffffff" stroke-width="0.5" stroke-linejoin="round"/>
-          <path d="M7 11h10" stroke="#1a1a2e" stroke-width="0.8" stroke-linecap="round" opacity="0.4"/>
-          <circle cx="8" cy="14.5" r="1.2" fill="#1a1a2e"/>
-          <circle cx="16" cy="14.5" r="1.2" fill="#1a1a2e"/>
-        </svg>
-      </div>
+      <div style="position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);width:76px;height:76px;border-radius:50%;background:radial-gradient(circle, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0.12) 50%, transparent 70%);filter:blur(3px);z-index:0;"></div>
+      <svg width="44" height="56" viewBox="0 0 44 56" fill="none" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;filter:drop-shadow(0 0 12px rgba(59,130,246,0.6)) drop-shadow(0 2px 6px rgba(0,0,0,0.5));">
+        <path d="M22 2C11.5 2 3 10.5 3 21c0 12 19 31 19 31s19-19 19-31C41 10.5 32.5 2 22 2z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M22 5C13.2 5 6 12.2 6 21c0 9.5 16 26 16 26s16-16.5 16-26C38 12.2 30.8 5 22 5z" fill="#1a1a1a" opacity="0.05"/>
+        <g transform="translate(10, 14) scale(1.0)">
+          <path d="M5 11l1.5-4.5A2 2 0 018.4 5h7.2a2 2 0 011.9 1.5L19 11v6h-1v1.5a1 1 0 01-2 0V17H8v1.5a1 1 0 01-2 0V17H5v-6z" fill="#1a1a1a" stroke="#1a1a1a" stroke-width="0.5" stroke-linejoin="round"/>
+          <path d="M7 11h10" stroke="#fff" stroke-width="0.8" stroke-linecap="round" opacity="0.5"/>
+          <circle cx="8" cy="14.5" r="1.2" fill="#1a1a1a"/>
+          <circle cx="16" cy="14.5" r="1.2" fill="#1a1a1a"/>
+        </g>
+      </svg>
     </div>
   `;
   el.style.cursor = "default";
