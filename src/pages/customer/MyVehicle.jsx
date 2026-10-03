@@ -839,34 +839,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 </div>
               </button>
 
-              {/* Unlock */}
-              <button
-                onClick={() => booking && handleCommand("unlock")}
-                disabled={!!commandLoading || dropoffInspectionComplete}
-                className={`control-tap ${commandLoading === "unlock" ? "btn-loading-spin" : ""}`}
-                style={{
-                  position: "relative",
-                  aspectRatio: "1/1",
-                  background: "#1A1A1A",
-                  border: !isLocked ? "1px solid rgba(34,197,94,0.15)" : "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 18,
-                  padding: 0,
-                  cursor: "pointer",
-                  opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
-                  transition: "all 0.2s ease-in-out",
-                }}
-              >
-                <div className="btn-loading-content">
-                  <Unlock size={24} color={!isLocked ? "#22C55E" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(34,197,94,0.2))" : "none" }} />
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Unlock</p>
-                    <p style={{ fontSize: 10, marginTop: 2, color: !isLocked ? "#22C55E" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
-                      {!isLocked ? "Unlocked" : "Doors"}
-                    </p>
-                  </div>
-                </div>
-              </button>
-
               {/* Locate — highlighted with blue border, uses the map pin icon */}
               <button
                 onClick={() => booking && handleCommand("find")}
@@ -899,6 +871,34 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Locate</p>
                     <p style={{ fontSize: 10, marginTop: 2, color: "#60A5FA", lineHeight: 1.2, fontWeight: 500 }}>Flash &amp; Honk</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Unlock */}
+              <button
+                onClick={() => booking && handleCommand("unlock")}
+                disabled={!!commandLoading || dropoffInspectionComplete}
+                className={`control-tap ${commandLoading === "unlock" ? "btn-loading-spin" : ""}`}
+                style={{
+                  position: "relative",
+                  aspectRatio: "1/1",
+                  background: "#1A1A1A",
+                  border: !isLocked ? "1px solid rgba(34,197,94,0.15)" : "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 18,
+                  padding: 0,
+                  cursor: "pointer",
+                  opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
+                  transition: "all 0.2s ease-in-out",
+                }}
+              >
+                <div className="btn-loading-content">
+                  <Unlock size={24} color={!isLocked ? "#22C55E" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(34,197,94,0.2))" : "none" }} />
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Unlock</p>
+                    <p style={{ fontSize: 10, marginTop: 2, color: !isLocked ? "#22C55E" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                      {!isLocked ? "Unlocked" : "Doors"}
+                    </p>
                   </div>
                 </div>
               </button>
