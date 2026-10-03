@@ -25,12 +25,12 @@ export default function MyVehicleActionDock({
 }) {
   const baseBtn = {
     flex: 1,
-    height: 50,
-    borderRadius: 14,
+    height: 62,
+    borderRadius: 16,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 10,
     padding: 0,
     cursor: "pointer",
     transition: "all 0.2s ease-in-out",
@@ -39,7 +39,7 @@ export default function MyVehicleActionDock({
   const labelStyle = {
     fontFamily: LABEL_FONT,
     fontWeight: 800,
-    fontSize: 14,
+    fontSize: 17,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
     color: "#F5F5F7",
@@ -77,8 +77,8 @@ export default function MyVehicleActionDock({
             backdropFilter: "blur(16px)",
             WebkitBackdropFilter: "blur(16px)",
             border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 16,
-            padding: 8,
+            borderRadius: 18,
+            padding: 10,
             pointerEvents: "auto",
             boxShadow: "0 -4px 24px rgba(0,0,0,0.5)",
           }}
@@ -99,7 +99,7 @@ export default function MyVehicleActionDock({
           >
             <div className="btn-loading-content" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Lock
-                size={20}
+                size={26}
                 color={isLocked ? "#22C55E" : "#FFFFFF"}
                 strokeWidth={2.2}
                 style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.25))" : "none" }}
@@ -123,7 +123,7 @@ export default function MyVehicleActionDock({
             }}
           >
             <div className="btn-loading-content" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <svg width="18" height="18" viewBox="0 0 44 56" fill="none" style={{ filter: "drop-shadow(0 0 5px rgba(59,130,246,0.5))" }}>
+              <svg width="24" height="24" viewBox="0 0 44 56" fill="none" style={{ filter: "drop-shadow(0 0 5px rgba(59,130,246,0.5))" }}>
                 <path d="M22 2C11.5 2 3 10.5 3 21c0 12 19 31 19 31s19-19 19-31C41 10.5 32.5 2 22 2z" fill="#0A0A0A" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round"/>
                 <path d="M15.5 19 L17.5 14.5 Q18 13.5 19.2 13.5 H24.8 Q26 13.5 26.5 14.5 L28.5 19 Z" fill="#FFFFFF"/>
                 <rect x="13" y="19" width="18" height="7" rx="2" fill="#FFFFFF"/>
@@ -150,7 +150,7 @@ export default function MyVehicleActionDock({
           >
             <div className="btn-loading-content" style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Unlock
-                size={20}
+                size={26}
                 color={!isLocked ? "#22C55E" : "#FFFFFF"}
                 strokeWidth={2.2}
                 style={{ filter: !isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.25))" : "none" }}
@@ -165,7 +165,7 @@ export default function MyVehicleActionDock({
       <div
         style={{
           position: "fixed",
-          bottom: 132,
+          bottom: 162,
           right: 16,
           transform: visible ? "translateY(0)" : "translateY(220%)",
           transition: "transform 0.3s ease-in-out",
