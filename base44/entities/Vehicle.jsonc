@@ -251,6 +251,14 @@
     "image_url": {
       "type": "string"
     },
+    "hero_image_url": {
+      "type": "string",
+      "description": "Background-removed version of image_url (vehicle on pure black) used for the My Vehicle header."
+    },
+    "hero_image_source_url": {
+      "type": "string",
+      "description": "The image_url that hero_image_url was generated from. If it differs from image_url, the hero is stale."
+    },
     "current_city": {
       "type": "string",
       "description": "Deprecated \u2014 use city and state instead"

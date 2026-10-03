@@ -52,6 +52,10 @@ Deno.serve(async (req) => {
     await base44.asServiceRole.entities.Vehicle.update(id, { image_url: imageResult.url });
 
     console.log(`[VehicleImage] ✓ Saved image for vehicle ${id}: ${imageResult.url}`);
+
+    // Create the black-background hero version for My Vehicle (non-blocking for the main image)
+    await base44.asServiceRole.functions.invoke('removeVehicleBackground', { vehicle_id: id })
+      .catch((e) => console.error(`[VehicleImage] Background removal failed for ${id}: ${e.message}`));
     return Response.json({ ok: true, image_url: imageResult.url });
 
   } catch (error) {
