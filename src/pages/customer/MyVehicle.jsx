@@ -809,7 +809,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             <p style={{ fontSize: 13, fontWeight: 800, fontFamily: LABEL_FONT, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
               Remote Controls
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
 
               {/* Lock */}
               <button
@@ -863,30 +863,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                     <p style={{ fontSize: 10, marginTop: 2, color: !isLocked ? "#22C55E" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
                       {!isLocked ? "Unlocked" : "Doors"}
                     </p>
-                  </div>
-                </div>
-              </button>
-
-              {/* Climate */}
-              <button
-                className="control-tap"
-                style={{
-                  position: "relative",
-                  aspectRatio: "1/1",
-                  background: "#1A1A1A",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 18,
-                  padding: 0,
-                  cursor: "default",
-                  opacity: 0.6,
-                  transition: "all 0.2s ease-in-out",
-                }}
-              >
-                <div className="btn-loading-content">
-                  <FanIcon color="#FFFFFF" />
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Climate</p>
-                    <p style={{ fontSize: 10, marginTop: 2, color: "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>Off</p>
                   </div>
                 </div>
               </button>
