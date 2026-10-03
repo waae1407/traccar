@@ -61,7 +61,7 @@ function getBatteryInfo(device) {
   }
 
   let label = "Good";
-  let color = "#50C878";
+  let color = "#22C55E";
   if (voltage < 11.8) {
     label = "Critical";
     color = "#FF453A";
@@ -72,7 +72,7 @@ function getBatteryInfo(device) {
   
   if (device?.ignition_status === 'on' || voltage >= 13.0) {
     label = "Charging";
-    color = "#50C878";
+    color = "#22C55E";
   }
 
   return { pct, label, color, voltage: voltage.toFixed(1) };
@@ -108,7 +108,7 @@ function SignalBarsIcon({ strength = 100 }) {
     { x: 9, y: 3.5, h: 10.5, threshold: 50 },
     { x: 13.5, y: 0, h: 14, threshold: 75 },
   ];
-  const activeColor = strength > 25 ? "#50C878" : (strength > 0 ? "#FF9F0A" : "#FF453A");
+  const activeColor = strength > 25 ? "#22C55E" : (strength > 0 ? "#FF9F0A" : "#FF453A");
   const inactiveColor = "rgba(255,255,255,0.15)";
   
   return (
@@ -153,7 +153,7 @@ function NoSmokingIcon() {
 }
 
 // Cigarette / Smoke SVG
-function CigaretteIcon({ color = "#50C878", isAlert = false }) {
+function CigaretteIcon({ color = "#22C55E", isAlert = false }) {
   return (
     <div style={{ position: "relative", width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", marginRight: 2 }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ position: "absolute", zIndex: 2 }}>
@@ -407,7 +407,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   // Demo mode: no active booking — show preview with placeholder data
   const isDemo = !booking;
   const name = isDemo ? "2018 Toyota Mirai" : vehicleName(vehicle, booking);
-  const battInfo = isDemo ? { pct: 100, label: "Good", color: "#50C878", voltage: "12.8" } : getBatteryInfo(device);
+  const battInfo = isDemo ? { pct: 100, label: "Good", color: "#22C55E", voltage: "12.8" } : getBatteryInfo(device);
   const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
   const dropoffInspectionComplete = booking?.return_exterior_photos?.length > 0 || booking?.return_interior_photos?.length > 0;
   const isBookingActive = !isDemo && booking
@@ -603,51 +603,12 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
                     <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 5 }}>
-                      <Car size={13} color={isDemo || isBookingActive || (!pickupInspectionComplete && booking) ? "#50C878" : "#8E8E93"} strokeWidth={2.5} />
-                      {isDemo ? "Active" : (!pickupInspectionComplete && booking ? "Ready for pickup" : (booking?.booking_status ? booking.booking_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : "Inactive"))}
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 6px rgba(34,197,94,0.6)", flexShrink: 0 }} />
+                      {isDemo ? "Online" : (device?.online_status === "offline" ? "Offline" : "Online")}
                     </span>
-                    {(() => {
-                      const isSmokingAllowed = vehicle?.smoking_allowed === true;
-                      const isSmokeDetected = device?.smoke_detected;
-                      let icon, label, statusText, statusColor, pulse;
-                      
-                      if (!isSmokingAllowed) {
-                        if (!isSmokeDetected) {
-                          icon = <NoSmokingIcon />;
-                          label = "Smoke Sensor:";
-                          statusText = "Clear";
-                          statusColor = "#50C878";
-                          pulse = true;
-                        } else {
-                          icon = <CigaretteIcon color="#FF453A" isAlert={true} />;
-                          label = "Smoking:";
-                          statusText = "Detected";
-                          statusColor = "#FF453A";
-                          pulse = false;
-                        }
-                      } else {
-                        if (!isSmokeDetected) {
-                          icon = <span style={{ fontSize: 14, filter: "grayscale(100%) opacity(0.6)", marginRight: 4 }}>🌬️</span>;
-                          label = "Cabin Air:";
-                          statusText = "Clear";
-                          statusColor = "#50C878";
-                          pulse = true;
-                        } else {
-                          icon = <span style={{ fontSize: 14, marginRight: 4 }}>⚠️</span>;
-                          label = "Cabin:";
-                          statusText = "Heavy Smoke";
-                          statusColor = "#FF9F0A";
-                          pulse = false;
-                        }
-                      }
-
-                      return (
-                        <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 0, whiteSpace: "nowrap" }}>
-                          {icon}
-                          {label} <span className={pulse ? "text-monitor-pulse" : ""} style={{ color: statusColor, marginLeft: 4 }}>{statusText}</span>
-                        </span>
-                      );
-                    })()}
+                    <span style={{ color: "#9CA3AF", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 5 }}>
+                      {gps.status === "online" ? "Live" : "No GPS"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -660,10 +621,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 >
                   <Layers size={15} color="#E4E4E7" />
                 </button>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 9px", height: 32, borderRadius: 16, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(10px)" }}>
-                  {weatherStyle.icon}
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#F5F5F7" }}>{weatherStyle.temp}</span>
-                </div>
                 <button
                   onClick={() => window.location.href = "/messages"}
                   aria-label="Messages"
@@ -674,7 +631,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 <button
                   onClick={() => window.location.href = "/account"}
                   aria-label="Account"
-                  style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 14, border: "1px solid rgba(255,255,255,0.16)", cursor: "pointer" }}
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: "#D946EF", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#fff", fontSize: 14, border: "none", cursor: "pointer" }}
                 >
                   {user?.full_name?.charAt(0) || "R"}
                 </button>
@@ -686,6 +643,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <div>
                 <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{displayMiles} mi</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>{displayLabel}</p>
+              </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{isDemo ? 72 : battInfo.pct}%</p>
+                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery</p>
               </div>
             </div>
 
@@ -717,18 +678,9 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                     {displayAddress?.poi ? displayAddress.street : displayAddress?.city_state}
                   </p>
                   
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                    {distanceStr && (
-                      <span style={{ fontSize: 11, fontWeight: 600, color: "#89B4F8", background: "rgba(137,180,248,0.15)", padding: "2px 6px", borderRadius: 6 }}>
-                        {distanceStr}
-                      </span>
-                    )}
-                    {parkedStr && (
-                      <span style={{ fontSize: 11, fontWeight: 600, color: "#A1A1AA", background: "rgba(255,255,255,0.08)", padding: "2px 6px", borderRadius: 6 }}>
-                        {parkedStr}
-                      </span>
-                    )}
-                  </div>
+                  <p style={{ fontSize: 11, color: "#71717A", marginTop: 4, fontWeight: 400 }}>
+                    Updated {gps.label === "Live" ? "just now" : gps.label.toLowerCase()}
+                  </p>
                 </div>
               </div>
             </div>
@@ -744,17 +696,17 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                         window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
                       }
                     }}
+                    aria-label="Directions"
                     style={{
-                      position: "absolute", bottom: 14, right: 14, zIndex: 400,
-                      background: "rgba(47,128,255,0.85)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 20,
-                      padding: "9px 18px", display: "flex", alignItems: "center", gap: 6,
-                      color: "#FFF", fontSize: 14, fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.04em", textTransform: "uppercase", cursor: "pointer",
-                      backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-                      boxShadow: "0 4px 16px rgba(47,128,255,0.35), inset 0 1px 0 rgba(255,255,255,0.2)"
+                      position: "absolute", top: 14, right: 14, zIndex: 400,
+                      width: 40, height: 40, borderRadius: "50%",
+                      background: "#000", border: "1px solid rgba(255,255,255,0.15)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 12px rgba(0,0,0,0.5)"
                     }}
                   >
-                    <Navigation size={14} color="#FFFFFF" style={{ transform: "rotate(45deg)", marginBottom: 2 }} />
-                    Directions
+                    <Navigation size={18} color="#FFFFFF" style={{ transform: "rotate(45deg)" }} />
                   </button>
                   <div style={{ position: "absolute", bottom: 14, left: 14, zIndex: 400 }}>
                     <SOSButton booking={booking} device={device} inline size={38} />
@@ -839,7 +791,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <p style={{ fontSize: 13, fontWeight: 650, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#F5F5F7", letterSpacing: "-0.1px" }}>
                 {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Action Needed" : (booking?.payment_status === "paid" || booking?.payment_status === "pending" || !booking ? "Paid" : "Due Soon")}
               </p>
-              <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#50C878", fontWeight: 500 }}>
+              <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#22C55E", fontWeight: 500 }}>
                 {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Update Card" : (booking?.next_billing_date ? `Next: ${format(new Date(`${booking.next_billing_date}T12:00:00`), "MMM d")}` : "Up to date")}
               </p>
             </div>
@@ -857,7 +809,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             <p style={{ fontSize: 13, fontWeight: 800, fontFamily: LABEL_FONT, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
               Remote Controls
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
 
               {/* Lock */}
               <button
@@ -868,7 +820,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   position: "relative",
                   aspectRatio: "1/1",
                   background: "#1A1A1A",
-                  border: isLocked ? "1px solid rgba(80,200,120,0.15)" : "1px solid rgba(255,255,255,0.08)",
+                  border: isLocked ? "1px solid rgba(34,197,94,0.15)" : "1px solid rgba(255,255,255,0.08)",
                   borderRadius: 18,
                   padding: 0,
                   cursor: "pointer",
@@ -877,10 +829,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 }}
               >
                 <div className="btn-loading-content">
-                  <Lock size={24} color={isLocked ? "#50C878" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(80,200,120,0.2))" : "none" }} />
+                  <Lock size={24} color={isLocked ? "#22C55E" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: isLocked ? "drop-shadow(0 2px 10px rgba(34,197,94,0.2))" : "none" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Lock</p>
-                    <p style={{ fontSize: 10, marginTop: 2, color: isLocked ? "#50C878" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                    <p style={{ fontSize: 10, marginTop: 2, color: isLocked ? "#22C55E" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
                       {isLocked ? "Locked" : "Not Locked"}
                     </p>
                   </div>
@@ -896,7 +848,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   position: "relative",
                   aspectRatio: "1/1",
                   background: "#1A1A1A",
-                  border: !isLocked ? "1px solid rgba(80,200,120,0.15)" : "1px solid rgba(255,255,255,0.08)",
+                  border: !isLocked ? "1px solid rgba(34,197,94,0.15)" : "1px solid rgba(255,255,255,0.08)",
                   borderRadius: 18,
                   padding: 0,
                   cursor: "pointer",
@@ -905,12 +857,36 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 }}
               >
                 <div className="btn-loading-content">
-                  <Unlock size={24} color={!isLocked ? "#50C878" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(80,200,120,0.2))" : "none" }} />
+                  <Unlock size={24} color={!isLocked ? "#22C55E" : "#FFFFFF"} strokeWidth={2.2} style={{ filter: !isLocked ? "drop-shadow(0 2px 10px rgba(34,197,94,0.2))" : "none" }} />
                   <div style={{ textAlign: "center" }}>
                     <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Unlock</p>
-                    <p style={{ fontSize: 10, marginTop: 2, color: !isLocked ? "#50C878" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
+                    <p style={{ fontSize: 10, marginTop: 2, color: !isLocked ? "#22C55E" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
                       {!isLocked ? "Unlocked" : "Doors"}
                     </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Climate */}
+              <button
+                className="control-tap"
+                style={{
+                  position: "relative",
+                  aspectRatio: "1/1",
+                  background: "#1A1A1A",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 18,
+                  padding: 0,
+                  cursor: "default",
+                  opacity: 0.6,
+                  transition: "all 0.2s ease-in-out",
+                }}
+              >
+                <div className="btn-loading-content">
+                  <FanIcon color="#FFFFFF" />
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Climate</p>
+                    <p style={{ fontSize: 10, marginTop: 2, color: "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>Off</p>
                   </div>
                 </div>
               </button>
@@ -994,10 +970,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 Vehicle Health
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#50C878", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#22C55E", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <CheckCircle size={10} color="#0a0a0a" strokeWidth={3} />
                 </div>
-                <span style={{ fontSize: 14, color: "#50C878", fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.02em" }}>All systems normal</span>
+                <span style={{ fontSize: 14, color: "#22C55E", fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.02em" }}>All systems normal</span>
               </div>
             </div>
             <div style={{
@@ -1018,11 +994,11 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: "50%",
-                    background: item.ok ? "rgba(80,200,120,0.15)" : "rgba(255,69,58,0.15)",
-                    border: item.ok ? "1px solid rgba(80,200,120,0.3)" : "1px solid rgba(255,69,58,0.3)",
+                    background: item.ok ? "rgba(34,197,94,0.15)" : "rgba(255,69,58,0.15)",
+                    border: item.ok ? "1px solid rgba(34,197,94,0.3)" : "1px solid rgba(255,69,58,0.3)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
-                    <CheckCircle size={16} color={item.ok ? "#50C878" : "#FF453A"} strokeWidth={2.5} />
+                    <CheckCircle size={16} color={item.ok ? "#22C55E" : "#FF453A"} strokeWidth={2.5} />
                   </div>
                   <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
                   <p style={{ fontSize: 14, fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.02em", color: "#FFFFFF", textAlign: "center", lineHeight: 1.1 }}>{item.sub}</p>

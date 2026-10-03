@@ -38,11 +38,11 @@ export default function RecklessDrivingCard({ device }) {
           background: isFail
             ? "linear-gradient(135deg, rgba(255,69,58,0.12), rgba(183,28,28,0.08))"
             : "#1A1A1A",
-          borderColor: isFail ? "rgba(255,69,58,0.4)" : "rgba(80,200,120,0.22)",
+          borderColor: isFail ? "rgba(255,69,58,0.4)" : "rgba(34,197,94,0.22)",
           boxShadow: isFail ? "0 0 20px rgba(255,69,58,0.15)" : "none",
           "--ring-color": isFail
             ? "rgba(255,69,58,0.85)"
-            : "rgba(80,200,120,0.5)",
+            : "rgba(34,197,94,0.5)",
         }}
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -56,13 +56,13 @@ export default function RecklessDrivingCard({ device }) {
           ) : (
             <div
               className="h-10 w-10 rounded-xl flex items-center justify-center"
-              style={{ background: "rgba(80,200,120,0.12)" }}
+              style={{ background: "rgba(34,197,94,0.12)" }}
             >
-              <ShieldCheck size={22} color="#50C878" />
+              <ShieldCheck size={22} color="#22C55E" />
             </div>
           )}
           <div className="text-left">
-            <p className="text-sm font-bold" style={{ color: isFail ? "#FF453A" : "#50C878" }}>
+            <p className="text-sm font-bold" style={{ color: isFail ? "#FF453A" : "#22C55E" }}>
               {isLoading ? "Checking…" : isFail ? "FAIL — Reckless Driving" : "PASS — Safe Driving"}
             </p>
             <p className="text-xs text-white/50">
@@ -81,7 +81,7 @@ export default function RecklessDrivingCard({ device }) {
               className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5"
               style={{ color: "rgba(255,255,255,0.72)" }}
             >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: isFail ? "#FF453A" : "#50C878" }} />
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: isFail ? "#FF453A" : "#22C55E" }} />
               Monitoring
             </span>
           )}
@@ -230,17 +230,17 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
             style={{
               background: data?.status === "fail"
                 ? "linear-gradient(135deg, rgba(255,69,58,0.12), rgba(183,28,28,0.08))"
-                : "linear-gradient(135deg, rgba(80,200,120,0.10), rgba(80,200,120,0.05))",
-              borderColor: data?.status === "fail" ? "rgba(255,69,58,0.3)" : "rgba(80,200,120,0.3)",
+                : "linear-gradient(135deg, rgba(34,197,94,0.10), rgba(34,197,94,0.05))",
+              borderColor: data?.status === "fail" ? "rgba(255,69,58,0.3)" : "rgba(34,197,94,0.3)",
             }}
           >
             {data?.status === "fail" ? (
               <ShieldAlert size={28} color="#FF453A" />
             ) : (
-              <ShieldCheck size={28} color="#50C878" />
+              <ShieldCheck size={28} color="#22C55E" />
             )}
             <div>
-              <p className="text-lg font-black" style={{ color: data?.status === "fail" ? "#FF453A" : "#50C878" }}>
+              <p className="text-lg font-black" style={{ color: data?.status === "fail" ? "#FF453A" : "#22C55E" }}>
                 {isLoading ? "Analyzing…" : data?.status === "fail" ? "FAIL" : "PASS"}
               </p>
               <p className="text-xs text-white/50">
@@ -269,8 +269,8 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
                   key={meta.key}
                   className="rounded-xl border overflow-hidden"
                   style={{
-                    background: passed ? "rgba(80,200,120,0.04)" : "rgba(255,69,58,0.06)",
-                    borderColor: passed ? "rgba(80,200,120,0.15)" : "rgba(255,69,58,0.2)",
+                    background: passed ? "rgba(34,197,94,0.04)" : "rgba(255,69,58,0.06)",
+                    borderColor: passed ? "rgba(34,197,94,0.15)" : "rgba(255,69,58,0.2)",
                   }}
                 >
                   <button
@@ -281,10 +281,10 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
                     <div
                       className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
-                        background: passed ? "rgba(80,200,120,0.1)" : "rgba(255,69,58,0.1)",
+                        background: passed ? "rgba(34,197,94,0.1)" : "rgba(255,69,58,0.1)",
                       }}
                     >
-                      <Icon size={18} color={passed ? "#50C878" : "#FF453A"} />
+                      <Icon size={18} color={passed ? "#22C55E" : "#FF453A"} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
@@ -301,8 +301,8 @@ function RecklessDrivingSheet({ data, isLoading, onClose }) {
                           <span
                             className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
                             style={{
-                              background: passed ? "rgba(80,200,120,0.15)" : "rgba(255,69,58,0.15)",
-                              color: passed ? "#50C878" : "#FF453A",
+                              background: passed ? "rgba(34,197,94,0.15)" : "rgba(255,69,58,0.15)",
+                              color: passed ? "#22C55E" : "#FF453A",
                             }}
                           >
                             {passed ? "PASS" : "FAIL"}
