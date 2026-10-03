@@ -423,8 +423,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
     });
     toast.success(`Vehicle ${type}ed`);
     setIsLocked(type === "lock");
-  } else if (type === "climate") {
-    toast.info("Climate control", { description: "Remote climate start is not available on this vehicle." });
   } else if (type === "find") {
         await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device.id });
         toast.success("Vehicle alarm activated!");
@@ -585,11 +583,11 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             {vehicleImage && (
               <div style={{
                 position: "absolute",
-                right: "-15%",
-                top: "5%",
-                width: "90%",
-                height: "90%",
-                overflow: "hidden" // Contains the glint within the image area
+                right: "-8%",
+                top: "2%",
+                width: "85%",
+                height: "96%",
+                overflow: "hidden",
               }}>
                 <img
                   src={vehicleImage}
@@ -600,9 +598,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                     objectFit: "cover",
                     objectPosition: "center",
                     display: "block",
-                    opacity: 0.95,
-                    filter: "brightness(0.9) contrast(1.15) saturate(1.05)",
-                    transform: "scale(1.05)",
+                    filter: "brightness(1.05) contrast(1.1) saturate(1.05)",
                   }}
                 />
                 <div className="vehicle-glint" />
@@ -611,7 +607,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             <div style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(90deg, #050506 0%, #050506 10%, rgba(5,5,6,0.92) 25%, rgba(5,5,6,0.35) 55%, transparent 85%)",
+              background: "linear-gradient(90deg, #050506 0%, #050506 8%, rgba(5,5,6,0.65) 18%, transparent 45%, transparent 100%)",
               zIndex: 2,
             }} />
             <div style={{
@@ -940,7 +936,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             <p style={{ fontSize: 10, fontWeight: 650, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 12 }}>
               Remote Controls
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
 
               {/* Lock */}
               <button
@@ -994,32 +990,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                     <p style={{ fontSize: 9, color: !isLocked ? "#30D158" : "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>
                       {!isLocked ? "Unlocked" : "Doors"}
                     </p>
-                  </div>
-                </div>
-              </button>
-
-              {/* Climate */}
-              <button
-                onClick={() => booking && handleCommand("climate")}
-                disabled={!!commandLoading || dropoffInspectionComplete}
-                className={`control-tap ${commandLoading === "climate" ? "btn-loading-spin" : ""}`}
-                style={{
-                  position: "relative",
-                  aspectRatio: "1/1",
-                  background: "#1A1A1A",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 18,
-                  padding: 0,
-                  cursor: "pointer",
-                  opacity: dropoffInspectionComplete && commandLoading !== "climate" ? 0.45 : 1,
-                  transition: "all 0.2s ease-in-out",
-                }}
-              >
-                <div className="btn-loading-content">
-                  <FanIcon color="#FFFFFF" />
-                  <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "#F5F5F7", lineHeight: 1.2 }}>Climate</p>
-                    <p style={{ fontSize: 9, color: "#7C7C80", lineHeight: 1.2, fontWeight: 500 }}>AC / Heat</p>
                   </div>
                 </div>
               </button>
