@@ -40,19 +40,21 @@ const ALLOWED_STATUSES = [
   "under_review",
 ];
 
-// White top-down car sitting in a glowing blue light pool
+// Black teardrop pin (white outline) with a white car inside and a blue glow beneath — matches reference
 function createVehicleMarkerElement() {
   const el = document.createElement("div");
   el.innerHTML = `
-    <div style="position:relative;width:110px;height:110px;pointer-events:none;">
-      <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(47,128,255,0.85) 0%, rgba(47,128,255,0.45) 28%, rgba(47,128,255,0.16) 50%, transparent 70%);"></div>
-      <div style="position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle, rgba(150,190,255,0.7) 0%, transparent 70%);filter:blur(5px);"></div>
-      <svg width="22" height="38" viewBox="0 0 22 38" fill="none" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);filter:drop-shadow(0 0 8px rgba(47,128,255,0.95)) drop-shadow(0 1px 2px rgba(0,0,0,0.6));">
-        <rect x="1" y="1" width="20" height="36" rx="7.5" fill="#FFFFFF"/>
-        <path d="M4.2 12 Q11 8.6 17.8 12 L16.6 16.6 Q11 15 5.4 16.6 Z" fill="#0B1220" opacity="0.85"/>
-        <path d="M5.4 28.2 Q11 29.8 16.6 28.2 L17.2 31.6 Q11 33.8 4.8 31.6 Z" fill="#0B1220" opacity="0.75"/>
-        <rect x="3.6" y="18" width="1.4" height="8.5" rx="0.7" fill="#0B1220" opacity="0.3"/>
-        <rect x="17" y="18" width="1.4" height="8.5" rx="0.7" fill="#0B1220" opacity="0.3"/>
+    <div style="position:relative;width:44px;height:56px;pointer-events:none;">
+      <div style="position:absolute;left:50%;top:78%;width:96px;height:96px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle, rgba(47,128,255,0.75) 0%, rgba(47,128,255,0.35) 30%, rgba(47,128,255,0.10) 55%, transparent 72%);"></div>
+      <svg width="44" height="56" viewBox="0 0 44 56" fill="none" style="position:absolute;inset:0;filter:drop-shadow(0 0 10px rgba(47,128,255,0.55)) drop-shadow(0 2px 4px rgba(0,0,0,0.6));">
+        <path d="M22 2C11.5 2 3 10.5 3 21c0 12 19 31 19 31s19-19 19-31C41 10.5 32.5 2 22 2z" fill="#0A0A0A" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M15.5 19 L17.5 14.5 Q18 13.5 19.2 13.5 H24.8 Q26 13.5 26.5 14.5 L28.5 19 Z" fill="#FFFFFF"/>
+        <path d="M17.6 18.3 L18.9 15.2 H25.1 L26.4 18.3 Z" fill="#0A0A0A"/>
+        <rect x="13" y="19" width="18" height="7" rx="2" fill="#FFFFFF"/>
+        <circle cx="16.5" cy="22.5" r="1.2" fill="#0A0A0A"/>
+        <circle cx="27.5" cy="22.5" r="1.2" fill="#0A0A0A"/>
+        <rect x="14" y="25" width="3.5" height="3" rx="1" fill="#FFFFFF"/>
+        <rect x="26.5" y="25" width="3.5" height="3" rx="1" fill="#FFFFFF"/>
       </svg>
     </div>
   `;
@@ -165,7 +167,7 @@ export default function FindMyVehicleMap({
     } else {
       markerRef.current = new maplibregl.Marker({
         element: createVehicleMarkerElement(),
-        anchor: "center",
+        anchor: "bottom",
       })
         .setLngLat([lng, lat])
         .addTo(map);
