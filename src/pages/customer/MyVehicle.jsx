@@ -684,7 +684,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 </div>
               </div>
             </div>
-            <div style={{ height: 240, position: "relative" }}>
+            <div style={{ height: "90vh", position: "relative" }}>
               {booking ? (
                 <>
                   <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
@@ -718,90 +718,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* ── RENTAL INFO CARD ── */}
-          <div style={{
-            background: "#1A1A1A",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 18,
-            padding: "16px 20px",
-            display: "flex",
-            alignItems: "center",
-            gap: 0,
-            marginBottom: 16,
-          }}>
-            {/* Rental ends */}
-            <div style={{ flex: 1 }}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <Clock size={13} color={isOverdueRental ? "#FF453A" : "#71717A"} />
-                <p style={{ fontSize: 11, color: isOverdueRental ? "#FF453A" : "#8E8E93", fontWeight: 450 }}>
-                  {isOverdueRental ? "Overdue since" : "Rental ends"}
-                </p>
-              </div>
-              <p style={{ fontSize: 13, fontWeight: 650, color: isOverdueRental ? "#FF453A" : "#F5F5F7", letterSpacing: "-0.1px" }}>
-                {booking?.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d, yyyy") : "N/A"}
-              </p>
-              <p style={{ fontSize: 11, color: isOverdueRental ? "#FF453A" : "#8E8E93", fontWeight: 400 }}>
-                {booking?.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}
-              </p>
-            </div>
-
-            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.05)", margin: "0 8px" }} />
-
-            {/* Remaining */}
-            <div style={{ flex: 1 }}>
-              <div className="flex items-center gap-1.5 mb-1">
-                <svg width="13" height="13" viewBox="0 0 13 13">
-                  <circle cx="6.5" cy="6.5" r="5.5" fill="none" stroke="#71717A" strokeWidth="1.2" />
-                  <circle cx="6.5" cy="6.5" r="5.5" fill="none" stroke="#2F80FF" strokeWidth="1.2"
-                    strokeDasharray="34.5" strokeDashoffset="8.6" strokeLinecap="round"
-                    transform="rotate(-90 6.5 6.5)" />
-                </svg>
-                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Remaining</p>
-              </div>
-              <p style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F7", letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{remainingStr}</p>
-              <p style={{ fontSize: 10, color: "#6B6B70", fontWeight: 400, marginTop: 1 }}>until return</p>
-            </div>
-
-            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.05)", margin: "0 8px" }} />
-
-            {/* Payment Status */}
-            <div 
-              onClick={() => {
-                if (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") {
-                  window.location.href = `/account`;
-                }
-              }}
-              style={{ 
-                flex: 0.8, 
-                cursor: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "pointer" : "default",
-                background: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "rgba(255,69,58,0.15)" : "transparent",
-                borderRadius: 12,
-                padding: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "8px 10px" : "0",
-                margin: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "-8px -10px" : "0",
-                border: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "1px solid rgba(255,69,58,0.4)" : "none",
-                transition: "all 0.2s"
-              }}
-            >
-              <div className="flex items-center gap-1.5 mb-1">
-                <Banknote size={14} color={(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#71717A"} />
-                <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#8E8E93", fontWeight: 450 }}>Payment</p>
-              </div>
-              <p style={{ fontSize: 13, fontWeight: 650, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#F5F5F7", letterSpacing: "-0.1px" }}>
-                {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Action Needed" : (booking?.payment_status === "paid" || booking?.payment_status === "pending" || !booking ? "Paid" : "Due Soon")}
-              </p>
-              <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#22C55E", fontWeight: 500 }}>
-                {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Update Card" : (booking?.next_billing_date ? `Next: ${format(new Date(`${booking.next_billing_date}T12:00:00`), "MMM d")}` : "Up to date")}
-              </p>
-            </div>
-
-            <button 
-              onClick={() => window.location.href = '/my-bookings'}
-              style={{ background: 'transparent', border: 'none', padding: '12px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-            >
-              <ChevronRight size={18} color="#71717A" />
-            </button>
           </div>
 
           {/* ── REMOTE CONTROLS ── */}
@@ -907,6 +823,92 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               Lock and unlock available after pickup
             </p>
           </div>
+
+          {/* ── RENTAL INFO CARD ── */}
+          <div style={{
+            background: "#1A1A1A",
+            border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 18,
+            padding: "16px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 0,
+            marginBottom: 16,
+          }}>
+            {/* Rental ends */}
+            <div style={{ flex: 1 }}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Clock size={13} color={isOverdueRental ? "#FF453A" : "#71717A"} />
+                <p style={{ fontSize: 11, color: isOverdueRental ? "#FF453A" : "#8E8E93", fontWeight: 450 }}>
+                  {isOverdueRental ? "Overdue since" : "Rental ends"}
+                </p>
+              </div>
+              <p style={{ fontSize: 13, fontWeight: 650, color: isOverdueRental ? "#FF453A" : "#F5F5F7", letterSpacing: "-0.1px" }}>
+                {booking?.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "MMM d, yyyy") : "N/A"}
+              </p>
+              <p style={{ fontSize: 11, color: isOverdueRental ? "#FF453A" : "#8E8E93", fontWeight: 400 }}>
+                {booking?.end_date ? format(new Date(`${booking.end_date}T23:59:59`), "h:mm a") : ""}
+              </p>
+            </div>
+
+            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.05)", margin: "0 8px" }} />
+
+            {/* Remaining */}
+            <div style={{ flex: 1 }}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <svg width="13" height="13" viewBox="0 0 13 13">
+                  <circle cx="6.5" cy="6.5" r="5.5" fill="none" stroke="#71717A" strokeWidth="1.2" />
+                  <circle cx="6.5" cy="6.5" r="5.5" fill="none" stroke="#2F80FF" strokeWidth="1.2"
+                    strokeDasharray="34.5" strokeDashoffset="8.6" strokeLinecap="round"
+                    transform="rotate(-90 6.5 6.5)" />
+                </svg>
+                <p style={{ fontSize: 11, color: "#8E8E93", fontWeight: 450 }}>Remaining</p>
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#F5F5F7", letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{remainingStr}</p>
+              <p style={{ fontSize: 10, color: "#6B6B70", fontWeight: 400, marginTop: 1 }}>until return</p>
+            </div>
+
+            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.05)", margin: "0 8px" }} />
+
+            {/* Payment Status */}
+            <div 
+              onClick={() => {
+                if (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") {
+                  window.location.href = `/account`;
+                }
+              }}
+              style={{ 
+                flex: 0.8, 
+                cursor: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "pointer" : "default",
+                background: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "rgba(255,69,58,0.15)" : "transparent",
+                borderRadius: 12,
+                padding: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "8px 10px" : "0",
+                margin: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "-8px -10px" : "0",
+                border: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "1px solid rgba(255,69,58,0.4)" : "none",
+                transition: "all 0.2s"
+              }}
+            >
+              <div className="flex items-center gap-1.5 mb-1">
+                <Banknote size={14} color={(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#71717A"} />
+                <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#8E8E93", fontWeight: 450 }}>Payment</p>
+              </div>
+              <p style={{ fontSize: 13, fontWeight: 650, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#F5F5F7", letterSpacing: "-0.1px" }}>
+                {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Action Needed" : (booking?.payment_status === "paid" || booking?.payment_status === "pending" || !booking ? "Paid" : "Due Soon")}
+              </p>
+              <p style={{ fontSize: 11, color: (booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "#FF453A" : "#22C55E", fontWeight: 500 }}>
+                {(booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due") ? "Update Card" : (booking?.next_billing_date ? `Next: ${format(new Date(`${booking.next_billing_date}T12:00:00`), "MMM d")}` : "Up to date")}
+              </p>
+            </div>
+
+            <button 
+              onClick={() => window.location.href = '/my-bookings'}
+              style={{ background: 'transparent', border: 'none', padding: '12px 4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            >
+              <ChevronRight size={18} color="#71717A" />
+            </button>
+          </div>
+
+          {/* remote controls moved above rental info */}
 
           {/* ── RECKLESS DRIVING MONITOR ── */}
           {booking && device && (
