@@ -62,11 +62,11 @@ export default function VehicleSkinPicker({ currentSkin, onSelect, onClose }) {
 // Mini preview swatch representing each skin's map + accent feel.
 function SkinSwatch({ skinId }) {
   const styles = {
-    original: { bg: "#050505", road: "#00ff41", accent: "#4ADE80" },
+    classic: { bg: "#050506", road: "#2F80FF", accent: "#F8C455" },
     neon: { bg: "#050505", road: "#2efd5f", accent: "#D4AF37" },
     slate: { bg: "#1a1e22", road: "#3a424a", accent: "#889096" },
   };
-  const s = styles[skinId] || styles.original;
+  const s = styles[skinId] || styles.classic;
   return (
     <div style={{ width: 52, height: 52, borderRadius: 12, background: s.bg, border: "1px solid rgba(255,255,255,0.08)", flexShrink: 0, position: "relative", overflow: "hidden" }}>
       <div style={{ position: "absolute", left: 6, right: 6, top: 18, height: 2, background: s.road, opacity: 0.8, borderRadius: 2 }} />

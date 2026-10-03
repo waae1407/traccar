@@ -1,0 +1,386 @@
+import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
+import { Car, X, Layers } from "lucide-react";
+import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
+import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
+import MyVehicleOverlay from "@/components/customer/myvehicle/MyVehicleOverlay";
+
+const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
+
+function getCompassDirection(course) {
+  if (course === undefined || course === null) return "Unknown";
+  const val = course % 360;
+  if (val >= 337.5 || val < 22.5) return `${val}° (North)`;
+  if (val >= 22.5 && val < 67.5) return `${val}° (NE)`;
+  if (val >= 67.5 && val < 112.5) return `${val}° (East)`;
+  if (val >= 112.5 && val < 157.5) return `${val}° (SE)`;
+  if (val >= 157.5 && val < 202.5) return `${val}° (South)`;
+  if (val >= 202.5 && val < 247.5) return `${val}° (SW)`;
+  if (val >= 247.5 && val < 292.5) return `${val}° (West)`;
+  if (val >= 292.5 && val < 337.5) return `${val}° (NW)`;
+  return `${val}°`;
+}
+
+function isOperationalRental(booking) {
+  if (!booking) return false;
+  const ACTIVE_PHASES = ['payment_complete', 'pickup_required', 'checked_out', 'active', 'return_required', 'return_in_progress', 'host_review'];
+  if (booking.rental_lifecycle_phase && ACTIVE_PHASES.includes(booking.rental_lifecycle_phase)) return true;
+  if (!ACTIVE_RENTAL_STATUSES.includes(booking.booking_status)) return false;
+  return true;
+}
+
+function isOverdue(booking) {
+  if (!booking || !booking.end_date) return false;
+  return Date.now() > new Date(`${booking.end_date}T23:59:59`).getTime();
+}
+
+function getBatteryInfo(device) {
+  const voltage = device?.power_voltage || device?.battery_voltage || 0;
+  if (!voltage) return { pct: 0, label: "Unknown", color: "#71717A", voltage: "0.0" };
+  let pct = 0;
+  if (device?.ignition_status === 'on' || voltage >= 13.0) {
+    pct = 100;
+  } else {
+    pct = Math.max(0, Math.min(100, Math.round(((voltage - 11.8) / (12.6 - 11.8)) * 100)));
+  }
+  let label = "Good";
+  let color = "#30D158";
+  if (voltage < 11.8) { label = "Critical"; color = "#FF453A"; }
+  else if (voltage <= 12.1) { label = "Low"; color = "#FF9F0A"; }
+  if (device?.ignition_status === 'on' || voltage >= 13.0) { label = "Charging"; color = "#30D158"; }
+  return { pct, label, color, voltage: voltage.toFixed(1) };
+}
+
+function freshness(device) {
+  const value = device?.last_seen_at || device?.location_updated_at;
+  if (!value) return { label: "No GPS", status: "offline" };
+  const minutes = Math.round((Date.now() - new Date(value).getTime()) / 60000);
+  if (minutes < 2) return { label: "Live", status: "online" };
+  if (minutes < 30) return { label: `${minutes}m ago`, status: "online" };
+  return { label: "Stale", status: "offline" };
+}
+
+function DiagRow({ label, value, isAlert }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <span style={{ fontSize: 13, color: "#A1A1AA" }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: isAlert ? "#FF453A" : "#F5F5F7" }}>{value}</span>
+    </div>
+  );
+}
+
+export default function MyVehicleCompact({ skinConfig, onOpenSkinPicker }) {
+  const { user, isLoading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const deepLinkedBookingId = searchParams.get("booking_id");
+  const [inspectionTarget, setInspectionTarget] = useState(null);
+  const [commandLoading, setCommandLoading] = useState(null);
+  const [isLocked, setIsLocked] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ["my-vehicle-bookings", user?.email, deepLinkedBookingId],
+    queryFn: async () => {
+      if (deepLinkedBookingId) {
+        const bookingRecord = await base44.entities.BookingRequest.get(deepLinkedBookingId);
+        return [bookingRecord];
+      }
+      const results = await base44.entities.BookingRequest.filter({ user_email: user?.email });
+      return results;
+    },
+    enabled: deepLinkedBookingId ? true : (!!user?.email && !authLoading),
+    refetchInterval: 30_000,
+  });
+
+  const activeRentals = bookings.filter(isOperationalRental).sort((a, b) => new Date(b.updated_date) - new Date(a.updated_date));
+  const booking = deepLinkedBookingId ? bookings[0] : activeRentals[0];
+  const isOverdueRental = isOverdue(booking);
+
+  const { data: vehicleList = [] } = useQuery({
+    queryKey: ["my-vehicle-record", booking?.vehicle_id],
+    queryFn: () => base44.entities.Vehicle.filter({ id: booking?.vehicle_id }),
+    enabled: !!booking?.vehicle_id,
+  });
+  const vehicle = vehicleList[0];
+
+  const { data: devices = [] } = useQuery({
+    queryKey: ["my-vehicle-device", booking?.vehicle_id],
+    queryFn: () => base44.entities.TelematicsDevice.filter({ vehicle_id: booking?.vehicle_id }),
+    enabled: !!booking?.vehicle_id,
+    refetchInterval: 20_000,
+  });
+  const device = devices[0];
+  const gps = freshness(device);
+
+  const { data: safetyEvents = [] } = useQuery({
+    queryKey: ["customer-safety-events", booking?.vehicle_id],
+    queryFn: () => base44.entities.TelematicsSafetyEvent.filter({ vehicle_id: booking?.vehicle_id, is_active: true, visible_to_customer: true }),
+    enabled: !!booking?.vehicle_id,
+    refetchInterval: 15_000,
+  });
+
+  const { data: addressData } = useQuery({
+    queryKey: ["reverse-geocode", device?.last_latitude, device?.last_longitude],
+    queryFn: async () => {
+      if (!device?.last_latitude || !device?.last_longitude) return null;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${device.last_latitude}&lon=${device.last_longitude}&format=json`);
+        const data = await res.json();
+        const poi = data.address?.amenity || data.address?.shop || data.address?.building || data.address?.leisure || data.address?.tourism;
+        const road = data.address?.road ? `${data.address.house_number ? data.address.house_number + ' ' : ''}${data.address.road}` : null;
+        const city = data.address?.city || data.address?.town || data.address?.village || "";
+        return { poi: poi || null, street: road || city || "Unknown Location", city_state: `${city}${data.address?.state ? ', ' + data.address.state : ''}` };
+      } catch (e) { return null; }
+    },
+    enabled: !!device?.last_latitude && !!device?.last_longitude,
+    staleTime: 300000,
+  });
+
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const endDateMs = booking?.end_date ? new Date(`${booking.end_date}T23:59:59`).getTime() : null;
+  const diffMs = endDateMs ? Math.max(0, endDateMs - now) : null;
+  const remainingDays = diffMs != null ? Math.floor(diffMs / (1000 * 60 * 60 * 24)) : null;
+  const remainingHours = diffMs != null ? Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) : null;
+  const remainingStr = remainingDays != null
+    ? (remainingDays > 0 ? `${remainingDays}d ${remainingHours}h` : `${remainingHours}h`)
+    : "N/A";
+
+  const handleCommand = async (type) => {
+    const isPaymentIssue = booking?.payment_status === "failed" || booking?.payment_status === "overdue" || booking?.booking_status === "payment_due";
+    if (isPaymentIssue) {
+      import("sonner").then(({ toast }) => {
+        toast.error("Account Action Required", {
+          description: "Please update your payment method to unlock vehicle controls.",
+          action: { label: "Update Card", onClick: () => window.location.href = "/account" }
+        });
+      });
+      return;
+    }
+    if (!isBookingActive && !pickupInspectionComplete && (type === "lock" || type === "unlock")) {
+      import("sonner").then(({ toast }) => {
+        toast.error("Rental Not Started", {
+          description: "You must complete the pickup inspection to unlock the vehicle.",
+          action: { label: "Start Inspection", onClick: () => setInspectionTarget({ booking, type: "pickup" }) }
+        });
+      });
+      return;
+    }
+    if (!pickupInspectionComplete && (type === "lock" || type === "unlock")) {
+      setInspectionTarget({ booking, type: "pickup" });
+      return;
+    }
+    if (!device?.id) {
+      const { toast } = await import("sonner");
+      toast.error("Device still loading", { description: "Please wait a moment and try again." });
+      setTimeout(() => setCommandLoading(null), 1500);
+      return;
+    }
+    setCommandLoading(type);
+    try {
+      const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
+      const { toast } = await import("sonner");
+      if (type === "lock" || type === "unlock") {
+        await TelematicsService.sendCommand({
+          telematics_device_id: device.id,
+          vehicle_id: vehicle?.id || booking?.vehicle_id,
+          booking_id: booking?.id,
+          command_type: type,
+          source: "vehicle_command_center",
+        });
+        toast.success(`Vehicle ${type}ed`);
+        setIsLocked(type === "lock");
+      } else if (type === "find") {
+        await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device.id });
+        toast.success("Vehicle alarm activated!");
+        if (device?.last_latitude && device?.last_longitude) {
+          window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+        }
+      }
+    } catch (err) {
+      console.error("[MyVehicle] Command failed:", type, err);
+      const { toast } = await import("sonner");
+      const errorMsg = err?.message || err?.error || (typeof err === "string" ? err : "Unknown error");
+      const isAuthError = err?.status === 401 || err?.message?.includes("Unauthorized") || err?.error?.includes("Unauthorized");
+      toast.error(isAuthError ? "Session expired — please sign in again" : "Command failed", {
+        description: isAuthError ? undefined : errorMsg,
+      });
+    }
+    setTimeout(() => setCommandLoading(null), 2000);
+  };
+
+  if (authLoading || bookingsLoading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#000" }}>
+        <div style={{ width: 28, height: 28, border: "2px solid #D4AF37", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
+
+  const isDemo = !booking;
+  const battInfo = isDemo ? { pct: 100, label: "Good", color: "#30D158", voltage: "12.8" } : getBatteryInfo(device);
+  const pickupInspectionComplete = booking?.pickup_photos?.length > 0;
+  const dropoffInspectionComplete = booking?.return_exterior_photos?.length > 0 || booking?.return_interior_photos?.length > 0;
+  const isBookingActive = !isDemo && booking
+    ? ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "return_pending_host_review", "under_review"].includes(booking.booking_status) &&
+      (booking.rental_lifecycle_phase ? ["payment_complete", "pickup_required", "checked_out", "active", "return_required", "return_in_progress", "host_review"].includes(booking.rental_lifecycle_phase) : true) &&
+      booking.payment_status === "paid"
+    : false;
+  const isReturnRequired = !isDemo && booking && ["return_required", "post_inspection_required", "overdue_return"].includes(booking.booking_status);
+
+  const activeAlarms = safetyEvents.map(event => ({
+    id: event.id,
+    label: event.alert_message || event.alert_title,
+    color: event.customer_severity === "critical" ? "#FF453A" : "#FF9F0A"
+  }));
+  const displayAddress = isDemo ? { poi: "Barton Creek Square", street: "2901 S Capital of Texas Hwy", city_state: "Austin, TX" } : addressData;
+
+  const hoodVolt = device?.hood_wire_voltage ? (device.hood_wire_voltage + "V (Analog)") : "0.0V (Analog)";
+  const doorVolt = device?.door_wire_voltage ? (device.door_wire_voltage + "V (Analog)") : "0.0V (Analog)";
+  const smokeVolt = device?.smoke_voltage ? (device.smoke_voltage + "V (Analog)") : "0.0V (Analog)";
+  const mileageStr = device?.device_mileage ? (device.device_mileage.toLocaleString() + " miles") : "0 miles";
+
+  return (
+    <div className="dvh-fill" style={{ background: "#000", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif", letterSpacing: "-0.01em", position: "relative", overflow: "hidden" }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fade-in-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .dvh-fill { height: 100vh; height: 100dvh; }
+      `}</style>
+
+      {inspectionTarget && (
+        <VehicleInspectionSheet
+          booking={inspectionTarget.booking}
+          type={inspectionTarget.type}
+          onClose={() => setInspectionTarget(null)}
+          onComplete={() => {}}
+        />
+      )}
+
+      {/* FULL BLEED MAP */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 0, background: "#000" }}>
+        {booking ? (
+          <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} mapStyleName={skinConfig.mapStyleName} />
+        ) : (
+          <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ textAlign: "center" }}>
+              <Car size={32} color="#333" style={{ margin: "0 auto 8px" }} />
+              <p style={{ color: "#555", fontSize: 13 }}>No active rental</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* SWITCH VIEW BUTTON */}
+      <button
+        onClick={onOpenSkinPicker}
+        aria-label="Switch view"
+        className="control-tap"
+        style={{
+          position: "fixed", top: "max(12px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))",
+          zIndex: 80, width: 40, height: 40, borderRadius: "50%", cursor: "pointer",
+          background: "rgba(10,10,12,0.72)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 4px 14px rgba(0,0,0,0.4)",
+        }}
+      >
+        <Layers size={18} color="#D4AF37" />
+      </button>
+
+      <MyVehicleOverlay
+        booking={booking}
+        device={device}
+        gps={gps}
+        battInfo={battInfo}
+        addressLine={
+          displayAddress
+            ? `${(displayAddress.street || displayAddress.poi || "LOCATING").toUpperCase()} • ${(displayAddress.city_state || "").split(",")[0].toUpperCase()}`
+            : "LOCATING VEHICLE..."
+        }
+        statusLabel={device?.speed > 0 ? "MOVING" : "PARKED"}
+        isReturnRequired={isReturnRequired}
+        isOverdueRental={isOverdueRental}
+        activeAlarms={activeAlarms}
+        isBookingActive={isBookingActive}
+        dropoffInspectionComplete={dropoffInspectionComplete}
+        remainingStr={remainingStr}
+        commandLoading={commandLoading}
+        onCommand={(type) => booking && handleCommand(type)}
+        expanded={expanded}
+        setExpanded={setExpanded}
+        onOpenDiagnostics={() => { setShowDiagnostics(true); setExpanded(false); }}
+        onEndRental={() => { setInspectionTarget({ booking, type: "dropoff" }); setExpanded(false); }}
+      />
+
+      {/* DIAGNOSTICS BOTTOM SHEET */}
+      {showDiagnostics && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }} onClick={() => setShowDiagnostics(false)} />
+          <div style={{
+            position: "relative", background: "#17181C", borderTop: "1px solid rgba(212,175,55,0.2)",
+            borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: "24px 20px 40px",
+            boxShadow: "0 -10px 40px rgba(0,0,0,0.5)", animation: "fade-in-up 0.3s ease-out",
+            maxHeight: "85vh", display: "flex", flexDirection: "column",
+            maxWidth: 430, margin: "0 auto", width: "100%",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexShrink: 0 }}>
+              <div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: "#FFF", margin: 0 }}>System Diagnostics</h3>
+                <p style={{ fontSize: 12, color: "#A1A1AA", margin: "2px 0 0" }}>Raw telemetry from MT20 interface</p>
+              </div>
+              <button onClick={() => setShowDiagnostics(false)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                <X size={16} color="#FFF" />
+              </button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: 4, paddingBottom: 20 }} className="no-scrollbar">
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Security & Access</p>
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                  <DiagRow label="Doors" value={device?.door_open ? "Open" : "Closed"} isAlert={device?.door_open} />
+                  <DiagRow label="Trunk" value={device?.trunk_open ? "Open" : "Closed"} isAlert={device?.trunk_open} />
+                  <DiagRow label="Starter Circuit" value={device?.starter_disabled ? "Disabled" : "Normal"} isAlert={device?.starter_disabled} />
+                  <DiagRow label="Hood Wire Volt" value={hoodVolt} />
+                  <DiagRow label="Door Wire Volt" value={doorVolt} />
+                </div>
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>System Alarms</p>
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                  <DiagRow label="Impact / Shock" value={device?.shock_alarm ? "Triggered" : "Clear"} isAlert={device?.shock_alarm} />
+                  <DiagRow label="Power Cut" value={device?.power_cut_alarm ? "Triggered" : "Clear"} isAlert={device?.power_cut_alarm} />
+                  <DiagRow label="Low Battery" value={device?.low_battery_alarm ? "Triggered" : "Clear"} isAlert={device?.low_battery_alarm} />
+                  <DiagRow label="Overspeed" value={device?.overspeed_alarm ? "Triggered" : "Clear"} isAlert={device?.overspeed_alarm} />
+                  <DiagRow label="Movement" value={device?.movement_alarm ? "Triggered" : "Clear"} isAlert={device?.movement_alarm} />
+                  <DiagRow label="Geofence" value={device?.geofence_alarm ? "Triggered" : "Clear"} isAlert={device?.geofence_alarm} />
+                </div>
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Environmental</p>
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                  <DiagRow label="Smoke Sensor" value={device?.smoke_detected ? "Detected" : "Clear"} isAlert={device?.smoke_detected} />
+                  <DiagRow label="Smoke Voltage" value={smokeVolt} />
+                </div>
+              </div>
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#71717A", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, margin: "0 0 10px 0" }}>Raw Data</p>
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.05)", padding: "12px 16px", display: "grid", gap: 12 }}>
+                  <DiagRow label="Bluetooth" value={device?.bluetooth_on ? "Active" : "Inactive"} />
+                  <DiagRow label="Direction Heading" value={getCompassDirection(device?.course)} />
+                  <DiagRow label="Device Mileage" value={mileageStr} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,21 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
 
-// Vehicle UI skin registry. Each skin picks an overlay variant + map style.
-// "original" = pre-mockup UI (SAFE DRIVER pill, stronger glows) — default.
-// "neon" / "slate" = compact mockup UI with neon / slate map.
+// Vehicle UI skin registry.
+// "classic" = full original dashboard (weather hero, map card, controls, health) — default.
+// "neon" / "slate" = compact full-bleed map overlay with neon / slate map style.
 export const VEHICLE_SKINS = [
-  { id: "original", label: "Original", blurb: "Satellite map, weather, Safe Driver", mapStyleName: "satellite", overlay: "original" },
-  { id: "neon", label: "Neon", blurb: "Compact mockup, neon map", mapStyleName: "neon", overlay: "compact" },
-  { id: "slate", label: "Slate", blurb: "Compact mockup, slate map", mapStyleName: "slate", overlay: "compact" },
+  { id: "classic", label: "Classic", blurb: "Full dashboard with weather, map, controls", mapStyleName: "neon", overlay: "classic" },
+  { id: "neon", label: "Neon", blurb: "Compact map view, neon map", mapStyleName: "neon", overlay: "compact" },
+  { id: "slate", label: "Slate", blurb: "Compact map view, slate map", mapStyleName: "slate", overlay: "compact" },
 ];
 
 const STORAGE_KEY = "vehicle_skin";
-const DEFAULT_SKIN = "original";
+const DEFAULT_SKIN = "classic";
 
 export function useVehicleSkin() {
   const [skin, setSkinState] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) || DEFAULT_SKIN;
+      const saved = localStorage.getItem(STORAGE_KEY);
+      // Migrate old "original" value to "classic"
+      if (saved === "original") return "classic";
+      return saved || DEFAULT_SKIN;
     } catch {
       return DEFAULT_SKIN;
     }
@@ -26,7 +29,6 @@ export function useVehicleSkin() {
     try { localStorage.setItem(STORAGE_KEY, id); } catch {}
   }, []);
 
-  // Sync across tabs/components.
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === STORAGE_KEY && e.newValue) setSkinState(e.newValue);
