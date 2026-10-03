@@ -867,7 +867,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 </div>
               </button>
 
-              {/* Find Vehicle — highlighted with blue border */}
+              {/* Locate — highlighted with blue border, uses the map pin icon */}
               <button
                 onClick={() => booking && handleCommand("find")}
                 disabled={!!commandLoading || dropoffInspectionComplete}
@@ -886,9 +886,18 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 }}
               >
                 <div className="btn-loading-content">
-                  <HornIcon color="#3B82F6" />
+                  <svg width="26" height="34" viewBox="0 0 44 56" fill="none" style={{ filter: "drop-shadow(0 0 6px rgba(59,130,246,0.5))" }}>
+                    <path d="M22 2C11.5 2 3 10.5 3 21c0 12 19 31 19 31s19-19 19-31C41 10.5 32.5 2 22 2z" fill="#0A0A0A" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round"/>
+                    <path d="M15.5 19 L17.5 14.5 Q18 13.5 19.2 13.5 H24.8 Q26 13.5 26.5 14.5 L28.5 19 Z" fill="#FFFFFF"/>
+                    <path d="M17.6 18.3 L18.9 15.2 H25.1 L26.4 18.3 Z" fill="#0A0A0A"/>
+                    <rect x="13" y="19" width="18" height="7" rx="2" fill="#FFFFFF"/>
+                    <circle cx="16.5" cy="22.5" r="1.2" fill="#0A0A0A"/>
+                    <circle cx="27.5" cy="22.5" r="1.2" fill="#0A0A0A"/>
+                    <rect x="14" y="25" width="3.5" height="3" rx="1" fill="#FFFFFF"/>
+                    <rect x="26.5" y="25" width="3.5" height="3" rx="1" fill="#FFFFFF"/>
+                  </svg>
                   <div style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Find Vehicle</p>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: "#F5F5F7", lineHeight: 1.1, fontFamily: LABEL_FONT, letterSpacing: "0.03em", textTransform: "uppercase" }}>Locate</p>
                     <p style={{ fontSize: 10, marginTop: 2, color: "#60A5FA", lineHeight: 1.2, fontWeight: 500 }}>Flash &amp; Honk</p>
                   </div>
                 </div>
