@@ -144,12 +144,7 @@ export default function FindMyVehicleMap({
       attributionControl: false,
     });
 
-    map.on("load", () => {
-      // Auto-center: add bottom padding equal to the action dock height
-      // so the vehicle marker centers in the visible area above the dock
-      map.setPadding({ top: 0, bottom: 112, left: 0, right: 0 });
-      setMapReady(true);
-    });
+    map.on("load", () => setMapReady(true));
     map.on("error", (e) => console.error("[FindMyVehicleMap] Map error:", e));
     mapRef.current = map;
 
