@@ -131,6 +131,35 @@ const CSS = `
     100% { opacity: 0.6; text-shadow: 0 0 2px transparent; }
   }
   .text-monitor-pulse { animation: textMonitorPulse 2.5s ease-in-out infinite; }
+
+  /* ── Security Ticket Carousel ── */
+  @keyframes ticketScroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .ticket-scroll-track {
+    animation: ticketScroll 28s linear infinite;
+  }
+  .ticket-scroll-container:hover .ticket-scroll-track {
+    animation-play-state: paused;
+  }
+  @keyframes postItAppear {
+    0% { opacity: 0; transform: translateX(-50%) rotate(-2deg) scale(0.7) translateY(10px); }
+    60% { opacity: 1; transform: translateX(-50%) rotate(-2deg) scale(1.05) translateY(-2px); }
+    100% { opacity: 1; transform: translateX(-50%) rotate(-2deg) scale(1) translateY(0); }
+  }
+  .post-it-note { animation: postItAppear 0.4s ease-out; }
+  @keyframes postItFade {
+    0% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(-50%) rotate(-2deg) scale(0.9) translateY(-10px); }
+  }
+  .post-it-fade { animation: postItFade 0.3s ease-in forwards; }
+  @keyframes alertBadgeShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+  }
+  .alert-shake { animation: alertBadgeShake 0.3s ease-in-out 3; }
 `;
 
 export default function MyVehicleClassicStyles() {

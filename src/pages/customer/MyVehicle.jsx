@@ -15,6 +15,7 @@ import VehicleSkinPicker from "@/components/customer/myvehicle/VehicleSkinPicker
 import MyVehicleClassicStyles from "@/components/customer/myvehicle/MyVehicleClassicStyles";
 import ClassicDiagnosticsSheet from "@/components/customer/myvehicle/ClassicDiagnosticsSheet";
 import MyVehicleActionDock from "@/components/customer/myvehicle/MyVehicleActionDock";
+import SecurityTicketCarousel from "@/components/customer/myvehicle/SecurityTicketCarousel";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -827,63 +828,8 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             </button>
           )}
 
-          {/* ── VEHICLE HEALTH ── */}
-          <div style={{ marginBottom: 10 }}>
-            <div className="flex items-center justify-between mb-3">
-              <p style={{ fontSize: 13, fontWeight: 800, fontFamily: LABEL_FONT, color: "#8E8E93", letterSpacing: "0.14em", textTransform: "uppercase" }}>
-                Vehicle Health
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#22C55E", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <CheckCircle size={10} color="#0a0a0a" strokeWidth={3} />
-                </div>
-                <span style={{ fontSize: 14, color: "#22C55E", fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.02em" }}>All systems normal</span>
-              </div>
-            </div>
-            <div style={{
-              background: "rgba(26,26,26,0.72)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 18,
-              padding: "16px 12px",
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: 8,
-            }}>
-              {[
-                { label: "Vehicle", sub: device?.online_status === "offline" ? "Offline" : "Online", ok: device?.online_status !== "offline" },
-                { label: "Doors", sub: device?.door_open ? "Open" : "Closed", ok: !device?.door_open },
-                { label: "Battery", sub: battInfo.label, ok: battInfo.label !== "Critical" },
-                { label: "Location", sub: gps.status === "online" ? "GPS Signal" : "No GPS", ok: gps.status === "online" },
-              ].map((item) => (
-                <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: "50%",
-                    background: item.ok ? "rgba(34,197,94,0.15)" : "rgba(255,69,58,0.15)",
-                    border: item.ok ? "1px solid rgba(34,197,94,0.3)" : "1px solid rgba(255,69,58,0.3)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <CheckCircle size={16} color={item.ok ? "#22C55E" : "#FF453A"} strokeWidth={2.5} />
-                  </div>
-                  <p style={{ fontSize: 10, color: "#A1A1AA", textAlign: "center", lineHeight: 1.2 }}>{item.label}</p>
-                  <p style={{ fontSize: 14, fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.02em", color: "#FFFFFF", textAlign: "center", lineHeight: 1.1 }}>{item.sub}</p>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setShowDiagnostics(true)}
-              style={{
-                width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 16, padding: "12px", display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 8, marginTop: 12, cursor: "pointer", transition: "all 0.2s"
-              }}
-            >
-              <Settings2 size={16} color="#A1A1AA" />
-              <span style={{ fontSize: 15, fontWeight: 800, fontFamily: LABEL_FONT, letterSpacing: "0.04em", textTransform: "uppercase", color: "#E4E4E7" }}>View Full Diagnostics</span>
-            </button>
-          </div>
+          {/* ── SECURITY MONITOR (horizontal live ticket carousel) ── */}
+          <SecurityTicketCarousel device={device} />
 
         </div>
 
