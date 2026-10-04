@@ -511,10 +511,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             {vehicleImage && (
               <div style={{
                 position: "absolute",
-                right: "-8%",
-                top: "2%",
-                width: "85%",
-                height: "96%",
+                right: "-4%",
+                top: "8%",
+                width: "68%",
+                height: "84%",
                 overflow: "hidden",
               }}>
                 <img
@@ -523,7 +523,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   style={{
                     width: "100%",
                     height: "100%",
-                    objectFit: "cover",
+                    objectFit: "contain",
                     objectPosition: "center",
                     display: "block",
                     filter: "brightness(1.05) contrast(1.1) saturate(1.05)",
