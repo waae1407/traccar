@@ -563,7 +563,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
           {vehicleImage && !isDemo && (
             <div style={{
               position: "absolute",
-              left: "60%", top: "34%",
+              left: "66%", top: "34%",
               transform: "translateX(-50%)",
               zIndex: 4,
               pointerEvents: "none",
