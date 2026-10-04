@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Siren, Truck, Gauge, Users, Flame, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
+import { Siren, Truck, Gauge, Users, Flame, Clock, ShieldCheck } from "lucide-react";
 
 const LABEL_FONT = "'Barlow Condensed', sans-serif";
 
@@ -18,6 +20,18 @@ export default function SecurityTicketCarousel({ device }) {
   const [fading, setFading] = useState(false);
   const prevKeysRef = useRef(new Set());
   const dismissTimerRef = useRef(null);
+
+  // Safe Driving status from reckless-driving detector
+  const { data: recklessData } = useQuery({
+    queryKey: ["reckless-driving-status", device?.id],
+    queryFn: async () => {
+      const res = await base44.functions.invoke("detectRecklessDriving", { device_id: device.id });
+      return res.data;
+    },
+    enabled: !!device?.id,
+    refetchInterval: 60000,
+  });
+  const unsafeDriving = recklessData?.status === "fail";
 
   const tickets = useMemo(() => {
     const now = Date.now();
@@ -50,8 +64,9 @@ export default function SecurityTicketCarousel({ device }) {
       { key: "takeover", label: "Street Takeover", icon: Users, ok: !takeover, detail: takeover ? "Gathering + speed" : "Clear" },
       { key: "smoke", label: "Smoke Detection", icon: Flame, ok: !smoke, detail: smoke ? "Smoke detected!" : "Clear" },
       { key: "idle", label: "Long Idle", icon: Clock, ok: !idle, detail: idle ? "Idle > 4 hrs" : "Active" },
+      { key: "safe", label: "Safe Driving", icon: ShieldCheck, ok: !unsafeDriving, detail: unsafeDriving ? "Reckless detected" : "All clear" },
     ];
-  }, [device]);
+  }, [device, unsafeDriving]);
 
   const issues = tickets.filter((t) => !t.ok);
 

@@ -8,7 +8,6 @@ import { Lock, Unlock, Wind, Camera, Clock, Fuel, CheckCircle, Navigation, Chevr
 import FindMyVehicleMap from "@/components/customer/mybookings/FindMyVehicleMap";
 import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet";
 import SOSButton from "@/components/customer/sos/SOSButton";
-import RecklessDrivingCard from "@/components/gps/RecklessDrivingCard";
 import { useVehicleSkin } from "@/hooks/useVehicleSkin";
 import MyVehicleCompact from "@/components/customer/myvehicle/MyVehicleCompact";
 import VehicleSkinPicker from "@/components/customer/myvehicle/VehicleSkinPicker";
@@ -788,12 +787,8 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
           {/* remote controls moved above rental info */}
 
-          {/* ── RECKLESS DRIVING MONITOR ── */}
-          {booking && device && (
-            <div style={{ marginBottom: 16 }}>
-              <RecklessDrivingCard device={device} />
-            </div>
-          )}
+          {/* ── SECURITY MONITOR (horizontal live ticket carousel) ── */}
+          <SecurityTicketCarousel device={device} />
 
           {/* ── END YOUR RENTAL ── */}
           {!dropoffInspectionComplete && isBookingActive && (
@@ -827,9 +822,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <ChevronRight size={16} color="rgba(255,255,255,0.75)" />
             </button>
           )}
-
-          {/* ── SECURITY MONITOR (horizontal live ticket carousel) ── */}
-          <SecurityTicketCarousel device={device} />
 
         </div>
 
