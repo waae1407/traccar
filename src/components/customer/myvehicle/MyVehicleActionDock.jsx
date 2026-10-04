@@ -22,6 +22,7 @@ export default function MyVehicleActionDock({
   dropoffInspectionComplete,
   onCommand,
   visible = true,
+  navVisible = false,
 }) {
   const baseBtn = {
     flex: 1,
@@ -64,7 +65,7 @@ export default function MyVehicleActionDock({
       <div
         style={{
           position: "fixed",
-          bottom: 70,
+          bottom: navVisible ? 70 : 16,
           left: "50%",
           transform: visible
             ? "translateX(-50%) translateY(0)"
@@ -179,7 +180,7 @@ export default function MyVehicleActionDock({
       <div
         style={{
           position: "fixed",
-          bottom: 178,
+          bottom: navVisible ? 178 : 124,
           right: 16,
           transform: visible ? "translateY(0)" : "translateY(220%)",
           transition: "transform 0.3s ease-in-out",

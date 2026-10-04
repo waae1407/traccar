@@ -684,7 +684,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 </div>
               </div>
             </div>
-            <div style={{ height: "90vh", position: "relative" }}>
+            <div style={{ height: "45vh", position: "relative" }}>
               {booking ? (
                 <>
                   <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
@@ -913,6 +913,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
           dropoffInspectionComplete={dropoffInspectionComplete}
           onCommand={handleCommand}
           visible={true}
+          navVisible={showFooter}
         />
 
         {/* ── BOTTOM NAVIGATION ── */}

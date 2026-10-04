@@ -172,7 +172,9 @@ export default function FindMyVehicleMap({
         .setLngLat([lng, lat])
         .addTo(map);
     }
-    map.panTo([lng, lat], { duration: 500 });
+    // Offset center upward so the vehicle marker sits in the visible area
+    // above the fixed action dock, not hidden behind it
+    map.panTo([lng, lat], { duration: 500, offset: [0, -55] });
   }, [mapReady, lat, lng]);
 
 
