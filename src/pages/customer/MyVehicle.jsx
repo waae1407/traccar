@@ -15,6 +15,7 @@ import MyVehicleClassicStyles from "@/components/customer/myvehicle/MyVehicleCla
 import ClassicDiagnosticsSheet from "@/components/customer/myvehicle/ClassicDiagnosticsSheet";
 import MyVehicleActionDock from "@/components/customer/myvehicle/MyVehicleActionDock";
 import SecurityTicketCarousel from "@/components/customer/myvehicle/SecurityTicketCarousel";
+import AdditionalMonitorsSection from "@/components/customer/myvehicle/AdditionalMonitorsSection";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -819,6 +820,9 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <ChevronRight size={16} color="rgba(255,255,255,0.75)" />
             </button>
           )}
+
+          {/* ── ADDITIONAL MONITORS (expandable) ── */}
+          <AdditionalMonitorsSection device={device} />
 
         </div>
 
