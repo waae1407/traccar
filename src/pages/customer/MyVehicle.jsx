@@ -511,10 +511,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             {vehicleImage && (
               <div style={{
                 position: "absolute",
-                right: "-6%",
-                top: "4%",
-                width: "72%",
-                height: "92%",
+                right: "-8%",
+                top: "2%",
+                width: "85%",
+                height: "96%",
                 overflow: "hidden",
               }}>
                 <img
@@ -535,7 +535,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             <div style={{
               position: "absolute",
               inset: 0,
-              background: "linear-gradient(90deg, #050506 0%, #050506 48%, rgba(5,5,6,0.92) 62%, transparent 82%, transparent 100%)",
+              background: "linear-gradient(90deg, #050506 0%, #050506 8%, rgba(5,5,6,0.65) 18%, transparent 45%, transparent 100%)",
               zIndex: 2,
             }} />
             <div style={{
@@ -639,15 +639,14 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             </div>
 
             {/* Stats — inline, large, bold */}
-            <div style={{ display: "flex", alignItems: "center", gap: 28, marginBottom: 16, marginTop: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 24, marginBottom: 14, marginTop: 14 }}>
               <div>
-                <p style={{ fontSize: 20, fontWeight: 700, color: "#F5F5F7", lineHeight: 1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>{displayMiles} <span style={{ fontSize: 13, fontWeight: 500, color: "#9A9AA0" }}>mi</span></p>
-                <p style={{ fontSize: 11, color: "#71717A", margin: "4px 0 0", fontWeight: 500, letterSpacing: "0.02em" }}>{displayLabel}</p>
+                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{displayMiles} mi</p>
+                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>{displayLabel}</p>
               </div>
-              <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.06)" }} />
               <div>
-                <p style={{ fontSize: 20, fontWeight: 700, color: "#F5F5F7", lineHeight: 1, margin: 0, letterSpacing: "-0.3px", fontVariantNumeric: "tabular-nums" }}>{isDemo ? 72 : battInfo.pct}<span style={{ fontSize: 13, fontWeight: 500, color: "#9A9AA0" }}>%</span></p>
-                <p style={{ fontSize: 11, color: "#71717A", margin: "4px 0 0", fontWeight: 500, letterSpacing: "0.02em" }}>Battery</p>
+                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{isDemo ? 72 : battInfo.pct}%</p>
+                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery</p>
               </div>
             </div>
 

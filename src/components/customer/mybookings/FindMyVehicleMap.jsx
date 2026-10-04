@@ -76,8 +76,8 @@ export default function FindMyVehicleMap({
   const [searchParams] = useSearchParams();
   const mapStyle =
     mapStyleName === "satellite" ? satelliteStyle
-    : (mapStyleName === "neon" || searchParams.get("map") === "neon") ? neonGreenDarkStyle
-    : mutedDarkSlateStyle;
+    : (mapStyleName === "slate" || searchParams.get("map") === "slate") ? mutedDarkSlateStyle
+    : neonGreenDarkStyle;
 
   // Load the MapLibre worker as a same-origin blob URL
   useEffect(() => {
