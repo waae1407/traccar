@@ -41,16 +41,10 @@ const ALLOWED_STATUSES = [
 ];
 
 // Black teardrop pin (white outline) with a white car inside and a blue glow beneath — matches reference.
-// When `lockLabel` is provided ("LOCKED" | "UNLOCKED"), a small white pill sits above the pin
-// so the door state is visible right at the vehicle's location.
-function createVehicleMarkerElement(lockLabel = null) {
+function createVehicleMarkerElement() {
   const el = document.createElement("div");
-  const labelHtml = lockLabel
-    ? `<div style="position:absolute;left:50%;top:-12px;transform:translateX(-50%);white-space:nowrap;background:#FFFFFF;color:#0A0A0A;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;font-size:9px;font-weight:800;letter-spacing:0.08em;padding:3px 8px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,0.5);">${lockLabel}</div>`
-    : "";
   el.innerHTML = `
     <div style="position:relative;width:44px;height:56px;pointer-events:none;">
-      ${labelHtml}
       <div style="position:absolute;left:50%;top:78%;width:96px;height:96px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle, rgba(47,128,255,0.75) 0%, rgba(47,128,255,0.35) 30%, rgba(47,128,255,0.10) 55%, transparent 72%);"></div>
       <svg width="44" height="56" viewBox="0 0 44 56" fill="none" style="position:absolute;inset:0;filter:drop-shadow(0 0 10px rgba(47,128,255,0.55)) drop-shadow(0 2px 4px rgba(0,0,0,0.6));">
         <path d="M22 2C11.5 2 3 10.5 3 21c0 12 19 31 19 31s19-19 19-31C41 10.5 32.5 2 22 2z" fill="#0A0A0A" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
@@ -73,10 +67,7 @@ export default function FindMyVehicleMap({
   compact = false,
   vehicleColor = "#2F80FF",
   mapStyleName,
-  lockState = null, // null = unknown, true = locked, false = unlocked
 }) {
-  const lockLabel =
-    lockState === true ? "LOCKED" : lockState === false ? "UNLOCKED" : null;
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -175,7 +166,7 @@ export default function FindMyVehicleMap({
       markerRef.current.setLngLat([lng, lat]);
     } else {
       markerRef.current = new maplibregl.Marker({
-        element: createVehicleMarkerElement(lockLabel),
+        element: createVehicleMarkerElement(),
         anchor: "bottom",
       })
         .setLngLat([lng, lat])
@@ -184,19 +175,6 @@ export default function FindMyVehicleMap({
     // panTo uses the map's padding to auto-center the marker in the visible area
     map.panTo([lng, lat], { duration: 500 });
   }, [mapReady, lat, lng]);
-
-  // ── Recreate the marker element when the lock label changes ──
-  useEffect(() => {
-    if (!mapReady || !markerRef.current || !mapRef.current) return;
-    const lngLat = markerRef.current.getLngLat();
-    markerRef.current.remove();
-    markerRef.current = new maplibregl.Marker({
-      element: createVehicleMarkerElement(lockLabel),
-      anchor: "bottom",
-    })
-      .setLngLat(lngLat)
-      .addTo(mapRef.current);
-  }, [mapReady, lockLabel]);
 
 
   if (!canShow) {

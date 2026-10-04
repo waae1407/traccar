@@ -532,7 +532,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
           pointerEvents: "none",
         }}>
           {booking ? (
-            <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} lockState={isLocked} />
+            <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
           ) : (
             <div style={{ height: "100%", background: "#0a0a0a" }} />
           )}
@@ -557,6 +557,30 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 }}
               />
               <div className="vehicle-glint" />
+            </div>
+          )}
+          {/* Lock status — premium white label sitting in the vehicle photo's shadow */}
+          {vehicleImage && !isDemo && (
+            <div style={{
+              position: "absolute",
+              right: "2%", top: "33%",
+              zIndex: 4,
+              pointerEvents: "none",
+              textAlign: "right",
+            }}>
+              <p style={{
+                margin: 0,
+                color: "#FFFFFF",
+                fontFamily: LABEL_FONT,
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                textShadow: "0 1px 10px rgba(0,0,0,0.9), 0 0 18px rgba(47,128,255,0.35)",
+                opacity: isLocked === null ? 0.55 : 0.92,
+              }}>
+                {isLocked === true ? "Locked" : isLocked === false ? "Unlocked" : "Lock Status"}
+              </p>
             </div>
           )}
           {/* Top gradient scrim — text legibility */}
