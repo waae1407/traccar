@@ -36,8 +36,9 @@ export default function SecurityTicketCarousel({ device }) {
   const tickets = useMemo(() => {
     const now = Date.now();
 
-    // Theft: movement while ignition off
-    const theft = device?.movement_alarm && device?.ignition_status === "off";
+    // Theft: movement while ignition off OR while doors are locked
+    // (lock-state fallback catches theft when ignition is motion-inferred)
+    const theft = device?.movement_alarm && (device?.ignition_status === "off" || device?.lock_state === "locked");
 
     // Tow: movement alarm while parked (no ignition)
     const tow = device?.movement_alarm && (!device?.ignition_status || device?.ignition_status === "off") && !device?.speed;

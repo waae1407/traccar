@@ -243,10 +243,17 @@ Deno.serve(async (req) => {
       }
 
       // ── 2. Tow / movement detection ──
-      // Only alert if movement_alarm is true AND vehicle is parked (not driving)
-      if (device.movement_alarm === true && (!device.ignition_status || device.ignition_status === 'off')) {
-        await sendTowAlert(base44, { device, booking, host, vehicle });
-        stats.tow++;
+      // Two triggers, either of which means "moving but shouldn't be":
+      //   a) movement_alarm + ignition OFF  (reliable when ACC wiring is correct)
+      //   b) movement_alarm + doors LOCKED   (fallback when ignition is motion-inferred,
+      //      since a locked car should never be moving)
+      if (device.movement_alarm === true) {
+        const ignitionOff = !device.ignition_status || device.ignition_status === 'off';
+        const lockedMoving = device.lock_state === 'locked';
+        if (ignitionOff || lockedMoving) {
+          await sendTowAlert(base44, { device, booking, host, vehicle });
+          stats.tow++;
+        }
       }
 
       // ── 3. Low battery detection ──
