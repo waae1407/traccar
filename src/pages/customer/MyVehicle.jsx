@@ -696,8 +696,8 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
           </div>
         </div>
 
-        {/* Scroll content */}
-        <div style={{ padding: "0 15px", paddingBottom: 150, marginTop: 4, position: "relative", zIndex: 5 }}>
+        {/* Scroll content — pushed down so map stays fully visible on initial load */}
+        <div style={{ padding: "0 15px", paddingBottom: 150, paddingTop: "calc(100vh - 230px)", position: "relative", zIndex: 5 }}>
 
           {/* ── RENTAL INFO CARD ── */}
           <div style={{
