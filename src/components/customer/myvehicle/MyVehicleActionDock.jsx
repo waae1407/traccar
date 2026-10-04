@@ -105,9 +105,7 @@ export default function MyVehicleActionDock({
             style={{
               ...baseBtn,
               background: "#1A1A1A",
-              border: isLocked
-                ? "1px solid rgba(34,197,94,0.25)"
-                : "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.08)",
               opacity: dropoffInspectionComplete && commandLoading !== "lock" ? 0.45 : 1,
             }}
           >
@@ -116,7 +114,7 @@ export default function MyVehicleActionDock({
                 size={34}
                 color={isLocked ? "#22C55E" : "#FFFFFF"}
                 strokeWidth={2.2}
-                style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.25))" : "none" }}
+                style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.45))" : "none" }}
               />
               <span style={labelStyle}>Lock</span>
               <span style={subLabelStyle}>Doors</span>
@@ -158,9 +156,7 @@ export default function MyVehicleActionDock({
             style={{
               ...baseBtn,
               background: "#1A1A1A",
-              border: !isLocked
-                ? "1px solid rgba(34,197,94,0.25)"
-                : "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.08)",
               opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
             }}
           >
@@ -169,7 +165,7 @@ export default function MyVehicleActionDock({
                 size={34}
                 color={!isLocked ? "#22C55E" : "#FFFFFF"}
                 strokeWidth={2.2}
-                style={{ filter: !isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.25))" : "none" }}
+                style={{ filter: !isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.45))" : "none" }}
               />
               <span style={labelStyle}>Unlock</span>
               <span style={subLabelStyle}>Doors</span>
