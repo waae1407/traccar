@@ -559,14 +559,15 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <div className="vehicle-glint" />
             </div>
           )}
-          {/* Lock status — premium white label sitting in the vehicle photo's shadow */}
+          {/* Lock status — premium white label centered under the driver-side front tire */}
           {vehicleImage && !isDemo && (
             <div style={{
               position: "absolute",
-              right: "2%", top: "33%",
+              left: "60%", top: "34%",
+              transform: "translateX(-50%)",
               zIndex: 4,
               pointerEvents: "none",
-              textAlign: "right",
+              textAlign: "center",
             }}>
               <p style={{
                 margin: 0,
