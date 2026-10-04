@@ -489,33 +489,35 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
       {/* Centered mobile container */}
       <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#050506", position: "relative" }}>
 
-        {/* ── CINEMATIC VEHICLE HERO ── */}
+        {/* ── FULL-BLEED MAP HERO ── */}
         <div style={{
           position: "relative",
           overflow: "hidden",
           background: "#050506",
-          minHeight: "auto",
+          height: "58vh",
+          minHeight: 380,
           paddingTop: 16,
-          paddingBottom: 16,
           paddingLeft: 20,
           paddingRight: 16,
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
         }}>
-          {/* Vehicle image — cinematic, de-emphasized studio background */}
-          <div style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            zIndex: 1,
-          }}>
+          {/* Map as full-bleed background */}
+          <div style={{ position: "absolute", inset: 0, zIndex: 1, overflow: "hidden", pointerEvents: "none" }}>
+            {booking ? (
+              <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+            ) : (
+              <div style={{ height: "100%", background: "#0a0a0a" }} />
+            )}
+            {/* Vehicle render floating right, subtle overlay */}
             {vehicleImage && (
               <div style={{
                 position: "absolute",
                 right: "-4%",
                 top: "8%",
-                width: "68%",
-                height: "84%",
+                width: "52%",
+                height: "48%",
                 overflow: "hidden",
+                pointerEvents: "none",
+                zIndex: 2,
               }}>
                 <img
                   src={vehicleImage}
@@ -526,38 +528,39 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                     objectFit: "contain",
                     objectPosition: "center",
                     display: "block",
-                    filter: "brightness(1.05) contrast(1.1) saturate(1.05)",
+                    filter: "brightness(1.1) contrast(1.15) saturate(1.05)",
                   }}
                 />
                 <div className="vehicle-glint" />
               </div>
             )}
+            {/* Top gradient scrim — text legibility */}
             <div style={{
               position: "absolute",
-              inset: 0,
-              background: "linear-gradient(90deg, #050506 0%, #050506 8%, rgba(5,5,6,0.65) 18%, transparent 45%, transparent 100%)",
-              zIndex: 2,
+              top: 0, left: 0, right: 0, height: "55%",
+              background: "linear-gradient(180deg, rgba(5,5,6,0.92) 0%, rgba(5,5,6,0.55) 45%, transparent 100%)",
+              zIndex: 3, pointerEvents: "none",
             }} />
+            {/* Bottom gradient scrim — location bar legibility */}
             <div style={{
               position: "absolute",
-              inset: 0,
-              background: "linear-gradient(180deg, #050506 0%, transparent 15%, transparent 85%, #050506 100%)",
-              zIndex: 3,
+              bottom: 0, left: 0, right: 0, height: "45%",
+              background: "linear-gradient(0deg, rgba(5,5,6,0.92) 0%, rgba(5,5,6,0.45) 45%, transparent 100%)",
+              zIndex: 3, pointerEvents: "none",
             }} />
+            {/* Blue accent glow */}
             <div style={{
               position: "absolute",
-              right: -40,
-              top: 40,
-              width: 210,
-              height: 96,
-              background: "radial-gradient(ellipse at center, rgba(47,128,255,0.18), transparent 70%)",
+              right: -40, top: 40,
+              width: 210, height: 96,
+              background: "radial-gradient(ellipse at center, rgba(47,128,255,0.12), transparent 70%)",
               filter: "blur(18px)",
-              zIndex: 4,
+              zIndex: 3, pointerEvents: "none",
             }} />
           </div>
 
-          {/* Foreground text content */}
-          <div style={{ position: "relative", zIndex: 2 }}>
+          {/* Foreground content — overlays the map */}
+          <div style={{ position: "relative", zIndex: 4 }}>
           {/* Return Required Banner */}
           {isReturnRequired && (
             <div style={{ marginBottom: 16 }}>
@@ -652,70 +655,47 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
             {/* Removed redundant status icons to free up map space */}
           </div>
+
+          {/* Location bar — overlaid at bottom of map hero */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 4, padding: "0 20px 14px" }}>
+            <div className="flex items-start gap-3">
+              <div style={{ marginTop: 2, flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "rgba(47,128,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <MapPin size={14} color="#2F80FF" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", lineHeight: 1.2, textShadow: "0 1px 8px rgba(0,0,0,0.6)" }}>
+                  {displayAddress?.poi || displayAddress?.street || "Locating Vehicle..."}
+                </p>
+                <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 2, fontWeight: 400, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
+                  {displayAddress?.poi ? displayAddress.street : displayAddress?.city_state}
+                </p>
+                <p style={{ fontSize: 11, color: "#71717A", marginTop: 4, fontWeight: 400 }}>
+                  Updated {gps.label === "Live" ? "just now" : gps.label.toLowerCase()}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (device?.last_latitude && device?.last_longitude) {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+                  }
+                }}
+                aria-label="Directions"
+                style={{
+                  width: 40, height: 40, borderRadius: "50%",
+                  background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.15)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", flexShrink: 0,
+                  backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+                }}
+              >
+                <Navigation size={18} color="#FFFFFF" style={{ transform: "rotate(45deg)" }} />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Scroll content */}
         <div style={{ padding: "0 15px", paddingBottom: 150, marginTop: 4, position: "relative", zIndex: 5 }}>
-
-          {/* ── MAP CARD — borderless, bleeds into canvas ── */}
-          <div style={{
-            background: "transparent",
-            border: "none",
-            borderRadius: 0,
-            overflow: "hidden",
-            marginBottom: 12,
-          }}>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-start gap-3">
-                <div style={{ marginTop: 2, flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "rgba(47,128,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <MapPin size={14} color="#2F80FF" />
-                </div>
-                <div>
-                  <p style={{ fontSize: 14, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", lineHeight: 1.2 }}>
-                    {displayAddress?.poi || displayAddress?.street || "Locating Vehicle..."}
-                  </p>
-                  <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 2, fontWeight: 400 }}>
-                    {displayAddress?.poi ? displayAddress.street : displayAddress?.city_state}
-                  </p>
-                  
-                  <p style={{ fontSize: 11, color: "#71717A", marginTop: 4, fontWeight: 400 }}>
-                    Updated {gps.label === "Live" ? "just now" : gps.label.toLowerCase()}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div style={{ height: "45vh", position: "relative" }}>
-              {booking ? (
-                <>
-                  <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
-                  {/* Subtle tint to harmonize tiles with the canvas */}
-                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 200, background: "rgba(5,5,6,0.25)" }} />
-                  <button 
-                    onClick={() => {
-                      if (device?.last_latitude && device?.last_longitude) {
-                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
-                      }
-                    }}
-                    aria-label="Directions"
-                    style={{
-                      position: "absolute", top: 14, right: 14, zIndex: 400,
-                      width: 40, height: 40, borderRadius: "50%",
-                      background: "#000", border: "1px solid rgba(255,255,255,0.15)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer",
-                      boxShadow: "0 2px 12px rgba(0,0,0,0.5)"
-                    }}
-                  >
-                    <Navigation size={18} color="#FFFFFF" style={{ transform: "rotate(45deg)" }} />
-                  </button>
-                </>
-              ) : (
-                <div style={{ height: "100%", background: "#0d1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <p style={{ color: "#71717A", fontSize: 12 }}>GPS location available during active rental</p>
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* ── RENTAL INFO CARD ── */}
           <div style={{
