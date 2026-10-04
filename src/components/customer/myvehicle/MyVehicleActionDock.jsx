@@ -25,12 +25,13 @@ export default function MyVehicleActionDock({
 }) {
   const baseBtn = {
     flex: 1,
-    height: 150,
-    borderRadius: 28,
+    height: 92,
+    borderRadius: 16,
     display: "flex",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: 4,
     padding: 0,
     cursor: "pointer",
     transition: "all 0.2s ease-in-out",
@@ -38,11 +39,21 @@ export default function MyVehicleActionDock({
 
   const labelStyle = {
     fontFamily: LABEL_FONT,
-    fontWeight: 800,
-    fontSize: 42,
+    fontWeight: 700,
+    fontSize: 16,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
     color: "#F5F5F7",
+    lineHeight: 1.1,
+  };
+
+  const subLabelStyle = {
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', sans-serif",
+    fontWeight: 400,
+    fontSize: 11,
+    color: "#8E8E93",
+    letterSpacing: "0.01em",
+    lineHeight: 1.1,
   };
 
   const disabledAny = !!commandLoading || dropoffInspectionComplete;
@@ -97,14 +108,15 @@ export default function MyVehicleActionDock({
               opacity: dropoffInspectionComplete && commandLoading !== "lock" ? 0.45 : 1,
             }}
           >
-            <div className="btn-loading-content" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="btn-loading-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
               <Lock
-                size={60}
+                size={34}
                 color={isLocked ? "#22C55E" : "#FFFFFF"}
                 strokeWidth={2.2}
                 style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.25))" : "none" }}
               />
               <span style={labelStyle}>Lock</span>
+              <span style={subLabelStyle}>Doors</span>
             </div>
           </button>
 
@@ -122,8 +134,8 @@ export default function MyVehicleActionDock({
               cursor: !dropoffInspectionComplete ? "pointer" : "default",
             }}
           >
-            <div className="btn-loading-content" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <svg width="54" height="54" viewBox="0 0 44 56" fill="none" style={{ filter: "drop-shadow(0 0 5px rgba(59,130,246,0.5))" }}>
+            <div className="btn-loading-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <svg width="34" height="34" viewBox="0 0 44 56" fill="none" style={{ filter: "drop-shadow(0 0 5px rgba(59,130,246,0.5))" }}>
                 <path d="M22 2C11.5 2 3 10.5 3 21c0 12 19 31 19 31s19-19 19-31C41 10.5 32.5 2 22 2z" fill="#0A0A0A" stroke="#3B82F6" strokeWidth="2" strokeLinejoin="round"/>
                 <path d="M15.5 19 L17.5 14.5 Q18 13.5 19.2 13.5 H24.8 Q26 13.5 26.5 14.5 L28.5 19 Z" fill="#FFFFFF"/>
                 <rect x="13" y="19" width="18" height="7" rx="2" fill="#FFFFFF"/>
@@ -131,6 +143,7 @@ export default function MyVehicleActionDock({
                 <circle cx="27.5" cy="22.5" r="1.2" fill="#0A0A0A"/>
               </svg>
               <span style={labelStyle}>Locate</span>
+              <span style={subLabelStyle}>Vehicle</span>
             </div>
           </button>
 
@@ -148,14 +161,15 @@ export default function MyVehicleActionDock({
               opacity: dropoffInspectionComplete && commandLoading !== "unlock" ? 0.45 : 1,
             }}
           >
-            <div className="btn-loading-content" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="btn-loading-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
               <Unlock
-                size={60}
+                size={34}
                 color={!isLocked ? "#22C55E" : "#FFFFFF"}
                 strokeWidth={2.2}
                 style={{ filter: !isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.25))" : "none" }}
               />
               <span style={labelStyle}>Unlock</span>
+              <span style={subLabelStyle}>Doors</span>
             </div>
           </button>
         </div>
@@ -165,7 +179,7 @@ export default function MyVehicleActionDock({
       <div
         style={{
           position: "fixed",
-          bottom: 132,
+          bottom: 178,
           right: 16,
           transform: visible ? "translateY(0)" : "translateY(220%)",
           transition: "transform 0.3s ease-in-out",
