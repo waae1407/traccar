@@ -606,13 +606,14 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <div style={{ flex: 1, minWidth: 0, textShadow: "0 1px 10px rgba(0,0,0,0.85)" }}>
                 <p style={{ fontSize: 22, fontWeight: 700, color: "#F5F5F7", lineHeight: 1.15, margin: 0, letterSpacing: "-0.4px", textTransform: "capitalize" }}>{name.toLowerCase()}</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 5 }}>
                       <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", boxShadow: "0 0 6px rgba(34,197,94,0.6)", flexShrink: 0 }} />
                       {isDemo ? "Online" : (device?.online_status === "offline" ? "Offline" : "Online")}
                     </span>
-                    <span style={{ color: "#9CA3AF", fontSize: 13, fontWeight: 550, display: "flex", alignItems: "center", gap: 5 }}>
-                      {gps.status === "online" ? "Live" : "No GPS"}
+                    <span style={{ width: 1, height: 12, background: "rgba(255,255,255,0.15)" }} />
+                    <span style={{ color: battInfo.color, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                      {isDemo ? 100 : battInfo.pct}% Battery
                     </span>
                   </div>
                 </div>
@@ -648,10 +649,6 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <div>
                 <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{displayMiles} mi</p>
                 <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>{displayLabel}</p>
-              </div>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", lineHeight: 1.1, margin: 0, letterSpacing: "-0.1px", fontVariantNumeric: "tabular-nums" }}>{isDemo ? 72 : battInfo.pct}%</p>
-                <p style={{ fontSize: 11, color: "#9A9AA0", margin: "2px 0 0", fontWeight: 400 }}>Battery</p>
               </div>
             </div>
 
