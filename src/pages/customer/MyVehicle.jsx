@@ -532,7 +532,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
           pointerEvents: "none",
         }}>
           {booking ? (
-            <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+            <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} lockState={isLocked} />
           ) : (
             <div style={{ height: "100%", background: "#0a0a0a" }} />
           )}
