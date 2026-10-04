@@ -279,11 +279,24 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   // Grace period: for 2 minutes after a lock/unlock command, don't let the device's
   // lock_state override the optimistic UI — some devices (e.g. NR09G51900) report
   // "locked" even after a successful unlock because the status bit isn't wired correctly.
+  // Last device-acknowledged lock/unlock command is the source of truth;
+  // the device's reported lock bit is only a fallback when no command history exists.
+  const { data: lastLockCmd } = useQuery({
+    queryKey: ["my-vehicle-last-lock-cmd", device?.id],
+    queryFn: async () => {
+      const cmds = await base44.entities.TelematicsCommand.filter({ telematics_device_id: device.id, status: "acknowledged" }, "-created_date", 50);
+      return cmds.find((c) => c.command_type === "lock" || c.command_type === "unlock") || null;
+    },
+    enabled: !!device?.id,
+    refetchInterval: 30_000,
+  });
+
   useEffect(() => {
     if (Date.now() - lastLockCommandAtRef.current < 120000) return;
-    if (device?.lock_state === "locked") setIsLocked(true);
+    if (lastLockCmd) setIsLocked(lastLockCmd.command_type === "lock");
+    else if (device?.lock_state === "locked") setIsLocked(true);
     else if (device?.lock_state === "unlocked") setIsLocked(false);
-  }, [device?.lock_state]);
+  }, [lastLockCmd?.id, device?.lock_state]);
 
   const { data: safetyEvents = [] } = useQuery({
     queryKey: ["customer-safety-events", booking?.vehicle_id],
