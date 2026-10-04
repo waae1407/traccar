@@ -21,25 +21,22 @@ export default function LockStatusFloorLabel({ isLocked, aspect }) {
     }}>
       <p style={{
         position: "absolute",
-        left: "38%", top: "77%",
+        left: "64%", top: "74%",
         margin: 0,
         lineHeight: 1,
         transform: "translateX(-50%) perspective(160px) rotateX(24deg)",
         transformOrigin: "center top",
         whiteSpace: "nowrap",
         fontFamily: LABEL_FONT,
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 700,
         letterSpacing: "0.32em",
         paddingLeft: "0.32em",
         textTransform: "uppercase",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.4) 100%)",
-        WebkitBackgroundClip: "text",
-        backgroundClip: "text",
-        color: "transparent",
-        mixBlendMode: "screen",
-        filter: "drop-shadow(0 0 6px rgba(47,128,255,0.35))",
-        opacity: isLocked === null ? 0.5 : 0.9,
+        color: "#FFFFFF",
+        textShadow: "0 0 4px rgba(255,255,255,0.9), 0 0 12px rgba(47,128,255,0.6), 0 0 24px rgba(47,128,255,0.3)",
+        animation: "lockLabelGlow 2.5s ease-in-out infinite",
+        opacity: isLocked === null ? 0.6 : 1,
       }}>
         {text}
       </p>
