@@ -1,5 +1,5 @@
 import React from "react";
-import { Lock, Unlock } from "lucide-react";
+import { Lock, Unlock, MapPin } from "lucide-react";
 import SOSButton from "@/components/customer/sos/SOSButton";
 
 const LABEL_FONT = "'Barlow Condensed', sans-serif";
@@ -23,6 +23,8 @@ export default function MyVehicleActionDock({
   onCommand,
   visible = true,
   navVisible = false,
+  displayAddress,
+  gps,
 }) {
   const baseBtn = {
     flex: 1,
@@ -78,10 +80,47 @@ export default function MyVehicleActionDock({
           padding: "8px 14px",
           zIndex: 55,
           display: "flex",
-          gap: 8,
+          flexDirection: "column",
+          gap: 0,
           pointerEvents: "none",
         }}
       >
+        {/* GPS address — flush-right, bleeds seamlessly above the dock */}
+        <button
+          onClick={() => {
+            if (device?.last_latitude && device?.last_longitude) {
+              window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+            }
+          }}
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "flex-start",
+            gap: 10,
+            width: "100%",
+            padding: "0 70px 10px 6px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            textAlign: "right",
+            pointerEvents: "auto",
+          }}
+        >
+          <div style={{ textAlign: "right", minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", lineHeight: 1.2, margin: 0, textShadow: "0 1px 10px rgba(0,0,0,0.85), 0 0 24px rgba(0,0,0,0.6)" }}>
+              {displayAddress?.poi || displayAddress?.street || "Locating Vehicle..."}
+            </p>
+            <p style={{ fontSize: 11, color: "#A1A1AA", marginTop: 2, fontWeight: 400, margin: 0, textShadow: "0 1px 8px rgba(0,0,0,0.8)" }}>
+              {displayAddress?.poi ? displayAddress.street : displayAddress?.city_state}
+            </p>
+            <p style={{ fontSize: 10, color: "#71717A", marginTop: 3, fontWeight: 400, margin: 0, letterSpacing: "0.02em" }}>
+              Updated {gps?.label === "Live" ? "just now" : (gps?.label || "").toLowerCase()}
+            </p>
+          </div>
+          <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "rgba(47,128,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 12px rgba(47,128,255,0.18)" }}>
+            <MapPin size={14} color="#2F80FF" />
+          </div>
+        </button>
         <div
           style={{
             display: "flex",
