@@ -53,31 +53,35 @@ function vehicleName(vehicle, booking) {
 
 function getBatteryInfo(device) {
   const voltage = device?.power_voltage || device?.battery_voltage || 0;
-  if (!voltage) return { pct: 0, label: "Unknown", color: "#71717A", voltage: "0.0" };
-  
+  if (!voltage) return { pct: 0, label: "Unknown", color: "#71717A", voltage: "0.0", needsCharge: false };
+
   let pct = 0;
   if (device?.ignition_status === 'on' || voltage >= 13.0) {
     pct = 100;
   } else {
-    pct = Math.max(0, Math.min(100, Math.round(((voltage - 11.8) / (12.6 - 11.8)) * 100)));
+    pct = Math.max(0, Math.min(100, Math.round(((voltage - 11.5) / (12.6 - 11.5)) * 100)));
   }
 
   let label = "Good";
   let color = "#22C55E";
-  if (voltage < 11.8) {
+  let needsCharge = false;
+  if (voltage < 11.5) {
     label = "Critical";
     color = "#FF453A";
-  } else if (voltage <= 12.1) {
-    label = "Low";
+    needsCharge = true;
+  } else if (voltage < 12.0) {
+    label = "Low — Charge Needed";
     color = "#FF9F0A";
+    needsCharge = true;
   }
-  
+
   if (device?.ignition_status === 'on' || voltage >= 13.0) {
     label = "Charging";
     color = "#22C55E";
+    needsCharge = false;
   }
 
-  return { pct, label, color, voltage: voltage.toFixed(1) };
+  return { pct, label, color, voltage: voltage.toFixed(1), needsCharge };
 }
 
 function freshness(device) {
@@ -585,6 +589,19 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: "#FFF", margin: 0 }}>Rental Overdue</p>
                   <p style={{ fontSize: 11, color: "#FF453A", margin: "2px 0 0" }}>Return vehicle immediately to stop billing</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Low Battery — Start Vehicle Prompt */}
+          {!isDemo && battInfo.needsCharge && device?.ignition_status !== "on" && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ background: "rgba(255,159,10,0.15)", border: "1px solid rgba(255,159,10,0.4)", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, backdropFilter: "blur(10px)" }}>
+                <Battery size={18} color="#FF9F0A" />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#FFF", margin: 0 }}>Battery Low — {battInfo.voltage}V</p>
+                  <p style={{ fontSize: 11, color: "#FF9F0A", margin: "2px 0 0" }}>Start the vehicle and let it run for 20+ minutes to recharge the battery.</p>
                 </div>
               </div>
             </div>
