@@ -21,7 +21,7 @@ export default function LockStatusFloorLabel({ isLocked, aspect }) {
     }}>
       <p style={{
         position: "absolute",
-        left: "38%", top: "77%",
+        left: "27%", top: "77%",
         margin: 0,
         lineHeight: 1,
         transform: "translateX(-50%) perspective(160px) rotateX(24deg)",
