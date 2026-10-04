@@ -487,79 +487,81 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
       )}
 
       {/* Centered mobile container */}
-      <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "#050506", position: "relative" }}>
+      <div style={{ maxWidth: 430, margin: "0 auto", minHeight: "100vh", background: "transparent", position: "relative" }}>
 
-        {/* ── FULL-BLEED MAP HERO ── */}
+        {/* ── FULL-SCREEN MAP BACKGROUND (fixed, fills entire viewport) ── */}
+        <div style={{
+          position: "fixed",
+          top: 0, left: "50%",
+          transform: "translateX(-50%)",
+          width: "100%", maxWidth: 430,
+          height: "100vh",
+          zIndex: 0,
+          overflow: "hidden",
+          pointerEvents: "none",
+        }}>
+          {booking ? (
+            <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
+          ) : (
+            <div style={{ height: "100%", background: "#0a0a0a" }} />
+          )}
+          {/* Vehicle render floating right */}
+          {vehicleImage && (
+            <div style={{
+              position: "absolute",
+              right: "-4%", top: "6%",
+              width: "52%", height: "28%",
+              overflow: "hidden",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}>
+              <img
+                src={vehicleImage}
+                alt={name}
+                style={{
+                  width: "100%", height: "100%",
+                  objectFit: "contain", objectPosition: "center",
+                  display: "block",
+                  filter: "brightness(1.1) contrast(1.15) saturate(1.05)",
+                }}
+              />
+              <div className="vehicle-glint" />
+            </div>
+          )}
+          {/* Top gradient scrim — text legibility */}
+          <div style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0, height: "35%",
+            background: "linear-gradient(180deg, rgba(5,5,6,0.88) 0%, rgba(5,5,6,0.4) 50%, transparent 100%)",
+            zIndex: 3, pointerEvents: "none",
+          }} />
+          {/* Bottom gradient scrim — content readability at bottom */}
+          <div style={{
+            position: "absolute",
+            bottom: 0, left: 0, right: 0, height: "30%",
+            background: "linear-gradient(0deg, rgba(5,5,6,0.88) 0%, rgba(5,5,6,0.3) 60%, transparent 100%)",
+            zIndex: 3, pointerEvents: "none",
+          }} />
+          {/* Blue accent glow */}
+          <div style={{
+            position: "absolute",
+            right: -40, top: 40,
+            width: 210, height: 96,
+            background: "radial-gradient(ellipse at center, rgba(47,128,255,0.12), transparent 70%)",
+            filter: "blur(18px)",
+            zIndex: 3, pointerEvents: "none",
+          }} />
+        </div>
+
+        {/* ── VEHICLE INFO OVERLAY (transparent, floats over full-screen map) ── */}
         <div style={{
           position: "relative",
-          overflow: "hidden",
-          background: "#050506",
-          height: "58vh",
-          minHeight: 380,
           paddingTop: 16,
           paddingLeft: 20,
           paddingRight: 16,
+          zIndex: 4,
         }}>
-          {/* Map as full-bleed background */}
-          <div style={{ position: "absolute", inset: 0, zIndex: 1, overflow: "hidden", pointerEvents: "none" }}>
-            {booking ? (
-              <FindMyVehicleMap booking={booking} vehicleColor={vehicle?.color} />
-            ) : (
-              <div style={{ height: "100%", background: "#0a0a0a" }} />
-            )}
-            {/* Vehicle render floating right, subtle overlay */}
-            {vehicleImage && (
-              <div style={{
-                position: "absolute",
-                right: "-4%",
-                top: "8%",
-                width: "52%",
-                height: "48%",
-                overflow: "hidden",
-                pointerEvents: "none",
-                zIndex: 2,
-              }}>
-                <img
-                  src={vehicleImage}
-                  alt={name}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    objectPosition: "center",
-                    display: "block",
-                    filter: "brightness(1.1) contrast(1.15) saturate(1.05)",
-                  }}
-                />
-                <div className="vehicle-glint" />
-              </div>
-            )}
-            {/* Top gradient scrim — text legibility */}
-            <div style={{
-              position: "absolute",
-              top: 0, left: 0, right: 0, height: "55%",
-              background: "linear-gradient(180deg, rgba(5,5,6,0.92) 0%, rgba(5,5,6,0.55) 45%, transparent 100%)",
-              zIndex: 3, pointerEvents: "none",
-            }} />
-            {/* Bottom gradient scrim — location bar legibility */}
-            <div style={{
-              position: "absolute",
-              bottom: 0, left: 0, right: 0, height: "45%",
-              background: "linear-gradient(0deg, rgba(5,5,6,0.92) 0%, rgba(5,5,6,0.45) 45%, transparent 100%)",
-              zIndex: 3, pointerEvents: "none",
-            }} />
-            {/* Blue accent glow */}
-            <div style={{
-              position: "absolute",
-              right: -40, top: 40,
-              width: 210, height: 96,
-              background: "radial-gradient(ellipse at center, rgba(47,128,255,0.12), transparent 70%)",
-              filter: "blur(18px)",
-              zIndex: 3, pointerEvents: "none",
-            }} />
-          </div>
-
-          {/* Foreground content — overlays the map */}
+          {/* Foreground content */}
           <div style={{ position: "relative", zIndex: 4 }}>
           {/* Return Required Banner */}
           {isReturnRequired && (
@@ -656,8 +658,8 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
             {/* Removed redundant status icons to free up map space */}
           </div>
 
-          {/* Location bar — overlaid at bottom of map hero */}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 4, padding: "0 20px 14px" }}>
+          {/* Location bar — in content flow, floats over map */}
+          <div style={{ marginTop: 10 }}>
             <div className="flex items-start gap-3">
               <div style={{ marginTop: 2, flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "rgba(47,128,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <MapPin size={14} color="#2F80FF" />
@@ -699,8 +701,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
           {/* ── RENTAL INFO CARD ── */}
           <div style={{
-            background: "#1A1A1A",
-            border: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(26,26,26,0.72)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+            border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 18,
             padding: "16px 20px",
             display: "flex",
@@ -837,8 +841,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               </div>
             </div>
             <div style={{
-              background: "#1A1A1A",
-              border: "1px solid rgba(255,255,255,0.06)",
+              background: "rgba(26,26,26,0.72)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 18,
               padding: "16px 12px",
               display: "grid",
