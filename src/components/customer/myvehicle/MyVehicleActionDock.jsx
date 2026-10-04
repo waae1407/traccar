@@ -65,7 +65,7 @@ export default function MyVehicleActionDock({
       <div
         style={{
           position: "fixed",
-          bottom: navVisible ? 70 : 16,
+          bottom: navVisible ? 70 : 0,
           left: "50%",
           transform: visible
             ? "translateX(-50%) translateY(0)"

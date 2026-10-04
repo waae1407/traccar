@@ -144,7 +144,12 @@ export default function FindMyVehicleMap({
       attributionControl: false,
     });
 
-    map.on("load", () => setMapReady(true));
+    map.on("load", () => {
+      // Auto-center: add bottom padding equal to the action dock height
+      // so the vehicle marker centers in the visible area above the dock
+      map.setPadding({ top: 0, bottom: 112, left: 0, right: 0 });
+      setMapReady(true);
+    });
     map.on("error", (e) => console.error("[FindMyVehicleMap] Map error:", e));
     mapRef.current = map;
 
@@ -172,9 +177,8 @@ export default function FindMyVehicleMap({
         .setLngLat([lng, lat])
         .addTo(map);
     }
-    // Offset center upward so the vehicle marker sits in the visible area
-    // above the fixed action dock, not hidden behind it
-    map.panTo([lng, lat], { duration: 500, offset: [0, -55] });
+    // panTo uses the map's padding to auto-center the marker in the visible area
+    map.panTo([lng, lat], { duration: 500 });
   }, [mapReady, lat, lng]);
 
 
