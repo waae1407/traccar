@@ -132,16 +132,6 @@ const CSS = `
   }
   .text-monitor-pulse { animation: textMonitorPulse 2.5s ease-in-out infinite; }
 
-  /* ── Lock Status Floor Label: dynamic illumination ── */
-  @keyframes lockLabelGlow {
-    0%, 100% {
-      text-shadow: 0 0 3px rgba(255,255,255,0.8), 0 0 8px rgba(47,128,255,0.4), 0 0 16px rgba(47,128,255,0.2);
-    }
-    50% {
-      text-shadow: 0 0 6px rgba(255,255,255,1), 0 0 18px rgba(47,128,255,0.7), 0 0 36px rgba(47,128,255,0.4);
-    }
-  }
-
   /* ── Security Ticket Carousel ── */
   @keyframes ticketScroll {
     0% { transform: translateX(0); }
