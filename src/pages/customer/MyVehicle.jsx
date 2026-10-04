@@ -16,6 +16,7 @@ import ClassicDiagnosticsSheet from "@/components/customer/myvehicle/ClassicDiag
 import MyVehicleActionDock from "@/components/customer/myvehicle/MyVehicleActionDock";
 import SecurityTicketCarousel from "@/components/customer/myvehicle/SecurityTicketCarousel";
 import AdditionalMonitorsSection from "@/components/customer/myvehicle/AdditionalMonitorsSection";
+import LockStatusFloorLabel from "@/components/customer/myvehicle/LockStatusFloorLabel";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -208,6 +209,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   const lastLockCommandAtRef = useRef(0); // Timestamp of last lock/unlock command — prevents device state from overriding optimistic UI
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showFooter, setShowFooter] = useState(false);
+  const [heroAspect, setHeroAspect] = useState(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -555,33 +557,10 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                   display: "block",
                   filter: "brightness(1.1) contrast(1.15) saturate(1.05)",
                 }}
+                onLoad={(e) => setHeroAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
               />
               <div className="vehicle-glint" />
-            </div>
-          )}
-          {/* Lock status — premium white label centered under the driver-side front tire */}
-          {vehicleImage && !isDemo && (
-            <div style={{
-              position: "absolute",
-              left: "66%", top: "34%",
-              transform: "translateX(-50%)",
-              zIndex: 4,
-              pointerEvents: "none",
-              textAlign: "center",
-            }}>
-              <p style={{
-                margin: 0,
-                color: "#FFFFFF",
-                fontFamily: LABEL_FONT,
-                fontSize: 13,
-                fontWeight: 700,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                textShadow: "0 1px 10px rgba(0,0,0,0.9), 0 0 18px rgba(47,128,255,0.35)",
-                opacity: isLocked === null ? 0.55 : 0.92,
-              }}>
-                {isLocked === true ? "Locked" : isLocked === false ? "Unlocked" : "Lock Status"}
-              </p>
+              {!isDemo && heroAspect && <LockStatusFloorLabel isLocked={isLocked} aspect={heroAspect} />}
             </div>
           )}
           {/* Top gradient scrim — text legibility */}
