@@ -689,20 +689,29 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
           {/* Location bar — in content flow, floats over map */}
           <div style={{ marginTop: 10 }}>
             <div className="flex items-start gap-3">
-              <div style={{ marginTop: 2, flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "rgba(47,128,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <MapPin size={14} color="#2F80FF" />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", lineHeight: 1.2, textShadow: "0 1px 8px rgba(0,0,0,0.6)" }}>
-                  {displayAddress?.poi || displayAddress?.street || "Locating Vehicle..."}
-                </p>
-                <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 2, fontWeight: 400, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
-                  {displayAddress?.poi ? displayAddress.street : displayAddress?.city_state}
-                </p>
-                <p style={{ fontSize: 11, color: "#71717A", marginTop: 4, fontWeight: 400 }}>
-                  Updated {gps.label === "Live" ? "just now" : gps.label.toLowerCase()}
-                </p>
-              </div>
+              <button
+                onClick={() => {
+                  if (device?.last_latitude && device?.last_longitude) {
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+                  }
+                }}
+                style={{ display: "flex", alignItems: "flex-start", gap: 12, flex: 1, minWidth: 0, background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
+              >
+                <div style={{ marginTop: 2, flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "rgba(47,128,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <MapPin size={14} color="#2F80FF" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", lineHeight: 1.2, textShadow: "0 1px 8px rgba(0,0,0,0.6)" }}>
+                    {displayAddress?.poi || displayAddress?.street || "Locating Vehicle..."}
+                  </p>
+                  <p style={{ fontSize: 12, color: "#A1A1AA", marginTop: 2, fontWeight: 400, textShadow: "0 1px 6px rgba(0,0,0,0.5)" }}>
+                    {displayAddress?.poi ? displayAddress.street : displayAddress?.city_state}
+                  </p>
+                  <p style={{ fontSize: 11, color: "#71717A", marginTop: 4, fontWeight: 400 }}>
+                    Updated {gps.label === "Live" ? "just now" : gps.label.toLowerCase()}
+                  </p>
+                </div>
+              </button>
               <button
                 onClick={() => {
                   if (device?.last_latitude && device?.last_longitude) {
