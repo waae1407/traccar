@@ -205,6 +205,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [commandLoading, setCommandLoading] = useState(null);
   const [isLocked, setIsLocked] = useState(true); // Optimistic lock state — synced from device.lock_state below
+  const lastLockCommandAtRef = useRef(0); // Timestamp of last lock/unlock command — prevents device state from overriding optimistic UI
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showFooter, setShowFooter] = useState(false);
 
@@ -275,7 +276,11 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
 
   // ── Sync lock state from device's reported bEnable status bits ──
   // Overrides the optimistic default once the device reports a real lock state.
+  // Grace period: for 2 minutes after a lock/unlock command, don't let the device's
+  // lock_state override the optimistic UI — some devices (e.g. NR09G51900) report
+  // "locked" even after a successful unlock because the status bit isn't wired correctly.
   useEffect(() => {
+    if (Date.now() - lastLockCommandAtRef.current < 120000) return;
     if (device?.lock_state === "locked") setIsLocked(true);
     else if (device?.lock_state === "unlocked") setIsLocked(false);
   }, [device?.lock_state]);
@@ -362,6 +367,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
       source: "vehicle_command_center",
     });
     toast.success(`Vehicle ${type}ed`);
+    lastLockCommandAtRef.current = Date.now();
     setIsLocked(type === "lock");
   } else if (type === "find") {
         await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device.id });
