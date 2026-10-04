@@ -9,7 +9,7 @@ const LABEL_FONT = "'Barlow Condensed', sans-serif";
  * SecurityTicketCarousel — Horizontal live-scrolling security monitor.
  *
  * Six "tickets" scroll continuously, each showing a monitored threat:
- *   Theft · Tow · Drag Racing · Street Takeover · Smoke · Long Idle
+ *   Theft · Tow · Drag Racing · Street Takeover · Smoke · Overnight Parked
  *
  * Green = OK, Red = issue detected.
  * When a NEW issue appears: plays a short alert tone and drops a
@@ -52,10 +52,10 @@ export default function SecurityTicketCarousel({ device }) {
     // Smoke: device smoke sensor
     const smoke = device?.smoke_detected;
 
-    // Long idle: parked > 4 hours
+    // Overnight parked: parked > 8 hours
     let idle = false;
     if (device?.parked_at) {
-      idle = now - new Date(device.parked_at).getTime() > 4 * 60 * 60 * 1000;
+      idle = now - new Date(device.parked_at).getTime() > 8 * 60 * 60 * 1000;
     }
 
     return [
@@ -64,7 +64,7 @@ export default function SecurityTicketCarousel({ device }) {
       { key: "drag", label: "Drag Racing", icon: Gauge, ok: !drag, detail: drag ? "Speed burst" : "Normal" },
       { key: "takeover", label: "Street Takeover", icon: Users, ok: !takeover, detail: takeover ? "Gathering + speed" : "Clear" },
       { key: "smoke", label: "Smoke Detection", icon: Flame, ok: !smoke, detail: smoke ? "Smoke detected!" : "Clear" },
-      { key: "idle", label: "Long Idle", icon: Clock, ok: !idle, detail: idle ? "Idle > 4 hrs" : "Active" },
+      { key: "idle", label: "Overnight Parked", icon: Clock, ok: !idle, detail: idle ? "Parked > 8 hrs" : "Active" },
       { key: "safe", label: "Safe Driving", icon: ShieldCheck, ok: !unsafeDriving, detail: unsafeDriving ? "Reckless detected" : "All clear" },
     ];
   }, [device, unsafeDriving]);
