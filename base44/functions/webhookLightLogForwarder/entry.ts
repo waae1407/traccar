@@ -197,7 +197,10 @@ function parseMt20Voltage0032(body) {
         external_voltage: voltage,
         voltage,
         voltage_source: 'forwarded_log_mt20_0032_nBAT',
-        online_status: 'online'
+        online_status: 'online',
+        lock_state: decodeStatusBits(bEnable).unlocked ? 'unlocked' : 'locked',
+        door_open: decodeStatusBits(bEnable).doorOpen,
+        trunk_open: decodeStatusBits(bEnable).trunkOpen
       }
     };
   }
@@ -274,7 +277,10 @@ function parseMt20CommandResponse8009(body) {
       cErrorCode_status,
       device_unique_id,
       device_updates: {
-        online_status: 'online'
+        online_status: 'online',
+        lock_state: lockState,
+        door_open: status_bits.doorOpen,
+        trunk_open: status_bits.trunkOpen
       }
     };
   }

@@ -226,6 +226,16 @@
       "type": "boolean",
       "default": false
     },
+    "lock_state": {
+      "type": "string",
+      "enum": [
+        "locked",
+        "unlocked",
+        "unknown"
+      ],
+      "default": "unknown",
+      "description": "Actual door lock state reported by the device's 0x8009/0x0032 bEnable status bits. Synced from the log forwarder."
+    },
     "horn_light_enabled": {
       "type": "boolean",
       "default": false

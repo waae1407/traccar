@@ -204,7 +204,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   const isAdminPreview = !!deepLinkedBookingId;
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [commandLoading, setCommandLoading] = useState(null);
-  const [isLocked, setIsLocked] = useState(true); // Optimistic lock state
+  const [isLocked, setIsLocked] = useState(true); // Optimistic lock state — synced from device.lock_state below
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showFooter, setShowFooter] = useState(false);
 
@@ -272,6 +272,13 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   });
   const device = devices[0];
   const gps = freshness(device);
+
+  // ── Sync lock state from device's reported bEnable status bits ──
+  // Overrides the optimistic default once the device reports a real lock state.
+  useEffect(() => {
+    if (device?.lock_state === "locked") setIsLocked(true);
+    else if (device?.lock_state === "unlocked") setIsLocked(false);
+  }, [device?.lock_state]);
 
   const { data: safetyEvents = [] } = useQuery({
     queryKey: ["customer-safety-events", booking?.vehicle_id],
