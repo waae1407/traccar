@@ -14,25 +14,24 @@ const CSS = `
     to { transform: translate(-50%, -50%) rotate(360deg); }
   }
   .btn-loading-spin {
-    overflow: hidden;
     border-color: transparent !important;
-    box-shadow: 0 0 15px rgba(255,255,255,0.1) !important;
+    box-shadow: 0 0 18px rgba(47,128,255,0.35) !important;
   }
   .btn-loading-spin::before {
     content: '';
     position: absolute;
     top: 50%; left: 50%;
     width: 250%; height: 250%;
-    background: conic-gradient(from 0deg, transparent 75%, rgba(255,255,255,0.85) 100%);
-    animation: borderSpin 1s linear infinite;
+    background: conic-gradient(from 0deg, transparent 70%, rgba(47,128,255,0.9) 100%);
+    animation: borderSpin 0.8s linear infinite;
     z-index: 0;
   }
   .btn-loading-spin::after {
     content: '';
     position: absolute;
-    inset: 1.5px;
-    background: linear-gradient(180deg, #1B1C21 0%, #111216 100%);
-    border-radius: 22.5px;
+    inset: 2px;
+    background: inherit;
+    border-radius: inherit;
     z-index: 1;
   }
   .btn-loading-content {

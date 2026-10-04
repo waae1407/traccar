@@ -36,6 +36,8 @@ export default function MyVehicleActionDock({
     padding: 0,
     cursor: "pointer",
     transition: "all 0.2s ease-in-out",
+    position: "relative",
+    overflow: "hidden",
   };
 
   const labelStyle = {
