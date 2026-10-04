@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, User, CreditCard, Car, AlertTriangle, MessageSquare, Activity, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
+import { Search, User, CreditCard, Car, AlertTriangle, MessageSquare, Activity, CheckCircle, XCircle, Clock, Zap, Satellite } from 'lucide-react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 function StatusBadge({ status }) {
   const map = {
@@ -24,6 +25,7 @@ function StatusBadge({ status }) {
 }
 
 export default function HostCustomer360() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
@@ -96,6 +98,16 @@ export default function HostCustomer360() {
                   <div><p className="text-muted-foreground text-xs">Weekly Rate</p><p className="text-green-400">${ab.weekly_rate || 0}/wk</p></div>
                   <div><p className="text-muted-foreground text-xs">Next Billing</p><p>{ab.next_billing_date || '—'}</p></div>
                 </div>
+                {ab.vehicle_id && (
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" className="bg-primary text-primary-foreground" onClick={() => navigate(`/my-vehicle?booking_id=${ab.id}`)}>
+                      <Satellite className="h-3.5 w-3.5 mr-1.5" /> Customer Vehicle UI
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/host/vehicle-360?vehicle_id=${ab.vehicle_id}`)}>
+                      <Car className="h-3.5 w-3.5 mr-1.5" /> Vehicle 360
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
