@@ -112,9 +112,9 @@ export default function MyVehicleActionDock({
             <div className="btn-loading-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
               <Lock
                 size={34}
-                color={isLocked ? "#22C55E" : "#FFFFFF"}
+                color={isLocked === true ? "#22C55E" : "#FFFFFF"}
                 strokeWidth={2.2}
-                style={{ filter: isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.45))" : "none" }}
+                style={{ filter: isLocked === true ? "drop-shadow(0 2px 8px rgba(34,197,94,0.45))" : "none" }}
               />
               <span style={labelStyle}>Lock</span>
               <span style={subLabelStyle}>Doors</span>
@@ -163,9 +163,9 @@ export default function MyVehicleActionDock({
             <div className="btn-loading-content" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
               <Unlock
                 size={34}
-                color={!isLocked ? "#22C55E" : "#FFFFFF"}
+                color={isLocked === false ? "#22C55E" : "#FFFFFF"}
                 strokeWidth={2.2}
-                style={{ filter: !isLocked ? "drop-shadow(0 2px 8px rgba(34,197,94,0.45))" : "none" }}
+                style={{ filter: isLocked === false ? "drop-shadow(0 2px 8px rgba(34,197,94,0.45))" : "none" }}
               />
               <span style={labelStyle}>Unlock</span>
               <span style={subLabelStyle}>Doors</span>

@@ -204,7 +204,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   const isAdminPreview = !!deepLinkedBookingId;
   const [inspectionTarget, setInspectionTarget] = useState(null);
   const [commandLoading, setCommandLoading] = useState(null);
-  const [isLocked, setIsLocked] = useState(true); // Optimistic lock state — synced from device.lock_state below
+  const [isLocked, setIsLocked] = useState(null); // null = unknown (white), true = locked, false = unlocked
   const lastLockCommandAtRef = useRef(0); // Timestamp of last lock/unlock command — prevents device state from overriding optimistic UI
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showFooter, setShowFooter] = useState(false);
