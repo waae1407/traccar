@@ -209,8 +209,8 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
       const viewport = window.innerHeight;
       const docHeight = document.documentElement.scrollHeight;
       const distanceFromBottom = docHeight - (scrollY + viewport);
-      // Reveal the nav only when the user has scrolled to the very bottom
-      setShowFooter(distanceFromBottom < 80);
+      // Only reveal the nav once the user has actually scrolled down and reached the bottom
+      setShowFooter(scrollY > 120 && distanceFromBottom < 80);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
