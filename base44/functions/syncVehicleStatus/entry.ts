@@ -100,14 +100,18 @@ Deno.serve(async (req) => {
     }
 
     // Protect manual-only statuses from automation override
-    // Exception: terminal bookings may release only from non-dispute/non-maintenance holds
+    // Exception 1: terminal bookings may release only from non-dispute/non-maintenance holds
+    // Exception 2: "Dispute Hold" set by automation (booking under_review) must be releasable
+    //   when the booking returns to an active rental state (payment recovered, dispute resolved)
     const isTerminalBooking = ["completed", "cancelled", "rejected"].includes(booking.booking_status);
     const protectedTerminalHold = ["Dispute Hold", "Cleaning Hold", "Maintenance Hold", "Maintenance", "Compliance Hold", "Retired"].includes(vehicle.status);
     if (isTerminalBooking && protectedTerminalHold) {
       console.log(`[SyncVehicleStatus] Terminal booking but vehicle is protected by ${vehicle.status} — skipping release`);
       return Response.json({ ok: true, skipped: 'protected_terminal_hold', current: vehicle.status });
     }
-    if (PROTECTED_VEHICLE_STATUSES.includes(vehicle.status) && !isTerminalBooking) {
+    const ACTIVE_RENTAL_STATES = ["active", "approved", "confirmed", "checked_out"];
+    const isDisputeHoldRelease = vehicle.status === "Dispute Hold" && ACTIVE_RENTAL_STATES.includes(booking.booking_status);
+    if (PROTECTED_VEHICLE_STATUSES.includes(vehicle.status) && !isTerminalBooking && !isDisputeHoldRelease) {
       console.log(`[SyncVehicleStatus] Vehicle ${booking.vehicle_id} in protected status: ${vehicle.status} — skipping`);
       return Response.json({ ok: true, skipped: 'protected_status', current: vehicle.status });
     }
