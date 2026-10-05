@@ -378,7 +378,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
         }
       }
       const { toast } = await import("sonner");
-      toast.success("Vehicle alarm activated!", { description: "Locating vehicle — opening map in 10s" });
+      toast.success("Vehicle alarm activated!", { description: "Opening map..." });
       setTimeout(() => {
         const lat = device?.last_latitude;
         const lon = device?.last_longitude;
@@ -389,7 +389,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
         if (lat && lon) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
         else if (addressStr) url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
         if (url) window.open(url, "_blank", "noopener,noreferrer");
-      }, 10000);
+      }, 1000);
       setTimeout(() => setCommandLoading(null), 2000);
       return;
     }
