@@ -88,6 +88,7 @@ import RenterAIChat from '@/pages/customer/RenterAIChat';
 // Host pages
 import HostLayout from '@/components/host/HostLayout';
 import HostDashboard from '@/pages/host/HostDashboard';
+import HostFleetMap from '@/pages/host/HostFleetMap';
 import HostVehicles from '@/pages/host/HostVehicles';
 import HostPayouts from '@/pages/host/HostPayouts';
 import HostPayments from '@/pages/host/HostPayments';
@@ -222,8 +223,10 @@ const AuthenticatedApp = () => {
       <Route path="/installers" element={<Installers />} />
 
       {/* ── HOST ROUTES ── */}
+      {/* Standalone fleet map dashboard — full-screen, no sidebar */}
+      <Route path="/host/dashboard" element={<HostGuard><HostFleetMap /></HostGuard>} />
+
       <Route element={<HostGuard><HostLayout /></HostGuard>}>
-        <Route path="/host/dashboard" element={<HostDashboard />} />
         <Route path="/host/onboarding-success" element={<HostOnboardingSuccess />} />
         <Route path="/host/vehicles" element={<HostVehicles />} />
         <Route path="/host/vehicles/setup" element={<HostFirstVehicleSetup />} />
