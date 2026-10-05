@@ -164,6 +164,7 @@ export default function HostFleetMap() {
   // ── Handlers ──
   const handleSelectVehicle = useCallback((vehicle) => {
     setSelectedVehicle(vehicle);
+    setFocusVehicleId(vehicle.id);
     setQuickMenu(null);
   }, []);
 
