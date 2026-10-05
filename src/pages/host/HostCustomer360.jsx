@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { formatPaymentSource, formatVehicleAction, formatActivityMessage, sanitizeInternalText } from '@/lib/displayFormatters';
 import BookingLifecycleFields from '@/components/shared/BookingLifecycleFields';
@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Search, User, CreditCard, Car, AlertTriangle, MessageSquare, Activity, CheckCircle, XCircle, Clock, Zap, Satellite } from 'lucide-react';
 import { format } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 function StatusBadge({ status }) {
   const map = {
@@ -26,19 +26,33 @@ function StatusBadge({ status }) {
 
 export default function HostCustomer360() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+  const [search, setSearch] = useState(initialSearch);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const autoSearchedRef = useRef(false);
 
-  const handleSearch = async () => {
-    if (!search.trim()) return;
+  const handleSearch = async (overrideTerm) => {
+    const term = (overrideTerm ?? search).trim();
+    if (!term) return;
     setLoading(true); setError(''); setData(null);
-    const res = await base44.functions.invoke('getCustomer360', { search: search.trim() });
+    const res = await base44.functions.invoke('getCustomer360', { search: term });
     if (res.data?.error) { setError(res.data.error === 'Forbidden' ? 'No customer found in your fleet matching that search.' : res.data.error); }
     else { setData(res.data); }
     setLoading(false);
   };
+
+  // Auto-search when navigated with ?search= param (e.g. from Host CRM)
+  useEffect(() => {
+    if (autoSearchedRef.current) return;
+    if (initialSearch) {
+      autoSearchedRef.current = true;
+      handleSearch(initialSearch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSearch]);
 
   const c = data?.customer;
   const ps = data?.payment_summary;

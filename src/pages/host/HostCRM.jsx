@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -7,7 +8,6 @@ import HostPageHeader from "@/components/host/HostPageHeader";
 import CRMFilters, { DEFAULT_FILTERS } from "@/components/host/crm/CRMFilters";
 import CustomerCard, { getRiskInfo } from "@/components/host/crm/CustomerCard";
 import NeedsAttention from "@/components/host/crm/NeedsAttention";
-import CustomerDrawer from "@/components/host/crm/CustomerDrawer";
 import { startOfMonth } from "date-fns";
 
 const ACTIVE_STATUSES = new Set(["active", "confirmed", "approved", "payment_due", "grace_period", "under_review"]);
@@ -15,8 +15,12 @@ const ACTIVE_STATUSES = new Set(["active", "confirmed", "approved", "payment_due
 export default function HostCRM() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [selected, setSelected] = useState(null);
+  const navigate = useNavigate();
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+
+  const goToCustomer360 = (customer) => {
+    navigate(`/host/customer-360?search=${encodeURIComponent(customer.email || customer.full_name || "")}`);
+  };
 
   const { data: hosts = [] } = useQuery({
     queryKey: ["my-host", user?.email],
@@ -200,11 +204,6 @@ export default function HostCRM() {
     });
   }, [customers, bookingsByEmail, disputesByBookingId, filters, vehicles]);
 
-  const selectedBookings = useMemo(() => {
-    if (!selected) return [];
-    return (bookingsByEmail[selected.email] || []).sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-  }, [selected, bookingsByEmail]);
-
   return (
     <div className="space-y-5">
       <HostPageHeader
@@ -256,7 +255,7 @@ export default function HostCRM() {
         customers={customers}
         bookingsByEmail={bookingsByEmail}
         disputesByBookingId={disputesByBookingId}
-        onSelect={setSelected}
+        onSelect={goToCustomer360}
       />
 
       <CRMFilters
@@ -296,24 +295,14 @@ export default function HostCRM() {
                 customer={c}
                 activeBooking={activeBooking}
                 openDispute={openDispute}
-                isSelected={selected?.id === c.id}
-                onClick={() => setSelected(selected?.id === c.id ? null : c)}
+                isSelected={false}
+                onClick={() => goToCustomer360(c)}
               />
             );
           })
         )}
       </div>
 
-      {selected && (
-        <CustomerDrawer
-          customer={selected}
-          hostId={host?.id}
-          bookings={selectedBookings}
-          vehicles={vehicles}
-          onClose={() => setSelected(null)}
-          onNote={() => qc.invalidateQueries({ queryKey: ["host-customers"] })}
-        />
-      )}
     </div>
   );
 }
