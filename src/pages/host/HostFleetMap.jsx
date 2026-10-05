@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Search, X, Clock } from "lucide-react";
+import { Search, X, Clock, Maximize, Minimize } from "lucide-react";
 import FleetMap from "@/components/host/fleetmap/FleetMap";
 import VehicleActionSheet from "@/components/host/fleetmap/VehicleActionSheet";
 import QuickCommandMenu from "@/components/host/fleetmap/QuickCommandMenu";
@@ -19,6 +19,24 @@ export default function HostFleetMap() {
   const [quickMenu, setQuickMenu] = useState(null); // { vehicle, device, position }
   const [focusVehicleId, setFocusVehicleId] = useState(null);
   const [commandLoading, setCommandLoading] = useState(null);
+  const containerRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
 
   // ── Data ──
   const { data: hosts = [] } = useQuery({
@@ -205,7 +223,7 @@ export default function HostFleetMap() {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#050506", overflow: "hidden" }}>
+    <div ref={containerRef} style={{ position: "fixed", inset: 0, background: "#050506", overflow: "hidden" }}>
       {/* ── Full-screen map ── */}
       <FleetMap
         vehicles={filteredVehicles}
@@ -267,6 +285,23 @@ export default function HostFleetMap() {
         </div>
       </div>
 
+      {/* ── Fullscreen toggle (top-right, for TV/desktop monitoring) ── */}
+      <button
+        onClick={toggleFullscreen}
+        title={isFullscreen ? "Exit fullscreen" : "Fullscreen monitoring mode"}
+        style={{
+          position: "fixed", top: 10, right: 10, zIndex: 40,
+          width: 38, height: 38, borderRadius: 12,
+          background: "rgba(23,24,28,0.92)", backdropFilter: "blur(16px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", color: "#F5F5F7",
+          transition: "all 0.15s",
+        }}
+      >
+        {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+      </button>
+
       {/* ── Live alert + activity feed ── */}
       <FleetAlertFeed
         alerts={alerts}
@@ -299,7 +334,7 @@ export default function HostFleetMap() {
       )}
 
       {/* ── Collapsible bottom nav ── */}
-      <FleetMapBottomNav visible={true} />
+      <FleetMapBottomNav visible={!isFullscreen} />
 
       {/* Loading overlay for commands */}
       {commandLoading && (
