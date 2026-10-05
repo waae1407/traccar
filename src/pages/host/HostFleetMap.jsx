@@ -284,7 +284,7 @@ export default function HostFleetMap() {
             <FilterChip label="Rented" count={fleetStats.rented} active={filter === "rented"} onClick={() => setFilter("rented")} color="#3B82F6" />
             <FilterChip label="Contactless360" count={fleetStats.contactless} active={filter === "contactless"} onClick={() => setFilter("contactless")} color="#22C55E" />
             {fleetStats.attention > 0 && (
-              <FilterChip label="Needs Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => {
+              <FilterChip label="Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => {
                 setFilter("attention");
                 const attentionVehicles = vehicles.filter((v) => ["Payment Due", "Grace Period", "Suspended", "Maintenance", "Compliance Hold"].includes(v.status));
                 if (attentionVehicles.length > 0) {
