@@ -572,6 +572,19 @@ Deno.serve(async (req) => {
             metadata: { week_number: weekNum, amount, next_billing_date: nextBillingDate },
           }).catch(e => console.error('[WeeklyBilling] receipt notification failed:', e.message));
 
+          // ── RTO COMPLETION CHECK ──
+          // If this is a Rent-to-Own booking, update the contract and check if it's fully paid off.
+          // When fully paid: mark contract Completed, vehicle Transferred (sold), complete booking, stop billing.
+          if (booking.booking_type === 'Rent-to-Own') {
+            const rtoCompleted = await handleRentToOwnCompletion(base44, booking, baseAmount, weekNum);
+            if (rtoCompleted) {
+              // Skip pre-charge warning — contract is done, no more recurring charges
+              results.push({ id: booking.id, status: 'rto_completed', week: weekNum });
+              console.log(`[WeeklyBilling] ✓ RTO CONTRACT COMPLETED — ${booking.id} vehicle sold to ${booking.customer_full_name || booking.user_email}`);
+              continue;
+            }
+          }
+
           // Send 24hr pre-charge warning for NEXT week
           await schedulePreChargeWarning(base44, booking, nextBillingDate, amount, weekNum + 1);
 
@@ -679,6 +692,130 @@ async function notifyHostOfBillingOutcome(base44, { booking, host, outcome, week
     });
   } catch (e) {
     console.error('[WeeklyBilling] host email failed:', e.message);
+  }
+}
+
+async function handleRentToOwnCompletion(base44, booking, paymentAmount, weekNum) {
+  try {
+    // Find the RTO contract linked to this vehicle
+    const contracts = await base44.asServiceRole.entities.RentToOwnContract.filter({ vehicle_id: booking.vehicle_id }, '-created_date', 5);
+    let contract = contracts.find((c) => c.status === 'Active' || c.status === 'At Risk') || contracts[0];
+
+    const now = new Date().toISOString();
+
+    if (contract) {
+      // Update contract with this payment
+      const newTotalPaid = Math.round(((contract.total_paid || 0) + paymentAmount) * 100) / 100;
+      const newConsistentPayments = (contract.consistent_payments_made || 0) + 1;
+      const totalRequired = contract.total_payments_required || 52;
+      const contractValue = contract.total_contract_value || 0;
+
+      const fullyPaid = newTotalPaid >= contractValue || newConsistentPayments >= totalRequired;
+
+      await base44.asServiceRole.entities.RentToOwnContract.update(contract.id, {
+        total_paid: newTotalPaid,
+        consistent_payments_made: newConsistentPayments,
+        status: fullyPaid ? 'Completed' : (newConsistentPayments >= totalRequired * 0.8 ? 'Active' : contract.status),
+      });
+
+      if (!fullyPaid) return false;
+
+      console.log(`[WeeklyBilling] RTO contract ${contract.id} fully paid: $${newTotalPaid} / $${contractValue} (${newConsistentPayments}/${totalRequired} payments)`);
+    } else {
+      // No formal contract record — derive from booking payment history
+      const paymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({ booking_request_id: booking.id });
+      const totalPaidFromLogs = paymentLogs
+        .filter((p) => p.status === 'paid')
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
+      const weeklyRate = booking.weekly_rate || 0;
+      const totalRequired = 52; // default RTO term
+      const contractValue = weeklyRate * totalRequired;
+
+      if (totalPaidFromLogs < contractValue && weekNum < totalRequired) return false;
+
+      console.log(`[WeeklyBilling] RTO booking ${booking.id} fully paid via payment logs: $${totalPaidFromLogs} / $${contractValue}`);
+    }
+
+    // ── CONTRACT FULLY PAID: TRANSFER VEHICLE ──
+    // 1. Mark vehicle as Transferred (sold)
+    await base44.asServiceRole.entities.Vehicle.update(booking.vehicle_id, {
+      status: 'Transferred',
+    });
+
+    // 2. Complete the booking — stop billing, end rental
+    await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+      booking_status: 'completed',
+      rental_lifecycle_phase: 'completed',
+      rental_ended_at: now,
+      completion_reason: 'auto_completed',
+      billing_stopped_at: now,
+      billing_stop_reason: 'auto_completed',
+      lifecycle_audit_notes: `Rent-to-Own contract fully paid. Vehicle automatically transferred to ${booking.customer_full_name || booking.user_email}.`,
+    });
+
+    // 3. Log the sale event
+    await logEvent(base44, {
+      event_type: 'vehicle.status_changed',
+      actor_id: 'automation',
+      actor_email: 'autopay@uridehub.com',
+      actor_role: 'automation',
+      target_entity: 'Vehicle',
+      target_id: booking.vehicle_id || '',
+      host_id: booking.host_id || '',
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      customer_id: booking.user_email || '',
+      summary: `RTO COMPLETE — ${booking.vehicle_name || 'Vehicle'} sold to ${booking.customer_full_name || booking.user_email}. Vehicle status → Transferred.`,
+      metadata: {
+        booking_id: booking.id,
+        vehicle_id: booking.vehicle_id,
+        customer: booking.customer_full_name || booking.user_email,
+        week_number: weekNum,
+        payment_amount: paymentAmount,
+        contract_id: contract?.id || null,
+      },
+      source: 'automation',
+      event_status: 'success',
+    });
+
+    // 4. Notify customer: congratulations, vehicle is yours
+    await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'rto_completed',
+      severity: 'info',
+      category: 'payments',
+      title: '🎉 Congratulations — Your Vehicle is Paid Off!',
+      message: `You've completed your Rent-to-Own contract for ${booking.vehicle_name || 'your vehicle'}. The vehicle has been officially transferred to you. No further weekly payments will be charged.`,
+      booking_id: booking.id,
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      action_url: '/my-bookings',
+      metadata: { week_number: weekNum, contract_id: contract?.id || null },
+    }).catch((e) => console.error('[WeeklyBilling] RTO customer notification failed:', e.message));
+
+    // 5. Notify host: vehicle sold
+    if (booking.host_id) {
+      const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
+      const host = hosts[0];
+      if (host?.email) {
+        await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'rto_completed',
+          severity: 'info',
+          category: 'payments',
+          title: '🎉 Vehicle Sold — RTO Contract Complete',
+          message: `${booking.customer_full_name || booking.user_email} has fully paid off ${booking.vehicle_name || 'vehicle'}. It has been transferred to them and removed from your active fleet.`,
+          booking_id: booking.id,
+          host_id: host.id,
+          vehicle_id: booking.vehicle_id || '',
+          action_url: '/host/vehicles',
+          metadata: { week_number: weekNum, contract_id: contract?.id || null },
+        }).catch((e) => console.error('[WeeklyBilling] RTO host notification failed:', e.message));
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[WeeklyBilling] RTO completion check failed:', err.message);
+    return false;
   }
 }
 
