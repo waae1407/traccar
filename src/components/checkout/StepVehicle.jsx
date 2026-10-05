@@ -51,6 +51,17 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
   const [geocoding, setGeocoding] = useState(false);
   const [userCoords, setUserCoords] = usePersistentFormDraft("checkout_vehicle_user_coords_draft", null);
   const [zipcodeCoords, setZipcodeCoords] = usePersistentFormDraft("checkout_vehicle_zipcode_coords_draft", null);
+  const [autoCoords, setAutoCoords] = useState(null);
+  const [farWarningDistance, setFarWarningDistance] = useState(null);
+
+  // Auto-detect user location (passive — for distance display + far-vehicle warning only,
+  // does NOT apply the radius filter)
+  useEffect(() => {
+    navigator.geolocation?.getCurrentPosition(
+      (pos) => setAutoCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => {}
+    );
+  }, []);
 
   // If URL has start_date and end_date, use those directly for validation
   // Otherwise fall back to the draft state
@@ -59,6 +70,22 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
 
   const available = vehicles.filter((v) => v.status === "Available" && v.host_id);
   const typeFiltered = type === "Rent-to-Own" ? available.filter((v) => v.rent_to_own_eligible) : available;
+
+  // Distance from user's location to each vehicle (for display + far-vehicle warning)
+  const distanceByVehicle = useMemo(() => {
+    const c = zipcodeCoords || userCoords || autoCoords;
+    if (!c || !c.lat || !c.lon) return {};
+    const R = 3959;
+    const map = {};
+    available.forEach((v) => {
+      if (!v.vehicle_lat || !v.vehicle_lon) { map[v.id] = null; return; }
+      const dLat = (v.vehicle_lat - c.lat) * Math.PI / 180;
+      const dLon = (v.vehicle_lon - c.lon) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(c.lat * Math.PI / 180) * Math.cos(v.vehicle_lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+      map[v.id] = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    });
+    return map;
+  }, [available, zipcodeCoords, userCoords, autoCoords]);
 
   // Geo-filter by radius if coords are available
   const geoFiltered = useMemo(() => {
@@ -126,12 +153,21 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
     }
   };
 
-  const handleConfirm = () => {
-    if (!effectiveStartDate || !selectedVehicle) return;
+  const proceedConfirm = () => {
     clearStartDateDraft();
     clearAutoRenewDraft();
     clearSelectedVehicleDraft();
     onSelect(selectedVehicle, type, { startDate: effectiveStartDate, endDate: effectiveEndDate, autoRenew });
+  };
+
+  const handleConfirm = () => {
+    if (!effectiveStartDate || !selectedVehicle) return;
+    const dist = distanceByVehicle[selectedVehicle.id];
+    if (dist != null && dist > 50) {
+      setFarWarningDistance(dist);
+      return;
+    }
+    proceedConfirm();
   };
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -379,11 +415,16 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
                         <p className="font-bold text-gray-900 text-base">
                           {v.year} {v.make} {v.model}
                         </p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="flex items-center gap-1 text-xs text-gray-400">
                             <MapPin className="h-3 w-3 text-gray-300" />
                             {v.current_city || "Available"}
                           </span>
+                          {distanceByVehicle[v.id] != null && (
+                            <span className={`text-xs font-semibold ${distanceByVehicle[v.id] > 50 ? "text-amber-600" : "text-gray-400"}`}>
+                              · {Math.round(distanceByVehicle[v.id])} mi away
+                            </span>
+                          )}
                           {v.color && (
                             <span className="text-xs text-gray-400">· {v.color}</span>
                           )}
@@ -391,6 +432,12 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
                             <span className="text-xs text-gray-400">· {v.mileage.toLocaleString()} mi</span>
                           )}
                         </div>
+                        {distanceByVehicle[v.id] > 50 && (
+                          <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                            <AlertCircle className="h-3 w-3" />
+                            Not local — {Math.round(distanceByVehicle[v.id])} miles from you
+                          </div>
+                        )}
                       </div>
                       <div className={`h-6 w-6 rounded-full flex-shrink-0 flex items-center justify-center transition-all ml-3 mt-0.5 ${
                         isSelected ? "bg-pink-500 shadow-md" : "border-2 border-gray-200"
@@ -457,6 +504,43 @@ export default function StepVehicle({ vehicles = [], vehicleId, bookingType: ini
           </p>
         )}
       </div>
+
+      {/* Far-vehicle confirmation dialog */}
+      {farWarningDistance != null && selectedVehicle && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setFarWarningDistance(null)} />
+          <div className="relative bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <div className="h-14 w-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-7 w-7 text-amber-600" />
+            </div>
+            <h3 className="font-bold text-gray-900 text-lg mb-2">
+              This vehicle is {Math.round(farWarningDistance)} miles away
+            </h3>
+            <p className="text-sm text-gray-500 mb-1">
+              <strong className="text-gray-700">{selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model}</strong> is located in
+              {" "}{selectedVehicle.city || selectedVehicle.current_city || "a different city"}{selectedVehicle.pickup_address ? ` (${selectedVehicle.pickup_address})` : ""}.
+            </p>
+            <p className="text-sm text-gray-500 mb-5">
+              That's about <strong>{Math.round(farWarningDistance)} miles</strong> from your current location. You'll need to travel there for pickup. Are you sure you want to continue with this booking?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFarWarningDistance(null)}
+                className="flex-1 py-3 rounded-xl border border-gray-200 font-bold text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => { setFarWarningDistance(null); proceedConfirm(); }}
+                className="flex-1 py-3 rounded-xl font-bold text-sm text-white"
+                style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
+              >
+                Continue Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -348,7 +348,7 @@ export default function CheckoutFlow() {
               dueNow = v.weekly_rate;
             }
           }
-          await createMutation.mutateAsync({
+          const createdBooking = await createMutation.mutateAsync({
             vehicle_id: v.id,
             vehicle_name: `${v.year} ${v.make} ${v.model}`,
             vehicle_image: v.image_url,
@@ -372,6 +372,11 @@ export default function CheckoutFlow() {
             ...(opts.endDate && { end_date: opts.endDate }),
             ...(typeof opts.autoRenew !== "undefined" && { auto_renew: opts.autoRenew }),
           });
+          // Notify the host that a booking attempt was made (fire-and-forget)
+          base44.functions.invoke("sendBookingAlertNotifications", {
+            event_type: "booking_attempt",
+            booking_id: createdBooking.id,
+          }).catch(() => {});
           setCurrentStep("account");
         }} />}
 

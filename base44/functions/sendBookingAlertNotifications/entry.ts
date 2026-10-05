@@ -270,6 +270,72 @@ async function handleReturnReviewRequired(base44, { booking, host, vehicle }) {
   return results;
 }
 
+async function handleBookingAttempt(base44, { booking, host, vehicle }) {
+  if (!booking?.id || !host?.id) return { error: "Missing booking or host" };
+  const results = {};
+  const vehicleName = vehicle?.display_name || booking.vehicle_name || 'vehicle';
+  const customerName = booking.customer_full_name || booking.user_email || 'A customer';
+  const bookingType = booking.booking_type || 'Weekly';
+  const startDate = booking.start_date || 'TBD';
+
+  // In-app notification to host
+  const inAppKey = `booking_attempt:${booking.id}:${host.id}:inapp`;
+  if (!await checkDedup(base44, inAppKey)) {
+    await base44.asServiceRole.entities.Notification.create({
+      recipient_email: host.email,
+      recipient_role: 'host',
+      title: `🔔 New Booking Attempt — ${vehicleName}`,
+      body: `${customerName} started a booking for ${vehicleName} (${bookingType}, starting ${startDate}). They're completing checkout now.`,
+      type: 'booking',
+      category: 'bookings',
+      severity: 'info',
+      is_read: false,
+      booking_request_id: booking.id,
+      host_id: host.id,
+      vehicle_id: booking.vehicle_id || '',
+      action_url: '/host/booking-360',
+      source_function: 'sendBookingAlertNotifications',
+    }).catch(() => {});
+    await logDelivery(base44, { event_type: 'notification.booking_attempt.inapp', idempotency_key: inAppKey, recipient_email: host.email, channel: 'inapp', provider: 'base44', provider_status: 'sent', source_event: 'booking_attempt', source_entity_type: 'BookingRequest', source_entity_id: booking.id, host_id: host.id, booking_id: booking.id, vehicle_id: booking.vehicle_id });
+    results.inapp = 'sent';
+  } else { results.inapp = 'deduped'; }
+
+  // Email to host
+  const emailKey = `booking_attempt:${booking.id}:${host.id}:email`;
+  if (!await checkDedup(base44, emailKey)) {
+    const html = emailTemplate('🔔 New Booking Attempt', `
+      <p style="font-size:15px;color:#374151;margin:0 0 20px">Hi ${host.full_name?.split(' ')[0] || 'there'},</p>
+      <p style="font-size:15px;color:#374151;line-height:1.6;margin:0 0 20px">Good news! <strong>${customerName}</strong> just started a booking for your <strong>${vehicleName}</strong>.</p>
+      <div style="background:white;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Vehicle</td><td style="font-size:14px;font-weight:600;color:#111;text-align:right">${vehicleName}</td></tr>
+          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Customer</td><td style="font-size:14px;color:#111;text-align:right">${customerName}</td></tr>
+          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Rental Type</td><td style="font-size:14px;color:#111;text-align:right">${bookingType}</td></tr>
+          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Start Date</td><td style="font-size:14px;color:#111;text-align:right">${startDate}</td></tr>
+          <tr><td style="padding:6px 0;font-size:13px;color:#9ca3af">Status</td><td style="font-size:14px;font-weight:700;color:#f59e0b;text-align:right">In Checkout</td></tr>
+        </table>
+      </div>
+      <p style="font-size:13px;color:#6b7280;margin:0 0 20px">The customer is completing the checkout process. You'll be notified again once payment is confirmed and the booking is approved.</p>
+      <div style="text-align:center">
+        <a href="${APP_URL}/host/booking-360" style="display:inline-block;background:linear-gradient(135deg,#e91e8c,#7c3aed);color:white;font-weight:700;font-size:15px;padding:14px 32px;border-radius:12px;text-decoration:none">View Details →</a>
+      </div>
+    `);
+    const emailResult = await sendEmail(host.email, `🔔 New Booking Attempt — ${vehicleName}`, html);
+    await logDelivery(base44, { event_type: emailResult.ok ? 'notification.booking_attempt.email' : 'notification.delivery_failed', idempotency_key: emailKey, recipient_email: host.email, channel: 'email', provider: 'resend', provider_message_id: emailResult.message_id, provider_status: emailResult.ok ? 'sent' : 'failed', failure_reason: emailResult.error, source_event: 'booking_attempt', source_entity_type: 'BookingRequest', source_entity_id: booking.id, host_id: host.id, booking_id: booking.id, vehicle_id: booking.vehicle_id });
+    results.email = emailResult.ok ? 'sent' : `failed:${emailResult.error}`;
+  } else { results.email = 'deduped'; }
+
+  // SMS to host
+  const smsKey = `booking_attempt:${booking.id}:${host.id}:sms`;
+  if (host.phone && !await checkDedup(base44, smsKey)) {
+    const smsResult = await sendSMS(host.phone, `uRide: New booking attempt! ${customerName} is booking your ${vehicleName} (${bookingType}, start ${startDate}). View: ${APP_URL}/host/booking-360`);
+    await logDelivery(base44, { event_type: smsResult.ok ? 'notification.booking_attempt.sms' : 'notification.delivery_failed', idempotency_key: smsKey, recipient_email: host.email, recipient_phone: host.phone, channel: 'sms', provider: 'twilio', provider_message_id: smsResult.sid, provider_status: smsResult.ok ? 'sent' : 'failed', failure_reason: smsResult.error, source_event: 'booking_attempt', source_entity_type: 'BookingRequest', source_entity_id: booking.id, host_id: host.id, booking_id: booking.id, vehicle_id: booking.vehicle_id });
+    results.sms = smsResult.ok ? 'sent' : `failed:${smsResult.error}`;
+  } else { results.sms = host.phone ? 'deduped' : 'no_phone'; }
+
+  return results;
+}
+
 // ── Main Handler ─────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -310,6 +376,9 @@ Deno.serve(async (req) => {
         break;
       case 'return_review_required':
         result = await handleReturnReviewRequired(base44, { booking, host, vehicle });
+        break;
+      case 'booking_attempt':
+        result = await handleBookingAttempt(base44, { booking, host, vehicle });
         break;
       default:
         return Response.json({ error: `Unknown event_type: ${event_type}` }, { status: 400 });
