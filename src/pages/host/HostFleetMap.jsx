@@ -254,7 +254,14 @@ export default function HostFleetMap() {
             <FilterChip label="Available" count={fleetStats.available} active={filter === "available"} onClick={() => setFilter("available")} color="#22C55E" />
             <FilterChip label="Rented" count={fleetStats.rented} active={filter === "rented"} onClick={() => setFilter("rented")} color="#3B82F6" />
             {fleetStats.attention > 0 && (
-              <FilterChip label="Needs Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => setFilter("attention")} color="#FF9F0A" pulse />
+              <FilterChip label="Needs Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => {
+                setFilter("attention");
+                const attentionVehicles = vehicles.filter((v) => ["Payment Due", "Grace Period", "Suspended", "Maintenance", "Compliance Hold"].includes(v.status));
+                if (attentionVehicles.length > 0) {
+                  setFocusVehicleId(attentionVehicles[0].id);
+                  setSelectedVehicle(attentionVehicles[0]);
+                }
+              }} color="#FF9F0A" pulse />
             )}
           </div>
         </div>
