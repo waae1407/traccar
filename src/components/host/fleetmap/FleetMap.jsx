@@ -244,11 +244,14 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
       markersRef.current.push(marker);
     }
 
-    // Fit bounds if more than one vehicle
+    // Zoom to the filtered set: fit bounds for multiple vehicles, fly in for a single one
     if (positionedVehicles.length > 1) {
       const bounds = new maplibregl.LngLatBounds();
       positionedVehicles.forEach((pv) => bounds.extend([pv.lng, pv.lat]));
       map.fitBounds(bounds, { padding: 80, maxZoom: 14 });
+    } else if (positionedVehicles.length === 1) {
+      const pv = positionedVehicles[0];
+      map.flyTo({ center: [pv.lng, pv.lat], zoom: Math.max(map.getZoom(), 14), duration: 800 });
     }
 
     // Declutter overlapping markers (spiral spread)
