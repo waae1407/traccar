@@ -97,6 +97,55 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress) {
   return el;
 }
 
+// ── Declutter: spread overlapping markers in a spiral so all are visible ──
+function declutterMarkers(map, markers) {
+  if (!map || !markers || markers.length === 0) return;
+
+  const points = markers.map((m) => {
+    const ll = m.getLngLat();
+    const pt = map.project(ll);
+    return { marker: m, x: pt.x, y: pt.y };
+  });
+
+  // Build adjacency — markers within 50px of each other
+  const threshold = 50;
+  const adj = points.map(() => []);
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      const dx = points[i].x - points[j].x;
+      const dy = points[i].y - points[j].y;
+      if (Math.sqrt(dx * dx + dy * dy) < threshold) { adj[i].push(j); adj[j].push(i); }
+    }
+  }
+
+  // Find connected components (BFS)
+  const visited = new Array(points.length).fill(false);
+  const groups = [];
+  for (let i = 0; i < points.length; i++) {
+    if (visited[i]) continue;
+    const group = []; const queue = [i]; visited[i] = true;
+    while (queue.length > 0) {
+      const node = queue.shift(); group.push(node);
+      for (const nb of adj[node]) { if (!visited[nb]) { visited[nb] = true; queue.push(nb); } }
+    }
+    groups.push(group);
+  }
+
+  // Apply spiral offset to overlapping groups (golden-angle sunflower pattern)
+  const goldenAngle = 2.39996; // ~137.5°
+  for (const group of groups) {
+    if (group.length === 1) {
+      points[group[0]].marker.setOffset([0, 0]);
+    } else {
+      for (let k = 0; k < group.length; k++) {
+        const angle = k * goldenAngle;
+        const radius = 30 + k * 8;
+        points[group[k]].marker.setOffset([radius * Math.cos(angle), radius * Math.sin(angle)]);
+      }
+    }
+  }
+}
+
 export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle, onLongPressVehicle, focusVehicleId }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
@@ -146,9 +195,20 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
 
     map.on("load", () => {});
     map.on("error", (e) => console.error("[FleetMap] Map error:", e));
+
+    // Declutter markers on pan/zoom so overlapping vehicles spread out
+    let rafId = null;
+    const declutter = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => declutterMarkers(map, markersRef.current));
+    };
+    map.on("move", declutter);
+    map.on("zoom", declutter);
+
     mapRef.current = map;
 
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
       mapRef.current?.remove();
@@ -179,6 +239,9 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
       positionedVehicles.forEach((pv) => bounds.extend([pv.lng, pv.lat]));
       map.fitBounds(bounds, { padding: 80, maxZoom: 14 });
     }
+
+    // Declutter overlapping markers (spiral spread)
+    requestAnimationFrame(() => declutterMarkers(map, markersRef.current));
   }, [positionedVehicles, workerReady, onSelectVehicle, onLongPressVehicle]);
 
   // Focus on a specific vehicle (when focusVehicleId changes)

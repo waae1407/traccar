@@ -90,7 +90,7 @@ export default function HostFleetMap() {
       );
     }
     if (filter === "available") result = result.filter((v) => v.status === "Available");
-    if (filter === "rented") result = result.filter((v) => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"].includes(v.status));
+    if (filter === "rented") result = result.filter((v) => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period", "Transferred", "Dispute Hold", "Dropoff Submitted", "Return Pending Host Review"].includes(v.status) || activeBookingByVehicle[v.id]);
     if (filter === "attention") result = result.filter((v) => ["Payment Due", "Grace Period", "Suspended", "Maintenance", "Compliance Hold"].includes(v.status));
     return result;
   }, [vehicles, search, filter]);
@@ -200,7 +200,7 @@ export default function HostFleetMap() {
   const fleetStats = {
     total: vehicles.length,
     available: vehicles.filter((v) => v.status === "Available").length,
-    rented: vehicles.filter((v) => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period"].includes(v.status)).length,
+    rented: vehicles.filter((v) => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period", "Transferred", "Dispute Hold", "Dropoff Submitted", "Return Pending Host Review"].includes(v.status) || activeBookingByVehicle[v.id]).length,
     attention: vehicles.filter((v) => ["Payment Due", "Grace Period", "Suspended", "Maintenance", "Compliance Hold"].includes(v.status)).length,
   };
 
