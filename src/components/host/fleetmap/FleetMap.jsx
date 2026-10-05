@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl/dist/maplibre-gl-csp.js";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { classicDarkStyle } from "@/lib/mapStyles/classicDarkStyle";
+import { createInterstateShieldImage } from "@/lib/mapStyles/interstateShield";
 
 // ── Worker blob (same pattern as FindMyVehicleMap) ──
 let workerBlobUrlPromise = null;
@@ -193,7 +194,44 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
       attributionControl: false,
     });
 
-    map.on("load", () => {});
+    map.on("load", () => {
+      // Register the interstate shield sprite, then add the shield label layer
+      if (!map.hasImage("interstate-shield")) {
+        map.addImage("interstate-shield", createInterstateShieldImage(), {
+          stretchX: [[12, 68]],
+          content: [12, 20, 68, 48],
+        });
+      }
+      if (!map.getLayer("highway_shield_refs")) {
+        map.addLayer({
+          id: "highway_shield_refs",
+          type: "symbol",
+          source: "openmaptiles",
+          "source-layer": "transportation_name",
+          minzoom: 6,
+          maxzoom: 15,
+          filter: ["match", ["get", "class"], ["motorway", "trunk"], true, false],
+          layout: {
+            "symbol-placement": "line",
+            "symbol-spacing": 240,
+            "icon-image": "interstate-shield",
+            "icon-text-fit": "width",
+            "icon-text-fit-padding": [3, 8, 3, 8],
+            "text-field": ["coalesce", ["get", "ref"], ["get", "name:latin"], ["get", "name"]],
+            "text-font": ["Noto Sans Bold"],
+            "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 10, 11, 14, 12],
+            "text-rotation-alignment": "viewport",
+            "text-max-angle": 30,
+          },
+          paint: {
+            "text-color": "#ffffff",
+            "text-halo-color": "#1a4e9e",
+            "text-halo-width": 0.5,
+            "icon-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.75, 8, 0.9, 12, 1],
+          },
+        });
+      }
+    });
     map.on("error", (e) => console.error("[FleetMap] Map error:", e));
 
     // Declutter markers on pan/zoom so overlapping vehicles spread out

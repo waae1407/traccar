@@ -291,33 +291,6 @@ export const classicDarkStyle = {
         "line-dasharray": [1, 1],
       },
     },
-    // ── Interstate / highway shield refs (route numbers at fleet-level zoom) ──
-    {
-      id: "highway_shield_refs",
-      type: "symbol",
-      source: "openmaptiles",
-      "source-layer": "transportation_name",
-      minzoom: 6,
-      maxzoom: 15,
-      filter: ["match", ["get", "class"], ["motorway", "trunk"], true, false],
-      layout: {
-        "symbol-placement": "line",
-        "symbol-spacing": 240,
-        "text-field": ["coalesce", ["get", "ref"], ["get", "name:latin"], ["get", "name"]],
-        "text-font": ["Noto Sans Bold"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 6, 9, 10, 11, 14, 12],
-        "text-letter-spacing": 0.06,
-        "text-rotation-alignment": "viewport",
-        "text-max-angle": 30,
-      },
-      paint: {
-        "text-color": "#e8e8ee",
-        "text-halo-color": "#050506",
-        "text-halo-width": 2.2,
-        "text-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.55, 8, 0.85, 12, 1],
-      },
-    },
-
     // ── Street name labels ──
     {
       id: "road_labels",
