@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 // "classic" = full original dashboard (weather hero, map card, controls, health) — default.
 // "neon" / "slate" = compact full-bleed map overlay with neon / slate map style.
 export const VEHICLE_SKINS = [
-  { id: "classic", label: "Classic", blurb: "Full dashboard with weather, map, controls", mapStyleName: "neon", overlay: "classic" },
+  { id: "classic", label: "Classic", blurb: "Full dashboard with weather, map, controls", mapStyleName: "classic", overlay: "classic" },
   { id: "neon", label: "Neon", blurb: "Compact map view, neon map", mapStyleName: "neon", overlay: "compact" },
   { id: "slate", label: "Slate", blurb: "Compact map view, slate map", mapStyleName: "slate", overlay: "compact" },
 ];

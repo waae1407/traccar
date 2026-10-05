@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { neonGreenDarkStyle } from "@/lib/mapStyles/neonGreenDarkStyle";
+import { classicDarkStyle } from "@/lib/mapStyles/classicDarkStyle";
 import { mutedDarkSlateStyle } from "@/lib/mapStyles/mutedDarkSlateStyle";
 import { satelliteStyle } from "@/lib/mapStyles/satelliteStyle";
 
@@ -77,7 +78,8 @@ export default function FindMyVehicleMap({
   const mapStyle =
     mapStyleName === "satellite" ? satelliteStyle
     : (mapStyleName === "slate" || searchParams.get("map") === "slate") ? mutedDarkSlateStyle
-    : neonGreenDarkStyle;
+    : mapStyleName === "neon" ? neonGreenDarkStyle
+    : classicDarkStyle;
 
   // Load the MapLibre worker as a same-origin blob URL
   useEffect(() => {
