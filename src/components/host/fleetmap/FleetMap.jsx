@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl/dist/maplibre-gl-csp.js";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { classicDarkStyle } from "@/lib/mapStyles/classicDarkStyle";
-import { createInterstateShieldImage } from "@/lib/mapStyles/interstateShield";
+import { HIGHWAY_SHIELD_LAYERS, handleShieldImageMissing } from "@/lib/mapStyles/highwayShieldLayers";
 
 // ── Worker blob (same pattern as FindMyVehicleMap) ──
 let workerBlobUrlPromise = null;
@@ -194,43 +194,16 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
       attributionControl: false,
     });
 
+    // Interstate shields + route badges are drawn per route number on demand
+    map.on("styleimagemissing", (e) => handleShieldImageMissing(map, e.id));
     map.on("load", () => {
-      // Register the interstate shield sprite, then add the shield label layer
-      if (!map.hasImage("interstate-shield")) {
-        map.addImage("interstate-shield", createInterstateShieldImage(), {
-          stretchX: [[20, 40]],
-          content: [12, 20, 48, 60],
-        });
-      }
-      if (!map.getLayer("highway_shield_refs")) {
-        map.addLayer({
-          id: "highway_shield_refs",
-          type: "symbol",
-          source: "openmaptiles",
-          "source-layer": "transportation_name",
-          minzoom: 6,
-          maxzoom: 15,
-          filter: ["match", ["get", "class"], ["motorway", "trunk"], true, false],
-          layout: {
-            "symbol-placement": "line",
-            "symbol-spacing": 240,
-            "icon-image": "interstate-shield",
-            "icon-text-fit": "width",
-            "icon-text-fit-padding": [2, 6, 2, 6],
-            "text-field": ["coalesce", ["get", "ref"], ["get", "name:latin"], ["get", "name"]],
-            "text-font": ["Noto Sans Bold"],
-            "text-size": ["interpolate", ["linear"], ["zoom"], 6, 9, 10, 10, 14, 11],
-            "text-rotation-alignment": "viewport",
-            "text-max-angle": 30,
-          },
-          paint: {
-            "text-color": "#ffffff",
-            "text-halo-color": "#1a4e9e",
-            "text-halo-width": 0.5,
-            "icon-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.75, 8, 0.9, 12, 1],
-          },
-        });
-      }
+      // Wait for the condensed highway font so numbers render in it
+      document.fonts.load("700 24px 'Barlow Condensed'").catch(() => {}).finally(() => {
+        if (mapRef.current !== map) return;
+        for (const layer of HIGHWAY_SHIELD_LAYERS) {
+          if (!map.getLayer(layer.id)) map.addLayer(layer);
+        }
+      });
     });
     map.on("error", (e) => console.error("[FleetMap] Map error:", e));
 
