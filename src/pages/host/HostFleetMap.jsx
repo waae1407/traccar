@@ -282,7 +282,7 @@ export default function HostFleetMap() {
             <FilterChip label="All" count={fleetStats.total} active={filter === "all"} onClick={() => setFilter("all")} />
             <FilterChip label="Available" count={fleetStats.available} active={filter === "available"} onClick={() => setFilter("available")} color="#22C55E" />
             <FilterChip label="Rented" count={fleetStats.rented} active={filter === "rented"} onClick={() => setFilter("rented")} color="#3B82F6" />
-            <FilterChip label="Contactless360" count={fleetStats.contactless} active={filter === "contactless"} onClick={() => setFilter("contactless")} color="#22C55E" />
+            <FilterChip label="C360 GPS" count={fleetStats.contactless} active={filter === "contactless"} onClick={() => setFilter("contactless")} color="#22C55E" />
             {fleetStats.attention > 0 && (
               <FilterChip label="Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => {
                 setFilter("attention");
