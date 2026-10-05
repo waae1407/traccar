@@ -160,6 +160,62 @@ const CSS = `
     75% { transform: translateX(2px); }
   }
   .alert-shake { animation: alertBadgeShake 0.3s ease-in-out 3; }
+
+  /* ── Locate button: horn / lights / shake feedback on the vehicle photo ── */
+  @keyframes locateShake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-1.5px, 0.5px); }
+    40% { transform: translate(1.5px, -0.5px); }
+    60% { transform: translate(-1px, 0.5px); }
+    80% { transform: translate(1px, -0.5px); }
+  }
+  .locate-shaking { animation: locateShake 0.18s ease-in-out 8; }
+
+  @keyframes locateLightFlash {
+    0%, 100% { opacity: 0; }
+    10%, 30%, 50% { opacity: 0.9; }
+    20%, 40%, 60% { opacity: 0; }
+    70% { opacity: 0; }
+  }
+  .locate-headlight, .locate-taillight {
+    position: absolute;
+    width: 24%;
+    height: 32%;
+    border-radius: 50%;
+    filter: blur(7px);
+    pointer-events: none;
+    z-index: 4;
+    animation: locateLightFlash 2s ease-in-out 1;
+  }
+  .locate-headlight {
+    left: 4%;
+    bottom: 28%;
+    background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,255,255,0) 70%);
+  }
+  .locate-taillight {
+    right: 4%;
+    bottom: 28%;
+    background: radial-gradient(circle, rgba(255,80,80,0.9), rgba(255,80,80,0) 70%);
+  }
+
+  @keyframes hornRing {
+    0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.75; border-width: 3px; }
+    100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; border-width: 0.5px; }
+  }
+  .locate-ring {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 42%;
+    aspect-ratio: 1 / 1;
+    border: 3px solid rgba(47,128,255,0.85);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 3;
+    animation: hornRing 1.2s ease-out forwards;
+  }
+  .locate-ring-1 { animation-delay: 0s; }
+  .locate-ring-2 { animation-delay: 0.4s; }
+  .locate-ring-3 { animation-delay: 0.8s; }
 `;
 
 export default function MyVehicleClassicStyles() {

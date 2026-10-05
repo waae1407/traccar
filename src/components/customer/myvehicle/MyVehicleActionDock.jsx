@@ -175,7 +175,7 @@ export default function MyVehicleActionDock({
 
           {/* Locate */}
           <button
-            onClick={() => booking && onCommand("find")}
+            onClick={() => onCommand("find")}
             disabled={disabledAny}
             className={`control-tap ${commandLoading === "find" ? "btn-loading-spin" : ""}`}
             style={{

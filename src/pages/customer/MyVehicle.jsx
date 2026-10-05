@@ -17,6 +17,7 @@ import MyVehicleActionDock from "@/components/customer/myvehicle/MyVehicleAction
 import SecurityTicketCarousel from "@/components/customer/myvehicle/SecurityTicketCarousel";
 import AdditionalMonitorsSection from "@/components/customer/myvehicle/AdditionalMonitorsSection";
 import LockStatusFloorLabel from "@/components/customer/myvehicle/LockStatusFloorLabel";
+import LocateAnimationOverlay from "@/components/customer/myvehicle/LocateAnimationOverlay";
 
 const ACTIVE_RENTAL_STATUSES = ["active", "approved", "confirmed", "checked_out", "return_required", "post_inspection_required", "overdue_return", "payment_due", "grace_period", "return_pending_host_review", "under_review"];
 const PLACEHOLDER_CAR = "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80";
@@ -210,6 +211,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showFooter, setShowFooter] = useState(false);
   const [heroAspect, setHeroAspect] = useState(null);
+  const [locateAnimating, setLocateAnimating] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -360,6 +362,38 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
       return;
     }
 
+    // ── LOCATE: horn / lights / shake animation + delayed map open ──
+    // Runs without a device so the visual feedback + map resolve in demo mode too;
+    // the alarm itself only fires when a real device is loaded.
+    if (type === "find") {
+      setCommandLoading("find");
+      setLocateAnimating(true);
+      setTimeout(() => setLocateAnimating(false), 2200);
+      if (device?.id) {
+        try {
+          const { default: TelematicsService } = await import("@/lib/telematics/TelematicsService");
+          await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device.id });
+        } catch (err) {
+          console.error("[MyVehicle] Alarm failed:", err);
+        }
+      }
+      const { toast } = await import("sonner");
+      toast.success("Vehicle alarm activated!", { description: "Locating vehicle — opening map in 10s" });
+      setTimeout(() => {
+        const lat = device?.last_latitude;
+        const lon = device?.last_longitude;
+        const addressStr = displayAddress?.poi
+          ? `${displayAddress.poi}, ${displayAddress.street}, ${displayAddress.city_state || ""}`
+          : [displayAddress?.street, displayAddress?.city_state].filter(Boolean).join(", ");
+        let url = null;
+        if (lat && lon) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+        else if (addressStr) url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
+        if (url) window.open(url, "_blank", "noopener,noreferrer");
+      }, 10000);
+      setTimeout(() => setCommandLoading(null), 2000);
+      return;
+    }
+
     // Guard: device and vehicle must be loaded before sending any command
     if (!device?.id) {
       const { toast } = await import("sonner");
@@ -384,13 +418,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
     toast.success(`Vehicle ${type}ed`);
     lastLockCommandAtRef.current = Date.now();
     setIsLocked(type === "lock");
-  } else if (type === "find") {
-        await TelematicsService.startAlarm({ vehicle_id: vehicle?.id, telematics_device_id: device.id });
-        toast.success("Vehicle alarm activated!");
-        if (device?.last_latitude && device?.last_longitude) {
-          window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
-        }
-      }
+  }
     } catch (err) {
       console.error("[MyVehicle] Command failed:", type, err);
       const { toast } = await import("sonner");
@@ -551,6 +579,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
               <img
                 src={vehicleImage}
                 alt={name}
+                className={locateAnimating ? "locate-shaking" : ""}
                 style={{
                   width: "100%", height: "100%",
                   objectFit: "contain", objectPosition: "center",
@@ -560,6 +589,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
                 onLoad={(e) => setHeroAspect(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)}
               />
               <div className="vehicle-glint" />
+              <LocateAnimationOverlay active={locateAnimating} />
               {!isDemo && heroAspect && <LockStatusFloorLabel isLocked={isLocked} aspect={heroAspect} />}
             </div>
           )}
