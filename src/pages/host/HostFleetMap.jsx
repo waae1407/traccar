@@ -14,7 +14,7 @@ const ACTIVE_RENTAL_STATUSES = new Set(["active", "confirmed", "approved", "chec
 export default function HostFleetMap() {
   const { user, isLoading: authLoading } = useAuth();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all"); // all, available, rented, attention
+  const [filter, setFilter] = useState("all"); // all, available, rented, attention, contactless
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [quickMenu, setQuickMenu] = useState(null); // { vehicle, device, position }
   const [focusVehicleId, setFocusVehicleId] = useState(null);
@@ -110,8 +110,15 @@ export default function HostFleetMap() {
     if (filter === "available") result = result.filter((v) => v.status === "Available");
     if (filter === "rented") result = result.filter((v) => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period", "Dispute Hold", "Dropoff Submitted", "Return Pending Host Review"].includes(v.status) || activeBookingByVehicle[v.id]);
     if (filter === "attention") result = result.filter((v) => ["Payment Due", "Grace Period", "Suspended", "Maintenance", "Compliance Hold"].includes(v.status));
+    if (filter === "contactless") {
+      // Contactless360-ready: has a Traccar device linked AND device is online
+      result = result.filter((v) => {
+        const dev = deviceByVehicle[v.id];
+        return !!dev?.traccar_device_id && dev?.online_status === "online";
+      });
+    }
     return result;
-  }, [vehicles, search, filter]);
+  }, [vehicles, search, filter, deviceByVehicle]);
 
   // ── Alerts for the feed ──
   const alerts = useMemo(() => {
@@ -220,6 +227,10 @@ export default function HostFleetMap() {
     available: vehicles.filter((v) => v.status === "Available").length,
     rented: vehicles.filter((v) => ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period", "Dispute Hold", "Dropoff Submitted", "Return Pending Host Review"].includes(v.status) || activeBookingByVehicle[v.id]).length,
     attention: vehicles.filter((v) => ["Payment Due", "Grace Period", "Suspended", "Maintenance", "Compliance Hold"].includes(v.status)).length,
+    contactless: vehicles.filter((v) => {
+      const dev = deviceByVehicle[v.id];
+      return !!dev?.traccar_device_id && dev?.online_status === "online";
+    }).length,
   };
 
   return (
@@ -271,6 +282,7 @@ export default function HostFleetMap() {
             <FilterChip label="All" count={fleetStats.total} active={filter === "all"} onClick={() => setFilter("all")} />
             <FilterChip label="Available" count={fleetStats.available} active={filter === "available"} onClick={() => setFilter("available")} color="#22C55E" />
             <FilterChip label="Rented" count={fleetStats.rented} active={filter === "rented"} onClick={() => setFilter("rented")} color="#3B82F6" />
+            <FilterChip label="Contactless360" count={fleetStats.contactless} active={filter === "contactless"} onClick={() => setFilter("contactless")} color="#22C55E" />
             {fleetStats.attention > 0 && (
               <FilterChip label="Needs Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => {
                 setFilter("attention");
