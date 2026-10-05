@@ -85,28 +85,44 @@ export default function MyVehicleActionDock({
           pointerEvents: "none",
         }}
       >
-        {/* GPS address — flush-right, bleeds seamlessly above the dock */}
+        {/* GPS address — flush-left, pin icon opens the location in maps */}
         <button
-          onClick={() => {
-            if (device?.last_latitude && device?.last_longitude) {
-              window.open(`https://www.google.com/maps/dir/?api=1&destination=${device.last_latitude},${device.last_longitude}`, "_blank");
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const lat = device?.last_latitude;
+            const lon = device?.last_longitude;
+            const addressStr = displayAddress?.poi
+              ? `${displayAddress.poi}, ${displayAddress.street}, ${displayAddress.city_state || ""}`
+              : [displayAddress?.street, displayAddress?.city_state].filter(Boolean).join(", ");
+            let url = null;
+            if (lat && lon) {
+              url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+            } else if (addressStr) {
+              url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressStr)}`;
             }
+            if (url) window.open(url, "_blank", "noopener,noreferrer");
           }}
           style={{
             display: "flex",
-            justifyContent: "flex-end",
+            justifyContent: "flex-start",
             alignItems: "flex-start",
             gap: 10,
             width: "100%",
-            padding: "0 70px 10px 6px",
+            padding: "0 14px 10px 14px",
             background: "none",
             border: "none",
             cursor: "pointer",
-            textAlign: "right",
+            textAlign: "left",
             pointerEvents: "auto",
+            WebkitTapHighlightColor: "transparent",
           }}
         >
-          <div style={{ textAlign: "right", minWidth: 0 }}>
+          <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 16, background: "rgba(47,128,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 14px rgba(47,128,255,0.25)", transition: "transform 0.15s ease, box-shadow 0.15s ease" }}
+            className="control-tap">
+            <MapPin size={16} color="#2F80FF" strokeWidth={2.4} />
+          </div>
+          <div style={{ textAlign: "left", minWidth: 0, flex: 1 }}>
             <p style={{ fontSize: 13, fontWeight: 650, color: "#F5F5F7", letterSpacing: "-0.1px", lineHeight: 1.2, margin: 0, textShadow: "0 1px 10px rgba(0,0,0,0.85), 0 0 24px rgba(0,0,0,0.6)" }}>
               {displayAddress?.poi || displayAddress?.street || "Locating Vehicle..."}
             </p>
@@ -116,9 +132,6 @@ export default function MyVehicleActionDock({
             <p style={{ fontSize: 10, color: "#71717A", marginTop: 3, fontWeight: 400, margin: 0, letterSpacing: "0.02em" }}>
               Updated {gps?.label === "Live" ? "just now" : (gps?.label || "").toLowerCase()}
             </p>
-          </div>
-          <div style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 14, background: "rgba(47,128,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 12px rgba(47,128,255,0.18)" }}>
-            <MapPin size={14} color="#2F80FF" />
           </div>
         </button>
         <div
