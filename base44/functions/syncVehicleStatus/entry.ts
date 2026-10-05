@@ -21,7 +21,7 @@ const BOOKING_TO_VEHICLE_STATUS = {
 };
 
 // These vehicle statuses are set manually and must not be overridden by automation
-const PROTECTED_VEHICLE_STATUSES = ["Compliance Hold", "Maintenance", "Retired", "Cleaning Hold", "Maintenance Hold", "Dispute Hold", "Return Pending Host Review"];
+const PROTECTED_VEHICLE_STATUSES = ["Compliance Hold", "Maintenance", "Retired", "Cleaning Hold", "Maintenance Hold", "Dispute Hold", "Return Pending Host Review", "Transferred"];
 
 async function logEvent(base44, data) {
   try {
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     // Exception 2: "Dispute Hold" set by automation (booking under_review) must be releasable
     //   when the booking returns to an active rental state (payment recovered, dispute resolved)
     const isTerminalBooking = ["completed", "cancelled", "rejected"].includes(booking.booking_status);
-    const protectedTerminalHold = ["Dispute Hold", "Cleaning Hold", "Maintenance Hold", "Maintenance", "Compliance Hold", "Retired"].includes(vehicle.status);
+    const protectedTerminalHold = ["Dispute Hold", "Cleaning Hold", "Maintenance Hold", "Maintenance", "Compliance Hold", "Retired", "Transferred"].includes(vehicle.status);
     if (isTerminalBooking && protectedTerminalHold) {
       console.log(`[SyncVehicleStatus] Terminal booking but vehicle is protected by ${vehicle.status} — skipping release`);
       return Response.json({ ok: true, skipped: 'protected_terminal_hold', current: vehicle.status });
