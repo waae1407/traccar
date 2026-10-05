@@ -198,8 +198,8 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
       // Register the interstate shield sprite, then add the shield label layer
       if (!map.hasImage("interstate-shield")) {
         map.addImage("interstate-shield", createInterstateShieldImage(), {
-          stretchX: [[12, 68]],
-          content: [12, 20, 68, 48],
+          stretchX: [[20, 40]],
+          content: [12, 20, 48, 60],
         });
       }
       if (!map.getLayer("highway_shield_refs")) {
@@ -216,10 +216,10 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
             "symbol-spacing": 240,
             "icon-image": "interstate-shield",
             "icon-text-fit": "width",
-            "icon-text-fit-padding": [3, 8, 3, 8],
+            "icon-text-fit-padding": [2, 6, 2, 6],
             "text-field": ["coalesce", ["get", "ref"], ["get", "name:latin"], ["get", "name"]],
             "text-font": ["Noto Sans Bold"],
-            "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 10, 11, 14, 12],
+            "text-size": ["interpolate", ["linear"], ["zoom"], 6, 9, 10, 10, 14, 11],
             "text-rotation-alignment": "viewport",
             "text-max-angle": 30,
           },

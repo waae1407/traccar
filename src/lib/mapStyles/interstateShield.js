@@ -1,67 +1,61 @@
 /**
  * Creates a US Interstate Highway shield sprite as ImageData for MapLibre.
- * Red top band, blue body, white border — the classic badge look.
+ * Proper shield shape: arched top, rounded sides narrowing to a pointed bottom.
+ * Red header (#B31B20) + blue body (#00478F) + white divider + black border.
  * Uses 9-slice stretching (stretchX) so the shield widens for multi-digit
- * route numbers (5, 95, 405) without distorting the rounded edges.
+ * route numbers (5, 95, 405) without distorting the arch or point.
  */
 export function createInterstateShieldImage() {
-  const W = 80, H = 52;
+  const W = 60, H = 68;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
 
-  const r = 9;        // corner radius
-  const x0 = 2, y0 = 2;
-  const x1 = W - 2, y1 = H - 2;
-  const bandH = 16;   // red band height
+  const cx = W / 2;
+  const margin = 3;
+  const halfW = (W - margin * 2) / 2;
+  const archTop = margin;
+  const archDepth = 7;
+  const widestY = H * 0.40;
+  const pointY = H - margin;
+  const bandH = Math.round(H * 0.25); // red header ~25% of height
 
-  function traceRoundRect(x, y, w, h, radius) {
+  function traceShield() {
     ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.lineTo(x + w - radius, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-    ctx.lineTo(x + w, y + h - radius);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-    ctx.lineTo(x + radius, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-    ctx.lineTo(x, y + radius);
-    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.moveTo(cx - halfW, archTop + archDepth);
+    ctx.bezierCurveTo(cx - halfW, archTop, cx - 3, archTop, cx, archTop);
+    ctx.bezierCurveTo(cx + 3, archTop, cx + halfW, archTop, cx + halfW, archTop + archDepth);
+    ctx.bezierCurveTo(cx + halfW, widestY, cx + 3, pointY - 8, cx, pointY);
+    ctx.bezierCurveTo(cx - 3, pointY - 8, cx - halfW, widestY, cx - halfW, archTop + archDepth);
     ctx.closePath();
   }
 
-  // Blue body (full shield background)
-  ctx.fillStyle = "#1a4e9e";
-  traceRoundRect(x0, y0, x1 - x0, y1 - y0, r);
+  // Blue body (full shield fill)
+  traceShield();
+  ctx.fillStyle = "#00478F";
   ctx.fill();
 
-  // Red top band (clipped to the top portion of the rounded rect)
+  // Red header (clipped to top 25%)
   ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(x0 + r, y0);
-  ctx.lineTo(x1 - r, y0);
-  ctx.quadraticCurveTo(x1, y0, x1, y0 + r);
-  ctx.lineTo(x1, y0 + bandH);
-  ctx.lineTo(x0, y0 + bandH);
-  ctx.lineTo(x0, y0 + r);
-  ctx.quadraticCurveTo(x0, y0, x0 + r, y0);
-  ctx.closePath();
-  ctx.fillStyle = "#c41e3a";
-  ctx.fill();
-  ctx.restore();
-
+  traceShield();
+  ctx.clip();
+  ctx.fillStyle = "#B31B20";
+  ctx.fillRect(0, 0, W, bandH);
   // White divider line between red and blue
-  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.strokeStyle = "#FFFFFF";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(x0 + 3, y0 + bandH);
-  ctx.lineTo(x1 - 3, y0 + bandH);
+  ctx.moveTo(0, bandH);
+  ctx.lineTo(W, bandH);
   ctx.stroke();
+  ctx.restore();
 
-  // White border outline
-  ctx.strokeStyle = "#ffffff";
+  // Black border outline
+  traceShield();
+  ctx.strokeStyle = "#000000";
   ctx.lineWidth = 2;
-  traceRoundRect(x0, y0, x1 - x0, y1 - y0, r);
+  ctx.lineJoin = "round";
   ctx.stroke();
 
   return ctx.getImageData(0, 0, W, H);
