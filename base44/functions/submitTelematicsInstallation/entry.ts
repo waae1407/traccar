@@ -173,11 +173,14 @@ Deno.serve(async (req) => {
     const customerPhone = String(body.customer_phone || '').replace(/[^0-9+]/g, '');
 
     if (!deviceIdentifier) return Response.json({ error: 'Physical device barcode is required' }, { status: 400 });
-    if (!vin || vin.length !== 17) return Response.json({ error: 'A valid 17-character VIN is required' }, { status: 400 });
-    const baselineOdometer = Number(body.baseline_odometer);
-    if (!Number.isFinite(baselineOdometer) || baselineOdometer < 0) return Response.json({ error: 'A valid baseline odometer reading from the vehicle dashboard is required' }, { status: 400 });
-    if (!body.installer_name || !body.installer_signature_name) return Response.json({ error: 'Installer name and signature are required' }, { status: 400 });
-    if (!Array.isArray(body.install_photos) || body.install_photos.length < 3) return Response.json({ error: 'All required installation photos are required' }, { status: 400 });
+    // VIN, odometer, photos, and installer names are OPTIONAL — the fast
+    // installer flow is just device-code → command tests → submit. If a VIN is
+    // provided we link the device to that vehicle; otherwise the device is
+    // installed unlinked and the host/admin links it later.
+    const baselineOdometer = Number(body.baseline_odometer) || 0;
+    const installerName = String(body.installer_name || body.installer_signature_name || 'Installer').trim();
+    const installerSignature = String(body.installer_signature_name || body.installer_name || 'Installer').trim();
+    const installPhotos = Array.isArray(body.install_photos) ? body.install_photos : [];
 
     let device = await findDeviceByIdentifier(base44, deviceIdentifier, providerKey);
     if (!device) {
@@ -215,15 +218,15 @@ Deno.serve(async (req) => {
       telematics_device_id: device.id,
       provider_key: providerKey,
       device_unique_id: device.unique_id,
-      installer_name: String(body.installer_name || '').trim(),
-      installer_signature_name: String(body.installer_signature_name || '').trim(),
+      installer_name: installerName,
+      installer_signature_name: installerSignature,
       installer_email: String(body.installer_email || body.assigned_installer_email || '').trim().toLowerCase(),
       installer_phone: String(body.installer_phone || '').replace(/[^0-9+]/g, ''),
       installer_business_name: String(body.installer_business_name || body.business_name || '').trim(),
       installer_business_address: String(body.installer_business_address || body.business_address || '').trim(),
       installation_started_at: existing[0]?.installation_started_at || now,
       installation_notes: String(body.installation_notes || ''),
-      install_photos: body.install_photos,
+      install_photos: installPhotos,
       qa_status: 'not_required',
       notes: String(body.installation_notes || '')
     };
