@@ -26,8 +26,7 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const url = new URL(req.url);
-    const cronSecret = url.searchParams.get('secret');
-    const isCron = cronSecret === Deno.env.get('CRON_SECRET');
+    const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));
 
     if (!isCron) {
       const user = await base44.auth.me();
