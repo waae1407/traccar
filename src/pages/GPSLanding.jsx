@@ -26,7 +26,7 @@ const features = [
 
 const audiences = [
   { icon: Car, title: "Personal Vehicle Owners", desc: "Protect your personal car with live tracking and theft alerts.", color: "from-yellow-500/20 to-yellow-600/10 border-yellow-500/30" },
-  { icon: Building2, title: "uRide Hosts", desc: "Enable contactless rentals, track your fleet, and protect every vehicle.", color: "from-primary/20 to-primary/10 border-primary/30" },
+  { icon: Building2, title: "P2P Rental Hosts", desc: "Turo, Getaround, uRide, and all peer-to-peer rental platforms — enable contactless rentals, track your fleet, and protect every vehicle.", color: "from-primary/20 to-primary/10 border-primary/30" },
   { icon: Truck, title: "Dealers & Finance Companies", desc: "Portfolio protection with GPS-verified vehicle locations and recovery.", color: "from-blue-500/20 to-blue-600/10 border-blue-500/30" },
   { icon: Users, title: "Fleet Operators", desc: "Manage large fleets with centralized tracking, alerts and reporting.", color: "from-green-500/20 to-green-600/10 border-green-500/30" },
 ];
