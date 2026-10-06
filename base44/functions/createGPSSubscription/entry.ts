@@ -72,11 +72,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Create subscription — use default_incomplete so it succeeds even without default PM attached yet
-    // The webhook (invoice.payment_succeeded) will activate it once the payment method is confirmed
+    // Create subscription with 30-day free trial — use default_incomplete so it succeeds even without default PM attached yet
+    // The webhook (invoice.payment_succeeded) will activate it once the trial ends and payment is collected
     const subscription = await stripe.subscriptions.create({
       customer: stripeCustomerId,
       items: [{ price: price.id }],
+      trial_period_days: TRIAL_DAYS,
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription' },
       expand: ['latest_invoice.payment_intent'],
@@ -87,10 +88,15 @@ Deno.serve(async (req) => {
         host_id: order.host_id || '',
         customer_user_id: order.customer_user_id || '',
         customer_email: order.customer_email,
+        trial_days: String(TRIAL_DAYS),
       },
     });
 
-    // Create GPSSubscription record
+    // Trial dates — 30-day trial starts now
+    const trialStart = new Date();
+    const trialEnd = new Date(trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+
+    // Create GPSSubscription record — trialing with 30-day trial
     const sub = await base44.asServiceRole.entities.GPSSubscription.create({
       customer_user_id: order.customer_user_id || '',
       host_id: order.host_id || '',
@@ -100,10 +106,13 @@ Deno.serve(async (req) => {
       monthly_price,
       stripe_subscription_id: subscription.id,
       stripe_customer_id: stripeCustomerId,
-      subscription_status: subscription.status,
-      payment_status: subscription.status === 'active' ? 'paid' : 'pending',
-      current_period_start: subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : null,
-      current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null,
+      subscription_status: 'trialing',
+      payment_status: 'pending',
+      current_period_start: trialStart.toISOString(),
+      current_period_end: trialEnd.toISOString(),
+      trial_started_at: trialStart.toISOString(),
+      trial_end_at: trialEnd.toISOString(),
+      trial_start_source: 'device_online',
       cancel_at_period_end: false,
       customer_email: order.customer_email,
       customer_name: order.customer_name,
@@ -161,11 +170,11 @@ Deno.serve(async (req) => {
       stripe_subscription_id: subscription.id,
       monthly_amount: monthly_price,
       quantity: 1,
-      status: subscription.status || 'incomplete',
-      payment_status: subscription.status === 'active' ? 'paid' : 'pending',
-      current_period_start: sub.current_period_start || null,
-      current_period_end: sub.current_period_end || null,
-      next_billing_date: sub.current_period_end || null,
+      status: 'trialing',
+      payment_status: 'pending',
+      current_period_start: trialStart.toISOString(),
+      current_period_end: trialEnd.toISOString(),
+      next_billing_date: trialEnd.toISOString(),
       device_id: device_id || '',
       gps_order_id: order_id,
       updated_at: now,
@@ -181,8 +190,8 @@ Deno.serve(async (req) => {
       user_email: order.customer_email,
       recipient_email: order.customer_email,
       recipient_role: 'customer',
-      title: '✅ GPS Subscription Active',
-      body: `Your Contactless360 GPS subscription ($${monthly_price}/mo) is now active. Device tracking is live.`,
+      title: '🎉 Your 30-Day Free Trial Has Started!',
+      body: `Your Contactless360 GPS 30-day free trial has started! All features unlocked. After your trial, $${monthly_price}/mo starts automatically on ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Cancel anytime.`,
       type: 'success',
       category: 'subscriptions',
       severity: 'info',
@@ -198,8 +207,8 @@ Deno.serve(async (req) => {
           recipient_user_id: admin.id,
           recipient_email: admin.email,
           recipient_role: 'admin',
-          title: '💳 New GPS Subscription Activated',
-          body: `${order.customer_email} activated a paid GPS subscription ($${monthly_price}/mo). Stripe: ${subscription.id}`,
+          title: '🎉 New GPS Trial Started (Paid Device)',
+          body: `${order.customer_email} started a 30-day free trial (paid device checkout). $${monthly_price}/mo after trial. Stripe: ${subscription.id}`,
           type: 'success',
           category: 'subscriptions',
           severity: 'info',
@@ -221,8 +230,8 @@ Deno.serve(async (req) => {
       target_entity: 'GPSSubscription',
       target_id: sub.id,
       host_id: order.host_id || '',
-      summary: `GPS subscription created: ${subscription.id} — $${monthly_price}/mo`,
-      metadata: { stripe_subscription_id: subscription.id, order_id, device_id: device_id || '' },
+      summary: `GPS 30-day trial started (paid device): ${subscription.id} — $${monthly_price}/mo after trial ends ${trialEnd.toISOString().split('T')[0]}`,
+      metadata: { stripe_subscription_id: subscription.id, order_id, device_id: device_id || '', trial_days: TRIAL_DAYS, trial_end_at: trialEnd.toISOString() },
       source: 'system',
       event_status: 'success',
     }).catch(() => {});
