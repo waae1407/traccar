@@ -28,8 +28,10 @@ The following existing logic is protected:
   - MT20 packet wrapping
   - `sData[50]` command generation
   - command action mappings for lock, unlock, horn, lights, horn/lights, starter disable, starter restore
+  - Bluetooth command mappings for bluetooth_power_on (control code 008), bluetooth_query_pairing (control code 024)
   - Traccar custom command payload formatting
   - production command routing for `traccar_noran_mt20`
+  - heartbeat freshness gate (10s max age + 30s poll-wait) — applies to ALL live Noran commands including Bluetooth
 
 - `functions/syncTraccarDevicePositions`
   - MT20/Noran packet decoding
@@ -57,3 +59,8 @@ Do not change these without explicit owner approval:
 - Existing Traccar send payload structure
 - Existing production/live command routing
 - Existing decoder behavior used by live sync/webhook flows
+
+## Changelog
+
+### 2026-10-06 — Bluetooth command extension (owner-approved)
+Added `bluetooth_power_on` (008) and `bluetooth_query_pairing` (024) as new canonical command types in `sendTelematicsCommand`. These are host-only commands that route through the same production path as all other Noran commands — heartbeat freshness gate, Traccar API, MT20 wrapping, rate limiting. No existing command's routing, action mapping, or packet structure was modified. The `buildNoranMT20Command` function gained two new branches for the 008/024 control codes; the existing 007 action-map branch is untouched.
