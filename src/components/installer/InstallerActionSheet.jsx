@@ -179,19 +179,18 @@ export default function InstallerActionSheet({ device: initialDevice, vehicle: i
   const vehicleMatched = !!vehicleLookup.data?.matched;
   const vinEntered = vinValid && !vehicleLookup.isFetching && vehicleLookup.isFetched;
   const requiredPhotoCount = Object.values(photoSlots).filter(Boolean).length;
-  const photosReady = requiredPhotoCount === 3;
   const namesReady = !!form.installer_name && !!form.installer_signature_name;
   const visibleTests = [
     ["lock_test"], ["unlock_test"], ["horn_test"], ["lights_test"], ["alarm_test"], ["starter_disable_test"], ["starter_restore_test"],
   ].filter(([id]) => capabilities.data?.tests?.[id] !== false);
   const allCommandsPassed = visibleTests.length > 0 && visibleTests.every(([id]) => form[id] === "pass");
   const baselineOdometerReady = form.baseline_odometer !== "" && Number(form.baseline_odometer) >= 0;
-  const canSubmit = deviceVerified && vinEntered && baselineOdometerReady && photosReady && namesReady && allCommandsPassed;
+  const canSubmit = deviceVerified && vinEntered && baselineOdometerReady && namesReady && allCommandsPassed;
 
   const sections = [
     { key: "device", label: "Device", done: deviceVerified },
     { key: "vehicle", label: "Vehicle", done: vinEntered && baselineOdometerReady },
-    { key: "photos", label: "Photos", done: photosReady && namesReady },
+    { key: "photos", label: "Photos", done: requiredPhotoCount > 0 && namesReady },
     { key: "commands", label: "Commands", done: allCommandsPassed },
     { key: "submit", label: "Submit", done: false },
   ];
@@ -265,9 +264,10 @@ export default function InstallerActionSheet({ device: initialDevice, vehicle: i
 
         {/* Photos Section */}
         <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <SectionHeader label="Photos" done={photosReady && namesReady} active={expanded === "photos"} onClick={() => setExpanded(expanded === "photos" ? "" : "photos")} />
+          <SectionHeader label="Photos" done={requiredPhotoCount > 0 && namesReady} active={expanded === "photos"} onClick={() => setExpanded(expanded === "photos" ? "" : "photos")} />
           {expanded === "photos" && (
             <div style={{ paddingBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <p style={{ fontSize: 11, color: "#8E8E93", margin: 0 }}>Optional — upload to document the install, but not required to submit.</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 {PHOTO_REQUIREMENTS.map(([key, label]) => (
                   <PhotoTile key={key} title={label} url={photoSlots[key]} uploading={uploadingSlot === key} onUpload={(f) => uploadRequiredPhoto(key, f)} />
