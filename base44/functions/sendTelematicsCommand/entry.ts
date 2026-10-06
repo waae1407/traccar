@@ -1,10 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter', 'status', 'raw'];
+const COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'disable_starter', 'restore_starter', 'status', 'raw', 'bluetooth_power_on', 'bluetooth_query_pairing'];
 const COMMAND_ALIASES = { location: 'locate', find_my_car: 'alarm_pulse', panic: 'alarm_pulse', kill: 'disable_starter', unkill: 'restore_starter' };
 const CUSTOMER_COMMANDS = ['locate', 'lock', 'unlock', 'alarm_pulse'];
-const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'status'];
+const HOST_COMMANDS = ['locate', 'lock', 'unlock', 'horn', 'lights', 'horn_lights', 'alarm_pulse', 'status', 'bluetooth_power_on', 'bluetooth_query_pairing'];
 const STARTER_COMMANDS = ['disable_starter', 'restore_starter'];
+const BLUETOOTH_COMMANDS = ['bluetooth_power_on', 'bluetooth_query_pairing'];
 
 // ── IMMEDIATE COMMAND DISPATCH ──
 const NORAN_HEARTBEAT_EXPIRY_SECONDS = 90;
@@ -80,7 +81,11 @@ function buildNoranMT20Command(commandType, deviceId, template, options = {}) {
     ? renderTemplate(template, { device_id: cleanDeviceId, HHMMSS: hhmmss })
     : (commandType === 'locate' || commandType === 'status')
       ? `*KW,${cleanDeviceId},000,${hhmmss}#`
-      : `*KW,${cleanDeviceId},007,${hhmmss},${NORAN_ACTION_MAP[commandType]}#`;
+      : commandType === 'bluetooth_power_on'
+        ? `*KW,${cleanDeviceId},008,${hhmmss},1#`
+        : commandType === 'bluetooth_query_pairing'
+          ? `*KW,${cleanDeviceId},024,${hhmmss}#`
+          : `*KW,${cleanDeviceId},007,${hhmmss},${NORAN_ACTION_MAP[commandType]}#`;
   if (options.wrapMt20 === true) {
     const wrapped = buildMt20WrappedCommand(ascii, options);
     return { ascii, hex: wrapped.fullPacketHex, sDataHex: wrapped.sDataHex, totalBytes: wrapped.totalBytes, rawAsciiHex: asciiToHex(ascii) };

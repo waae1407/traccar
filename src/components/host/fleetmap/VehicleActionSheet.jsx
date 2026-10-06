@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Users, Car, DollarSign, BarChart3, CalendarDays, MapPin, Wrench, Shield, Satellite, BookOpen, Lock, Unlock, Navigation, Route as RouteIcon } from "lucide-react";
+import { X, Users, Car, DollarSign, BarChart3, CalendarDays, MapPin, Wrench, Shield, Satellite, BookOpen, Lock, Unlock, Navigation, Route as RouteIcon, Bluetooth } from "lucide-react";
 import DriveHistoryReplay from "@/components/telematics/DriveHistoryReplay";
 import GeofenceManagerOverlay from "@/components/gps/GeofenceManagerOverlay";
+import BluetoothSetupOverlay from "@/components/gps/BluetoothSetupOverlay";
 
 const LABEL_FONT = "'Barlow Condensed', sans-serif";
 
@@ -10,6 +11,7 @@ export default function VehicleActionSheet({ vehicle, device, activeBooking, use
   const navigate = useNavigate();
   const [showReplay, setShowReplay] = useState(false);
   const [showGeofence, setShowGeofence] = useState(false);
+  const [showBluetooth, setShowBluetooth] = useState(false);
   if (!vehicle) return null;
 
   const canShowTripHistory = !!device?.id && !!device?.traccar_device_id;
@@ -122,6 +124,26 @@ export default function VehicleActionSheet({ vehicle, device, activeBooking, use
           </button>
         )}
 
+        {/* Bluetooth Setup (any GPS device) */}
+        {canShowGeofence && (
+          <button
+            onClick={() => setShowBluetooth(true)}
+            className="control-tap"
+            style={{
+              width: "100%", height: 48, borderRadius: 12,
+              background: "linear-gradient(135deg, rgba(59,130,246,0.12), rgba(168,85,247,0.08))",
+              border: "1px solid rgba(59,130,246,0.3)",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              cursor: "pointer", transition: "all 0.15s", marginBottom: 14,
+            }}
+          >
+            <Bluetooth size={18} color="#3B82F6" />
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#F5F5F7", fontFamily: LABEL_FONT, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+              Bluetooth Setup
+            </span>
+          </button>
+        )}
+
         {/* Action Grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
           {actions.map((a) => (
@@ -165,6 +187,16 @@ export default function VehicleActionSheet({ vehicle, device, activeBooking, use
           device={device}
           user={user}
           onClose={() => setShowGeofence(false)}
+        />
+      )}
+
+      {/* Bluetooth setup overlay */}
+      {showBluetooth && canShowGeofence && (
+        <BluetoothSetupOverlay
+          vehicle={vehicle}
+          device={device}
+          user={user}
+          onClose={() => setShowBluetooth(false)}
         />
       )}
     </>
