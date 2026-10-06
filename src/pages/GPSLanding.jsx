@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, ArrowRight, Package, Tag, Loader2, Wrench, Search, Sparkles } from 'lucide-react';
+import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, ArrowRight, Package, Tag, Loader2, Wrench, Search, Sparkles, KeyRound, Siren, Route, Activity, Bluetooth, Battery } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
@@ -18,7 +18,13 @@ const features = [
   { icon: MapPin, title: "Live GPS Tracking", desc: "Real-time location updates, 24/7 monitoring from anywhere" },
   { icon: Shield, title: "Anti-Theft Protection", desc: "Instant geofence alerts and movement detection" },
   { icon: Zap, title: "Smart Immobilizer", desc: "Remotely disable your vehicle if it's stolen" },
+  { icon: KeyRound, title: "Remote Lock & Unlock", desc: "Lock and unlock doors from anywhere via the app" },
+  { icon: Siren, title: "Vehicle Finder", desc: "Trigger horn and lights to locate your vehicle in any lot" },
   { icon: Bell, title: "Smart Alerts", desc: "Battery, smoke, movement, and tamper notifications" },
+  { icon: Activity, title: "Battery Health Monitor", desc: "Proactive drain detection with projected hours-to-dead" },
+  { icon: Route, title: "Trip History & Replay", desc: "Full route playback with speed, distance, and stops" },
+  { icon: Bluetooth, title: "Bluetooth Keyless", desc: "Pair your phone for proximity-based auto lock and unlock" },
+  { icon: Battery, title: "Backup Battery", desc: "Internal battery keeps tracking even if vehicle power is cut" },
   { icon: Lock, title: "Contactless Rental Ready", desc: "Enable secure keyless rental handoffs" },
   { icon: Smartphone, title: "Mobile Dashboard", desc: "Full control from the uRideHub app" },
 ];
