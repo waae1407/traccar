@@ -75,8 +75,20 @@ export default function CustomerNotifications() {
     queryKey: ["customer-notifications", user?.email],
     queryFn: () => base44.entities.Notification.filter({ user_email: user?.email }, "-created_date", 200),
     enabled: !!user?.email,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
+
+  // ── Real-time notification subscription ──
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.Notification.subscribe((event) => {
+      // Only react to events for this user's notifications
+      if (event?.data?.recipient_email === user.email || event?.data?.user_email === user.email) {
+        queryClient.invalidateQueries({ queryKey: ["customer-notifications", user.email] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email, queryClient]);
 
   const markReadMutation = useMutation({
     mutationFn: (n) => base44.entities.Notification.update(n.id, { is_read: true, read_at: new Date().toISOString() }),

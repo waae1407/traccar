@@ -100,8 +100,20 @@ export default function HostNotifications() {
     queryKey: ["host-notifications", user?.email],
     queryFn: () => base44.entities.Notification.filter({ recipient_email: user?.email }, "-created_date", 200),
     enabled: !!user?.email,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
+
+  // ── Real-time notification subscription ──
+  useEffect(() => {
+    if (!user?.email) return;
+    const unsubscribe = base44.entities.Notification.subscribe((event) => {
+      // Only react to events for this host's notifications
+      if (event?.data?.recipient_email === user.email) {
+        queryClient.invalidateQueries({ queryKey: ["host-notifications", user.email] });
+      }
+    });
+    return unsubscribe;
+  }, [user?.email, queryClient]);
 
   const markReadMutation = useMutation({
     mutationFn: (notification) => base44.entities.Notification.update(notification.id, { is_read: true, read_at: new Date().toISOString() }),

@@ -161,6 +161,20 @@ Deno.serve(async (req) => {
 
       await upsertCommerceProfile(base44, host, mode);
       await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ host_id, user_id: user.id, previous_mode: plan.selected_mode || plan.active_mode || '', new_mode: mode, reason: 'Host changed package from Business Operations.', changed_by: user.email, changed_at: now, source: 'host_edit' });
+
+      // ── Notify admins of plan change ──
+      base44.asServiceRole.functions.invoke('routePlatformNotification', {
+        event_type: 'host_plan_changed',
+        severity: 'info',
+        category: 'system',
+        title: `🔄 Host Plan Changed — ${host.business_name || host.full_name || host.email} → ${config.label}`,
+        message: `Host switched to ${config.label} (commission-only, no monthly subscription).`,
+        host_id,
+        action_url: '/admin/hosts',
+        metadata: { previous_mode: previousMode, new_mode: mode, host_email: host.email },
+        source_function: 'manageHostPlatformPlan',
+      }).catch(e => console.error('[manageHostPlatformPlan] admin notify failed:', e.message));
+
       return Response.json({ ok: true, mode, status: 'active' });
     }
 
@@ -202,6 +216,20 @@ Deno.serve(async (req) => {
 
       await upsertCommerceProfile(base44, host, mode);
       await base44.asServiceRole.entities.OperatorRecommendationHistory.create({ host_id, user_id: user.id, previous_mode: plan.selected_mode || plan.active_mode || '', new_mode: mode, reason: 'Host changed package and reused active subscription.', changed_by: user.email, changed_at: now, source: 'host_edit' });
+
+      // ── Notify admins of plan change (reused subscription) ──
+      base44.asServiceRole.functions.invoke('routePlatformNotification', {
+        event_type: 'host_plan_changed',
+        severity: 'info',
+        category: 'system',
+        title: `🔄 Host Plan Changed — ${host.business_name || host.full_name || host.email} → ${config.label}`,
+        message: `Host switched to ${config.label} ($${config.monthlyAmount}/mo). Active subscription reused — no new checkout needed.`,
+        host_id,
+        action_url: '/admin/hosts',
+        metadata: { previous_mode: previousMode, new_mode: mode, host_email: host.email, reused_subscription: true },
+        source_function: 'manageHostPlatformPlan',
+      }).catch(e => console.error('[manageHostPlatformPlan] admin notify failed:', e.message));
+
       return Response.json({ ok: true, mode, status: 'active', reused_subscription: true });
     }
 
@@ -300,6 +328,19 @@ Deno.serve(async (req) => {
     } catch (dualWriteErr) {
       console.error('[manageHostPlatformPlan] dual-write warning:', dualWriteErr.message);
     }
+
+    // ── Notify admins of plan change requiring checkout ──
+    base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'host_plan_changed',
+      severity: 'warning',
+      category: 'system',
+      title: `🔄 Host Plan Change — ${host.business_name || host.full_name || host.email} → ${config.label}`,
+      message: `Host started checkout for ${config.label} ($${config.monthlyAmount}/mo with ${TRIAL_DAYS}-day trial). Payment pending.`,
+      host_id,
+      action_url: '/admin/hosts',
+      metadata: { previous_mode: previousMode, new_mode: mode, host_email: host.email, checkout_started: true },
+      source_function: 'manageHostPlatformPlan',
+    }).catch(e => console.error('[manageHostPlatformPlan] admin notify failed:', e.message));
 
     return Response.json({ ok: true, mode, status: 'checkout_started', url: session.url });
   } catch (error) {

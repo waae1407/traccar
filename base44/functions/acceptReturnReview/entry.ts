@@ -68,6 +68,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Notify customer that host accepted their return ──
+    base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'return_accepted',
+      severity: 'success',
+      category: 'bookings',
+      title: `✅ Return Accepted — ${booking.vehicle_name || 'rental'} Completed`,
+      message: `Your host has accepted your return inspection. The rental is now complete. Thank you!`,
+      booking_id: booking_request_id,
+      host_id: booking.host_id,
+      customer_id: booking.user_id || '',
+      vehicle_id: booking.vehicle_id || '',
+      action_url: '/my-bookings',
+      source_function: 'acceptReturnReview',
+    }).catch(e => console.error('[acceptReturnReview] customer notify failed:', e.message));
+
     return Response.json({ ok: true, accepted_at: now });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

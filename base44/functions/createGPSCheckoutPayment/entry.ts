@@ -289,6 +289,20 @@ Deno.serve(async (req) => {
       event_status: 'pending',
     }).catch(() => {});
 
+    // ── Notify admins of new GPS order in real-time ──
+    base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'gps_order_placed',
+      severity: 'info',
+      category: 'gps',
+      title: `📦 New GPS Order — ${orderNum}`,
+      message: `${customer_name} ordered ${qty}x ${package_type.replace(/_/g, ' ')} ($${totalAmount}). Payment pending.`,
+      host_id: hostId || '',
+      customer_id: customerUserId || '',
+      action_url: '/admin/gps-monitor',
+      metadata: { order_id: order.id, order_number: orderNum, package_type, total_amount: totalAmount, quantity: qty },
+      source_function: 'createGPSCheckoutPayment',
+    }).catch(e => console.error('[createGPSCheckoutPayment] admin notify failed:', e.message));
+
     return Response.json({
       order_id: order.id,
       order_number: orderNum,

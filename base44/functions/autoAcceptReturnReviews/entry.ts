@@ -30,6 +30,22 @@ Deno.serve(async (req) => {
       // NOTE: processRentalLifecycleTransitions is the sole authority for BookingRequest
       // lifecycle auto-completion. This function only manages InspectionEvidencePacket state.
       // Do NOT update BookingRequest or Vehicle status here — prevents dual-completion race.
+
+      // ── Notify customer that return was auto-accepted (24h window expired) ──
+      base44.asServiceRole.functions.invoke('routePlatformNotification', {
+        event_type: 'return_auto_accepted',
+        severity: 'info',
+        category: 'bookings',
+        title: `✅ Return Auto-Accepted — ${booking.vehicle_name || 'rental'}`,
+        message: `Your host's 24-hour review window has expired. Your return inspection was automatically accepted and the rental is now complete.`,
+        booking_id: booking.id,
+        host_id: booking.host_id,
+        customer_id: booking.user_id || '',
+        vehicle_id: booking.vehicle_id || '',
+        action_url: '/my-bookings',
+        source_function: 'autoAcceptReturnReviews',
+      }).catch(e => console.error('[autoAcceptReturnReviews] customer notify failed:', e.message));
+
       accepted += 1;
     }
 

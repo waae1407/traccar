@@ -87,6 +87,21 @@ Deno.serve(async (req) => {
       processed_by: 'completed_booking_review_collector',
     });
 
+    // ── Notify host of new customer review ──
+    base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'customer_review_submitted',
+      severity: 'info',
+      category: 'bookings',
+      title: `⭐ New Review — ${clampRating(body.overall_rating)}/5 stars`,
+      message: `${user.full_name || booking.customer_full_name || user.email} submitted a ${clampRating(body.overall_rating)}-star review for ${booking.vehicle_name || 'their rental'}.`,
+      booking_id: booking.id,
+      host_id: booking.host_id,
+      vehicle_id: booking.vehicle_id || '',
+      action_url: '/host/return-reviews',
+      metadata: { review_id: review.id, rating: clampRating(body.overall_rating) },
+      source_function: 'submitCompletedBookingReview',
+    }).catch(e => console.error('[submitCompletedBookingReview] host notify failed:', e.message));
+
     return Response.json({ ok: true, review });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

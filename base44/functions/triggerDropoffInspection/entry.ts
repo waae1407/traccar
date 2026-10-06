@@ -18,6 +18,25 @@ Deno.serve(async (req) => {
       inspection_type: "dropoff",
     });
 
+    // ── Notify host that customer submitted return photos ──
+    const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ id: bookingId }).catch(() => []);
+    const booking = bookings[0];
+    if (booking?.host_id) {
+      base44.asServiceRole.functions.invoke('routePlatformNotification', {
+        event_type: 'return_photos_submitted',
+        severity: 'warning',
+        category: 'bookings',
+        title: `📋 Return Photos Submitted — ${booking.vehicle_name || 'vehicle'}`,
+        message: `Customer ${booking.customer_full_name || booking.user_email} submitted return inspection photos. Review needed to complete the rental.`,
+        booking_id: bookingId,
+        host_id: booking.host_id,
+        customer_id: booking.user_id || '',
+        vehicle_id: booking.vehicle_id || '',
+        action_url: '/host/return-reviews',
+        source_function: 'triggerDropoffInspection',
+      }).catch(e => console.error('[triggerDropoffInspection] host notify failed:', e.message));
+    }
+
     console.log("Dropoff inspection result:", JSON.stringify(res));
     return Response.json({ ok: true, result: res });
   } catch (error) {

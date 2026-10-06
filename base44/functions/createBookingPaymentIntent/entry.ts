@@ -174,6 +174,12 @@ Deno.serve(async (req) => {
       payment_status: 'pending'
     });
 
+    // ── Notify host of booking attempt in real-time ──
+    base44.asServiceRole.functions.invoke('sendBookingAlertNotifications', {
+      event_type: 'booking_attempt',
+      booking_id: booking.id,
+    }).catch(e => console.error('[createBookingPaymentIntent] notify host failed:', e.message));
+
     return Response.json({
       processor,
       client_secret: paymentIntent.client_secret,

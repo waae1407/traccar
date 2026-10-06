@@ -98,6 +98,20 @@ Deno.serve(async (req) => {
       event_status: 'success',
     }).catch(() => {});
 
+    // ── Notify customer and admins of refund in real-time ──
+    base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'gps_order_refunded',
+      severity: 'warning',
+      category: 'refunds',
+      title: `💸 GPS Order Refunded — ${order.order_number}`,
+      message: `Refund of $${requestedRefund} (${newRefundStatus}) processed for ${order.customer_name}. Reason: ${refund_reason}`,
+      host_id: order.host_id || '',
+      customer_id: order.customer_user_id || '',
+      action_url: '/admin/gps-monitor',
+      metadata: { order_id, order_number: order.order_number, refund_amount: requestedRefund, refund_status: newRefundStatus, stripe_refund_id: refund.id },
+      source_function: 'refundGPSOrder',
+    }).catch(e => console.error('[refundGPSOrder] notify failed:', e.message));
+
     return Response.json({
       success: true,
       stripe_refund_id: refund.id,

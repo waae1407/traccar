@@ -99,6 +99,21 @@ Deno.serve(async (req) => {
 
     if (booking.vehicle_id) await base44.asServiceRole.entities.Vehicle.update(booking.vehicle_id, { status: 'Dispute Hold' });
 
+    // ── Notify admins of new dispute ──
+    base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'return_dispute_opened',
+      severity: 'critical',
+      category: 'bookings',
+      title: `⚠️ Return Dispute Opened — ${booking.vehicle_name || 'vehicle'}`,
+      message: `Host ${host?.full_name || host?.email || 'unknown'} opened a return dispute (${dispute_category}) on ${booking.vehicle_name || 'vehicle'}. Vehicle placed on Dispute Hold. Admin review required.`,
+      booking_id: booking.id,
+      host_id: booking.host_id,
+      vehicle_id: booking.vehicle_id || '',
+      action_url: '/admin/disputes',
+      metadata: { dispute_id: dispute.id, dispute_category, photo_slot, notes },
+      source_function: 'openReturnDispute',
+    }).catch(e => console.error('[openReturnDispute] admin notify failed:', e.message));
+
     return Response.json({ ok: true, dispute });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

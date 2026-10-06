@@ -100,6 +100,20 @@ Deno.serve(async (req) => {
     let complianceWarning = null;
     if (complianceIssues.length > 0) {
       if (enforcementEnabled) {
+        // ── Notify admins of compliance-blocked booking attempt ──
+        base44.asServiceRole.functions.invoke('routePlatformNotification', {
+          event_type: 'booking_blocked_compliance',
+          severity: 'warning',
+          category: 'compliance',
+          title: `🚫 Booking Blocked — Compliance Issue on ${vehicle.make || ''} ${vehicle.model || ''}`.trim(),
+          message: `A booking attempt was blocked due to: ${complianceIssues.join('; ')}. Vehicle needs compliance renewal.`,
+          host_id: vehicle.host_id,
+          vehicle_id: vehicle_id,
+          action_url: '/admin/compliance-queue',
+          metadata: { vehicle_id, compliance_issues: complianceIssues },
+          source_function: 'validateVehicleBooking',
+        }).catch(e => console.error('[validateVehicleBooking] admin notify failed:', e.message));
+
         return Response.json({
           blocked: true,
           reason: 'This vehicle is temporarily unavailable.',
