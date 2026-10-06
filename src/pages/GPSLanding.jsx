@@ -28,6 +28,7 @@ const features = [
   { icon: Battery, title: "Backup Battery", desc: "Internal battery keeps tracking even if vehicle power is cut" },
   { icon: Lock, title: "Contactless Rental Ready", desc: "Enable secure keyless rental handoffs" },
   { icon: Siren, title: "One-Tap SOS Button", desc: "Press SOS to instantly alert your emergency contacts with live GPS location via SMS, email, and push notification" },
+  { icon: Activity, title: "Safe Driving Monitor", desc: "Detects drag racing, street takeovers, hard cornering, and hard braking with real-time driving pattern analysis" },
 ];
 
 const audiences = [
