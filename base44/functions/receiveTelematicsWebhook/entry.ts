@@ -370,6 +370,32 @@ async function createSafetyEventIfNeeded(base44, { body, eventType, device, prov
     created_by: 'system'
   });
   await notifySafetyEventCreated(base44, event, booking);
+
+  // ── Accident reporting pipeline ──
+  // When a possible_accident is detected (shock alarm or sudden stop pattern),
+  // invoke handleAccidentReport to create the black-box evidence record,
+  // TelematicsIncident, and notify emergency contacts. Non-blocking — a failure
+  // here must not break the webhook response.
+  if (candidate.event_type === 'possible_accident') {
+    await base44.asServiceRole.functions.invoke('handleAccidentReport', {
+      device_id: device.id,
+      vehicle_id: device.vehicle_id || '',
+      host_id: device.host_id || '',
+      booking_id: booking?.id || '',
+      customer_user_id: booking?.user_id || device.owner_user_id || '',
+      owner_user_id: device.owner_user_id || '',
+      latitude,
+      longitude,
+      speed: Number(speed || 0),
+      ignition_status: ignitionStatus || 'unknown',
+      shock_detected: shock,
+      voltage: device.battery_voltage || device.power_voltage,
+      safety_event_id: event.id,
+      telematics_snapshot: { event_type: eventType, movement_meters: Math.round(movementMeters), repeated_movement: repeatedMovement, sudden_stop: suddenStop, stationary_after_stop: stationaryAfterStop, online_status: device.online_status || '' },
+      triggered_by: shock ? 'shock_alarm' : 'sudden_stop'
+    }).catch(e => console.error('[receiveTelematicsWebhook] handleAccidentReport failed:', e.message));
+  }
+
   return event;
 }
 
