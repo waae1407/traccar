@@ -67,13 +67,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 4. Update GPSOrder ──
+    // ── 4. Update GPSOrder + restock if not shipped ──
     if (sub.order_id) {
       const orders = await base44.asServiceRole.entities.GPSOrder.filter({ id: sub.order_id }, '-created_date', 1);
-      if (orders[0]) {
-        await base44.asServiceRole.entities.GPSOrder.update(orders[0].id, {
+      const trialOrder = orders[0];
+      if (trialOrder) {
+        await base44.asServiceRole.entities.GPSOrder.update(trialOrder.id, {
           order_status: 'cancelled',
         });
+        // Restock if device hasn't shipped yet
+        if (trialOrder.order_status !== 'shipped' && !trialOrder.shipped_at) {
+          const prods = await base44.asServiceRole.entities.GPSProduct.filter({ package_type: 'device_subscription' });
+          if (prods[0] && typeof prods[0].inventory_count === 'number') {
+            await base44.asServiceRole.entities.GPSProduct.update(prods[0].id, {
+              inventory_count: prods[0].inventory_count + 1,
+            }).catch(() => {});
+          }
+        }
       }
     }
 

@@ -179,6 +179,10 @@ export default function GPSCheckout() {
   const [showC360SignIn, setShowC360SignIn] = useState(false);
 
   const selectedProduct = products.find(p => p.package_type === pkg);
+  const stockQty = typeof selectedProduct?.inventory_count === 'number' ? selectedProduct.inventory_count : null;
+  const outOfStock = stockQty !== null && stockQty <= 0;
+  const requestedQty = Number(form.quantity) || 1;
+  const insufficientStock = stockQty !== null && requestedQty > stockQty;
 
   const handleSignIn = () => {
     if (isCustomDomainHost()) setShowC360SignIn(true);
@@ -302,6 +306,12 @@ export default function GPSCheckout() {
             </div>
           )}
 
+          {outOfStock && (
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" /> This package is currently out of stock. Please check back soon.
+            </div>
+          )}
+
           {/* Fleet Partner access gate */}
           {isFleetKit && fleetKitBlocked && (() => {
             const MESSAGES = {
@@ -372,15 +382,23 @@ export default function GPSCheckout() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1"><Label>Quantity</Label><Input type="number" min={1} max={20} value={form.quantity} onChange={e => set('quantity', Number(e.target.value))} /></div>
+              <div className="space-y-1">
+                <Label>Quantity</Label>
+                <Input type="number" min={1} max={stockQty ?? 20} value={form.quantity} onChange={e => set('quantity', Number(e.target.value))} />
+                {stockQty !== null && stockQty > 0 && stockQty <= 5 && (
+                  <p className="text-xs text-yellow-400">Only {stockQty} left in stock</p>
+                )}
+              </div>
               <Button
                 type="submit"
                 size="lg"
                 className="w-full gradient-primary glow-sm"
-                disabled={loading || fleetKitBlocked || (isFleetKit && fleetEligibilityReason === null)}
+                disabled={loading || fleetKitBlocked || outOfStock || insufficientStock || (isFleetKit && fleetEligibilityReason === null)}
               >
                 {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating Order…</> :
                  fleetKitBlocked ? 'Fleet Partner Access Required' :
+                 outOfStock ? 'Out of Stock' :
+                 insufficientStock ? `Only ${stockQty} in stock` :
                  (isFleetKit && fleetEligibilityReason === null) ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</> :
                  'Continue to Payment'}
               </Button>

@@ -62,6 +62,17 @@ Deno.serve(async (req) => {
       order_status: newRefundStatus === 'full' ? 'refunded' : order.order_status,
     });
 
+    // ── Restock on full refund if not yet shipped ──
+    if (newRefundStatus === 'full' && order.order_status !== 'shipped' && !order.shipped_at && order.product_id) {
+      const prods = await base44.asServiceRole.entities.GPSProduct.filter({ id: order.product_id });
+      if (prods[0] && typeof prods[0].inventory_count === 'number') {
+        const restockQty = Math.max(1, Number(order.quantity || 1));
+        await base44.asServiceRole.entities.GPSProduct.update(prods[0].id, {
+          inventory_count: prods[0].inventory_count + restockQty,
+        }).catch(() => {});
+      }
+    }
+
     // Audit log
     await base44.asServiceRole.entities.ActivityEvent.create({
       event_type: 'payment.refunded',

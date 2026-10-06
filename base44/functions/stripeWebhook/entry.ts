@@ -299,6 +299,68 @@ async function handleGPSOrderPaid(base44, pi) {
     source: 'webhook',
     event_status: 'success',
   });
+
+  // ── Decrement inventory ──
+  const orderQty = Math.max(1, Number(order.quantity || 1));
+  if (order.product_id) {
+    const prods = await base44.asServiceRole.entities.GPSProduct.filter({ id: order.product_id });
+    if (prods[0] && typeof prods[0].inventory_count === 'number') {
+      const newCount = Math.max(0, prods[0].inventory_count - orderQty);
+      await base44.asServiceRole.entities.GPSProduct.update(prods[0].id, { inventory_count: newCount }).catch(() => {});
+      // Low-stock alert
+      if (newCount <= 5) {
+        try {
+          const allUsers = await base44.asServiceRole.entities.User.list('-created_date', 100);
+          const admins = allUsers.filter(u => u.role === 'admin');
+          for (const admin of admins) {
+            await base44.asServiceRole.entities.Notification.create({
+              recipient_user_id: admin.id,
+              recipient_email: admin.email,
+              recipient_role: 'admin',
+              title: '⚠️ GPS Device Low Stock',
+              body: `${prods[0].name} inventory is down to ${newCount} unit(s). Reorder soon.`,
+              type: 'alert',
+              category: 'subscriptions',
+              severity: 'warning',
+              source_function: 'stripeWebhook',
+              related_entity_type: 'GPSProduct',
+              related_entity_id: prods[0].id,
+            }).catch(() => {});
+          }
+        } catch (e) { console.error('[low stock alert]', e.message); }
+      }
+    }
+  }
+
+  // ── Notify admins of new shippable order ──
+  try {
+    const allUsers = await base44.asServiceRole.entities.User.list('-created_date', 100);
+    const admins = allUsers.filter(u => u.role === 'admin');
+    for (const admin of admins) {
+      await base44.asServiceRole.entities.Notification.create({
+        recipient_user_id: admin.id,
+        recipient_email: admin.email,
+        recipient_role: 'admin',
+        title: '📦 New GPS Order Paid — Ship to Customer',
+        body: `${order.customer_name} (${order.customer_email}) — Order ${order.order_number}, ${order.package_type}, qty ${orderQty}. Ship to: ${order.shipping_address || 'N/A'}.`,
+        type: 'success',
+        category: 'subscriptions',
+        severity: 'info',
+        source_function: 'stripeWebhook',
+        related_entity_type: 'GPSOrder',
+        related_entity_id: orderId,
+        metadata: { order_id: orderId, customer_email: order.customer_email },
+      }).catch(() => {});
+      await base44.asServiceRole.integrations.Core.SendEmail({
+        to: admin.email,
+        subject: `📦 New GPS Order Paid — ${order.order_number}`,
+        body: `A new GPS order has been paid and needs to be shipped.\n\nOrder: ${order.order_number}\nCustomer: ${order.customer_name} (${order.customer_email})\nPackage: ${order.package_type}\nQuantity: ${orderQty}\nShip to: ${order.shipping_address || 'N/A'}\n\nMark it shipped in the admin GPS Store once dispatched.`,
+        from_name: 'Contactless360 GPS',
+      }).catch(() => {});
+    }
+  } catch (e) {
+    console.error('[GPS order admin alert]', e.message);
+  }
 }
 
 async function handleGPSOrderFailed(base44, pi) {

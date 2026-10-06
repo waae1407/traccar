@@ -56,17 +56,28 @@ export default function AdminGPSStore() {
 
   const markShipped = async () => {
     if (!selectedOrder) return;
+    if (!shipForm.tracking_number.trim()) {
+      toast({ title: 'Tracking number required', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
-    await base44.entities.GPSOrder.update(selectedOrder.id, {
-      order_status: 'shipped',
-      tracking_number: shipForm.tracking_number,
-      carrier: shipForm.carrier,
-      shipped_at: new Date().toISOString(),
-    });
-    toast({ title: 'Marked as shipped' });
-    setSelectedOrder(null);
-    setShipForm({ tracking_number: '', carrier: '' });
-    await loadData();
+    try {
+      const res = await base44.functions.invoke('markGPSOrderShipped', {
+        order_id: selectedOrder.id,
+        tracking_number: shipForm.tracking_number.trim(),
+        carrier: shipForm.carrier.trim(),
+      });
+      if (res.data?.error) {
+        toast({ title: res.data.error, variant: 'destructive' });
+      } else {
+        toast({ title: 'Marked as shipped — customer emailed' });
+        setSelectedOrder(null);
+        setShipForm({ tracking_number: '', carrier: '' });
+        await loadData();
+      }
+    } catch (e) {
+      toast({ title: e.message || 'Failed to mark shipped', variant: 'destructive' });
+    }
     setSaving(false);
   };
 
@@ -116,7 +127,11 @@ export default function AdminGPSStore() {
           ) : orders.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No orders yet.</div>
           ) : (
-            orders.map(order => (
+            [...orders].sort((a, b) => {
+              const aUnshipped = (a.order_status === 'paid' || a.order_status === 'processing') ? 0 : 1;
+              const bUnshipped = (b.order_status === 'paid' || b.order_status === 'processing') ? 0 : 1;
+              return aUnshipped - bUnshipped;
+            }).map(order => (
               <div key={order.id} className="glass rounded-xl p-5 space-y-3">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="space-y-1">
@@ -182,6 +197,11 @@ export default function AdminGPSStore() {
                 <div>
                   <p className="text-white font-semibold">{p.name}</p>
                   <p className="text-sm text-muted-foreground capitalize">{p.package_type?.replace(/_/g, ' ')} · ${p.device_price}</p>
+                  <p className="text-xs mt-1">
+                    <span className={typeof p.inventory_count === 'number' && p.inventory_count <= 5 ? 'text-yellow-400 font-semibold' : 'text-muted-foreground'}>
+                      {typeof p.inventory_count === 'number' ? `${p.inventory_count} in stock` : 'Stock not tracked'}
+                    </span>
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge className={p.is_active ? statusColor('active') : statusColor('cancelled')}>

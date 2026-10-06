@@ -92,6 +92,7 @@ export default function TrialCheckout() {
   const [stripeInstance, setStripeInstance] = useState(null);
   const [trialResult, setTrialResult] = useState(null);
   const [showC360SignIn, setShowC360SignIn] = useState(false);
+  const [stockQty, setStockQty] = useState(null);
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -102,11 +103,16 @@ export default function TrialCheckout() {
 
   useEffect(() => {
     getStripe().then(setStripeInstance);
+    base44.entities.GPSProduct.filter({ package_type: 'device_subscription', is_active: true }).then(prods => {
+      setStockQty(typeof prods[0]?.inventory_count === 'number' ? prods[0].inventory_count : null);
+    }).catch(() => {});
     if (user) {
       if (user.email) set('email', user.email);
       if (user.full_name) set('name', user.full_name);
     }
   }, [user]);
+
+  const outOfStock = stockQty !== null && stockQty <= 0;
 
   // Step 1: Create SetupIntent (prepare for card collection)
   const handleFormSubmit = async (e) => {
@@ -285,8 +291,13 @@ export default function TrialCheckout() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" size="lg" className="w-full gradient-primary glow-sm font-bold" disabled={loading}>
-                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparing…</> : <>Continue to Card Setup <ArrowLeft className="w-4 h-4 rotate-180" /></>}
+              {outOfStock && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-red-400 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> GPS devices are temporarily out of stock. Please check back soon.
+                </div>
+              )}
+              <Button type="submit" size="lg" className="w-full gradient-primary glow-sm font-bold" disabled={loading || outOfStock}>
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparing…</> : outOfStock ? 'Out of Stock' : <>Continue to Card Setup <ArrowLeft className="w-4 h-4 rotate-180" /></>}
               </Button>
             </form>
           )}

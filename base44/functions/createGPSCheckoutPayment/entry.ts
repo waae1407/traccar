@@ -27,6 +27,17 @@ Deno.serve(async (req) => {
     const products = await base44.asServiceRole.entities.GPSProduct.filter({ package_type, is_active: true });
     const product = products[0];
 
+    // 1b. Stock enforcement — block checkout when insufficient inventory
+    const requestedQty = Math.max(1, Number(quantity));
+    if (product && typeof product.inventory_count === 'number' && product.inventory_count < requestedQty) {
+      return Response.json({
+        error: product.inventory_count <= 0
+          ? 'This package is currently out of stock. Please check back soon.'
+          : `Only ${product.inventory_count} unit(s) in stock. Please reduce your quantity.`,
+        error_code: 'OUT_OF_STOCK',
+      }, { status: 409 });
+    }
+
     // 2. Fleet Partner Kit — full server-side eligibility gate
     if (package_type === 'host_contactless_kit') {
       const deny = (reason, message, extra = {}) => {

@@ -75,6 +75,13 @@ Deno.serve(async (req) => {
       });
     } catch (_) { /* already attached is fine */ }
 
+    // ── Stock check (trial ships 1 device) ──
+    const trialProducts = await base44.asServiceRole.entities.GPSProduct.filter({ package_type: 'device_subscription' });
+    const trialProduct = trialProducts[0];
+    if (trialProduct && typeof trialProduct.inventory_count === 'number' && trialProduct.inventory_count < 1) {
+      return Response.json({ error: 'Out of stock — GPS devices are temporarily unavailable. Please check back soon.', error_code: 'OUT_OF_STOCK' }, { status: 409 });
+    }
+
     // ── 3. Create GPSOrder ($0, trial order) ──
     const now = new Date();
     const trialEnd = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
@@ -113,6 +120,13 @@ Deno.serve(async (req) => {
       stripe_payment_method_id: payment_method_id,
       paid_at: now.toISOString(),
     });
+
+    // ── Decrement inventory (trial ships 1 device) ──
+    if (trialProduct && typeof trialProduct.inventory_count === 'number') {
+      await base44.asServiceRole.entities.GPSProduct.update(trialProduct.id, {
+        inventory_count: Math.max(0, trialProduct.inventory_count - 1),
+      }).catch(() => {});
+    }
 
     // ── 4. Get or create Stripe Price (cached on GPSProduct) ──
     const products = await base44.asServiceRole.entities.GPSProduct.filter({ package_type: 'device_subscription' });
@@ -290,7 +304,7 @@ Deno.serve(async (req) => {
           recipient_email: admin.email,
           recipient_role: 'admin',
           title: '🎉 New GPS Trial Signup',
-          body: `${customer_name} (${customer_email}) started a 90-day free trial. Order: ${orderNum}. $${MONTHLY_PRICE}/mo starts ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`,
+          body: `${customer_name} (${customer_email}) started a 90-day free trial. Order: ${orderNum}. $${MONTHLY_PRICE}/mo starts ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Ship to: ${shipping_address || 'N/A'}.`,
           type: 'success',
           category: 'subscriptions',
           severity: 'info',
@@ -298,6 +312,12 @@ Deno.serve(async (req) => {
           related_entity_type: 'GPSOrder',
           related_entity_id: order.id,
           metadata: { order_id: order.id, subscription_id: sub.id, customer_email },
+        }).catch(() => {});
+        await base44.asServiceRole.integrations.Core.SendEmail({
+          to: admin.email,
+          subject: `🎉 New GPS Trial Signup — ${orderNum}`,
+          body: `A new 90-day free trial has started and a device needs to be shipped.\n\nOrder: ${orderNum}\nCustomer: ${customer_name} (${customer_email})\nShip to: ${shipping_address || 'N/A'}\nSubscription: $${MONTHLY_PRICE}/mo starts ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}\n\nMark it shipped in the admin GPS Store once dispatched.`,
+          from_name: 'Contactless360 GPS',
         }).catch(() => {});
       }
     } catch (e) {
