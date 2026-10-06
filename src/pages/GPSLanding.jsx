@@ -27,7 +27,7 @@ const features = [
   { icon: ShieldAlert, title: "Accident Auto-Detection", desc: "Impact sensor triggers auto accident report with GPS and emergency alerts" },
   { icon: Battery, title: "Backup Battery", desc: "Internal battery keeps tracking even if vehicle power is cut" },
   { icon: Lock, title: "Contactless Rental Ready", desc: "Enable secure keyless rental handoffs" },
-  { icon: Smartphone, title: "Mobile Dashboard", desc: "Full control from the uRideHub app" },
+  { icon: Siren, title: "One-Tap SOS Button", desc: "Press SOS to instantly alert your emergency contacts with live GPS location via SMS, email, and push notification" },
 ];
 
 const audiences = [
