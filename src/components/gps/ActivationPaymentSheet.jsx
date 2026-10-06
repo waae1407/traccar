@@ -165,7 +165,7 @@ export default function ActivationPaymentSheet({ deviceId, onClose, onSuccess })
         {!loading && !error && !success && clientSecret && stripePromise && (
           <>
             <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-1">
-              <p className="text-xs text-white/70">✅ 7-day free trial included</p>
+              <p className="text-xs text-white/70">✅ 30-day free trial included</p>
               <p className="text-xs text-white/70">✅ Full GPS tracking & remote controls</p>
               <p className="text-xs text-white/70">✅ Cancel anytime — no commitment</p>
             </div>

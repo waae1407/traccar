@@ -69,7 +69,7 @@ export default function TrialActivationBanner({ device, subscription, onActivate
         border: "rgba(48,209,88,0.25)",
         icon: Zap,
         iconColor: "#30D158",
-        title: `7-Day Free Trial Active — ${daysRemaining} days left`,
+        title: `30-Day Free Trial Active — ${daysRemaining} days left`,
         message: "You have full access to all GPS features. Activate your $14.99/mo subscription to continue after the trial.",
         buttonLabel: "Activate",
         buttonColor: "#30D158",
@@ -83,7 +83,7 @@ export default function TrialActivationBanner({ device, subscription, onActivate
       icon: Zap,
       iconColor: "#30D158",
       title: "Activate Your GPS Subscription",
-      message: "Start your 7-day free trial with full access to GPS tracking, remote controls, and alerts. $14.99/mo after trial.",
+      message: "Start your 30-day free trial with full access to GPS tracking, remote controls, and alerts. $14.99/mo after trial.",
       buttonLabel: "Start Free Trial",
       buttonColor: "#30D158",
     };

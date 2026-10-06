@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
           </div>
           <div style="padding: 32px;">
             <p style="color: #333; font-size: 16px; line-height: 1.6;">Great news — your Contactless360 GPS device has been professionally installed and is ready to activate.</p>
-            <p style="color: #333; font-size: 16px; line-height: 1.6;">Click the button below to start your 7-day free trial. After the trial, your subscription is just $14.99/month and you can cancel anytime.</p>
+            <p style="color: #333; font-size: 16px; line-height: 1.6;">Click the button below to start your 30-day free trial. After the trial, your subscription is just $14.99/month and you can cancel anytime.</p>
             <div style="text-align: center; margin: 28px 0;">
               <a href="${activationLink}" style="display: inline-block; background: linear-gradient(135deg, #e91e8c, #7c3aed); color: white; font-weight: 700; font-size: 16px; padding: 16px 40px; border-radius: 16px; text-decoration: none; box-shadow: 0 4px 16px rgba(233,30,140,0.3);">Activate My GPS</a>
             </div>
