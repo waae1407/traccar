@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Package, Shield, Zap, RefreshCw, CheckCircle, AlertCircle, Edit, Truck } from 'lucide-react';
+import { Package, Shield, Zap, RefreshCw, CheckCircle, AlertCircle, Edit, Truck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
@@ -83,7 +83,45 @@ export default function AdminGPSStore() {
 
   const totalRevenue = orders.filter(o => o.payment_status === 'paid').reduce((s, o) => s + (o.total_amount || 0), 0);
   const pendingCount = orders.filter(o => o.order_status === 'paid' || o.order_status === 'processing').length;
+  const backorderedCount = orders.filter(o => o.is_backordered && o.order_status !== 'cancelled' && o.order_status !== 'shipped').length;
   const activeSubscriptions = subscriptions.filter(s => s.subscription_status === 'active').length;
+
+  const [stockEdit, setStockEdit] = useState(null);
+  const [stockValue, setStockValue] = useState('');
+  const [stockSaving, setStockSaving] = useState(false);
+
+  const updateStock = async (productId, newCount) => {
+    const count = parseInt(newCount, 10);
+    if (isNaN(count) || count < 0) {
+      toast({ title: 'Enter a valid stock number', variant: 'destructive' });
+      return;
+    }
+    setStockSaving(true);
+    try {
+      const product = products.find(p => p.id === productId);
+      const wasOutOfStock = (product?.inventory_count ?? 0) <= 0;
+      await base44.entities.GPSProduct.update(productId, { inventory_count: count });
+      await loadData();
+      if (wasOutOfStock && count > 0) {
+        const readyToShip = orders.filter(o => o.is_backordered && o.order_status !== 'cancelled' && o.order_status !== 'shipped');
+        if (readyToShip.length > 0) {
+          toast({
+            title: `Stock restocked — ${readyToShip.length} backordered order${readyToShip.length > 1 ? 's' : ''} ready to ship`,
+            description: readyToShip.map(o => o.order_number).join(', '),
+            duration: 8000,
+          });
+        } else {
+          toast({ title: 'Stock updated' });
+        }
+      } else {
+        toast({ title: 'Stock updated' });
+      }
+      setStockEdit(null);
+    } catch (e) {
+      toast({ title: e.message || 'Failed to update stock', variant: 'destructive' });
+    }
+    setStockSaving(false);
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -99,11 +137,12 @@ export default function AdminGPSStore() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: "Total Orders", value: orders.length, color: "text-white" },
           { label: "Revenue (Paid)", value: `$${totalRevenue.toFixed(0)}`, color: "text-green-400" },
           { label: "Pending Fulfillment", value: pendingCount, color: "text-yellow-400" },
+          { label: "Backordered", value: backorderedCount, color: "text-orange-400" },
           { label: "Active Subscriptions", value: activeSubscriptions, color: "text-primary" },
         ].map(k => (
           <div key={k.label} className="glass rounded-xl p-4 text-center">
@@ -128,17 +167,25 @@ export default function AdminGPSStore() {
             <div className="text-center py-12 text-muted-foreground">No orders yet.</div>
           ) : (
             [...orders].sort((a, b) => {
+              const aBackordered = a.is_backordered && a.order_status !== 'cancelled' && a.order_status !== 'shipped' ? 0 : 1;
+              const bBackordered = b.is_backordered && b.order_status !== 'cancelled' && b.order_status !== 'shipped' ? 0 : 1;
+              if (aBackordered !== bBackordered) return aBackordered - bBackordered;
               const aUnshipped = (a.order_status === 'paid' || a.order_status === 'processing') ? 0 : 1;
               const bUnshipped = (b.order_status === 'paid' || b.order_status === 'processing') ? 0 : 1;
               return aUnshipped - bUnshipped;
             }).map(order => (
-              <div key={order.id} className="glass rounded-xl p-5 space-y-3">
+              <div key={order.id} className={`glass rounded-xl p-5 space-y-3 ${order.is_backordered && order.order_status !== 'cancelled' && order.order_status !== 'shipped' ? 'border-orange-500/40' : ''}`}>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-mono text-white font-bold">{order.order_number}</span>
                       <Badge className={statusColor(order.order_status)}>{order.order_status?.replace(/_/g, ' ')}</Badge>
                       <Badge className={statusColor(order.activation_status)} variant="outline">{order.activation_status?.replace(/_/g, ' ')}</Badge>
+                      {order.is_backordered && order.order_status !== 'cancelled' && order.order_status !== 'shipped' && (
+                        <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                          <AlertTriangle className="w-3 h-3 mr-1" /> BACKORDERED
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-white">{order.customer_name} · {order.customer_email}</p>
                     <p className="text-xs text-muted-foreground capitalize">{order.package_type?.replace(/_/g, ' ')} · Qty {order.quantity} · ${order.total_amount?.toFixed(2)}</p>
@@ -203,7 +250,35 @@ export default function AdminGPSStore() {
                     </span>
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  {stockEdit === p.id ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={stockValue}
+                        onChange={e => setStockValue(e.target.value)}
+                        className="w-20 h-8 text-center"
+                        placeholder={String(p.inventory_count ?? 0)}
+                        autoFocus
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') updateStock(p.id, stockValue);
+                          if (e.key === 'Escape') setStockEdit(null);
+                        }}
+                      />
+                      <Button size="sm" className="h-8" onClick={() => updateStock(p.id, stockValue)} disabled={stockSaving}>
+                        {stockSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8" onClick={() => setStockEdit(null)}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setStockEdit(p.id); setStockValue(String(p.inventory_count ?? 0)); }}
+                    >
+                      <Edit className="w-3 h-3" /> Edit Stock
+                    </Button>
+                  )}
                   <Badge className={p.is_active ? statusColor('active') : statusColor('cancelled')}>
                     {p.is_active ? 'Active' : 'Inactive'}
                   </Badge>
