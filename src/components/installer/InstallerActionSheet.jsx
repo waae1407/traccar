@@ -24,8 +24,8 @@ function SectionHeader({ label, done, active, onClick }) {
   return (
     <button onClick={onClick} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", background: "none", border: "none", cursor: "pointer" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ width: 10, height: 10, borderRadius: "50%", background: done ? "#30D158" : active ? "#FF9F0A" : "#48484A" }} />
-        <span style={{ fontSize: 14, fontWeight: 700, color: done ? "#30D158" : "#F5F5F7", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+        <div style={{ width: 10, height: 10, borderRadius: "50%", background: done ? "#50C878" : active ? "#FF9F0A" : "#48484A" }} />
+        <span style={{ fontSize: 14, fontWeight: 700, color: done ? "#50C878" : "#F5F5F7", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
       </div>
       <ChevronDown size={16} color="#8E8E93" style={{ transform: active ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
     </button>
@@ -35,10 +35,10 @@ function SectionHeader({ label, done, active, onClick }) {
 function PhotoTile({ title, url, uploading, onUpload }) {
   const ref = useRef(null);
   return (
-    <label style={{ position: "relative", display: "block", minHeight: 90, borderRadius: 12, overflow: "hidden", border: url ? "2px solid #30D158" : "2px dashed rgba(255,255,255,0.15)", cursor: "pointer", background: "#1C1C1E" }}>
+    <label style={{ position: "relative", display: "block", minHeight: 90, borderRadius: 12, overflow: "hidden", border: url ? `2px solid #50C878` : "2px dashed rgba(255,255,255,0.15)", cursor: "pointer", background: "#1C1C1E" }}>
       {url ? <img src={url} alt={title} style={{ width: "100%", height: 90, objectFit: "cover" }} /> : (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 90, gap: 4 }}>
-          {uploading ? <Loader2 size={20} className="animate-spin" color="#FF453A" /> : <ImagePlus size={20} color="#48484A" />}
+          {uploading ? <Loader2 size={20} className="animate-spin" color="#50C878" /> : <ImagePlus size={20} color="#48484A" />}
           <span style={{ fontSize: 11, fontWeight: 600, color: "#8E8E93" }}>{title}</span>
         </div>
       )}
@@ -200,10 +200,10 @@ export default function InstallerActionSheet({ device: initialDevice, vehicle: i
       <>
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 90 }} onClick={onClose} />
         <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 430, background: "#17181C", borderRadius: "20px 20px 0 0", padding: "24px 16px", zIndex: 91, textAlign: "center" }}>
-          <CheckCircle2 size={48} color="#30D158" style={{ margin: "0 auto" }} />
+          <CheckCircle2 size={48} color="#50C878" style={{ margin: "0 auto" }} />
           <h2 style={{ fontSize: 20, fontWeight: 800, color: "#F5F5F7", margin: "12px 0 4px" }}>Installation Complete</h2>
           <p style={{ fontSize: 13, color: "#8E8E93", margin: "0 0 16px" }}>{result.message || "Device installed and notifications sent."}</p>
-          <button onClick={onClose} style={{ width: "100%", height: 48, borderRadius: 12, background: "#30D158", color: "#fff", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Done</button>
+          <button onClick={onClose} style={{ width: "100%", height: 48, borderRadius: 12, background: "#50C878", color: "#fff", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Done</button>
         </div>
       </>
     );
@@ -239,7 +239,7 @@ export default function InstallerActionSheet({ device: initialDevice, vehicle: i
                 </button>
                 <input value={form.actual_device_id} onChange={(e) => update("actual_device_id", normalizeDeviceId(e.target.value))} placeholder="Enter device ID" style={{ flex: 1, height: 44, borderRadius: 12, background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#F5F5F7", fontSize: 13, padding: "0 12px", outline: "none" }} />
               </div>
-              {scanMessage && <p style={{ fontSize: 12, fontWeight: 600, color: scanMessage.type === "success" ? "#30D158" : "#FF453A", margin: 0 }}>{scanMessage.text}</p>}
+              {scanMessage && <p style={{ fontSize: 12, fontWeight: 600, color: scanMessage.type === "success" ? "#50C878" : "#FF453A", margin: 0 }}>{scanMessage.text}</p>}
             </div>
           )}
         </div>
@@ -255,8 +255,8 @@ export default function InstallerActionSheet({ device: initialDevice, vehicle: i
                 </button>
                 <input value={form.vin} onChange={(e) => update("vin", normalizeVin(e.target.value))} placeholder="17-char VIN" maxLength={17} style={{ flex: 1, height: 44, borderRadius: 12, background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#F5F5F7", fontSize: 13, padding: "0 12px", letterSpacing: "0.05em", outline: "none" }} />
               </div>
-              {vinScanMessage && <p style={{ fontSize: 12, fontWeight: 600, color: vinScanMessage.type === "success" ? "#30D158" : "#FF453A", margin: 0 }}>{vinScanMessage.text}</p>}
-              {vehicleMatched && <p style={{ fontSize: 12, color: "#30D158", fontWeight: 600, margin: 0 }}>✓ {vehicleName(vehicleLookup.data?.vehicle)}</p>}
+              {vinScanMessage && <p style={{ fontSize: 12, fontWeight: 600, color: vinScanMessage.type === "success" ? "#50C878" : "#FF453A", margin: 0 }}>{vinScanMessage.text}</p>}
+              {vehicleMatched && <p style={{ fontSize: 12, color: "#50C878", fontWeight: 600, margin: 0 }}>✓ {vehicleName(vehicleLookup.data?.vehicle)}</p>}
               <input type="number" value={form.baseline_odometer} onChange={(e) => update("baseline_odometer", e.target.value)} placeholder="Baseline odometer (miles)" style={{ height: 44, borderRadius: 12, background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#F5F5F7", fontSize: 13, padding: "0 12px", outline: "none" }} />
             </div>
           )}
@@ -297,15 +297,15 @@ export default function InstallerActionSheet({ device: initialDevice, vehicle: i
             <div style={{ paddingBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {sections.map((s) => (
-                  <span key={s.key} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 999, background: s.done ? "rgba(48,209,88,0.15)" : "rgba(255,255,255,0.05)", color: s.done ? "#30D158" : "#8E8E93", fontWeight: 600 }}>
+                  <span key={s.key} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 999, background: s.done ? "rgba(80,200,120,0.15)" : "rgba(255,255,255,0.05)", color: s.done ? "#50C878" : "#8E8E93", fontWeight: 600 }}>
                     {s.done ? "✓ " : "○ "}{s.label}
                   </span>
                 ))}
               </div>
-              <button onClick={submitInstallation} disabled={!canSubmit || submit.isPending} style={{ width: "100%", height: 48, borderRadius: 12, background: canSubmit ? "#30D158" : "#1C1C1E", color: canSubmit ? "#fff" : "#48484A", border: "none", fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+              <button onClick={submitInstallation} disabled={!canSubmit || submit.isPending} style={{ width: "100%", height: 48, borderRadius: 12, background: canSubmit ? "#50C878" : "#1C1C1E", color: canSubmit ? "#fff" : "#48484A", border: "none", fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
                 {submit.isPending ? <Loader2 size={16} className="animate-spin" /> : "Complete Installation"}
               </button>
-              {result?.message && <p style={{ fontSize: 12, color: result.ok ? "#30D158" : "#FF453A", margin: 0 }}>{result.message}</p>}
+              {result?.message && <p style={{ fontSize: 12, color: result.ok ? "#50C878" : "#FF453A", margin: 0 }}>{result.message}</p>}
             </div>
           )}
         </div>

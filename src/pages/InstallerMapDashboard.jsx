@@ -25,14 +25,17 @@ function createInstallMarker(device, vehicle, onClick) {
   el.style.cursor = "pointer";
   const photo = vehicle?.hero_image_url || vehicle?.image_url;
   el.innerHTML = `
-    <div style="position:relative;width:76px;height:76px;pointer-events:auto;">
-      <div style="position:absolute;inset:0;border-radius:50%;border:3px dashed #FF453A;box-shadow:0 0 16px rgba(255,69,58,0.4);" class="animate-pulse"></div>
-      <div style="position:absolute;inset:7px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,0.15);background:#1a1a1a;">
+    <div style="position:relative;width:64px;height:64px;pointer-events:auto;">
+      <!-- Red boundary circle (not installed) -->
+      <div style="position:absolute;inset:0;border-radius:50%;border:3px solid #FF453A;box-shadow:0 0 14px rgba(255,69,58,0.5);animation:installPulse 2s ease-in-out infinite;"></div>
+      <!-- Vehicle pin icon -->
+      <div style="position:absolute;inset:6px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,255,255,0.2);background:#0a0a0a;display:flex;align-items:center;justify-content:center;">
         ${photo
-          ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:22px;">🚗</div>`
-          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;">🚗</div>`}
+          ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:20px;">🚗</div>`
+          : `<div style="font-size:20px;">🚗</div>`}
       </div>
-      <div style="position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#FF453A;color:white;font-size:9px;font-weight:800;padding:3px 10px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(0,0,0,0.5);">Tap to begin</div>
+      <!-- Post-it label -->
+      <div style="position:absolute;bottom:-24px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#FF453A;color:white;font-size:9px;font-weight:800;padding:3px 10px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(0,0,0,0.5);">Tap to begin</div>
     </div>`;
   el.addEventListener("click", () => onClick(device, vehicle));
   return el;
@@ -100,6 +103,7 @@ export default function InstallerMapDashboard() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0a0a0a" }}>
+      <style>{`@keyframes installPulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.6; transform:scale(1.08); } }`}</style>
       <div ref={mapContainer} style={{ height: "100%", width: "100%" }} />
 
       {/* Top bar */}
@@ -119,11 +123,11 @@ export default function InstallerMapDashboard() {
         <div style={{ position: "absolute", right: 12, top: 56, maxWidth: 190, zIndex: 10 }}>
           <div style={{ background: "rgba(28,28,30,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 12, backdropFilter: "blur(10px)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-              <BookOpen size={15} color="#30D158" />
+              <BookOpen size={15} color="#50C878" />
               <span style={{ fontSize: 12, fontWeight: 800, color: "#F5F5F7" }}>Setup Guide</span>
             </div>
-            <p style={{ fontSize: 11, color: "#8E8E93", lineHeight: 1.5, margin: 0 }}>Tap a red pin to begin. Scan device, enter VIN, upload photos, test commands, submit.</p>
-            <button onClick={() => setShowGuide(true)} style={{ marginTop: 8, background: "none", border: "none", color: "#30D158", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>View wiring diagram →</button>
+            <p style={{ fontSize: 11, color: "#8E8E93", lineHeight: 1.5, margin: 0 }}>Tap a red pin to begin. Scan device, enter VIN, test commands, submit.</p>
+            <button onClick={() => setShowGuide(true)} style={{ marginTop: 8, background: "none", border: "none", color: "#50C878", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>View wiring diagram →</button>
           </div>
         </div>
       )}
