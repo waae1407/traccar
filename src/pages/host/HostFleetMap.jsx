@@ -341,6 +341,7 @@ export default function HostFleetMap() {
           vehicle={selectedVehicle}
           device={deviceByVehicle[selectedVehicle.id]}
           activeBooking={activeBookingByVehicle[selectedVehicle.id]}
+          user={user}
           onClose={() => setSelectedVehicle(null)}
           onCommand={handleCommand}
         />
