@@ -119,7 +119,7 @@ export default function GPSActivate() {
         <div className="text-center space-y-2">
           <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Activate</Badge>
           <h1 className="text-3xl font-syne font-bold text-white">Enter Your IMEI</h1>
-          <p className="text-muted-foreground text-sm">15 digits on your device label. $14.99/mo after 7-day free trial.</p>
+          <p className="text-muted-foreground text-sm">15 digits on your device label. $14.99/mo after your 90-day free trial ends.</p>
         </div>
 
         {error && (
