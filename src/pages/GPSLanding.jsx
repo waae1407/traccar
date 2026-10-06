@@ -17,7 +17,7 @@ const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6
 const features = [
   { icon: MapPin, title: "Live GPS Tracking", desc: "Real-time location updates, 24/7 monitoring from anywhere" },
   { icon: Shield, title: "Anti-Theft Protection", desc: "Instant geofence alerts and movement detection" },
-  { icon: Zap, title: "Smart Immobilizer", desc: "Remotely disable your vehicle if it's stolen" },
+  { icon: Zap, title: "Smart Immobilizer", desc: "Remotely disable your vehicle if stolen, auto-disables the starter 24 hours after a missed rental payment, and instantly reactivates the moment payment is made" },
   { icon: KeyRound, title: "Remote Lock & Unlock", desc: "Lock and unlock doors from anywhere via the app" },
   { icon: Siren, title: "Vehicle Finder", desc: "Trigger horn and lights to locate your vehicle in any lot" },
   { icon: Bell, title: "Smart Alerts", desc: "Battery, smoke, movement, and tamper notifications" },
