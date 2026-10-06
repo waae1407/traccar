@@ -1,14 +1,14 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 import Stripe from 'npm:stripe@14.21.0';
 
-const TRIAL_DAYS = 90;
+const TRIAL_DAYS = 30;
 const MONTHLY_PRICE = 14.99;
 const PLAN_NAME = 'Contactless360 GPS Monthly';
 const DEVICE_FEE = 100;
 const RETURN_WINDOW_DAYS = 14;
 
 /**
- * startGPSTrial — 90-day free GPS trial signup.
+ * startGPSTrial — 30-day free GPS trial signup.
  *
  * NEW FLOW (backorder-aware):
  *   1. Collect shipping info + card on file (SetupIntent, $0 auth)
@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.integrations.Core.SendEmail({
         to: customer_email.toLowerCase().trim(),
         subject: '🎉 Your Contactless360 Trial Is Confirmed!',
-        body: `Hi ${customer_name},\n\nWelcome to Contactless360! Your free trial is confirmed.\n\nHere's what happens next:\n• Your GPS device ships FREE within ${shippingTimeframe}\n• Your 90-day free trial starts automatically the moment your device goes online for the first time\n• Full GPS tracking, alerts, and remote controls — all included\n• After your 90-day trial, your subscription of $${MONTHLY_PRICE}/mo starts automatically\n• Cancel anytime — if you cancel, return the device within ${RETURN_WINDOW_DAYS} days (prepaid label provided) or a $${DEVICE_FEE} device fee applies\n\nNo charges during your trial. You're in control.\n\nQuestions? Just reply to this email.\n\nThe Contactless360 Team`,
+        body: `Hi ${customer_name},\n\nWelcome to Contactless360! Your free trial is confirmed.\n\nHere's what happens next:\n• Your GPS device ships FREE within ${shippingTimeframe}\n• Your 30-day free trial starts automatically the moment your device goes online for the first time\n• Full GPS tracking, alerts, and remote controls — all included\n• After your 30-day trial, your subscription of $${MONTHLY_PRICE}/mo starts automatically\n• Cancel anytime — if you cancel, return the device within ${RETURN_WINDOW_DAYS} days (prepaid label provided) or a $${DEVICE_FEE} device fee applies\n\nNo charges during your trial. You're in control.\n\nQuestions? Just reply to this email.\n\nThe Contactless360 Team`,
         from_name: 'Contactless360 GPS',
       });
     } catch (e) {
@@ -251,7 +251,7 @@ Deno.serve(async (req) => {
       recipient_email: customer_email.toLowerCase().trim(),
       recipient_role: 'customer',
       title: '🎉 Trial Confirmed — Device Shipping Soon',
-      body: `Your Contactless360 trial is confirmed. Your device ships within ${shippingTimeframe}. Your 90-day trial starts automatically when your device goes online. $${MONTHLY_PRICE}/mo after trial. Cancel anytime.`,
+      body: `Your Contactless360 trial is confirmed. Your device ships within ${shippingTimeframe}. Your 30-day trial starts automatically when your device goes online. $${MONTHLY_PRICE}/mo after trial. Cancel anytime.`,
       type: 'success',
       category: 'subscriptions',
       severity: 'info',
@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
           recipient_email: admin.email,
           recipient_role: 'admin',
           title: `🎉 New GPS Trial Signup${isBackordered ? ' (BACKORDER)' : ''}`,
-          body: `${customer_name} (${customer_email}) signed up for a 90-day free trial. Order: ${orderNum}. ${isBackordered ? 'BACKORDERED — ship when restocked.' : 'In stock — ship within 1-2 days.'} Trial starts when device goes online. Ship to: ${shipping_address || 'N/A'}.`,
+          body: `${customer_name} (${customer_email}) signed up for a 30-day free trial. Order: ${orderNum}. ${isBackordered ? 'BACKORDERED — ship when restocked.' : 'In stock — ship within 1-2 days.'} Trial starts when device goes online. Ship to: ${shipping_address || 'N/A'}.`,
           type: 'success',
           category: 'subscriptions',
           severity: isBackordered ? 'warning' : 'info',
@@ -280,7 +280,7 @@ Deno.serve(async (req) => {
         await base44.asServiceRole.integrations.Core.SendEmail({
           to: admin.email,
           subject: `🎉 New GPS Trial Signup — ${orderNum}${isBackordered ? ' [BACKORDER]' : ''}`,
-          body: `A new 90-day free trial signup needs a device shipment.\n\nOrder: ${orderNum}\nCustomer: ${customer_name} (${customer_email})\nShip to: ${shipping_address || 'N/A'}\n${isBackordered ? 'STATUS: BACKORDERED — ship when inventory is restocked.\n' : 'STATUS: In stock — ship within 1-2 business days.\n'}Trial starts when device goes online. $${MONTHLY_PRICE}/mo after 90-day trial.\n\nMark it shipped in the admin GPS Store once dispatched.`,
+          body: `A new 30-day free trial signup needs a device shipment.\n\nOrder: ${orderNum}\nCustomer: ${customer_name} (${customer_email})\nShip to: ${shipping_address || 'N/A'}\n${isBackordered ? 'STATUS: BACKORDERED — ship when inventory is restocked.\n' : 'STATUS: In stock — ship within 1-2 business days.\n'}Trial starts when device goes online. $${MONTHLY_PRICE}/mo after 30-day trial.\n\nMark it shipped in the admin GPS Store once dispatched.`,
           from_name: 'Contactless360 GPS',
         }).catch(() => {});
       }

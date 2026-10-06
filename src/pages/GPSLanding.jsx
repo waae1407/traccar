@@ -405,9 +405,9 @@ export default function GPSLanding() {
             <div className="inline-flex items-center gap-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-full px-4 py-1.5 text-xs font-bold mb-4">
               <Sparkles className="w-3.5 h-3.5" /> LIMITED TIME OFFER
             </div>
-            <h2 className="text-4xl font-syne font-black text-white mb-3">Try Contactless360 Free for 90 Days</h2>
+            <h2 className="text-4xl font-syne font-black text-white mb-3">Try Contactless360 Free for 30 Days</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Get a free GPS device with full features — tracking, alerts, remote controls — for 3 full months. No charge during trial. Cancel anytime.
+              Get a free GPS device with full features — tracking, alerts, remote controls — for 30 days. No charge during trial. Cancel anytime.
             </p>
           </div>
           <div className="max-w-md mx-auto">

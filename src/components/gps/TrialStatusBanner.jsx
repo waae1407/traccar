@@ -4,7 +4,7 @@ import { Clock, AlertCircle, X, Loader2, Package, CheckCircle } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 
 /**
- * TrialStatusBanner — 90-day free trial status + cancel flow.
+ * TrialStatusBanner — 30-day free trial status + cancel flow.
  *
  * Shows:
  *   - trialing: days remaining + cancel button
@@ -83,7 +83,7 @@ export default function TrialStatusBanner({ subscription, onCancelComplete }) {
     message = `$14.99/mo starts on ${trialEnd?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Cancel anytime.`;
   } else {
     bg = 'rgba(48,209,88,0.08)'; border = 'rgba(48,209,88,0.25)'; iconColor = '#30D158';
-    title = `90-Day Free Trial Active — ${daysRemaining} days left`;
+    title = `30-Day Free Trial Active — ${daysRemaining} days left`;
     message = 'Full GPS features included. $14.99/mo after trial. Cancel anytime — 14-day return window applies.';
   }
 

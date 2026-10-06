@@ -1,6 +1,6 @@
 {
   "name": "Activate Pending GPS Trials \u2014 Every 15min",
-  "description": "Every 15 minutes: starts 90-day trials for pending_activation subscriptions whose device has come online, or starts fallback trial from ship date if activation deadline (21 days) has passed.",
+  "description": "Every 15 minutes: starts 30-day trials for pending_activation subscriptions whose device has come online, or starts fallback trial from ship date if activation deadline (21 days) has passed.",
   "definition": {
     "document": {
       "dsl": "1.0.0",

@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
           recipient_email: user.email,
           recipient_role: 'customer',
           title: '✅ Device Linked — Trial Starting Soon',
-          body: `Your device has been linked to your account. Your 90-day free trial will start automatically when your device goes online. If it doesn't come online within 21 days, your trial will start from the ship date.`,
+          body: `Your device has been linked to your account. Your 30-day free trial will start automatically when your device goes online. If it doesn't come online within 21 days, your trial will start from the ship date.`,
           type: 'success',
           category: 'subscriptions',
           severity: 'info',

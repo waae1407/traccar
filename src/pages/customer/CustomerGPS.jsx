@@ -226,7 +226,7 @@ export default function CustomerGPS() {
               </div>
             )}
 
-            {/* 90-Day Trial Status + Cancel */}
+            {/* 30-Day Trial Status + Cancel */}
             <TrialStatusBanner
               subscription={activeSubscription}
               onCancelComplete={loadData}
@@ -366,7 +366,7 @@ export default function CustomerGPS() {
               <div className="glass rounded-2xl p-8 border border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-yellow-600/3 text-center space-y-4">
                 <Shield className="w-10 h-10 text-yellow-400 mx-auto" />
                 <h3 className="font-syne font-bold text-white">Protect Your Vehicle with Contactless360</h3>
-                <p className="text-muted-foreground text-sm">Free 90-day trial — full GPS tracking, geofence alerts, remote controls. No charge during trial.</p>
+                <p className="text-muted-foreground text-sm">Free 30-day trial — full GPS tracking, geofence alerts, remote controls. No charge during trial.</p>
                 <Link to="/gps/trial"><button className="rounded-xl px-5 py-2.5 text-sm font-bold text-white" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>Start Free Trial</button></Link>
               </div>
             )}

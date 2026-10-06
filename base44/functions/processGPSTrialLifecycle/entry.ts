@@ -8,11 +8,11 @@ const DEVICE_FEE = 100;
 const MONTHLY_PRICE = 14.99;
 
 /**
- * processGPSTrialLifecycle — Daily cron for 90-day trial lifecycle management.
+ * processGPSTrialLifecycle — Daily cron for 30-day trial lifecycle management.
  *
  * Handles:
- *   1. Trial-end reminder (14 days before trial ends → day 76)
- *   2. Trial expiry (day 90 → if not canceled, Stripe auto-charges; update status)
+ *   1. Trial-end reminder (14 days before trial ends → day 16)
+ *   2. Trial expiry (day 30 → if not canceled, Stripe auto-charges; update status)
  *   3. Return window warning (day 12 of return window → "we haven't received it")
  *   4. Device fee charge (day 14 of return window → $100 if not returned)
  *

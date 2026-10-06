@@ -93,7 +93,7 @@
 ### SCENE 14 — THE CALL TO ACTION (0:56–0:60)
 **VISUAL:** The device, hero shot, rotating. Logo fades in: "Contactless360 by uRide." Below: "Try FREE for 90 Days."
 **TEXT OVERLAY:** "Contactless360\nTry it FREE for 90 Days\n→ Contactless360.com"
-**VO:** "Contactless360. Try it free for 90 days. Protect what's yours."
+**VO:** "Contactless360. Try it free for 30 days. Protect what's yours."
 **SOUND:** Final bass hit. Silence. Logo glow.
 
 ---
@@ -129,6 +129,6 @@ Music: dark bass-heavy build, explosive beat drop at 0:15, cinematic strings und
 - **Hook test:** The first 3 seconds must stop the scroll. The "keys are obsolete" line + key dissolving into phone is the scroll-stopper.
 - **Emotional anchor:** Scene 12 (parent + teen) is the shareable moment that drives saves and shares — protect this beat.
 - **Feature density:** 7 features in 60 seconds is aggressive. If Sora struggles, prioritize: Immobilizer (Scene 5), Keyless Rental (Scene 6), Accident SOS (Scene 10), Backup Battery (Scene 9) — these are the most novel and viral.
-- **CTA:** End on the 90-day free trial — it's the lowest-friction entry point and removes purchase hesitation.
+- **CTA:** End on the 30-day free trial — it's the lowest-friction entry point and removes purchase hesitation.
 - **Captions:** Burn in all text overlays — 80% of social viewers watch muted.
 - **Hashtags for posting:** #Contactless360 #CarSecurity #GPS #AntiTheft #Keyless #CarTech #VehicleProtection #FleetManagement #SmartCar

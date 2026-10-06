@@ -16,7 +16,7 @@ import { isCustomDomainHost } from '@/components/host/storefront/CustomDomainGat
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
 
-const TRIAL_DAYS = 90;
+const TRIAL_DAYS = 30;
 const MONTHLY_PRICE = 14.99;
 const DEVICE_FEE = 100;
 
@@ -71,7 +71,7 @@ function TrialPaymentForm({ clientSecret, onSuccess }) {
         </div>
       )}
       <Button type="submit" size="lg" className="w-full gradient-primary glow-sm font-bold" disabled={submitting || !stripe}>
-        {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Starting your trial…</> : <><Sparkles className="w-4 h-4" /> Start My 90-Day Free Trial</>}
+        {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Starting your trial…</> : <><Sparkles className="w-4 h-4" /> Start My 30-Day Free Trial</>}
       </Button>
       <p className="text-xs text-center text-muted-foreground flex items-center justify-center gap-1">
         <Shield className="w-3 h-3" /> Secured by Stripe — $0 charged today
@@ -193,7 +193,7 @@ export default function TrialCheckout() {
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-yellow-400" />
               <div>
-                <p className="font-semibold text-white text-sm">90-Day Free Trial</p>
+                <p className="font-semibold text-white text-sm">30-Day Free Trial</p>
                 <p className="text-xs text-muted-foreground">Starts automatically when your device goes online</p>
               </div>
             </div>
@@ -201,7 +201,7 @@ export default function TrialCheckout() {
               <CreditCard className="w-5 h-5 text-yellow-400" />
               <div>
                 <p className="font-semibold text-white text-sm">${MONTHLY_PRICE}/mo after trial</p>
-                <p className="text-xs text-muted-foreground">Auto-starts 90 days after device goes online. Cancel anytime.</p>
+                <p className="text-xs text-muted-foreground">Auto-starts 30 days after device goes online. Cancel anytime.</p>
               </div>
             </div>
           </div>
@@ -245,8 +245,8 @@ export default function TrialCheckout() {
             </h1>
             <p className="text-sm text-muted-foreground">
               {step === 'payment'
-                ? 'We collect your card now so your subscription can start automatically after your 90-day trial. $0 charged today.'
-                : 'Free GPS device + 90 days of full features. Free shipping. Trial starts when your device goes online. Cancel anytime.'
+                ? 'We collect your card now so your subscription can start automatically after your 30-day trial. $0 charged today.'
+                : 'Free GPS device + 30 days of full features. Free shipping. Trial starts when your device goes online. Cancel anytime.'
               }
             </p>
           </div>
@@ -260,7 +260,7 @@ export default function TrialCheckout() {
           {!user && step === 'form' && (
             <div className="glass rounded-2xl p-8 text-center space-y-4">
               <AlertCircle className="w-10 h-10 text-yellow-400 mx-auto" />
-              <p className="text-sm text-muted-foreground">Sign in to start your free 90-day trial.</p>
+              <p className="text-sm text-muted-foreground">Sign in to start your free 30-day trial.</p>
               <Button onClick={handleSignIn} className="gradient-primary glow-sm">
                 Sign In to Continue
               </Button>
@@ -304,7 +304,7 @@ export default function TrialCheckout() {
                       <Truck className="w-4 h-4" /> Backordered — Ships in ~2 Weeks
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      GPS devices are currently out of stock. You can still sign up now — your device will ship when inventory is restocked (approximately 2 weeks). Your 90-day free trial <span className="text-white font-semibold">starts automatically when your device goes online</span>, not today. No charges until your trial ends.
+                      GPS devices are currently out of stock. You can still sign up now — your device will ship when inventory is restocked (approximately 2 weeks). Your 30-day free trial <span className="text-white font-semibold">starts automatically when your device goes online</span>, not today. No charges until your trial ends.
                     </p>
                   </div>
                   <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-border bg-card/40 hover:bg-card/60 transition-colors">
@@ -315,7 +315,7 @@ export default function TrialCheckout() {
                       className="rounded mt-0.5"
                     />
                     <span className="text-sm text-muted-foreground">
-                      I understand my device is backordered and will ship in approximately 2 weeks. My 90-day trial starts when my device goes online, not today. No charge until my trial ends.
+                      I understand my device is backordered and will ship in approximately 2 weeks. My 30-day trial starts when my device goes online, not today. No charge until my trial ends.
                     </span>
                   </label>
                 </div>
@@ -348,7 +348,7 @@ export default function TrialCheckout() {
             <div className="space-y-2 text-sm border-t border-border pt-3">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Trial Duration</span>
-                <span className="text-white font-bold">90 days FREE</span>
+                <span className="text-white font-bold">30 days FREE</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Trial Starts</span>
@@ -383,7 +383,7 @@ export default function TrialCheckout() {
           <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 space-y-2">
             <p className="text-xs text-yellow-300/80 leading-relaxed">
               <Clock className="w-3.5 h-3.5 inline mr-1" />
-              Your 90-day trial starts automatically when your device goes online — you get the full 90 days of actual use. Cancel anytime. If you cancel, return the device within 14 days (prepaid label provided) or a ${DEVICE_FEE} device fee applies. No charge during your trial.
+              Your 30-day trial starts automatically when your device goes online — you get the full 30 days of actual use. Cancel anytime. If you cancel, return the device within 14 days (prepaid label provided) or a ${DEVICE_FEE} device fee applies. No charge during your trial.
             </p>
           </div>
         </div>

@@ -1,14 +1,14 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 import Stripe from 'npm:stripe@14.21.0';
 
-const TRIAL_DAYS = 90;
+const TRIAL_DAYS = 30;
 const MONTHLY_PRICE = 14.99;
 const PLAN_NAME = 'Contactless360 GPS Monthly';
 const DEVICE_FEE = 100;
 const RETURN_WINDOW_DAYS = 14;
 
 /**
- * activatePendingTrials — Starts 90-day trials for pending_activation subscriptions.
+ * activatePendingTrials — Starts 30-day trials for pending_activation subscriptions.
  *
  * Two triggers:
  *   1. Device online: A pending_activation subscription with a linked device that has
@@ -16,7 +16,7 @@ const RETURN_WINDOW_DAYS = 14;
  *   2. Fallback: A pending_activation subscription past its trial_activation_deadline
  *      (shipped_at + 21 days). Trial starts from shipped_at to avoid infinite free ride.
  *
- * For each match: creates the Stripe subscription with trial_period_days=90, sets
+ * For each match: creates the Stripe subscription with trial_period_days=30, sets
  * trial_started_at/trial_end_at, updates GPSSubscription to 'trialing', and notifies
  * the customer.
  *
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
         const trialEnd = new Date(trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
         const startSource = deviceOnline ? 'device_online' : 'fallback_ship_date';
 
-        // ── Create Stripe subscription with 90-day trial ──
+        // ── Create Stripe subscription with 30-day trial ──
         let stripeSubscriptionId = '';
         if (sub.stripe_customer_id && sub.stripe_payment_method_id) {
           try {
@@ -216,10 +216,10 @@ Deno.serve(async (req) => {
             to: sub.customer_email,
             subject: isFallback
               ? 'Your Contactless360 Trial Has Started'
-              : '🎉 Your 90-Day Free Trial Has Started!',
+              : '🎉 Your 30-Day Free Trial Has Started!',
             body: isFallback
-              ? `Hi ${sub.customer_name || 'Customer'},\n\nYour Contactless360 90-day free trial has started.\n\nWe haven't detected your device coming online yet, but your trial has begun as of ${trialStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} so you don't lose any time.\n\nIf you haven't installed your device yet, please do so soon — you'll need it active to use your GPS tracking and remote controls.\n\nYour subscription of $${MONTHLY_PRICE}/mo starts automatically on ${trialEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.\n\nCancel anytime — return the device within ${RETURN_WINDOW_DAYS} days of cancellation (prepaid label provided) or a $${DEVICE_FEE} device fee applies.\n\nNeed help installing? Reply to this email.\n\nThe Contactless360 Team`
-              : `Hi ${sub.customer_name || 'Customer'},\n\nGreat news — your Contactless360 device is online and your 90-day free trial has officially started!\n\nYour trial ends on ${trialEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. After that, your subscription of $${MONTHLY_PRICE}/mo starts automatically.\n\nCancel anytime — return the device within ${RETURN_WINDOW_DAYS} days of cancellation (prepaid label provided) or a $${DEVICE_FEE} device fee applies.\n\nEnjoy your GPS!\n\nThe Contactless360 Team`,
+              ? `Hi ${sub.customer_name || 'Customer'},\n\nYour Contactless360 30-day free trial has started.\n\nWe haven't detected your device coming online yet, but your trial has begun as of ${trialStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} so you don't lose any time.\n\nIf you haven't installed your device yet, please do so soon — you'll need it active to use your GPS tracking and remote controls.\n\nYour subscription of $${MONTHLY_PRICE}/mo starts automatically on ${trialEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.\n\nCancel anytime — return the device within ${RETURN_WINDOW_DAYS} days of cancellation (prepaid label provided) or a $${DEVICE_FEE} device fee applies.\n\nNeed help installing? Reply to this email.\n\nThe Contactless360 Team`
+              : `Hi ${sub.customer_name || 'Customer'},\n\nGreat news — your Contactless360 device is online and your 30-day free trial has officially started!\n\nYour trial ends on ${trialEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. After that, your subscription of $${MONTHLY_PRICE}/mo starts automatically.\n\nCancel anytime — return the device within ${RETURN_WINDOW_DAYS} days of cancellation (prepaid label provided) or a $${DEVICE_FEE} device fee applies.\n\nEnjoy your GPS!\n\nThe Contactless360 Team`,
             from_name: 'Contactless360 GPS',
           });
         } catch (e) {
@@ -230,10 +230,10 @@ Deno.serve(async (req) => {
           recipient_user_id: sub.customer_user_id,
           recipient_email: sub.customer_email,
           recipient_role: 'customer',
-          title: isFallback ? 'Your Trial Has Started' : '🎉 Your 90-Day Trial Has Started!',
+          title: isFallback ? 'Your Trial Has Started' : '🎉 Your 30-Day Trial Has Started!',
           body: isFallback
             ? `Your trial has started. We haven't detected your device online yet — install it soon. $${MONTHLY_PRICE}/mo starts ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`
-            : `Your device is online and your 90-day trial has started! Ends ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. $${MONTHLY_PRICE}/mo after. Cancel anytime.`,
+            : `Your device is online and your 30-day trial has started! Ends ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. $${MONTHLY_PRICE}/mo after. Cancel anytime.`,
           type: 'success',
           category: 'subscriptions',
           severity: 'info',

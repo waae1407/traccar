@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.integrations.Core.SendEmail({
         to: order.customer_email,
         subject: `📦 Your Contactless360 GPS Device Has Shipped!`,
-        body: `Hi ${order.customer_name || 'Customer'},\n\nGreat news — your Contactless360 GPS order (${order.order_number}) has shipped!\n\nCarrier: ${carrier || 'N/A'}\nTracking Number: ${tracking_number}\n\nYou can track your package with the carrier.\n\nImportant: Your 90-day free trial starts automatically the moment your device goes online for the first time after you install it. No action needed — just plug it in and we'll detect it.\n\nIf we don't see your device come online within ${ACTIVATION_DEADLINE_DAYS} days, your trial will start from today as a fallback so you don't miss out.\n\nThe Contactless360 Team`,
+        body: `Hi ${order.customer_name || 'Customer'},\n\nGreat news — your Contactless360 GPS order (${order.order_number}) has shipped!\n\nCarrier: ${carrier || 'N/A'}\nTracking Number: ${tracking_number}\n\nYou can track your package with the carrier.\n\nImportant: Your 30-day free trial starts automatically the moment your device goes online for the first time after you install it. No action needed — just plug it in and we'll detect it.\n\nIf we don't see your device come online within ${ACTIVATION_DEADLINE_DAYS} days, your trial will start from today as a fallback so you don't miss out.\n\nThe Contactless360 Team`,
         from_name: 'Contactless360 GPS',
       });
     } catch (e) {
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       recipient_email: order.customer_email,
       recipient_role: 'customer',
       title: '📦 Your GPS Device Has Shipped',
-      body: `Order ${order.order_number} shipped via ${carrier || 'carrier'}. Tracking: ${tracking_number}. Your 90-day trial starts when the device goes online.`,
+      body: `Order ${order.order_number} shipped via ${carrier || 'carrier'}. Tracking: ${tracking_number}. Your 30-day trial starts when the device goes online.`,
       type: 'success',
       category: 'subscriptions',
       severity: 'info',

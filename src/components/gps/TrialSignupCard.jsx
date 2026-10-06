@@ -26,20 +26,20 @@ export default function TrialSignupCard() {
       <div className="absolute -top-12 -right-12 w-40 h-40 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none" />
 
       <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black font-black text-xs px-5 py-1 z-10">
-        <Sparkles className="w-3 h-3 mr-1" /> 90-DAY FREE TRIAL
+        <Sparkles className="w-3 h-3 mr-1" /> 30-DAY FREE TRIAL
       </Badge>
 
       <div className="space-y-2 pt-2">
-        <h3 className="text-xl font-syne font-bold text-white">Free 3-Month Trial</h3>
+        <h3 className="text-xl font-syne font-bold text-white">Free 30-Day Trial</h3>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Get a Contactless360 GPS device with full features — free for 90 days. No charge during trial.
+          Get a Contactless360 GPS device with full features — free for 30 days. No charge during trial.
         </p>
       </div>
 
       <div className="space-y-1">
         <div className="flex items-baseline gap-2">
           <span className="text-5xl font-black text-white">$0</span>
-          <span className="text-sm text-muted-foreground">for 90 days</span>
+          <span className="text-sm text-muted-foreground">for 30 days</span>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Then</span>
@@ -69,7 +69,7 @@ export default function TrialSignupCard() {
         </div>
         <div className="flex items-start gap-2 text-xs text-muted-foreground">
           <CreditCard className="w-3.5 h-3.5 mt-0.5 text-yellow-400 flex-shrink-0" />
-          <span>Card required at signup to activate your subscription after the trial. No charge for 90 days.</span>
+          <span>Card required at signup to activate your subscription after the trial. No charge for 30 days.</span>
         </div>
       </div>
 
