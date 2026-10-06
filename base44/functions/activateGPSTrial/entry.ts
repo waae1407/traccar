@@ -3,6 +3,7 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const TRIAL_MONTHLY_PRICE = 14.99;
 const PLAN_NAME = 'Contactless360 GPS Monthly';
+const TRIAL_DAYS = 30;
 
 /**
  * activateGPSTrial — In-context GPS subscription activation.
@@ -195,6 +196,7 @@ Deno.serve(async (req) => {
         subscription = await stripe.subscriptions.create({
           customer: stripeCustomerId,
           items: [{ price: price.id }],
+          trial_period_days: TRIAL_DAYS,
           payment_behavior: 'default_incomplete',
           payment_settings: { save_default_payment_method: 'on_subscription' },
           expand: ['latest_invoice.payment_intent'],
@@ -205,28 +207,34 @@ Deno.serve(async (req) => {
             customer_user_id: user.id,
             customer_email: user.email,
             source: 'trial_activation',
+            trial_days: String(TRIAL_DAYS),
           },
         });
       }
 
-      const now = new Date().toISOString();
-      const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : now;
-      const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null;
-      const newStatus = subscription.status === 'active' ? 'active' : 'trialing';
+      const now = new Date();
+      const trialStart = now;
+      const trialEnd = new Date(trialStart.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+      const periodStart = trialStart.toISOString();
+      const periodEnd = trialEnd.toISOString();
+      const newStatus = 'trialing';
 
       // Update or create GPSSubscription record
       if (sub) {
         await base44.asServiceRole.entities.GPSSubscription.update(sub.id, {
           subscription_status: newStatus,
-          payment_status: subscription.status === 'active' ? 'paid' : 'pending',
+          payment_status: 'pending',
           stripe_subscription_id: subscription.id,
           stripe_customer_id: stripeCustomerId,
           current_period_start: periodStart,
           current_period_end: periodEnd,
+          trial_started_at: trialStart.toISOString(),
+          trial_end_at: trialEnd.toISOString(),
+          trial_start_source: 'device_online',
           past_due_since: null,
           dunning_email_count: 0,
           control_disabled_at: null,
-          reactivated_at: now,
+          reactivated_at: now.toISOString(),
         });
       } else {
         sub = await base44.asServiceRole.entities.GPSSubscription.create({
@@ -239,9 +247,12 @@ Deno.serve(async (req) => {
           stripe_subscription_id: subscription.id,
           stripe_customer_id: stripeCustomerId,
           subscription_status: newStatus,
-          payment_status: subscription.status === 'active' ? 'paid' : 'pending',
+          payment_status: 'pending',
           current_period_start: periodStart,
           current_period_end: periodEnd,
+          trial_started_at: trialStart.toISOString(),
+          trial_end_at: trialEnd.toISOString(),
+          trial_start_source: 'device_online',
           customer_email: user.email,
           customer_name: user.full_name || '',
         });
@@ -317,8 +328,8 @@ Deno.serve(async (req) => {
         recipient_user_id: user.id,
         recipient_email: user.email,
         recipient_role: device.host_id ? 'host' : 'customer',
-        title: '✅ GPS Subscription Activated',
-        body: `Your Contactless360 GPS subscription ($${TRIAL_MONTHLY_PRICE}/mo) is now active. All features unlocked.`,
+        title: '🎉 Your 30-Day Free Trial Has Started!',
+        body: `Your Contactless360 GPS 30-day free trial has started! All features unlocked. After your trial, $${TRIAL_MONTHLY_PRICE}/mo starts automatically on ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Cancel anytime.`,
         type: 'success',
         category: 'subscriptions',
         severity: 'info',
@@ -327,15 +338,15 @@ Deno.serve(async (req) => {
 
       // Audit
       await base44.asServiceRole.entities.ActivityEvent.create({
-        event_type: 'payment.succeeded',
+        event_type: 'booking.active',
         actor_id: user.id,
         actor_email: user.email,
         actor_role: device.host_id ? 'host' : 'customer',
         target_entity: 'GPSSubscription',
         target_id: sub.id,
         host_id: device.host_id || '',
-        summary: `GPS trial activated: ${subscription.id} — $${TRIAL_MONTHLY_PRICE}/mo`,
-        metadata: { stripe_subscription_id: subscription.id, device_id },
+        summary: `GPS 30-day trial started: ${subscription.id} — $${TRIAL_MONTHLY_PRICE}/mo after trial ends ${trialEnd.toISOString().split('T')[0]}`,
+        metadata: { stripe_subscription_id: subscription.id, device_id, trial_days: TRIAL_DAYS, trial_end_at: trialEnd.toISOString() },
         source: device.host_id ? 'host_portal' : 'customer_app',
         event_status: 'success',
       }).catch(() => {});

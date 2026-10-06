@@ -238,7 +238,7 @@ export default function TrialCheckout() {
         <div className="lg:col-span-3 space-y-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded-full px-3 py-1 text-xs font-bold">
-              <Sparkles className="w-3 h-3" /> 90-DAY FREE TRIAL
+              <Sparkles className="w-3 h-3" /> 30-DAY FREE TRIAL
             </div>
             <h1 className="text-2xl font-syne font-bold text-white">
               {step === 'payment' ? 'Add Your Card (No Charge Today)' : 'Start Your Free Trial'}
