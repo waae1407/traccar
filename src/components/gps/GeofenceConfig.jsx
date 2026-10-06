@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { MapPin, Plus, Trash2, Shield, Power } from "lucide-react";
+import GeofenceCenterPicker from "@/components/gps/GeofenceCenterPicker";
 
 const ALERT_TYPES = [
-  { key: "parked_movement", label: "Movement Alert", desc: "Notify if vehicle moves from parked spot" },
-  { key: "radius_breach", label: "Geofence Radius", desc: "Notify if vehicle leaves a fixed area" },
-  { key: "curfew", label: "Curfew Alert", desc: "Notify if vehicle moves during hours" },
+  { key: "parked_movement", label: "Movement Alert", desc: "Auto-tracks where the car parks. Fires if it moves while parked." },
+  { key: "radius_breach", label: "Geofence Radius", desc: "Fixed circle you pick on the map. Fires if the car leaves it." },
+  { key: "curfew", label: "Curfew Alert", desc: "Fires if the car moves during set hours." },
 ];
 
 export default function GeofenceConfig({ device, user }) {
@@ -19,6 +20,7 @@ export default function GeofenceConfig({ device, user }) {
     auto_kill_on_breach: false,
     curfew_start_hour: 22,
     curfew_end_hour: 6,
+    center: null, // { lat, lon } for radius_breach
   });
 
   useEffect(() => {
@@ -62,9 +64,13 @@ export default function GeofenceConfig({ device, user }) {
         alertData.parked_lat = device.last_latitude;
         alertData.parked_lon = device.last_longitude;
       }
-      if (form.alert_type === "radius_breach" && device.last_latitude && device.last_longitude) {
-        alertData.center_lat = device.last_latitude;
-        alertData.center_lon = device.last_longitude;
+      if (form.alert_type === "radius_breach") {
+        if (!form.center) {
+          alert("Tap the map to set the geofence center first.");
+          return;
+        }
+        alertData.center_lat = form.center.lat;
+        alertData.center_lon = form.center.lon;
       }
       if (form.alert_type === "curfew") {
         alertData.curfew_start_hour = form.curfew_start_hour;
@@ -73,7 +79,7 @@ export default function GeofenceConfig({ device, user }) {
 
       await base44.entities.GeofenceAlert.create(alertData);
       setShowForm(false);
-      setForm({ alert_name: "", alert_type: "parked_movement", radius_miles: 0.5, auto_kill_on_breach: false, curfew_start_hour: 22, curfew_end_hour: 6 });
+      setForm({ alert_name: "", alert_type: "parked_movement", radius_miles: 0.5, auto_kill_on_breach: false, curfew_start_hour: 22, curfew_end_hour: 6, center: null });
       loadAlerts();
     } catch (e) {
       console.error("Failed to create geofence alert:", e);
@@ -133,10 +139,10 @@ export default function GeofenceConfig({ device, user }) {
               ))}
             </div>
           </div>
-          {(form.alert_type === "parked_movement" || form.alert_type === "radius_breach") && (
+          {form.alert_type === "parked_movement" && (
             <div>
               <label className="text-xs text-white/50 mb-1 block">
-                Radius: {form.radius_miles} miles
+                Movement threshold: {form.radius_miles} miles from parked spot
               </label>
               <input
                 type="range"
@@ -147,7 +153,32 @@ export default function GeofenceConfig({ device, user }) {
                 onChange={(e) => setForm({ ...form, radius_miles: parseFloat(e.target.value) })}
                 className="w-full"
               />
+              <p className="text-[10px] text-white/30 mt-1">The anchor auto-updates to wherever the car parks. Only fires if it moves while parked.</p>
             </div>
+          )}
+          {form.alert_type === "radius_breach" && (
+            <>
+              <GeofenceCenterPicker
+                device={device}
+                center={form.center}
+                radiusMiles={form.radius_miles}
+                onPick={(c) => setForm({ ...form, center: c })}
+              />
+              <div>
+                <label className="text-xs text-white/50 mb-1 block">
+                  Radius: {form.radius_miles} miles
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="5"
+                  step="0.1"
+                  value={form.radius_miles}
+                  onChange={(e) => setForm({ ...form, radius_miles: parseFloat(e.target.value) })}
+                  className="w-full"
+                />
+              </div>
+            </>
           )}
           {form.alert_type === "curfew" && (
             <div className="flex items-center gap-2">
@@ -185,7 +216,7 @@ export default function GeofenceConfig({ device, user }) {
           </label>
           <button
             onClick={createAlert}
-            disabled={!form.alert_name.trim()}
+            disabled={!form.alert_name.trim() || (form.alert_type === "radius_breach" && !form.center)}
             className="w-full rounded-xl py-2.5 text-sm font-bold text-white disabled:opacity-40"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
           >
