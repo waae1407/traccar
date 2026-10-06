@@ -16,6 +16,9 @@ const MONTHLY_PRICE = 14.99;
  *   3. Return window warning (day 12 of return window → "we haven't received it")
  *   4. Device fee charge (day 14 of return window → $100 if not returned)
  *
+ * NOTE: pending_activation subscriptions are handled by activatePendingTrials (every 15 min).
+ * This function only processes trialing and cancelled subscriptions.
+ *
  * Triggered by: daily cron (CRON_SECRET) or admin.
  */
 Deno.serve(async (req) => {
@@ -41,7 +44,7 @@ Deno.serve(async (req) => {
       errors: [],
     };
 
-    // ── 1. TRIAL-END REMINDERS (14 days before trial ends) ──
+    // ── 1. TRIAL-END REMINDERS + EXPIRY (only for trialing subs) ──
     const trialingSubs = await base44.asServiceRole.entities.GPSSubscription.filter({
       subscription_status: 'trialing',
     }, '-created_date', 500);
@@ -86,7 +89,6 @@ Deno.serve(async (req) => {
 
         // Trial expired — Stripe should have already charged, but update our status
         if (now.getTime() >= trialEnd.getTime() && sub.subscription_status === 'trialing') {
-          // Check Stripe subscription status
           let stripeStatus = 'active';
           if (sub.stripe_subscription_id) {
             try {
@@ -103,7 +105,6 @@ Deno.serve(async (req) => {
             payment_status: stripeStatus === 'active' ? 'paid' : 'pending',
           });
 
-          // Enable controls if device exists
           if (sub.device_id && stripeStatus === 'active') {
             const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ id: sub.device_id }, '-created_date', 1);
             if (devices[0]) {
@@ -121,7 +122,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 2. RETURN WINDOW MANAGEMENT (for cancelled subscriptions) ──
+    // ── 2. RETURN WINDOW MANAGEMENT (for cancelled subscriptions with return window) ──
     const cancelledSubs = await base44.asServiceRole.entities.GPSSubscription.filter({
       subscription_status: 'cancelled',
     }, '-created_date', 500);
@@ -130,12 +131,12 @@ Deno.serve(async (req) => {
       try {
         // Skip if device already returned or fee already charged
         if (sub.device_returned_at || sub.device_fee_charged_at) continue;
-        if (!sub.return_window_ends_at) continue;
+        if (!sub.return_window_ends_at) continue; // pending_activation cancels have no return window
 
         const returnWindowEnd = new Date(sub.return_window_ends_at);
         const daysIntoReturnWindow = Math.floor((now.getTime() - returnWindowEnd.getTime() + RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000) / (1000 * 60 * 60 * 24));
 
-        // ── Day 12 warning: "We haven't received your device" ──
+        // ── Day 12 warning ──
         if (daysIntoReturnWindow >= RETURN_WARNING_DAYS && !sub.device_return_warning_sent_at) {
           const daysRemaining = Math.max(0, RETURN_WINDOW_DAYS - daysIntoReturnWindow);
 
@@ -171,7 +172,6 @@ Deno.serve(async (req) => {
 
         // ── Day 14: Charge $100 device fee ──
         if (now.getTime() >= returnWindowEnd.getTime() && !sub.device_fee_charged_at) {
-          // Charge the $100 device fee
           if (sub.stripe_customer_id && sub.stripe_payment_method_id) {
             try {
               const paymentIntent = await stripe.paymentIntents.create({
@@ -194,7 +194,6 @@ Deno.serve(async (req) => {
                 device_fee_charged_at: now.toISOString(),
               });
 
-              // Notify customer
               try {
                 await base44.asServiceRole.integrations.Core.SendEmail({
                   to: sub.customer_email,
@@ -218,7 +217,6 @@ Deno.serve(async (req) => {
                 source_function: 'processGPSTrialLifecycle',
               }).catch(() => {});
 
-              // Audit
               await base44.asServiceRole.entities.ActivityEvent.create({
                 event_type: 'payment.succeeded',
                 actor_id: 'automation',
@@ -241,7 +239,6 @@ Deno.serve(async (req) => {
             } catch (e) {
               results.errors.push(`Device fee charge for ${sub.customer_email}: ${e.message}`);
 
-              // Log the failed charge
               await base44.asServiceRole.entities.ActivityEvent.create({
                 event_type: 'payment.failed',
                 actor_id: 'automation',

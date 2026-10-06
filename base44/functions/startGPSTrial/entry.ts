@@ -2,7 +2,6 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 import Stripe from 'npm:stripe@14.21.0';
 
 const TRIAL_DAYS = 90;
-const TRIAL_REMINDER_DAYS_BEFORE = 14;
 const MONTHLY_PRICE = 14.99;
 const PLAN_NAME = 'Contactless360 GPS Monthly';
 const DEVICE_FEE = 100;
@@ -11,14 +10,15 @@ const RETURN_WINDOW_DAYS = 14;
 /**
  * startGPSTrial — 90-day free GPS trial signup.
  *
- * Flow:
+ * NEW FLOW (backorder-aware):
  *   1. Collect shipping info + card on file (SetupIntent, $0 auth)
- *   2. Create GPSOrder ($0, is_trial_order=true)
- *   3. Create Stripe subscription with trial_period_days=90
- *   4. Create GPSSubscription in 'trialing' state
+ *   2. Create GPSOrder ($0, is_trial_order=true) — allows inventory_count=0 (backorder)
+ *   3. Create GPSSubscription in 'pending_activation' state (NOT trialing)
+ *   4. Do NOT create Stripe subscription yet — card is on file only
+ *   5. Trial clock does NOT start here — it starts when the device goes online
  *
- * No charge during trial. Subscription auto-activates at day 90 unless canceled.
- * Cancel anytime → 14-day return window → $100 device fee if not returned.
+ * The Stripe subscription is created later by activatePendingTrials when the
+ * device first reports online (or as a fallback when the activation deadline passes).
  */
 Deno.serve(async (req) => {
   try {
@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
       vehicle_use_type = 'personal',
       payment_method_id,
       stripe_customer_id,
+      backorder_acknowledged = false,
     } = await req.json();
 
     if (!customer_name || !customer_email || !shipping_address) {
@@ -75,16 +76,22 @@ Deno.serve(async (req) => {
       });
     } catch (_) { /* already attached is fine */ }
 
-    // ── Stock check (trial ships 1 device) ──
+    // ── Stock check — allow backorder for trials ──
     const trialProducts = await base44.asServiceRole.entities.GPSProduct.filter({ package_type: 'device_subscription' });
     const trialProduct = trialProducts[0];
-    if (trialProduct && typeof trialProduct.inventory_count === 'number' && trialProduct.inventory_count < 1) {
-      return Response.json({ error: 'Out of stock — GPS devices are temporarily unavailable. Please check back soon.', error_code: 'OUT_OF_STOCK' }, { status: 409 });
+    const stockAvailable = trialProduct && typeof trialProduct.inventory_count === 'number' && trialProduct.inventory_count >= 1;
+    const isBackordered = !stockAvailable;
+
+    // If backordered, customer must have acknowledged the backorder terms
+    if (isBackordered && !backorder_acknowledged) {
+      return Response.json({
+        error: 'This product is currently backordered. You must acknowledge the backorder terms to proceed.',
+        error_code: 'BACKORDER_ACKNOWLEDGEMENT_REQUIRED',
+      }, { status: 400 });
     }
 
     // ── 3. Create GPSOrder ($0, trial order) ──
     const now = new Date();
-    const trialEnd = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
     const orderNum = `C360-TRIAL-${Date.now().toString(36).toUpperCase()}`;
 
     const order = await base44.asServiceRole.entities.GPSOrder.create({
@@ -106,7 +113,7 @@ Deno.serve(async (req) => {
       total_amount: 0,
       vehicle_use_type,
       payment_status: 'paid',
-      order_status: 'processing',
+      order_status: isBackordered ? 'processing' : 'processing',
       activation_status: 'not_started',
       customer_user_id: user.id,
       order_owner_type: 'customer',
@@ -115,65 +122,23 @@ Deno.serve(async (req) => {
       refund_amount: 0,
       monthly_subscription_price: MONTHLY_PRICE,
       is_trial_order: true,
-      trial_end_at: trialEnd.toISOString(),
+      is_backordered: isBackordered,
+      backorder_acknowledged_at: isBackordered ? now.toISOString() : undefined,
       stripe_customer_id: stripeCustomerId,
       stripe_payment_method_id: payment_method_id,
       paid_at: now.toISOString(),
     });
 
-    // ── Decrement inventory (trial ships 1 device) ──
-    if (trialProduct && typeof trialProduct.inventory_count === 'number') {
+    // ── Decrement inventory only if in stock (backorder decrements at ship time) ──
+    if (stockAvailable) {
       await base44.asServiceRole.entities.GPSProduct.update(trialProduct.id, {
         inventory_count: Math.max(0, trialProduct.inventory_count - 1),
       }).catch(() => {});
     }
 
-    // ── 4. Get or create Stripe Price (cached on GPSProduct) ──
-    const products = await base44.asServiceRole.entities.GPSProduct.filter({ package_type: 'device_subscription' });
-    const product = products[0];
-    let price;
-    if (product?.stripe_price_id) {
-      try { price = await stripe.prices.retrieve(product.stripe_price_id); } catch (_) { price = null; }
-    }
-    if (!price) {
-      price = await stripe.prices.create({
-        unit_amount: Math.round(MONTHLY_PRICE * 100),
-        currency: 'usd',
-        recurring: { interval: 'month' },
-        product_data: {
-          name: PLAN_NAME,
-          metadata: { source: 'trial_signup' },
-        },
-      });
-      if (product) {
-        await base44.asServiceRole.entities.GPSProduct.update(product.id, { stripe_price_id: price.id }).catch(() => {});
-      }
-    }
-
-    // ── 5. Create Stripe subscription with 90-day trial ──
-    const subscription = await stripe.subscriptions.create({
-      customer: stripeCustomerId,
-      items: [{ price: price.id }],
-      trial_period_days: TRIAL_DAYS,
-      payment_behavior: 'default_incomplete',
-      payment_settings: {
-        save_default_payment_method: 'on_subscription',
-      },
-      metadata: {
-        billing_context: 'gps_contactless_trial',
-        gps_order_id: order.id,
-        customer_user_id: user.id,
-        customer_email: customer_email.toLowerCase().trim(),
-        trial_days: String(TRIAL_DAYS),
-        device_fee: String(DEVICE_FEE),
-        return_window_days: String(RETURN_WINDOW_DAYS),
-      },
-    });
-
-    // ── 6. Create GPSSubscription record ──
-    const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toISOString() : now.toISOString();
-    const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : trialEnd.toISOString();
-
+    // ── 4. Create GPSSubscription in 'pending_activation' state ──
+    // No Stripe subscription yet — created when device comes online.
+    // trial_started_at and trial_end_at are intentionally NOT set.
     const sub = await base44.asServiceRole.entities.GPSSubscription.create({
       customer_user_id: user.id,
       host_id: '',
@@ -182,22 +147,21 @@ Deno.serve(async (req) => {
       plan_name: PLAN_NAME,
       billing_cycle: 'monthly',
       monthly_price: MONTHLY_PRICE,
-      stripe_subscription_id: subscription.id,
+      stripe_subscription_id: '',
       stripe_customer_id: stripeCustomerId,
       stripe_payment_method_id: payment_method_id,
-      subscription_status: 'trialing',
+      subscription_status: 'pending_activation',
       payment_status: 'pending',
-      current_period_start: periodStart,
-      current_period_end: periodEnd,
+      current_period_start: now.toISOString(),
+      current_period_end: '',
       cancel_at_period_end: false,
       customer_email: customer_email.toLowerCase().trim(),
       customer_name: customer_name,
-      trial_started_at: now.toISOString(),
-      trial_end_at: trialEnd.toISOString(),
       device_fee_amount: DEVICE_FEE,
+      is_backordered: isBackordered,
     });
 
-    // ── 7. Dual-write SubscriptionItem ──
+    // ── 5. Dual-write SubscriptionItem ──
     const idempKey = `GPSSubscription:${sub.id}`;
     const acctRecords = await base44.asServiceRole.entities.SubscriptionAccount.filter({ owner_email: customer_email.toLowerCase().trim() }, '-updated_date', 1);
     let accountId = acctRecords[0]?.id;
@@ -211,11 +175,11 @@ Deno.serve(async (req) => {
         stripe_customer_id: stripeCustomerId,
         health_score: 100,
         health_status: 'healthy',
-        monthly_total: MONTHLY_PRICE,
-        active_item_count: 1,
+        monthly_total: 0,
+        active_item_count: 0,
         past_due_item_count: 0,
         cancelled_item_count: 0,
-        status: 'trialing',
+        status: 'pending_activation',
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
       });
@@ -232,14 +196,14 @@ Deno.serve(async (req) => {
       owner_id: user.id,
       customer_user_id: user.id,
       item_name: PLAN_NAME,
-      stripe_subscription_id: subscription.id,
+      stripe_subscription_id: '',
       monthly_amount: MONTHLY_PRICE,
       quantity: 1,
-      status: 'trialing',
+      status: 'pending_activation',
       payment_status: 'pending',
-      current_period_start: periodStart,
-      current_period_end: periodEnd,
-      next_billing_date: periodEnd,
+      current_period_start: now.toISOString(),
+      current_period_end: '',
+      next_billing_date: '',
       updated_at: now.toISOString(),
     };
     if (existingItems[0]) {
@@ -248,19 +212,20 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.SubscriptionItem.create({ ...itemPayload, created_at: now.toISOString() });
     }
 
-    // ── 8. Welcome email ──
+    // ── 6. Welcome email ──
+    const shippingTimeframe = isBackordered ? 'approximately 2 weeks (backorder)' : '1-2 business days';
     try {
       await base44.asServiceRole.integrations.Core.SendEmail({
         to: customer_email.toLowerCase().trim(),
-        subject: '🎉 Your Contactless360 Free Trial Has Started!',
-        body: `Hi ${customer_name},\n\nWelcome to Contactless360! Your 90-day free trial has started.\n\nHere's what happens next:\n• Your GPS device ships FREE within 1-2 business days\n• Full GPS tracking, alerts, and remote controls — all included\n• Your subscription of $${MONTHLY_PRICE}/mo starts automatically on ${trialEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}\n• Cancel anytime — if you cancel, return the device within 14 days (prepaid label provided) or a $${DEVICE_FEE} device fee applies\n\nNo charges during your trial. You're in control.\n\nQuestions? Just reply to this email.\n\nThe Contactless360 Team`,
+        subject: '🎉 Your Contactless360 Trial Is Confirmed!',
+        body: `Hi ${customer_name},\n\nWelcome to Contactless360! Your free trial is confirmed.\n\nHere's what happens next:\n• Your GPS device ships FREE within ${shippingTimeframe}\n• Your 90-day free trial starts automatically the moment your device goes online for the first time\n• Full GPS tracking, alerts, and remote controls — all included\n• After your 90-day trial, your subscription of $${MONTHLY_PRICE}/mo starts automatically\n• Cancel anytime — if you cancel, return the device within ${RETURN_WINDOW_DAYS} days (prepaid label provided) or a $${DEVICE_FEE} device fee applies\n\nNo charges during your trial. You're in control.\n\nQuestions? Just reply to this email.\n\nThe Contactless360 Team`,
         from_name: 'Contactless360 GPS',
       });
     } catch (e) {
       console.error('[startGPSTrial] welcome email failed:', e.message);
     }
 
-    // ── 9. Audit ──
+    // ── 7. Audit ──
     await base44.asServiceRole.entities.ActivityEvent.create({
       event_type: 'payment.submitted',
       actor_id: user.id,
@@ -269,14 +234,13 @@ Deno.serve(async (req) => {
       target_entity: 'GPSOrder',
       target_id: order.id,
       target_label: orderNum,
-      summary: `GPS trial started: ${orderNum} — 90-day free trial, $${MONTHLY_PRICE}/mo after`,
+      summary: `GPS trial signup: ${orderNum} — pending activation, ${isBackordered ? 'BACKORDERED' : 'in stock'}, trial starts when device goes online`,
       metadata: {
         order_id: order.id,
         subscription_id: sub.id,
-        stripe_subscription_id: subscription.id,
         trial_days: TRIAL_DAYS,
-        trial_end: trialEnd.toISOString(),
         device_fee: DEVICE_FEE,
+        is_backordered: isBackordered,
       },
       source: 'customer_app',
       event_status: 'success',
@@ -286,15 +250,15 @@ Deno.serve(async (req) => {
       recipient_user_id: user.id,
       recipient_email: customer_email.toLowerCase().trim(),
       recipient_role: 'customer',
-      title: '🎉 Free Trial Started — Device Shipping Soon',
-      body: `Your 90-day Contactless360 free trial has started. Your device ships free within 1-2 business days. Subscription of $${MONTHLY_PRICE}/mo starts ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Cancel anytime.`,
+      title: '🎉 Trial Confirmed — Device Shipping Soon',
+      body: `Your Contactless360 trial is confirmed. Your device ships within ${shippingTimeframe}. Your 90-day trial starts automatically when your device goes online. $${MONTHLY_PRICE}/mo after trial. Cancel anytime.`,
       type: 'success',
       category: 'subscriptions',
       severity: 'info',
       source_function: 'startGPSTrial',
     }).catch(() => {});
 
-    // ── 10. Notify all admins of new trial signup ──
+    // ── 8. Notify all admins of new trial signup ──
     try {
       const allUsers = await base44.asServiceRole.entities.User.list('-created_date', 100);
       const admins = allUsers.filter(u => u.role === 'admin');
@@ -303,20 +267,20 @@ Deno.serve(async (req) => {
           recipient_user_id: admin.id,
           recipient_email: admin.email,
           recipient_role: 'admin',
-          title: '🎉 New GPS Trial Signup',
-          body: `${customer_name} (${customer_email}) started a 90-day free trial. Order: ${orderNum}. $${MONTHLY_PRICE}/mo starts ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Ship to: ${shipping_address || 'N/A'}.`,
+          title: `🎉 New GPS Trial Signup${isBackordered ? ' (BACKORDER)' : ''}`,
+          body: `${customer_name} (${customer_email}) signed up for a 90-day free trial. Order: ${orderNum}. ${isBackordered ? 'BACKORDERED — ship when restocked.' : 'In stock — ship within 1-2 days.'} Trial starts when device goes online. Ship to: ${shipping_address || 'N/A'}.`,
           type: 'success',
           category: 'subscriptions',
-          severity: 'info',
+          severity: isBackordered ? 'warning' : 'info',
           source_function: 'startGPSTrial',
           related_entity_type: 'GPSOrder',
           related_entity_id: order.id,
-          metadata: { order_id: order.id, subscription_id: sub.id, customer_email },
+          metadata: { order_id: order.id, subscription_id: sub.id, customer_email, is_backordered: isBackordered },
         }).catch(() => {});
         await base44.asServiceRole.integrations.Core.SendEmail({
           to: admin.email,
-          subject: `🎉 New GPS Trial Signup — ${orderNum}`,
-          body: `A new 90-day free trial has started and a device needs to be shipped.\n\nOrder: ${orderNum}\nCustomer: ${customer_name} (${customer_email})\nShip to: ${shipping_address || 'N/A'}\nSubscription: $${MONTHLY_PRICE}/mo starts ${trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}\n\nMark it shipped in the admin GPS Store once dispatched.`,
+          subject: `🎉 New GPS Trial Signup — ${orderNum}${isBackordered ? ' [BACKORDER]' : ''}`,
+          body: `A new 90-day free trial signup needs a device shipment.\n\nOrder: ${orderNum}\nCustomer: ${customer_name} (${customer_email})\nShip to: ${shipping_address || 'N/A'}\n${isBackordered ? 'STATUS: BACKORDERED — ship when inventory is restocked.\n' : 'STATUS: In stock — ship within 1-2 business days.\n'}Trial starts when device goes online. $${MONTHLY_PRICE}/mo after 90-day trial.\n\nMark it shipped in the admin GPS Store once dispatched.`,
           from_name: 'Contactless360 GPS',
         }).catch(() => {});
       }
@@ -329,11 +293,13 @@ Deno.serve(async (req) => {
       order_id: order.id,
       order_number: orderNum,
       subscription_id: sub.id,
-      stripe_subscription_id: subscription.id,
-      trial_end: trialEnd.toISOString(),
       trial_days: TRIAL_DAYS,
       monthly_price: MONTHLY_PRICE,
       device_fee: DEVICE_FEE,
+      is_backordered: isBackordered,
+      message: isBackordered
+        ? 'Trial confirmed. Device ships in ~2 weeks. Trial starts when device goes online.'
+        : 'Trial confirmed. Device ships in 1-2 business days. Trial starts when device goes online.',
     });
   } catch (err) {
     console.error('[startGPSTrial]', err.message);

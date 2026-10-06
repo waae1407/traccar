@@ -45,9 +45,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'This device is already activated.' }, { status: 409 });
     }
 
-    // Find existing subscription for this device
+    // Find existing subscription for this device, or a pending_activation trial sub for this user
     const existingSubs = await base44.asServiceRole.entities.GPSSubscription.filter({ device_id }, '-created_date', 5);
     let sub = existingSubs.find(s => ['trialing', 'active', 'past_due', 'control_disabled'].includes(s.subscription_status)) || existingSubs[0];
+    // If no sub found by device_id, check for a pending_activation trial sub for this user
+    if (!sub) {
+      const userSubs = await base44.asServiceRole.entities.GPSSubscription.filter({ customer_user_id: user.id }, '-created_date', 10);
+      sub = userSubs.find(s => s.subscription_status === 'pending_activation');
+    }
+    const isPendingActivationTrial = sub?.subscription_status === 'pending_activation';
 
     // ── PREPARE: Create SetupIntent for payment collection ──
     if (action === 'prepare') {
@@ -84,6 +90,47 @@ Deno.serve(async (req) => {
     // ── CONFIRM: Create or reuse Stripe subscription with payment method ──
     if (action === 'confirm') {
       if (!payment_method_id) return Response.json({ error: 'payment_method_id is required for confirm' }, { status: 400 });
+
+      // ── If this is a pending_activation trial sub, just link the device and return ──
+      // The trial will start automatically when the device comes online (via activatePendingTrials cron).
+      // No Stripe subscription is created here — it's created when the trial actually starts.
+      if (isPendingActivationTrial && sub) {
+        await base44.asServiceRole.entities.GPSSubscription.update(sub.id, {
+          device_id,
+          stripe_payment_method_id: payment_method_id,
+        });
+
+        // Update device — claim ownership
+        await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
+          subscription_status: 'pending_activation',
+          controls_enabled: false,
+          owner_user_id: user.id,
+          owner_email: user.email,
+          device_mode: 'personal',
+          lifecycle_status: 'live_ready',
+          activation_status: 'activated',
+        });
+
+        // Notify customer
+        await base44.asServiceRole.entities.Notification.create({
+          recipient_user_id: user.id,
+          recipient_email: user.email,
+          recipient_role: 'customer',
+          title: '✅ Device Linked — Trial Starting Soon',
+          body: `Your device has been linked to your account. Your 90-day free trial will start automatically when your device goes online. If it doesn't come online within 21 days, your trial will start from the ship date.`,
+          type: 'success',
+          category: 'subscriptions',
+          severity: 'info',
+          source_function: 'activateGPSTrial',
+        }).catch(() => {});
+
+        return Response.json({
+          success: true,
+          subscription_id: sub.id,
+          status: 'pending_activation',
+          message: 'Device linked. Trial starts when device goes online.',
+        });
+      }
 
       let stripeCustomerId = stripe_customer_id || sub?.stripe_customer_id || '';
       if (!stripeCustomerId) {

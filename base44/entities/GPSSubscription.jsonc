@@ -47,6 +47,7 @@
       "enum": [
         "active",
         "trialing",
+        "pending_activation",
         "past_due",
         "cancelled",
         "unpaid",
@@ -115,17 +116,41 @@
     "trial_started_at": {
       "type": "string",
       "format": "date-time",
-      "description": "When the 90-day free trial began"
+      "description": "When the 90-day free trial began. Null until the device comes online (or fallback deadline). Set by activatePendingTrials."
     },
     "trial_end_at": {
       "type": "string",
       "format": "date-time",
-      "description": "When the 90-day trial ends and subscription auto-activates"
+      "description": "When the 90-day trial ends and subscription auto-activates. Null until trial_started_at is set."
     },
     "trial_reminder_sent_at": {
       "type": "string",
       "format": "date-time",
       "description": "When the 2-week trial-end reminder was sent (day 76)"
+    },
+    "trial_activation_deadline": {
+      "type": "string",
+      "format": "date-time",
+      "description": "shipped_at + 21 days. If the device hasn't come online by this date, the trial starts from shipped_at as a fallback."
+    },
+    "device_first_online_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the linked device first reported online, triggering trial start."
+    },
+    "trial_start_source": {
+      "type": "string",
+      "enum": [
+        "device_online",
+        "fallback_ship_date",
+        "signup_legacy"
+      ],
+      "description": "How the trial was started: device_online = device came online, fallback_ship_date = activation deadline passed, signup_legacy = old flow (pre-backorder change)."
+    },
+    "is_backordered": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if the order was placed when inventory was 0 (backorder). Trial doesn't start until device ships and comes online."
     },
     "canceled_at": {
       "type": "string",

@@ -1,0 +1,45 @@
+{
+  "name": "Activate Pending GPS Trials \u2014 Every 15min",
+  "description": "Every 15 minutes: starts 90-day trials for pending_activation subscriptions whose device has come online, or starts fallback trial from ship date if activation deadline (21 days) has passed.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "activate_pending_gps_trials",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_activation": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "activatePendingTrials",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Activate pending GPS trials",
+            "description": "Start trials for devices that came online or past activation deadline"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/15 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Los_Angeles",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

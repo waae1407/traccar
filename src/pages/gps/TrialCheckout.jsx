@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, ArrowLeft, Shield, Loader2, AlertCircle, Sparkles, Clock, Package, CreditCard } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Shield, Loader2, AlertCircle, Sparkles, Clock, Package, CreditCard, Truck } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import C360SignInInterstitial from '@/components/auth/C360SignInInterstitial';
@@ -41,7 +41,6 @@ function TrialPaymentForm({ clientSecret, onSuccess }) {
     setSubmitting(true);
     setError(null);
 
-    // Confirm the SetupIntent — this collects the card but charges $0
     const { error: stripeError, setupIntent } = await stripe.confirmSetup({
       elements,
       redirect: 'if_required',
@@ -93,6 +92,7 @@ export default function TrialCheckout() {
   const [trialResult, setTrialResult] = useState(null);
   const [showC360SignIn, setShowC360SignIn] = useState(false);
   const [stockQty, setStockQty] = useState(null);
+  const [backorderAck, setBackorderAck] = useState(false);
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -117,6 +117,10 @@ export default function TrialCheckout() {
   // Step 1: Create SetupIntent (prepare for card collection)
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+    if (outOfStock && !backorderAck) {
+      setError('Please acknowledge the backorder terms to continue.');
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -150,6 +154,7 @@ export default function TrialCheckout() {
         vehicle_use_type: form.vehicle_use_type,
         payment_method_id: paymentMethodId,
         stripe_customer_id: setupData?.stripe_customer_id,
+        backorder_acknowledged: outOfStock,
       });
 
       if (res.data?.error) {
@@ -166,7 +171,7 @@ export default function TrialCheckout() {
   };
 
   if (step === 'success' && trialResult) {
-    const trialEnd = new Date(trialResult.trial_end);
+    const isBackordered = trialResult.is_backordered;
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-6 py-12">
         <div className="max-w-md w-full text-center space-y-6">
@@ -174,35 +179,35 @@ export default function TrialCheckout() {
             <CheckCircle className="w-10 h-10 text-green-400" />
           </div>
           <img src={LOGO} alt="Contactless360" className="h-10 mx-auto object-contain" />
-          <h2 className="text-2xl font-syne font-bold text-white">Your Free Trial Has Started! 🎉</h2>
+          <h2 className="text-2xl font-syne font-bold text-white">Your Trial Is Confirmed! 🎉</h2>
           <p className="text-muted-foreground">Order <span className="text-white font-mono font-bold">{trialResult.order_number}</span></p>
 
           <div className="glass rounded-2xl p-6 space-y-4 text-left">
             <div className="flex items-center gap-3">
               <Package className="w-5 h-5 text-yellow-400" />
               <div>
-                <p className="font-semibold text-white text-sm">Free Shipping</p>
-                <p className="text-xs text-muted-foreground">Your device ships within 1-2 business days</p>
+                <p className="font-semibold text-white text-sm">{isBackordered ? 'Backordered — Ships in ~2 Weeks' : 'Free Shipping'}</p>
+                <p className="text-xs text-muted-foreground">{isBackordered ? 'Your device ships when restocked' : 'Your device ships within 1-2 business days'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-yellow-400" />
               <div>
                 <p className="font-semibold text-white text-sm">90-Day Free Trial</p>
-                <p className="text-xs text-muted-foreground">Ends {trialEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                <p className="text-xs text-muted-foreground">Starts automatically when your device goes online</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <CreditCard className="w-5 h-5 text-yellow-400" />
               <div>
                 <p className="font-semibold text-white text-sm">${MONTHLY_PRICE}/mo after trial</p>
-                <p className="text-xs text-muted-foreground">Auto-starts after 90 days. Cancel anytime.</p>
+                <p className="text-xs text-muted-foreground">Auto-starts 90 days after device goes online. Cancel anytime.</p>
               </div>
             </div>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Cancel anytime. Return the device within 14 days of cancellation (prepaid label provided) or a ${DEVICE_FEE} device fee applies.
+            Cancel anytime. Return the device within 14 days of cancellation (prepaid label provided) or a ${DEVICE_FEE} device fee applies. No charge during your trial.
           </p>
 
           <div className="flex gap-3 justify-center flex-wrap">
@@ -240,8 +245,8 @@ export default function TrialCheckout() {
             </h1>
             <p className="text-sm text-muted-foreground">
               {step === 'payment'
-                ? 'We collect your card now so your subscription can start automatically after 90 days. $0 charged today.'
-                : 'Free GPS device + 90 days of full features. Free shipping. Cancel anytime.'
+                ? 'We collect your card now so your subscription can start automatically after your 90-day trial. $0 charged today.'
+                : 'Free GPS device + 90 days of full features. Free shipping. Trial starts when your device goes online. Cancel anytime.'
               }
             </p>
           </div>
@@ -271,7 +276,7 @@ export default function TrialCheckout() {
               </div>
               <div className="space-y-1"><Label>Shipping Address *</Label><Input required value={form.shipping_address} onChange={e => set('shipping_address', e.target.value)} placeholder="123 Main St, City, State ZIP" /></div>
               <p className="text-xs text-green-400 flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5" /> Free shipping — device arrives in 1-2 business days
+                <Package className="w-3.5 h-3.5" /> {outOfStock ? 'Free shipping — backordered, ships in ~2 weeks' : 'Free shipping — device arrives in 1-2 business days'}
               </p>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="sameBilling" checked={sameBilling} onChange={e => setSameBilling(e.target.checked)} className="rounded" />
@@ -291,13 +296,33 @@ export default function TrialCheckout() {
                   </SelectContent>
                 </Select>
               </div>
+
               {outOfStock && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center gap-2 text-red-400 text-sm">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> GPS devices are temporarily out of stock. Please check back soon.
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 space-y-2">
+                    <div className="flex items-center gap-2 text-yellow-400 font-semibold text-sm">
+                      <Truck className="w-4 h-4" /> Backordered — Ships in ~2 Weeks
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      GPS devices are currently out of stock. You can still sign up now — your device will ship when inventory is restocked (approximately 2 weeks). Your 90-day free trial <span className="text-white font-semibold">starts automatically when your device goes online</span>, not today. No charges until your trial ends.
+                    </p>
+                  </div>
+                  <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-border bg-card/40 hover:bg-card/60 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={backorderAck}
+                      onChange={e => setBackorderAck(e.target.checked)}
+                      className="rounded mt-0.5"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      I understand my device is backordered and will ship in approximately 2 weeks. My 90-day trial starts when my device goes online, not today. No charge until my trial ends.
+                    </span>
+                  </label>
                 </div>
               )}
-              <Button type="submit" size="lg" className="w-full gradient-primary glow-sm font-bold" disabled={loading || outOfStock}>
-                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparing…</> : outOfStock ? 'Out of Stock' : <>Continue to Card Setup <ArrowLeft className="w-4 h-4 rotate-180" /></>}
+
+              <Button type="submit" size="lg" className="w-full gradient-primary glow-sm font-bold" disabled={loading || (outOfStock && !backorderAck)}>
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Preparing…</> : outOfStock ? (backorderAck ? <>Continue to Card Setup <ArrowLeft className="w-4 h-4 rotate-180" /></> : 'Acknowledge backorder to continue') : <>Continue to Card Setup <ArrowLeft className="w-4 h-4 rotate-180" /></>}
               </Button>
             </form>
           )}
@@ -324,6 +349,10 @@ export default function TrialCheckout() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Trial Duration</span>
                 <span className="text-white font-bold">90 days FREE</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Trial Starts</span>
+                <span className="text-white font-bold text-xs text-right">When device goes online</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>
@@ -354,7 +383,7 @@ export default function TrialCheckout() {
           <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 space-y-2">
             <p className="text-xs text-yellow-300/80 leading-relaxed">
               <Clock className="w-3.5 h-3.5 inline mr-1" />
-              Cancel anytime. If you cancel, return the device within 14 days (prepaid label provided) or a ${DEVICE_FEE} device fee applies. No charge during your 90-day trial.
+              Your 90-day trial starts automatically when your device goes online — you get the full 90 days of actual use. Cancel anytime. If you cancel, return the device within 14 days (prepaid label provided) or a ${DEVICE_FEE} device fee applies. No charge during your trial.
             </p>
           </div>
         </div>

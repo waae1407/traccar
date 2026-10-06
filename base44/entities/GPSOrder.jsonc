@@ -230,10 +230,20 @@
       "default": false,
       "description": "True for 90-day free trial orders (free shipping, no charge during trial)"
     },
+    "is_backordered": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if order was placed when inventory was 0. Device ships when restocked; trial starts when device goes online."
+    },
+    "backorder_acknowledged_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the customer acknowledged the backorder terms at checkout."
+    },
     "trial_end_at": {
       "type": "string",
       "format": "date-time",
-      "description": "When the 90-day trial ends for this order"
+      "description": "When the 90-day trial ends for this order. Null until the trial actually starts (device online or fallback)."
     }
   },
   "required": [
