@@ -15,17 +15,12 @@ const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1
 const PRODUCT_IMG = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/4f05d3221_29FB89C9-50E3-48A5-A76D-C33D086036D1.png";
 
 const features = [
-  { icon: MapPin, title: "Live GPS Tracking", desc: "Real-time location updates, 24/7 monitoring from anywhere" },
-  { icon: Shield, title: "Anti-Theft Protection", desc: "Instant geofence alerts and movement detection" },
-  { icon: Zap, title: "Smart Immobilizer", desc: "Remotely disable your vehicle if stolen, auto-disables the starter 24 hours after a missed rental payment, and instantly reactivates the moment payment is made" },
-  { icon: KeyRound, title: "Remote Lock & Unlock", desc: "Lock and unlock doors from anywhere via the app" },
+  { icon: MapPin, title: "Live GPS & Trip History", desc: "Real-time 24/7 location tracking with full route replay, speed, distance, and stops" },
+  { icon: Shield, title: "Anti-Theft & Immobilizer", desc: "Geofence alerts, movement detection, and remote starter disable — auto-disables 24 hours after a missed rental payment and reactivates the moment payment is made" },
+  { icon: KeyRound, title: "Keyless Entry & Contactless Rentals", desc: "Remote lock/unlock from the app, Bluetooth proximity auto lock/unlock, and secure keyless rental handoffs" },
   { icon: Siren, title: "Vehicle Finder", desc: "Trigger horn and lights to locate your vehicle in any lot" },
   { icon: Bell, title: "Smart Alerts & Battery Health", desc: "Battery, smoke, movement, and tamper notifications with proactive drain detection, projected hours-to-dead, and internal backup battery that keeps tracking for approximately 2 hours even if power is cut" },
-  { icon: Route, title: "Trip History & Replay", desc: "Full route playback with speed, distance, and stops" },
-  { icon: Bluetooth, title: "Bluetooth Keyless", desc: "Pair your phone for proximity-based auto lock and unlock" },
-  { icon: ShieldAlert, title: "Accident Auto-Detection", desc: "Impact sensor triggers auto accident report with GPS and emergency alerts" },
-  { icon: Lock, title: "Contactless Rental Ready", desc: "Enable secure keyless rental handoffs" },
-  { icon: Siren, title: "One-Tap SOS Button", desc: "Press SOS to instantly alert your emergency contacts with live GPS location via SMS, email, and push notification" },
+  { icon: ShieldAlert, title: "Accident & Emergency SOS", desc: "Impact sensor auto-triggers an accident report with GPS and emergency alerts, plus one-tap SOS to instantly alert emergency contacts via SMS, email, and push" },
   { icon: Activity, title: "Safe Driving Monitor", desc: "Detects drag racing, street takeovers, hard cornering, and hard braking with real-time driving pattern analysis" },
 ];
 
