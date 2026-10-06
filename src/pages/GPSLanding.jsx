@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, ArrowRight, Package, Tag, Loader2, Wrench, Search, Sparkles, KeyRound, Siren, Route, Activity, Bluetooth, Battery } from 'lucide-react';
+import { Shield, MapPin, Zap, Lock, Bell, Smartphone, Car, Building2, Users, Truck, CheckCircle, ArrowRight, Package, Tag, Loader2, Wrench, Search, Sparkles, KeyRound, Siren, Route, Activity, Bluetooth, Battery, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { base44 } from '@/api/base44Client';
@@ -24,6 +24,7 @@ const features = [
   { icon: Activity, title: "Battery Health Monitor", desc: "Proactive drain detection with projected hours-to-dead" },
   { icon: Route, title: "Trip History & Replay", desc: "Full route playback with speed, distance, and stops" },
   { icon: Bluetooth, title: "Bluetooth Keyless", desc: "Pair your phone for proximity-based auto lock and unlock" },
+  { icon: ShieldAlert, title: "Accident Auto-Detection", desc: "Impact sensor triggers auto accident report with GPS and emergency alerts" },
   { icon: Battery, title: "Backup Battery", desc: "Internal battery keeps tracking even if vehicle power is cut" },
   { icon: Lock, title: "Contactless Rental Ready", desc: "Enable secure keyless rental handoffs" },
   { icon: Smartphone, title: "Mobile Dashboard", desc: "Full control from the uRideHub app" },

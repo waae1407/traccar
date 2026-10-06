@@ -221,7 +221,80 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 4. Create audit ActivityEvent ───────────────────────────────────────
+    // ── 4. Notify host (email + SMS + in-app) ────────────────────────────────
+    const hostNotifications = [];
+    if (host_id) {
+      const hosts = await base44.asServiceRole.entities.Host.filter({ id: host_id }).catch(() => []);
+      const host = hosts[0];
+      if (host?.email) {
+        const hostSmsText = `uRide ALERT: Possible accident detected on your vehicle at ${mapsLink || "unknown location"}. Speed: ${speedMph} mph. Device: ${device_id}. Check on your renter immediately.`;
+        const hostEmailSubject = `🚨 Accident Detected — Your Vehicle`;
+        const hostEmailHtml = `
+          <div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto">
+            <div style="background:#dc2626;padding:24px;border-radius:12px 12px 0 0;text-align:center">
+              <h1 style="color:white;margin:0;font-size:20px;font-weight:800">🚨 Accident Detected</h1>
+            </div>
+            <div style="background:#fef2f2;padding:24px;border:1px solid #fca5a5;border-top:none;border-radius:0 0 12px 12px">
+              <p style="font-size:15px;color:#7f1d1d;margin:0 0 16px">A possible accident has been detected on one of your vehicles.</p>
+              <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+                <tr><td style="padding:4px 0;font-size:13px;color:#9ca3af">Location</td><td style="font-size:14px;color:#111;text-align:right"><a href="${mapsLink}" style="color:#dc2626">${mapsLink || "N/A"}</a></td></tr>
+                <tr><td style="padding:4px 0;font-size:13px;color:#9ca3af">Speed at Impact</td><td style="font-size:14px;color:#111;text-align:right">${speedMph} mph</td></tr>
+                <tr><td style="padding:4px 0;font-size:13px;color:#9ca3af">Device</td><td style="font-size:14px;color:#111;text-align:right">${device_id}</td></tr>
+                <tr><td style="padding:4px 0;font-size:13px;color:#9ca3af">Time</td><td style="font-size:14px;color:#111;text-align:right">${now}</td></tr>
+              </table>
+              <p style="font-size:14px;color:#7f1d1d;font-weight:600;margin:0">An accident report has been automatically generated and stored in your Evidence Vault for insurance purposes.</p>
+            </div>
+          </div>`;
+
+        const hostEmailResult = await sendEmail(host.email, hostEmailSubject, hostEmailHtml);
+        hostNotifications.push({ recipient: "host", channel: "email", email: host.email, result: hostEmailResult.ok ? "sent" : hostEmailResult.error });
+
+        if (host.phone) {
+          const hostSmsResult = await sendSMS(host.phone, hostSmsText);
+          hostNotifications.push({ recipient: "host", channel: "sms", phone: host.phone, result: hostSmsResult.ok ? "sent" : hostSmsResult.error });
+        }
+
+        // In-app notification for host
+        await base44.asServiceRole.entities.Notification.create({
+          recipient_user_id: host.user_id || "",
+          recipient_role: "host",
+          recipient_email: host.email,
+          recipient_phone: host.phone || "",
+          title: "🚨 Accident Detected — Your Vehicle",
+          body: `Possible accident detected at ${mapsLink || "unknown location"}. Speed: ${speedMph} mph. An accident report has been generated.`,
+          type: "alert",
+          category: "telematics",
+          severity: "critical",
+          is_read: false,
+          vehicle_id: vehicle_id || "",
+          host_id: host_id,
+          action_url: "/host/telematics",
+          source_function: "handleAccidentReport",
+          metadata: { evidence_vault_id: evidenceRecord.id, incident_id: incident.id, latitude, longitude, speed: speedMph },
+        }).catch(() => {});
+        hostNotifications.push({ recipient: "host", channel: "in_app", result: "sent" });
+      }
+    }
+
+    // ── 5. Notify admin (in-app + email) ─────────────────────────────────────
+    const adminNotifications = [];
+    await base44.asServiceRole.entities.Notification.create({
+      recipient_role: "admin",
+      title: "🚨 Accident Auto-Detected — Review Required",
+      body: `Possible accident on vehicle ${vehicle_id || "unknown"}. Location: ${latitude}, ${longitude}. Speed: ${speedMph} mph. Evidence: ${evidenceRecord.id}. Incident: ${incident.id}.`,
+      type: "alert",
+      category: "telematics",
+      severity: "critical",
+      is_read: false,
+      vehicle_id: vehicle_id || "",
+      host_id: host_id || "",
+      action_url: "/admin/telematics-operations",
+      source_function: "handleAccidentReport",
+      metadata: { evidence_vault_id: evidenceRecord.id, incident_id: incident.id, latitude, longitude, speed: speedMph, triggered_by },
+    }).catch(() => {});
+    adminNotifications.push({ recipient: "admin", channel: "in_app", result: "sent" });
+
+    // ── 6. Create audit ActivityEvent ───────────────────────────────────────
     await base44.asServiceRole.entities.ActivityEvent.create({
       event_type: "gps.command_sent",
       actor_id: "handleAccidentReport",
@@ -231,7 +304,7 @@ Deno.serve(async (req) => {
       vehicle_id: vehicle_id || "",
       host_id: host_id || "",
       booking_id: booking_id || "",
-      summary: `Accident auto-report generated. Evidence: ${evidenceRecord.id}. Incident: ${incident.id}. Emergency contacts notified: ${emergencyNotifications.length}.`,
+      summary: `Accident auto-report generated. Evidence: ${evidenceRecord.id}. Incident: ${incident.id}. Emergency contacts: ${emergencyNotifications.length}, host: ${hostNotifications.length}, admin: ${adminNotifications.length}.`,
       metadata: {
         evidence_vault_id: evidenceRecord.id,
         incident_id: incident.id,
@@ -242,6 +315,8 @@ Deno.serve(async (req) => {
         shock_detected,
         triggered_by,
         emergency_notifications: emergencyNotifications,
+        host_notifications: hostNotifications,
+        admin_notifications: adminNotifications,
       },
       source: "automation",
       event_status: "success",
@@ -253,6 +328,10 @@ Deno.serve(async (req) => {
       incident_id: incident.id,
       emergency_contacts_notified: emergencyNotifications.length,
       emergency_notifications: emergencyNotifications,
+      host_notified: hostNotifications.length,
+      host_notifications: hostNotifications,
+      admin_notified: adminNotifications.length,
+      admin_notifications: adminNotifications,
       google_maps_link: mapsLink,
       report_summary: {
         triggered_by,
