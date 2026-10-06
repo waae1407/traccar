@@ -19,7 +19,7 @@ const features = [
   { icon: Shield, title: "Anti-Theft & Immobilizer", desc: "Geofence alerts, movement detection, and remote starter disable — auto-disables 24 hours after a missed rental payment and reactivates the moment payment is made" },
   { icon: KeyRound, title: "Keyless Entry & Contactless Rentals", desc: "Remote lock/unlock from the app, Bluetooth proximity auto lock/unlock, and secure keyless rental handoffs" },
   { icon: Siren, title: "Vehicle Finder", desc: "Trigger horn and lights to locate your vehicle in any lot" },
-  { icon: Bell, title: "Smart Alerts & Battery Health", desc: "Battery, smoke, movement, and tamper notifications with proactive drain detection, projected hours-to-dead, and internal backup battery that keeps tracking for approximately 2 hours even if power is cut" },
+  { icon: Bell, title: "Smart Alerts & Battery Health", desc: "Battery, heavy smoke, movement, and tamper notifications with proactive drain detection, projected hours-to-dead, and internal backup battery that keeps tracking for approximately 2 hours even if power is cut" },
   { icon: ShieldAlert, title: "Accident & Emergency SOS", desc: "Impact sensor auto-triggers an accident report with GPS and emergency alerts, plus one-tap SOS to instantly alert emergency contacts via SMS, email, and push" },
   { icon: Activity, title: "Safe Driving Monitor", desc: "Detects drag racing, street takeovers, hard cornering, and hard braking with real-time driving pattern analysis" },
 ];
