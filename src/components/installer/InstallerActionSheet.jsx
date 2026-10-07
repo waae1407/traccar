@@ -22,13 +22,17 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
   const [testResults, setTestResults] = useState({});
   const [result, setResult] = useState(null);
   const [expanded, setExpanded] = useState("device");
+  const [verifiedId, setVerifiedId] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const commandLockRef = useRef("");
+  const latestIdRef = useRef("");
+  const typeTimerRef = useRef(null);
 
-  // Device capabilities — fetched once the device ID is entered
+  // Device capabilities — fetched only after the device is verified (scan or typed)
   const capabilities = useQuery({
-    queryKey: ["installer-capabilities", deviceId],
-    queryFn: () => base44.functions.invoke("getInstallerDeviceCapabilities", { device_id: deviceId }).then((r) => r.data),
-    enabled: deviceId.length >= 6, retry: 1, staleTime: 5 * 60 * 1000,
+    queryKey: ["installer-capabilities", verifiedId],
+    queryFn: () => base44.functions.invoke("getInstallerDeviceCapabilities", { device_id: verifiedId }).then((r) => r.data),
+    enabled: !!verifiedId, retry: 1, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false,
   });
 
   // Auto-populate test results from capabilities (auto-checks + unsupported)
@@ -53,16 +57,38 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
     onError: (e) => setResult({ ok: false, status: "error", message: e?.response?.data?.error || e.message }),
   });
 
+  // Same device check for scanned and typed IDs
+  const verifyDevice = async (id) => {
+    latestIdRef.current = id;
+    setVerifying(true);
+    try {
+      const res = await base44.functions.invoke("verifyInstallerDeviceScan", { actual_device_id: id });
+      if (latestIdRef.current !== id) return;
+      setProviderKey(res.data.provider_key || "");
+      setVerifiedId(id);
+      setScanMessage({ type: "success", text: res.data.message || "Device verified." });
+      setExpanded("commands");
+    } catch (e) {
+      if (latestIdRef.current !== id) return;
+      setScanMessage({ type: "error", text: e?.response?.data?.error || "Verification failed." });
+    } finally { if (latestIdRef.current === id) setVerifying(false); }
+  };
+
+  const handleTypedId = (value) => {
+    const id = normalizeDeviceId(value);
+    setDeviceId(id); setScanMessage(null); setVerifiedId(""); setProviderKey("");
+    latestIdRef.current = id;
+    clearTimeout(typeTimerRef.current);
+    setVerifying(false);
+    if (id.length >= 6) typeTimerRef.current = setTimeout(() => verifyDevice(id), 900);
+  };
+
   const handleDeviceScan = async (raw) => {
     const parsed = parseDeviceBarcode(raw);
     if (!parsed) { setScanMessage({ type: "error", text: "Invalid device barcode." }); setScanner(null); return; }
+    clearTimeout(typeTimerRef.current);
     setDeviceId(parsed.actual_device_id);
-    try {
-      const res = await base44.functions.invoke("verifyInstallerDeviceScan", { actual_device_id: parsed.actual_device_id });
-      setProviderKey(res.data.provider_key || "");
-      setScanMessage({ type: "success", text: res.data.message || "Device verified." });
-      setExpanded("commands");
-    } catch (e) { setScanMessage({ type: "error", text: e?.response?.data?.error || "Verification failed." }); }
+    await verifyDevice(parsed.actual_device_id);
     setScanner(null);
   };
 
@@ -111,7 +137,7 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
   };
 
   // Derived states
-  const deviceVerified = scanMessage?.type === "success";
+  const deviceVerified = !!verifiedId && verifiedId === deviceId;
   const visibleTests = [
     "lock_test", "unlock_test", "horn_test", "lights_test", "alarm_test", "starter_disable_test", "starter_restore_test",
   ].filter((id) => capabilities.data?.tests?.[id] !== false);
@@ -153,8 +179,9 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
                 <button onClick={() => setScanner("device")} style={{ height: 44, borderRadius: 12, background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#F5F5F7", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 12px" }}>
                   <ScanLine size={16} /> Scan
                 </button>
-                <input value={deviceId} onChange={(e) => { setDeviceId(normalizeDeviceId(e.target.value)); setScanMessage(null); }} placeholder="Enter device ID" style={{ flex: 1, height: 44, borderRadius: 12, background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#F5F5F7", fontSize: 13, padding: "0 12px", outline: "none" }} />
+                <input value={deviceId} onChange={(e) => handleTypedId(e.target.value)} placeholder="Enter device ID" style={{ flex: 1, height: 44, borderRadius: 12, background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#F5F5F7", fontSize: 13, padding: "0 12px", outline: "none" }} />
               </div>
+              {verifying && <p style={{ fontSize: 12, fontWeight: 600, color: "#8E8E93", margin: 0, display: "flex", alignItems: "center", gap: 6 }}><Loader2 size={12} className="animate-spin" /> Checking device…</p>}
               {scanMessage && <p style={{ fontSize: 12, fontWeight: 600, color: scanMessage.type === "success" ? "#50C878" : "#FF453A", margin: 0 }}>{scanMessage.text}</p>}
             </div>
           )}
