@@ -46,13 +46,18 @@ Deno.serve(async (req) => {
         return Response.json({ error: 'Forbidden: You do not own this vehicle' }, { status: 403 });
       }
     } else {
-      // customer / user — must have active booking on this vehicle
-      const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id: device.vehicle_id }).catch(() => []);
-      const active = bookings.find(b =>
-        ['active', 'approved', 'confirmed'].includes(b.booking_status) &&
-        (b.user_email === user.email || b.user_id === user.id)
-      );
-      if (!active) return Response.json({ error: 'Forbidden: No active booking for this vehicle' }, { status: 403 });
+      // Personal GPS owner — full access to their own device
+      if (device.device_mode === 'personal' && device.owner_user_id === user.id) {
+        // allowed
+      } else {
+        // customer / user — must have active booking on this vehicle
+        const bookings = await base44.asServiceRole.entities.BookingRequest.filter({ vehicle_id: device.vehicle_id }).catch(() => []);
+        const active = bookings.find(b =>
+          ['active', 'approved', 'confirmed'].includes(b.booking_status) &&
+          (b.user_email === user.email || b.user_id === user.id)
+        );
+        if (!active) return Response.json({ error: 'Forbidden: No active booking for this vehicle' }, { status: 403 });
+      }
     }
 
     // Fetch live position from Traccar

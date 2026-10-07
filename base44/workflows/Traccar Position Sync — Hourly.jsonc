@@ -1,13 +1,13 @@
 {
   "name": "Traccar Position Sync \u2014 Hourly",
-  "description": "Every hour: syncs live positions from Traccar, updates virtual odometer on active rental vehicles, and self-heals stale cached locations.",
+  "description": "Every 5 minutes: syncs live positions from Traccar, updates virtual odometer on active rental vehicles, and self-heals stale cached locations.",
   "trigger": {
     "condition": null,
     "config": {
       "trigger_type": "scheduled",
       "events": [],
       "schedule_mode": "recurring",
-      "cron_expression": "0 * * * *",
+      "cron_expression": "*/5 * * * *",
       "one_time_date": null,
       "timezone": "America/Los_Angeles",
       "interval_value": null,

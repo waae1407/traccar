@@ -33,6 +33,29 @@ export default function CustomerGPS() {
     loadData();
   }, []);
 
+  // ── Real-time position polling: pull fresh position from Traccar every 20s ──
+  // This prevents stale map markers. The log forwarder batches positions every
+  // 5 min, so without polling the map can show a location that's minutes old.
+  useEffect(() => {
+    if (!activeDevice?.traccar_device_id) return;
+    const interval = setInterval(async () => {
+      try {
+        await base44.functions.invoke("syncSingleTraccarPosition", {
+          telematics_device_id: activeDevice.id,
+        });
+        // Refresh the device data so the map/location preview updates
+        const devs = await base44.entities.TelematicsDevice.filter(
+          { owner_user_id: user?.id, device_mode: 'personal' }, '-created_date', 20
+        );
+        const refreshed = devs?.find(d => d.id === activeDevice.id);
+        if (refreshed) setActiveDevice(refreshed);
+      } catch (e) {
+        // Silent fail — polling should not surface errors to the user
+      }
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [activeDevice?.id, activeDevice?.traccar_device_id, user?.id]);
+
   const loadData = async () => {
     setLoading(true);
     try {

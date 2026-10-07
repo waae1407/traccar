@@ -77,6 +77,21 @@ export default function GPSControlPanel({ device, subscription, onRefresh }) {
           confirm_starter_command: commandType === "disable_starter" || commandType === "restore_starter",
         });
         toast.success(`${commandType.replace(/_/g, " ")} command sent`);
+
+        // After "locate", pull the fresh position from Traccar immediately
+        // instead of waiting for the 5-minute log-forwarder batch.
+        if (commandType === "locate" && device.traccar_device_id) {
+          setTimeout(async () => {
+            try {
+              await base44.functions.invoke("syncSingleTraccarPosition", {
+                telematics_device_id: device.id,
+              });
+              onRefresh?.();
+            } catch (e) {
+              console.error("Post-locate position sync failed:", e);
+            }
+          }, 3000);
+        }
       }
 
       await loadCommands();
