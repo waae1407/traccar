@@ -251,8 +251,9 @@ Deno.serve(async (req) => {
     const testsPassed = failedTests.length === 0;
     const hasVehicleAndHost = !!vehicle && !!host;
     const status = testsPassed ? 'completed' : 'correction_needed';
+    const enableProduction = testsPassed && hasVehicleAndHost && providerAllowsProduction(providerConfig);
     const nextLifecycleStatus = testsPassed
-      ? (hasVehicleAndHost ? nextProductionLifecycle(providerConfig, device) : 'installation_completed_unlinked')
+      ? (hasVehicleAndHost ? (enableProduction ? 'live_enabled' : 'live_ready') : 'installation_completed_unlinked')
       : (vehicle ? 'installation_started' : 'installation_completed_unlinked');
 
     await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
@@ -261,6 +262,10 @@ Deno.serve(async (req) => {
       assigned_status: vehicle ? 'assigned' : 'unassigned',
       install_status: testsPassed ? 'installed' : 'correction_needed',
       lifecycle_status: nextLifecycleStatus,
+      production_commands_enabled: enableProduction ? true : device.production_commands_enabled,
+      production_command_scope: enableProduction ? 'all_supported_commands' : device.production_command_scope,
+      production_enabled_at: enableProduction ? now : device.production_enabled_at || '',
+      production_enabled_by: enableProduction ? 'installer_submit' : device.production_enabled_by || '',
       live_enabled_at: nextLifecycleStatus === 'live_enabled' ? now : device.live_enabled_at || '',
       installation_completed_at: testsPassed ? now : device.installation_completed_at || ''
     });
