@@ -32,6 +32,10 @@ async function resolveAlert(base44, vin, vehicle, record) {
   });
 }
 
+function providerAllowsProduction(providerConfig) {
+  return providerConfig?.execution_mode === 'production' && providerConfig?.allow_live_commands === true;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -59,22 +63,48 @@ Deno.serve(async (req) => {
       });
 
       if (record.telematics_device_id) {
-        await base44.asServiceRole.entities.TelematicsDevice.update(record.telematics_device_id, {
+        const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ id: record.telematics_device_id });
+        const device = devices[0];
+        const now = new Date().toISOString();
+
+        // If the install passed its command tests and the provider is live,
+        // complete the deferred go-live that submitTelematicsInstallation
+        // could not perform (no vehicle existed at install time).
+        const providerConfigs = device ? await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: device.provider_key }) : [];
+        const providerConfig = providerConfigs[0] || null;
+        const shouldGoLive = record.install_status === 'completed' && !!host && providerAllowsProduction(providerConfig);
+
+        const deviceUpdate = {
           vehicle_id: vehicle.id,
           host_id: vehicle.host_id || '',
           assigned_status: 'assigned',
-          lifecycle_status: 'installation_completed'
-        });
+          lifecycle_status: shouldGoLive ? 'live_enabled' : 'installation_completed',
+          production_commands_enabled: shouldGoLive ? true : device?.production_commands_enabled,
+          production_command_scope: shouldGoLive ? 'all_supported_commands' : device?.production_command_scope,
+          production_enabled_at: shouldGoLive ? now : device?.production_enabled_at || '',
+          production_enabled_by: shouldGoLive ? 'reconcileUnlinkedTelematicsInstalls' : device?.production_enabled_by || '',
+          live_enabled_at: shouldGoLive ? now : device?.live_enabled_at || ''
+        };
+        await base44.asServiceRole.entities.TelematicsDevice.update(record.telematics_device_id, deviceUpdate);
+
+        if (shouldGoLive) {
+          await base44.asServiceRole.entities.Vehicle.update(vehicle.id, {
+            telematics_provider: device?.provider_key || 'traccar_noran_mt20',
+            telematics_device_id: record.telematics_device_id,
+            remote_unlock_capable: providerConfig?.supports_unlock === true || device?.lock_unlock_enabled === true
+          });
+        }
       }
 
       await resolveAlert(base44, vin, vehicle, record);
 
+      const wentLive = record.install_status === 'completed' && !!host;
       const subject = 'Pending telematics install linked to vehicle';
-      const body = `<p>Device ${record.device_unique_id || record.telematics_device_id} has been linked to ${vehicleName(vehicle)} after VIN ${vin} was added.</p>`;
+      const body = `<p>Device ${record.device_unique_id || record.telematics_device_id} has been linked to ${vehicleName(vehicle)} after VIN ${vin} was added.${wentLive ? ' Production commands are now enabled and the device is live.' : ''}</p>`;
       await safeSendEmail(base44, { to: ADMIN_EMAIL, subject, body });
       if (host?.email) await safeSendEmail(base44, { to: host.email, subject, body });
 
-      linked.push({ install_record_id: record.id, vehicle_id: vehicle.id, host_id: vehicle.host_id || '', vin });
+      linked.push({ install_record_id: record.id, vehicle_id: vehicle.id, host_id: vehicle.host_id || '', vin, went_live: wentLive });
     }
 
     return Response.json({ ok: true, checked: pending.length, linked });
