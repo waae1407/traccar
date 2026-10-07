@@ -433,6 +433,9 @@ Deno.serve(async (req) => {
       if (body.service_context === 'payment_enforcement' && ['processGracePeriod', 'stripe_webhook'].includes(body.source) && body.booking_id && STARTER_COMMANDS.includes(serviceCommand)) {
         user = { id: 'payment-enforcement', email: 'automation@uridehub.com', role: 'admin' };
       }
+      if (body.service_context === 'lock_state_enforcement' && body.source === 'enforceLockStarterSync' && STARTER_COMMANDS.includes(serviceCommand)) {
+        user = { id: 'lock-state-enforcement', email: 'automation@uridehub.com', role: 'admin' };
+      }
     }
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     const rawCommandType = body.command_type || body.command;
@@ -596,7 +599,11 @@ Deno.serve(async (req) => {
 
     // All live Noran commands must pass the freshness gate — without a fresh heartbeat
     // the UDP NAT session has expired and the device will silently drop the packet.
-    if (isLiveNoran) {
+    // Lock-state enforcement bypasses the heartbeat freshness gate — the device
+    // just sent a 0x8009 ACK reporting the lock change, proving it's online and
+    // the UDP session is fresh. Waiting for a separate 0x000f heartbeat would
+    // add 10-30s of latency to the security response.
+    if (isLiveNoran && body.service_context !== 'lock_state_enforcement') {
       heartbeatFreshness = await ensureFreshHeartbeat(base44, device.id);
       console.log(`[HEARTBEAT_FRESHNESS] device=${device.unique_id} fresh=${heartbeatFreshness.fresh} age_ms=${heartbeatFreshness.age_ms}`);
 
@@ -716,12 +723,12 @@ Deno.serve(async (req) => {
       // This ensures detectParasiteDraw sees the flag and suppresses auto-restore
       // (007,1,0) that would override a payment kill. Manual host/admin kills
       // are intentionally left untouched so battery auto-remediation can still run.
-      if (body.service_context === 'payment_enforcement' && STARTER_COMMANDS.includes(commandType)) {
+      if ((body.service_context === 'payment_enforcement' || body.service_context === 'lock_state_enforcement') && STARTER_COMMANDS.includes(commandType)) {
         const isKill = commandType === 'disable_starter';
         await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
           starter_disabled: isKill,
         }).catch(() => {});
-        console.log(`[sendTelematicsCommand] Synced device.starter_disabled=${isKill} for payment enforcement on ${device.unique_id}`);
+        console.log(`[sendTelematicsCommand] Synced device.starter_disabled=${isKill} for ${body.service_context} on ${device.unique_id}`);
       }
 
       return Response.json({ 

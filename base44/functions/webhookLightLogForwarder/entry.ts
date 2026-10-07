@@ -1149,6 +1149,8 @@ Deno.serve(async (req) => {
     }).catch((error) => console.warn('Forwarded log event skipped:', error.message));
 
     if (device && parsed.device_updates) {
+      const oldLockState = device.lock_state;
+      const newLockState = parsed.device_updates.lock_state;
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
         ...parsed.device_updates,
         ...(Number.isFinite(parsed.voltage) ? { voltage_last_seen_at: timestamp } : {}),
@@ -1161,6 +1163,16 @@ Deno.serve(async (req) => {
         ...(typeof parsed.status_bits?.accOn === 'boolean' ? { ignition_status: parsed.status_bits.accOn ? 'on' : 'off' } : {}),
         last_seen_at: timestamp
       }).catch((error) => console.warn('Device update skipped:', error.message));
+
+      // ── Lock-state starter enforcement ──
+      // When lock_state changes (Bluetooth, key fob, or app command), enforce
+      // the starter kill/restore policy. Payment enforcement takes priority.
+      if (newLockState && newLockState !== 'unknown' && newLockState !== oldLockState) {
+        await base44.asServiceRole.functions.invoke('enforceLockStarterSync', {
+          device_id: device.id,
+          lock_state: newLockState,
+        }).catch(e => console.error('[lock-starter-sync] enforcement failed:', e.message));
+      }
     }
 
     // ── Update heartbeat session tracking ──
