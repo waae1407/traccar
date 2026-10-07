@@ -44,7 +44,7 @@ function cardStyle(status, isTesting) {
   return { ...base, border: "1px solid rgba(255,255,255,0.08)" };
 }
 
-function CommandCard({ icon, label, status, isTesting, isChecking, onClick, disabled, failHint }) {
+function CommandCard({ icon, label, status, isTesting, isChecking, onClick, disabled, failHint, cornerStatus }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <div
@@ -56,23 +56,43 @@ function CommandCard({ icon, label, status, isTesting, isChecking, onClick, disa
         }}
         onClick={onClick && !disabled ? onClick : undefined}
       >
-        {status === "pass" ? (
-          <CheckCircle2 size={22} color={NEON_GREEN} />
-        ) : status === "fail" ? (
-          <XCircle size={22} color={RED} />
-        ) : isTesting || isChecking ? (
-          <Loader2 size={20} className="animate-spin" color={AMBER} />
+        {cornerStatus ? (
+          <>
+            <span style={{ fontSize: 22 }}>{icon}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#F5F5F7", textAlign: "center" }}>{label}</span>
+          </>
         ) : (
-          <span style={{ fontSize: 22 }}>{icon}</span>
+          <>
+            {status === "pass" ? (
+              <CheckCircle2 size={22} color={NEON_GREEN} />
+            ) : status === "fail" ? (
+              <XCircle size={22} color={RED} />
+            ) : isTesting || isChecking ? (
+              <Loader2 size={20} className="animate-spin" color={AMBER} />
+            ) : (
+              <span style={{ fontSize: 22 }}>{icon}</span>
+            )}
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: status === "pass" ? NEON_GREEN : status === "fail" ? RED : "#F5F5F7",
+              textAlign: "center",
+            }}>
+              {status === "pass" ? "Passed" : status === "fail" ? "Failed" : isTesting ? "Testing…" : isChecking ? "Checking…" : label}
+            </span>
+          </>
         )}
-        <span style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: status === "pass" ? NEON_GREEN : status === "fail" ? RED : "#F5F5F7",
-          textAlign: "center",
-        }}>
-          {status === "pass" ? "Passed" : status === "fail" ? "Failed" : isTesting ? "Testing…" : isChecking ? "Checking…" : label}
-        </span>
+        {cornerStatus && (status === "pass" || status === "fail" || isChecking) && (
+          <span style={{ position: "absolute", top: 6, right: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {status === "pass" ? (
+              <CheckCircle2 size={16} color={NEON_GREEN} />
+            ) : status === "fail" ? (
+              <XCircle size={16} color={RED} />
+            ) : (
+              <Loader2 size={14} className="animate-spin" color={AMBER} />
+            )}
+          </span>
+        )}
       </div>
       {status === "fail" && failHint && (
         <div style={{ padding: "6px 10px", background: `${RED}1A`, borderRadius: 8, fontSize: 10, color: "#FF6961", lineHeight: 1.4 }}>
@@ -105,6 +125,7 @@ export default function CommandTestTable({ form, update, capabilities, commandSt
                 label={label}
                 status={value === "pass" ? "pass" : value === "fail" ? "fail" : ""}
                 isChecking={isChecking}
+                cornerStatus
               />
             );
           })}
