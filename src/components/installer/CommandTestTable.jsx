@@ -155,6 +155,7 @@ export default function CommandTestTable({ form, update, capabilities, commandSt
                 isTesting={isTesting}
                 disabled={locked || isTesting || value === "pass"}
                 failHint={failHint}
+                cornerStatus
                 onClick={() => !value && onSendCommand(command, id)}
               />
             );
