@@ -39,6 +39,21 @@ async function findDeviceByIdentifier(base44, identifier) {
   return null;
 }
 
+async function resolveVehicleInfo(base44, device) {
+  const deviceVin = String(device.vin || '').trim().toUpperCase();
+  if (deviceVin) {
+    const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ vin: deviceVin });
+    const v = vehicles[0];
+    return { vin: deviceVin, vehicle_id: device.vehicle_id || v?.id || '', host_id: device.host_id || v?.host_id || '', vehicle_name: v ? [v.year, v.make, v.model].filter(Boolean).join(' ') : '' };
+  }
+  if (device.vehicle_id) {
+    const vehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id });
+    const v = vehicles[0];
+    if (v) return { vin: String(v.vin || '').trim().toUpperCase(), vehicle_id: v.id, host_id: v.host_id || device.host_id || '', vehicle_name: [v.year, v.make, v.model].filter(Boolean).join(' ') };
+  }
+  return { vin: '', vehicle_id: device.vehicle_id || '', host_id: device.host_id || '', vehicle_name: '' };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -83,6 +98,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    const vehicleInfo = await resolveVehicleInfo(base44, device);
     return Response.json({
       ok: true,
       status: 'verified',
@@ -90,6 +106,10 @@ Deno.serve(async (req) => {
       actual_device_id: actualDeviceId,
       provider_key: device.provider_key || 'unknown',
       device,
+      vin: vehicleInfo.vin,
+      vehicle_id: vehicleInfo.vehicle_id,
+      host_id: vehicleInfo.host_id,
+      vehicle_name: vehicleInfo.vehicle_name,
       created_pending_device: false
     });
   } catch (error) {

@@ -24,6 +24,9 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
   const [expanded, setExpanded] = useState("device");
   const [verifiedId, setVerifiedId] = useState("");
   const [verifying, setVerifying] = useState(false);
+  const [vin, setVin] = useState("");
+  const [vinVehicle, setVinVehicle] = useState("");
+  const [vinScanner, setVinScanner] = useState(null);
   const commandLockRef = useRef("");
   const latestIdRef = useRef("");
   const typeTimerRef = useRef(null);
@@ -66,8 +69,10 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
       if (latestIdRef.current !== id) return;
       setProviderKey(res.data.provider_key || "");
       setVerifiedId(id);
+      setVin(res.data.vin || "");
+      setVinVehicle(res.data.vehicle_name || "");
       setScanMessage({ type: "success", text: res.data.message || "Device verified." });
-      setExpanded("commands");
+      setExpanded(res.data.vin ? "commands" : "device");
     } catch (e) {
       if (latestIdRef.current !== id) return;
       setScanMessage({ type: "error", text: e?.response?.data?.error || "Verification failed." });
@@ -76,7 +81,7 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
 
   const handleTypedId = (value) => {
     const id = normalizeDeviceId(value);
-    setDeviceId(id); setScanMessage(null); setVerifiedId(""); setProviderKey("");
+    setDeviceId(id); setScanMessage(null); setVerifiedId(""); setProviderKey(""); setVin(""); setVinVehicle("");
     latestIdRef.current = id;
     clearTimeout(typeTimerRef.current);
     setVerifying(false);
@@ -88,6 +93,7 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
     if (!parsed) { setScanMessage({ type: "error", text: "Invalid device barcode." }); setScanner(null); return; }
     clearTimeout(typeTimerRef.current);
     setDeviceId(parsed.actual_device_id);
+    setVin(""); setVinVehicle("");
     await verifyDevice(parsed.actual_device_id);
     setScanner(null);
   };
@@ -102,7 +108,7 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           setCommandState((p) => ({ ...p, [commandType]: { status: "Sending" } }));
-          await base44.functions.invoke("sendTelematicsCommand", { command_type: commandType, unique_id: deviceId, installer_install_test: true, source: "installer_workflow" });
+          await base44.functions.invoke("sendTelematicsCommand", { command_type: commandType, unique_id: deviceId, vin, installer_install_test: true, source: "installer_workflow" });
           setLastCommandSentAt(Date.now());
           setCommandState((p) => ({ ...p, [commandType]: { status: "Sent" } }));
           setTestResults((p) => ({ ...p, [testKey]: "pass" }));
@@ -129,6 +135,7 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
       actual_device_id: deviceId,
       device_id: deviceId,
       provider_key: providerKey,
+      vin,
       installer_name: user?.full_name || "Installer",
       installer_signature_name: user?.full_name || "Installer",
       installer_email: user?.email || "",
@@ -138,11 +145,12 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
 
   // Derived states
   const deviceVerified = !!verifiedId && verifiedId === deviceId;
+  const vinReady = !!vin.trim();
   const visibleTests = [
     "lock_test", "unlock_test", "horn_test", "lights_test", "alarm_test", "starter_disable_test", "starter_restore_test",
   ].filter((id) => capabilities.data?.tests?.[id] !== false);
   const allCommandsPassed = visibleTests.length > 0 && visibleTests.every((id) => testResults[id] === "pass");
-  const canSubmit = deviceVerified && allCommandsPassed;
+  const canSubmit = deviceVerified && vinReady && allCommandsPassed;
 
   if (result?.status === "completed") {
     return (
@@ -183,6 +191,12 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
               </div>
               {verifying && <p style={{ fontSize: 12, fontWeight: 600, color: "#8E8E93", margin: 0, display: "flex", alignItems: "center", gap: 6 }}><Loader2 size={12} className="animate-spin" /> Checking device…</p>}
               {scanMessage && <p style={{ fontSize: 12, fontWeight: 600, color: scanMessage.type === "success" ? "#50C878" : "#FF453A", margin: 0 }}>{scanMessage.text}</p>}
+              {deviceVerified && vin && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", borderRadius: 10, background: "rgba(80,200,120,0.12)", border: "1px solid rgba(80,200,120,0.25)" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#50C878" }}>VIN {vin}{vinVehicle ? ` · ${vinVehicle}` : ""}</span>
+                </div>
+              )}
+              {deviceVerified && !vin && <VinEntrySheet vin={vin} setVin={setVin} onScan={() => setVinScanner("vin")} />}
             </div>
           )}
         </div>
@@ -192,10 +206,10 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
           <SectionHeader label="Commands" done={allCommandsPassed} active={expanded === "commands"} onClick={() => setExpanded(expanded === "commands" ? "" : "commands")} />
           {expanded === "commands" && (
             <div style={{ paddingBottom: 12 }}>
-              {deviceVerified ? (
+              {deviceVerified && vinReady ? (
                 <CommandTestTable form={testResults} update={(k, v) => setTestResults((p) => ({ ...p, [k]: v }))} capabilities={capabilities} commandState={commandState} activeCommand={activeCommand} onSendCommand={sendCommand} />
               ) : (
-                <p style={{ fontSize: 12, color: "#8E8E93", textAlign: "center", padding: "16px 0" }}>Verify a device first to begin testing.</p>
+                <p style={{ fontSize: 12, color: "#8E8E93", textAlign: "center", padding: "16px 0" }}>{!deviceVerified ? "Verify a device first to begin testing." : "Enter a VIN to begin testing."}</p>
               )}
             </div>
           )}
@@ -220,7 +234,22 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
       </div>
 
       <CameraBarcodeScanner open={scanner === "device"} onOpenChange={(o) => setScanner(o ? "device" : null)} title="Scan Device Barcode" helper="Point camera at the barcode on the GPS device." formats={["code_128", "code_39", "qr_code", "ean_13", "data_matrix"]} onDetected={handleDeviceScan} />
+      <CameraBarcodeScanner open={vinScanner === "vin"} onOpenChange={(o) => setVinScanner(o ? "vin" : null)} title="Scan VIN Barcode" helper="Point camera at the VIN barcode inside the driver door jamb." formats={["code_39", "qr_code", "ean_13"]} onDetected={(raw) => { const v = String(raw || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, ""); if (v.length >= 11) setVin(v); setVinScanner(null); }} />
     </>
+  );
+}
+
+function VinEntrySheet({ vin, setVin, onScan }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 0 0" }}>
+      <p style={{ fontSize: 12, fontWeight: 600, color: "#FF9F0A", margin: 0 }}>No vehicle linked to this device. Enter the VIN to link this install to the right customer/owner.</p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onScan} style={{ height: 44, borderRadius: 12, background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#F5F5F7", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 12px" }}>
+          <ScanLine size={16} /> Scan
+        </button>
+        <input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 17))} placeholder="Enter VIN (17 chars)" style={{ flex: 1, height: 44, borderRadius: 12, background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#F5F5F7", fontSize: 13, padding: "0 12px", outline: "none", letterSpacing: 1 }} />
+      </div>
+    </div>
   );
 }
 
