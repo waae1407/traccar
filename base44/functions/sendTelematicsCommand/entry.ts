@@ -185,6 +185,12 @@ async function validateAccess(base44, user, vehicle, commandType, provider, devi
   }
   if (user.role === 'admin') return null;
 
+  // Personal GPS owner — full control of their own device (all supported commands)
+  if (device.device_mode === 'personal' && device.owner_user_id === user.id) {
+    if (device.vehicle_id !== vehicle.id) return 'Device is not assigned to this vehicle.';
+    return null;
+  }
+
   if (user.role === 'customer' || user.role === 'user') {
     if (!CUSTOMER_COMMANDS.includes(commandType)) return 'Customers cannot send this command.';
     if (device.vehicle_id !== vehicle.id) return 'Device is not assigned to this rental vehicle.';
@@ -465,6 +471,16 @@ Deno.serve(async (req) => {
     const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
     const liveNoranInstallerTest = installerInstallTest && canSendInstallerNoranTest(provider, device, commandType);
     const isProductionCommand = liveNoranProduction || liveNoranInstallerTest || body.source === 'vehicle_command_center' || body.source === 'contactless360_remote';
+
+    // Personal devices must be explicitly live — never silently dry-run.
+    // Without this, a personal device with production_commands_enabled=false
+    // returns ok:true but the command never reaches Traccar (silent no-op).
+    if (!adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest
+      && device.device_mode === 'personal'
+      && provider.execution_mode === 'production' && provider.allow_live_commands === true
+      && !liveNoranProduction) {
+      return Response.json({ error: 'Controls not activated yet. Add your vehicle VIN on your dashboard to activate remote controls.' }, { status: 403 });
+    }
     if (!isProductionCommand) {
       device = await ensureFreshTraccarDeviceId(base44, device);
     }

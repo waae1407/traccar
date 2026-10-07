@@ -72,7 +72,17 @@ Deno.serve(async (req) => {
         // could not perform (no vehicle existed at install time).
         const providerConfigs = device ? await base44.asServiceRole.entities.TelematicsProviderConfig.filter({ provider_key: device.provider_key }) : [];
         const providerConfig = providerConfigs[0] || null;
-        const shouldGoLive = record.install_status === 'completed' && !!host && providerAllowsProduction(providerConfig);
+
+        // Personal go-live: no rental host required — just an active/trialing
+        // GPS subscription on the device. The VIN match between installer and
+        // owner is the security link.
+        let personalSubActive = false;
+        if (!host && device?.device_mode === 'personal') {
+          const subs = await base44.asServiceRole.entities.GPSSubscription.filter({ device_id: device.id }, '-created_date', 3);
+          personalSubActive = subs.some((s) => ['active', 'trialing'].includes(s.subscription_status));
+        }
+
+        const shouldGoLive = record.install_status === 'completed' && providerAllowsProduction(providerConfig) && (!!host || personalSubActive);
 
         const deviceUpdate = {
           vehicle_id: vehicle.id,
@@ -98,7 +108,7 @@ Deno.serve(async (req) => {
 
       await resolveAlert(base44, vin, vehicle, record);
 
-      const wentLive = record.install_status === 'completed' && !!host;
+      const wentLive = record.install_status === 'completed' && (!!host || (device?.device_mode === 'personal'));
       const subject = 'Pending telematics install linked to vehicle';
       const body = `<p>Device ${record.device_unique_id || record.telematics_device_id} has been linked to ${vehicleName(vehicle)} after VIN ${vin} was added.${wentLive ? ' Production commands are now enabled and the device is live.' : ''}</p>`;
       await safeSendEmail(base44, { to: ADMIN_EMAIL, subject, body });

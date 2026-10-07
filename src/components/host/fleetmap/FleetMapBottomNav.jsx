@@ -9,11 +9,11 @@ import { useAuth } from "@/lib/AuthContext";
  * Hidden by default, reveals on scroll-to-bottom or tap.
  * Groups menu sections from roleBasedMenuConfig.
  */
-export default function FleetMapBottomNav({ visible, onNavigate }) {
+export default function FleetMapBottomNav({ visible, onNavigate, hostType }) {
   const { user, logout } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [openSection, setOpenSection] = useState(null);
-  const { sections } = getBusinessPortalMenu({ role: "host", isSuperadmin: false, showDealerNetwork: false });
+  const { sections } = getBusinessPortalMenu({ role: "host", isSuperadmin: false, showDealerNetwork: false, hostType });
 
   return (
     <>

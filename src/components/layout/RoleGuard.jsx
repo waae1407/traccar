@@ -24,14 +24,17 @@ export function HostGuard({ children }) {
   const { data: hosts = [], isLoading } = useQuery({
     queryKey: ["host-guard", user?.email, user?.id],
     queryFn: () => base44.entities.Host.filter({ email: user.email }),
-    enabled: !!user?.email && (user.role === "host" || user.role === "admin"),
+    enabled: !!user?.email,
   });
 
   if (isLoadingAuth || isLoadingPublicSettings || isLoading) return null;
   if (!user) { navigateToLogin(); return null; }
-  if (user.role !== "host" && user.role !== "admin") return <Navigate to="/" replace />;
 
   const host = hosts.find((item) => item.email === user.email || item.user_id === user.id);
+  // Personal hosts (private GPS owners) — auto-approved, full dashboard access
+  if (host && host.host_type === "personal" && host.status === "approved") return children;
+  // Existing host/admin gate
+  if (user.role !== "host" && user.role !== "admin") return <Navigate to="/" replace />;
   if (!host) return <Navigate to="/become-a-host" replace />;
   if (host.status !== "approved") return <Navigate to="/become-a-host" replace />;
   if (host.booking_blocked || host.host_under_review || host.status === "suspended") {

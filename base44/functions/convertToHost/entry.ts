@@ -37,21 +37,29 @@ Deno.serve(async (req) => {
 
     const device = devices[0];
 
-    // Check if already a host
-    const existingHosts = await base44.entities.Host.filter({ email: user.email }, '-created_date', 1);
-    if (existingHosts[0] && existingHosts[0].status === 'approved') {
+    // Check if already a real (non-personal) host
+    const existingHosts = await base44.entities.Host.filter({ email: user.email }, '-created_date', 5);
+    const realHost = existingHosts.find((h) => h.host_type !== 'personal');
+    if (realHost && realHost.status === 'approved') {
       return Response.json({
         error: 'You are already an approved host. Go to your host dashboard to add this vehicle.',
         already_host: true,
-        host_id: existingHosts[0].id,
+        host_id: realHost.id,
       }, { status: 409 });
     }
 
     const now = new Date().toISOString();
 
-    // 2. Create or update Host record
+    // 2. Create or upgrade Host record
     let host = existingHosts[0];
-    if (!host) {
+    if (host && host.host_type === 'personal') {
+      // Upgrade personal host to a real host (pending verification)
+      host = await base44.entities.Host.update(host.id, {
+        host_type: 'single_host',
+        status: 'pending',
+        commission_rate: 0.08,
+      });
+    } else if (!host) {
       host = await base44.entities.Host.create({
         user_id: user.id,
         full_name: user.full_name || user.email,
@@ -64,29 +72,49 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 3. Create Vehicle record
-    const vehicle = await base44.entities.Vehicle.create({
-      host_id: host.id,
-      make: vehicle_make || 'Unknown',
-      model: vehicle_model || 'Unknown',
-      year: vehicle_year || new Date().getFullYear(),
-      color: vehicle_color || '',
-      plate: vehicle_plate || '',
-      vin: vehicle_vin || device.vin || '',
-      mileage: 0,
-      smoking_allowed: false,
-      status: 'Available',
-      marketplace_visible: false,
-      storefront_visible: false,
-      approval_status: 'pending',
-      telematics_device_id: device.id,
-      telematics_provider: 'other',
-      weekly_rate: 0,
-      daily_rate: 0,
-      monthly_rate: 0,
-      minimum_rental_days: 7,
-      rental_duration_type: 'weekly',
-    });
+    // 3. Promote existing personal vehicle (from addPrivateVehicle), or create one
+    let vehicle;
+    if (device.vehicle_id) {
+      const existingVehicles = await base44.entities.Vehicle.filter({ id: device.vehicle_id });
+      vehicle = existingVehicles[0];
+      if (vehicle) {
+        vehicle = await base44.entities.Vehicle.update(vehicle.id, {
+          host_id: host.id,
+          approval_status: 'pending',
+          marketplace_visible: false,
+          storefront_visible: false,
+          make: vehicle_make || vehicle.make || 'Unknown',
+          model: vehicle_model || vehicle.model || 'Unknown',
+          year: vehicle_year || vehicle.year || new Date().getFullYear(),
+          color: vehicle_color || vehicle.color || '',
+          plate: vehicle_plate || vehicle.plate || '',
+        });
+      }
+    }
+    if (!vehicle) {
+      vehicle = await base44.entities.Vehicle.create({
+        host_id: host.id,
+        make: vehicle_make || 'Unknown',
+        model: vehicle_model || 'Unknown',
+        year: vehicle_year || new Date().getFullYear(),
+        color: vehicle_color || '',
+        plate: vehicle_plate || '',
+        vin: vehicle_vin || device.vin || '',
+        mileage: 0,
+        smoking_allowed: false,
+        status: 'Available',
+        marketplace_visible: false,
+        storefront_visible: false,
+        approval_status: 'pending',
+        telematics_device_id: device.id,
+        telematics_provider: device.provider_key || 'other',
+        weekly_rate: 0,
+        daily_rate: 0,
+        monthly_rate: 0,
+        minimum_rental_days: 7,
+        rental_duration_type: 'weekly',
+      });
+    }
 
     // 4. Transition device from personal → rental
     await base44.entities.TelematicsDevice.update(device.id, {
@@ -101,6 +129,13 @@ Deno.serve(async (req) => {
       await base44.entities.GPSSubscription.update(subs[0].id, {
         host_id: host.id,
       });
+    }
+
+    // 5b. Upgrade user role to host
+    try {
+      await base44.asServiceRole.functions.invoke('updateUserRole', { user_id: user.id, role: 'host' });
+    } catch (e) {
+      console.error('[convertToHost] role upgrade failed:', e.message);
     }
 
     // 6. Create audit event

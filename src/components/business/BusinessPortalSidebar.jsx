@@ -28,8 +28,15 @@ export default function BusinessPortalSidebar({ role = "admin", collapsed, setCo
     enabled: isAdmin,
   });
 
+  const { data: sidebarHosts = [] } = useQuery({
+    queryKey: ["business-sidebar-host", user?.email],
+    queryFn: () => base44.entities.Host.filter({ email: user.email }),
+    enabled: !isAdmin && !!user?.email,
+  });
+  const sidebarHost = sidebarHosts[0];
+
   const pendingHostCount = pendingHosts.filter(h => !h.admin_viewed).length;
-  const { quickLinks, sections } = getBusinessPortalMenu({ role, isSuperadmin, showDealerNetwork });
+  const { quickLinks, sections } = getBusinessPortalMenu({ role, isSuperadmin, showDealerNetwork, hostType: sidebarHost?.host_type });
   const collapsedItems = [...quickLinks.slice(0, 1), ...sections.flatMap(section => section.items), ...quickLinks.slice(1)];
 
   const isItemActive = (item) => location.pathname === item.path || (item.path !== "/" && location.pathname.startsWith(item.path + "/"));

@@ -268,7 +268,12 @@ function materializeItem(item, role) {
   };
 }
 
-export function getBusinessPortalMenu({ role, isSuperadmin = false, showDealerNetwork = true }) {
+export function getBusinessPortalMenu({ role, isSuperadmin = false, showDealerNetwork = true, hostType }) {
+  // Personal hosts (private GPS owners) don't see renter-related sections
+  const hiddenSections = hostType === "personal"
+    ? new Set(["Bookings", "Money", "Customers", "My Storefront"])
+    : null;
+
   const quickLinks = masterQuickLinks
     .map((item) => materializeItem(item, role))
     .filter(Boolean)
@@ -283,7 +288,8 @@ export function getBusinessPortalMenu({ role, isSuperadmin = false, showDealerNe
         .filter((item) => !item.superadminOnly || isSuperadmin)
         .filter((item) => !item.requiresDealer || role === "admin" || showDealerNetwork),
     }))
-    .filter((section) => section.items.length > 0);
+    .filter((section) => section.items.length > 0)
+    .filter((section) => !hiddenSections || !hiddenSections.has(section.label));
 
   return { quickLinks, sections };
 }

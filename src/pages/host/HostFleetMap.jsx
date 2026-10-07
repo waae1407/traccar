@@ -2,12 +2,13 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
-import { Search, X, Clock, Maximize, Minimize } from "lucide-react";
+import { Search, X, Clock, Maximize, Minimize, Plus, TrendingUp, Loader2 } from "lucide-react";
 import FleetMap from "@/components/host/fleetmap/FleetMap";
 import VehicleActionSheet from "@/components/host/fleetmap/VehicleActionSheet";
 import QuickCommandMenu from "@/components/host/fleetmap/QuickCommandMenu";
 import FleetAlertFeed from "@/components/host/fleetmap/FleetAlertFeed";
 import FleetMapBottomNav from "@/components/host/fleetmap/FleetMapBottomNav";
+import AddPrivateVehicleSheet from "@/components/host/fleetmap/AddPrivateVehicleSheet";
 
 const ACTIVE_RENTAL_STATUSES = new Set(["active", "confirmed", "approved", "checked_out", "return_required", "payment_due", "grace_period"]);
 
@@ -21,6 +22,8 @@ export default function HostFleetMap() {
   const [commandLoading, setCommandLoading] = useState(null);
   const containerRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [migrateLoading, setMigrateLoading] = useState(false);
 
   const toggleFullscreen = useCallback(() => {
     const el = containerRef.current;
@@ -45,6 +48,7 @@ export default function HostFleetMap() {
     enabled: !!user?.email,
   });
   const host = hosts[0];
+  const isPersonalHost = host?.host_type === 'personal';
 
   const { data: vehicles = [], isLoading: vehiclesLoading } = useQuery({
     queryKey: ["host-fleetmap-vehicles", host?.id],
@@ -200,6 +204,24 @@ export default function HostFleetMap() {
     setCommandLoading(null);
   }, [selectedVehicle, quickMenu, deviceByVehicle]);
 
+  const handleMigrateToHost = useCallback(async () => {
+    setMigrateLoading(true);
+    try {
+      const { toast } = await import("sonner");
+      const res = await base44.functions.invoke("convertToHost", {});
+      if (res.data?.ok) {
+        toast.success("Migrating to host…", { description: "Redirecting to onboarding." });
+        setTimeout(() => { window.location.href = res.data.redirect_url || "/become-a-host"; }, 800);
+      } else {
+        toast.error(res.data?.error || "Migration failed");
+      }
+    } catch (e) {
+      const { toast } = await import("sonner");
+      toast.error("Migration failed", { description: e?.message || "Unknown error" });
+    }
+    setMigrateLoading(false);
+  }, []);
+
   // ── Pending host ──
   if (!authLoading && host && host.status !== "approved") {
     return (
@@ -282,7 +304,7 @@ export default function HostFleetMap() {
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }} className="no-scrollbar">
             <FilterChip label="All" count={fleetStats.total} active={filter === "all"} onClick={() => setFilter("all")} />
             <FilterChip label="Available" count={fleetStats.available} active={filter === "available"} onClick={() => setFilter("available")} color="#22C55E" />
-            <FilterChip label="Rented" count={fleetStats.rented} active={filter === "rented"} onClick={() => setFilter("rented")} color="#3B82F6" />
+            {!isPersonalHost && <FilterChip label="Rented" count={fleetStats.rented} active={filter === "rented"} onClick={() => setFilter("rented")} color="#3B82F6" />}
             <FilterChip label="C360 GPS" count={fleetStats.contactless} active={filter === "contactless"} onClick={() => setFilter("contactless")} color="#22C55E" />
             {fleetStats.attention > 0 && (
               <FilterChip label="Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => {
@@ -324,6 +346,44 @@ export default function HostFleetMap() {
         }}
       />
 
+      {/* ── Private owner: Add Vehicle + Migrate to Host ── */}
+      {isPersonalHost && (
+        <>
+          <button
+            onClick={handleMigrateToHost}
+            disabled={migrateLoading}
+            style={{
+              position: "fixed", top: 10, right: 56, zIndex: 40,
+              height: 38, borderRadius: 12, padding: "0 14px",
+              background: "linear-gradient(135deg, rgba(233,30,140,0.92), rgba(123,97,255,0.92))",
+              border: "none", color: "#fff", fontWeight: 700, fontSize: 12,
+              cursor: migrateLoading ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(16px)",
+              boxShadow: "0 4px 20px rgba(233,30,140,0.3)",
+            }}
+          >
+            {migrateLoading ? <Loader2 size={14} className="animate-spin" /> : <TrendingUp size={14} />}
+            <span>Earn Money</span>
+          </button>
+
+          <button
+            onClick={() => setShowAddVehicle(true)}
+            style={{
+              position: "fixed", bottom: 72, left: "50%", transform: "translateX(-50%)",
+              zIndex: 45, maxWidth: 430, width: "calc(100% - 32px)",
+              height: 56, borderRadius: 18,
+              background: "linear-gradient(135deg, #E91E8C, #7B61FF)",
+              border: "none", color: "#fff", fontWeight: 800, fontSize: 15,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              boxShadow: "0 8px 32px rgba(233,30,140,0.4), inset 0 0 0 1px rgba(255,255,255,0.1)",
+            }}
+          >
+            <Plus size={22} />
+            <span>Add Vehicle to Map</span>
+          </button>
+        </>
+      )}
+
       {/* ── Quick command menu (long-press) ── */}
       {quickMenu && (
         <QuickCommandMenu
@@ -348,13 +408,21 @@ export default function HostFleetMap() {
       )}
 
       {/* ── Collapsible bottom nav ── */}
-      <FleetMapBottomNav visible={!isFullscreen} />
+      <FleetMapBottomNav visible={!isFullscreen} hostType={host?.host_type} />
 
       {/* Loading overlay for commands */}
       {commandLoading && (
         <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.4)", zIndex: 100 }}>
           <div style={{ width: 40, height: 40, border: "3px solid #2F80FF", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         </div>
+      )}
+
+      {/* Add Private Vehicle sheet (private owners only) */}
+      {showAddVehicle && (
+        <AddPrivateVehicleSheet
+          onClose={() => setShowAddVehicle(false)}
+          onAdded={() => setShowAddVehicle(false)}
+        />
       )}
     </div>
   );

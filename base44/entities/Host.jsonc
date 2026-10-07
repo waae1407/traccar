@@ -30,12 +30,14 @@
     "host_type": {
       "type": "string",
       "enum": [
+        "personal",
         "single_host",
         "fleet_host",
         "pro_host",
         "enterprise"
       ],
-      "default": "single_host"
+      "default": "single_host",
+      "description": "personal = private GPS owner (no rentals); single_host/fleet_host/pro_host/enterprise = rental host"
     },
     "commission_rate": {
       "type": "number",

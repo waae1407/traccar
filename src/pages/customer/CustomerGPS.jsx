@@ -61,6 +61,11 @@ export default function CustomerGPS() {
     setLoading(false);
   };
 
+  const goToFleetDashboard = async () => {
+    try { await base44.functions.invoke('ensurePrivateOwnerAccount', {}); } catch (e) { /* HostGuard handles */ }
+    navigate('/host/dashboard');
+  };
+
   const statusColor = (s) => {
     if (s === 'active' || s === 'activated') return 'bg-green-500/20 text-green-400 border-green-500/30';
     if (s === 'shipped') return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
@@ -129,6 +134,7 @@ export default function CustomerGPS() {
             </div>
           </div>
           <div className="flex gap-2">
+            <button onClick={goToFleetDashboard} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg, hsl(152 60% 46%), hsl(199 90% 54%))" }}><MapPin className="w-3.5 h-3.5" /> Fleet Dashboard</button>
             <Link to="/gps/activate"><button className="flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-white/70 hover:bg-white/5"><Zap className="w-3.5 h-3.5" /> Activate</button></Link>
             <Link to="/gps/checkout"><button className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}><Package className="w-3.5 h-3.5" /> Buy Device</button></Link>
           </div>
