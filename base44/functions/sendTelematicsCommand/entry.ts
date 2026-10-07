@@ -380,16 +380,19 @@ function isCompletedInstallerInstall(record, device) {
   return record?.install_status === 'completed';
 }
 
-function canSendInstallerNoranStarterTest(provider, device, commandType) {
-  return STARTER_COMMANDS.includes(commandType)
-    && provider.provider_key === 'traccar_noran_mt20'
-    && provider.execution_mode === 'production'
-    && provider.allow_live_commands === true
-    && provider.allow_starter_commands === true
-    && provider.supports_starter_disable !== false
-    && provider.supports_starter_restore !== false
-    && !!device.unique_id
-    && !!device.traccar_device_id;
+const INSTALLER_TEST_COMMANDS = ['lock', 'unlock', 'horn', 'lights', 'alarm_pulse', 'disable_starter', 'restore_starter'];
+
+function canSendInstallerNoranTest(provider, device, commandType) {
+  if (!INSTALLER_TEST_COMMANDS.includes(commandType)) return false;
+  if (provider.provider_key !== 'traccar_noran_mt20') return false;
+  if (provider.execution_mode !== 'production' || provider.allow_live_commands !== true) return false;
+  if (!device.unique_id || !device.traccar_device_id) return false;
+  if (STARTER_COMMANDS.includes(commandType)) {
+    if (provider.allow_starter_commands !== true) return false;
+    if (commandType === 'disable_starter' && provider.supports_starter_disable === false) return false;
+    if (commandType === 'restore_starter' && provider.supports_starter_restore === false) return false;
+  }
+  return true;
 }
 
 async function fallbackAdapter(provider, device, commandType) {
@@ -460,7 +463,7 @@ Deno.serve(async (req) => {
     }
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
     const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
-    const liveNoranInstallerTest = installerInstallTest && canSendInstallerNoranStarterTest(provider, device, commandType);
+    const liveNoranInstallerTest = installerInstallTest && canSendInstallerNoranTest(provider, device, commandType);
     const isProductionCommand = liveNoranProduction || liveNoranInstallerTest || body.source === 'vehicle_command_center' || body.source === 'contactless360_remote';
     if (!isProductionCommand) {
       device = await ensureFreshTraccarDeviceId(base44, device);
