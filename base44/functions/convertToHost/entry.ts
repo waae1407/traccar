@@ -23,8 +23,8 @@ Deno.serve(async (req) => {
 
     const { vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate, vehicle_vin } = await req.json().catch(() => ({}));
 
-    // 1. Find the user's personal-mode device(s)
-    const devices = await base44.entities.TelematicsDevice.filter({
+    // 1. Find the user's personal-mode device(s) — use asServiceRole for RLS safety
+    const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({
       owner_user_id: user.id,
       device_mode: 'personal',
     }, '-created_date', 10);
@@ -37,8 +37,22 @@ Deno.serve(async (req) => {
 
     const device = devices[0];
 
-    // Check if already a real (non-personal) host
-    const existingHosts = await base44.entities.Host.filter({ email: user.email }, '-created_date', 5);
+    // ── BUG FIX: Block conversion if GPS subscription is cancelled and device not returned ──
+    // A customer who cancelled their subscription but kept the device should not be
+    // able to convert to host and get a free device for their rental business.
+    const deviceSubs = await base44.asServiceRole.entities.GPSSubscription.filter({ device_id: device.id }, '-created_date', 5);
+    const activeSub = deviceSubs.find(s => ['active', 'trialing', 'pending_activation'].includes(s.subscription_status));
+    const cancelledSub = deviceSubs.find(s => s.subscription_status === 'cancelled');
+    if (!activeSub && cancelledSub && !cancelledSub.device_returned_at) {
+      return Response.json({
+        error: 'Your GPS subscription was cancelled and the device was not returned. Please return the device or pay the device fee before converting to a host.',
+        subscription_id: cancelledSub.id,
+        device_fee_charged: !!cancelledSub.device_fee_charged_at,
+      }, { status: 403 });
+    }
+
+    // Check if already a real (non-personal) host — use asServiceRole for RLS safety
+    const existingHosts = await base44.asServiceRole.entities.Host.filter({ email: user.email }, '-created_date', 5);
     const realHost = existingHosts.find((h) => h.host_type !== 'personal');
     if (realHost && realHost.status === 'approved') {
       return Response.json({
@@ -51,36 +65,45 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
 
     // 2. Create or upgrade Host record
+    // ── BUG FIX: Auto-approve hosts converted from GPS customers. The customer
+    //    already had an approved personal host (from ensurePrivateOwnerAccount or
+    //    addPrivateVehicle). Setting status to 'pending' would lock them out of
+    //    both the host dashboard (HostGuard requires 'approved') and the customer
+    //    GPS dashboard (device is now rental mode). Auto-approve to avoid limbo.
     let host = existingHosts[0];
     if (host && host.host_type === 'personal') {
-      // Upgrade personal host to a real host (pending verification)
-      host = await base44.entities.Host.update(host.id, {
+      // Upgrade personal host to a real host — auto-approved (was already approved as personal)
+      host = await base44.asServiceRole.entities.Host.update(host.id, {
         host_type: 'single_host',
-        status: 'pending',
+        status: 'approved',
         commission_rate: 0.08,
+        approved_at: now,
+        approved_by: 'convertToHost',
       });
     } else if (!host) {
-      host = await base44.entities.Host.create({
+      host = await base44.asServiceRole.entities.Host.create({
         user_id: user.id,
         full_name: user.full_name || user.email,
         email: user.email,
-        status: 'pending',
+        status: 'approved',
         host_type: 'single_host',
         commission_rate: 0.08,
         city: '',
         state: '',
+        approved_at: now,
+        approved_by: 'convertToHost',
       });
     }
 
     // 3. Promote existing personal vehicle (from addPrivateVehicle), or create one
     let vehicle;
     if (device.vehicle_id) {
-      const existingVehicles = await base44.entities.Vehicle.filter({ id: device.vehicle_id });
+      const existingVehicles = await base44.asServiceRole.entities.Vehicle.filter({ id: device.vehicle_id });
       vehicle = existingVehicles[0];
       if (vehicle) {
-        vehicle = await base44.entities.Vehicle.update(vehicle.id, {
+        vehicle = await base44.asServiceRole.entities.Vehicle.update(vehicle.id, {
           host_id: host.id,
-          approval_status: 'pending',
+          approval_status: 'approved',
           marketplace_visible: false,
           storefront_visible: false,
           make: vehicle_make || vehicle.make || 'Unknown',
@@ -92,7 +115,7 @@ Deno.serve(async (req) => {
       }
     }
     if (!vehicle) {
-      vehicle = await base44.entities.Vehicle.create({
+      vehicle = await base44.asServiceRole.entities.Vehicle.create({
         host_id: host.id,
         make: vehicle_make || 'Unknown',
         model: vehicle_model || 'Unknown',
@@ -105,7 +128,7 @@ Deno.serve(async (req) => {
         status: 'Available',
         marketplace_visible: false,
         storefront_visible: false,
-        approval_status: 'pending',
+        approval_status: 'approved',
         telematics_device_id: device.id,
         telematics_provider: device.provider_key || 'other',
         weekly_rate: 0,
@@ -116,17 +139,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Transition device from personal → rental
-    await base44.entities.TelematicsDevice.update(device.id, {
+    // 4. Transition device from personal → rental — re-enable controls if they
+    //    were disabled by a previous cancellation (the host subscription or
+    //    booking payment enforcement now owns the starter).
+    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
       device_mode: 'rental',
       host_id: host.id,
       vehicle_id: vehicle.id,
+      controls_enabled: true,
     });
 
-    // 5. Link GPS subscription to the new host (if exists)
-    const subs = await base44.entities.GPSSubscription.filter({ device_id: device.id }, '-created_date', 1);
-    if (subs[0]) {
-      await base44.entities.GPSSubscription.update(subs[0].id, {
+    // 5. Link GPS subscription to the new host (if exists and active)
+    const subs = await base44.asServiceRole.entities.GPSSubscription.filter({ device_id: device.id }, '-created_date', 1);
+    if (subs[0] && ['active', 'trialing', 'pending_activation'].includes(subs[0].subscription_status)) {
+      await base44.asServiceRole.entities.GPSSubscription.update(subs[0].id, {
         host_id: host.id,
       });
     }
@@ -140,7 +166,7 @@ Deno.serve(async (req) => {
 
     // 6. Create audit event
     try {
-      await base44.entities.ActivityEvent.create({
+      await base44.asServiceRole.entities.ActivityEvent.create({
         event_type: 'host.doc_uploaded',
         actor_email: user.email,
         actor_role: 'customer',

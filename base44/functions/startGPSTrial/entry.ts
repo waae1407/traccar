@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
       total_amount: 0,
       vehicle_use_type,
       payment_status: 'paid',
-      order_status: isBackordered ? 'processing' : 'processing',
+      order_status: isBackordered ? 'processing' : 'paid',
       activation_status: 'not_started',
       customer_user_id: user.id,
       order_owner_type: 'customer',

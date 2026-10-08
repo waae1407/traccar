@@ -171,7 +171,11 @@ Deno.serve(async (req) => {
         }
 
         // ── Day 14: Charge $100 device fee ──
-        if (now.getTime() >= returnWindowEnd.getTime() && !sub.device_fee_charged_at) {
+        // ── BUG FIX: Max 5 retry attempts. After 5 failures, escalate to admin
+        //    alert and stop retrying to avoid infinite charges on a dead card.
+        const feeRetryCount = sub.dunning_email_count || 0;
+        const MAX_FEE_RETRIES = 5;
+        if (now.getTime() >= returnWindowEnd.getTime() && !sub.device_fee_charged_at && feeRetryCount < MAX_FEE_RETRIES) {
           if (sub.stripe_customer_id && sub.stripe_payment_method_id) {
             try {
               const paymentIntent = await stripe.paymentIntents.create({
@@ -192,6 +196,7 @@ Deno.serve(async (req) => {
 
               await base44.asServiceRole.entities.GPSSubscription.update(sub.id, {
                 device_fee_charged_at: now.toISOString(),
+                dunning_email_count: 0,
               });
 
               try {
@@ -239,6 +244,38 @@ Deno.serve(async (req) => {
             } catch (e) {
               results.errors.push(`Device fee charge for ${sub.customer_email}: ${e.message}`);
 
+              const newRetryCount = feeRetryCount + 1;
+              const isLastRetry = newRetryCount >= MAX_FEE_RETRIES;
+
+              await base44.asServiceRole.entities.GPSSubscription.update(sub.id, {
+                dunning_email_count: newRetryCount,
+              }).catch(() => {});
+
+              // On final retry failure, escalate to admin
+              if (isLastRetry) {
+                try {
+                  const allUsers = await base44.asServiceRole.entities.User.list('-created_date', 100);
+                  const admins = allUsers.filter(u => u.role === 'admin');
+                  for (const admin of admins) {
+                    await base44.asServiceRole.entities.Notification.create({
+                      recipient_user_id: admin.id,
+                      recipient_email: admin.email,
+                      recipient_role: 'admin',
+                      title: `🔴 Device fee collection failed — manual escalation needed`,
+                      body: `${sub.customer_email} — $${DEVICE_FEE} device fee charge failed ${MAX_FEE_RETRIES} times. Card on file may be permanently declined. Manual collection required. Subscription: ${sub.id}`,
+                      type: 'alert',
+                      category: 'payments',
+                      severity: 'critical',
+                      source_function: 'processGPSTrialLifecycle',
+                      related_entity_type: 'GPSSubscription',
+                      related_entity_id: sub.id,
+                    }).catch(() => {});
+                  }
+                } catch (escErr) {
+                  console.error('[processGPSTrialLifecycle] escalation failed:', escErr.message);
+                }
+              }
+
               await base44.asServiceRole.entities.ActivityEvent.create({
                 event_type: 'payment.failed',
                 actor_id: 'automation',
@@ -246,11 +283,14 @@ Deno.serve(async (req) => {
                 actor_role: 'automation',
                 target_entity: 'GPSSubscription',
                 target_id: sub.id,
-                summary: `Device fee charge FAILED: ${e.message}`,
+                summary: `Device fee charge FAILED (attempt ${newRetryCount}/${MAX_FEE_RETRIES}): ${e.message}`,
                 metadata: {
                   subscription_id: sub.id,
                   error: e.message,
                   amount: DEVICE_FEE,
+                  retry_count: newRetryCount,
+                  max_retries: MAX_FEE_RETRIES,
+                  escalated: isLastRetry,
                 },
                 source: 'automation',
                 event_status: 'error',

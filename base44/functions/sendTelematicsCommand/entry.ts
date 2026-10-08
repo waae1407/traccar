@@ -470,6 +470,17 @@ Deno.serve(async (req) => {
     if (!adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest && ['suspended', 'retired'].includes(device.lifecycle_status)) {
       return Response.json({ error: 'Device is not enabled for live commands.' }, { status: 403 });
     }
+    // ── BUG FIX: For personal-mode devices, enforce controls_enabled. ──
+    // A cancelled GPS subscription sets controls_enabled=false. Without this
+    // check, a customer who cancelled and kept the device could still send
+    // commands (lock/unlock/starter) because the command path only checked
+    // lifecycle_status, not controls_enabled. Rental devices are exempt —
+    // their controls are governed by booking payment enforcement, not the
+    // GPS subscription.
+    if (!adminTraccarLiveTest && !adminDeviceCommandTest && !installerInstallTest
+      && device.device_mode === 'personal' && device.controls_enabled === false) {
+      return Response.json({ error: 'Controls are disabled. Your GPS subscription is not active.' }, { status: 403 });
+    }
     const provider = await getProviderConfig(base44, device.provider_key, device.provider_type);
     const liveNoranProduction = canSendNoranProduction(provider, device, commandType);
     const liveNoranInstallerTest = installerInstallTest && canSendInstallerNoranTest(provider, device, commandType);

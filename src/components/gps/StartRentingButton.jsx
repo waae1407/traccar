@@ -100,7 +100,7 @@ export default function StartRentingButton({ device, user }) {
           />
           <input
             type="text"
-            placeholder="VIN (optional)"
+            placeholder="VIN *"
             value={vehicleInfo.vin}
             onChange={(e) => setVehicleInfo({ ...vehicleInfo, vin: e.target.value })}
             className="rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-pink-500/50"
@@ -117,7 +117,7 @@ export default function StartRentingButton({ device, user }) {
           </button>
           <button
             onClick={handleConvert}
-            disabled={converting || !vehicleInfo.make || !vehicleInfo.model}
+            disabled={converting || !vehicleInfo.make || !vehicleInfo.model || !vehicleInfo.vin}
             className="flex-1 rounded-xl py-2.5 text-sm font-bold text-white disabled:opacity-40 flex items-center justify-center gap-2"
             style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}
           >

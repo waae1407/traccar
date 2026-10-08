@@ -22,6 +22,23 @@ Deno.serve(async (req) => {
     if (!order) return Response.json({ error: 'Order not found.' }, { status: 404 });
     if (order.payment_status !== 'paid') return Response.json({ error: 'Order must be paid before creating subscription.' }, { status: 400 });
 
+    // ── BUG FIX: Prevent duplicate subscription creation for trial orders ──
+    // Trial orders (startGPSTrial) create a pending_activation subscription that
+    // is activated by activatePendingTrials when the device goes online. If the
+    // customer also clicks "Activate" on the CustomerGPS page, this function
+    // would create a SECOND subscription — causing double billing. Block it.
+    if (order.is_trial_order) {
+      const existingSubs = await base44.asServiceRole.entities.GPSSubscription.filter({ order_id }, '-created_date', 5);
+      const nonCancelledSub = existingSubs.find(s => s.subscription_status !== 'cancelled');
+      if (nonCancelledSub) {
+        return Response.json({
+          error: 'A subscription already exists for this trial order. Your trial will start automatically when your device goes online.',
+          existing_subscription_id: nonCancelledSub.id,
+          existing_status: nonCancelledSub.subscription_status,
+        }, { status: 409 });
+      }
+    }
+
     // Get or create Stripe customer
     let stripeCustomerId = stripe_customer_id || order.stripe_customer_id || '';
     if (!stripeCustomerId) {
