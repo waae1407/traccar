@@ -59,9 +59,7 @@ const STEPS = [
 ];
 
 const PHOTO_REQUIREMENTS = [
-  ["vehicle_overview", "Vehicle Overview"],
-  ["device_location", "Device Location"],
-  ["wiring_photo", "Wiring Photo"],
+  ["device_location", "Installed Device Location"],
 ];
 
 const INSTALLER_DRAFT_KEY = "uride-installer-telematics-draft-v1";
@@ -698,7 +696,7 @@ export default function InstallerTelematicsPortal() {
   const vinEntered = vinLookupComplete && (vehicleLookup.data?.matched === true || vehicleLookup.data?.matched === false);
   const vinNotFound = vinLookupComplete && vehicleLookup.data?.matched === false;
   const requiredPhotoCount = Object.values(photoSlots).filter(Boolean).length;
-  const photosReady = requiredPhotoCount === 3;
+  const hasPhoto = requiredPhotoCount >= 1;
   const namesReady = !!form.installer_name && !!form.installer_signature_name;
   const visibleTests = REQUIRED_TESTS.filter(([id]) => capabilities.data?.tests?.[id] !== false);
   const visibleTestIds = visibleTests.map(([id]) => id);
@@ -715,7 +713,7 @@ export default function InstallerTelematicsPortal() {
   const completed = {
     device: deviceReady,
     vehicle: vinEntered,
-    photos: photosReady && namesReady,
+    photos: namesReady,
     testing: supportedTestsComplete,
     complete: result?.status === "completed"
   };
@@ -724,7 +722,7 @@ export default function InstallerTelematicsPortal() {
     { label: "Physical device ID entered", done: deviceReady },
     { label: vehicleMatched ? "VIN matched" : "VIN entered", done: vinEntered },
     { label: "Baseline odometer recorded", done: baselineOdometerReady },
-    { label: "Required photos uploaded", done: photosReady },
+    { label: "Installation photo (optional)", done: true },
     { label: "Installer name captured", done: namesReady },
     { label: anySupportedTestFailed ? "Failed tests submitted for correction" : "All supported tests complete", done: supportedTestsComplete },
   ];
@@ -848,7 +846,7 @@ export default function InstallerTelematicsPortal() {
     });
   };
 
-  const canAdvance = [deviceReady, vinEntered && baselineOdometerReady, photosReady && namesReady, supportedTestsComplete, true][currentStep];
+  const canAdvance = [deviceReady, vinEntered && baselineOdometerReady, namesReady, supportedTestsComplete, true][currentStep];
 
   if (result?.status === "completed") {
     return <SuccessScreen result={result} form={form} vehicleLookup={vehicleLookup} />;
