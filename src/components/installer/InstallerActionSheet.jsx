@@ -241,6 +241,19 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
                 <StatusChip label="Device" done={deviceVerified} />
                 <StatusChip label="Commands" done={allCommandsPassed} />
               </div>
+              {/* Optional installation photo — not mandatory */}
+              <label style={{ position: "relative", display: "block", minHeight: 120, borderRadius: 12, overflow: "hidden", cursor: "pointer", border: installPhoto ? "1px solid rgba(80,200,120,0.3)" : "1px solid rgba(255,255,255,0.1)", background: installPhoto ? "transparent" : "#0A0A0A" }}>
+                {installPhoto ? (
+                  <img src={installPhoto} alt="Installed device location" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 120, padding: 12, textAlign: "center" }}>
+                    {uploadingPhoto ? <Loader2 size={24} className="animate-spin" color="#8E8E93" /> : <ImagePlus size={24} color="#48484A" />}
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#8E8E93", margin: "6px 0 0" }}>{uploadingPhoto ? "Uploading…" : "Add Installation Photo (Optional)"}</p>
+                  </div>
+                )}
+                {installPhoto && <div style={{ position: "absolute", left: 8, right: 8, bottom: 8, borderRadius: 8, background: "rgba(0,0,0,0.7)", padding: "4px 8px", fontSize: 11, fontWeight: 600, color: "#50C878" }}>✓ Installation photo</div>}
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(f); e.target.value = ""; }} />
+              </label>
               <button onClick={submitInstallation} disabled={!canSubmit || submit.isPending} style={{ width: "100%", height: 48, borderRadius: 12, background: canSubmit ? "#50C878" : "#1C1C1E", color: canSubmit ? "#fff" : "#48484A", border: "none", fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
                 {submit.isPending ? <Loader2 size={16} className="animate-spin" /> : "Complete Installation"}
               </button>
