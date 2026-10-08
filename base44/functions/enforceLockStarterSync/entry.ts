@@ -29,9 +29,13 @@ Deno.serve(async (req) => {
     const device = devices[0];
     if (!device) return Response.json({ error: 'Device not found' }, { status: 404 });
 
-    // 2. Check if feature is enabled
-    if (!device.lock_starter_sync_enabled) {
-      return Response.json({ ok: true, action: 'disabled', reason: 'Lock-starter sync not enabled for this device' });
+    // 2. Feature is automatic for personal-mode (GPS-only owner) devices —
+    //    no per-device toggle needed. Rental devices must opt in explicitly
+    //    via lock_starter_sync_enabled (default off, since platform payment
+    //    enforcement already controls the starter for rentals).
+    const isPersonal = device.device_mode === 'personal';
+    if (!isPersonal && !device.lock_starter_sync_enabled) {
+      return Response.json({ ok: true, action: 'disabled', reason: 'Rental device — lock-starter sync not enabled' });
     }
 
     // 3. Don't kill starter while engine is running
