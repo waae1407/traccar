@@ -1,9 +1,10 @@
 import React, { useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { uploadFile } from "@/utils/uploadFile";
 import CameraBarcodeScanner from "@/components/telematics/CameraBarcodeScanner";
 import CommandTestTable from "@/components/installer/CommandTestTable";
-import { X, ScanLine, Loader2, CheckCircle2, ChevronDown } from "lucide-react";
+import { X, ScanLine, Loader2, CheckCircle2, ChevronDown, ImagePlus } from "lucide-react";
 
 const COMMAND_PACE_MS = 4500;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -30,6 +31,8 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
   const commandLockRef = useRef("");
   const latestIdRef = useRef("");
   const typeTimerRef = useRef(null);
+  const [installPhoto, setInstallPhoto] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Device capabilities — fetched only after the device is verified (scan or typed)
   const capabilities = useQuery({
@@ -129,6 +132,19 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
     } finally { commandLockRef.current = ""; setActiveCommand(""); }
   };
 
+  const handlePhotoUpload = async (file) => {
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const { file_url } = await uploadFile(file);
+      setInstallPhoto(file_url);
+    } catch (e) {
+      console.error("Photo upload failed:", e.message);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const submitInstallation = () => {
     setResult(null);
     submit.mutate({
@@ -139,6 +155,7 @@ export default function InstallerActionSheet({ user, onClose, onComplete }) {
       installer_name: user?.full_name || "Installer",
       installer_signature_name: user?.full_name || "Installer",
       installer_email: user?.email || "",
+      install_photos: installPhoto ? [installPhoto] : [],
       ...testResults,
     });
   };

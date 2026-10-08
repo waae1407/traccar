@@ -53,7 +53,7 @@ const REQUIRED_TESTS = [
 const STEPS = [
   { key: "device", label: "Device" },
   { key: "vehicle", label: "Vehicle" },
-  { key: "photos", label: "Photos" },
+  { key: "photos", label: "Photo" },
   { key: "testing", label: "Testing" },
   { key: "complete", label: "Complete" },
 ];
@@ -361,23 +361,23 @@ function PhotoTile({ title, url, uploading, onUpload }) {
   );
 }
 
-function PhotosStep({ photoSlots, additionalPhotos, uploadingSlot, uploadRequiredPhoto, uploadAdditionalPhotos, requiredPhotoCount, form, update, uploadError }) {
+function PhotosStep({ photoSlots, additionalPhotos, uploadingSlot, uploadRequiredPhoto, uploadAdditionalPhotos, hasPhoto, form, update, uploadError }) {
   const additionalInputRef = useRef(null);
   return (
     <div className="space-y-4">
       <div>
         <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Step 3</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Installation Photos</h1>
-        <p className="mt-2 text-sm font-medium text-slate-500">Capture the proof needed for a confident handoff.</p>
+        <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Installation Photo</h1>
+        <p className="mt-2 text-sm font-medium text-slate-500">Optional — snap a photo of where the device was installed for your records.</p>
       </div>
 
       <LuxuryCard>
         <div className="mb-5 flex items-center justify-between gap-4 rounded-3xl bg-slate-950 p-4 text-white shadow-xl shadow-slate-300">
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-white/50">Required Photos</p>
-            <p className="text-xl font-black">{requiredPhotoCount} / 3 Complete</p>
+            <p className="text-xs font-black uppercase tracking-widest text-white/50">Optional Photo</p>
+            <p className="text-xl font-black">{hasPhoto ? "1 Photo Uploaded" : "No Photo Uploaded"}</p>
           </div>
-          <CheckCircle2 className={`h-8 w-8 ${requiredPhotoCount === 3 ? "text-emerald-400" : "text-white/25"}`} />
+          <CheckCircle2 className={`h-8 w-8 ${hasPhoto ? "text-emerald-400" : "text-white/25"}`} />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {PHOTO_REQUIREMENTS.map(([key, label]) => (
@@ -869,7 +869,7 @@ export default function InstallerTelematicsPortal() {
         <div className="py-6 pb-32">
           {currentStep === 0 && <DeviceStep form={form} update={update} capabilities={capabilities} deviceVerified={deviceVerified} onScanDevice={() => setScanner("device")} scanMessage={scanMessage} />}
           {currentStep === 1 && <VehicleStep form={form} update={update} vehicleLookup={vehicleLookup} vehicleMatched={vehicleMatched} vinNotFound={vinNotFound} vinEntered={vinEntered} onScanVin={() => setScanner("vin")} vinScanMessage={vinScanMessage} />}
-          {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} requiredPhotoCount={requiredPhotoCount} form={form} update={update} uploadError={uploadError} />}
+          {currentStep === 2 && <PhotosStep photoSlots={photoSlots} additionalPhotos={additionalPhotos} uploadingSlot={uploadingSlot} uploadRequiredPhoto={uploadRequiredPhoto} uploadAdditionalPhotos={uploadAdditionalPhotos} hasPhoto={hasPhoto} form={form} update={update} uploadError={uploadError} />}
           {currentStep === 3 && <InstallerTestingStep form={form} update={update} capabilities={capabilities} commandState={commandState} activeCommand={activeCommand} onSendCommand={sendInstallCommand} onHelp={openHelp} />}
           {currentStep === 4 && <CompleteStep form={form} deviceId={form.device_id} vehicleLookup={vehicleLookup} readyItems={readyItems} submit={submit} submitInstallation={submitInstallation} allSupportedTestsPass={allSupportedTestsPass} anySupportedTestFailed={anySupportedTestFailed} result={result} />}
         </div>
