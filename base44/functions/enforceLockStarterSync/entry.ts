@@ -9,6 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
  *
  * Safety guards:
  *   - Ignition ON  → skip (never kill starter mid-drive)
+ *   - Active rental booking → skip entirely (payment enforcement owns the starter during rentals)
  *   - Subscription past_due/cancelled → skip restore (payment enforcement holds)
  *   - Starter already in desired state → no-op (avoid redundant commands)
  */
@@ -47,6 +48,20 @@ Deno.serve(async (req) => {
     const subs = await base44.asServiceRole.entities.GPSSubscription.filter({ device_id: device.id }, '-created_date', 1);
     const sub = subs[0];
     const subscriptionSuspended = sub && SUSPENDED_SUB_STATES.includes(sub.subscription_status);
+
+    // 4b. For rental devices, skip during active rentals — the customer is
+    //     using the vehicle and locking/unlocking normally. Payment enforcement
+    //     owns the starter during a rental. Lock-sync only protects the vehicle
+    //     between rentals (parked on lot, no active booking).
+    if (!isPersonal && device.vehicle_id) {
+      const activeBookings = await base44.asServiceRole.entities.BookingRequest.filter({
+        vehicle_id: device.vehicle_id,
+        rental_lifecycle_phase: { $in: ['checked_out', 'active', 'return_required', 'return_in_progress'] },
+      }, '-created_date', 1);
+      if (activeBookings.length > 0) {
+        return Response.json({ ok: true, action: 'skipped', reason: `Active rental (${activeBookings[0].rental_lifecycle_phase}) — payment enforcement owns starter` });
+      }
+    }
 
     // 5. Check current starter state
     const starterDisabled = device.starter_disabled;
