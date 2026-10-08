@@ -1,10 +1,47 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
+import { BrowserMultiFormatReader, BarcodeFormat } from "@zxing/browser";
+import { DecodeHintType } from "@zxing/library";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2, XCircle } from "lucide-react";
 
 const SCAN_TIMEOUT_MS = 30000;
+
+// Maps the string format names used by call sites to ZXing BarcodeFormat enum
+// values. This narrows the decoder to only the requested formats and enables
+// TRY_HARDER for reliable 1D barcode (Code 39/128) scanning.
+const FORMAT_NAME_TO_ENUM = {
+  aztec: BarcodeFormat.AZTEC,
+  codabar: BarcodeFormat.CODABAR,
+  code_39: BarcodeFormat.CODE_39,
+  code_93: BarcodeFormat.CODE_93,
+  code_128: BarcodeFormat.CODE_128,
+  data_matrix: BarcodeFormat.DATA_MATRIX,
+  ean_8: BarcodeFormat.EAN_8,
+  ean_13: BarcodeFormat.EAN_13,
+  itf: BarcodeFormat.ITF,
+  maxicode: BarcodeFormat.MAXICODE,
+  pdf_417: BarcodeFormat.PDF_417,
+  qr_code: BarcodeFormat.QR_CODE,
+  rss_14: BarcodeFormat.RSS_14,
+  rss_expanded: BarcodeFormat.RSS_EXPANDED,
+  upc_a: BarcodeFormat.UPC_A,
+  upc_e: BarcodeFormat.UPC_E,
+};
+
+function buildDecodeHints(formats) {
+  const hints = new Map();
+  const enumFormats = (formats || [])
+    .map((f) => FORMAT_NAME_TO_ENUM[f])
+    .filter((f) => f !== undefined);
+  if (enumFormats.length > 0) {
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, enumFormats);
+  }
+  // TRY_HARDER makes ZXing spend more cycles per frame — essential for
+  // reliably catching 1D barcodes (Code 39 VIN) in suboptimal conditions.
+  hints.set(DecodeHintType.TRY_HARDER, true);
+  return hints;
+}
 
 const initialDiagnostics = {
   secureContext: typeof window !== "undefined" ? window.isSecureContext : false,
@@ -37,7 +74,7 @@ function isExpectedNoScanError(error) {
   return name.includes("NotFound") || name.includes("Checksum") || name.includes("Format") || message.includes("No MultiFormat Readers");
 }
 
-export default function CameraBarcodeScanner({ open, onOpenChange, title = "Scan Code", helper = "Point your camera at the code.", onDetected }) {
+export default function CameraBarcodeScanner({ open, onOpenChange, title = "Scan Code", helper = "Point your camera at the code.", onDetected, formats }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const controlsRef = useRef(null);
@@ -108,7 +145,7 @@ export default function CameraBarcodeScanner({ open, onOpenChange, title = "Scan
         videoRef.current.setAttribute("webkit-playsinline", "true");
         await videoRef.current.play();
 
-        const reader = new BrowserMultiFormatReader();
+        const reader = new BrowserMultiFormatReader(buildDecodeHints(formats));
         updateDiagnostics({ scannerInitialized: true });
         setStatus("scanning");
         setMessage("No barcode detected yet.");
