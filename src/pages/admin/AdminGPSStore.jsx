@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Package, Shield, Zap, RefreshCw, CheckCircle, AlertCircle, Edit, Truck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import FedExShipDialog from '@/components/gps/FedExShipDialog';
 
 const LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
 
@@ -28,7 +28,6 @@ export default function AdminGPSStore() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [shipForm, setShipForm] = useState({ tracking_number: '', carrier: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { loadData(); }, []);
@@ -51,33 +50,6 @@ export default function AdminGPSStore() {
     await base44.entities.GPSOrder.update(orderId, { order_status: status });
     toast({ title: 'Order updated' });
     await loadData();
-    setSaving(false);
-  };
-
-  const markShipped = async () => {
-    if (!selectedOrder) return;
-    if (!shipForm.tracking_number.trim()) {
-      toast({ title: 'Tracking number required', variant: 'destructive' });
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await base44.functions.invoke('markGPSOrderShipped', {
-        order_id: selectedOrder.id,
-        tracking_number: shipForm.tracking_number.trim(),
-        carrier: shipForm.carrier.trim(),
-      });
-      if (res.data?.error) {
-        toast({ title: res.data.error, variant: 'destructive' });
-      } else {
-        toast({ title: 'Marked as shipped — customer emailed' });
-        setSelectedOrder(null);
-        setShipForm({ tracking_number: '', carrier: '' });
-        await loadData();
-      }
-    } catch (e) {
-      toast({ title: e.message || 'Failed to mark shipped', variant: 'destructive' });
-    }
     setSaving(false);
   };
 
@@ -190,10 +162,12 @@ export default function AdminGPSStore() {
                     <p className="text-sm text-white">{order.customer_name} · {order.customer_email}</p>
                     <p className="text-xs text-muted-foreground capitalize">{order.package_type?.replace(/_/g, ' ')} · Qty {order.quantity} · ${order.total_amount?.toFixed(2)}</p>
                     {order.tracking_number && <p className="text-xs text-blue-400">{order.carrier}: {order.tracking_number}</p>}
+                    {order.customer_phone && <p className="text-xs text-muted-foreground">📞 {order.customer_phone}</p>}
+                    {order.shipping_address && <p className="text-xs text-muted-foreground">📦 {order.shipping_address}</p>}
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     {(order.order_status === 'paid' || order.order_status === 'processing') && (
-                      <Button size="sm" onClick={() => { setSelectedOrder(order); setShipForm({ tracking_number: '', carrier: '' }); }}>
+                      <Button size="sm" onClick={() => setSelectedOrder(order)}>
                         <Truck className="w-3.5 h-3.5" /> Mark Shipped
                       </Button>
                     )}
@@ -289,30 +263,12 @@ export default function AdminGPSStore() {
         </TabsContent>
       </Tabs>
 
-      {/* Ship Dialog */}
-      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Mark as Shipped — {selectedOrder?.order_number}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1">
-              <Label>Carrier</Label>
-              <Input value={shipForm.carrier} onChange={e => setShipForm(p => ({ ...p, carrier: e.target.value }))} placeholder="UPS, FedEx, USPS…" />
-            </div>
-            <div className="space-y-1">
-              <Label>Tracking Number</Label>
-              <Input value={shipForm.tracking_number} onChange={e => setShipForm(p => ({ ...p, tracking_number: e.target.value }))} placeholder="Tracking number" />
-            </div>
-            <div className="flex gap-3">
-              <Button onClick={markShipped} className="flex-1 gradient-primary" disabled={saving}>
-                {saving ? 'Saving…' : 'Mark Shipped'}
-              </Button>
-              <Button variant="outline" onClick={() => setSelectedOrder(null)}>Cancel</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* FedEx Ship Dialog */}
+      <FedExShipDialog
+        order={selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        onShipped={async () => { setSelectedOrder(null); await loadData(); }}
+      />
     </div>
   );
 }
