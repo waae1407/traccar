@@ -1,6 +1,7 @@
 import React from "react";
 import { Lock, Unlock, MapPin } from "lucide-react";
 import SOSButton from "@/components/customer/sos/SOSButton";
+import BluetoothPairingNudge from "@/components/customer/myvehicle/BluetoothPairingNudge";
 
 const LABEL_FONT = "'Barlow Condensed', sans-serif";
 
@@ -85,6 +86,9 @@ export default function MyVehicleActionDock({
           pointerEvents: "none",
         }}
       >
+        {/* ── Bluetooth pairing nudge (one-time, per-device dismissible) ── */}
+        <BluetoothPairingNudge device={device} />
+
         {/* GPS address — flush-left, pin icon opens the location in maps */}
         <button
           onClick={(e) => {
