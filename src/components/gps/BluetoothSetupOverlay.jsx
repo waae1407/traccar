@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { X, Bluetooth, BluetoothSearching, Power, Info, RefreshCw, CheckCircle2 } from "lucide-react";
+import { X, Bluetooth, BluetoothSearching, Power, Info, RefreshCw, CheckCircle2, KeyRound } from "lucide-react";
 
 const LABEL_FONT = "'Barlow Condensed', sans-serif";
 
@@ -88,6 +88,22 @@ export default function BluetoothSetupOverlay({ vehicle, device, user, onClose }
             </p>
           </div>
 
+          {/* Passcode */}
+          <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20">
+              <KeyRound className="h-5 w-5 text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-foreground" style={{ fontFamily: LABEL_FONT, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                Bluetooth Passcode
+              </p>
+              <p className="text-xs text-muted-foreground">Enter this when pairing on your phone</p>
+            </div>
+            <div className="rounded-xl bg-background/60 border border-border px-4 py-2">
+              <p className="text-xl font-black tracking-[0.2em] text-blue-400" style={{ fontFamily: LABEL_FONT }}>123456</p>
+            </div>
+          </div>
+
           {/* Power On */}
           <button
             onClick={() => sendBluetoothCommand("bluetooth_power_on")}
@@ -123,7 +139,7 @@ export default function BluetoothSetupOverlay({ vehicle, device, user, onClose }
               <p className="text-sm font-bold text-foreground" style={{ fontFamily: LABEL_FONT, textTransform: "uppercase", letterSpacing: "0.03em" }}>
                 Query Pairing Info
               </p>
-              <p className="text-xs text-muted-foreground">Sends command 024 — retrieves BT name, password & IMEI</p>
+              <p className="text-xs text-muted-foreground">Sends command 024 — retrieves BT name, password & IMEI (default: 123456)</p>
             </div>
             {loading === "bluetooth_query_pairing" ? (
               <RefreshCw className="h-4 w-4 animate-spin text-purple-400" />
@@ -154,7 +170,7 @@ export default function BluetoothSetupOverlay({ vehicle, device, user, onClose }
                 )}
               </div>
               <p className="text-[10px] text-muted-foreground/60 mt-2 leading-relaxed">
-                The device responds asynchronously. Pairing name and password arrive in the next status report — check command history or Traccar device logs for the 024 response payload.
+                The device responds asynchronously. Pairing name and password arrive in the next status report — check command history or Traccar device logs for the 024 response payload. Default passcode: <span className="font-bold text-blue-400">123456</span>.
               </p>
             </div>
           )}
@@ -169,7 +185,7 @@ export default function BluetoothSetupOverlay({ vehicle, device, user, onClose }
               <li>Wait 10 seconds, then query pairing info.</li>
               <li>On your phone, open Bluetooth settings and scan for devices.</li>
               <li>Look for the device name returned by the 024 query.</li>
-              <li>Enter the pairing password when prompted.</li>
+              <li>Enter the pairing password when prompted: <span className="font-bold text-blue-400 tracking-wider">123456</span></li>
               <li>Once paired, the device appears in your phone's Bluetooth devices list.</li>
             </ol>
           </div>
