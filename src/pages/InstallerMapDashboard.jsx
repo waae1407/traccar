@@ -7,7 +7,7 @@ import { BookOpen, X } from "lucide-react";
 import InstallerActionSheet from "@/components/installer/InstallerActionSheet";
 
 const C360_LOGO = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e1b09d5a7_CAFD8E89-66B0-4EA4-A904-6E4573A3C570.png";
-const WIRING_DIAGRAM_URL = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/e9b6202d9_9BC92AC8-0378-4BFD-A602-63508FF6D79E.png";
+const WIRING_DIAGRAM_URL = "https://media.base44.com/images/public/69cdfc01c15011a821c6ee7e/f3e625c2b_IMG_1951.png";
 
 // Default fallback center (US midpoint)
 const DEFAULT_CENTER = { lat: 38.5, lng: -97.0 };
@@ -139,7 +139,7 @@ export default function InstallerMapDashboard() {
               <span style={{ fontSize: 12, fontWeight: 800, color: "#F5F5F7" }}>Setup Guide</span>
             </div>
             <p style={{ fontSize: 11, color: "#8E8E93", lineHeight: 1.5, margin: 0 }}>Tap the red pin to begin. Scan device, test commands, done in 60 seconds.</p>
-            <button onClick={() => setShowGuide(true)} style={{ marginTop: 8, background: "none", border: "none", color: "#50C878", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>View wiring diagram →</button>
+            <button onClick={() => setShowGuide(true)} style={{ marginTop: 8, background: "none", border: "none", color: "#50C878", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>View install guide →</button>
           </div>
         </div>
       )}
@@ -149,10 +149,10 @@ export default function InstallerMapDashboard() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowGuide(false)}>
           <div style={{ background: "#1C1C1E", borderRadius: 16, padding: 14, maxWidth: 500, width: "100%" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 800, color: "#F5F5F7", margin: 0 }}>Wiring Diagram</h2>
+              <h2 style={{ fontSize: 16, fontWeight: 800, color: "#F5F5F7", margin: 0 }}>Quick Reference Install Guide</h2>
               <button onClick={() => setShowGuide(false)} style={{ background: "none", border: "none", cursor: "pointer" }}><X size={18} color="#8E8E93" /></button>
             </div>
-            <img src={WIRING_DIAGRAM_URL} alt="Wiring Diagram" style={{ width: "100%", borderRadius: 12, objectFit: "contain" }} />
+            <img src={WIRING_DIAGRAM_URL} alt="Quick Reference Install Guide" style={{ width: "100%", borderRadius: 12, objectFit: "contain" }} />
           </div>
         </div>
       )}
