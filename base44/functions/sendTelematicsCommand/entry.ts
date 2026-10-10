@@ -524,6 +524,82 @@ Deno.serve(async (req) => {
         if (!hasReason || !confirmed) return Response.json({ error: 'Starter commands require a reason and explicit confirmation.' }, { status: 400 });
       }
     }
+
+    // ── SAFETY GUARD: Block kill switch on moving vehicles ──
+    // Prevents disable_starter from being sent while the vehicle is in motion.
+    // Only applies to disable_starter (not restore_starter — restoring is always safe).
+    // bypass_safety_guard=true skips the guard (theft recovery / geofence auto-kill only).
+    // park_until_stopped=true creates a parked command for auto-dispatch when vehicle stops.
+    if (commandType === 'disable_starter' && body.bypass_safety_guard !== true && !adminDeviceCommandTest && !installerInstallTest) {
+      const deviceSpeed = Number(device.speed) || 0;
+      const deviceIgnition = device.ignition_status || 'unknown';
+      const isMoving = deviceSpeed > 0;
+
+      if (isMoving) {
+        const guardReason = `vehicle_moving_speed_${deviceSpeed}_ignition_${deviceIgnition}`;
+
+        // If park_until_stopped is requested, create a parked command instead of blocking
+        if (body.park_until_stopped === true) {
+          const parkedExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+          const parkedIdempotencyKey = `${user.email}:${device.id}:disable_starter:parked:${Date.now()}`;
+
+          const parkedCmd = await base44.asServiceRole.entities.TelematicsCommand.create({
+            company_id: vehicle?.company_id || device.company_id || '',
+            telematics_device_id: device.id,
+            provider_key: device.provider_key,
+            vehicle_id: vehicle?.id || device.vehicle_id || '',
+            host_id: vehicle?.host_id || device.host_id || '',
+            booking_id: booking?.id || body.booking_id || '',
+            renter_id: booking?.user_id || '',
+            command_type: 'disable_starter',
+            device_unique_id: device.unique_id || '',
+            traccar_device_id: device.traccar_device_id || '',
+            status: 'queued',
+            queue_status: 'parked_pending_stop',
+            confirmation_status: 'pending',
+            parked_expires_at: parkedExpiresAt,
+            safety_guard_reason: guardReason,
+            idempotency_key: parkedIdempotencyKey,
+            requested_by: user.email,
+            requested_role: user.role || 'user',
+            created_at: new Date().toISOString(),
+            request_payload: {
+              reason: body.reason || '',
+              source: body.source || 'user_control',
+              safety_guard_blocked: true,
+              park_until_stopped: true,
+              original_speed: deviceSpeed,
+              original_ignition: deviceIgnition,
+            },
+          }).catch(() => null);
+
+          return Response.json({
+            ok: true,
+            parked: true,
+            command_id: parkedCmd?.id || null,
+            queue_status: 'parked_pending_stop',
+            message: 'Kill command parked — will be sent automatically when the vehicle stops.',
+            parked_expires_at: parkedExpiresAt,
+            speed: deviceSpeed,
+            ignition_status: deviceIgnition,
+          });
+        }
+
+        // Hard block — return structured response for the UI to show the popup
+        return Response.json({
+          ok: false,
+          blocked_moving: true,
+          error: 'Vehicle is moving — starter kill blocked for safety.',
+          speed: deviceSpeed,
+          ignition_status: deviceIgnition,
+          device_id: device.id,
+          vehicle_id: vehicle?.id || device.vehicle_id || '',
+          booking_id: booking?.id || body.booking_id || '',
+          reason: body.reason || '',
+          suggestion: 'Park the command to auto-send when the vehicle stops, or cancel.',
+        }, { status: 200 });
+      }
+    }
     if (adminDeviceCommandTest && STARTER_COMMANDS.includes(commandType) && await hasActiveRental(base44, vehicle?.id || device.vehicle_id) && body.admin_starter_override !== true) {
       return Response.json({ error: 'Starter commands are blocked on active rentals unless explicit admin override is provided.' }, { status: 403 });
     }

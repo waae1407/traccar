@@ -140,6 +140,7 @@ Deno.serve(async (req) => {
               source: 'geofence_auto_kill',
               reason: `Geofence breach: ${alert.alert_name}`,
               confirm_starter_command: true,
+              bypass_safety_guard: true,
             });
             results.auto_kills++;
           } catch (e) {

@@ -8,6 +8,7 @@ import TelematicsAlarmControls from "@/components/telematics/TelematicsAlarmCont
 import { useCommandProgress, PHASES } from "@/hooks/useCommandProgress";
 import CommandProgressOverlay from "@/components/telematics/CommandProgressOverlay";
 import DriveHistoryReplay from "@/components/telematics/DriveHistoryReplay";
+import KillSwitchSafetyPopup from "@/components/telematics/KillSwitchSafetyPopup";
 import { Route } from "lucide-react";
 
 const COMMANDS = {
@@ -28,6 +29,7 @@ const COMMANDS = {
 export default function VehicleCommandControls({ mode, vehicle, device, provider, booking, hostOwnsVehicle, allowStarter, onCommand }) {
   const progress = useCommandProgress();
   const [showReplay, setShowReplay] = useState(false);
+  const [killBlockedData, setKillBlockedData] = useState(null);
   const allowedCustomer = ["lock", "unlock", "alarm_pulse"];
 
   const visible = (group) => COMMANDS[group].filter((command) => {
@@ -78,6 +80,20 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
 
     console.log(`[SEND_CMD] Response:`, res.data);
     const data = res.data;
+
+    // ── Safety guard: kill blocked because vehicle is moving ──
+    if (data?.blocked_moving) {
+      progress.reset();
+      setKillBlockedData({
+        speed: data.speed,
+        ignition_status: data.ignition_status,
+        device_id: data.device_id || device?.id,
+        vehicle_id: data.vehicle_id || vehicle?.id,
+        booking_id: data.booking_id || booking?.id || "",
+        reason,
+      });
+      return;
+    }
     const cmdId = data?.command_id || data?.id;
     // API returned = gate hold is done, now poll for ACK
     progress.transitionToPolling(commandType, cmdId);
@@ -152,6 +168,15 @@ export default function VehicleCommandControls({ mode, vehicle, device, provider
         phaseElapsed={progress.phaseElapsed}
         commandType={progress.commandType}
         errorMessage={progress.errorMessage}
+      />
+
+      <KillSwitchSafetyPopup
+        blockedData={killBlockedData}
+        onClose={() => setKillBlockedData(null)}
+        onParked={(result) => {
+          console.log("[KILL_PARKED] Command parked:", result);
+          setKillBlockedData(null);
+        }}
       />
     </div>
   );

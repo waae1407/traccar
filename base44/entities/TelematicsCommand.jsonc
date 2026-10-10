@@ -118,7 +118,8 @@
         "failed",
         "retrying",
         "expired",
-        "blocked"
+        "blocked",
+        "parked_pending_stop"
       ],
       "default": "queued"
     },
@@ -150,6 +151,20 @@
     "expires_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "parked_expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "TTL for parked-pending-stop commands. If the vehicle hasn't stopped by this time, the parked kill is auto-expired."
+    },
+    "safety_guard_reason": {
+      "type": "string",
+      "description": "When the safety guard blocked this command, the reason (e.g. 'vehicle_moving_speed_12_ignition_on'). Null when not blocked."
+    },
+    "safety_guard_bypassed": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the safety guard was explicitly bypassed (theft recovery / geofence auto-kill). Audited."
     },
     "confirmation_required": {
       "type": "boolean",

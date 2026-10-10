@@ -1,0 +1,45 @@
+{
+  "name": "Dispatch Parked Kill Commands \u2014 Every 5min",
+  "description": "Dispatches starter-kill commands that were parked because the vehicle was moving. Checks every 5 minutes if the vehicle has stopped, then sends the kill. Auto-expires parked commands after 15 minutes.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "dispatch_parked_kill_commands",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "dispatch_parked_kills": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "dispatchParkedKillCommands",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Dispatch parked kill commands",
+            "description": "Check if parked vehicles have stopped, dispatch queued kills"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/5 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Los_Angeles",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}
