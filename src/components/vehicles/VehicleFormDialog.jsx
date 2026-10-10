@@ -28,6 +28,9 @@ const emptyForm = {
   instant_booking_enabled: true,
   delivery_available: false,
   contactless_pickup_available: false,
+  // GPS hardware flags (stored on TelematicsDevice, not Vehicle)
+  supports_starter_interrupt: false,
+  lock_starter_sync_enabled: false,
   };
 
 const PREVIEW_DAYS = [1, 3, 7, 14, 30];
@@ -63,10 +66,22 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
   const [decodingVIN, setDecodingVIN] = useState(false);
   const [vinError, setVinError] = useState("");
   const [hosts, setHosts] = useState([]);
+  const [linkedDevice, setLinkedDevice] = useState(null);
+  const [deviceSaving, setDeviceSaving] = useState(false);
 
   useEffect(() => {
     base44.entities.Host.list("-created_date", 200).then((h) => setHosts(h.filter((x) => x.status === "approved")));
   }, []);
+
+  // Load the linked TelematicsDevice so we can surface its hardware flags
+  useEffect(() => {
+    if (!vehicle?.telematics_device_id) { setLinkedDevice(null); return; }
+    let cancelled = false;
+    base44.entities.TelematicsDevice.get(vehicle.telematics_device_id)
+      .then((d) => { if (!cancelled) setLinkedDevice(d); })
+      .catch(() => { if (!cancelled) setLinkedDevice(null); });
+    return () => { cancelled = true; };
+  }, [vehicle?.telematics_device_id, open]);
 
   useEffect(() => {
     setForm(vehicle ? {
@@ -104,9 +119,21 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
       instant_booking_enabled: vehicle.instant_booking_enabled ?? true,
       delivery_available: vehicle.delivery_available ?? false,
       contactless_pickup_available: vehicle.contactless_pickup ?? false,
+      supports_starter_interrupt: false,
+      lock_starter_sync_enabled: false,
     } : { ...emptyForm, host_id: requiredHostId || "", marketplace_visible: planMode === 'fleetos_professional' ? false : true });
     setVinError("");
   }, [vehicle, open, requiredHostId]);
+
+  // Sync hardware flags from the loaded TelematicsDevice
+  useEffect(() => {
+    if (!linkedDevice) return;
+    setForm((prev) => ({
+      ...prev,
+      supports_starter_interrupt: linkedDevice.supports_starter_interrupt ?? false,
+      lock_starter_sync_enabled: linkedDevice.lock_starter_sync_enabled ?? false,
+    }));
+  }, [linkedDevice]);
 
   const set = (field, value) => setForm((previous) => ({ ...previous, [field]: value }));
 
@@ -144,6 +171,22 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
     if (!form.color) {
       setVinError("Please select a vehicle color. It is required to generate a photo-realistic image.");
       return;
+    }
+
+    // Persist GPS hardware flags to the linked TelematicsDevice
+    if (linkedDevice?.id) {
+      const flagsChanged =
+        (linkedDevice.supports_starter_interrupt ?? false) !== form.supports_starter_interrupt ||
+        (linkedDevice.lock_starter_sync_enabled ?? false) !== form.lock_starter_sync_enabled;
+      if (flagsChanged) {
+        setDeviceSaving(true);
+        base44.entities.TelematicsDevice.update(linkedDevice.id, {
+          supports_starter_interrupt: form.supports_starter_interrupt,
+          lock_starter_sync_enabled: form.supports_starter_interrupt ? form.lock_starter_sync_enabled : false,
+        })
+          .catch(() => {})
+          .finally(() => setDeviceSaving(false));
+      }
     }
 
     onSave({
@@ -326,6 +369,32 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
             </div>
           </div>
 
+          {/* GPS Hardware — only when a TelematicsDevice is linked */}
+          {vehicle && linkedDevice && (
+            <div className="space-y-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <p className="text-xs font-bold text-white/50 uppercase tracking-wider">🔑 GPS Hardware</p>
+              <p className="text-[10px] text-white/30 -mt-1">Device: {linkedDevice.unique_id || linkedDevice.imei || "unknown"}</p>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-white/60 block">Starter Interrupt Installed</span>
+                  <span className="text-[10px] text-white/40">Relay wire is wired — enables remote starter disable/restore.</span>
+                </div>
+                {toggle("supports_starter_interrupt")}
+              </div>
+
+              {form.supports_starter_interrupt && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm text-white/60 block">Lock → Starter Sync</span>
+                    <span className="text-[10px] text-white/40">Auto-disable starter when doors lock, restore on unlock. Payment enforcement always overrides.</span>
+                  </div>
+                  {toggle("lock_starter_sync_enabled")}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             {toggle("rent_to_own_eligible")}
             <span className="text-sm text-white/60">Rent-to-Own Eligible</span>
@@ -439,8 +508,8 @@ export default function VehicleFormDialog({ open, onOpenChange, onSave, vehicle,
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={() => onOpenChange(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-white/60 bg-white/[0.06] border border-white/[0.08] hover:bg-white/10 transition-all">Cancel</button>
-            <button type="submit" disabled={isSaving || decodingVIN} className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-primary hover:opacity-90 transition-all disabled:opacity-50 shadow-glow-sm">
-              {isSaving ? "Saving…" : vehicle ? "Update" : "Create"}
+            <button type="submit" disabled={isSaving || decodingVIN || deviceSaving} className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-primary hover:opacity-90 transition-all disabled:opacity-50 shadow-glow-sm">
+              {isSaving || deviceSaving ? "Saving…" : vehicle ? "Update" : "Create"}
             </button>
           </div>
         </form>
