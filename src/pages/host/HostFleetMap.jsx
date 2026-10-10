@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import { Search, X, Clock, Maximize, Minimize, Plus, TrendingUp, Loader2 } from "lucide-react";
@@ -21,6 +21,7 @@ export default function HostFleetMap() {
   const [focusVehicleId, setFocusVehicleId] = useState(null);
   const [commandLoading, setCommandLoading] = useState(null);
   const containerRef = useRef(null);
+  const queryClient = useQueryClient();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [migrateLoading, setMigrateLoading] = useState(false);
@@ -72,7 +73,7 @@ export default function HostFleetMap() {
 
   const { data: safetyEvents = [] } = useQuery({
     queryKey: ["host-fleetmap-safety", host?.id],
-    queryFn: () => base44.entities.TelematicsSafetyEvent.filter({ host_id: host.id, is_active: true }, "-created_date", 20),
+    queryFn: () => base44.entities.TelematicsSafetyEvent.filter({ host_id: host.id, is_active: true, acknowledged_at: { $exists: false } }, "-created_date", 20),
     enabled: !!host?.id,
     refetchInterval: 15_000,
   });
@@ -203,6 +204,13 @@ export default function HostFleetMap() {
     }
     setCommandLoading(null);
   }, [selectedVehicle, quickMenu, deviceByVehicle]);
+
+  // ── Mark all fleet alerts as read (server-side acknowledgment) ──
+  const handleMarkAllRead = useCallback(async () => {
+    if (!host?.id) return;
+    await base44.functions.invoke("acknowledgeFleetAlerts", { host_id: host.id });
+    queryClient.invalidateQueries({ queryKey: ["host-fleetmap-safety"] });
+  }, [host?.id, queryClient]);
 
   const handleMigrateToHost = useCallback(async () => {
     setMigrateLoading(true);
@@ -341,6 +349,7 @@ export default function HostFleetMap() {
       <FleetAlertFeed
         alerts={alerts}
         activities={activities}
+        onMarkAllRead={handleMarkAllRead}
         onAlertClick={(item) => {
           if (item.vehicle_id) setFocusVehicleId(item.vehicle_id);
         }}
