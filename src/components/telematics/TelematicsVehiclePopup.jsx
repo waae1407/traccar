@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import TelematicsCommandButtons from "@/components/telematics/TelematicsCommandButtons";
 import { getVehicleDisplayName } from "@/lib/vehicleDisplayName";
+import { computeStarterState } from "@/lib/telematics/starterState";
 
 function directionsUrl(position) {
   if (!position) return "#";
@@ -90,6 +91,20 @@ export default function TelematicsVehiclePopup({
             <Info label="Speed" value={`${Number(device.speed || 0).toFixed(0)} mph`} />
             <Info label="Ign" value={device.ignition_status || "unknown"} />
           </div>
+
+          {role !== "customer" && (() => {
+            const starter = computeStarterState(device);
+            if (starter.state === "none") return null;
+            return (
+              <div className="flex items-center gap-2 rounded-xl border px-2.5 py-2" style={{ borderColor: `${starter.color}55`, background: `${starter.color}15` }}>
+                <div className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold" style={{ background: starter.color, color: "#0a0a0a" }}>{starter.glyph}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-black uppercase tracking-wider" style={{ color: starter.color }}>{starter.label}</div>
+                  <div className="truncate text-[9px] text-white/55">{starter.reason}</div>
+                </div>
+              </div>
+            );
+          })()}
 
           {vehicle?.id && (
             <div className="rounded-xl border border-white/10 bg-black/25 p-2">

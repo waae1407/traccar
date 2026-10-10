@@ -3,6 +3,7 @@ import maplibregl from "maplibre-gl/dist/maplibre-gl-csp.js";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { classicDarkStyle } from "@/lib/mapStyles/classicDarkStyle";
 import { HIGHWAY_SHIELD_LAYERS, handleShieldImageMissing } from "@/lib/mapStyles/highwayShieldLayers";
+import { computeStarterState } from "@/lib/telematics/starterState";
 
 // ── Worker blob (same pattern as FindMyVehicleMap) ──
 let workerBlobUrlPromise = null;
@@ -51,6 +52,39 @@ export const STATUS_LABELS = {
 function getStatusColor(status) { return STATUS_COLORS[status] || STATUS_COLORS.default; }
 function getStatusLabel(status) { return STATUS_LABELS[status] || STATUS_LABELS.default; }
 
+// ── Starter state tooltip (DOM-based, auto-dismisses on outside click) ──
+function showStarterTooltip(parentEl, starter, vehicleName) {
+  // Remove any existing tooltip
+  document.querySelectorAll(".starter-state-tooltip").forEach((t) => t.remove());
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "starter-state-tooltip";
+  tooltip.style.cssText = `
+    position:absolute;z-index:9999;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+    background:#1a1a1a;border:1px solid ${starter.color};border-radius:12px;padding:10px 14px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.05);
+    white-space:nowrap;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;
+    pointer-events:auto;max-width:240px;
+  `;
+  tooltip.innerHTML = `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+      <div style="width:10px;height:10px;border-radius:50%;background:${starter.color};box-shadow:0 0 6px ${starter.color};"></div>
+      <span style="font-size:11px;font-weight:800;color:#fff;letter-spacing:0.02em;">${starter.label}</span>
+    </div>
+    <div style="font-size:10px;color:#a1a1aa;line-height:1.4;white-space:normal;">${starter.reason}</div>
+  `;
+  parentEl.style.position = "relative";
+  parentEl.appendChild(tooltip);
+
+  const dismiss = (e) => {
+    if (!tooltip.contains(e.target)) {
+      tooltip.remove();
+      document.removeEventListener("click", dismiss, true);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", dismiss, true), 0);
+}
+
 // ── Vehicle photo marker ──
 function createVehicleMarkerElement(vehicle, device, onClick, onLongPress) {
   const el = document.createElement("div");
@@ -62,6 +96,19 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress) {
   const gpsOnline = hasGps && device?.online_status !== "offline";
   const gpsColor = !hasGps ? "#6B6B70" : gpsOnline ? "#22C55E" : "#FF9F0A";
 
+  // Starter state badge
+  const starter = computeStarterState(device);
+  const showStarterBadge = starter.state !== "none";
+  const starterBadge = showStarterBadge ? `
+    <div class="starter-badge" style="
+      position:absolute;top:-2px;left:-2px;width:16px;height:16px;border-radius:50%;
+      background:${starter.color};border:2px solid #0a0a0a;box-shadow:0 0 4px ${starter.color};
+      display:flex;align-items:center;justify-content:center;font-size:8px;line-height:1;
+      cursor:pointer;pointer-events:auto;z-index:2;
+    " title="${starter.label}: ${starter.reason}">
+      <span style="font-size:8px;">${starter.glyph}</span>
+    </div>` : "";
+
   el.innerHTML = `
     <div style="position:relative;width:54px;height:66px;pointer-events:auto;">
       <div style="position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);width:34px;height:6px;border-radius:50%;background:rgba(0,0,0,0.45);filter:blur(3px);"></div>
@@ -71,6 +118,7 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress) {
           : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1a1a1a;color:#666;font-size:20px;">🚗</div>`}
       </div>
       <div style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:${gpsColor};border:2px solid #0a0a0a;box-shadow:0 0 4px ${gpsColor};"></div>
+      ${starterBadge}
       <div style="position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);white-space:nowrap;background:${statusColor};color:white;font-size:9px;font-weight:800;padding:2px 8px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 1px 4px rgba(0,0,0,0.4);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;">${statusLabel}</div>
     </div>
   `;
@@ -87,6 +135,22 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress) {
     if (!pressed) { onClick(vehicle, e); }
   };
   const cancelPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+
+  // Starter badge click — show tooltip, stop propagation so it doesn't trigger vehicle select
+  const starterBadgeEl = el.querySelector(".starter-badge");
+  if (starterBadgeEl) {
+    starterBadgeEl.addEventListener("mousedown", (e) => { e.stopPropagation(); e.preventDefault(); });
+    starterBadgeEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      showStarterTooltip(el, starter, vehicle.display_name || `${vehicle.make} ${vehicle.model}`);
+    });
+    starterBadgeEl.addEventListener("touchend", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      showStarterTooltip(el, starter, vehicle.display_name || `${vehicle.make} ${vehicle.model}`);
+    }, { passive: false });
+  }
 
   el.addEventListener("mousedown", startPress);
   el.addEventListener("mouseup", endPress);

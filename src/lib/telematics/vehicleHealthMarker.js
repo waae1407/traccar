@@ -2,6 +2,8 @@
 // with battery + GPS health dots and abnormal-state badges.
 // Used by admin fleet map, host telematics map, and customer Find My Vehicle map.
 
+import { computeStarterState } from "./starterState";
+
 const STALE_DATA_MS = 15 * 60 * 1000;      // voltage/position older than 15 min = stale
 const GPS_STALE_MS = 30 * 60 * 1000;       // GPS older than 30 min = stale
 const GPS_OFFLINE_MS = 2 * 60 * 60 * 1000; // GPS older than 2 hr = offline
@@ -62,7 +64,6 @@ export function computeVehicleHealth(device) {
   if (device?.door_open) abnormals.push({ type: 'door', icon: '🚗', label: 'Door open' });
   if (device?.trunk_open) abnormals.push({ type: 'trunk', icon: '📦', label: 'Trunk open' });
   if (device?.smoke_detected) abnormals.push({ type: 'smoke', icon: '💨', label: 'Smoke detected' });
-  if (device?.starter_disabled) abnormals.push({ type: 'starter', icon: '🔒', label: 'Starter disabled' });
   if (device?.ignition_status === 'on') abnormals.push({ type: 'ignition', icon: '🔑', label: 'Engine running' });
 
   // Overall tier: gray (stale) > red (critical) > yellow (warning) > green (healthy)
@@ -107,6 +108,10 @@ export function buildVehicleHealthIconHtml(device, label, audience = 'admin') {
   const density = VEHICLE_HEALTH_DENSITY[audience] || VEHICLE_HEALTH_DENSITY.admin;
   const markerColor = health.tier.color;
 
+  // Starter state — computed here (not inside computeVehicleHealth) so it's
+  // in scope for the badge rendering below.
+  const starterState = computeStarterState(device);
+
   // Battery dot
   const batteryDot = `
     <div title="${escapeHtml(health.battery.label)}" style="
@@ -125,7 +130,6 @@ export function buildVehicleHealthIconHtml(device, label, audience = 'admin') {
   const badges = health.abnormals
     .filter(a => {
       if (a.type === 'smoke') return density.showSmoke;
-      if (a.type === 'starter') return density.showStarter;
       if (a.type === 'door') return density.showDoor;
       if (a.type === 'trunk') return density.showTrunk;
       if (a.type === 'ignition') return density.showIgnition;
@@ -140,6 +144,18 @@ export function buildVehicleHealthIconHtml(device, label, audience = 'admin') {
       ">${a.icon}</div>`)
     .join('');
 
+  // Starter state badge — four-state, shown for admin + host audiences when
+  // the device supports starter interrupt. Uses the starter's own color
+  // (green/red/amber/gray) instead of the old binary red 🔒.
+  const starterBadge = (density.showStarter && starterState.state !== 'none')
+    ? `<div title="${escapeHtml(starterState.label + ': ' + starterState.reason)}" style="
+        display:flex;align-items:center;justify-content:center;
+        width:16px;height:16px;border-radius:50%;
+        background:${starterState.color};border:1.5px solid white;
+        font-size:9px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,0.4);flex:0 0 auto;
+      ">${starterState.glyph}</div>`
+    : '';
+
   // Car SVG
   const carSvg = `
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -153,7 +169,7 @@ export function buildVehicleHealthIconHtml(device, label, audience = 'admin') {
       <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.35));">
         <div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;background:${markerColor};border-radius:50%;border:2.5px solid white;box-shadow:0 3px 10px rgba(0,0,0,0.4);">${carSvg}</div>
         <div style="display:flex;gap:3px;align-items:center;">
-          ${batteryDot}${gpsDot}${badges}
+          ${batteryDot}${gpsDot}${starterBadge}${badges}
         </div>
       </div>`;
   }
@@ -166,7 +182,7 @@ export function buildVehicleHealthIconHtml(device, label, audience = 'admin') {
         <div style="max-width:118px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(15,23,42,0.16);background:rgba(255,255,255,0.94);color:#0f172a;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800;line-height:1;">${escapeHtml(label)}</div>
       </div>
       <div style="display:flex;gap:3px;align-items:center;padding-left:4px;">
-        ${batteryDot}${gpsDot}${badges}
+        ${batteryDot}${gpsDot}${starterBadge}${badges}
       </div>
     </div>`;
 }
