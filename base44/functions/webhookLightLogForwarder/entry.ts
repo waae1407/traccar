@@ -782,6 +782,32 @@ async function processCommandResponse(base44, device, parsed, timestamp) {
     created_at: timestamp
   }).catch((error) => console.warn('Command response event log skipped:', error.message));
 
+  // ── Lock/unlock ACK: override stale device lock_state ──
+  // The 0x8009 ACK is generated the instant the device receives the command,
+  // BEFORE the lock actuator physically engages. The status bits in the ACK
+  // reflect the pre-command state, not the post-command state. When a lock or
+  // unlock command is acknowledged (ack_only), trust the command type and
+  // update the device's lock_state accordingly, then enforce the starter
+  // sync policy. Without this, the stale "unlocked" status prevents the
+  // starter kill from firing when doors actually locked.
+  if (ackOnly && (command.command_type === 'lock' || command.command_type === 'unlock')) {
+    const desiredLockState = command.command_type === 'lock' ? 'locked' : 'unlocked';
+    try {
+      const devRecords = await base44.asServiceRole.entities.TelematicsDevice.filter({ id: command.telematics_device_id });
+      const dev = devRecords[0];
+      if (dev && dev.lock_state !== desiredLockState) {
+        console.log(`[LOCK_STATE_OVERRIDE] device=${dev.unique_id} command=${command.command_type} stale_state=${dev.lock_state} → ${desiredLockState}`);
+        await base44.asServiceRole.entities.TelematicsDevice.update(dev.id, { lock_state: desiredLockState });
+        await base44.asServiceRole.functions.invoke('enforceLockStarterSync', {
+          device_id: dev.id,
+          lock_state: desiredLockState,
+        }).catch(e => console.error('[lock-starter-sync] post-ack enforcement failed:', e.message));
+      }
+    } catch (e) {
+      console.error('[processCommandResponse] Lock state override failed:', e.message);
+    }
+  }
+
   return { command_matched: true, command_id: command.id, command_type: command.command_type, result: evaluation.result, reason: evaluation.reason, ack_match_confidence: ackMatchConfidence, ack_match_reason: ackMatchReason, session_updated: !!session };
 }
 
