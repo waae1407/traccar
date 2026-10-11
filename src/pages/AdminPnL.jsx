@@ -5,6 +5,7 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 import { TrendingUp, DollarSign, CreditCard, Landmark } from "lucide-react";
 import { subDays, isAfter } from "date-fns";
 import { OperationalPageShell, OperationalHero, OperationalKpiGrid, OperationalFilterBar, OperationalExportToolbar, OperationalDataSection } from "@/components/operational";
+import PnLDetailSheet from "@/components/shared/PnLDetailSheet";
 
 const downloadCsv = (rows, filename) => {
   const csv = rows.map(r => r.map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -27,6 +28,7 @@ const Tooltip_ = ({ active, payload, label, prefix = "$" }) => {
 
 export default function AdminPnL() {
   const [range, setRange] = useState(30);
+  const [detail, setDetail] = useState(null);
   const filters = { dateRange: String(range) };
 
   const { data: paymentLogs = [] } = useQuery({ queryKey: ["pnl-payment-logs"], queryFn: () => base44.entities.PaymentLog.list("-paid_at", 1000) });
@@ -50,6 +52,143 @@ export default function AdminPnL() {
   const rangedBookings = bookingRequests.filter(b => inRange(b.created_date));
   const cancelled = rangedBookings.filter(b => b.booking_status === "cancelled").length;
   const churnRate = rangedBookings.length > 0 ? ((cancelled / rangedBookings.length) * 100).toFixed(1) : 0;
+
+  // ── Helper maps for detail sheets ──
+  const vehicleMap = {}; vehicles.forEach(v => { vehicleMap[v.id] = v; });
+  const bookingMap = {}; bookingRequests.forEach(b => { bookingMap[b.id] = b; });
+  const vehicleName = (bookingId) => {
+    const b = bookingMap[bookingId];
+    if (!b?.vehicle_id) return "—";
+    const v = vehicleMap[b.vehicle_id];
+    return v ? `${v.year} ${v.make} ${v.model}` : "—";
+  };
+
+  // ── Detail data for clickable cards ──
+  const detailGrossRevenue = {
+    title: "Gross Revenue",
+    subtitle: `${paidLogs.length} paid payment${paidLogs.length !== 1 ? "s" : ""} in this period`,
+    columns: [
+      { key: "date", label: "Date", type: "date" },
+      { key: "vehicle", label: "Vehicle" },
+      { key: "amount", label: "Amount", type: "currency" },
+      { key: "status", label: "Status", type: "status" },
+    ],
+    rows: paidLogs.map(p => ({ _id: p.id, date: p.paid_at || p.created_date, vehicle: vehicleName(p.booking_request_id), amount: p.amount, status: p.status })),
+    summary: [
+      { label: "Total Collected", value: `$${grossRevenue.toLocaleString()}` },
+      { label: "Payment Count", value: paidLogs.length },
+    ],
+  };
+
+  const detailNetPlatform = {
+    title: "Net Platform Revenue",
+    subtitle: "How platform net is calculated",
+    columns: [
+      { key: "component", label: "Component" },
+      { key: "amount", label: "Amount", type: "currency" },
+    ],
+    rows: [
+      { _id: "gross", component: "Gross Revenue Collected", amount: grossRevenue },
+      { _id: "payouts", component: "Host Payouts Sent", amount: -totalHostPayouts },
+      { _id: "stripe", component: "Stripe Processing Fees", amount: -totalStripeFees },
+      { _id: "net", component: "Net Platform Revenue", amount: netPlatformRevenue },
+    ],
+    summary: [{ label: "Margin", value: `${margin}%` }],
+  };
+
+  const detailHostPayouts = {
+    title: "Host Payouts Sent",
+    subtitle: `${paidPayouts.length} paid payout${paidPayouts.length !== 1 ? "s" : ""} in this period`,
+    columns: [
+      { key: "host", label: "Host" },
+      { key: "date", label: "Date", type: "date" },
+      { key: "gross", label: "Gross", type: "currency" },
+      { key: "net", label: "Net Payout", type: "currency" },
+      { key: "status", label: "Status", type: "status" },
+    ],
+    rows: paidPayouts.map(p => ({ _id: p.id, host: p.host_name || "—", date: p.payout_date || p.created_date, gross: p.gross_booking_amount || p.gross_collected || 0, net: p.net_host_payout || p.net_payout || 0, status: p.status })),
+    summary: [
+      { label: "Total Net Sent", value: `$${totalHostPayouts.toLocaleString()}` },
+      { label: "Total Gross", value: `$${paidPayouts.reduce((s, p) => s + (p.gross_booking_amount || 0), 0).toLocaleString()}` },
+    ],
+  };
+
+  const detailMRR = {
+    title: "Estimated MRR",
+    subtitle: `${activeBookings.length} active rental${activeBookings.length !== 1 ? "s" : ""} with weekly rates`,
+    columns: [
+      { key: "vehicle", label: "Vehicle" },
+      { key: "weekly", label: "Weekly Rate", type: "currency" },
+      { key: "monthly", label: "Monthly Est.", type: "currency" },
+      { key: "status", label: "Status", type: "status" },
+    ],
+    rows: activeBookings.map(b => {
+      const v = vehicleMap[b.vehicle_id];
+      return { _id: b.id, vehicle: v ? `${v.year} ${v.make} ${v.model}` : b.vehicle_name || "—", weekly: b.weekly_rate, monthly: (b.weekly_rate || 0) * 4.33, status: b.booking_status };
+    }),
+    summary: [
+      { label: "Total MRR", value: `$${mrr.toLocaleString()}` },
+      { label: "Active Bookings", value: activeBookings.length },
+    ],
+  };
+
+  const detailStripeFees = {
+    title: "Stripe Fees Paid",
+    subtitle: "Processing fees per paid payout",
+    columns: [
+      { key: "host", label: "Host" },
+      { key: "date", label: "Date", type: "date" },
+      { key: "fee", label: "Stripe Fee", type: "currency" },
+      { key: "gross", label: "Payout Gross", type: "currency" },
+    ],
+    rows: paidPayouts.filter(p => (p.stripe_fee_amount || 0) > 0).map(p => ({ _id: p.id, host: p.host_name || "—", date: p.payout_date || p.created_date, fee: p.stripe_fee_amount, gross: p.gross_booking_amount || 0 })),
+    summary: [{ label: "Total Stripe Fees", value: `$${totalStripeFees.toLocaleString()}` }],
+  };
+
+  const detailPlatformFees = {
+    title: "Platform Fee Collected",
+    subtitle: "Commission per paid payout",
+    columns: [
+      { key: "host", label: "Host" },
+      { key: "date", label: "Date", type: "date" },
+      { key: "fee", label: "Platform Fee", type: "currency" },
+      { key: "rate", label: "Rate" },
+      { key: "gross", label: "Payout Gross", type: "currency" },
+    ],
+    rows: paidPayouts.filter(p => (p.uride_platform_fee_amount || p.platform_fee || 0) > 0).map(p => ({ _id: p.id, host: p.host_name || "—", date: p.payout_date || p.created_date, fee: p.uride_platform_fee_amount || p.platform_fee, rate: `${((p.uride_platform_fee_rate || 0.08) * 100).toFixed(0)}%`, gross: p.gross_booking_amount || 0 })),
+    summary: [{ label: "Total Platform Fees", value: `$${totalPlatformFees.toLocaleString()}` }],
+  };
+
+  const detailChurn = {
+    title: "Churn Rate",
+    subtitle: `${cancelled} cancelled booking${cancelled !== 1 ? "s" : ""} out of ${rangedBookings.length} total`,
+    columns: [
+      { key: "vehicle", label: "Vehicle" },
+      { key: "date", label: "Created", type: "date" },
+      { key: "rate", label: "Weekly Rate", type: "currency" },
+      { key: "status", label: "Status", type: "status" },
+    ],
+    rows: rangedBookings.filter(b => b.booking_status === "cancelled").map(b => {
+      const v = vehicleMap[b.vehicle_id];
+      return { _id: b.id, vehicle: v ? `${v.year} ${v.make} ${v.model}` : b.vehicle_name || "—", date: b.created_date, rate: b.weekly_rate, status: b.booking_status };
+    }),
+    summary: [{ label: "Churn Rate", value: `${churnRate}%` }],
+  };
+
+  const detailActiveFleet = {
+    title: "Active Fleet",
+    subtitle: "Vehicles available or currently booked",
+    columns: [
+      { key: "vehicle", label: "Vehicle" },
+      { key: "status", label: "Status", type: "status" },
+      { key: "rate", label: "Weekly Rate", type: "currency" },
+    ],
+    rows: vehicles.filter(v => v.status === "Available" || v.status === "Booked").map(v => ({ _id: v.id, vehicle: `${v.year} ${v.make} ${v.model}`, status: v.status, rate: v.weekly_rate })),
+    summary: [
+      { label: "Available", value: vehicles.filter(v => v.status === "Available").length },
+      { label: "Booked", value: vehicles.filter(v => v.status === "Booked").length },
+    ],
+  };
 
   const monthlyMap = {};
   paidLogs.forEach(p => { const d = new Date(p.paid_at || p.created_date); const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; if (!monthlyMap[key]) monthlyMap[key] = { gross: 0, payouts: 0 }; monthlyMap[key].gross += p.amount || 0; });
@@ -77,19 +216,19 @@ export default function AdminPnL() {
     <OperationalPageShell mode="admin">
       <OperationalHero mode="admin" title="Platform P&L" subtitle="Revenue, payout, margin, and fleet performance visibility" eyebrow="Operations" actions={<OperationalExportToolbar mode="admin" exports={[{ label: "Export", onClick: exportPnL }]} />} />
       <OperationalKpiGrid mode="admin" metrics={[
-        { label: "Gross Revenue", value: grossRevenue, type: "currency", note: "total collected", icon: DollarSign, variant: "success" },
-        { label: "Net Platform Revenue", value: netPlatformRevenue, type: "currency", note: `${margin}% margin`, icon: TrendingUp, variant: netPlatformRevenue >= 0 ? "primary" : "danger" },
-        { label: "Host Payouts Sent", value: totalHostPayouts, type: "currency", note: "platform expense", icon: Landmark, variant: "warning" },
-        { label: "Est. MRR", value: mrr, type: "currency", note: `${activeBookings.length} active rentals`, icon: CreditCard, variant: "info" },
+        { label: "Gross Revenue", value: grossRevenue, type: "currency", note: "total collected", icon: DollarSign, variant: "success", onClick: () => setDetail(detailGrossRevenue) },
+        { label: "Net Platform Revenue", value: netPlatformRevenue, type: "currency", note: `${margin}% margin`, icon: TrendingUp, variant: netPlatformRevenue >= 0 ? "primary" : "danger", onClick: () => setDetail(detailNetPlatform) },
+        { label: "Host Payouts Sent", value: totalHostPayouts, type: "currency", note: "platform expense", icon: Landmark, variant: "warning", onClick: () => setDetail(detailHostPayouts) },
+        { label: "Est. MRR", value: mrr, type: "currency", note: `${activeBookings.length} active rentals`, icon: CreditCard, variant: "info", onClick: () => setDetail(detailMRR) },
       ]} />
       <OperationalFilterBar mode="admin" filters={filters} onChange={(next) => setRange(Number(next.dateRange || 30))} dateRanges={RANGES} resultCount={paidLogs.length} totalCount={paymentLogs.length} showSearch={false} />
 
       <OperationalDataSection mode="admin" title="Secondary Metrics" bodyClassName="p-4">
         <OperationalKpiGrid mode="admin" metrics={[
-          { label: "Stripe Fees Paid", value: totalStripeFees, type: "currency", variant: "warning" },
-          { label: "Platform Fee Collected", value: totalPlatformFees, type: "currency", variant: "primary" },
-          { label: "Churn Rate", value: `${churnRate}%`, variant: "danger" },
-          { label: "Active Fleet", value: `${vehicles.filter(v => v.status === "Available" || v.status === "Booked").length} vehicles`, variant: "info" },
+          { label: "Stripe Fees Paid", value: totalStripeFees, type: "currency", variant: "warning", onClick: () => setDetail(detailStripeFees) },
+          { label: "Platform Fee Collected", value: totalPlatformFees, type: "currency", variant: "primary", onClick: () => setDetail(detailPlatformFees) },
+          { label: "Churn Rate", value: `${churnRate}%`, variant: "danger", onClick: () => setDetail(detailChurn) },
+          { label: "Active Fleet", value: `${vehicles.filter(v => v.status === "Available" || v.status === "Booked").length} vehicles`, variant: "info", onClick: () => setDetail(detailActiveFleet) },
         ]} />
       </OperationalDataSection>
 
@@ -105,6 +244,7 @@ export default function AdminPnL() {
           <div className="flex items-center gap-4"><ResponsiveContainer width={160} height={160}><PieChart><Pie data={splitData} cx="50%" cy="50%" innerRadius={44} outerRadius={72} paddingAngle={3} dataKey="value" strokeWidth={0}>{splitData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie></PieChart></ResponsiveContainer><div className="flex-1 space-y-3">{splitData.map((s, i) => <div key={s.name}><div className="mb-1 flex items-center justify-between"><div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} /><span className="text-xs text-white/50">{s.name}</span></div><span className="text-xs font-bold text-white">${s.value.toLocaleString()}</span></div><div className="h-1 rounded-full bg-white/5"><div className="h-1 rounded-full" style={{ width: `${grossRevenue > 0 ? Math.round((s.value / grossRevenue) * 100) : 0}%`, background: COLORS[i % COLORS.length] }} /></div></div>)}</div></div>
         </OperationalDataSection>
       </div>
+      <PnLDetailSheet open={!!detail} onOpenChange={(v) => !v && setDetail(null)} mode="admin" {...(detail || {})} />
     </OperationalPageShell>
   );
 }
