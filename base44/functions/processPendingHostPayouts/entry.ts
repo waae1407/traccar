@@ -132,13 +132,76 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // ── PAYMENT METHOD GUARD: only transfer for Stripe-collected payments ──
+      // Zelle/cash/check payments were collected directly by the host — no Stripe
+      // transfer is needed. Sending one would double-pay the host.
+      if (payout.booking_request_id) {
+        const paymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({
+          booking_request_id: payout.booking_request_id,
+          stripe_payment_intent_id: payout.stripe_payment_intent_id,
+        });
+        const matchingLog = paymentLogs[0];
+        if (matchingLog && matchingLog.payment_method && matchingLog.payment_method !== 'stripe') {
+          await base44.asServiceRole.entities.HostPayout.update(payout.id, {
+            status: 'paid',
+            payout_date: now.toISOString().slice(0, 10),
+            released_at: now.toISOString(),
+            hold_notes: `Collected via ${matchingLog.payment_method} — no Stripe transfer needed. Host was paid directly by customer.`,
+            hold_reason: null,
+          });
+          results.skipped++;
+          continue;
+        }
+        // If no matching PaymentLog with a PI, check if ANY PaymentLog for this booking is Stripe
+        if (!matchingLog) {
+          const allLogs = await base44.asServiceRole.entities.PaymentLog.filter({
+            booking_request_id: payout.booking_request_id,
+          });
+          const stripeLog = allLogs.find(l => l.payment_method === 'stripe' && l.stripe_payment_intent_id);
+          if (!stripeLog) {
+            // No Stripe payment for this booking at all — skip transfer
+            await base44.asServiceRole.entities.HostPayout.update(payout.id, {
+              status: 'paid',
+              payout_date: now.toISOString().slice(0, 10),
+              released_at: now.toISOString(),
+              hold_notes: 'No Stripe payment found for this booking — payout marked paid without transfer (manual/Zelle collection).',
+              hold_reason: null,
+            });
+            results.skipped++;
+            continue;
+          }
+        }
+      }
+
+      // ── RECEIVABLE OFFSET: deduct outstanding host receivables from transfer ──
+      let receivableOffset = 0;
+      const receivables = await base44.asServiceRole.entities.HostReceivable.filter({ host_id: payout.host_id });
+      let remainingOffset = Math.max(0, payout.net_host_payout || payout.net_payout || 0);
+      for (const rec of receivables.filter(r => ['open', 'partially_recovered'].includes(r.status) && r.offset_from_future_payouts !== false && (r.remaining_amount || 0) > 0)) {
+        if (remainingOffset <= 0) break;
+        const offset = Math.min(remainingOffset, rec.remaining_amount || 0);
+        const newRemaining = Math.round(((rec.remaining_amount || 0) - offset) * 100) / 100;
+        const recovered = Math.round(((rec.recovered_amount || 0) + offset) * 100) / 100;
+        await base44.asServiceRole.entities.HostReceivable.update(rec.id, {
+          remaining_amount: newRemaining,
+          recovered_amount: recovered,
+          status: newRemaining <= 0 ? 'recovered' : 'partially_recovered',
+          last_recovery_at: now.toISOString(),
+        });
+        receivableOffset += offset;
+        remainingOffset -= offset;
+      }
+
       // Create the Stripe transfer now that the hold window has passed
-      const transferAmount = Math.round((payout.net_host_payout || payout.net_payout || 0) * 100);
+      const baseTransferAmount = payout.net_host_payout || payout.net_payout || 0;
+      const transferAmount = Math.round(Math.max(0, baseTransferAmount - receivableOffset) * 100);
       if (transferAmount <= 0) {
         await base44.asServiceRole.entities.HostPayout.update(payout.id, {
-          status: 'released',
+          status: 'paid',
+          payout_date: now.toISOString().slice(0, 10),
           released_at: now.toISOString(),
-          hold_notes: 'Released: zero-amount payout',
+          hold_notes: receivableOffset > 0 ? `Fully offset by host receivable ($${receivableOffset.toFixed(2)}). No transfer needed.` : 'Released: zero-amount payout',
+          receivable_offset_amount: receivableOffset,
         });
         results.skipped++;
         continue;
@@ -156,6 +219,7 @@ Deno.serve(async (req) => {
             payment_intent_id: payout.stripe_payment_intent_id,
             platform: 'uride',
             reserve_window_completed: 'true',
+            receivable_offset: String(receivableOffset),
           },
         });
 
@@ -166,6 +230,7 @@ Deno.serve(async (req) => {
           released_at: now.toISOString(),
           hold_notes: null,
           hold_reason: null,
+          receivable_offset_amount: receivableOffset,
         });
 
         if (payout.booking_request_id) {
