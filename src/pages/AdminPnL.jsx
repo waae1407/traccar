@@ -38,10 +38,11 @@ export default function AdminPnL() {
   const inRange = (d) => range >= 99999 || (d && isAfter(new Date(d), cutoff));
   const paidLogs = paymentLogs.filter(p => p.status === "paid" && inRange(p.paid_at || p.created_date));
   const grossRevenue = paidLogs.reduce((s, p) => s + (p.amount || 0), 0);
-  const rangedPayouts = hostPayouts.filter(p => inRange(p.payout_date || p.created_date));
-  const totalHostPayouts = rangedPayouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
-  const totalStripeFees = rangedPayouts.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0);
-  const totalPlatformFees = rangedPayouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0);
+  const rangedPayouts = hostPayouts.filter(p => p.status !== 'voided_duplicate' && inRange(p.payout_date || p.created_date));
+  const paidPayouts = rangedPayouts.filter(p => p.status === 'paid');
+  const totalHostPayouts = paidPayouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
+  const totalStripeFees = paidPayouts.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0);
+  const totalPlatformFees = paidPayouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0);
   const netPlatformRevenue = grossRevenue - totalHostPayouts - totalStripeFees;
   const margin = grossRevenue > 0 ? ((netPlatformRevenue / grossRevenue) * 100).toFixed(1) : 0;
   const activeBookings = bookingRequests.filter(b => b.booking_status === "active" && b.weekly_rate > 0);
@@ -52,7 +53,7 @@ export default function AdminPnL() {
 
   const monthlyMap = {};
   paidLogs.forEach(p => { const d = new Date(p.paid_at || p.created_date); const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; if (!monthlyMap[key]) monthlyMap[key] = { gross: 0, payouts: 0 }; monthlyMap[key].gross += p.amount || 0; });
-  rangedPayouts.forEach(p => { const d = new Date(p.payout_date || p.created_date); const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; if (!monthlyMap[key]) monthlyMap[key] = { gross: 0, payouts: 0 }; monthlyMap[key].payouts += p.net_host_payout || p.net_payout || 0; });
+  paidPayouts.forEach(p => { const d = new Date(p.payout_date || p.created_date); const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; if (!monthlyMap[key]) monthlyMap[key] = { gross: 0, payouts: 0 }; monthlyMap[key].payouts += p.net_host_payout || p.net_payout || 0; });
   const trendData = Object.entries(monthlyMap).sort().map(([month, v]) => ({ month: month.slice(5), gross: Math.round(v.gross), net: Math.round(v.gross - v.payouts) }));
 
   const cityRevMap = {};

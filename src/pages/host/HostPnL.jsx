@@ -72,11 +72,13 @@ export default function HostPnL() {
     return inBounds(item[dateKey], bounds);
   };
 
-  const rangedPayouts = useMemo(() => payouts.filter(p => inBounds(p.payout_date || p.created_date, bounds)), [payouts, bounds]);
-  const grossRevenue = useMemo(() => rangedPayouts.reduce((s, p) => s + (p.gross_booking_amount || p.gross_collected || 0), 0), [rangedPayouts]);
-  const netPayout = useMemo(() => rangedPayouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [rangedPayouts]);
-  const platformFees = useMemo(() => rangedPayouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0), [rangedPayouts]);
-  const stripeFees = useMemo(() => rangedPayouts.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0), [rangedPayouts]);
+  const rangedPayouts = useMemo(() => payouts.filter(p => p.status !== 'voided_duplicate' && inBounds(p.payout_date || p.created_date, bounds)), [payouts, bounds]);
+  const paidPayouts = useMemo(() => rangedPayouts.filter(p => p.status === 'paid'), [rangedPayouts]);
+  const grossRevenue = useMemo(() => paidPayouts.reduce((s, p) => s + (p.gross_booking_amount || p.gross_collected || 0), 0), [paidPayouts]);
+  const netPayout = useMemo(() => paidPayouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [paidPayouts]);
+  const platformFees = useMemo(() => paidPayouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0), [paidPayouts]);
+  const stripeFees = useMemo(() => paidPayouts.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0), [paidPayouts]);
+  const pendingPayoutTotal = useMemo(() => rangedPayouts.filter(p => p.status === 'pending').reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [rangedPayouts]);
 
   const rangedExpenses = useMemo(() => expenses.filter(e => inFilter(e, "date")), [expenses, filters, bounds]);
   const rangedMaint = useMemo(() => maintenance.filter(m => inFilter(m, "date")), [maintenance, filters, bounds]);
@@ -88,7 +90,7 @@ export default function HostPnL() {
 
   const prevNetProfit = useMemo(() => {
     if (!prevBounds) return null;
-    const prevP = payouts.filter(p => inBounds(p.payout_date || p.created_date, prevBounds));
+    const prevP = payouts.filter(p => p.status === 'paid' && inBounds(p.payout_date || p.created_date, prevBounds));
     const pnp = prevP.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
     const pe = expenses.filter(e => inBounds(e.date, prevBounds)).reduce((s, e) => s + (e.amount || 0), 0);
     const pm = maintenance.filter(m => inBounds(m.date, prevBounds)).reduce((s, m) => s + (m.cost || 0), 0);
@@ -105,13 +107,14 @@ export default function HostPnL() {
       const vPayments = paymentLogs.filter(p => p.vehicle_id === v.id && p.status === "paid" && inBounds(p.paid_at || p.created_date, bounds));
       const vGross = vPayments.reduce((s, p) => s + (p.amount || 0), 0);
       const vPayoutItems = payouts.filter(p => {
+        if (p.status !== 'paid') return false;
         const linked = paymentLogs.find(pl => pl.vehicle_id === v.id && pl.booking_request_id === p.booking_request_id);
         return linked && inBounds(p.payout_date || p.created_date, bounds);
       });
       const vNetPayout = vPayoutItems.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
       const vExpCost = expenses.filter(e => e.vehicle_id === v.id && inBounds(e.date, bounds)).reduce((s, e) => s + (e.amount || 0), 0);
       const vMaintCost = maintenance.filter(m => m.vehicle_id === v.id && inBounds(m.date, bounds)).reduce((s, m) => s + (m.cost || 0), 0);
-      const vDisputeCost = disputes.filter(d => d.vehicle_id === v.id).reduce((s, d) => s + (d.resolution_amount_to_customer || 0), 0);
+      const vDisputeCost = disputes.filter(d => d.vehicle_id === v.id && inBounds(d.created_date, bounds)).reduce((s, d) => s + (d.resolution_amount_to_customer || 0), 0);
       const totalVCosts = vExpCost + vMaintCost + vDisputeCost;
       if (vGross === 0 && totalVCosts === 0) return null;
       return {
@@ -129,7 +132,7 @@ export default function HostPnL() {
 
   const trendData = useMemo(() => {
     const map = {};
-    rangedPayouts.forEach(p => {
+    paidPayouts.forEach(p => {
       const d = new Date(p.payout_date || p.created_date);
       const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       if (!map[k]) map[k] = { payout: 0, costs: 0 };
@@ -145,7 +148,7 @@ export default function HostPnL() {
       month: month.slice(5), payout: Math.round(v.payout),
       costs: Math.round(v.costs), profit: Math.round(v.payout - v.costs),
     }));
-  }, [rangedPayouts, rangedExpenses, rangedMaint]);
+  }, [paidPayouts, rangedExpenses, rangedMaint]);
 
   const expBreakdown = useMemo(() => {
     const map = {};
@@ -218,7 +221,7 @@ export default function HostPnL() {
       <PnLFilters filters={filters} onChange={setFilters} vehicles={vehicles} />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Gross Revenue" value={`$${Math.round(grossRevenue).toLocaleString()}`} color="text-emerald-600" bg="bg-emerald-50 border-emerald-100" icon={DollarSign} sub={`${rangedPayouts.length} payouts`} />
+        <KpiCard label="Gross Revenue" value={`$${Math.round(grossRevenue).toLocaleString()}`} color="text-emerald-600" bg="bg-emerald-50 border-emerald-100" icon={DollarSign} sub={`${paidPayouts.length} paid${rangedPayouts.length > paidPayouts.length ? ` · ${rangedPayouts.length - paidPayouts.length} pending` : ''}`} />
         <KpiCard label="Net Payout" value={`$${Math.round(netPayout).toLocaleString()}`} color="text-blue-600" bg="bg-blue-50 border-blue-100" icon={Wallet} sub={`After ${feeRate}% fees`} />
         <KpiCard label="Total Costs" value={`$${Math.round(totalCosts).toLocaleString()}`} color="text-red-500" bg="bg-red-50 border-red-100" icon={TrendingDown} sub={`Exp $${Math.round(totalExpenses).toLocaleString()} + Maint $${Math.round(totalMaint).toLocaleString()}`} />
         <KpiCard label="Net Profit" value={netProfit >= 0 ? `+$${Math.round(netProfit).toLocaleString()}` : `-$${Math.abs(Math.round(netProfit)).toLocaleString()}`}

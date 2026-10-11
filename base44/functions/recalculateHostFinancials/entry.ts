@@ -67,22 +67,24 @@ Deno.serve(async (req) => {
       let totalPendingPayouts = 0;
 
       for (const payout of payouts) {
+        // Skip voided duplicates entirely — they are not real financial events
+        if (payout.status === 'voided_duplicate') continue;
+
         const netAmount = payout.net_host_payout || payout.net_payout || 0;
         
-        if (['paid', 'pending', 'processing'].includes(payout.status)) {
-          totalEarnings += netAmount;
-        }
-        
         if (payout.status === 'paid') {
+          totalEarnings += netAmount;
           totalPaidOut += netAmount;
-        } else if (['failed', 'failed_requires_manual_review', 'voided_duplicate'].includes(payout.status)) {
+        } else if (['failed', 'failed_requires_manual_review'].includes(payout.status)) {
           totalFailedPayouts += netAmount;
         } else if (['pending', 'processing', 'on_hold', 'on_hold_stripe_balance', 'held'].includes(payout.status)) {
           totalPendingPayouts += netAmount;
         }
       }
 
-      result.total_earnings = Math.round(totalEarnings * 100) / 100;
+      // total_earnings = gross revenue from PaymentLog (what customers actually paid)
+      // total_payouts = net amount actually transferred to host (from paid HostPayout records)
+      result.total_earnings = Math.round(totalGrossRevenue * 100) / 100;
       result.total_paid_out = Math.round(totalPaidOut * 100) / 100;
       result.total_failed_payouts = Math.round(totalFailedPayouts * 100) / 100;
       result.total_pending_payouts = Math.round(totalPendingPayouts * 100) / 100;
