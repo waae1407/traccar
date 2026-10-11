@@ -89,11 +89,18 @@ Deno.serve(async (req) => {
       result.total_failed_payouts = Math.round(totalFailedPayouts * 100) / 100;
       result.total_pending_payouts = Math.round(totalPendingPayouts * 100) / 100;
 
-      // 3. Update Host cached fields
+      // 3. Count vehicles for this host
+      const hostVehicles = await base44.asServiceRole.entities.Vehicle.filter({
+        host_id: host.id
+      });
+      result.total_vehicles = hostVehicles.length;
+
+      // 4. Update Host cached fields
       if (!dryRun) {
         await base44.asServiceRole.entities.Host.update(host.id, {
           total_earnings: result.total_earnings,
           total_payouts: result.total_paid_out, // Legacy field = actually paid out
+          total_vehicles: result.total_vehicles,
         });
       }
 
