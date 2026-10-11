@@ -9,6 +9,7 @@ import QuickCommandMenu from "@/components/host/fleetmap/QuickCommandMenu";
 import FleetAlertFeed from "@/components/host/fleetmap/FleetAlertFeed";
 import FleetMapBottomNav from "@/components/host/fleetmap/FleetMapBottomNav";
 import AddPrivateVehicleSheet from "@/components/host/fleetmap/AddPrivateVehicleSheet";
+import PaymentMonitorScorecard from "@/components/host/fleetmap/PaymentMonitorScorecard";
 
 const ACTIVE_RENTAL_STATUSES = new Set(["active", "confirmed", "approved", "checked_out", "return_required", "payment_due", "grace_period"]);
 
@@ -327,6 +328,18 @@ export default function HostFleetMap() {
           </div>
         </div>
       </div>
+
+      {/* ── Payment Monitor Scorecard (top-left, below filter chips) ── */}
+      <PaymentMonitorScorecard
+        host={host}
+        vehicles={vehicles}
+        bookings={bookings}
+        onVehicleFocus={(vehicleId) => {
+          setFocusVehicleId(vehicleId);
+          const v = vehicles.find((v) => v.id === vehicleId);
+          if (v) setSelectedVehicle(v);
+        }}
+      />
 
       {/* ── Fullscreen toggle (top-right, for TV/desktop monitoring) ── */}
       <button
