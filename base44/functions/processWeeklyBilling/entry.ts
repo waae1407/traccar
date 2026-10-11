@@ -265,6 +265,13 @@ Deno.serve(async (req) => {
       if (b.return_completed_at && b.post_inspection_geofence_verified) return false;
       if (!b.start_date) return false;
       if (!b.next_billing_date) return false;
+      // ── VEHICLE_ID GUARD: never charge a booking without a vehicle_id ──
+      // A booking without vehicle_id creates orphaned PaymentLog records that
+      // are invisible in per-vehicle P&L. Skip and alert instead of charging.
+      if (!b.vehicle_id) {
+        console.warn(`[WeeklyBilling] Skipping ${b.id} — no vehicle_id, would create orphaned PaymentLog`);
+        return false;
+      }
 
       const nextBilling = new Date(b.next_billing_date);
       nextBilling.setHours(0, 0, 0, 0);

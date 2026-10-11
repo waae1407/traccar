@@ -999,6 +999,57 @@ Deno.serve(async (req) => {
               });
               await base44.asServiceRole.functions.invoke('autoApproveBooking', { booking_request_id: bookingRequestId, source: 'stripe_webhook_host_stripe' }).catch((error) => console.error('[AutoApprove]', error.message));
 
+              // ── Create PaymentLog for FleetOS host-direct payments ──
+              // Previously this path skipped PaymentLog creation entirely, making
+              // FleetOS payments invisible in the P&L.
+              const fleetGrossAmount = pi.amount / 100;
+              const fleetChargeData = pi.charges?.data?.[0];
+              const fleetExistingLogs = await base44.asServiceRole.entities.PaymentLog.filter({ stripe_payment_intent_id: pi.id });
+              if (fleetExistingLogs.length === 0 && fleetGrossAmount > 0) {
+                const fleetWeekNumber = computeWeekNumberFromBillingDate(booking.start_date, booking.next_billing_date || booking.start_date) || Number(pi.metadata?.week_number) || 1;
+                const fleetPaidAt = new Date().toISOString();
+                const fleetSourceType = classifyPaymentSource({ paymentIntentId: pi.id, recordedBy: 'stripe_webhook' });
+                const fleetDedupeKey = generatePaymentDedupeKey({ sourceType: fleetSourceType, bookingId: bookingRequestId, weekNumber: fleetWeekNumber, amount: fleetGrossAmount, paidAt: fleetPaidAt, paymentIntentId: pi.id, paymentMethod: 'stripe' });
+
+                // Resolve vehicle_id with fallback (same logic as rental_marketplace_payment path)
+                let fleetVehicleId = booking.vehicle_id || '';
+                if (!fleetVehicleId && booking.host_id) {
+                  try {
+                    const hostVehicles = await base44.asServiceRole.entities.Vehicle.filter({ host_id: booking.host_id }, '-updated_date', 1);
+                    fleetVehicleId = hostVehicles[0]?.id || '';
+                  } catch (_) { /* best-effort */ }
+                }
+
+                await base44.asServiceRole.entities.PaymentLog.create({
+                  booking_request_id: bookingRequestId,
+                  host_id: booking.host_id || '',
+                  customer_email: booking.user_email,
+                  customer_name: booking.customer_full_name || '',
+                  vehicle_id: fleetVehicleId,
+                  vehicle_name: booking.vehicle_name || '',
+                  week_number: fleetWeekNumber,
+                  billing_period_start: booking.start_date || '',
+                  billing_period_end: booking.end_date || '',
+                  amount: fleetGrossAmount,
+                  currency: pi.currency || 'usd',
+                  payment_method: 'stripe',
+                  source_type: fleetSourceType,
+                  source_confidence: classifyPaymentConfidence({ paymentIntentId: pi.id }),
+                  legacy_flag: false,
+                  external_reconcilable: true,
+                  dedupe_key: fleetDedupeKey,
+                  stripe_payment_intent_id: pi.id,
+                  stripe_charge_id: fleetChargeData?.id || '',
+                  stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
+                  stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
+                  stripe_receipt_url: fleetChargeData?.receipt_url || '',
+                  receipt_url: fleetChargeData?.receipt_url || '',
+                  status: 'paid',
+                  recorded_by: 'stripe_webhook_fleetos',
+                  paid_at: fleetPaidAt,
+                });
+              }
+
               // ── Auto-restore starter after payment recovery ──
               if (booking) {
                 await restoreStarterAfterPayment(base44, booking, pi.id, pi.amount / 100);
@@ -1150,12 +1201,33 @@ Deno.serve(async (req) => {
               const paidAt = new Date().toISOString();
               const sourceType = classifyPaymentSource({ paymentIntentId: pi.id, recordedBy: 'stripe_webhook' });
               const dedupeKey = generatePaymentDedupeKey({ sourceType, bookingId: bookingRequestId, weekNumber, amount: grossAmount, paidAt, paymentIntentId: pi.id, paymentMethod: 'stripe' });
+
+              // ── VEHICLE_ID RESOLUTION: ensure vehicle_id is never missing ──
+              // If booking.vehicle_id is absent (edge case during booking creation/update),
+              // try to resolve from the Vehicle entity by host_id. If still missing, create
+              // a payment alert so ops can fix it manually — but still create the PaymentLog
+              // so the payment is recorded.
+              let resolvedVehicleId = booking.vehicle_id || '';
+              if (!resolvedVehicleId && resolvedHostId) {
+                try {
+                  const hostVehicles = await base44.asServiceRole.entities.Vehicle.filter({ host_id: resolvedHostId }, '-updated_date', 1);
+                  if (hostVehicles[0]) {
+                    resolvedVehicleId = hostVehicles[0].id;
+                    console.warn(`[Webhook] vehicle_id was missing for booking ${bookingRequestId} — resolved to ${resolvedVehicleId} from host vehicles`);
+                  }
+                } catch (_) { /* best-effort */ }
+              }
+              if (!resolvedVehicleId) {
+                console.error(`[Webhook] WARNING: PaymentLog created without vehicle_id for booking ${bookingRequestId} — booking may be in an inconsistent state`);
+                await createPaymentAlert(base44, { alert_type: 'orphaned_payment_log', severity: 'warning', billing_context: 'rental_marketplace_payment', booking_id: bookingRequestId, host_id: resolvedHostId, title: 'PaymentLog missing vehicle_id', message: `Payment ${pi.id} for booking ${bookingRequestId} was created without vehicle_id — booking may be in an inconsistent state.`, recommended_action: 'Verify booking vehicle_id and backfill the PaymentLog.', financial_impact_amount: grossAmount, currency: pi.currency || 'usd', source: 'stripe_webhook' }).catch(() => {});
+              }
+
               const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
                 booking_request_id: bookingRequestId,
                 host_id: resolvedHostId,
                 customer_email: booking.user_email,
                 customer_name: booking.customer_full_name || '',
-                vehicle_id: booking.vehicle_id,
+                vehicle_id: resolvedVehicleId,
                 vehicle_name: resolvedVehicleName,
                 week_number: weekNumber,
                 billing_period_start: booking.start_date || '',
