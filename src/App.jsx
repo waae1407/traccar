@@ -28,6 +28,7 @@ import CheckoutFlow from '@/pages/checkout/CheckoutFlow';
 
 // Admin CRM pages
 import Dashboard from '@/pages/Dashboard';
+import AdminFleetMap from '@/pages/admin/AdminFleetMap';
 import Customers from '@/pages/Customers';
 import Vehicles from '@/pages/Vehicles';
 import Bookings from '@/pages/Bookings';
@@ -307,9 +308,12 @@ const AuthenticatedApp = () => {
       {/* ── CHECKOUT (standalone, no customer layout chrome) ── */}
       <Route path="/checkout" element={<CheckoutFlow />} />
 
+      {/* ── ADMIN FLEET MAP (standalone, no sidebar — like host fleet map) ── */}
+      <Route path="/dashboard" element={<AdminGuard><AdminFleetMap /></AdminGuard>} />
+
       {/* ── ADMIN ROUTES (admin-only, uses dark CRM layout) ── */}
       <Route element={<AdminGuard><AppLayout /></AdminGuard>}>
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard-classic" element={<Dashboard />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/vehicles" element={<Vehicles />} />
         <Route path="/bookings-admin" element={<Bookings />} />

@@ -59,6 +59,14 @@ const TYPE_LABELS = {
   payout: "Payout Issue",
   booking_payment: "Payment Issue",
   grace: "Grace Period",
+  payment_failed: "Payment Failed",
+  grace_period_expired: "Grace Period Expired",
+  rental_overdue: "Rental Overdue",
+  payout_retry_exhausted: "Payout Retry Exhausted",
+  payment_failed_vehicle_disabled: "Vehicle Access Disabled",
+  rental_payment_failed: "Rental Payment Failed",
+  gps_offline_72h: "GPS Device Offline",
+  stripe_account_restricted: "Stripe Account Restricted",
 };
 
 function timeAgo(dateStr) {

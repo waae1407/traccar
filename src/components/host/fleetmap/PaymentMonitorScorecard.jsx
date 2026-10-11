@@ -24,6 +24,12 @@ const ADMIN_ONLY_TYPES = new Set([
   "alert_resolved",
   "refund_recorded",
   "payment_recovered",
+  "host_admin_escalation",
+  "payout_retry_exhausted",
+  "booking_issues_detected",
+  "test_resend_migration",
+  "booking_integrity_audit_complete",
+  "notification_gap_detected",
 ]);
 
 // Alert types that are critical (red) — host-actionable
@@ -183,6 +189,9 @@ export default function PaymentMonitorScorecard({ host, vehicles = [], bookings 
     // From bookings with payment issues
     for (const b of bookings) {
       if (!b.vehicle_id) continue;
+      // Apply same 14-day freshness cutoff as alerts
+      const bookingDate = b.last_payment_failure_at || b.grace_period_started_at || b.created_date;
+      if (bookingDate && new Date(bookingDate).getTime() < freshnessCutoff) continue;
       if (b.booking_status === "payment_due" || b.payment_status === "failed" || b.payment_status === "overdue") {
         items.push({
           id: `booking-${b.id}`,

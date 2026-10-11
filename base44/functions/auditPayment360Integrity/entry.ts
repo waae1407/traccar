@@ -214,6 +214,56 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Auto-resolve stale payment alerts ──
+    // When a booking's payment is now successful, resolve old failure alerts
+    // so they stop showing on the host's Payment Monitor scorecard.
+    const STALE_PAYMENT_ALERT_TYPES = [
+      'payment_failed', 'weekly_billing_failed', 'rental_payment_failed',
+      'payment_failed_vehicle_disabled', 'grace_period_expired',
+    ];
+    let staleResolved = 0;
+    for (const alertType of STALE_PAYMENT_ALERT_TYPES) {
+      const openAlerts = await base44.asServiceRole.entities.PaymentOperationalAlert.filter({
+        alert_type: alertType,
+        status: { $nin: ['resolved', 'dismissed', 'closed'] },
+      }, '-created_date', 50).catch(() => []);
+      for (const alert of openAlerts) {
+        if (!alert.booking_id) continue;
+        const booking = paidBookings.find(b => b.id === alert.booking_id);
+        if (booking && !['payment_due', 'grace_period', 'suspended'].includes(booking.booking_status)) {
+          await base44.asServiceRole.entities.PaymentOperationalAlert.update(alert.id, {
+            status: 'resolved',
+            resolved_at: new Date().toISOString(),
+            resolved_by: 'auditPayment360Integrity:auto',
+            resolution_notes: 'Auto-resolved: booking payment_status is now paid',
+          }).catch(() => {});
+          staleResolved++;
+        }
+      }
+    }
+
+    // Auto-resolve failed_payouts_require_attention if host has no failed payouts
+    const failedPayoutAlerts = await base44.asServiceRole.entities.PaymentOperationalAlert.filter({
+      alert_type: 'failed_payouts_require_attention',
+      status: { $nin: ['resolved', 'dismissed', 'closed'] },
+    }, '-created_date', 50).catch(() => []);
+    for (const alert of failedPayoutAlerts) {
+      if (!alert.host_id) continue;
+      const hostFailedPayouts = await base44.asServiceRole.entities.HostPayout.filter({
+        host_id: alert.host_id,
+        status: { $in: ['failed', 'failed_requires_manual_review'] },
+      }).catch(() => []);
+      if (hostFailedPayouts.length === 0) {
+        await base44.asServiceRole.entities.PaymentOperationalAlert.update(alert.id, {
+          status: 'resolved',
+          resolved_at: new Date().toISOString(),
+          resolved_by: 'auditPayment360Integrity:auto',
+          resolution_notes: 'Auto-resolved: no failed payouts remain for this host',
+        }).catch(() => {});
+        staleResolved++;
+      }
+    }
+
     // 2. Check for orphan HostPayouts
     const orphanPayouts = await base44.asServiceRole.entities.HostPayout.filter({
       booking_request_id: { $exists: false }
@@ -392,6 +442,7 @@ Deno.serve(async (req) => {
         return acc;
       }, {}),
       billing_self_heal_triggered: billingSelfHealTriggered,
+      stale_alerts_resolved: staleResolved,
       timestamp: new Date().toISOString(),
     };
 
