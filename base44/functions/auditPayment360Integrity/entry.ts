@@ -1,5 +1,6 @@
 /**
- * auditPayment360Integrity v1.0 - Payment360 Production Certified
+ * auditPayment360Integrity v1.1 - Payment360 Production Certified
+ * Fixed: Skip duplicate checks for active recurring (weekly/monthly) bookings.
  *
  * Scheduled integrity audit — runs every 15 minutes to detect payment/payout issues.
  * Creates OperationalAlerts for all detected issues.
@@ -109,7 +110,11 @@ Deno.serve(async (req) => {
       }
 
       // Check for duplicate HostPayouts
-      if (payouts.length > 1) {
+      // Skip for active recurring rentals — weekly/monthly bookings legitimately have
+      // multiple payouts (one per billing cycle), which are NOT duplicates.
+      const isRecurringActive = ['active', 'checked_out'].includes(booking.booking_status)
+        && ['Weekly', 'Monthly'].includes(booking.booking_type);
+      if (payouts.length > 1 && !isRecurringActive) {
         const paidPayouts = payouts.filter(p => p.status === 'paid');
         if (paidPayouts.length > 1) {
           await createPaymentAlert(base44, {
@@ -132,7 +137,9 @@ Deno.serve(async (req) => {
       }
 
       // Check for duplicate PaymentLogs
-      const allPaymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({
+      // Skip for active recurring rentals — weekly/monthly bookings legitimately have
+      // multiple payment logs (one per billing cycle), which are NOT duplicates.
+      const allPaymentLogs = isRecurringActive ? [] : await base44.asServiceRole.entities.PaymentLog.filter({
         booking_request_id: booking.id
       });
       
