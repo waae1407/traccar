@@ -261,6 +261,99 @@ Deno.serve(async (req) => {
       console.error('[AuditPayment360Integrity] Billing self-heal failed:', e.message);
     }
 
+    // ── Check for stale pending payouts (pending > 7 days) ──
+    // These are payouts that should have been transferred but haven't been picked up
+    // by processPendingHostPayouts (e.g., missing hold_reason or release_after).
+    const allPendingPayouts = await base44.asServiceRole.entities.HostPayout.filter({
+      status: 'pending',
+    }, '-created_date', 100);
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const stalePending = allPendingPayouts.filter(p => new Date(p.created_date) < sevenDaysAgo);
+
+    const staleByHost = {};
+    for (const p of stalePending) {
+      if (!staleByHost[p.host_id]) {
+        staleByHost[p.host_id] = { host_name: p.host_name, host_email: p.host_email, count: 0, total: 0, oldest: p.created_date };
+      }
+      staleByHost[p.host_id].count++;
+      staleByHost[p.host_id].total += p.net_host_payout || 0;
+      if (new Date(p.created_date) < new Date(staleByHost[p.host_id].oldest)) {
+        staleByHost[p.host_id].oldest = p.created_date;
+      }
+    }
+
+    for (const [hostId, data] of Object.entries(staleByHost)) {
+      await createPaymentAlert(base44, {
+        alert_type: 'stale_pending_payouts',
+        severity: 'high',
+        billing_context: 'payout',
+        host_id: hostId,
+        title: `Stale pending payouts — ${data.host_name} ($${data.total.toFixed(2)})`,
+        message: `${data.count} payout(s) totaling $${data.total.toFixed(2)} have been pending since ${data.oldest.split('T')[0]}. These should have been transferred to the host.`,
+        recommended_action: 'Run processPendingHostPayouts to attempt transfer. Verify hold_reason and release_after are set.',
+        financial_impact_amount: data.total,
+        source: 'auditPayment360Integrity',
+      });
+      alertsCreated.push({ type: 'stale_pending_payouts', host_id: hostId, count: data.count });
+
+      // Notify the host directly
+      if (data.host_email) {
+        await base44.asServiceRole.entities.Notification.create({
+          recipient_email: data.host_email,
+          title: `⚠️ Payout Delayed — $${data.total.toFixed(2)} pending`,
+          body: `You have ${data.count} payout(s) totaling $${data.total.toFixed(2)} that have been pending since ${data.oldest.split('T')[0]}. We are working to transfer these to your Stripe account. No action is needed from you at this time.`,
+          type: 'payment',
+        }).catch(() => {});
+      }
+    }
+
+    // ── Check for failed payouts requiring attention ──
+    const failedPayouts = await base44.asServiceRole.entities.HostPayout.filter({
+      status: { $in: ['failed', 'failed_requires_manual_review'] },
+    }, '-created_date', 50);
+
+    const failedByHost = {};
+    for (const p of failedPayouts) {
+      if (!failedByHost[p.host_id]) {
+        failedByHost[p.host_id] = { host_name: p.host_name, host_email: p.host_email, count: 0, total: 0 };
+      }
+      failedByHost[p.host_id].count++;
+      failedByHost[p.host_id].total += p.net_host_payout || 0;
+    }
+
+    for (const [hostId, data] of Object.entries(failedByHost)) {
+      // Dedup: only alert once per host per day
+      const recentAlert = await base44.asServiceRole.entities.PaymentOperationalAlert.filter({
+        alert_type: 'failed_payouts_require_attention',
+        host_id: hostId,
+        created_date: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() },
+      }, '-created_date', 1);
+      if (recentAlert.length > 0) continue;
+
+      await createPaymentAlert(base44, {
+        alert_type: 'failed_payouts_require_attention',
+        severity: 'critical',
+        billing_context: 'payout',
+        host_id: hostId,
+        title: `Failed payouts — ${data.host_name} ($${data.total.toFixed(2)})`,
+        message: `${data.count} payout(s) totaling $${data.total.toFixed(2)} have failed transfer. Manual review required.`,
+        recommended_action: 'Check Stripe balance and host Stripe account status. Retry transfer or resolve manually.',
+        financial_impact_amount: data.total,
+        source: 'auditPayment360Integrity',
+      });
+      alertsCreated.push({ type: 'failed_payouts_require_attention', host_id: hostId, count: data.count });
+
+      if (data.host_email) {
+        await base44.asServiceRole.entities.Notification.create({
+          recipient_email: data.host_email,
+          title: `🚨 Payout Failed — $${data.total.toFixed(2)} requires attention`,
+          body: `${data.count} payout(s) totaling $${data.total.toFixed(2)} could not be transferred to your Stripe account. Our team has been notified and is reviewing. If you have questions, please contact support.`,
+          type: 'payment',
+        }).catch(() => {});
+      }
+    }
+
     const summary = {
       total_alerts: alertsCreated.length,
       alert_types: alertsCreated.reduce((acc, a) => {

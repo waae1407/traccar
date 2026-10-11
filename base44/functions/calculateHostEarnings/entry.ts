@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
         platform_fee: uridePlatformFee,
         net_payout: netPayout,
         status: "pending",
+        hold_reason: "reserve_window",
         booking_count: hostData.logs.length,
         vehicle_count: hostData.vehicleIds.size,
       });

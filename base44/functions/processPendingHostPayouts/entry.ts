@@ -30,9 +30,11 @@ Deno.serve(async (req) => {
     const results = { processed: 0, succeeded: 0, failed: 0, skipped: 0, details: [] };
 
     // Find all pending payouts whose 48-hour reserve window has passed
+    // Pick up ALL pending payouts except those blocked by dispute/chargeback/compliance/admin_override
+    // (previously only picked up hold_reason='reserve_window', missing payouts without a hold_reason)
     const pendingPayouts = await base44.asServiceRole.entities.HostPayout.filter({
       status: 'pending',
-      hold_reason: 'reserve_window',
+      hold_reason: { $nin: ['dispute', 'chargeback', 'compliance', 'admin_override'] },
     }, '-created_date', 50);
 
     // Also find payouts stuck on_hold due to Stripe balance sweeping (retryable)
@@ -175,12 +177,11 @@ Deno.serve(async (req) => {
         }
 
         await base44.asServiceRole.entities.Host.update(host.id, {
-          total_earnings: (host.total_earnings || 0) + (payout.gross_booking_amount || 0),
           total_payouts: (host.total_payouts || 0) + (payout.net_host_payout || 0),
         });
 
         await base44.asServiceRole.entities.Notification.create({
-          user_email: host.email,
+          recipient_email: host.email,
           title: `💰 Payout Sent — $${(payout.net_host_payout || 0).toLocaleString()}`,
           body: `Your payout of $${payout.net_host_payout} for booking ${payout.booking_request_id} has been transferred to your Stripe account. The 48-hour chargeback protection window has passed successfully.`,
           type: 'payment',
