@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { DollarSign, Zap } from "lucide-react";
+import { DollarSign, Zap, Receipt } from "lucide-react";
+import ReceivableManager from "@/components/admin/payouts/ReceivableManager";
 import {
   OperationalPageShell,
   OperationalHero,
@@ -126,6 +127,16 @@ export default function AdminPayouts() {
           })}
         </div>
       </OperationalDataSection>
+
+      {/* ── Host Receivables ── */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center gap-2">
+          <Receipt className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-bold text-white">Host Receivables</h2>
+          <span className="text-sm text-white/40">— recover owed fees from future payouts</span>
+        </div>
+        <ReceivableManager hosts={hosts} />
+      </div>
 
       <OperationalPagination mode="admin" page={page} pageSize={PAGE_SIZE} total={filtered.length} onPageChange={setPage} />
       <OperationalDetailDrawer mode="admin" title="Payout detail" record={selected} open={!!selected} onClose={() => setSelected(null)} fields={[
