@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
       // Skip for active recurring rentals — weekly/monthly bookings legitimately have
       // multiple payouts (one per billing cycle), which are NOT duplicates.
       const isRecurringActive = ['active', 'checked_out'].includes(booking.booking_status)
-        && ['Weekly', 'Monthly'].includes(booking.booking_type);
+        && ['Weekly', 'Monthly', 'Rent-to-Own', 'Commercial'].includes(booking.booking_type);
       if (payouts.length > 1 && !isRecurringActive) {
         const paidPayouts = payouts.filter(p => p.status === 'paid');
         if (paidPayouts.length > 1) {

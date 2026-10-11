@@ -92,11 +92,20 @@ export default function HostPnL() {
     return true;
   }), [payouts, bounds, filters, bookingVehicleMap]);
   const paidPayouts = useMemo(() => rangedPayouts.filter(p => p.status === 'paid'), [rangedPayouts]);
-  const grossRevenue = useMemo(() => paidPayouts.reduce((s, p) => s + (p.gross_booking_amount || p.gross_collected || 0), 0), [paidPayouts]);
+  // Gross revenue from actual customer payments (PaymentLog), not payouts.
+  // This ensures the P&L always shows the full amount collected from the customer,
+  // even when a HostPayout record hasn't been created yet (e.g. host Stripe not connected).
+  const rangedPaymentLogs = useMemo(() => paymentLogs.filter(p => {
+    if (p.status !== 'paid') return false;
+    if (!inBounds(p.paid_at || p.created_date, bounds)) return false;
+    if (filters.vehicleId && p.vehicle_id !== filters.vehicleId) return false;
+    return true;
+  }), [paymentLogs, bounds, filters]);
+  const grossRevenue = useMemo(() => rangedPaymentLogs.reduce((s, p) => s + (p.amount || 0), 0), [rangedPaymentLogs]);
   const netPayout = useMemo(() => paidPayouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [paidPayouts]);
   const platformFees = useMemo(() => paidPayouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0), [paidPayouts]);
-  const stripeFees = useMemo(() => paidPayouts.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0), [paidPayouts]);
-  const pendingPayoutTotal = useMemo(() => rangedPayouts.filter(p => p.status === 'pending').reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [rangedPayouts]);
+  const stripeFees = useMemo(() => rangedPaymentLogs.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0), [rangedPaymentLogs]);
+  const pendingPayoutTotal = useMemo(() => rangedPayouts.filter(p => p.status === 'pending' || p.status === 'held').reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [rangedPayouts]);
 
   const rangedExpenses = useMemo(() => expenses.filter(e => inFilter(e, "date")), [expenses, filters, bounds]);
   const rangedMaint = useMemo(() => maintenance.filter(m => inFilter(m, "date")), [maintenance, filters, bounds]);
@@ -209,15 +218,18 @@ export default function HostPnL() {
   // ── Detail data for clickable cards ──
   const detailGross = {
     title: "Gross Revenue",
-    subtitle: `${paidPayouts.length} paid payout${paidPayouts.length !== 1 ? "s" : ""}${rangedPayouts.length > paidPayouts.length ? ` · ${rangedPayouts.length - paidPayouts.length} pending` : ""}`,
+    subtitle: `${rangedPaymentLogs.length} customer payment${rangedPaymentLogs.length !== 1 ? "s" : ""}${rangedPayouts.filter(p => p.status === 'pending' || p.status === 'held').length > 0 ? ` · ${rangedPayouts.filter(p => p.status === 'pending' || p.status === 'held').length} payout pending` : ""}`,
     columns: [
       { key: "date", label: "Date", type: "date" },
       { key: "vehicle", label: "Vehicle" },
-      { key: "gross", label: "Gross", type: "currency" },
+      { key: "gross", label: "Amount", type: "currency" },
       { key: "status", label: "Status", type: "status" },
     ],
-    rows: paidPayouts.map(p => ({ _id: p.id, date: p.payout_date || p.created_date, vehicle: payoutVehicleName(p), gross: p.gross_booking_amount || p.gross_collected || 0, status: p.status })),
-    summary: [{ label: "Total Gross", value: `$${Math.round(grossRevenue).toLocaleString()}` }],
+    rows: rangedPaymentLogs.map(p => {
+      const v = p.vehicle_id ? vehicleMap[p.vehicle_id] : null;
+      return { _id: p.id, date: p.paid_at || p.created_date, vehicle: v ? `${v.year} ${v.make} ${v.model}` : p.vehicle_name || "—", gross: p.amount, status: p.status };
+    }),
+    summary: [{ label: "Total Collected", value: `$${Math.round(grossRevenue).toLocaleString()}` }],
   };
 
   const detailNetPayout = {
@@ -342,7 +354,7 @@ export default function HostPnL() {
 
   const detailPending = {
     title: "Pending Payouts",
-    subtitle: `${rangedPayouts.filter(p => p.status === "pending").length} payout${rangedPayouts.filter(p => p.status === "pending").length !== 1 ? "s" : ""} awaiting transfer`,
+    subtitle: `${rangedPayouts.filter(p => p.status === "pending" || p.status === "held").length} payout${rangedPayouts.filter(p => p.status === "pending" || p.status === "held").length !== 1 ? "s" : ""} awaiting transfer`,
     columns: [
       { key: "date", label: "Date", type: "date" },
       { key: "vehicle", label: "Vehicle" },
@@ -350,7 +362,7 @@ export default function HostPnL() {
       { key: "net", label: "Net Payout", type: "currency" },
       { key: "status", label: "Status", type: "status" },
     ],
-    rows: rangedPayouts.filter(p => p.status === "pending").map(p => ({ _id: p.id, date: p.payout_date || p.created_date, vehicle: payoutVehicleName(p), gross: p.gross_booking_amount || 0, net: p.net_host_payout || p.net_payout || 0, status: p.status })),
+    rows: rangedPayouts.filter(p => p.status === "pending" || p.status === "held").map(p => ({ _id: p.id, date: p.payout_date || p.created_date, vehicle: payoutVehicleName(p), gross: p.gross_booking_amount || 0, net: p.net_host_payout || p.net_payout || 0, status: p.status })),
     summary: [{ label: "Total Pending", value: `$${Math.round(pendingPayoutTotal).toLocaleString()}` }],
   };
 
@@ -418,7 +430,7 @@ export default function HostPnL() {
         <KpiCard label="Avg Profit / Vehicle" value={vehicleRows.length > 0 ? `${Math.round(netProfit / vehicleRows.length) >= 0 ? "+" : "-"}$${Math.abs(Math.round(netProfit / vehicleRows.length)).toLocaleString()}` : "\u2014"} color="text-gray-700" bg="bg-white border-gray-100" onClick={() => setDetail(detailAvgProfit)} />
         <KpiCard label="Best Vehicle" value={bestVehicle ? bestVehicle.name.split(" ").slice(1).join(" ") : "\u2014"} color="text-emerald-600" bg="bg-emerald-50 border-emerald-100" sub={bestVehicle ? `+$${Math.round(bestVehicle.net).toLocaleString()}` : undefined} onClick={() => setDetail(detailBestVehicle)} />
         <KpiCard label="vs. Prior Period" value={periodChange !== null ? `${periodChange >= 0 ? "+" : ""}$${Math.round(periodChange).toLocaleString()}` : "No data"} color={periodChange === null ? "text-gray-400" : periodChange >= 0 ? "text-emerald-600" : "text-red-500"} bg="bg-white border-gray-100" onClick={() => setDetail(detailPriorPeriod)} />
-        <KpiCard label="Pending Payouts" value={pendingPayoutTotal > 0 ? `$${Math.round(pendingPayoutTotal).toLocaleString()}` : "—"} color={pendingPayoutTotal > 0 ? "text-yellow-600" : "text-gray-400"} bg="bg-yellow-50 border-yellow-100" icon={Wallet} sub={`${rangedPayouts.filter(p => p.status === "pending").length} awaiting transfer`} onClick={() => setDetail(detailPending)} />
+        <KpiCard label="Pending Payouts" value={pendingPayoutTotal > 0 ? `$${Math.round(pendingPayoutTotal).toLocaleString()}` : "—"} color={pendingPayoutTotal > 0 ? "text-yellow-600" : "text-gray-400"} bg="bg-yellow-50 border-yellow-100" icon={Wallet} sub={`${rangedPayouts.filter(p => p.status === "pending" || p.status === "held").length} awaiting transfer`} onClick={() => setDetail(detailPending)} />
       </div>
 
       <PnLInsights vehicleRows={vehicleRows} grossRevenue={grossRevenue} totalCosts={totalCosts} netProfit={netProfit} prevNetProfit={prevNetProfit} dateRange={filters.dateRange} />

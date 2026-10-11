@@ -29,12 +29,12 @@ Deno.serve(async (req) => {
     const now = new Date();
     const results = { processed: 0, succeeded: 0, failed: 0, skipped: 0, details: [] };
 
-    // Find all pending payouts whose 48-hour reserve window has passed
-    // Pick up ALL pending payouts except those blocked by dispute/chargeback/compliance/admin_override
-    // (previously only picked up hold_reason='reserve_window', missing payouts without a hold_reason)
+    // Find all pending/held payouts whose 48-hour reserve window has passed
+    // Pick up ALL pending + held payouts except those blocked by dispute/chargeback/admin_override
+    // (held/compliance payouts are retried here — host Stripe may have been completed since)
     const pendingPayouts = await base44.asServiceRole.entities.HostPayout.filter({
-      status: 'pending',
-      hold_reason: { $nin: ['dispute', 'chargeback', 'compliance', 'admin_override'] },
+      status: { $in: ['pending', 'held'] },
+      hold_reason: { $nin: ['dispute', 'chargeback', 'admin_override'] },
     }, '-created_date', 50);
 
     // Also find payouts stuck on_hold due to Stripe balance sweeping (retryable)

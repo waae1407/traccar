@@ -416,76 +416,86 @@ Deno.serve(async (req) => {
           });
 
           // ── HOST PAYOUT SPLIT (Stripe Connect) ──
+          // ALWAYS create a HostPayout record — even when host Stripe onboarding is incomplete.
+          // When Stripe isn't ready, the payout is created with status="held" and hold_reason="compliance",
+          // so processPendingHostPayouts picks it up automatically once onboarding completes.
           if (resolvedHostId && !isFleetOS) {
             const hosts = await base44.asServiceRole.entities.Host.filter({ id: resolvedHostId });
             const host = hosts[0];
             resolvedHost = host;
-            if (host?.stripe_onboarding_complete && host?.stripe_account_id) {
-              const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: host.id });
-              // Platform fee is on baseAmount (what the platform receives after Stripe takes its cut).
-              // hostAmount = baseAmount - platformFee so Stripe fee is NOT sent to the host.
-              // grossedAmount = baseAmount + stripeFee, and Stripe deducts stripeFee from the charge,
-              // leaving baseAmount in the platform's balance to split correctly.
-              const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
-              const receivableOffset = await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - platformFee), new Date());
-              const hostAmount = Math.round((baseAmount - platformFee - receivableOffset) * 100) / 100;
-              const hostAmountCents = Math.round(hostAmount * 100);
+            const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: resolvedHostId });
+            const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
+            const receivableOffset = await applyReceivableOffset(base44, resolvedHostId, Math.max(0, baseAmount - platformFee), new Date());
+            const hostAmount = Math.round((baseAmount - platformFee - receivableOffset) * 100) / 100;
+            const hostAmountCents = Math.round(hostAmount * 100);
 
-              // Transfer to host's connected Stripe account
-              const transfer = hostAmountCents > 0 ? await stripe.transfers.create({
-                amount: hostAmountCents,
-                currency: "usd",
-                destination: host.stripe_account_id,
-                description: `uRide Week ${weekNum} — ${booking.vehicle_name}`,
-                metadata: { booking_id: booking.id, host_id: host.id, week: String(weekNum), payment_intent_id: paymentIntent.id },
-              }) : { id: '' };
+            const stripeReady = host?.stripe_onboarding_complete && host?.stripe_account_id;
 
-              // Update booking with payout info
-              await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-                platform_fee_amount: platformFee,
-                host_payout_amount: hostAmount,
-                stripe_transfer_id: transfer.id,
-              });
+            let transferId = '';
+            let payoutStatus = 'held';
+            let payoutHoldReason = 'compliance';
+            let payoutHoldNotes = 'Host Stripe onboarding incomplete — payout will be transferred once onboarding is complete.';
 
-              // ── CREATE HostPayout RECORD ─────────────────────────────────────
-              await base44.asServiceRole.entities.HostPayout.create({
-                host_id: host.id,
-                host_email: host.email,
-                host_name: host.full_name,
-                booking_request_id: booking.id,
-                vehicle_name: booking.vehicle_name || "",
-                period_start: booking.next_billing_date,
-                period_end: nextBillingDate,
-                gross_booking_amount: amount,
-                stripe_fee_amount: stripeFee,
-                stripe_effective_rate: parseFloat(((stripeFee / amount) * 100).toFixed(2)),
-                uride_platform_fee_amount: platformFee,
-                uride_platform_fee_rate: commissionRate,
-                receivable_offset_amount: receivableOffset,
-                net_host_payout: hostAmount,
-                net_payout: hostAmount,
-                stripe_payment_intent_id: paymentIntent.id,
-                gross_collected: amount,
-                platform_fee: platformFee,
-                stripe_transfer_id: transfer.id,
-                status: "paid",
-                payout_date: new Date().toISOString().split('T')[0],
-              });
-
-              console.log(`[WeeklyBilling] ✓ Host transfer ${transfer.id} — $${hostAmount} to ${host.stripe_account_id}`);
-
-              // ── NOTIFY HOST: payment succeeded + payout sent ──
-              await notifyHostOfBillingOutcome(base44, {
-                booking, host: resolvedHost, outcome: 'succeeded', weekNum, amount,
-                netPayout: hostAmount, platformFee, stripeFee, nextBillingDate,
-              });
-            } else if (resolvedHost) {
-              // Host Stripe not connected — notify host that payout is held
-              await notifyHostOfBillingOutcome(base44, {
-                booking, host: resolvedHost, outcome: 'succeeded', weekNum, amount,
-                netPayout: null, platformFee: 0, stripeFee, nextBillingDate,
-              });
+            if (stripeReady) {
+              try {
+                const transfer = hostAmountCents > 0 ? await stripe.transfers.create({
+                  amount: hostAmountCents,
+                  currency: "usd",
+                  destination: host.stripe_account_id,
+                  description: `uRide Week ${weekNum} — ${booking.vehicle_name}`,
+                  metadata: { booking_id: booking.id, host_id: host.id, week: String(weekNum), payment_intent_id: paymentIntent.id },
+                }) : { id: '' };
+                transferId = transfer.id;
+                payoutStatus = 'paid';
+                payoutHoldReason = null;
+                payoutHoldNotes = null;
+                console.log(`[WeeklyBilling] ✓ Host transfer ${transfer.id} — $${hostAmount} to ${host.stripe_account_id}`);
+              } catch (transferErr) {
+                console.error(`[WeeklyBilling] Transfer failed for ${host.id}: ${transferErr.message}`);
+                payoutStatus = 'failed';
+                payoutHoldReason = 'compliance';
+                payoutHoldNotes = `Stripe transfer failed: ${transferErr.message}`;
+              }
             }
+
+            await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+              platform_fee_amount: platformFee,
+              host_payout_amount: hostAmount,
+              stripe_transfer_id: transferId,
+              host_payout_status: payoutStatus === 'paid' ? 'paid' : 'pending',
+            });
+
+            await base44.asServiceRole.entities.HostPayout.create({
+              host_id: resolvedHostId,
+              host_email: host?.email || '',
+              host_name: host?.full_name || '',
+              booking_request_id: booking.id,
+              vehicle_name: booking.vehicle_name || "",
+              period_start: booking.next_billing_date,
+              period_end: nextBillingDate,
+              gross_booking_amount: amount,
+              stripe_fee_amount: stripeFee,
+              stripe_effective_rate: parseFloat(((stripeFee / amount) * 100).toFixed(2)),
+              uride_platform_fee_amount: platformFee,
+              uride_platform_fee_rate: commissionRate,
+              receivable_offset_amount: receivableOffset,
+              net_host_payout: hostAmount,
+              net_payout: hostAmount,
+              stripe_payment_intent_id: paymentIntent.id,
+              gross_collected: amount,
+              platform_fee: platformFee,
+              stripe_transfer_id: transferId,
+              status: payoutStatus,
+              hold_reason: payoutHoldReason,
+              hold_notes: payoutHoldNotes,
+              payout_date: payoutStatus === 'paid' ? new Date().toISOString().split('T')[0] : null,
+            });
+
+            await notifyHostOfBillingOutcome(base44, {
+              booking, host: resolvedHost, outcome: 'succeeded', weekNum, amount,
+              netPayout: payoutStatus === 'paid' ? hostAmount : null,
+              platformFee, stripeFee, nextBillingDate,
+            });
           }
 
           // If referral credit was applied, mark it on the referral record
