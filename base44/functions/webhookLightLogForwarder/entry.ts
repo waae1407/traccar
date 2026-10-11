@@ -1176,9 +1176,22 @@ Deno.serve(async (req) => {
 
     if (device && parsed.device_updates) {
       const oldLockState = device.lock_state;
-      const newLockState = parsed.device_updates.lock_state;
+      // 0x8009 ACK packets carry stale bEnable status bits — the bits reflect
+      // the device state at the instant the command was received, BEFORE the
+      // command takes effect. Applying lock_state from these ACKs overwrites
+      // the correct state and triggers false lock-starter enforcement cycles
+      // (e.g., disable_starter ACK shows "unlocked" → restores starter).
+      // Strip lock_state from 0x8009 device_updates; the correct lock_state
+      // is set by the command-type override in processCommandResponse for
+      // lock/unlock commands, and by position/heartbeat packets for physical
+      // key-fob/Bluetooth changes.
+      const isAckPacket = parsed.packet_type === '0x8009';
+      const deviceUpdates = isAckPacket
+        ? { ...parsed.device_updates, lock_state: undefined }
+        : parsed.device_updates;
+      const newLockState = deviceUpdates.lock_state;
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
-        ...parsed.device_updates,
+        ...deviceUpdates,
         ...(Number.isFinite(parsed.voltage) ? { voltage_last_seen_at: timestamp } : {}),
         ...(parsed.latitude !== undefined ? { last_latitude: parsed.latitude } : {}),
         ...(parsed.longitude !== undefined ? { last_longitude: parsed.longitude } : {}),
