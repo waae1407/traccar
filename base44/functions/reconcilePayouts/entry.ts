@@ -138,11 +138,18 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ── CRITICAL FIX: IDEMPOTENCY CHECK ────────────────────────────────
-      // Check for ANY existing HostPayout (not just paid ones)
-      const existingPayouts = await base44.asServiceRole.entities.HostPayout.filter({
-        booking_request_id: booking.id
-      }, '-created_date', 5);
+      // ── CRITICAL FIX: IDEMPOTENCY CHECK BY PAYMENT INTENT ────────────────
+      // For recurring bookings (weekly/monthly/RTO), each billing cycle has its own
+      // Stripe PaymentIntent. Idempotency must be per PaymentIntent, NOT per booking.
+      // Using booking_request_id alone would treat each week's payout as a duplicate
+      // of the first week, incorrectly skipping or voiding legitimate transfers.
+      const existingPayouts = booking.stripe_payment_intent_id
+        ? await base44.asServiceRole.entities.HostPayout.filter({
+            stripe_payment_intent_id: booking.stripe_payment_intent_id
+          }, '-created_date', 5)
+        : await base44.asServiceRole.entities.HostPayout.filter({
+            booking_request_id: booking.id
+          }, '-created_date', 5);
 
       if (existingPayouts.length > 0) {
         // Find the most recent/primary payout

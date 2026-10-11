@@ -110,55 +110,79 @@ Deno.serve(async (req) => {
       }
 
       // Check for duplicate HostPayouts
-      // Skip for active recurring rentals — weekly/monthly bookings legitimately have
-      // multiple payouts (one per billing cycle), which are NOT duplicates.
-      const isRecurringActive = ['active', 'checked_out'].includes(booking.booking_status)
-        && ['Weekly', 'Monthly', 'Rent-to-Own', 'Commercial'].includes(booking.booking_type);
-      if (payouts.length > 1 && !isRecurringActive) {
+      // For recurring bookings (weekly/monthly/RTO/commercial), multiple payouts are
+      // expected — one per billing cycle. The real duplicate check is: do multiple PAID
+      // payouts share the SAME Stripe PaymentIntent? If they have different PaymentIntents,
+      // they're for different weekly payments and are NOT duplicates.
+      const isRecurringType = ['Weekly', 'Monthly', 'Rent-to-Own', 'Commercial'].includes(booking.booking_type);
+      if (payouts.length > 1) {
         const paidPayouts = payouts.filter(p => p.status === 'paid');
         if (paidPayouts.length > 1) {
-          await createPaymentAlert(base44, {
-            alert_type: 'paid_booking_duplicate_host_payout',
-            severity: 'critical',
-            billing_context: 'payout',
-            booking_id: booking.id,
-            host_id: booking.host_id || '',
-            duplicate_record_ids: paidPayouts.map(p => p.id),
-            related_entity_type: 'BookingRequest',
-            related_entity_id: booking.id,
-            title: `Duplicate paid HostPayouts — ${booking.vehicle_name || booking.id}`,
-            message: `Booking ${booking.id} has ${paidPayouts.length} paid HostPayout records. This indicates a critical idempotency failure.`,
-            recommended_action: 'Immediately investigate. Void duplicate payouts and reconcile with Stripe transfers.',
-            financial_impact_amount: paidPayouts.reduce((sum, p) => sum + (p.net_host_payout || 0), 0),
-            source: 'auditPayment360Integrity',
-          });
-          alertsCreated.push({ type: 'paid_booking_duplicate_host_payout', booking_id: booking.id });
+          // Group by stripe_payment_intent_id — only same-PI payouts are actual duplicates
+          const byPI = {};
+          for (const p of paidPayouts) {
+            const key = p.stripe_payment_intent_id || `no-pi:${p.id}`;
+            if (!byPI[key]) byPI[key] = [];
+            byPI[key].push(p);
+          }
+          const actualDuplicates = Object.entries(byPI).filter(([_, arr]) => arr.length > 1);
+          
+          if (actualDuplicates.length > 0) {
+            const dupPayouts = actualDuplicates.flatMap(([_, arr]) => arr);
+            await createPaymentAlert(base44, {
+              alert_type: 'paid_booking_duplicate_host_payout',
+              severity: 'critical',
+              billing_context: 'payout',
+              booking_id: booking.id,
+              host_id: booking.host_id || '',
+              duplicate_record_ids: dupPayouts.map(p => p.id),
+              related_entity_type: 'BookingRequest',
+              related_entity_id: booking.id,
+              title: `Duplicate paid HostPayouts — ${booking.vehicle_name || booking.id}`,
+              message: `Booking ${booking.id} has ${dupPayouts.length} paid HostPayout records sharing the same Stripe PaymentIntent. This indicates a critical idempotency failure.`,
+              recommended_action: 'Immediately investigate. Void duplicate payouts and reconcile with Stripe transfers. NEVER void a payout that has a real Stripe transfer ID (tr_...).',
+              financial_impact_amount: dupPayouts.reduce((sum, p) => sum + (p.net_host_payout || 0), 0),
+              source: 'auditPayment360Integrity',
+            });
+            alertsCreated.push({ type: 'paid_booking_duplicate_host_payout', booking_id: booking.id });
+          }
         }
       }
 
       // Check for duplicate PaymentLogs
-      // Skip for active recurring rentals — weekly/monthly bookings legitimately have
-      // multiple payment logs (one per billing cycle), which are NOT duplicates.
-      const allPaymentLogs = isRecurringActive ? [] : await base44.asServiceRole.entities.PaymentLog.filter({
+      // For recurring bookings, multiple payment logs are expected (one per billing cycle).
+      // Only flag as duplicates if multiple logs share the SAME Stripe PaymentIntent.
+      const allPaymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({
         booking_request_id: booking.id
       });
       
       if (allPaymentLogs.length > 1) {
-        await createPaymentAlert(base44, {
-          alert_type: 'paid_booking_duplicate_payment_log',
-          severity: 'high',
-          billing_context: 'rental_payment',
-          booking_id: booking.id,
-          duplicate_record_ids: allPaymentLogs.map(p => p.id),
-          related_entity_type: 'BookingRequest',
-          related_entity_id: booking.id,
-          title: `Duplicate PaymentLogs — ${booking.vehicle_name || booking.id}`,
-          message: `Booking ${booking.id} has ${allPaymentLogs.length} PaymentLog records.`,
-          recommended_action: 'Investigate duplicate creation. Keep most complete record.',
-          financial_impact_amount: allPaymentLogs.reduce((sum, p) => sum + (p.amount || 0), 0),
-          source: 'auditPayment360Integrity',
-        });
-        alertsCreated.push({ type: 'paid_booking_duplicate_payment_log', booking_id: booking.id });
+        const logsByPI = {};
+        for (const p of allPaymentLogs) {
+          const key = p.stripe_payment_intent_id || `no-pi:${p.id}`;
+          if (!logsByPI[key]) logsByPI[key] = [];
+          logsByPI[key].push(p);
+        }
+        const actualLogDuplicates = Object.entries(logsByPI).filter(([_, arr]) => arr.length > 1);
+        
+        if (actualLogDuplicates.length > 0) {
+          const dupLogs = actualLogDuplicates.flatMap(([_, arr]) => arr);
+          await createPaymentAlert(base44, {
+            alert_type: 'paid_booking_duplicate_payment_log',
+            severity: 'high',
+            billing_context: 'rental_payment',
+            booking_id: booking.id,
+            duplicate_record_ids: dupLogs.map(p => p.id),
+            related_entity_type: 'BookingRequest',
+            related_entity_id: booking.id,
+            title: `Duplicate PaymentLogs — ${booking.vehicle_name || booking.id}`,
+            message: `Booking ${booking.id} has ${dupLogs.length} PaymentLog records sharing the same Stripe PaymentIntent.`,
+            recommended_action: 'Investigate duplicate creation. Keep most complete record.',
+            financial_impact_amount: dupLogs.reduce((sum, p) => sum + (p.amount || 0), 0),
+            source: 'auditPayment360Integrity',
+          });
+          alertsCreated.push({ type: 'paid_booking_duplicate_payment_log', booking_id: booking.id });
+        }
       }
 
       // Check for paid booking without Stripe PI
