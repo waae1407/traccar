@@ -931,6 +931,23 @@ Deno.serve(async (req) => {
 
               const existingPaymentLogs = await base44.asServiceRole.entities.PaymentLog.filter({ stripe_payment_intent_id: pi.id });
               if (existingPaymentLogs.length === 0 && grossAmount > 0) {
+                // Retrieve actual Stripe fee for accurate P&L reporting
+                let recoveryStripeFee = 0;
+                let recoveryStripeRate = 0;
+                if (chargeId) {
+                  try {
+                    const recoveryCharge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
+                    if (recoveryCharge.balance_transaction?.fee) {
+                      recoveryStripeFee = recoveryCharge.balance_transaction.fee / 100;
+                      recoveryStripeRate = parseFloat(((recoveryStripeFee / grossAmount) * 100).toFixed(2));
+                    }
+                  } catch (_) { /* best-effort */ }
+                }
+                // Resolve platform fee for this booking
+                const { feeRate: recoveryCommissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: booking.host_id || pi.metadata?.host_id || '' });
+                const recoveryPlatformFee = Math.round(grossAmount * recoveryCommissionRate * 100) / 100;
+                const recoveryHostNet = Math.round((grossAmount - recoveryPlatformFee) * 100) / 100;
+
                 await base44.asServiceRole.entities.PaymentLog.create({
                   booking_request_id: bookingRequestId,
                   host_id: booking.host_id || pi.metadata?.host_id || '',
@@ -954,11 +971,17 @@ Deno.serve(async (req) => {
                   stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
                   stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
                   stripe_balance_transaction_id: balanceTransactionId,
+                  stripe_fee_amount: recoveryStripeFee,
+                  stripe_effective_rate: recoveryStripeRate,
                   stripe_receipt_url: receiptUrl,
                   receipt_url: receiptUrl,
                   status: 'paid',
                   recorded_by: 'customer_self_service_recovery',
                   paid_at: paidAt,
+                  platform_fee_rate: recoveryCommissionRate,
+                  platform_fee_amount_due: recoveryPlatformFee,
+                  host_net_after_platform_fee: recoveryHostNet,
+                  platform_fee_collection_status: 'collected_via_payout',
                 });
               }
 
@@ -1020,6 +1043,19 @@ Deno.serve(async (req) => {
                   } catch (_) { /* best-effort */ }
                 }
 
+                // Retrieve actual Stripe fee for FleetOS payments
+                let fleetStripeFee = 0;
+                let fleetStripeRate = 0;
+                if (fleetChargeData?.id) {
+                  try {
+                    const fleetCharge = await stripe.charges.retrieve(fleetChargeData.id, { expand: ['balance_transaction'] });
+                    if (fleetCharge.balance_transaction?.fee) {
+                      fleetStripeFee = fleetCharge.balance_transaction.fee / 100;
+                      fleetStripeRate = parseFloat(((fleetStripeFee / fleetGrossAmount) * 100).toFixed(2));
+                    }
+                  } catch (_) { /* best-effort */ }
+                }
+
                 await base44.asServiceRole.entities.PaymentLog.create({
                   booking_request_id: bookingRequestId,
                   host_id: booking.host_id || '',
@@ -1042,11 +1078,19 @@ Deno.serve(async (req) => {
                   stripe_charge_id: fleetChargeData?.id || '',
                   stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
                   stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
+                  stripe_balance_transaction_id: typeof fleetChargeData?.balance_transaction === 'string' ? fleetChargeData.balance_transaction : fleetChargeData?.balance_transaction?.id || '',
+                  stripe_fee_amount: fleetStripeFee,
+                  stripe_effective_rate: fleetStripeRate,
                   stripe_receipt_url: fleetChargeData?.receipt_url || '',
                   receipt_url: fleetChargeData?.receipt_url || '',
                   status: 'paid',
                   recorded_by: 'stripe_webhook_fleetos',
                   paid_at: fleetPaidAt,
+                  platform_fee_rate: 0,
+                  platform_fee_amount_due: 0,
+                  host_net_after_platform_fee: fleetGrossAmount,
+                  platform_fee_collection_status: 'not_applicable',
+                  plan_mode_at_payment: 'fleetos_professional',
                 });
               }
 
@@ -1091,11 +1135,19 @@ Deno.serve(async (req) => {
                 const hosts = await base44.asServiceRole.entities.Host.filter({ id: vehicle.host_id });
                 const host = hosts[0];
 
-                if (host?.stripe_account_id && host?.stripe_onboarding_complete) {
-                  const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, { ...booking, host_id: host.id });
+                // Declare fee variables in outer scope so PaymentLog can access them
+                let stripeFeeAmount = 0;
+                let stripeEffectiveRate = 0;
+                let commissionRate = 0.08;
+                let uridePlatformFee = 0;
+                let netHostPayout = 0;
+                let operatorMode = 'marketplace_partner';
 
-                  let stripeFeeAmount = 0;
-                  let stripeEffectiveRate = 0;
+                if (host?.stripe_account_id && host?.stripe_onboarding_complete) {
+                  const resolved = await resolveMarketplaceFee(base44, { ...booking, host_id: host.id });
+                  commissionRate = resolved.feeRate;
+                  operatorMode = resolved.operatorMode;
+
                   if (chargeId) {
                     const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
                     if (charge.balance_transaction?.fee) {
@@ -1113,9 +1165,9 @@ Deno.serve(async (req) => {
                   }
 
                   const baseAmount = Math.max(0, Number(booking.total_due_now || booking.weekly_rate || (grossAmount - stripeFeeAmount) || 0));
-                  const uridePlatformFee = Math.round(baseAmount * commissionRate * 100) / 100;
+                  uridePlatformFee = Math.round(baseAmount * commissionRate * 100) / 100;
                   const receivableOffset = await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - uridePlatformFee), new Date().toISOString());
-                  const netHostPayout = Math.round((baseAmount - uridePlatformFee - receivableOffset) * 100) / 100;
+                  netHostPayout = Math.round((baseAmount - uridePlatformFee - receivableOffset) * 100) / 100;
                   const hostTransferAmount = Math.round(netHostPayout * 100);
 
                   // ── DELAYED PAYOUT: Create pending HostPayout — release_after is NOT set here. ──
@@ -1245,11 +1297,18 @@ Deno.serve(async (req) => {
                 stripe_customer_id: pi.customer || booking.stripe_customer_id || '',
                 stripe_payment_method_id: pi.payment_method || booking.stripe_payment_method_id || '',
                 stripe_balance_transaction_id: balanceTransactionId || '',
+                stripe_fee_amount: stripeFeeAmount || 0,
+                stripe_effective_rate: Math.round(stripeEffectiveRate * 100) / 100,
                 stripe_receipt_url: receiptUrl || '',
                 receipt_url: receiptUrl || '',
                 status: 'paid',
                 recorded_by: 'stripe_webhook',
                 paid_at: paidAt,
+                platform_fee_rate: commissionRate,
+                platform_fee_amount_due: uridePlatformFee,
+                host_net_after_platform_fee: netHostPayout,
+                platform_fee_collection_status: 'collected_via_payout',
+                plan_mode_at_payment: operatorMode,
               });
               await logEvent(base44, {
                 event_type: 'payment.logged',

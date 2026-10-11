@@ -399,6 +399,34 @@ Deno.serve(async (req) => {
           : await stripe.paymentIntents.create(paymentIntentParams);
 
         if (paymentIntent.status === "succeeded") {
+          // ── RETRIEVE ACTUAL STRIPE FEE from balance_transaction ──
+          // The estimated fee (grossedAmount - baseAmount) is only a rough approximation.
+          // The actual fee varies by card type, international vs domestic, etc.
+          // Retrieve the charge with expanded balance_transaction to get the exact fee.
+          const piChargeData = paymentIntent.charges?.data?.[0];
+          let actualStripeFee = stripeFee; // fallback to estimate
+          let actualStripeRate = parseFloat(((stripeFee / amount) * 100).toFixed(2));
+          let actualChargeId = piChargeData?.id || '';
+          let actualBalanceTxnId = '';
+          let actualReceiptUrl = '';
+
+          if (actualChargeId) {
+            try {
+              const charge = await stripe.charges.retrieve(actualChargeId, { expand: ['balance_transaction'] });
+              if (charge.balance_transaction?.fee) {
+                actualStripeFee = charge.balance_transaction.fee / 100;
+                actualStripeRate = parseFloat(((actualStripeFee / amount) * 100).toFixed(2));
+                actualBalanceTxnId = charge.balance_transaction.id || '';
+                actualReceiptUrl = charge.receipt_url || '';
+                console.log(`[WeeklyBilling] Actual Stripe fee: $${actualStripeFee} (${actualStripeRate}%) — estimated was $${stripeFee}`);
+              }
+            } catch (e) {
+              console.error(`[WeeklyBilling] Failed to retrieve actual fee for charge ${actualChargeId}:`, e.message);
+              actualBalanceTxnId = typeof piChargeData?.balance_transaction === 'string' ? piChargeData.balance_transaction : piChargeData?.balance_transaction?.id || '';
+              actualReceiptUrl = piChargeData?.receipt_url || '';
+            }
+          }
+
           // IMMUTABLE BILLING ANCHOR: next_billing_date is always derived from start_date + (weekNum × 7).
           // Manual admin runs and late collections never re-anchor the cadence.
           const anchorStart = new Date(booking.start_date + "T00:00:00");
@@ -411,7 +439,7 @@ Deno.serve(async (req) => {
             billing_week_number: weekNum,
             next_billing_date: nextBillingDate,
             pending_referral_credit: 0,
-            stripe_fee_amount: stripeFee,
+            stripe_fee_amount: actualStripeFee,
             last_charged_gross: amount,
           });
 
@@ -474,14 +502,15 @@ Deno.serve(async (req) => {
               period_start: booking.next_billing_date,
               period_end: nextBillingDate,
               gross_booking_amount: amount,
-              stripe_fee_amount: stripeFee,
-              stripe_effective_rate: parseFloat(((stripeFee / amount) * 100).toFixed(2)),
+              stripe_fee_amount: actualStripeFee,
+              stripe_effective_rate: actualStripeRate,
               uride_platform_fee_amount: platformFee,
               uride_platform_fee_rate: commissionRate,
               receivable_offset_amount: receivableOffset,
               net_host_payout: hostAmount,
               net_payout: hostAmount,
               stripe_payment_intent_id: paymentIntent.id,
+              stripe_charge_id: actualChargeId,
               gross_collected: amount,
               platform_fee: platformFee,
               stripe_transfer_id: transferId,
@@ -526,8 +555,6 @@ Deno.serve(async (req) => {
 
           // ── PAYMENT LOG ──
           const paidAt = new Date().toISOString();
-          const chargeData = paymentIntent.charges?.data?.[0];
-          const receiptUrl = chargeData?.receipt_url || "";
           const sourceType = classifyPaymentSource({ paymentIntentId: paymentIntent.id });
           const dedupeKey = generatePaymentDedupeKey({ sourceType, bookingId: booking.id, weekNumber: weekNum, amount, paidAt, paymentIntentId: paymentIntent.id, paymentMethod: "stripe" });
           const paymentLog = await base44.asServiceRole.entities.PaymentLog.create({
@@ -549,15 +576,22 @@ Deno.serve(async (req) => {
             external_reconcilable: true,
             dedupe_key: dedupeKey,
             stripe_payment_intent_id: paymentIntent.id,
-            stripe_charge_id: chargeData?.id || "",
+            stripe_charge_id: actualChargeId,
             stripe_customer_id: paymentIntent.customer || booking.stripe_customer_id || "",
             stripe_payment_method_id: paymentIntent.payment_method || booking.stripe_payment_method_id || "",
-            stripe_balance_transaction_id: typeof chargeData?.balance_transaction === "string" ? chargeData.balance_transaction : chargeData?.balance_transaction?.id || "",
-            stripe_receipt_url: receiptUrl,
-            receipt_url: receiptUrl,
+            stripe_balance_transaction_id: actualBalanceTxnId,
+            stripe_fee_amount: actualStripeFee,
+            stripe_effective_rate: actualStripeRate,
+            stripe_receipt_url: actualReceiptUrl,
+            receipt_url: actualReceiptUrl,
             status: "paid",
             recorded_by: "autopay",
             paid_at: paidAt,
+            platform_fee_rate: commissionRate,
+            platform_fee_amount_due: platformFee,
+            host_net_after_platform_fee: hostAmount,
+            platform_fee_collection_status: 'collected_via_payout',
+            plan_mode_at_payment: isFleetOS ? 'fleetos_professional' : 'marketplace_partner',
           });
 
           await logEvent(base44, {

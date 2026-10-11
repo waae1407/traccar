@@ -103,6 +103,14 @@
     "stripe_balance_transaction_id": {
       "type": "string"
     },
+    "stripe_fee_amount": {
+      "type": "number",
+      "description": "Actual Stripe processing fee retrieved from balance_transaction"
+    },
+    "stripe_effective_rate": {
+      "type": "number",
+      "description": "Stripe fee as percentage of gross amount"
+    },
     "stripe_receipt_url": {
       "type": "string"
     },

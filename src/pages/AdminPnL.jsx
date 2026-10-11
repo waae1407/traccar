@@ -43,8 +43,10 @@ export default function AdminPnL() {
   const rangedPayouts = hostPayouts.filter(p => p.status !== 'voided_duplicate' && inRange(p.payout_date || p.created_date));
   const paidPayouts = rangedPayouts.filter(p => p.status === 'paid');
   const totalHostPayouts = paidPayouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
-  const totalStripeFees = paidPayouts.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0);
-  const totalPlatformFees = paidPayouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0);
+  // Read Stripe fees from PaymentLog (source of truth — fee is on the charge, not the transfer)
+  // This captures fees for ALL payments including ones where the host transfer is still held/failed
+  const totalStripeFees = paidLogs.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0);
+  const totalPlatformFees = paidLogs.reduce((s, p) => s + (p.platform_fee_amount_due || 0), 0);
   const netPlatformRevenue = grossRevenue - totalHostPayouts - totalStripeFees;
   const margin = grossRevenue > 0 ? ((netPlatformRevenue / grossRevenue) * 100).toFixed(1) : 0;
   const activeBookings = bookingRequests.filter(b => b.booking_status === "active" && b.weekly_rate > 0);

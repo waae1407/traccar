@@ -103,7 +103,8 @@ export default function HostPnL() {
   }), [paymentLogs, bounds, filters]);
   const grossRevenue = useMemo(() => rangedPaymentLogs.reduce((s, p) => s + (p.amount || 0), 0), [rangedPaymentLogs]);
   const netPayout = useMemo(() => paidPayouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [paidPayouts]);
-  const platformFees = useMemo(() => paidPayouts.reduce((s, p) => s + (p.uride_platform_fee_amount || p.platform_fee || 0), 0), [paidPayouts]);
+  // Platform fees from PaymentLog (source of truth — owed on every payment, not just paid payouts)
+  const platformFees = useMemo(() => rangedPaymentLogs.reduce((s, p) => s + (p.platform_fee_amount_due || 0), 0), [rangedPaymentLogs]);
   const stripeFees = useMemo(() => rangedPaymentLogs.reduce((s, p) => s + (p.stripe_fee_amount || 0), 0), [rangedPaymentLogs]);
   const pendingPayoutTotal = useMemo(() => rangedPayouts.filter(p => p.status === 'pending' || p.status === 'held').reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [rangedPayouts]);
 
