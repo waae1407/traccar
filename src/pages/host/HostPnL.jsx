@@ -247,7 +247,8 @@ export default function HostPnL() {
     rows: paidPayouts.map(p => ({ _id: p.id, date: p.payout_date || p.created_date, vehicle: payoutVehicleName(p), gross: p.gross_booking_amount || 0, platformFee: p.uride_platform_fee_amount || p.platform_fee || 0, stripeFee: p.stripe_fee_amount || 0, net: p.net_host_payout || p.net_payout || 0 })),
     summary: [
       { label: "Total Net Payout", value: `$${Math.round(netPayout).toLocaleString()}` },
-      { label: "Total Fees", value: `$${Math.round(platformFees + stripeFees).toLocaleString()}` },
+      { label: "Total Stripe Fees", value: `$${Math.round(stripeFees).toLocaleString()}` },
+      { label: "Total Platform Fees", value: `$${Math.round(platformFees).toLocaleString()}` },
     ],
   };
 
