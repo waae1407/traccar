@@ -115,8 +115,14 @@ export default function PaymentMonitorScorecard({ host, vehicles = [], bookings 
     const items = [];
 
     // From alerts
+    const freshnessCutoff = Date.now() - FRESHNESS_MS;
     for (const a of alerts) {
       if (RESOLVED_STATUSES.has(a.status)) continue;
+      // Skip admin-only audit types — hosts can't act on data-integrity issues
+      if (ADMIN_ONLY_TYPES.has(a.alert_type)) continue;
+      // Skip stale alerts older than 14 days
+      const alertDate = a.created_date || a.first_seen_at;
+      if (alertDate && new Date(alertDate).getTime() < freshnessCutoff) continue;
       const isCritical = a.severity === "critical" || CRITICAL_TYPES.has(a.alert_type);
       const isWarning = a.severity === "high" || a.severity === "warning" || WARNING_TYPES.has(a.alert_type);
       if (!isCritical && !isWarning) continue;
