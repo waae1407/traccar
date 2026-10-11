@@ -79,7 +79,18 @@ export default function HostPnL() {
     return inBounds(item[dateKey], bounds);
   };
 
-  const rangedPayouts = useMemo(() => payouts.filter(p => p.status !== 'voided_duplicate' && inBounds(p.payout_date || p.created_date, bounds)), [payouts, bounds]);
+  const bookingVehicleMap = useMemo(() => {
+    const map = {};
+    paymentLogs.forEach(p => { if (p.booking_request_id && p.vehicle_id && !map[p.booking_request_id]) map[p.booking_request_id] = p.vehicle_id; });
+    return map;
+  }, [paymentLogs]);
+
+  const rangedPayouts = useMemo(() => payouts.filter(p => {
+    if (p.status === 'voided_duplicate') return false;
+    if (!inBounds(p.payout_date || p.created_date, bounds)) return false;
+    if (filters.vehicleId && bookingVehicleMap[p.booking_request_id] !== filters.vehicleId) return false;
+    return true;
+  }), [payouts, bounds, filters, bookingVehicleMap]);
   const paidPayouts = useMemo(() => rangedPayouts.filter(p => p.status === 'paid'), [rangedPayouts]);
   const grossRevenue = useMemo(() => paidPayouts.reduce((s, p) => s + (p.gross_booking_amount || p.gross_collected || 0), 0), [paidPayouts]);
   const netPayout = useMemo(() => paidPayouts.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0), [paidPayouts]);
@@ -97,12 +108,23 @@ export default function HostPnL() {
 
   const prevNetProfit = useMemo(() => {
     if (!prevBounds) return null;
-    const prevP = payouts.filter(p => p.status === 'paid' && inBounds(p.payout_date || p.created_date, prevBounds));
+    const prevP = payouts.filter(p => {
+      if (p.status !== 'paid') return false;
+      if (!inBounds(p.payout_date || p.created_date, prevBounds)) return false;
+      if (filters.vehicleId && bookingVehicleMap[p.booking_request_id] !== filters.vehicleId) return false;
+      return true;
+    });
     const pnp = prevP.reduce((s, p) => s + (p.net_host_payout || p.net_payout || 0), 0);
-    const pe = expenses.filter(e => inBounds(e.date, prevBounds)).reduce((s, e) => s + (e.amount || 0), 0);
-    const pm = maintenance.filter(m => inBounds(m.date, prevBounds)).reduce((s, m) => s + (m.cost || 0), 0);
+    const pe = expenses.filter(e => {
+      if (filters.vehicleId && e.vehicle_id !== filters.vehicleId) return false;
+      return inBounds(e.date, prevBounds);
+    }).reduce((s, e) => s + (e.amount || 0), 0);
+    const pm = maintenance.filter(m => {
+      if (filters.vehicleId && m.vehicle_id !== filters.vehicleId) return false;
+      return inBounds(m.date, prevBounds);
+    }).reduce((s, m) => s + (m.cost || 0), 0);
     return pnp - pe - pm;
-  }, [payouts, expenses, maintenance, prevBounds]);
+  }, [payouts, expenses, maintenance, prevBounds, filters, bookingVehicleMap]);
 
   const vehicleRows = useMemo(() => {
     return vehicles.filter(v => !filters.vehicleId || v.id === filters.vehicleId).map(v => {
@@ -178,10 +200,8 @@ export default function HostPnL() {
 
   // ── Helper maps for detail sheets ──
   const vehicleMap = {}; vehicles.forEach(v => { vehicleMap[v.id] = v; });
-  const paymentVehicleMap = {};
-  paymentLogs.forEach(p => { if (p.vehicle_id && !paymentVehicleMap[p.booking_request_id]) paymentVehicleMap[p.booking_request_id] = p.vehicle_id; });
   const payoutVehicleName = (payout) => {
-    const vid = paymentVehicleMap[payout.booking_request_id];
+    const vid = bookingVehicleMap[payout.booking_request_id];
     const v = vid ? vehicleMap[vid] : null;
     return v ? `${v.year} ${v.make} ${v.model}` : "—";
   };
