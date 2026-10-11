@@ -373,7 +373,7 @@ export default function HostPnL() {
     { label: "Stripe Processing Fees", value: stripeFees, sign: "\u2212", bold: false, color: "text-red-500", bar: "bg-red-400" },
     { label: "Net Payout Received", value: netPayout, sign: "=", bold: true, color: "text-blue-700", bar: "bg-blue-400" },
     ...expBreakdown.map(e => ({ label: e.label, value: e.total, sign: "\u2212", bold: false, color: "text-red-500", bar: "bg-red-300" })),
-    { label: "Net Profit", value: netProfit, sign: "=", bold: true, color: netProfit >= 0 ? "text-pink-700" : "text-red-700", bar: netProfit >= 0 ? "bg-pink-500" : "bg-red-600" },
+    { label: "Net Profit", value: netProfit, sign: "=", bold: true, color: netProfit >= 0 ? "text-emerald-700" : "text-red-700", bar: netProfit >= 0 ? "bg-emerald-500" : "bg-red-600" },
   ];
 
   return (
@@ -423,7 +423,7 @@ export default function HostPnL() {
         <KpiCard label="Net Payout" value={`$${Math.round(netPayout).toLocaleString()}`} color="text-blue-600" bg="bg-blue-50 border-blue-100" icon={Wallet} sub={`After ${feeRate}% fees`} onClick={() => setDetail(detailNetPayout)} />
         <KpiCard label="Total Costs" value={`$${Math.round(totalCosts).toLocaleString()}`} color="text-red-500" bg="bg-red-50 border-red-100" icon={TrendingDown} sub={`Exp $${Math.round(totalExpenses).toLocaleString()} + Maint $${Math.round(totalMaint).toLocaleString()}`} onClick={() => setDetail(detailCosts)} />
         <KpiCard label="Net Profit" value={netProfit >= 0 ? `+$${Math.round(netProfit).toLocaleString()}` : `-$${Math.abs(Math.round(netProfit)).toLocaleString()}`}
-          color={netProfit >= 0 ? "text-pink-600" : "text-red-600"} bg={netProfit >= 0 ? "bg-pink-50 border-pink-100" : "bg-red-50 border-red-100"} icon={TrendingUp} sub={`${profitMargin.toFixed(1)}% margin`} onClick={() => setDetail(detailNetProfit)} />
+          color={netProfit >= 0 ? "text-emerald-600" : "text-red-600"} bg={netProfit >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"} icon={TrendingUp} sub={`${profitMargin.toFixed(1)}% margin`} onClick={() => setDetail(detailNetProfit)} />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -468,7 +468,7 @@ export default function HostPnL() {
         </div>
         <div className="mt-3 p-3 rounded-xl bg-gray-50 flex items-center justify-between">
           <span className="text-sm font-bold text-gray-700">Profit Margin</span>
-          <span className={`text-lg font-black ${profitMargin >= 0 ? "text-pink-600" : "text-red-600"}`} style={{ fontFamily: "var(--font-syne)" }}>{profitMargin.toFixed(1)}%</span>
+          <span className={`text-lg font-black ${profitMargin >= 0 ? "text-emerald-600" : "text-red-600"}`} style={{ fontFamily: "var(--font-syne)" }}>{profitMargin.toFixed(1)}%</span>
         </div>
       </div>
 
