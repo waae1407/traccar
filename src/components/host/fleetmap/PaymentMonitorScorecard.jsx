@@ -4,7 +4,29 @@ import { base44 } from "@/api/base44Client";
 import { ShieldCheck, AlertTriangle, DollarSign, X } from "lucide-react";
 import PaymentIssuesSheet from "./PaymentIssuesSheet";
 
-// Alert types that are critical (red)
+// Admin-only audit alert types — internal data-integrity checks that a host
+// cannot act on. These are excluded from the host-facing scorecard entirely.
+const ADMIN_ONLY_TYPES = new Set([
+  "paid_booking_missing_payment_log",
+  "paid_booking_missing_host_payout",
+  "paid_booking_duplicate_host_payout",
+  "paid_booking_duplicate_payment_log",
+  "booking_paid_no_stripe_pi",
+  "orphan_host_payout",
+  "cancelled_booking_paid_no_refund",
+  "unknown_billing_context",
+  "payment_retry_scheduled",
+  "retry_successful",
+  "payout_completed",
+  "chargeback_won",
+  "subscription_renewed",
+  "dealer_membership_renewed",
+  "alert_resolved",
+  "refund_recorded",
+  "payment_recovered",
+]);
+
+// Alert types that are critical (red) — host-actionable
 const CRITICAL_TYPES = new Set([
   "chargeback_opened", "chargeback_lost",
   "rental_payment_failed", "weekly_billing_failed",
@@ -12,16 +34,20 @@ const CRITICAL_TYPES = new Set([
   "subscription_payment_failed", "contactless_gps_payment_failed",
   "bank_debit_reversal", "refund_failed",
   "payment_method_missing", "unknown_payment_failed",
+  "failed_payouts_require_attention",
 ]);
 
-// Alert types that are warnings (amber)
+// Alert types that are warnings (amber) — host-actionable
 const WARNING_TYPES = new Set([
   "payout_delayed", "subscription_past_due",
   "dealer_membership_past_due", "contactless_gps_past_due",
   "stripe_connect_incomplete", "payment_method_expiring",
   "ach_verification_pending", "refund_pending",
-  "payment_authentication_required",
+  "payment_authentication_required", "stale_pending_payouts",
 ]);
+
+// Only show alerts from the last 14 days — older ones are stale audit artifacts
+const FRESHNESS_MS = 14 * 24 * 60 * 60 * 1000;
 
 const RESOLVED_STATUSES = new Set(["resolved", "dismissed", "closed"]);
 const OPEN_DISPUTE_STATUSES = new Set(["open", "under_review", "evidence_requested", "payout_held", "chargeback"]);

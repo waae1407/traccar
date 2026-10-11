@@ -24,27 +24,40 @@ const SEVERITY_CONFIG = {
 };
 
 const TYPE_LABELS = {
-  chargeback_opened: "Chargeback",
-  chargeback_lost: "Chargeback Lost",
-  rental_payment_failed: "Payment Failed",
-  weekly_billing_failed: "Billing Failed",
-  transfer_failed: "Transfer Failed",
-  payout_reversal: "Payout Reversed",
-  subscription_payment_failed: "Subscription Failed",
-  contactless_gps_payment_failed: "GPS Payment Failed",
-  bank_debit_reversal: "Bank Reversal",
-  refund_failed: "Refund Failed",
-  payment_method_missing: "No Payment Method",
+  // Customer payment issues
+  rental_payment_failed: "Customer Payment Failed",
+  weekly_billing_failed: "Weekly Billing Failed",
+  payment_authentication_required: "Payment Verification Needed",
+  payment_method_missing: "No Payment Method on File",
+  payment_method_expiring: "Card Expiring Soon",
   unknown_payment_failed: "Payment Failed",
+  // Chargebacks & reversals
+  chargeback_opened: "Chargeback Opened",
+  chargeback_lost: "Chargeback Lost",
+  bank_debit_reversal: "Bank Reversal",
+  payout_reversal: "Payout Reversed",
+  // Payout issues
+  transfer_failed: "Payout Transfer Failed",
   payout_delayed: "Payout Delayed",
+  failed_payouts_require_attention: "Payout Failed",
+  stale_pending_payouts: "Payout Overdue",
+  // Subscription / GPS
+  subscription_payment_failed: "Subscription Payment Failed",
   subscription_past_due: "Subscription Past Due",
-  contactless_gps_past_due: "GPS Past Due",
-  stripe_connect_incomplete: "Stripe Not Connected",
-  payment_method_expiring: "Card Expiring",
-  payment_authentication_required: "Auth Required",
-  dispute: "Dispute",
+  contactless_gps_payment_failed: "GPS Payment Failed",
+  contactless_gps_past_due: "GPS Subscription Past Due",
+  dealer_membership_past_due: "Membership Past Due",
+  dealer_membership_payment_failed: "Membership Payment Failed",
+  // Stripe Connect
+  stripe_connect_incomplete: "Stripe Account Not Connected",
+  ach_verification_pending: "Bank Account Verifying",
+  // Refunds
+  refund_failed: "Refund Failed",
+  refund_pending: "Refund Processing",
+  // Booking-derived
+  dispute: "Dispute Opened",
   payout: "Payout Issue",
-  booking_payment: "Booking Payment",
+  booking_payment: "Payment Issue",
   grace: "Grace Period",
 };
 
