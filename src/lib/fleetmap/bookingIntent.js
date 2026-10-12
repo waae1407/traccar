@@ -14,16 +14,18 @@
 const ACTIVE_RENTAL_STATUSES = new Set(["active", "checked_out", "return_required", "return_pending_host_review", "post_inspection_required", "overdue_return"]);
 const CONFIRMED_STATUSES = new Set(["confirmed", "approved"]);
 const LIVE_INTEREST_STATUSES = new Set(["draft", "pending_verification", "pending_contract", "pending_payment", "pending_review"]);
+const PAYMENT_ISSUE_STATUSES = new Set(["payment_due", "grace_period", "suspended"]);
 
 const FRESH_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours — still "live"
 const ABANDONED_THRESHOLD_MS = 30 * 60 * 1000; // 30 min — then "abandoned"
 
 export const INTENT_LEVELS = {
-  active_rental: { color: "#22C55E", label: "Rented", pulse: true, priority: 4 },
-  confirmed:     { color: "#3B82F6", label: "Confirmed", pulse: false, priority: 3 },
-  live_interest: { color: "#FF9F0A", label: "Pending", pulse: true, priority: 2 },
-  abandoned:     { color: "#FF9F0A", label: "Abandoned", pulse: false, dashed: true, priority: 1 },
-  available:     { color: "#22C55E", label: "Available", pulse: false, priority: 0 },
+  active_rental:  { color: "#22C55E", label: "Rented", pulse: true, priority: 5 },
+  payment_issue:  { color: "#EF4444", label: "Payment Due", pulse: true, priority: 4 },
+  confirmed:      { color: "#3B82F6", label: "Confirmed", pulse: false, priority: 3 },
+  live_interest:  { color: "#FF9F0A", label: "Pending", pulse: true, priority: 2 },
+  abandoned:      { color: "#FF9F0A", label: "Abandoned", pulse: false, dashed: true, priority: 1 },
+  available:      { color: "#22C55E", label: "Available", pulse: false, priority: 0 },
 };
 
 const CHECKOUT_STEPS = [
@@ -53,6 +55,8 @@ export function computeBookingIntentByVehicle(bookings = []) {
 
     if (ACTIVE_RENTAL_STATUSES.has(b.booking_status)) {
       intent = "active_rental";
+    } else if (PAYMENT_ISSUE_STATUSES.has(b.booking_status)) {
+      intent = "payment_issue";
     } else if (CONFIRMED_STATUSES.has(b.booking_status)) {
       intent = "confirmed";
     } else if (LIVE_INTEREST_STATUSES.has(b.booking_status)) {
@@ -80,7 +84,7 @@ export function computeBookingIntentByVehicle(bookings = []) {
  * Count vehicles by intent level for filter chips.
  */
 export function countByIntent(intentMap, vehicles) {
-  const counts = { live_interest: 0, abandoned: 0, confirmed: 0, active_rental: 0 };
+  const counts = { live_interest: 0, abandoned: 0, confirmed: 0, active_rental: 0, payment_issue: 0 };
   for (const v of vehicles) {
     const entry = intentMap[v.id];
     if (entry && counts[entry.intent] !== undefined) counts[entry.intent]++;

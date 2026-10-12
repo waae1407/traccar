@@ -93,12 +93,17 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, inten
   const photo = vehicle.hero_image_url || vehicle.image_url;
 
   // Resolve intent — overrides status-based ring when a booking is in progress
-  const intent = intentEntry?.intent || (vehicle.status === "Available" ? "available" : "confirmed");
+  const intent = intentEntry?.intent || (
+    ["Payment Due", "Grace Period", "Suspended"].includes(vehicle.status) ? "payment_issue" :
+    ["Reserved", "Booked"].includes(vehicle.status) ? "confirmed" :
+    "available"
+  );
   const intentCfg = INTENT_LEVELS[intent] || INTENT_LEVELS.available;
   const ringColor = intentCfg.color;
   const ringLabel = intentCfg.label;
   const ringClass = intent === "live_interest" ? "intent-ring-live-interest"
     : intent === "active_rental" ? "intent-ring-active-rental"
+    : intent === "payment_issue" ? "intent-ring-payment-issue"
     : "";
   const ringStyle = intentCfg.dashed ? "border:3px dashed " : "border:3px solid ";
   const ringOpacity = intent === "abandoned" ? "0.5" : "1";

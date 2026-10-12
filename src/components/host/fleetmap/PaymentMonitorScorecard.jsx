@@ -122,23 +122,58 @@ export default function PaymentMonitorScorecard({ host, vehicles = [], bookings 
 
     // From alerts
     const freshnessCutoff = Date.now() - FRESHNESS_MS;
-    for (const a of alerts) {
+
+    // Deduplicate alerts: if multiple alerts for the same vehicle were created
+    // within 5 minutes, keep only the one with a booking link or higher amount
+    const dedupedAlerts = (() => {
+      const sorted = [...alerts].sort((x, y) => new Date(x.created_date || 0) - new Date(y.created_date || 0));
+      const byVehicle = new Map();
+      const result = [];
+      for (const a of sorted) {
+        const key = a.vehicle_id || a.related_entity_id;
+        if (!key) { result.push(a); continue; }
+        const prev = byVehicle.get(key);
+        if (prev) {
+          const timeDiff = Math.abs(new Date(a.created_date || 0) - new Date(prev.created_date || 0));
+          if (timeDiff < 5 * 60 * 1000) {
+            if ((a.booking_id && !prev.booking_id) || ((a.financial_impact_amount || 0) > (prev.financial_impact_amount || 0))) {
+              const idx = result.indexOf(prev);
+              if (idx >= 0) result.splice(idx, 1);
+              result.push(a);
+              byVehicle.set(key, a);
+            }
+            continue;
+          }
+        }
+        result.push(a);
+        byVehicle.set(key, a);
+      }
+      return result;
+    })();
+
+    const PAYMENT_FAILURE_TYPES = new Set(["weekly_billing_failed", "rental_payment_failed", "payment_failed", "unknown_payment_failed"]);
+
+    for (const a of dedupedAlerts) {
       if (RESOLVED_STATUSES.has(a.status)) continue;
-      // Skip admin-only audit types — hosts can't act on data-integrity issues
       if (ADMIN_ONLY_TYPES.has(a.alert_type)) continue;
-      // Skip stale alerts older than 14 days
       const alertDate = a.created_date || a.first_seen_at;
       if (alertDate && new Date(alertDate).getTime() < freshnessCutoff) continue;
       const isCritical = a.severity === "critical" || CRITICAL_TYPES.has(a.alert_type);
       const isWarning = a.severity === "high" || a.severity === "warning" || WARNING_TYPES.has(a.alert_type);
       if (!isCritical && !isWarning) continue;
 
+      const isPaymentFailure = PAYMENT_FAILURE_TYPES.has(a.alert_type);
+      const booking = a.booking_id ? bookings.find((b) => b.id === a.booking_id) : null;
+      const customerName = booking?.customer_full_name || booking?.user_email || a.renter_email || "Customer";
+
       items.push({
         id: a.id,
         vehicle_id: a.vehicle_id || a.related_entity_id,
         vehicle_name: a.vehicle_id ? vehicleName(a.vehicle_id) : (a.title || "Fleet-wide"),
-        title: a.title || a.alert_type,
-        description: a.message || "",
+        title: isPaymentFailure ? "Card declined" : (a.title || a.alert_type),
+        description: isPaymentFailure
+          ? `${customerName} — retry in progress, starter disables in 24h if unresolved`
+          : (a.message || ""),
         severity: isCritical ? "critical" : "warning",
         amount: a.financial_impact_amount || 0,
         type: a.alert_type,
@@ -186,9 +221,17 @@ export default function PaymentMonitorScorecard({ host, vehicles = [], bookings 
       });
     }
 
+    // Skip bookings already covered by a payment-failure alert (dedupe)
+    const alertBookingIds = new Set(
+      dedupedAlerts
+        .filter((a) => PAYMENT_FAILURE_TYPES.has(a.alert_type) && a.booking_id)
+        .map((a) => a.booking_id)
+    );
+
     // From bookings with payment issues
     for (const b of bookings) {
       if (!b.vehicle_id) continue;
+      if (alertBookingIds.has(b.id)) continue; // already covered by an alert
       // Apply same 14-day freshness cutoff as alerts
       const bookingDate = b.last_payment_failure_at || b.grace_period_started_at || b.created_date;
       if (bookingDate && new Date(bookingDate).getTime() < freshnessCutoff) continue;
@@ -241,7 +284,7 @@ export default function PaymentMonitorScorecard({ host, vehicles = [], bookings 
 
   // Determine display state
   let displayState = "green";
-  if (hasIssues && !isSnoozed) {
+  if (hasIssues) {
     displayState = criticalCount > 0 ? "red" : "amber";
   }
 
@@ -345,7 +388,7 @@ export default function PaymentMonitorScorecard({ host, vehicles = [], bookings 
           WebkitBackdropFilter: "blur(16px)",
           cursor: displayState === "green" ? "default" : "pointer",
           transition: "all 0.2s",
-          animation: cfg.pulse
+          animation: (cfg.pulse && !isSnoozed)
             ? (reAlertPulse ? "reAlertShake 0.4s ease 3" : "paymentPulse 2s infinite")
             : "none",
           maxWidth: 200,
