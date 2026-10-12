@@ -4,6 +4,7 @@ import { getLogoHomeRoute } from "@/lib/logoHomeRoute";
 import { useAuth } from "@/lib/AuthContext";
 import { base44 } from "@/api/base44Client";
 import HomeHero from "@/components/home/HomeHero";
+import HomeVideoAd from "@/components/home/HomeVideoAd";
 import HomePathCards from "@/components/home/HomePathCards";
 import HomeHowItWorks from "@/components/home/HomeHowItWorks";
 import HomeWhyDifferent from "@/components/home/HomeWhyDifferent";
@@ -69,6 +70,9 @@ export default function PublicHome() {
 
       {/* HERO */}
       <HomeHero />
+
+      {/* MARKETING VIDEO */}
+      <HomeVideoAd />
 
       {/* MAIN CONTENT — white bg sections */}
       <div className="bg-white">
