@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 
-const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/3e7c41aa0_Contactless360_Ad.mp4";
+const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/08795baff_uRide_Masterpiece_Ad.mp4";
 
 export default function HomeVideoAd() {
   const videoRef = useRef(null);
@@ -26,10 +26,10 @@ export default function HomeVideoAd() {
       <div className="max-w-3xl mx-auto px-4 pt-10 pb-2">
         <div className="text-center mb-5">
           <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight" style={{ fontFamily: "var(--font-syne)" }}>
-            Keyless. Contactless. Effortless.
+            The Future of Car Rental
           </h2>
           <p className="text-sm text-gray-500 mt-1.5 max-w-lg mx-auto">
-            Book in-app, unlock from your phone, and return with geofence-verified photo inspection — zero key handoff, zero physical contact, fully self-service from booking to dropoff.
+            One seamless experience — keyless contactless rentals, payment-protected revenue, real-time safe driving monitoring, and hold-to-confirm SOS emergency alerts. Everything connected, everything effortless.
           </p>
         </div>
 
