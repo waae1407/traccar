@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 
-const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/aef1c858c_uRide_Marketing_Ad.mp4";
+const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/7d9535264_Smart_Automation_Ad.mp4";
 
 export default function HomeVideoAd() {
   const videoRef = useRef(null);
@@ -29,7 +29,7 @@ export default function HomeVideoAd() {
             Keyless. Contactless. Effortless.
           </h2>
           <p className="text-sm text-gray-500 mt-1.5 max-w-lg mx-auto">
-            See how uRide connects drivers with vehicles and empowers fleet owners with a complete contactless rental platform.
+            GPS tracking, remote controls, automated payouts, and contactless self-service pickup — the smart automation platform for modern vehicle rental fleets.
           </p>
         </div>
 
