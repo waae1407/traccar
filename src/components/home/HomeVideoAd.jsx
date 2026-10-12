@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 
-const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/efcf08cca_SOS_Ad_v2.mp4";
+const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/3e7c41aa0_Contactless360_Ad.mp4";
 
 export default function HomeVideoAd() {
   const videoRef = useRef(null);
@@ -29,7 +29,7 @@ export default function HomeVideoAd() {
             Keyless. Contactless. Effortless.
           </h2>
           <p className="text-sm text-gray-500 mt-1.5 max-w-lg mx-auto">
-            One-tap SOS with hold-to-confirm triggers an instant text, voice call, and email to your emergency contact with your vehicle's live GPS location — so help always knows exactly where you are.
+            Book in-app, unlock from your phone, and return with geofence-verified photo inspection — zero key handoff, zero physical contact, fully self-service from booking to dropoff.
           </p>
         </div>
 
