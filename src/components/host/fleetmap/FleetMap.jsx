@@ -95,6 +95,9 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, inten
   // Resolve intent — overrides status-based ring when a booking is in progress
   const intent = intentEntry?.intent || (
     ["Payment Due", "Grace Period", "Suspended"].includes(vehicle.status) ? "payment_issue" :
+    ["Maintenance", "Maintenance Hold", "Cleaning Hold", "Compliance Hold"].includes(vehicle.status) ? "maintenance" :
+    ["Out of Service", "Retired", "Transferred", "Dispute Hold"].includes(vehicle.status) ? "off_road" :
+    ["Active Rental", "Dropoff Submitted", "Return Pending Host Review"].includes(vehicle.status) ? "active_rental" :
     ["Reserved", "Booked"].includes(vehicle.status) ? "confirmed" :
     "available"
   );
@@ -106,7 +109,7 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, inten
     : intent === "payment_issue" ? "intent-ring-payment-issue"
     : "";
   const ringStyle = intentCfg.dashed ? "border:3px dashed " : "border:3px solid ";
-  const ringOpacity = intent === "abandoned" ? "0.5" : "1";
+  const ringOpacity = (intent === "abandoned" || intent === "off_road") ? "0.5" : "1";
 
   const hasGps = !!(device?.last_latitude);
   const gpsOnline = hasGps && device?.online_status !== "offline";

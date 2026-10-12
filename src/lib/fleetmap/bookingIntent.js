@@ -24,7 +24,9 @@ export const INTENT_LEVELS = {
   payment_issue:  { color: "#EF4444", label: "Payment Due", pulse: true, priority: 4 },
   confirmed:      { color: "#3B82F6", label: "Confirmed", pulse: false, priority: 3 },
   live_interest:  { color: "#FF9F0A", label: "Pending", pulse: true, priority: 2 },
+  maintenance:    { color: "#F59E0B", label: "Maintenance", pulse: false, priority: 1.5 },
   abandoned:      { color: "#FF9F0A", label: "Abandoned", pulse: false, dashed: true, priority: 1 },
+  off_road:       { color: "#8E8E93", label: "Off Road", pulse: false, priority: 0.5 },
   available:      { color: "#22C55E", label: "Available", pulse: false, priority: 0 },
 };
 
@@ -84,7 +86,7 @@ export function computeBookingIntentByVehicle(bookings = []) {
  * Count vehicles by intent level for filter chips.
  */
 export function countByIntent(intentMap, vehicles) {
-  const counts = { live_interest: 0, abandoned: 0, confirmed: 0, active_rental: 0, payment_issue: 0 };
+  const counts = { live_interest: 0, abandoned: 0, confirmed: 0, active_rental: 0, payment_issue: 0, maintenance: 0, off_road: 0 };
   for (const v of vehicles) {
     const entry = intentMap[v.id];
     if (entry && counts[entry.intent] !== undefined) counts[entry.intent]++;
