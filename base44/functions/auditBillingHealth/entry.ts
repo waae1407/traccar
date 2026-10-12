@@ -12,7 +12,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
  * 5. Billing overdue: next_billing_date >7 days past, booking still active
  * 6. Paid booking missing payment log: payment_status paid but no PaymentLog for current week
  *
- * Runs hourly via GitHub Actions cron. Uses dedupe keys to avoid alert fatigue.
+ * Runs hourly via GitHub Actions cron (hourly job). Uses dedupe keys to avoid alert fatigue.
  */
 
 async function authorize(base44, body, req) {
@@ -187,13 +187,18 @@ Deno.serve(async (req) => {
         const daysPast = daysBetween(now, nextBilling);
 
         if (daysPast >= 0) {
-          // Check if a PaymentLog exists for this billing period
+          // Check if a PaymentLog exists for this billing period.
+          // NOTE: payment_status "paid" only reflects the PREVIOUS cycle — it stays
+          // "paid" until the next charge processes. So we must check for an actual
+          // PaymentLog whose billing_period_start matches next_billing_date, not
+          // rely on the payment_status flag.
           const hasPaymentForPeriod = recentPaymentLogs.some(log =>
             log.booking_request_id === booking.id &&
-            log.billing_period_start === booking.next_billing_date
+            log.billing_period_start === booking.next_billing_date &&
+            log.status === 'paid'
           );
 
-          if (!hasPaymentForPeriod && booking.payment_status !== 'paid') {
+          if (!hasPaymentForPeriod) {
             const isOverdue = daysPast >= 7;
             const alertType = 'weekly_billing_failed';
             const severity = isOverdue ? 'critical' : 'high';
