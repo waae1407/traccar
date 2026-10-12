@@ -10,6 +10,7 @@ import FleetAlertFeed from "@/components/host/fleetmap/FleetAlertFeed";
 import FleetMapBottomNav from "@/components/host/fleetmap/FleetMapBottomNav";
 import AddPrivateVehicleSheet from "@/components/host/fleetmap/AddPrivateVehicleSheet";
 import PaymentMonitorScorecard from "@/components/host/fleetmap/PaymentMonitorScorecard";
+import { computeBookingIntentByVehicle, countByIntent } from "@/lib/fleetmap/bookingIntent";
 
 const ACTIVE_RENTAL_STATUSES = new Set(["active", "confirmed", "approved", "checked_out", "return_required", "payment_due", "grace_period"]);
 
@@ -104,6 +105,10 @@ export default function HostFleetMap() {
     return map;
   }, [bookings]);
 
+  // ── Booking intent by vehicle (live interest, abandoned, etc.) ──
+  const bookingIntentByVehicle = useMemo(() => computeBookingIntentByVehicle(bookings), [bookings]);
+  const intentCounts = useMemo(() => countByIntent(bookingIntentByVehicle, vehicles), [bookingIntentByVehicle, vehicles]);
+
   // ── Filtered vehicles ──
   const filteredVehicles = useMemo(() => {
     let result = vehicles;
@@ -123,8 +128,14 @@ export default function HostFleetMap() {
         return !!dev?.traccar_device_id && dev?.online_status === "online";
       });
     }
+    if (filter === "pending") {
+      result = result.filter((v) => {
+        const entry = bookingIntentByVehicle[v.id];
+        return entry && (entry.intent === "live_interest" || entry.intent === "abandoned");
+      });
+    }
     return result;
-  }, [vehicles, search, filter, deviceByVehicle]);
+  }, [vehicles, search, filter, deviceByVehicle, bookingIntentByVehicle]);
 
   // ── Alerts for the feed ──
   const alerts = useMemo(() => {
@@ -263,6 +274,7 @@ export default function HostFleetMap() {
       const dev = deviceByVehicle[v.id];
       return !!dev?.traccar_device_id && dev?.online_status === "online";
     }).length,
+    pending: intentCounts.live_interest + intentCounts.abandoned,
   };
 
   return (
@@ -271,6 +283,7 @@ export default function HostFleetMap() {
       <FleetMap
         vehicles={filteredVehicles}
         devices={devices}
+        bookingIntentByVehicle={bookingIntentByVehicle}
         onSelectVehicle={handleSelectVehicle}
         onLongPressVehicle={handleLongPressVehicle}
         focusVehicleId={focusVehicleId}
@@ -315,6 +328,16 @@ export default function HostFleetMap() {
             <FilterChip label="Available" count={fleetStats.available} active={filter === "available"} onClick={() => setFilter("available")} color="#22C55E" />
             {!isPersonalHost && <FilterChip label="Rented" count={fleetStats.rented} active={filter === "rented"} onClick={() => setFilter("rented")} color="#3B82F6" />}
             <FilterChip label="C360 GPS" count={fleetStats.contactless} active={filter === "contactless"} onClick={() => setFilter("contactless")} color="#22C55E" />
+            {fleetStats.pending > 0 && (
+              <FilterChip label="Pending" count={fleetStats.pending} active={filter === "pending"} onClick={() => {
+                setFilter("pending");
+                const pendingVehicles = vehicles.filter((v) => {
+                  const entry = bookingIntentByVehicle[v.id];
+                  return entry && (entry.intent === "live_interest" || entry.intent === "abandoned");
+                });
+                if (pendingVehicles.length > 0) { setFocusVehicleId(pendingVehicles[0].id); setSelectedVehicle(pendingVehicles[0]); }
+              }} color="#FF9F0A" pulse />
+            )}
             {fleetStats.attention > 0 && (
               <FilterChip label="Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => {
                 setFilter("attention");
@@ -423,6 +446,7 @@ export default function HostFleetMap() {
           vehicle={selectedVehicle}
           device={deviceByVehicle[selectedVehicle.id]}
           activeBooking={activeBookingByVehicle[selectedVehicle.id]}
+          pendingBooking={bookingIntentByVehicle[selectedVehicle.id]?.intent === "live_interest" ? bookingIntentByVehicle[selectedVehicle.id].booking : null}
           user={user}
           onClose={() => setSelectedVehicle(null)}
           onCommand={handleCommand}

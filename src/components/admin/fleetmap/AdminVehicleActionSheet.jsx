@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { X, MapPin, User, Calendar, ExternalLink, Settings } from "lucide-react";
+import { X, MapPin, User, Calendar, ExternalLink, Settings, Flame } from "lucide-react";
+import { getCheckoutStepProgress } from "@/lib/fleetmap/bookingIntent";
 
 const LABEL_FONT = "'Barlow Condensed', sans-serif";
 
@@ -24,7 +25,7 @@ const STATUS_COLORS = {
   Transferred: "#8E8E93",
 };
 
-export default function AdminVehicleActionSheet({ vehicle, device, host, activeBooking, onClose }) {
+export default function AdminVehicleActionSheet({ vehicle, device, host, activeBooking, pendingBooking, onClose }) {
   const navigate = useNavigate();
   if (!vehicle) return null;
 
@@ -150,6 +151,43 @@ export default function AdminVehicleActionSheet({ vehicle, device, host, activeB
             )}
           </div>
         )}
+
+        {/* Live Interest — customer in checkout flow right now */}
+        {pendingBooking && (() => {
+          const prog = getCheckoutStepProgress(pendingBooking.checkout_step);
+          const minsAgo = pendingBooking.created_date
+            ? Math.floor((Date.now() - new Date(pendingBooking.created_date).getTime()) / 60000)
+            : 0;
+          const timeLabel = minsAgo < 1 ? "just now" : minsAgo < 60 ? `${minsAgo}m ago` : `${Math.floor(minsAgo / 60)}h ago`;
+          return (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              background: "linear-gradient(135deg, rgba(255,159,10,0.12), rgba(255,159,10,0.04))",
+              borderRadius: 12, padding: "10px 14px", marginBottom: 12,
+              border: "1px solid rgba(255,159,10,0.3)",
+            }}>
+              <Flame size={16} color="#FF9F0A" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#FF9F0A", margin: 0, fontFamily: LABEL_FONT }}>
+                  Live Interest
+                </p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: "#F5F5F7", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {pendingBooking.customer_full_name || pendingBooking.user_email || "Customer"}
+                </p>
+                <p style={{ fontSize: 11, color: "#8E8E93", margin: "2px 0 0" }}>
+                  Step {prog.step}/{prog.total} · {prog.label?.replace(/_/g, " ") || "checkout"} · {timeLabel}
+                </p>
+              </div>
+              <button onClick={() => navigate(`/admin/booking-360?id=${pendingBooking.id}`)} style={{
+                background: "rgba(255,159,10,0.15)", border: "1px solid rgba(255,159,10,0.3)",
+                borderRadius: 8, padding: "5px 10px", cursor: "pointer",
+                fontSize: 11, fontWeight: 700, color: "#FF9F0A", whiteSpace: "nowrap",
+              }}>
+                View →
+              </button>
+            </div>
+          );
+        })()}
 
         {/* GPS location */}
         {hasGps && device?.last_latitude && device?.last_longitude && (

@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Users, Car, DollarSign, BarChart3, CalendarDays, MapPin, Wrench, Shield, Satellite, BookOpen, Lock, Unlock, Navigation, Route as RouteIcon, Bluetooth } from "lucide-react";
+import { X, Users, Car, DollarSign, BarChart3, CalendarDays, MapPin, Wrench, Shield, Satellite, BookOpen, Lock, Unlock, Navigation, Route as RouteIcon, Bluetooth, Flame } from "lucide-react";
 import DriveHistoryReplay from "@/components/telematics/DriveHistoryReplay";
 import GeofenceManagerOverlay from "@/components/gps/GeofenceManagerOverlay";
 import BluetoothSetupOverlay from "@/components/gps/BluetoothSetupOverlay";
+import { getCheckoutStepProgress } from "@/lib/fleetmap/bookingIntent";
 
 const LABEL_FONT = "'Barlow Condensed', sans-serif";
 
-export default function VehicleActionSheet({ vehicle, device, activeBooking, user, onClose, onCommand }) {
+export default function VehicleActionSheet({ vehicle, device, activeBooking, pendingBooking, user, onClose, onCommand }) {
   const navigate = useNavigate();
   const [showReplay, setShowReplay] = useState(false);
   const [showGeofence, setShowGeofence] = useState(false);
@@ -74,6 +75,52 @@ export default function VehicleActionSheet({ vehicle, device, activeBooking, use
             <X size={20} color="#8E8E93" />
           </button>
         </div>
+
+        {/* Live Interest card — customer in checkout flow right now */}
+        {pendingBooking && (() => {
+          const prog = getCheckoutStepProgress(pendingBooking.checkout_step);
+          const minsAgo = pendingBooking.created_date
+            ? Math.floor((Date.now() - new Date(pendingBooking.created_date).getTime()) / 60000)
+            : 0;
+          const timeLabel = minsAgo < 1 ? "just now" : minsAgo < 60 ? `${minsAgo}m ago` : `${Math.floor(minsAgo / 60)}h ago`;
+          return (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10,
+              background: "linear-gradient(135deg, rgba(255,159,10,0.15), rgba(255,159,10,0.05))",
+              borderRadius: 14, padding: "12px 14px", marginBottom: 14,
+              border: "1px solid rgba(255,159,10,0.3)",
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: "rgba(255,159,10,0.2)",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                <Flame size={18} color="#FF9F0A" />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, color: "#FF9F0A", margin: 0, fontFamily: LABEL_FONT }}>
+                  Live Interest
+                </p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: "#F5F5F7", margin: "2px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {pendingBooking.customer_full_name || pendingBooking.user_email || "Customer"}
+                </p>
+                <p style={{ fontSize: 11, color: "#8E8E93", margin: "2px 0 0" }}>
+                  Step {prog.step}/{prog.total} · {prog.label?.replace(/_/g, " ") || "checkout"} · {timeLabel}
+                </p>
+              </div>
+              <button
+                onClick={() => navigate(`/host/booking-360?id=${pendingBooking.id}`)}
+                style={{
+                  background: "rgba(255,159,10,0.15)", border: "1px solid rgba(255,159,10,0.3)",
+                  borderRadius: 10, padding: "6px 12px", cursor: "pointer",
+                  fontSize: 11, fontWeight: 700, color: "#FF9F0A", whiteSpace: "nowrap",
+                }}
+              >
+                View →
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Quick Controls (GPS only) */}
         {hasGps && (

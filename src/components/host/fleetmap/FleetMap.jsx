@@ -4,6 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { classicDarkStyle } from "@/lib/mapStyles/classicDarkStyle";
 import { HIGHWAY_SHIELD_LAYERS, handleShieldImageMissing } from "@/lib/mapStyles/highwayShieldLayers";
 import { computeStarterState } from "@/lib/telematics/starterState";
+import { INTENT_LEVELS } from "@/lib/fleetmap/bookingIntent";
 
 // ── Worker blob (same pattern as FindMyVehicleMap) ──
 let workerBlobUrlPromise = null;
@@ -86,12 +87,22 @@ function showStarterTooltip(parentEl, starter, vehicleName) {
 }
 
 // ── Vehicle photo marker ──
-function createVehicleMarkerElement(vehicle, device, onClick, onLongPress) {
+function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, intentEntry) {
   const el = document.createElement("div");
   el.style.cursor = "pointer";
   const photo = vehicle.hero_image_url || vehicle.image_url;
-  const statusColor = getStatusColor(vehicle.status);
-  const statusLabel = getStatusLabel(vehicle.status);
+
+  // Resolve intent — overrides status-based ring when a booking is in progress
+  const intent = intentEntry?.intent || (vehicle.status === "Available" ? "available" : "confirmed");
+  const intentCfg = INTENT_LEVELS[intent] || INTENT_LEVELS.available;
+  const ringColor = intentCfg.color;
+  const ringLabel = intentCfg.label;
+  const ringClass = intent === "live_interest" ? "intent-ring-live-interest"
+    : intent === "active_rental" ? "intent-ring-active-rental"
+    : "";
+  const ringStyle = intentCfg.dashed ? "border:3px dashed " : "border:3px solid ";
+  const ringOpacity = intent === "abandoned" ? "0.5" : "1";
+
   const hasGps = !!(device?.last_latitude);
   const gpsOnline = hasGps && device?.online_status !== "offline";
   const gpsColor = !hasGps ? "#6B6B70" : gpsOnline ? "#22C55E" : "#FF9F0A";
@@ -112,14 +123,14 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress) {
   el.innerHTML = `
     <div style="position:relative;width:54px;height:66px;pointer-events:auto;">
       <div style="position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);width:34px;height:6px;border-radius:50%;background:rgba(0,0,0,0.45);filter:blur(3px);"></div>
-      <div style="width:48px;height:48px;border-radius:50%;border:3px solid ${statusColor};overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.1);position:relative;">
+      <div class="${ringClass}" style="width:48px;height:48px;border-radius:50%;${ringStyle}${ringColor};overflow:hidden;opacity:${ringOpacity};box-shadow:0 2px 10px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.1);position:relative;">
         ${photo
           ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;background:#1a1a1a;color:#666;font-size:20px;">🚗</div>`
           : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1a1a1a;color:#666;font-size:20px;">🚗</div>`}
       </div>
       <div style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:${gpsColor};border:2px solid #0a0a0a;box-shadow:0 0 4px ${gpsColor};"></div>
       ${starterBadge}
-      <div style="position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);white-space:nowrap;background:${statusColor};color:white;font-size:9px;font-weight:800;padding:2px 8px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 1px 4px rgba(0,0,0,0.4);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;">${statusLabel}</div>
+      <div style="position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);white-space:nowrap;background:${ringColor};color:white;font-size:9px;font-weight:800;padding:2px 8px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 1px 4px rgba(0,0,0,0.4);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;">${ringLabel}</div>
     </div>
   `;
 
@@ -211,7 +222,7 @@ function declutterMarkers(map, markers) {
   }
 }
 
-export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle, onLongPressVehicle, focusVehicleId }) {
+export default function FleetMap({ vehicles = [], devices = [], bookingIntentByVehicle = {}, onSelectVehicle, onLongPressVehicle, focusVehicleId }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -301,7 +312,7 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
     markersRef.current = [];
 
     for (const pv of positionedVehicles) {
-      const el = createVehicleMarkerElement(pv.vehicle, pv.device, onSelectVehicle, onLongPressVehicle);
+      const el = createVehicleMarkerElement(pv.vehicle, pv.device, onSelectVehicle, onLongPressVehicle, bookingIntentByVehicle[pv.vehicle.id]);
       const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([pv.lng, pv.lat])
         .addTo(map);
@@ -320,7 +331,7 @@ export default function FleetMap({ vehicles = [], devices = [], onSelectVehicle,
 
     // Declutter overlapping markers (spiral spread)
     requestAnimationFrame(() => declutterMarkers(map, markersRef.current));
-  }, [positionedVehicles, workerReady, onSelectVehicle, onLongPressVehicle]);
+  }, [positionedVehicles, workerReady, onSelectVehicle, onLongPressVehicle, bookingIntentByVehicle]);
 
   // Focus on a specific vehicle (when focusVehicleId changes)
   useEffect(() => {

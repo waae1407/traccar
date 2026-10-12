@@ -6,6 +6,7 @@ import FleetMap from "@/components/host/fleetmap/FleetMap";
 import AdminScorecardStack from "@/components/admin/fleetmap/AdminScorecardStack";
 import AdminSupportQueue from "@/components/admin/fleetmap/AdminSupportQueue";
 import AdminVehicleActionSheet from "@/components/admin/fleetmap/AdminVehicleActionSheet";
+import { computeBookingIntentByVehicle, countByIntent } from "@/lib/fleetmap/bookingIntent";
 
 const ACTIVE_RENTAL_STATUSES = new Set(["active", "confirmed", "approved", "checked_out", "return_required", "payment_due", "grace_period"]);
 const OVERDUE_BOOKING_STATUSES = new Set(["payment_due", "grace_period", "suspended"]);
@@ -92,6 +93,9 @@ export default function AdminFleetMap() {
     return map;
   }, [bookings]);
 
+  const bookingIntentByVehicle = useMemo(() => computeBookingIntentByVehicle(bookings), [bookings]);
+  const intentCounts = useMemo(() => countByIntent(bookingIntentByVehicle, vehicles), [bookingIntentByVehicle, vehicles]);
+
   // ── Filtered vehicles (by host + search + filter chip) ──
   const filteredVehicles = useMemo(() => {
     let result = vehicles;
@@ -115,8 +119,14 @@ export default function AdminFleetMap() {
       const reviewVehicleIds = new Set(bookings.filter(b => b.booking_status === "pending_review").map(b => b.vehicle_id));
       result = result.filter(v => reviewVehicleIds.has(v.id));
     }
+    if (filter === "pending") {
+      result = result.filter(v => {
+        const entry = bookingIntentByVehicle[v.id];
+        return entry && (entry.intent === "live_interest" || entry.intent === "abandoned");
+      });
+    }
     return result;
-  }, [vehicles, selectedHostId, search, filter, hostMap, deviceByVehicle, activeBookingByVehicle, bookings]);
+  }, [vehicles, selectedHostId, search, filter, hostMap, deviceByVehicle, activeBookingByVehicle, bookings, bookingIntentByVehicle]);
 
   // ── Scorecard counts ──
   const pendingReviews = useMemo(() => bookings.filter(b => b.booking_status === "pending_review").length, [bookings]);
@@ -217,7 +227,8 @@ export default function AdminFleetMap() {
       const dev = deviceByVehicle[v.id];
       return !!dev?.id && dev?.online_status !== "online";
     }).length,
-  }), [filteredVehicles, activeBookingByVehicle, deviceByVehicle]);
+    pending: countByIntent(bookingIntentByVehicle, filteredVehicles).live_interest + countByIntent(bookingIntentByVehicle, filteredVehicles).abandoned,
+  }), [filteredVehicles, activeBookingByVehicle, deviceByVehicle, bookingIntentByVehicle]);
 
   // ── Handlers ──
   const handleSelectVehicle = useCallback((vehicle) => {
@@ -228,6 +239,8 @@ export default function AdminFleetMap() {
   const selectedHost = selectedVehicle ? hostMap[selectedVehicle.host_id] : null;
   const selectedDevice = selectedVehicle ? deviceByVehicle[selectedVehicle.id] : null;
   const selectedBooking = selectedVehicle ? activeBookingByVehicle[selectedVehicle.id] : null;
+  const selectedPendingBooking = selectedVehicle && bookingIntentByVehicle[selectedVehicle.id]?.intent === "live_interest"
+    ? bookingIntentByVehicle[selectedVehicle.id].booking : null;
 
   if (hostsLoading || vehiclesLoading) {
     return (
@@ -245,6 +258,7 @@ export default function AdminFleetMap() {
       <FleetMap
         vehicles={filteredVehicles}
         devices={devices}
+        bookingIntentByVehicle={bookingIntentByVehicle}
         onSelectVehicle={handleSelectVehicle}
         onLongPressVehicle={() => {}}
         focusVehicleId={focusVehicleId}
@@ -348,6 +362,7 @@ export default function AdminFleetMap() {
             {fleetStats.attention > 0 && <FilterChip label="Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => setFilter("attention")} color="#FF9F0A" pulse />}
             {fleetStats.offline > 0 && <FilterChip label="Offline GPS" count={fleetStats.offline} active={filter === "offline"} onClick={() => setFilter("offline")} color="#8E8E93" />}
             {pendingReviews > 0 && <FilterChip label="Pending Review" count={pendingReviews} active={filter === "pending_review"} onClick={() => setFilter("pending_review")} color="#FF9F0A" />}
+            {fleetStats.pending > 0 && <FilterChip label="Pending" count={fleetStats.pending} active={filter === "pending"} onClick={() => setFilter("pending")} color="#FF9F0A" pulse />}
           </div>
         </div>
       </div>
@@ -388,6 +403,7 @@ export default function AdminFleetMap() {
           device={selectedDevice}
           host={selectedHost}
           activeBooking={selectedBooking}
+          pendingBooking={selectedPendingBooking}
           onClose={() => setSelectedVehicle(null)}
         />
       )}
