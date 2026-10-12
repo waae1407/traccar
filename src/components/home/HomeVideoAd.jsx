@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 
-const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/7d9535264_Smart_Automation_Ad.mp4";
+const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/1fe3b39f1_Payment_Enforcement_Ad.mp4";
 
 export default function HomeVideoAd() {
   const videoRef = useRef(null);
@@ -29,7 +29,7 @@ export default function HomeVideoAd() {
             Keyless. Contactless. Effortless.
           </h2>
           <p className="text-sm text-gray-500 mt-1.5 max-w-lg mx-auto">
-            GPS tracking, remote controls, automated payouts, and contactless self-service pickup — the smart automation platform for modern vehicle rental fleets.
+            Automatic vehicle shutdown 24 hours after failed payment, with instant self-restore the moment payment is received — protecting your revenue without lifting a finger.
           </p>
         </div>
 
