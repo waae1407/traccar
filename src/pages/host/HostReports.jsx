@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { BarChart2, TrendingUp, Users, DollarSign, Download } from "lucide-react";
 import HostPageHeader from "@/components/host/HostPageHeader";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, PieChart, Pie, Cell } from "recharts";
@@ -18,6 +19,7 @@ const PIE_COLORS = ["#e91e8c", "#7c3aed", "#f59e0b", "#10b981", "#3b82f6", "#f97
 
 export default function HostReports() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [range, setRange] = useState(30);
 
   const { data: hosts = [] } = useQuery({ queryKey: ["my-host", user?.email], queryFn: () => base44.entities.Host.filter({ email: user?.email }), enabled: !!user?.email });
@@ -29,6 +31,7 @@ export default function HostReports() {
   const { data: expenses = [] } = useQuery({ queryKey: ["host-expenses", host?.id], queryFn: () => base44.entities.HostExpense.filter({ host_id: host.id }), enabled: !!host?.id });
   const { data: maintenance = [] } = useQuery({ queryKey: ["host-maintenance", host?.id], queryFn: () => base44.entities.HostMaintenanceLog.filter({ host_id: host.id }), enabled: !!host?.id });
   const { data: customers = [] } = useQuery({ queryKey: ["host-customers", host?.id], queryFn: () => base44.entities.HostCustomer.filter({ host_id: host.id }), enabled: !!host?.id });
+  const { data: paymentLogs = [] } = useQuery({ queryKey: ["host-payment-logs-reports", host?.id], queryFn: () => base44.entities.PaymentLog.filter({ host_id: host.id }, "-paid_at", 200), enabled: !!host?.id });
   const { data: insights = [] } = useQuery({ queryKey: ["fleet-insights", host?.id], queryFn: () => base44.entities.FleetInsight.filter({ host_id: host.id }), enabled: !!host?.id });
 
   const cutoff = subDays(new Date(), range);
@@ -65,9 +68,30 @@ export default function HostReports() {
   const totalMaintenance = maintenance.filter(m => inRange(m.date)).reduce((s, m) => s + (m.cost || 0), 0);
   const netProfit = totalNet - totalExpenses - totalMaintenance;
 
-  const topCustomers = [...customers].sort((a, b) => (b.total_spent || 0) - (a.total_spent || 0)).slice(0, 5);
+  // ── Accurate Top Customers: computed from actual bookings + payment logs ──
+  // HostCustomer.total_spent is stale (never synced from payments), so we aggregate from source.
+  const paidByBookingId = {};
+  for (const l of paymentLogs) {
+    if (l.status === "paid" && l.booking_request_id) {
+      paidByBookingId[l.booking_request_id] = (paidByBookingId[l.booking_request_id] || 0) + (l.amount || 0);
+    }
+  }
+  const customerAgg = {};
+  for (const b of bookings) {
+    const email = b.user_email;
+    if (!email) continue;
+    if (!customerAgg[email]) customerAgg[email] = { email, full_name: b.customer_full_name || email, booking_count: 0, total_spent: 0 };
+    customerAgg[email].booking_count++;
+    const paid = paidByBookingId[b.id] || (b.payment_status === "paid" ? (b.total_due_now || b.first_payment_amount || 0) : 0);
+    customerAgg[email].total_spent += paid;
+  }
+  const topCustomers = Object.values(customerAgg).sort((a, b) => b.total_spent - a.total_spent).slice(0, 5);
+
   const completedBookings = bookings.filter(b => b.booking_status === "completed").length;
   const completionRate = bookings.length > 0 ? Math.round((completedBookings / bookings.length) * 100) : 0;
+  // Active customers = distinct emails with a live rental (not stale HostCustomer.customer_status)
+  const ACTIVE_BOOKING_STATUSES = new Set(["active", "confirmed", "approved", "checked_out", "return_required", "post_inspection_required", "overdue_return", "return_pending_host_review", "payment_due", "grace_period", "under_review"]);
+  const activeCustomerCount = new Set(bookings.filter(b => ACTIVE_BOOKING_STATUSES.has(b.booking_status) && b.user_email).map(b => b.user_email)).size;
 
   const exportPDF = () => {
     const doc = new jsPDF();
@@ -117,12 +141,12 @@ export default function HostReports() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: "Gross Revenue", value: `$${totalRevenue.toLocaleString()}`, color: "text-emerald-600", bg: "bg-emerald-50", icon: DollarSign },
-          { label: "Net Payout", value: `$${totalNet.toLocaleString()}`, color: "text-blue-600", bg: "bg-blue-50", icon: TrendingUp },
-          { label: "Total Expenses", value: `$${(totalExpenses + totalMaintenance).toLocaleString()}`, color: "text-red-500", bg: "bg-red-50", icon: BarChart2 },
-          { label: "Net Profit", value: `$${netProfit.toLocaleString()}`, color: netProfit >= 0 ? "text-pink-600" : "text-red-600", bg: "bg-pink-50", icon: TrendingUp },
+          { label: "Gross Revenue", value: `$${totalRevenue.toLocaleString()}`, color: "text-emerald-600", bg: "bg-emerald-50", icon: DollarSign, href: "/host/pnl" },
+          { label: "Net Payout", value: `$${totalNet.toLocaleString()}`, color: "text-blue-600", bg: "bg-blue-50", icon: TrendingUp, href: "/host/payouts" },
+          { label: "Total Expenses", value: `$${(totalExpenses + totalMaintenance).toLocaleString()}`, color: "text-red-500", bg: "bg-red-50", icon: BarChart2, href: "/host/expenses" },
+          { label: "Net Profit", value: `$${netProfit.toLocaleString()}`, color: netProfit >= 0 ? "text-pink-600" : "text-red-600", bg: "bg-pink-50", icon: TrendingUp, href: "/host/pnl" },
         ].map((s, i) => (
-          <div key={i} className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
+          <button key={i} onClick={() => navigate(s.href)} className="text-left bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] transition-all cursor-pointer">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{s.label}</p>
               <div className={`h-8 w-8 rounded-xl flex items-center justify-center ${s.bg}`}>
@@ -130,13 +154,13 @@ export default function HostReports() {
               </div>
             </div>
             <p className={`text-xl font-black ${s.color}`} style={{ fontFamily: "var(--font-syne)" }}>{s.value}</p>
-          </div>
+          </button>
         ))}
       </div>
 
       {/* Revenue Chart */}
       {revenueChartData.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div onClick={() => navigate("/host/payouts")} role="button" tabIndex={0} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] transition-all cursor-pointer">
           <h3 className="font-bold text-gray-900 mb-4 text-sm">Net Payout by Month</h3>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={revenueChartData}>
@@ -159,7 +183,7 @@ export default function HostReports() {
       <div className="grid lg:grid-cols-2 gap-5">
         {/* Fleet Performance */}
         {fleetPerformance.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div onClick={() => navigate("/host/fleet-insights")} role="button" tabIndex={0} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] transition-all cursor-pointer">
             <h3 className="font-bold text-gray-900 mb-4 text-sm">Fleet Performance</h3>
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={fleetPerformance} layout="vertical">
@@ -174,7 +198,7 @@ export default function HostReports() {
 
         {/* Expense Breakdown */}
         {expensePieData.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div onClick={() => navigate("/host/expenses")} role="button" tabIndex={0} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] transition-all cursor-pointer">
             <h3 className="font-bold text-gray-900 mb-4 text-sm">Expense Breakdown</h3>
             <div className="flex items-center gap-4">
               <ResponsiveContainer width={140} height={140}>
@@ -207,7 +231,7 @@ export default function HostReports() {
             </h3>
             <div className="space-y-3">
               {topCustomers.map((c, i) => (
-                <div key={c.id} className="flex items-center gap-3">
+                <button key={c.email || i} onClick={() => navigate(`/host/customer-360?search=${encodeURIComponent(c.email || c.full_name || "")}`)} className="flex items-center gap-3 w-full text-left hover:bg-gray-50 -mx-2 px-2 py-1 rounded-xl transition-colors cursor-pointer">
                   <span className="text-xs font-black text-gray-300 w-4">#{i + 1}</span>
                   <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                     style={{ background: "linear-gradient(135deg, hsl(338 90% 56%), hsl(265 80% 62%))" }}>
@@ -218,7 +242,7 @@ export default function HostReports() {
                     <p className="text-xs text-gray-400">{c.booking_count} bookings</p>
                   </div>
                   <p className="text-sm font-bold text-emerald-600">${(c.total_spent || 0).toLocaleString()}</p>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -229,16 +253,16 @@ export default function HostReports() {
           <h3 className="font-bold text-gray-900 mb-4 text-sm">Booking Summary</h3>
           <div className="space-y-4">
             {[
-              { label: "Total Bookings", value: bookings.length, color: "text-gray-900" },
-              { label: "Completed", value: completedBookings, color: "text-emerald-600" },
-              { label: "Completion Rate", value: `${completionRate}%`, color: "text-pink-600" },
-              { label: "Active Customers", value: customers.filter(c => c.customer_status === "active").length, color: "text-blue-600" },
-              { label: "Storefront Views", value: host?.storefront_views || 0, color: "text-violet-600" },
+              { label: "Total Bookings", value: bookings.length, color: "text-gray-900", href: "/host/booking-360" },
+              { label: "Completed", value: completedBookings, color: "text-emerald-600", href: "/host/booking-360" },
+              { label: "Completion Rate", value: `${completionRate}%`, color: "text-pink-600", href: "/host/booking-360" },
+              { label: "Active Customers", value: activeCustomerCount, color: "text-blue-600", href: "/host/customers" },
+              { label: "Storefront Views", value: host?.storefront_views || 0, color: "text-violet-600", href: "/host/brand" },
             ].map((s, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <button key={i} onClick={() => navigate(s.href)} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 w-full text-left hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors cursor-pointer">
                 <span className="text-sm text-gray-500">{s.label}</span>
                 <span className={`text-base font-black ${s.color}`} style={{ fontFamily: "var(--font-syne)" }}>{s.value}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
