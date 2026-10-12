@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 
-const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/d3573de3b_Safe_Driving_Ad.mp4";
+const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/cae3f4a30_SOS_Emergency_Ad.mp4";
 
 export default function HomeVideoAd() {
   const videoRef = useRef(null);
@@ -29,7 +29,7 @@ export default function HomeVideoAd() {
             Keyless. Contactless. Effortless.
           </h2>
           <p className="text-sm text-gray-500 mt-1.5 max-w-lg mx-auto">
-            Real-time driving behavior monitoring — speed tracking, hard-braking detection, rapid-acceleration alerts, and weekly safety scorecards so you always know exactly how your vehicle is being driven.
+            Automatic accident detection, one-tap SOS emergency response, instant multi-contact alerts with live GPS location, and 24/7 emergency services notification — so every driver is always protected and always connected.
           </p>
         </div>
 
