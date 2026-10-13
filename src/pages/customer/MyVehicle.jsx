@@ -227,7 +227,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const { data: bookings = [], isLoading: bookingsLoading, error: bookingsError } = useQuery({
+  const { data: bookings = [], isLoading: bookingsLoading, error: bookingsError, refetch: refetchBookings } = useQuery({
     queryKey: ["my-vehicle-bookings", user?.email, deepLinkedBookingId],
     queryFn: async () => {
       if (deepLinkedBookingId) {
@@ -883,6 +883,7 @@ function MyVehicleClassicScreen({ onOpenSkinPicker }) {
           navVisible={showFooter}
           displayAddress={displayAddress}
           gps={gps}
+          onPaymentSuccess={() => refetchBookings()}
         />
 
         {/* ── BOTTOM NAVIGATION ── */}

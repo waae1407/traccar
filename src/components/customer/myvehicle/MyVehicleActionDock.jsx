@@ -2,6 +2,7 @@ import React from "react";
 import { Lock, Unlock, MapPin } from "lucide-react";
 import SOSButton from "@/components/customer/sos/SOSButton";
 import BluetoothPairingNudge from "@/components/customer/myvehicle/BluetoothPairingNudge";
+import PayNowCard from "@/components/customer/myvehicle/PayNowCard";
 
 const LABEL_FONT = "'Barlow Condensed', sans-serif";
 
@@ -26,6 +27,7 @@ export default function MyVehicleActionDock({
   navVisible = false,
   displayAddress,
   gps,
+  onPaymentSuccess,
 }) {
   const baseBtn = {
     flex: 1,
@@ -86,6 +88,9 @@ export default function MyVehicleActionDock({
           pointerEvents: "none",
         }}
       >
+        {/* ── Pay Now card (only renders when payment failed) ── */}
+        <PayNowCard booking={booking} onPaymentSuccess={onPaymentSuccess} />
+
         {/* ── Bluetooth pairing nudge (one-time, per-device dismissible) ── */}
         <BluetoothPairingNudge device={device} />
 
