@@ -352,6 +352,32 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── 6b. Create payment_recovered alert to auto-resolve prior failure alerts ──
+    // This triggers the centralized auto-resolution in createPaymentOperationalAlert,
+    // which resolves all open failure alerts (weekly_billing_failed, rental_payment_failed,
+    // payment_retry_scheduled, etc.) for this booking — clearing them from the UI.
+    if (allPastDueCleared) {
+      await base44.asServiceRole.functions.invoke('createPaymentOperationalAlert', {
+        alert_type: 'payment_recovered',
+        severity: 'info',
+        billing_context: 'weekly_billing',
+        booking_id: booking.id,
+        host_id: booking.host_id || '',
+        customer_id: booking.user_id || '',
+        vehicle_id: booking.vehicle_id || '',
+        renter_email: booking.user_email || '',
+        stripe_payment_intent_id: paymentIntent.id,
+        related_entity_type: 'BookingRequest',
+        related_entity_id: booking.id,
+        title: 'Payment recovered — customer Pay Now',
+        message: `Payment of $${grossedAmount.toFixed(2)} recovered via customer self-service Pay Now for ${booking.vehicle_name || booking.id} (Week ${paymentWeekNumber}).${starterRestored ? ' Starter access restored.' : ' Starter restore pending.'}`,
+        recommended_action: 'Confirm booking and payment records are healthy.',
+        financial_impact_amount: grossedAmount,
+        currency: paymentIntent.currency || 'usd',
+        source: 'retryBookingPayment',
+      }).catch(e => console.error('[retryBookingPayment] payment_recovered alert failed:', e.message));
+    }
+
     // ── 7. Notify customer + host ──
     const customerMessage = allPastDueCleared
       ? `Your payment of $${grossedAmount.toFixed(2)} for ${booking.vehicle_name} was processed successfully. Your rental is active${starterRestored ? ' and starter access has been restored' : ''}. Next billing: ${nextBillingDate}.`

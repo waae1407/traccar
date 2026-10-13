@@ -4,6 +4,75 @@ const CRITICAL = new Set(['rental_payment_failed','weekly_billing_failed','payme
 const INFO = new Set(['payment_recovered','retry_successful','payout_completed','chargeback_won','subscription_renewed','dealer_membership_renewed','alert_resolved']);
 const OPEN_STATUSES = ['new','notified','acknowledged','under_review','retry_scheduled','escalated'];
 
+// Success alert types — when created, automatically resolve all open failure alerts
+// for the same booking/entity. This is the centralized auto-resolution mechanism.
+const SUCCESS_ALERT_TYPES = new Set([
+  'payment_recovered', 'retry_successful', 'payout_completed',
+  'chargeback_won', 'subscription_renewed', 'dealer_membership_renewed',
+  'alert_resolved', 'refund_recorded',
+]);
+
+// Failure alert types that should be auto-resolved when a success alert comes in
+const FAILURE_ALERT_TYPES = new Set([
+  'rental_payment_failed', 'weekly_billing_failed', 'payment_authentication_required',
+  'payment_method_missing', 'payment_retry_scheduled', 'unknown_payment_failed',
+  'subscription_payment_failed', 'subscription_past_due',
+  'dealer_membership_payment_failed', 'dealer_membership_past_due',
+  'contactless_gps_payment_failed', 'contactless_gps_past_due',
+  'fleetos_manual_payment_required',
+]);
+
+// Auto-resolve all open failure alerts for the same booking/entity when a success
+// alert is created. This ensures the UI clears stale failure alerts the moment a
+// payment is recovered — no manual admin action needed.
+async function autoResolvePriorFailures(base44, successAlert) {
+  const bookingId = successAlert.booking_id || '';
+  const relatedEntityId = successAlert.related_entity_id || bookingId;
+  if (!bookingId && !relatedEntityId) return { resolved: 0 };
+
+  // Build query: match by booking_id OR related_entity_id
+  const query = bookingId
+    ? { booking_id: bookingId }
+    : { related_entity_id: relatedEntityId };
+
+  const candidates = await base44.asServiceRole.entities.PaymentOperationalAlert.filter(query);
+  const now = new Date().toISOString();
+  let resolvedCount = 0;
+
+  for (const alert of candidates) {
+    // Skip already-resolved alerts
+    if (['resolved', 'dismissed', 'closed'].includes(alert.status)) continue;
+    // Skip the success alert itself
+    if (alert.id === successAlert.id) continue;
+    // Only resolve failure-type alerts
+    if (!FAILURE_ALERT_TYPES.has(alert.alert_type)) continue;
+
+    await base44.asServiceRole.entities.PaymentOperationalAlert.update(alert.id, {
+      status: 'resolved',
+      resolved_at: now,
+      resolved_by: `auto_resolution_on_${successAlert.alert_type}`,
+      resolution_notes: `Auto-resolved: ${successAlert.title} — payment recovered, failure alert cleared automatically.`,
+      auto_resolution_allowed: true,
+      audit_log: [...(alert.audit_log || []), {
+        action_type: 'auto_resolved',
+        actor_role: 'system',
+        actor_id: `auto_resolution_on_${successAlert.alert_type}`,
+        timestamp: now,
+        note: `Auto-resolved by ${successAlert.alert_type} alert for the same booking.`,
+        previous_status: alert.status,
+        new_status: 'resolved',
+      }],
+    });
+    resolvedCount++;
+  }
+
+  if (resolvedCount > 0) {
+    console.log(`[PaymentOperationalAlert] Auto-resolved ${resolvedCount} prior failure alert(s) for booking ${bookingId || relatedEntityId} on ${successAlert.alert_type}`);
+  }
+
+  return { resolved: resolvedCount };
+}
+
 function normalizeBillingContext(value = '') {
   const context = String(value || '').toLowerCase();
   if (['rental_marketplace_payment','rental_payment','weekly_billing'].includes(context)) return context === 'weekly_billing' ? 'weekly_billing' : 'rental_payment';
@@ -112,7 +181,7 @@ Deno.serve(async (req) => {
     if (payload.host_email && payload.requires_host_action) hostNotified = await safeNotification(base44, { user_email: payload.host_email, title: payload.title, body: payload.message, type: 'alert', action_link: '/host/payments', booking_request_id: payload.booking_id || '' });
     if (payload.renter_email && payload.requires_customer_action) customerNotified = await safeNotification(base44, { user_email: payload.renter_email, title: payload.title, body: payload.message, type: 'payment', action_link: '/my-bookings', booking_request_id: payload.booking_id || '' });
 
-    await base44.asServiceRole.entities.PaymentOperationalAlert.update(alert.id, {
+    const updatedAlert = await base44.asServiceRole.entities.PaymentOperationalAlert.update(alert.id, {
       status: 'notified',
       push_sent: adminNotified || hostNotified || customerNotified,
       admin_email_sent: false,
@@ -122,7 +191,19 @@ Deno.serve(async (req) => {
       email_sent: false,
     });
 
-    return Response.json({ ok: true, duplicate: false, alert: { ...alert, status: 'notified' } });
+    // ── CENTRALIZED AUTO-RESOLUTION ──
+    // When a success alert (payment_recovered, retry_successful, etc.) is created,
+    // automatically resolve all open failure alerts for the same booking. This ensures
+    // the UI clears stale failure alerts the moment a payment is recovered — across
+    // the entire ecosystem (processGracePeriod, retryBookingPayment, stripeWebhook,
+    // adminPaymentAction, processWeeklyBilling — all callers of this function).
+    let autoResolved = 0;
+    if (SUCCESS_ALERT_TYPES.has(alertType)) {
+      const result = await autoResolvePriorFailures(base44, { ...updatedAlert, booking_id: payload.booking_id, related_entity_id: payload.related_entity_id });
+      autoResolved = result.resolved;
+    }
+
+    return Response.json({ ok: true, duplicate: false, alert: { ...updatedAlert, status: 'notified' }, auto_resolved: autoResolved });
   } catch (error) {
     console.error('[PaymentOperationalAlert] Fatal:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
