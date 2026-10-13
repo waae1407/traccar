@@ -8,6 +8,10 @@ const VIDEOS = [
     url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/68848dcf0_Secure_Payments_Revenue.mp4",
     label: "Secure Payments",
   },
+  {
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/92423d932_Keyless_Contactless_Flow.mp4",
+    label: "Keyless Contactless",
+  },
 ];
 
 export default function HomeVideoAd() {
