@@ -5,12 +5,28 @@ import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 // Add new video URLs here as they're generated.
 const VIDEOS = [
   {
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/aef1c858c_uRide_Marketing_Ad.mp4",
+    label: "uRide Marketing",
+  },
+  {
     url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/68848dcf0_Secure_Payments_Revenue.mp4",
     label: "Secure Payments",
   },
   {
-    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/eed3a9899_Keyless_Contactless_v2.mp4",
-    label: "Keyless Contactless",
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/cae3f4a30_SOS_Emergency_Ad.mp4",
+    label: "SOS Emergency",
+  },
+  {
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/d3573de3b_Safe_Driving_Ad.mp4",
+    label: "Safe Driving",
+  },
+  {
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/d21827e7c_Payment_Gate_Ad_v2.mp4",
+    label: "Payment Gate",
+  },
+  {
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/7d9535264_Smart_Automation_Ad.mp4",
+    label: "Smart Automation",
   },
 ];
 
