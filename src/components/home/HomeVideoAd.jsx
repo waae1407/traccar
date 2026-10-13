@@ -9,7 +9,7 @@ const VIDEOS = [
     label: "Secure Payments",
   },
   {
-    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/92423d932_Keyless_Contactless_Flow.mp4",
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/eed3a9899_Keyless_Contactless_v2.mp4",
     label: "Keyless Contactless",
   },
 ];
