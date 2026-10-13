@@ -199,10 +199,13 @@ export default function AdminFleetMap() {
       });
     }
 
-    // Abandoned checkouts
+    // Abandoned checkouts (only show drafts from the last 7 days — older ones are stale)
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     for (const b of bookings) {
       if (!ABANDONED_STATUSES.has(b.booking_status)) continue;
       if (b.abandoned_checkout) continue;
+      if (b.is_superseded) continue;
+      if (new Date(b.created_date).getTime() < sevenDaysAgo) continue;
       items.push({
         id: `abandoned-${b.id}`,
         type: "abandoned_checkout",
