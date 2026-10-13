@@ -5,6 +5,10 @@ import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 // Add new video URLs here as they're generated.
 const VIDEOS = [
   {
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/640814b1a_Payment_Recovery_Flow.mp4",
+    label: "Payment Recovery",
+  },
+  {
     url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/d7fe1be49_uRide_Hero_Ad_v2.mp4",
     label: "Cinematic Drive",
   },
