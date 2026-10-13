@@ -13,6 +13,13 @@ const OVERDUE_BOOKING_STATUSES = new Set(["payment_due", "grace_period", "suspen
 const OVERDUE_PAYMENT_STATUSES = new Set(["failed", "overdue"]);
 const ABANDONED_STATUSES = new Set(["draft", "pending_verification", "pending_contract", "pending_payment"]);
 
+// Single rule shared by the Overdue Payments scorecard and the Support Queue so they always match.
+// Completed rentals with a failed payment still owe money, so they count.
+const isOverduePayment = (b) =>
+  (OVERDUE_PAYMENT_STATUSES.has(b.payment_status) || OVERDUE_BOOKING_STATUSES.has(b.booking_status)) &&
+  !["cancelled", "rejected"].includes(b.booking_status) &&
+  !b.is_superseded;
+
 export default function AdminFleetMap() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -131,10 +138,7 @@ export default function AdminFleetMap() {
   // ── Scorecard counts ──
   const pendingReviews = useMemo(() => bookings.filter(b => b.booking_status === "pending_review").length, [bookings]);
   const overdueRentals = useMemo(() => bookings.filter(b => OVERDUE_BOOKING_STATUSES.has(b.booking_status)).length, [bookings]);
-  const overduePayments = useMemo(() => {
-    const overdueBookings = bookings.filter(b => OVERDUE_PAYMENT_STATUSES.has(b.payment_status) || OVERDUE_BOOKING_STATUSES.has(b.booking_status));
-    return overdueBookings.length;
-  }, [bookings]);
+  const overduePayments = useMemo(() => bookings.filter(isOverduePayment).length, [bookings]);
   const outOfService = useMemo(() => vehicles.filter(v => v.status === "Out of Service").length, [vehicles]);
 
   // ── Support queue items ──
@@ -170,14 +174,13 @@ export default function AdminFleetMap() {
 
     // Overdue payments
     for (const b of bookings) {
-      if (!OVERDUE_PAYMENT_STATUSES.has(b.payment_status) && !OVERDUE_BOOKING_STATUSES.has(b.booking_status)) continue;
-      if (["cancelled", "completed", "rejected"].includes(b.booking_status)) continue;
+      if (!isOverduePayment(b)) continue;
       items.push({
         id: `overdue-${b.id}`,
         type: "overdue_payment",
         severity: "critical",
         title: b.vehicle_name || "Vehicle",
-        subtitle: `${b.customer_full_name || b.user_email || "Customer"} · ${b.booking_status?.replace(/_/g, " ") || "Payment issue"}`,
+        subtitle: `${b.customer_full_name || b.user_email || "Customer"} · ${OVERDUE_PAYMENT_STATUSES.has(b.payment_status) ? "payment failed" : b.booking_status?.replace(/_/g, " ")}`,
         amount: b.weekly_rate || b.total_due_now || 0,
         created_at: b.last_payment_failure_at || b.grace_period_started_at || b.created_date,
         href: `/admin/booking-360?id=${b.id}`,
