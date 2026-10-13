@@ -1,12 +1,24 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 
-const VIDEO_URL = "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/08795baff_uRide_Masterpiece_Ad.mp4";
+// All generated hero videos — the component rotates through these on each loop.
+// Add new video URLs here as they're generated.
+const VIDEOS = [
+  {
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/d7fe1be49_uRide_Hero_Ad_v2.mp4",
+    label: "Cinematic Drive",
+  },
+  {
+    url: "https://media.base44.com/videos/public/69cdfc01c15011a821c6ee7e/08795baff_uRide_Masterpiece_Ad.mp4",
+    label: "Dashboard View",
+  },
+];
 
 export default function HomeVideoAd() {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(true);
+  const [currentIdx, setCurrentIdx] = useState(0);
 
   const togglePlay = () => {
     const v = videoRef.current;
@@ -20,6 +32,20 @@ export default function HomeVideoAd() {
     v.muted = !v.muted;
     setMuted(v.muted);
   };
+
+  // Advance to the next video when the current one ends.
+  // `loop` is intentionally omitted — we handle cycling manually so each video
+  // plays once then advances, giving a true rotation through all clips.
+  const handleEnded = () => {
+    setCurrentIdx((prev) => (prev + 1) % VIDEOS.length);
+  };
+
+  // Reset play state when the video source changes
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+  }, [currentIdx]);
 
   return (
     <section className="relative w-full overflow-hidden bg-black">
@@ -35,12 +61,13 @@ export default function HomeVideoAd() {
 
         <div className="relative rounded-2xl overflow-hidden shadow-2xl group" style={{ aspectRatio: "16 / 9" }}>
           <video
+            key={VIDEOS[currentIdx].url}
             ref={videoRef}
-            src={VIDEO_URL}
+            src={VIDEOS[currentIdx].url}
             autoPlay
             muted
-            loop
             playsInline
+            onEnded={handleEnded}
             className="w-full h-full object-cover"
           />
 
@@ -64,6 +91,22 @@ export default function HomeVideoAd() {
           >
             {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
+
+          {/* Rotation indicator dots */}
+          <div className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5">
+            {VIDEOS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentIdx(i)}
+                className="h-1.5 rounded-full transition-all"
+                style={{
+                  width: i === currentIdx ? 20 : 6,
+                  background: i === currentIdx ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)",
+                }}
+                aria-label={`Go to video ${i + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>
