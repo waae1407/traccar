@@ -19,7 +19,7 @@ const FAILURE_ALERT_TYPES = new Set([
   'subscription_payment_failed', 'subscription_past_due',
   'dealer_membership_payment_failed', 'dealer_membership_past_due',
   'contactless_gps_payment_failed', 'contactless_gps_past_due',
-  'fleetos_manual_payment_required',
+  'fleetos_manual_payment_required', 'payment_failed',
 ]);
 
 // Auto-resolve all open failure alerts for the same booking/entity when a success
@@ -28,14 +28,27 @@ const FAILURE_ALERT_TYPES = new Set([
 async function autoResolvePriorFailures(base44, successAlert) {
   const bookingId = successAlert.booking_id || '';
   const relatedEntityId = successAlert.related_entity_id || bookingId;
-  if (!bookingId && !relatedEntityId) return { resolved: 0 };
+  const vehicleId = successAlert.vehicle_id || '';
+  if (!bookingId && !relatedEntityId && !vehicleId) return { resolved: 0 };
 
-  // Build query: match by booking_id OR related_entity_id
-  const query = bookingId
-    ? { booking_id: bookingId }
-    : { related_entity_id: relatedEntityId };
-
-  const candidates = await base44.asServiceRole.entities.PaymentOperationalAlert.filter(query);
+  // Build query: match by booking_id, related_entity_id, or vehicle_id
+  // Some alerts (e.g. from stripeWebhook) are created with booking_id=null but
+  // do have vehicle_id — we must catch those too.
+  let candidates = [];
+  if (bookingId) {
+    candidates = await base44.asServiceRole.entities.PaymentOperationalAlert.filter({ booking_id: bookingId });
+  } else if (relatedEntityId) {
+    candidates = await base44.asServiceRole.entities.PaymentOperationalAlert.filter({ related_entity_id: relatedEntityId });
+  }
+  // Also fetch by vehicle_id if present (covers alerts with null booking_id)
+  if (vehicleId && !bookingId) {
+    const byVehicle = await base44.asServiceRole.entities.PaymentOperationalAlert.filter({ vehicle_id: vehicleId });
+    // Merge and dedupe by id
+    const seen = new Set(candidates.map(a => a.id));
+    for (const a of byVehicle) {
+      if (!seen.has(a.id)) { candidates.push(a); seen.add(a.id); }
+    }
+  }
   const now = new Date().toISOString();
   let resolvedCount = 0;
 
