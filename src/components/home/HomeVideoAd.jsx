@@ -33,7 +33,7 @@ const VIDEOS = [
 export default function HomeVideoAd() {
   const videoRef = useRef(null);
   const [playing, setPlaying] = useState(true);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
 
   const togglePlay = () => {
@@ -56,12 +56,46 @@ export default function HomeVideoAd() {
     setCurrentIdx((prev) => (prev + 1) % VIDEOS.length);
   };
 
-  // Reset play state when the video source changes
+  // Reset play state when the video source changes.
+  // Browsers block autoplay with sound until the user has interacted with the
+  // page, so we attempt unmuted first and fall back to muted if blocked.
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    v.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    v.muted = muted;
+    v.play()
+      .then(() => setPlaying(true))
+      .catch(() => {
+        // Autoplay with sound was blocked — retry muted so the video still plays.
+        v.muted = true;
+        setMuted(true);
+        v.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+      });
   }, [currentIdx]);
+
+  // Unmute automatically on the first user interaction anywhere on the page.
+  // Browsers allow audio autoplay only after a user gesture, so once the
+  // customer clicks or taps anything, we unmute so they hear the VO/soundtrack.
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      const v = videoRef.current;
+      if (v && v.muted) {
+        v.muted = false;
+        setMuted(false);
+      }
+      document.removeEventListener("click", handleFirstInteraction);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+      document.removeEventListener("keydown", handleFirstInteraction);
+    };
+    document.addEventListener("click", handleFirstInteraction);
+    document.addEventListener("touchstart", handleFirstInteraction);
+    document.addEventListener("keydown", handleFirstInteraction);
+    return () => {
+      document.removeEventListener("click", handleFirstInteraction);
+      document.removeEventListener("touchstart", handleFirstInteraction);
+      document.removeEventListener("keydown", handleFirstInteraction);
+    };
+  }, []);
 
   return (
     <section className="relative w-full overflow-hidden bg-black">
@@ -81,7 +115,6 @@ export default function HomeVideoAd() {
             ref={videoRef}
             src={VIDEOS[currentIdx].url}
             autoPlay
-            muted
             playsInline
             onEnded={handleEnded}
             className="w-full h-full object-cover"
