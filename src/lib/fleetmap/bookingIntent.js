@@ -2,7 +2,7 @@
  * Booking intent resolver for fleet map markers.
  *
  * Determines the "intent level" of a vehicle based on its booking activity:
- *   active_rental  → green pulse   (customer has the car)
+ *   active_rental  → blue pulse    (customer has the car)
  *   confirmed      → blue ring     (paid, awaiting pickup)
  *   live_interest  → amber pulse   (customer in checkout flow right now)
  *   abandoned      → amber dashed  (started checkout but left >30 min ago)
@@ -20,7 +20,7 @@ const FRESH_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours — still "live"
 const ABANDONED_THRESHOLD_MS = 30 * 60 * 1000; // 30 min — then "abandoned"
 
 export const INTENT_LEVELS = {
-  active_rental:  { color: "#22C55E", label: "Rented", pulse: true, priority: 5 },
+  active_rental:  { color: "#3B82F6", label: "Rented", pulse: true, priority: 5 },
   payment_issue:  { color: "#EF4444", label: "Payment Due", pulse: true, priority: 4 },
   confirmed:      { color: "#3B82F6", label: "Confirmed", pulse: false, priority: 3 },
   live_interest:  { color: "#FF9F0A", label: "Pending", pulse: true, priority: 2 },
