@@ -14,11 +14,14 @@ const OVERDUE_PAYMENT_STATUSES = new Set(["failed", "overdue"]);
 const ABANDONED_STATUSES = new Set(["draft", "pending_verification", "pending_contract", "pending_payment"]);
 
 // Single rule shared by the Overdue Payments scorecard and the Support Queue so they always match.
-// Completed rentals with a failed payment still owe money, so they count.
-const isOverduePayment = (b) =>
+// Completed rentals with a failed payment still owe money, so they count — UNLESS the vehicle has
+// been sold/transferred (e.g. rent-to-own completed), in which case the debt is settled and no
+// overdue alert should linger on a vehicle the host no longer owns.
+const isOverduePayment = (b, soldVehicleIds = null) =>
   (OVERDUE_PAYMENT_STATUSES.has(b.payment_status) || OVERDUE_BOOKING_STATUSES.has(b.booking_status)) &&
   !["cancelled", "rejected"].includes(b.booking_status) &&
-  !b.is_superseded;
+  !b.is_superseded &&
+  !(soldVehicleIds && soldVehicleIds.has(b.vehicle_id));
 
 export default function AdminFleetMap() {
   const [search, setSearch] = useState("");
@@ -135,10 +138,17 @@ export default function AdminFleetMap() {
     return result;
   }, [vehicles, selectedHostId, search, filter, hostMap, deviceByVehicle, activeBookingByVehicle, bookings, bookingIntentByVehicle]);
 
+  // ── Sold vehicles (Transferred = ownership moved to customer, e.g. rent-to-own completed) ──
+  const soldVehicleIds = useMemo(() => {
+    const set = new Set();
+    for (const v of vehicles) if (v.status === "Transferred") set.add(v.id);
+    return set;
+  }, [vehicles]);
+
   // ── Scorecard counts ──
   const pendingReviews = useMemo(() => bookings.filter(b => b.booking_status === "pending_review").length, [bookings]);
   const overdueRentals = useMemo(() => bookings.filter(b => OVERDUE_BOOKING_STATUSES.has(b.booking_status)).length, [bookings]);
-  const overduePayments = useMemo(() => bookings.filter(isOverduePayment).length, [bookings]);
+  const overduePayments = useMemo(() => bookings.filter(b => isOverduePayment(b, soldVehicleIds)).length, [bookings, soldVehicleIds]);
   const outOfService = useMemo(() => vehicles.filter(v => v.status === "Out of Service").length, [vehicles]);
 
   // ── Support queue items ──
@@ -174,7 +184,7 @@ export default function AdminFleetMap() {
 
     // Overdue payments
     for (const b of bookings) {
-      if (!isOverduePayment(b)) continue;
+      if (!isOverduePayment(b, soldVehicleIds)) continue;
       items.push({
         id: `overdue-${b.id}`,
         type: "overdue_payment",
@@ -221,7 +231,7 @@ export default function AdminFleetMap() {
     }
 
     return items;
-  }, [bookings, pendingHosts, vehicles, hostMap]);
+  }, [bookings, pendingHosts, vehicles, hostMap, soldVehicleIds]);
 
   // ── Fleet stats ──
   const fleetStats = useMemo(() => ({
