@@ -3,6 +3,8 @@
  *
  * Determines the "intent level" of a vehicle based on its booking activity:
  *   active_rental  → blue pulse    (customer has the car)
+ *   starter_enforced    → red pulse (rental payment failed AND interrupt landed — car won't start)
+ *   restriction_pending → red pulse (payment suspended, interrupt deferred until parked/heartbeat)
  *   confirmed      → blue ring     (paid, awaiting pickup)
  *   live_interest  → amber pulse   (customer in checkout flow right now)
  *   abandoned      → amber dashed  (started checkout but left >30 min ago)
@@ -16,11 +18,29 @@ const CONFIRMED_STATUSES = new Set(["confirmed", "approved"]);
 const LIVE_INTEREST_STATUSES = new Set(["draft", "pending_verification", "pending_contract", "pending_payment", "pending_review"]);
 const PAYMENT_ISSUE_STATUSES = new Set(["payment_due", "grace_period", "suspended"]);
 
+/**
+ * Resolve which payment-family tag a payment-issue booking gets.
+ *
+ * Enforcement comes from the BOOKING's rental payment — never the device's
+ * starter flag alone, since a starter can also be disabled by door-lock sync or
+ * a manual toggle. A booking only reads "enforced" when its rental payment
+ * failed AND the interrupt actually landed.
+ */
+function resolvePaymentIntent(booking) {
+  const rentalPaymentFailed = booking.payment_status === "failed" || booking.payment_status === "overdue";
+  if (!rentalPaymentFailed) return "payment_issue";
+  if (booking.starter_disabled === true || booking.moovetrax_kill_active === true) return "starter_enforced";
+  if (booking.starter_disable_pending === true) return "restriction_pending";
+  return "payment_issue";
+}
+
 const FRESH_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours — still "live"
 const ABANDONED_THRESHOLD_MS = 30 * 60 * 1000; // 30 min — then "abandoned"
 
 export const INTENT_LEVELS = {
   active_rental:  { color: "#3B82F6", label: "Rented", pulse: true, priority: 5 },
+  starter_enforced:    { color: "#EF4444", label: "Starter Enforced", pulse: true, priority: 4.6 },
+  restriction_pending: { color: "#EF4444", label: "Restriction Pending", pulse: true, priority: 4.5 },
   payment_issue:  { color: "#EF4444", label: "Payment Due", pulse: true, priority: 4 },
   confirmed:      { color: "#3B82F6", label: "Confirmed", pulse: false, priority: 3 },
   live_interest:  { color: "#FF9F0A", label: "Pending", pulse: true, priority: 2 },
@@ -58,7 +78,7 @@ export function computeBookingIntentByVehicle(bookings = []) {
     if (ACTIVE_RENTAL_STATUSES.has(b.booking_status)) {
       intent = "active_rental";
     } else if (PAYMENT_ISSUE_STATUSES.has(b.booking_status)) {
-      intent = "payment_issue";
+      intent = resolvePaymentIntent(b);
     } else if (CONFIRMED_STATUSES.has(b.booking_status)) {
       intent = "confirmed";
     } else if (LIVE_INTEREST_STATUSES.has(b.booking_status)) {
@@ -86,7 +106,7 @@ export function computeBookingIntentByVehicle(bookings = []) {
  * Count vehicles by intent level for filter chips.
  */
 export function countByIntent(intentMap, vehicles) {
-  const counts = { live_interest: 0, abandoned: 0, confirmed: 0, active_rental: 0, payment_issue: 0, maintenance: 0, off_road: 0 };
+  const counts = { live_interest: 0, abandoned: 0, confirmed: 0, active_rental: 0, payment_issue: 0, starter_enforced: 0, restriction_pending: 0, maintenance: 0, off_road: 0 };
   for (const v of vehicles) {
     const entry = intentMap[v.id];
     if (entry && counts[entry.intent] !== undefined) counts[entry.intent]++;

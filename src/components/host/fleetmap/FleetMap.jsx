@@ -86,6 +86,16 @@ function showStarterTooltip(parentEl, starter, vehicleName) {
   setTimeout(() => document.addEventListener("click", dismiss, true), 0);
 }
 
+// Animated ring per intent. The payment family (due / enforced / pending) shares
+// the red pulse — the tag text is what tells the three apart.
+const RING_CLASS_BY_INTENT = {
+  live_interest: "intent-ring-live-interest",
+  active_rental: "intent-ring-active-rental",
+  payment_issue: "intent-ring-payment-issue",
+  starter_enforced: "intent-ring-payment-issue",
+  restriction_pending: "intent-ring-payment-issue",
+};
+
 // ── Vehicle photo marker ──
 function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, intentEntry) {
   const el = document.createElement("div");
@@ -104,10 +114,7 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, inten
   const intentCfg = INTENT_LEVELS[intent] || INTENT_LEVELS.available;
   const ringColor = intentCfg.color;
   const ringLabel = intentCfg.label;
-  const ringClass = intent === "live_interest" ? "intent-ring-live-interest"
-    : intent === "active_rental" ? "intent-ring-active-rental"
-    : intent === "payment_issue" ? "intent-ring-payment-issue"
-    : "";
+  const ringClass = RING_CLASS_BY_INTENT[intent] || "";
   const ringStyle = intentCfg.dashed ? "border:3px dashed " : "border:3px solid ";
   const ringOpacity = (intent === "abandoned" || intent === "off_road") ? "0.5" : "1";
 
