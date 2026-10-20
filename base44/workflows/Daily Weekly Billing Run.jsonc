@@ -1,0 +1,47 @@
+{
+  "name": "Daily Weekly Billing Run",
+  "description": "Runs every day at 8am PT \u2014 charges all active bookings whose next_billing_date is today via Stripe autopay",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 15 * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_weekly_billing_run",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "processWeeklyBilling",
+            "args": {
+              "automation_id": "6a0a6ae8df6d698b0450e63d",
+              "scheduled_function": "processWeeklyBilling"
+            }
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "processWeeklyBilling"
+  }
+}
