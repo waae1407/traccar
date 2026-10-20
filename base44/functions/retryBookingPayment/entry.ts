@@ -279,6 +279,12 @@ Deno.serve(async (req) => {
 
     await base44.asServiceRole.entities.BookingRequest.update(booking.id, bookingUpdate);
 
+    // Resolve the platform fee split up front so this PaymentLog is self-reconcilable
+    // (mirrors the fee fields processWeeklyBilling writes for autopay charges).
+    const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, booking);
+    const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
+    const hostNetAfterFee = Math.round((baseAmount - platformFee) * 100) / 100;
+
     // Create PaymentLog
     const paymentPaidAt = now.toISOString();
     const dedupeKey = paymentIntent.id ? `payment:stripe:${paymentIntent.id}` : `payment:customer_retry:${booking.id}:week:${paymentWeekNumber}:amount:${grossedAmount}:date:${paymentPaidAt.slice(0, 10)}:method:stripe:ref:none`;
@@ -308,6 +314,13 @@ Deno.serve(async (req) => {
       stripe_balance_transaction_id: typeof paymentIntent.charges?.data?.[0]?.balance_transaction === 'string' ? paymentIntent.charges.data[0].balance_transaction : paymentIntent.charges?.data?.[0]?.balance_transaction?.id || '',
       stripe_receipt_url: paymentIntent.charges?.data?.[0]?.receipt_url || '',
       receipt_url: paymentIntent.charges?.data?.[0]?.receipt_url || '',
+      stripe_fee_amount: stripeFee,
+      stripe_effective_rate: grossedAmount > 0 ? Math.round((stripeFee / grossedAmount) * 10000) / 100 : 0,
+      platform_fee_rate: commissionRate,
+      platform_fee_amount_due: platformFee,
+      host_net_after_platform_fee: hostNetAfterFee,
+      platform_fee_collection_status: 'collected_via_payout',
+      plan_mode_at_payment: isFleetOS ? 'fleetos_professional' : 'marketplace_partner',
       status: 'paid',
       recorded_by: 'customer_self_service',
       paid_at: paymentPaidAt,
@@ -318,8 +331,6 @@ Deno.serve(async (req) => {
       const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id });
       const host = hosts[0];
       if (host?.stripe_onboarding_complete && host?.stripe_account_id) {
-        const { feeRate: commissionRate } = await resolveMarketplaceFee(base44, booking);
-        const platformFee = Math.round(baseAmount * commissionRate * 100) / 100;
         const receivableOffset = await applyReceivableOffset(base44, host.id, Math.max(0, baseAmount - platformFee), now);
         const hostAmount = Math.round((baseAmount - platformFee - receivableOffset) * 100) / 100;
         const transfer = hostAmount > 0 ? await stripe.transfers.create({
