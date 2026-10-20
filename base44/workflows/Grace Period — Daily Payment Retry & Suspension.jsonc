@@ -1,0 +1,47 @@
+{
+  "name": "Grace Period \u2014 Daily Payment Retry & Suspension",
+  "description": "Daily grace period state machine: retries failed payments every 24h, transitions payment_due\u2192grace_period after 2nd failure, suspends + GPS kill after 72h or 3 max attempts. Sends admin summary email.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 15 * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "grace_period_daily_payment_retry_suspension",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "processGracePeriod",
+            "args": {
+              "automation_id": "6a0e4b345b472f10284fbced",
+              "scheduled_function": "processGracePeriod"
+            }
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "processGracePeriod"
+  }
+}
