@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Trigger 5-minute functions (time-sensitive only)
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in manageBookingHold processAlert360Escalations checkGeofenceAlerts processGPSScheduleRules; do
@@ -44,7 +44,7 @@ jobs:
     steps:
       - name: Trigger 10-minute functions
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in dealer360ACVSessionCleanup; do
@@ -59,7 +59,7 @@ jobs:
     steps:
       - name: Trigger 15-minute functions
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in auditPayment360Integrity processPendingHostPayouts processRentalLifecycleTransitions reconcileUnlinkedTelematicsInstalls noranCommandRetryScheduler alarmPulseScheduler processTelematicsCommandTimeouts escalateUnresolvedNotifications retryFailedNotifications syncTraccarDevicePositions detectParasiteDraw; do
@@ -74,7 +74,7 @@ jobs:
     steps:
       - name: Trigger 30-minute functions
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in reconcilePayouts checkTelematicsFleetHealth; do
@@ -89,7 +89,7 @@ jobs:
     steps:
       - name: Trigger hourly functions
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in checkGPSDeviceStatus autoAcceptReturnReviews auditRentalLifecycleIntegrity processDataAging retryFailedPayments auditBillingHealth; do
@@ -104,7 +104,7 @@ jobs:
     steps:
       - name: Trigger 6-hourly functions
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in reconcileHostPlatformSubscriptions; do
@@ -119,7 +119,7 @@ jobs:
     steps:
       - name: Trigger daily functions
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in auditBookingIntegrity auditNotificationIntegrity checkOverdueAndIncompleteBookings auditPricingIntegrity processGracePeriod dealer360HoldExpiryAlerts checkComplianceExpiry calculateFleetUtilization processGPSSubscriptionStatus; do
@@ -134,7 +134,7 @@ jobs:
     steps:
       - name: Trigger weekly billing (isolated)
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           code=$(curl -s --max-time 540 -o /tmp/body -w "%{http_code}" -X POST "$BASE_URL/processWeeklyBilling" -H "Content-Type: application/json" -H "x-cron-secret: $CRON_SECRET" -d '{}')
@@ -147,7 +147,7 @@ jobs:
     steps:
       - name: Trigger 9am-PT daily functions
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in sendPreChargeWarnings sendAbandonedCheckoutReminders; do
@@ -162,7 +162,7 @@ jobs:
     steps:
       - name: Trigger lead enrollment
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in enrollNewLeads; do
@@ -177,7 +177,7 @@ jobs:
     steps:
       - name: Trigger Monday host earnings
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in calculateHostEarnings; do
@@ -192,7 +192,7 @@ jobs:
     steps:
       - name: Trigger Monday lead follow-ups
         env:
-          BASE_URL: https://${{ secrets.BASE44_APP_ID }}.base44.app/api/functions
+          BASE_URL: https://deft-urban-ride-flow.base44.app/api/functions
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for fn in sendLeadFollowUps; do
