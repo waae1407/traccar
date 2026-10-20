@@ -129,6 +129,8 @@ Deno.serve(async (req) => {
       source_function,
       action_url,
       metadata = {},
+      title_by_role = {},
+      message_by_role = {},
     } = body;
 
     if (!event_type || !title) {
@@ -137,6 +139,13 @@ Deno.serve(async (req) => {
 
     const now = new Date().toISOString();
     const results = { inapp: [], operational_alert: null, alert360: null, email: [], sms: [], push: [] };
+
+    // Optional per-audience copy. Role key is one of: customers | hosts | admins.
+    // Each audience falls back to the default title/message when no override is given.
+    const copyFor = (role) => ({
+      title: title_by_role[role] || title,
+      message: message_by_role[role] || message,
+    });
 
     // ── Determine Recipients ──────────────────────────────────────────────
     const recipients = { customers: [], hosts: [], admins: [], support: [] };
@@ -161,6 +170,7 @@ Deno.serve(async (req) => {
 
     // ── Create In-App Notifications ───────────────────────────────────────
     for (const [role, users] of Object.entries(recipients)) {
+      const copy = copyFor(role);
       for (const user of users) {
         const dedup = await checkDedup(base44, event_type, booking_id || vehicle_id || alert360_event_id, user.email);
         
@@ -174,7 +184,7 @@ Deno.serve(async (req) => {
           await base44.asServiceRole.entities.Notification.update(dedup.notification.id, {
             occurrence_count: (dedup.notification.occurrence_count || 1) + 1,
             last_seen_at: now,
-            body: message,
+            body: copy.message,
           }).catch(() => {});
           results.inapp.push({ role, email: user.email, status: 'updated' });
           continue;
@@ -186,8 +196,8 @@ Deno.serve(async (req) => {
           recipient_role: role,
           recipient_email: user.email,
           recipient_phone: user.phone || '',
-          title,
-          body: message,
+          title: copy.title,
+          body: copy.message,
           type: category === 'payments' ? 'payment' : (severity === 'critical' ? 'alert' : 'system'),
           category,
           severity,
@@ -231,8 +241,8 @@ Deno.serve(async (req) => {
           alert_type: event_type,
           severity: 'critical',
           status: 'new',
-          title,
-          message,
+          title: copyFor('admins').title,
+          message: copyFor('admins').message,
           recommended_action: body.recommended_action || 'Review in admin dashboard',
           domain: category === 'telematics' ? 'telematics' : (category === 'payments' ? 'payments' : 'system'),
           action_url,
@@ -258,28 +268,37 @@ Deno.serve(async (req) => {
 
     // ── Email/SMS Fallback for Critical Unresolved ────────────────────────
     if (severity === 'critical') {
-      // Email fallback — send to admins, hosts, AND customers for critical notifications
-      for (const user of [...recipients.admins, ...recipients.hosts, ...recipients.customers]) {
-        if (user.email) {
-          const emailResult = await sendEmail(base44, user.email, `[uRide ${severity.toUpperCase()}] ${title}`, message);
-          results.email.push({ role: user.role || 'admin', email: user.email, ...emailResult });
+      // Email fallback — send to customers, hosts, AND admins for critical notifications
+      for (const [role, users] of Object.entries(recipients)) {
+        const copy = copyFor(role);
+        for (const user of users) {
+          if (user.email) {
+            const emailResult = await sendEmail(base44, user.email, `[uRide ${severity.toUpperCase()}] ${copy.title}`, copy.message);
+            results.email.push({ role: user.role || role, email: user.email, ...emailResult });
+          }
         }
       }
-      
-      // SMS for critical issues — send to admins, hosts, AND customers
-      for (const user of [...recipients.admins, ...recipients.hosts, ...recipients.customers]) {
-        if (user.phone) {
-          const smsResult = await sendSMS(user.phone, `uRide ${severity.toUpperCase()}: ${title}. ${APP_URL}${action_url || '/dashboard'}`);
-          results.sms.push({ role: user.role || 'admin', phone: user.phone, ...smsResult });
+
+      // SMS for critical issues — send to customers, hosts, AND admins
+      for (const [role, users] of Object.entries(recipients)) {
+        const copy = copyFor(role);
+        for (const user of users) {
+          if (user.phone) {
+            const smsResult = await sendSMS(user.phone, `uRide ${severity.toUpperCase()}: ${copy.title}. ${APP_URL}${action_url || '/dashboard'}`);
+            results.sms.push({ role: user.role || role, phone: user.phone, ...smsResult });
+          }
         }
       }
     }
 
     // ── Push Notifications ────────────────────────────────────────────────
-    for (const user of [...recipients.customers, ...recipients.hosts, ...recipients.admins]) {
-      if (user.email) {
-        const pushResult = await sendPush(base44, user.email, title, message, action_url);
-        results.push.push({ email: user.email, ...pushResult });
+    for (const [role, users] of Object.entries(recipients)) {
+      const copy = copyFor(role);
+      for (const user of users) {
+        if (user.email) {
+          const pushResult = await sendPush(base44, user.email, copy.title, copy.message, action_url);
+          results.push.push({ role, email: user.email, ...pushResult });
+        }
       }
     }
 

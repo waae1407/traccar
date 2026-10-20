@@ -990,12 +990,33 @@ async function disableStarterAfterWindow(base44, booking, now) {
 }
 
 async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
+  const vehicle = booking.vehicle_name || 'the vehicle';
+  const renter = booking.customer_full_name || booking.user_email || 'The renter';
+
+  // Renter wording — written to the person whose access was restricted
   const title = isPending ? '⚠️ Account Suspended — Vehicle Access Pending Restriction' : hasDevice ? '🔒 Account Suspended — Vehicle Access Restricted' : '🔒 Account Suspended — Payment Required';
   const body = isPending
     ? `Your payment for ${booking.vehicle_name} remains unresolved. Your account is suspended. Vehicle access will be restricted as soon as the vehicle is parked.`
     : hasDevice
       ? `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Vehicle starter access has been interrupted (starter-interrupt only, no engine shutdown).`
       : `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Your account has been suspended.`;
+
+  // Host wording — about their rental, not their own account
+  const hostTitle = isPending ? `⚠️ Rental Suspended — ${vehicle}` : `🔒 Rental Suspended — ${vehicle}`;
+  const hostBody = isPending
+    ? `${renter}'s payment for ${vehicle} is unresolved past the ${RECOVERY_WINDOW_HOURS}-hour recovery window. The rental is suspended; vehicle access will be restricted automatically once the vehicle is confirmed parked. uRide continues retrying the payment.`
+    : hasDevice
+      ? `${renter}'s payment for ${vehicle} is unresolved past the ${RECOVERY_WINDOW_HOURS}-hour recovery window. The rental is suspended and the vehicle's starter access has been interrupted (starter-interrupt only, no engine shutdown). uRide continues retrying the payment and restores access automatically as soon as it clears.`
+      : `${renter}'s payment for ${vehicle} is unresolved past the ${RECOVERY_WINDOW_HOURS}-hour recovery window. The rental is suspended. uRide continues retrying the payment and restores access automatically as soon as it clears.`;
+
+  // Admin wording — what was enforced and what happens next
+  const adminTitle = isPending ? `⚠️ Suspension Enforced, Restriction Pending — ${vehicle}` : `🔒 Suspension Enforced — ${vehicle}`;
+  const adminEnforcement = isPending
+    ? 'Starter interrupt deferred by the parked/heartbeat safety gate; it retries automatically on the next enforcement cycle.'
+    : hasDevice
+      ? 'Starter interrupt sent to the device through the heartbeat freshness gate.'
+      : 'No telematics device is linked to this vehicle, so no starter interrupt was sent.';
+  const adminBody = `${renter} (${booking.user_email || 'no email'}) — ${vehicle}: payment unresolved past the ${RECOVERY_WINDOW_HOURS}-hour recovery window. Rental suspended. ${adminEnforcement} Payment retries continue every ${RETRY_INTERVAL_MINUTES / 60} hour(s).`;
 
   // DELEGATE TO CENTRAL ROUTER
   await base44.asServiceRole.functions.invoke('routePlatformNotification', {
@@ -1004,6 +1025,8 @@ async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
     category: 'payments',
     title,
     message: body,
+    title_by_role: { hosts: hostTitle, admins: adminTitle },
+    message_by_role: { hosts: hostBody, admins: adminBody },
     booking_id: booking.id,
     customer_id: booking.user_id,
     host_id: booking.host_id,
