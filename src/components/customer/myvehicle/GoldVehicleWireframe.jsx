@@ -2,8 +2,9 @@ import React from "react";
 
 /**
  * GoldVehicleWireframe — sleek top-down SUV for the Gold remote skin.
- * Thin glowing gold line-art over a deep metallic shell, with an upright SUV
- * greenhouse carrying roof rails, and perspective lighting on the hood and roof.
+ * Thin glowing gold line-art over a deep metallic shell, an upright SUV
+ * greenhouse with roof rails, perspective lighting on the hood and roof,
+ * a glass floor reflection, and a motion wake while the vehicle is moving.
  */
 
 const BODY =
@@ -13,10 +14,10 @@ const ROOF =
   "M48 122 C48 118 52 116 58 116 L142 116 C148 116 152 118 152 122 L152 294 C152 298 148 300 142 300 L58 300 C52 300 48 298 48 294 Z";
 const REAR_GLASS = "M62 308 C80 304 120 304 138 308 L132 346 C122 352 78 352 68 346 Z";
 
-export default function GoldVehicleWireframe() {
+export default function GoldVehicleWireframe({ moving = false }) {
   return (
     <svg
-      viewBox="0 0 200 400"
+      viewBox="0 0 200 430"
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
       style={{ width: "100%", height: "auto", display: "block", overflow: "visible" }}
@@ -63,6 +64,23 @@ export default function GoldVehicleWireframe() {
           <stop offset="62%" stopColor="#FFFFFF" stopOpacity="0.04" />
           <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.12" />
         </linearGradient>
+        <linearGradient id="gv-scanband" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFD700" stopOpacity="0" />
+          <stop offset="50%" stopColor="#FFD700" stopOpacity="0.07" />
+          <stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="gv-wake" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFD700" stopOpacity="0.55" />
+          <stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="gv-refl-fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.55" />
+          <stop offset="55%" stopColor="#FFFFFF" stopOpacity="0.14" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+        </linearGradient>
+        <mask id="gv-refl-mask">
+          <rect x="0" y="382" width="200" height="48" fill="url(#gv-refl-fade)" />
+        </mask>
         <filter id="gv-glow" x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur in="SourceGraphic" stdDeviation="4.2" result="wide" />
           <feComponentTransfer in="wide" result="wideDim">
@@ -78,24 +96,10 @@ export default function GoldVehicleWireframe() {
         <filter id="gv-soft" x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation="7" />
         </filter>
-        <linearGradient id="gv-scanband" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#FFD700" stopOpacity="0" />
-          <stop offset="50%" stopColor="#FFD700" stopOpacity="0.07" />
-          <stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
-        </linearGradient>
       </defs>
 
       {/* ambient gold halo */}
       <ellipse cx="100" cy="200" rx="78" ry="188" fill="#D4AF37" opacity="0.06" filter="url(#gv-soft)" />
-
-      {/* HUD scanner ring */}
-      <g opacity="0.15" fill="none" stroke="url(#gv-gold)" pointerEvents="none">
-        <circle cx="100" cy="200" r="94" strokeWidth="0.6" strokeDasharray="2 22" />
-        <g strokeWidth="0.7" strokeDasharray="26 18">
-          <circle cx="100" cy="200" r="85" />
-          <animateTransform attributeName="transform" type="rotate" from="0 100 200" to="360 100 200" dur="34s" repeatCount="indefinite" />
-        </g>
-      </g>
 
       {/* tyres — drawn under the shell so the fenders cover their inner half */}
       <g stroke="url(#gv-gold)" strokeWidth="1" opacity="0.65">
@@ -169,9 +173,30 @@ export default function GoldVehicleWireframe() {
       </g>
 
       {/* levitation glow */}
-      <ellipse cx="100" cy="388" rx="74" ry="12" fill="#D4AF37" filter="url(#gv-soft)" pointerEvents="none">
+      <ellipse cx="100" cy="386" rx="74" ry="12" fill="#D4AF37" filter="url(#gv-soft)" pointerEvents="none">
         <animate attributeName="opacity" values="0.06;0.14;0.06" dur="5.5s" repeatCount="indefinite" />
       </ellipse>
+
+      {/* glass floor reflection */}
+      <g mask="url(#gv-refl-mask)" pointerEvents="none">
+        <g transform="translate(0,427.6) scale(1,-0.12)">
+          <path d={BODY} fill="#0B0B0E" stroke="#C5A059" strokeOpacity="0.55" strokeWidth="6" />
+          <path d={ROOF} fill="none" stroke="#C5A059" strokeOpacity="0.35" strokeWidth="5" />
+        </g>
+      </g>
+
+      {/* motion wake — only while the vehicle is actually moving */}
+      {moving && (
+        <g pointerEvents="none">
+          {[46, 100, 154].map((x, i) => (
+            <g key={x}>
+              <animate attributeName="opacity" values="0;0.75;0" keyTimes="0;0.35;1" dur="1.6s" begin={`${i * 0.34}s`} repeatCount="indefinite" />
+              <animateTransform attributeName="transform" type="translate" values="0 0; 0 28" dur="1.6s" begin={`${i * 0.34}s`} repeatCount="indefinite" />
+              <rect x={x - 3} y="382" width="6" height="26" rx="3" fill="url(#gv-wake)" />
+            </g>
+          ))}
+        </g>
+      )}
 
       {/* lidar scan sweep */}
       <g pointerEvents="none">

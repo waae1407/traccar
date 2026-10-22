@@ -8,6 +8,8 @@ import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet
 import SOSButton from "@/components/customer/sos/SOSButton";
 import GoldDockButton from "@/components/customer/myvehicle/GoldDockButton";
 import GoldVehicleWireframe from "@/components/customer/myvehicle/GoldVehicleWireframe";
+import GoldTelemetryArcs from "@/components/customer/myvehicle/GoldTelemetryArcs";
+import GoldDustField from "@/components/customer/myvehicle/GoldDustField";
 
 const GOLD = "#C5A059";
 const GOLD_BRIGHT = "#FFD700";
@@ -201,6 +203,24 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
     );
   }
 
+  // live telemetry for the holographic arcs
+  const battVoltage = device?.power_voltage || device?.battery_voltage || 0;
+  const charging = device?.ignition_status === "on" || battVoltage >= 13.0;
+  const battPct = isDemo || !battVoltage ? 100 : charging ? 100 : Math.max(0, Math.min(100, Math.round(((battVoltage - 11.8) / 0.8) * 100)));
+  const battTone = battVoltage && battVoltage < 11.8 ? "alert" : battVoltage && battVoltage <= 12.1 ? "warn" : "gold";
+  const rawSignal = Number(device?.signal_strength);
+  const signalPct = isDemo ? 100 : Number.isFinite(rawSignal) && rawSignal > 0 ? Math.max(0, Math.min(100, Math.round(rawSignal))) : 55;
+  const gpsPct = isDemo ? 100 : (() => {
+    const value = device?.last_seen_at || device?.location_updated_at;
+    if (!value) return 20;
+    const minutes = (Date.now() - new Date(value).getTime()) / 60000;
+    if (minutes < 2) return 100;
+    if (minutes < 30) return 70;
+    if (minutes < 240) return 40;
+    return 22;
+  })();
+  const moving = Number(device?.speed) > 0;
+
   const lockLabel = isLocked === true ? "Doors Locked" : isLocked === false ? "Doors Unlocked" : "Door Status Unknown";
   const lockColor = isLocked === true ? GOLD_BRIGHT : isLocked === false ? GOLD : "#6B6B70";
   const busy = !!commandLoading;
@@ -251,6 +271,8 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
           pointer-events: none;
         }
       `}</style>
+
+      <GoldDustField />
 
       {inspectionTarget && (
         <VehicleInspectionSheet
@@ -322,8 +344,9 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
           padding: "0 24px",
         }}
       >
-        <div className="gold-car-box">
-          <GoldVehicleWireframe />
+        <div className="gold-car-box" style={{ position: "relative" }}>
+          <GoldVehicleWireframe moving={moving} />
+          <GoldTelemetryArcs battery={battPct} signal={signalPct} gps={gpsPct} batteryTone={battTone} />
         </div>
         <div style={{ marginTop: 20, textAlign: "center", maxWidth: 340 }}>
           <p
