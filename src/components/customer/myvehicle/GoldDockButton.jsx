@@ -13,12 +13,14 @@ export default function GoldDockButton({ icon, label, onClick, disabled = false,
     <button
       onClick={onClick}
       disabled={disabled}
-      className="control-tap"
+      className={`control-tap${active ? " gold-tile-active" : ""}`}
       aria-label={label}
       style={{
         flex: 1,
         height: 88,
-        borderRadius: 20,
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: 22,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -29,8 +31,8 @@ export default function GoldDockButton({ icon, label, onClick, disabled = false,
         background: active ? "rgba(255,215,0,0.06)" : "rgba(8,8,10,0.92)",
         border: active ? `2px solid ${GOLD_BRIGHT}` : "1px solid rgba(197,160,89,0.5)",
         boxShadow: active
-          ? "0 0 22px rgba(255,215,0,0.45), inset 0 0 14px rgba(255,215,0,0.08)"
-          : "0 0 10px rgba(197,160,89,0.08)",
+          ? "0 0 26px rgba(255,215,0,0.42), 0 12px 28px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12), inset 0 0 16px rgba(255,215,0,0.1)"
+          : "0 10px 26px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05), 0 0 18px rgba(197,160,89,0.06)",
         opacity: disabled ? 0.35 : 1,
         transition: "all 0.2s ease-in-out",
       }}

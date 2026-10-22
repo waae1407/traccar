@@ -78,10 +78,24 @@ export default function GoldVehicleWireframe() {
         <filter id="gv-soft" x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation="7" />
         </filter>
+        <linearGradient id="gv-scanband" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#FFD700" stopOpacity="0" />
+          <stop offset="50%" stopColor="#FFD700" stopOpacity="0.07" />
+          <stop offset="100%" stopColor="#FFD700" stopOpacity="0" />
+        </linearGradient>
       </defs>
 
       {/* ambient gold halo */}
       <ellipse cx="100" cy="200" rx="78" ry="188" fill="#D4AF37" opacity="0.06" filter="url(#gv-soft)" />
+
+      {/* HUD scanner ring */}
+      <g opacity="0.15" fill="none" stroke="url(#gv-gold)" pointerEvents="none">
+        <circle cx="100" cy="200" r="94" strokeWidth="0.6" strokeDasharray="2 22" />
+        <g strokeWidth="0.7" strokeDasharray="26 18">
+          <circle cx="100" cy="200" r="85" />
+          <animateTransform attributeName="transform" type="rotate" from="0 100 200" to="360 100 200" dur="34s" repeatCount="indefinite" />
+        </g>
+      </g>
 
       {/* tyres — drawn under the shell so the fenders cover their inner half */}
       <g stroke="url(#gv-gold)" strokeWidth="1" opacity="0.65">
@@ -152,6 +166,19 @@ export default function GoldVehicleWireframe() {
         <path d="M154 48 C144 38 132 33 122 31 L118 43 C128 46 140 50 148 55 Z" fill="#C5A059" fillOpacity="0.26" />
         <path d="M46 350 C56 356 66 360 74 362 L72 372 C62 370 54 366 48 362 Z" fill="#C5A059" fillOpacity="0.24" />
         <path d="M154 350 C144 356 134 360 126 362 L128 372 C138 370 146 366 152 362 Z" fill="#C5A059" fillOpacity="0.24" />
+      </g>
+
+      {/* levitation glow */}
+      <ellipse cx="100" cy="388" rx="74" ry="12" fill="#D4AF37" filter="url(#gv-soft)" pointerEvents="none">
+        <animate attributeName="opacity" values="0.06;0.14;0.06" dur="5.5s" repeatCount="indefinite" />
+      </ellipse>
+
+      {/* lidar scan sweep */}
+      <g pointerEvents="none">
+        <animateTransform attributeName="transform" type="translate" values="0 26; 0 356" dur="5.5s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0;0.85;0.85;0" keyTimes="0;0.15;0.8;1" dur="5.5s" repeatCount="indefinite" />
+        <rect x="10" y="-18" width="180" height="36" fill="url(#gv-scanband)" />
+        <path d="M16 0 L184 0" stroke="url(#gv-gold)" strokeWidth="0.7" opacity="0.45" />
       </g>
     </svg>
   );

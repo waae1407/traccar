@@ -230,6 +230,26 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
           50% { transform: scale(1.04); filter: drop-shadow(0 0 16px rgba(255,59,48,0.8)); }
         }
         .gold-sos { animation: gold-sos-pulse 2.4s ease-in-out infinite; }
+        @keyframes gold-word-shine {
+          0% { background-position: 130% 0; }
+          55% { background-position: -30% 0; }
+          100% { background-position: -30% 0; }
+        }
+        @keyframes gold-tile-sweep {
+          0% { background-position: 150% 0; }
+          60% { background-position: -50% 0; }
+          100% { background-position: -50% 0; }
+        }
+        .gold-tile-active::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 22px;
+          background: linear-gradient(115deg, transparent 34%, rgba(255,246,208,0.22) 50%, transparent 66%);
+          background-size: 220% 100%;
+          animation: gold-tile-sweep 3.6s ease-in-out infinite;
+          pointer-events: none;
+        }
       `}</style>
 
       {inspectionTarget && (
@@ -256,6 +276,18 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
         <Layers size={18} color={GOLD} />
       </button>
 
+      {/* HUD frame */}
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 6 }}>
+        {[
+          { top: 12, left: 12, borderTop: "1px solid rgba(197,160,89,0.3)", borderLeft: "1px solid rgba(197,160,89,0.3)" },
+          { top: 12, right: 12, borderTop: "1px solid rgba(197,160,89,0.3)", borderRight: "1px solid rgba(197,160,89,0.3)" },
+          { bottom: 12, left: 12, borderBottom: "1px solid rgba(197,160,89,0.3)", borderLeft: "1px solid rgba(197,160,89,0.3)" },
+          { bottom: 12, right: 12, borderBottom: "1px solid rgba(197,160,89,0.3)", borderRight: "1px solid rgba(197,160,89,0.3)" },
+        ].map((corner, i) => (
+          <span key={i} style={{ position: "absolute", width: 16, height: 16, ...corner }} />
+        ))}
+      </div>
+
       {/* Wordmark */}
       <div style={{ paddingTop: "max(26px, calc(env(safe-area-inset-top) + 16px))", textAlign: "center" }}>
         <p
@@ -265,7 +297,9 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
             fontWeight: 600,
             letterSpacing: "0.01em",
             margin: 0,
-            background: "linear-gradient(180deg, #FFF4CC 0%, #FFD700 34%, #C5A059 68%, #8A6E33 100%)",
+            background: "linear-gradient(100deg, #8A6E33 0%, #C5A059 26%, #FFD700 42%, #FFF6D0 50%, #FFD700 58%, #C5A059 74%, #8A6E33 100%)",
+            backgroundSize: "220% 100%",
+            animation: "gold-word-shine 6.5s ease-in-out infinite",
             WebkitBackgroundClip: "text",
             backgroundClip: "text",
             WebkitTextFillColor: "transparent",
