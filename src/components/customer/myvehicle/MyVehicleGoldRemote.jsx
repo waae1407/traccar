@@ -31,8 +31,9 @@ function freshness(device) {
 
 /**
  * MyVehicleGoldRemote — "Gold" skin for the My Vehicle remote.
- * Black surface, gold wireframe vehicle, and four gold control tiles:
- * Lock | Locate | Unlock | SOS (SOS behaves exactly like the Classic skin).
+ * Black surface, metallic gold wordmark, wireframe vehicle centrepiece, and a
+ * three-tile gold dock (Lock | Locate | Unlock). The emergency SOS keeps its
+ * original red floating button, hovering above the dock.
  */
 export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
   const { user, isLoading: authLoading } = useAuth();
@@ -205,10 +206,30 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
   const busy = !!commandLoading;
 
   return (
-    <div className="gold-remote" style={{ background: "#000", color: "#F5F5F7", fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', sans-serif", position: "relative", overflow: "hidden" }}>
+    <div
+      className="gold-remote"
+      style={{
+        background: "#000",
+        color: "#F5F5F7",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', sans-serif",
+        display: "flex",
+        justifyContent: "center",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div className="gold-shell">
       <style>{`
         .gold-remote { height: 100vh; height: 100dvh; }
-        @keyframes gold-breathe { 0%, 100% { opacity: 0.75 } 50% { opacity: 1 } }
+        .gold-shell { position: relative; width: 100%; max-width: 430px; height: 100%; display: flex; flex-direction: column; }
+        .gold-car-box { width: min(172px, 44vw); }
+        @media (max-height: 800px) { .gold-car-box { width: min(148px, 37vw); } }
+        @media (max-height: 700px) { .gold-car-box { width: min(120px, 31vw); } }
+        @keyframes gold-sos-pulse {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px rgba(255,59,48,0.35)); }
+          50% { transform: scale(1.04); filter: drop-shadow(0 0 16px rgba(255,59,48,0.8)); }
+        }
+        .gold-sos { animation: gold-sos-pulse 2.4s ease-in-out infinite; }
       `}</style>
 
       {inspectionTarget && (
@@ -226,65 +247,89 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
         aria-label="Switch view"
         className="control-tap"
         style={{
-          position: "fixed", top: "max(12px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))",
+          position: "absolute", top: "max(12px, env(safe-area-inset-top))", right: "max(14px, env(safe-area-inset-right))",
           zIndex: 80, width: 40, height: 40, borderRadius: "50%", cursor: "pointer",
           background: "rgba(10,10,12,0.72)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-          border: `1px solid rgba(197,160,89,0.45)`, display: "flex", alignItems: "center", justifyContent: "center",
+          border: "1px solid rgba(197,160,89,0.45)", display: "flex", alignItems: "center", justifyContent: "center",
         }}
       >
         <Layers size={18} color={GOLD} />
       </button>
 
-      {/* Brand */}
-      <div style={{ paddingTop: "max(30px, calc(env(safe-area-inset-top) + 18px))", textAlign: "center" }}>
-        <p style={{
-          fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 700,
-          letterSpacing: "0.24em", textTransform: "uppercase", color: GOLD, margin: 0,
-          textShadow: "0 0 22px rgba(212,175,55,0.4)",
-        }}>
+      {/* Wordmark */}
+      <div style={{ paddingTop: "max(26px, calc(env(safe-area-inset-top) + 16px))", textAlign: "center" }}>
+        <p
+          style={{
+            fontFamily: "'Inter', -apple-system, 'SF Pro Display', sans-serif",
+            fontSize: 30,
+            fontWeight: 600,
+            letterSpacing: "0.01em",
+            margin: 0,
+            background: "linear-gradient(180deg, #FFF4CC 0%, #FFD700 34%, #C5A059 68%, #8A6E33 100%)",
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            filter: "drop-shadow(0 0 18px rgba(212,175,55,0.35))",
+          }}
+        >
           uRide
         </p>
       </div>
 
-      {/* Vehicle + status */}
-      <div style={{
-        position: "absolute", top: "46%", left: 0, right: 0, transform: "translateY(-50%)",
-        display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px",
-      }}>
-        <GoldVehicleWireframe width={172} />
-        <div style={{ marginTop: 26, textAlign: "center", maxWidth: 340 }}>
-          <p style={{
-            fontFamily: "'Barlow Condensed', sans-serif", fontSize: 20, fontWeight: 700,
-            letterSpacing: "0.1em", textTransform: "uppercase", color: GOLD_BRIGHT, margin: 0,
-          }}>
+      {/* Vehicle centrepiece */}
+      <main
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0 24px",
+        }}
+      >
+        <div className="gold-car-box">
+          <GoldVehicleWireframe />
+        </div>
+        <div style={{ marginTop: 20, textAlign: "center", maxWidth: 340 }}>
+          <p
+            style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: 19,
+              fontWeight: 700,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "#EADFC0",
+              margin: 0,
+            }}
+          >
             {name}
           </p>
-          <p style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: lockColor, margin: "6px 0 0" }}>
+          <p style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: lockColor, margin: "7px 0 0" }}>
             {lockLabel}
           </p>
-          <button
-            onClick={openInMaps}
-            style={{ marginTop: 14, background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, padding: 0 }}
-          >
-            <MapPin size={14} color={GOLD} />
-            <span style={{ fontSize: 12, color: "rgba(197,160,89,0.9)", textAlign: "left", lineHeight: 1.35 }}>
-              {displayAddress?.poi || displayAddress?.street || "Locating vehicle..."}
-              {displayAddress?.city_state ? <span style={{ display: "block", color: "rgba(197,160,89,0.55)" }}>{displayAddress.city_state}</span> : null}
-            </span>
-          </button>
-          <p style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(197,160,89,0.5)", margin: "10px 0 0" }}>
-            GPS {freshness(device)}
-          </p>
         </div>
-      </div>
+      </main>
 
-      {/* Control dock */}
-      <div style={{
-        position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
-        width: "100%", maxWidth: 430, padding: "14px 14px calc(16px + env(safe-area-inset-bottom))",
-        background: "linear-gradient(to top, rgba(0,0,0,0.96) 55%, rgba(0,0,0,0))", zIndex: 55,
-      }}>
-        <div style={{ display: "flex", gap: 8 }}>
+      {/* Location + control dock */}
+      <footer style={{ padding: "0 16px calc(18px + env(safe-area-inset-bottom))" }}>
+        <button
+          onClick={openInMaps}
+          style={{
+            width: "100%", background: "none", border: "none", cursor: "pointer",
+            display: "flex", alignItems: "flex-start", justifyContent: "center", gap: 6,
+            padding: "0 0 14px",
+          }}
+        >
+          <MapPin size={12} color={GOLD} style={{ marginTop: 2, flexShrink: 0 }} />
+          <span style={{ fontSize: 11.5, color: "rgba(197,160,89,0.72)", lineHeight: 1.35, textAlign: "left", maxWidth: 300 }}>
+            {displayAddress?.poi || displayAddress?.street || "Locating vehicle..."}
+            {displayAddress?.city_state ? `, ${displayAddress.city_state}` : ""}
+            <span style={{ color: "rgba(197,160,89,0.42)" }}> · GPS {freshness(device)}</span>
+          </span>
+        </button>
+
+        <div style={{ display: "flex", gap: 12 }}>
           <GoldDockButton
             icon={<Lock />}
             label="Lock"
@@ -308,8 +353,23 @@ export default function MyVehicleGoldRemote({ onOpenSkinPicker }) {
             disabled={isDemo || busy}
             onClick={() => handleCommand("unlock")}
           />
-          <SOSButton booking={booking} device={device} variant="tile" />
         </div>
+      </footer>
+
+      {/* Emergency SOS — original red floating button, hovering above the dock */}
+      {booking && (
+        <div
+          className="gold-sos"
+          style={{
+            position: "absolute",
+            right: "max(18px, env(safe-area-inset-right))",
+            bottom: "calc(150px + env(safe-area-inset-bottom))",
+            zIndex: 70,
+          }}
+        >
+          <SOSButton booking={booking} device={device} inline size={60} />
+        </div>
+      )}
       </div>
     </div>
   );
