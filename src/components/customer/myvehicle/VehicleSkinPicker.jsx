@@ -65,6 +65,7 @@ function SkinSwatch({ skinId }) {
     classic: { bg: "#050506", road: "#2F80FF", accent: "#F8C455" },
     neon: { bg: "#050505", road: "#2efd5f", accent: "#D4AF37" },
     slate: { bg: "#1a1e22", road: "#3a424a", accent: "#889096" },
+    gold: { bg: "#000000", road: "#C5A059", accent: "#FFD700" },
   };
   const s = styles[skinId] || styles.classic;
   return (

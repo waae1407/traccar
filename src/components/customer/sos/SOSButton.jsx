@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
+import { Siren } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
@@ -59,6 +60,23 @@ export default function SOSButton({ booking, device, inline = false, variant = "
         cursor: "pointer",
         width: "100%",
       }
+    : variant === "tile"
+    ? {
+        flex: 1,
+        height: 86,
+        padding: 0,
+        borderRadius: 14,
+        background: "rgba(0,0,0,0.55)",
+        border: "1.5px solid rgba(197,160,89,0.75)",
+        boxShadow: "0 0 10px rgba(197,160,89,0.12)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        cursor: "pointer",
+        transition: "all 0.2s ease-in-out",
+      }
     : inline
     ? {
         height: size,
@@ -104,6 +122,13 @@ export default function SOSButton({ booking, device, inline = false, variant = "
       >
         {isPill ? (
           <span>PANIC/SOS</span>
+        ) : variant === "tile" ? (
+          <>
+            <Siren size={26} color="#C5A059" strokeWidth={1.8} />
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "#C5A059", lineHeight: 1 }}>
+              SOS
+            </span>
+          </>
         ) : (
           <span
             style={{

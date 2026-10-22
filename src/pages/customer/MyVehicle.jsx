@@ -10,6 +10,7 @@ import VehicleInspectionSheet from "@/components/customer/VehicleInspectionSheet
 import SOSButton from "@/components/customer/sos/SOSButton";
 import { useVehicleSkin } from "@/hooks/useVehicleSkin";
 import MyVehicleCompact from "@/components/customer/myvehicle/MyVehicleCompact";
+import MyVehicleGoldRemote from "@/components/customer/myvehicle/MyVehicleGoldRemote";
 import VehicleSkinPicker from "@/components/customer/myvehicle/VehicleSkinPicker";
 import MyVehicleClassicStyles from "@/components/customer/myvehicle/MyVehicleClassicStyles";
 import ClassicDiagnosticsSheet from "@/components/customer/myvehicle/ClassicDiagnosticsSheet";
@@ -940,6 +941,21 @@ export default function MyVehicle() {
   const { skin, setSkin, skinConfig } = useVehicleSkin();
   const [showSkinPicker, setShowSkinPicker] = useState(false);
   const openPicker = () => setShowSkinPicker(true);
+
+  if (skinConfig.overlay === "gold") {
+    return (
+      <>
+        <MyVehicleGoldRemote onOpenSkinPicker={openPicker} />
+        {showSkinPicker && (
+          <VehicleSkinPicker
+            currentSkin={skin}
+            onSelect={(id) => { setSkin(id); setShowSkinPicker(false); }}
+            onClose={() => setShowSkinPicker(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   if (skinConfig.overlay === "compact") {
     return (

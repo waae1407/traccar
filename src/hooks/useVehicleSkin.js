@@ -7,6 +7,7 @@ export const VEHICLE_SKINS = [
   { id: "classic", label: "Classic", blurb: "Full dashboard with weather, map, controls", mapStyleName: "classic", overlay: "classic" },
   { id: "neon", label: "Neon", blurb: "Compact map view, neon map", mapStyleName: "neon", overlay: "compact" },
   { id: "slate", label: "Slate", blurb: "Compact map view, slate map", mapStyleName: "slate", overlay: "compact" },
+  { id: "gold", label: "Gold", blurb: "Black & gold wireframe remote", mapStyleName: "classic", overlay: "gold" },
 ];
 
 const STORAGE_KEY = "vehicle_skin";
