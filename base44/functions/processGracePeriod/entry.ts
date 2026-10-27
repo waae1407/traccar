@@ -1018,21 +1018,65 @@ async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
       : 'No telematics device is linked to this vehicle, so no starter interrupt was sent.';
   const adminBody = `${renter} (${booking.user_email || 'no email'}) — ${vehicle}: payment unresolved past the ${RECOVERY_WINDOW_HOURS}-hour recovery window. Rental suspended. ${adminEnforcement} Payment retries continue every ${RETRY_INTERVAL_MINUTES / 60} hour(s).`;
 
-  // DELEGATE TO CENTRAL ROUTER
-  await base44.asServiceRole.functions.invoke('routePlatformNotification', {
-    event_type: 'grace_period_expired',
-    severity: 'critical',
-    category: 'payments',
-    title,
-    message: body,
-    title_by_role: { hosts: hostTitle, admins: adminTitle },
-    message_by_role: { hosts: hostBody, admins: adminBody },
-    booking_id: booking.id,
-    customer_id: booking.user_id,
-    host_id: booking.host_id,
-    action_url: '/my-bookings',
-    metadata: { recovery_window_hours: RECOVERY_WINDOW_HOURS, has_device: hasDevice, pending_restriction: isPending, starter_interrupt_only: true },
-  }).catch(e => console.error('[GracePeriod] grace expired notification failed:', e.message));
+  // DELEGATE TO CENTRAL ROUTER — a delivery failure must never be silent.
+  // If the hand-off fails, the renter and host are still notified directly.
+  try {
+    await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'grace_period_expired',
+      severity: 'critical',
+      category: 'payments',
+      title,
+      message: body,
+      title_by_role: { hosts: hostTitle, admins: adminTitle },
+      message_by_role: { hosts: hostBody, admins: adminBody },
+      booking_id: booking.id,
+      customer_id: booking.user_id,
+      host_id: booking.host_id,
+      action_url: '/my-bookings',
+      metadata: { recovery_window_hours: RECOVERY_WINDOW_HOURS, has_device: hasDevice, pending_restriction: isPending, starter_interrupt_only: true },
+    });
+  } catch (routerErr) {
+    console.error('[GracePeriod] grace expired notification FAILED:', routerErr.message);
+
+    const fallback = [];
+    if (booking.user_email) {
+      fallback.push({ email: booking.user_email, userId: booking.user_id, role: 'customer', title, body });
+    }
+    if (booking.host_id) {
+      const hosts = await base44.asServiceRole.entities.Host.filter({ id: booking.host_id }).catch(() => []);
+      if (hosts[0]?.email) {
+        fallback.push({ email: hosts[0].email, userId: hosts[0].user_id, role: 'host', title: hostTitle, body: hostBody });
+      }
+    }
+
+    for (const r of fallback) {
+      await base44.asServiceRole.entities.Notification.create({
+        recipient_email: r.email,
+        recipient_user_id: r.userId || '',
+        recipient_role: r.role,
+        title: r.title,
+        body: r.body,
+        type: 'payment',
+        category: 'payments',
+        severity: 'critical',
+        action_url: '/my-bookings',
+        booking_request_id: booking.id,
+        event_type: 'grace_period_expired',
+      }).catch((e) => console.error('[GracePeriod] fallback notification failed:', r.email, e.message));
+    }
+
+    await logEvent(base44, {
+      event_type: 'payment.failed',
+      target_id: booking.id,
+      host_id: booking.host_id || '',
+      booking_id: booking.id,
+      vehicle_id: booking.vehicle_id || '',
+      customer_id: booking.user_email || '',
+      summary: `Suspension notice hand-off failed for ${booking.vehicle_name || booking.id}: ${routerErr.message} — direct in-app notices created for ${fallback.map((r) => r.role).join(', ') || 'nobody'}`,
+      metadata: { error: routerErr.message, fallback_notified: fallback.map((r) => r.role) },
+      event_status: 'error',
+    });
+  }
 }
 
 Deno.serve(async (req) => {
