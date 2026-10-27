@@ -1127,10 +1127,15 @@ Deno.serve(async (req) => {
       if (shouldSendFinalReminder) {
         const hoursRemaining = Math.max(1, Math.round(hoursUntilDisable));
         await base44.asServiceRole.entities.Notification.create({
-          user_email: booking.user_email,
+          recipient_email: booking.user_email,
+          recipient_user_id: booking.user_id,
+          recipient_role: 'customer',
           title: `⚠️ Final Reminder — Payment due in ${hoursRemaining} hour(s)`,
           body: `Your payment for ${booking.vehicle_name} is still overdue. Vehicle access may be restricted in approximately ${hoursRemaining} hour(s) if payment is not resolved.`,
           type: 'payment',
+          category: 'payments',
+          severity: 'critical',
+          action_url: '/my-bookings',
           booking_request_id: booking.id,
         });
         if (booking.customer_phone) {
