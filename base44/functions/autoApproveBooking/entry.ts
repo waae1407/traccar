@@ -121,6 +121,65 @@ async function writeOutcome(base44, booking, outcome, bookingStatus = 'under_rev
   return updated;
 }
 
+// Vehicle statuses that only ever come from payment enforcement on this rental.
+// A paid, in-progress rental sitting on one of these is a recovery that just
+// cleared — it must never be read as "vehicle not available".
+const RECOVERY_HOLD_STATUSES = ['Suspended', 'Payment Due', 'Grace Period', 'Dispute Hold'];
+const IN_PROGRESS_PHASES = ['checked_out', 'active', 'return_required', 'return_in_progress', 'host_review'];
+
+/**
+ * RECOVERY GUARD — this gate decides whether a NEW booking may be auto-approved.
+ * Stripe delivers events at-least-once, and the webhook re-runs this gate on every
+ * delivery, so a paid rental can be judged again seconds after payment. Without
+ * this guard the vehicle-availability whitelist demotes that rental to
+ * under_review, which the status sync then projects onto the car as a Dispute Hold
+ * and takes a paying renter off the road. Returns null when the booking is not a
+ * recoverable in-progress rental, so normal handling continues unchanged.
+ */
+async function restoreInProgressRental(base44, booking, vehicle, reason) {
+  if (booking.payment_status !== 'paid') return null;
+  const inProgress = !!booking.pickup_completed_at || IN_PROGRESS_PHASES.includes(booking.rental_lifecycle_phase);
+  if (!inProgress) return null;
+  if (!RECOVERY_HOLD_STATUSES.includes(vehicle?.status)) return null;
+
+  await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
+    booking_status: 'active',
+    payment_status: 'paid',
+    payment_failure_reason: null,
+    payment_failure_attempts: 0,
+    last_retry_at: null,
+    starter_disable_scheduled_at: null,
+    suspension_triggered_at: null,
+    suspended_at: null,
+    grace_period_started_at: null,
+    grace_period_ends_at: null,
+    pending_review_alert_active: false,
+  });
+
+  await base44.asServiceRole.entities.Vehicle.update(vehicle.id, { status: 'Active Rental' }).catch(() => {});
+
+  await base44.asServiceRole.entities.ActivityEvent.create({
+    event_type: 'booking.status_changed',
+    actor_id: 'auto_approval_system',
+    actor_email: 'system',
+    actor_role: 'automation',
+    target_entity: 'BookingRequest',
+    target_id: booking.id,
+    booking_id: booking.id,
+    vehicle_id: booking.vehicle_id || '',
+    host_id: booking.host_id || '',
+    customer_id: booking.user_email || '',
+    user_email: booking.user_email || 'system',
+    event_title: 'Paid rental protected from hold',
+    event_description: `Recovery guard kept the booking active and released the vehicle from ${vehicle.status}. Gate reason was: ${reason}`,
+    event_status: 'success',
+    summary: `Recovery guard: paid in-progress rental kept active, vehicle ${vehicle.status} -> Active Rental`,
+    source: 'autoApproveBooking',
+  }).catch(() => {});
+
+  return { ok: true, skipped: 'in_progress_rental_recovery', booking_status: 'active', vehicle_status: 'Active Rental', blocked_reason: reason };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -173,6 +232,9 @@ Deno.serve(async (req) => {
 
     const compliance = await validateVehicleCompliance(base44, vehicle);
     if (!compliance.ok) {
+      // A payment hold is the reason we're here, not a reason to demote a paying renter.
+      const recovered = await restoreInProgressRental(base44, booking, vehicle, compliance.reason);
+      if (recovered) return Response.json(recovered);
       const updated = await writeOutcome(base44, booking, compliance, compliance.status === 'rejected' ? 'rejected' : 'under_review');
       return Response.json({ ok: false, auto_approval_status: compliance.status, auto_approval_reason: compliance.reason, booking: updated });
     }
