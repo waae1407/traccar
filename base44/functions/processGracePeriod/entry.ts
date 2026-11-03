@@ -1021,7 +1021,7 @@ async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
   // DELEGATE TO CENTRAL ROUTER — a delivery failure must never be silent.
   // If the hand-off fails, the renter and host are still notified directly.
   try {
-    await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+    const routerRes = await base44.asServiceRole.functions.invoke('routePlatformNotification', {
       event_type: 'grace_period_expired',
       severity: 'critical',
       category: 'payments',
@@ -1035,6 +1035,15 @@ async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
       action_url: '/my-bookings',
       metadata: { recovery_window_hours: RECOVERY_WINDOW_HOURS, has_device: hasDevice, pending_restriction: isPending, starter_interrupt_only: true },
     });
+    // A hand-off that returns without handling anyone must not pass silently: that
+    // is how Mohamed's Week 12 suspension notice reached nobody. Any outcome other
+    // than "someone was created/updated/deduped" falls through to direct notices.
+    const routerBody = routerRes?.data ?? {};
+    const routerOk = routerRes?.status ? routerRes.status < 400 : !routerBody?.error;
+    const handled = (routerBody?.results?.inapp || []).filter((r) => ['created', 'updated', 'deduped'].includes(r.status)).length;
+    if (!routerOk || handled === 0) {
+      throw new Error(`router returned ${routerRes?.status ?? 'no status'} and handled 0 recipients`);
+    }
   } catch (routerErr) {
     console.error('[GracePeriod] grace expired notification FAILED:', routerErr.message);
 
@@ -1168,12 +1177,23 @@ Deno.serve(async (req) => {
       const hoursUntilDisable = disableScheduledAt ? (disableScheduledAt.getTime() - now.getTime()) / (60 * 60 * 1000) : RECOVERY_WINDOW_HOURS;
       // Send final reminder when 8 or fewer hours remain (≈ Hour-16 for 24h window)
       const shouldSendFinalReminder = hoursUntilDisable > 0 && hoursUntilDisable <= 8 && !booking.final_reminder_sent;
-      if (shouldSendFinalReminder) {
+      // final_reminder_sent is not a persisted field on the booking, so the time
+      // window alone re-fires on every cycle under 8 hours (two "final" reminders
+      // 3 hours apart during Week 12). Guard on a real notification instead.
+      const alreadyReminded = shouldSendFinalReminder
+        ? (await base44.asServiceRole.entities.Notification.filter({
+            booking_request_id: booking.id,
+            event_type: 'payment_final_reminder',
+            created_date: { $gte: failureStartedAt.toISOString() },
+          }, '-created_date', 1).catch(() => [])).length > 0
+        : false;
+      if (shouldSendFinalReminder && !alreadyReminded) {
         const hoursRemaining = Math.max(1, Math.round(hoursUntilDisable));
         await base44.asServiceRole.entities.Notification.create({
           recipient_email: booking.user_email,
           recipient_user_id: booking.user_id,
           recipient_role: 'customer',
+          event_type: 'payment_final_reminder',
           title: `⚠️ Final Reminder — Payment due in ${hoursRemaining} hour(s)`,
           body: `Your payment for ${booking.vehicle_name} is still overdue. Vehicle access may be restricted in approximately ${hoursRemaining} hour(s) if payment is not resolved.`,
           type: 'payment',

@@ -4,6 +4,13 @@ const CRITICAL = new Set(['rental_payment_failed','weekly_billing_failed','payme
 const INFO = new Set(['payment_recovered','retry_successful','payout_completed','chargeback_won','subscription_renewed','dealer_membership_renewed','alert_resolved']);
 const OPEN_STATUSES = ['new','notified','acknowledged','under_review','retry_scheduled','escalated'];
 
+// Alerts are re-created every billing cycle and on every retry attempt. Without a
+// recency window, an old alert that was never manually resolved matches the same
+// identity and permanently swallows every future alert for that booking — silently,
+// because a duplicate is a successful response. De-duplication only needs to cover
+// the cycle in progress.
+const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 // Success alert types — when created, automatically resolve all open failure alerts
 // for the same booking/entity. This is the centralized auto-resolution mechanism.
 const SUCCESS_ALERT_TYPES = new Set([
@@ -143,9 +150,12 @@ async function findDuplicate(base44, payload) {
   if (payload.stripe_event_type && payload.stripe_invoice_id) checks.push({ stripe_event_type: payload.stripe_event_type, stripe_invoice_id: payload.stripe_invoice_id });
   if (payload.stripe_event_type && payload.stripe_dispute_id) checks.push({ stripe_event_type: payload.stripe_event_type, stripe_dispute_id: payload.stripe_dispute_id });
   if (payload.alert_type && payload.related_entity_type && payload.related_entity_id) checks.push({ alert_type: payload.alert_type, related_entity_type: payload.related_entity_type, related_entity_id: payload.related_entity_id });
+  // Compare the window in code: a stored alert older than the window must never
+  // match, otherwise one unresolved alert silences the booking forever.
+  const cutoff = Date.now() - DEDUPE_WINDOW_MS;
   for (const query of checks) {
     const records = await base44.asServiceRole.entities.PaymentOperationalAlert.filter(query, '-created_date', 20);
-    const open = records.find(a => OPEN_STATUSES.includes(a.status));
+    const open = records.find(a => OPEN_STATUSES.includes(a.status) && new Date(a.created_date).getTime() >= cutoff);
     if (open) return open;
   }
   return null;
@@ -190,9 +200,51 @@ Deno.serve(async (req) => {
     let customerNotified = false;
     let adminNotified = false;
 
-    adminNotified = await safeNotification(base44, { user_email: 'admin', title: `Payment Ops: ${payload.title}`, body: payload.message, type: 'alert', action_link: '/admin/payment-alerts', booking_request_id: payload.booking_id || '' });
-    if (payload.host_email && payload.requires_host_action) hostNotified = await safeNotification(base44, { user_email: payload.host_email, title: payload.title, body: payload.message, type: 'alert', action_link: '/host/payments', booking_request_id: payload.booking_id || '' });
-    if (payload.renter_email && payload.requires_customer_action) customerNotified = await safeNotification(base44, { user_email: payload.renter_email, title: payload.title, body: payload.message, type: 'payment', action_link: '/my-bookings', booking_request_id: payload.booking_id || '' });
+    // These creates were silently rejected for months: the Notification entity
+    // requires `recipient_email` and has no `user_email` or `action_link`, so every
+    // alert existed while nobody was told. Send with the schema's own field names.
+    const baseNotice = {
+      body: payload.message,
+      severity: payload.severity,
+      event_type: payload.alert_type,
+      booking_request_id: payload.booking_id || '',
+      related_entity_type: relatedEntityType,
+      related_entity_id: relatedEntityId,
+      source_function: 'createPaymentOperationalAlert',
+    };
+    const admins = await base44.asServiceRole.entities.User.filter({ role: 'admin' }).catch(() => []);
+    for (const admin of admins) {
+      const ok = await safeNotification(base44, {
+        ...baseNotice,
+        recipient_email: admin.email,
+        recipient_user_id: admin.id,
+        recipient_role: 'admin',
+        title: `Payment Ops: ${payload.title}`,
+        type: 'alert',
+        action_url: '/admin/payment-alerts',
+      });
+      if (ok) adminNotified = true;
+    }
+    if (payload.host_email && payload.requires_host_action) {
+      hostNotified = await safeNotification(base44, {
+        ...baseNotice,
+        recipient_email: payload.host_email,
+        recipient_role: 'host',
+        title: payload.title,
+        type: 'alert',
+        action_url: '/host/payments',
+      });
+    }
+    if (payload.renter_email && payload.requires_customer_action) {
+      customerNotified = await safeNotification(base44, {
+        ...baseNotice,
+        recipient_email: payload.renter_email,
+        recipient_role: 'customer',
+        title: payload.title,
+        type: 'payment',
+        action_url: '/my-bookings',
+      });
+    }
 
     const updatedAlert = await base44.asServiceRole.entities.PaymentOperationalAlert.update(alert.id, {
       status: 'notified',
