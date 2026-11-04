@@ -50,6 +50,33 @@ export const INTENT_LEVELS = {
   available:      { color: "#22C55E", label: "Available", pulse: false, priority: 0 },
 };
 
+const PAYMENT_OUTSTANDING = new Set(["failed", "overdue", "due_soon", "pending", "unpaid"]);
+
+/**
+ * Payment state of the rental currently on the car.
+ *   paid → nothing to chase on this vehicle
+ *   due  → money outstanding on this rental
+ */
+export function resolveRentalPaymentState(booking) {
+  if (!booking) return "unknown";
+  if (booking.payment_status === "paid") return "paid";
+  if (PAYMENT_OUTSTANDING.has(booking.payment_status)) return "due";
+  return "unknown";
+}
+
+/**
+ * Marker display for an intent. An active rental states whether it is paid, so the
+ * map never shows a bare "Rented" that hides either a payment problem or a paid one.
+ */
+export function resolveIntentDisplay(intent, booking) {
+  const base = INTENT_LEVELS[intent] || INTENT_LEVELS.available;
+  if (intent !== "active_rental") return { label: base.label, color: base.color, payment_state: null };
+  const payment_state = resolveRentalPaymentState(booking);
+  if (payment_state === "due") return { label: "Rented · Due", color: "#EF4444", payment_state };
+  if (payment_state === "paid") return { label: "Rented · Paid", color: base.color, payment_state };
+  return { label: base.label, color: base.color, payment_state };
+}
+
 const CHECKOUT_STEPS = [
   "select_vehicle", "account", "profile", "verification",
   "terms", "contract", "payment", "confirmation",

@@ -6,7 +6,7 @@ import FleetMap from "@/components/host/fleetmap/FleetMap";
 import AdminScorecardStack from "@/components/admin/fleetmap/AdminScorecardStack";
 import AdminSupportQueue from "@/components/admin/fleetmap/AdminSupportQueue";
 import AdminVehicleActionSheet from "@/components/admin/fleetmap/AdminVehicleActionSheet";
-import { computeBookingIntentByVehicle, countByIntent } from "@/lib/fleetmap/bookingIntent";
+import { computeBookingIntentByVehicle, countByIntent, resolveRentalPaymentState } from "@/lib/fleetmap/bookingIntent";
 
 const ACTIVE_RENTAL_STATUSES = new Set(["active", "confirmed", "approved", "checked_out", "return_required", "payment_due", "grace_period"]);
 const OVERDUE_BOOKING_STATUSES = new Set(["payment_due", "grace_period", "suspended"]);
@@ -22,6 +22,13 @@ const isOverduePayment = (b, soldVehicleIds = null) =>
   !["cancelled", "rejected"].includes(b.booking_status) &&
   !b.is_superseded &&
   !(soldVehicleIds && soldVehicleIds.has(b.vehicle_id));
+
+// A rental counts as paid only when its current week is settled. The marker and
+// these chips share one rule, so a chip count always matches what the map shows.
+const isRentalPaid = (entry) =>
+  entry?.intent === "active_rental" && resolveRentalPaymentState(entry.booking) === "paid";
+const isRentalDue = (entry) =>
+  entry?.intent === "active_rental" && resolveRentalPaymentState(entry.booking) === "due";
 
 export default function AdminFleetMap() {
   const [search, setSearch] = useState("");
@@ -119,7 +126,8 @@ export default function AdminFleetMap() {
       });
     }
     if (filter === "available") result = result.filter(v => v.status === "Available");
-    if (filter === "rented") result = result.filter(v => activeBookingByVehicle[v.id] || ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period", "Dropoff Submitted", "Return Pending Host Review"].includes(v.status));
+    if (filter === "rented_paid") result = result.filter(v => isRentalPaid(bookingIntentByVehicle[v.id]));
+    if (filter === "rented_due") result = result.filter(v => isRentalDue(bookingIntentByVehicle[v.id]));
     if (filter === "attention") result = result.filter(v => ["Payment Due", "Grace Period", "Suspended", "Maintenance", "Compliance Hold", "Out of Service"].includes(v.status));
     if (filter === "offline") result = result.filter(v => {
       const dev = deviceByVehicle[v.id];
@@ -237,7 +245,8 @@ export default function AdminFleetMap() {
   const fleetStats = useMemo(() => ({
     total: filteredVehicles.length,
     available: filteredVehicles.filter(v => v.status === "Available").length,
-    rented: filteredVehicles.filter(v => activeBookingByVehicle[v.id] || ["Booked", "Active Rental", "Reserved", "Payment Due", "Grace Period", "Dropoff Submitted", "Return Pending Host Review"].includes(v.status)).length,
+    rentedPaid: filteredVehicles.filter(v => isRentalPaid(bookingIntentByVehicle[v.id])).length,
+    rentedDue: filteredVehicles.filter(v => isRentalDue(bookingIntentByVehicle[v.id])).length,
     attention: filteredVehicles.filter(v => ["Payment Due", "Grace Period", "Suspended", "Maintenance", "Compliance Hold", "Out of Service"].includes(v.status)).length,
     offline: filteredVehicles.filter(v => {
       const dev = deviceByVehicle[v.id];
@@ -374,7 +383,8 @@ export default function AdminFleetMap() {
           <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }} className="no-scrollbar">
             <FilterChip label="All" count={fleetStats.total} active={filter === "all"} onClick={() => setFilter("all")} />
             <FilterChip label="Available" count={fleetStats.available} active={filter === "available"} onClick={() => setFilter("available")} color="#22C55E" />
-            <FilterChip label="Rented" count={fleetStats.rented} active={filter === "rented"} onClick={() => setFilter("rented")} color="#3B82F6" />
+            <FilterChip label="Paid Rental" count={fleetStats.rentedPaid} active={filter === "rented_paid"} onClick={() => setFilter("rented_paid")} color="#22C55E" />
+            {fleetStats.rentedDue > 0 && <FilterChip label="Rented · Due" count={fleetStats.rentedDue} active={filter === "rented_due"} onClick={() => setFilter("rented_due")} color="#EF4444" pulse />}
             {fleetStats.attention > 0 && <FilterChip label="Attention" count={fleetStats.attention} active={filter === "attention"} onClick={() => setFilter("attention")} color="#FF9F0A" pulse />}
             {fleetStats.offline > 0 && <FilterChip label="Offline GPS" count={fleetStats.offline} active={filter === "offline"} onClick={() => setFilter("offline")} color="#8E8E93" />}
             {pendingReviews > 0 && <FilterChip label="Pending Review" count={pendingReviews} active={filter === "pending_review"} onClick={() => setFilter("pending_review")} color="#FF9F0A" />}

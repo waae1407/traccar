@@ -4,7 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { classicDarkStyle } from "@/lib/mapStyles/classicDarkStyle";
 import { HIGHWAY_SHIELD_LAYERS, handleShieldImageMissing } from "@/lib/mapStyles/highwayShieldLayers";
 import { computeStarterState } from "@/lib/telematics/starterState";
-import { INTENT_LEVELS } from "@/lib/fleetmap/bookingIntent";
+import { INTENT_LEVELS, resolveIntentDisplay } from "@/lib/fleetmap/bookingIntent";
 
 // ── Worker blob (same pattern as FindMyVehicleMap) ──
 let workerBlobUrlPromise = null;
@@ -111,9 +111,11 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, inten
     ["Reserved", "Booked"].includes(vehicle.status) ? "confirmed" :
     "available"
   );
+  // Active rentals state whether the current week is paid (Rented · Paid / Rented · Due)
   const intentCfg = INTENT_LEVELS[intent] || INTENT_LEVELS.available;
-  const ringColor = intentCfg.color;
-  const ringLabel = intentCfg.label;
+  const display = resolveIntentDisplay(intent, intentEntry?.booking);
+  const ringColor = display.color;
+  const ringLabel = display.label;
   const ringClass = RING_CLASS_BY_INTENT[intent] || "";
   const ringStyle = intentCfg.dashed ? "border:3px dashed " : "border:3px solid ";
   const ringOpacity = (intent === "abandoned" || intent === "off_road") ? "0.5" : "1";
@@ -135,6 +137,16 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, inten
       <span style="font-size:8px;">${starter.glyph}</span>
     </div>` : "";
 
+  // Paid marker — a green check opposite the starter badge, so a settled rental
+  // reads as settled from a distance without opening the vehicle sheet.
+  const paidBadge = display.payment_state === "paid" ? `
+    <div style="
+      position:absolute;bottom:2px;right:-2px;width:14px;height:14px;border-radius:50%;
+      background:#22C55E;border:2px solid #0a0a0a;box-shadow:0 0 5px rgba(34,197,94,0.8);
+      display:flex;align-items:center;justify-content:center;font-size:8px;line-height:1;
+      color:#052e12;font-weight:900;z-index:3;pointer-events:none;
+    " title="Current week paid">✓</div>` : "";
+
   el.innerHTML = `
     <div style="position:relative;width:54px;height:66px;pointer-events:auto;">
       <div style="position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);width:34px;height:6px;border-radius:50%;background:rgba(0,0,0,0.45);filter:blur(3px);"></div>
@@ -145,6 +157,7 @@ function createVehicleMarkerElement(vehicle, device, onClick, onLongPress, inten
       </div>
       <div style="position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:${gpsColor};border:2px solid #0a0a0a;box-shadow:0 0 4px ${gpsColor};"></div>
       ${starterBadge}
+      ${paidBadge}
       <div style="position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);white-space:nowrap;background:${ringColor};color:white;font-size:9px;font-weight:800;padding:2px 8px;border-radius:9999px;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 1px 4px rgba(0,0,0,0.4);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;">${ringLabel}</div>
     </div>
   `;
