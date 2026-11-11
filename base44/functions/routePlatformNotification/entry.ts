@@ -322,6 +322,30 @@ Deno.serve(async (req) => {
       message_by_role = {},
     } = body;
 
+    // ── Layout preview ────────────────────────────────────────────────────
+    // Renders this exact email and sends it once to the signed-in admin so the
+    // layout can be approved before it reaches real recipients.
+    if (body.preview === true) {
+      const me = await base44.auth.me().catch(() => null);
+      if (!me?.email || me.role !== 'admin') {
+        return Response.json({ error: 'Sign in as an admin to preview' }, { status: 403 });
+      }
+      const sample = {
+        title: 'Your payment for the 2012 Prius is due',
+        message: 'We were not able to collect your weekly payment for the 2012 Prius. Your rental stays on hold until the payment goes through.',
+      };
+      const html = buildEmailHtml('customers', sample, {
+        severity: 'critical',
+        category: 'payments',
+        metadata: { vehicle_name: '2012 Prius', amount: 285 },
+        now: new Date().toISOString(),
+        action_url: '/my-bookings',
+        booking_id: 'preview000123456',
+      });
+      const sent = await sendEmail(base44, me.email, `[uRide] ${sample.title}`, html);
+      return Response.json({ ok: sent.ok === true, sent_to: me.email, ...sent });
+    }
+
     if (!event_type || !title) {
       return Response.json({ error: 'event_type and title are required' }, { status: 400 });
     }
