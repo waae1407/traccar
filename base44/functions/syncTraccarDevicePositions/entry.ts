@@ -230,6 +230,56 @@ function ignitionStatus(position) {
   return 'unknown';
 }
 
+// ── Payment-enforcement guard ──
+// A payment kill owns the relay until payment or an admin restores it. Every
+// automatic 019,0 (power-save) and 007,1,0 (restore) below RELEASES that relay,
+// which is how a suspended vehicle was driven for days. While a kill is in force
+// neither may run: the kill is re-asserted with power-save disabled instead.
+async function isEnforcementActive(base44, device) {
+  if (device.starter_disabled === true) return { active: true, reason: 'device_starter_disabled' };
+  if (!device.vehicle_id) return { active: false };
+  const bks = await base44.asServiceRole.entities.BookingRequest.filter({
+    vehicle_id: device.vehicle_id,
+    booking_status: { $in: ['suspended', 'payment_due', 'grace_period'] },
+  }, '-created_date', 5).catch(() => []);
+  const hit = bks.find(b => b.moovetrax_kill_active === true || b.starter_disabled === true);
+  return hit ? { active: true, reason: 'booking_enforcement', booking_id: hit.id } : { active: false };
+}
+
+function mt20Ascii(deviceId, code, tail) {
+  const d = new Date();
+  const hhmmss = [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map(n => String(n).padStart(2, '0')).join('');
+  return `*KW,${sanitizeIdForPs(deviceId)},${code},${hhmmss},${tail}#`;
+}
+
+async function sendMt20Ascii(device, ascii) {
+  const traccarDeviceId = Number(device.traccar_device_id);
+  if (!Number.isFinite(traccarDeviceId)) return { ok: false, error: 'invalid_traccar_id' };
+  const bytes = new TextEncoder().encode(ascii);
+  if (bytes.length > 50) return { ok: false, error: 'payload_too_long' };
+  const padded = new Uint8Array(50);
+  padded.set(bytes);
+  const hex = `0D0A2A4B5700${'4400'}${'0200'}${'741E649C'}${'5B9A'}${bytesToHexForPs(padded)}0D0A`;
+  try {
+    const res = await fetch(`${baseUrl()}/api/commands/send`, {
+      method: 'POST',
+      headers: { Authorization: authHeader(), 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ deviceId: traccarDeviceId, type: 'custom', attributes: { data: hex } }),
+    });
+    if (!res.ok) return { ok: false, error: `traccar_${res.status}` };
+    return { ok: true, ascii, hex };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// Re-assert a payment kill: power-save OFF first (relay stays energized), then 007,1,1.
+async function reassertEnforcementKill(device) {
+  const powerSaveOff = await sendMt20Ascii(device, mt20Ascii(device.unique_id, '019', '1'));
+  const kill = await sendMt20Ascii(device, mt20Ascii(device.unique_id, '007', '1,1'));
+  return { ok: kill.ok, power_save_off: powerSaveOff.ok, ascii: kill.ascii, error: kill.error };
+}
+
 // ── Auto power-save on park ──
 // MT20 firmware clears the relay power-save setting every drive cycle (ACC on resets it).
 // Re-send 019,0 automatically whenever a device transitions from ignition-on to ignition-off.
@@ -612,7 +662,26 @@ Deno.serve(async (req) => {
       const currentVoltage = payload.battery_voltage ?? local.battery_voltage ?? null;
 
       if (prevIgnition === 'on' && newIgnition === 'off' && local.unique_id) {
-        if (currentVoltage !== null && currentVoltage <= RESTORE_VOLTAGE_THRESHOLD) {
+        const enforcement = await isEnforcementActive(base44, local);
+        if (enforcement.active) {
+          // Neither 019,0 nor 007,1,0 runs — both release the relay a payment kill
+          // is holding. Re-assert the kill with power-save disabled instead.
+          const reassert = await reassertEnforcementKill(local);
+          await base44.asServiceRole.entities.ActivityEvent.create({
+            event_type: 'gps.device_config_traccar_sent',
+            actor_id: 'system',
+            actor_email: 'system@uride',
+            actor_role: 'system',
+            target_entity: 'TelematicsDevice',
+            target_id: local.id,
+            vehicle_id: local.vehicle_id || '',
+            booking_id: enforcement.booking_id || null,
+            summary: `Enforcement held on park: skipped 019,0/007,1,0 and re-asserted starter kill on ${local.unique_id} (${enforcement.reason})`,
+            metadata: { source: 'syncTraccarDevicePositions', trigger: 'ignition_off_transition', enforcement_reason: enforcement.reason, voltage: currentVoltage, power_save_off: reassert.power_save_off, ascii: reassert.ascii },
+            source: 'automation',
+            event_status: reassert.ok ? 'warning' : 'error',
+          }).catch(() => {});
+        } else if (currentVoltage !== null && currentVoltage <= RESTORE_VOLTAGE_THRESHOLD) {
           // Battery too low — restore starter relay instead of power-save
           const restoreResult = await sendRestoreStarter(local);
           if (restoreResult.ok) {
@@ -661,7 +730,28 @@ Deno.serve(async (req) => {
       if (local.unique_id && local.last_seen_at) {
         const prevSeenAt = new Date(local.last_seen_at).getTime();
         const gapMs = seenAt ? new Date(seenAt).getTime() - prevSeenAt : 0;
-        if (gapMs > 30 * 60 * 1000) {
+        const offlineEnforcement = gapMs > 30 * 60 * 1000
+          ? await isEnforcementActive(base44, local)
+          : { active: false };
+        if (offlineEnforcement.active) {
+          // A dead zone must not release a payment kill — re-assert instead.
+          const reassert = await reassertEnforcementKill(local);
+          await base44.asServiceRole.entities.ActivityEvent.create({
+            event_type: 'gps.device_config_traccar_sent',
+            actor_id: 'system',
+            actor_email: 'system@uride',
+            actor_role: 'system',
+            target_entity: 'TelematicsDevice',
+            target_id: local.id,
+            vehicle_id: local.vehicle_id || '',
+            booking_id: offlineEnforcement.booking_id || null,
+            summary: `Enforcement held after offline gap: skipped 007,1,0 restore and re-asserted starter kill on ${local.unique_id} (gap ${Math.round(gapMs / 60000)}min)`,
+            metadata: { source: 'syncTraccarDevicePositions', trigger: 'back_online_after_offline', gap_minutes: Math.round(gapMs / 60000), enforcement_reason: offlineEnforcement.reason, power_save_off: reassert.power_save_off, ascii: reassert.ascii },
+            source: 'automation',
+            event_status: reassert.ok ? 'warning' : 'error',
+          }).catch(() => {});
+        }
+        if (gapMs > 30 * 60 * 1000 && !offlineEnforcement.active) {
           const restoreResult = await sendRestoreStarter(local);
           if (restoreResult.ok) {
             starterRestoreSent++;

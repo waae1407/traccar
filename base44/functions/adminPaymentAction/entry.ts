@@ -555,7 +555,6 @@ Deno.serve(async (req) => {
             payment_status: 'paid',
             moovetrax_kill_active: false,
             starter_disabled: false,
-            starter_disable_pending: false,
             final_reminder_sent: false,
             payment_failure_attempts: 0,
             payment_failure_reason: '',

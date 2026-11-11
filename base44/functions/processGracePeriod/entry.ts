@@ -251,6 +251,78 @@ async function sendEmail(base44, to, subject, body) {
   return true;
 }
 
+// ── Relay power-save (MT20 019) ──
+// MT20 firmware releases relay power-save on every ACC-on cycle. A payment kill sent
+// while power-save is still enabled therefore self-releases the first time the vehicle
+// is started and parked — which is exactly how a suspended car kept being driven.
+//   Kill    → 019,1 (power-save OFF, relay stays energized) BEFORE the kill
+//   Restore → 019,0 (power-save ON) so the parked relay stops draining the battery
+const POWER_SAVE_MAX_HEARTBEAT_AGE_MS = 10000;
+
+function buildMt20WrappedPacket(asciiCommand) {
+  const sDataBytes = new TextEncoder().encode(asciiCommand);
+  if (sDataBytes.length > 50) throw new Error('sData exceeds 50 bytes');
+  const padded = new Uint8Array(50);
+  padded.set(sDataBytes);
+  const hex = Array.from(padded).map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  return `0D0A2A4B5700${'4400'}${'0200'}${'741E649C'}${'5B9A'}${hex}0D0A`;
+}
+
+async function setRelayPowerSave(base44, device, powerSave, context) {
+  if (!device) return { ok: false, skipped: 'no_device' };
+  if (device.provider_key !== 'traccar_noran_mt20' || !device.traccar_device_id) return { ok: false, skipped: 'unsupported_device' };
+
+  const heartbeatAgeMs = Date.now() - new Date(device.last_heartbeat_received_at || 0).getTime();
+  if (heartbeatAgeMs > POWER_SAVE_MAX_HEARTBEAT_AGE_MS) {
+    console.warn(`[PaymentEnforcement] 019 skipped for ${device.unique_id} — heartbeat ${Math.round(heartbeatAgeMs / 1000)}s stale`);
+    return { ok: false, skipped: 'heartbeat_stale', heartbeat_age_ms: heartbeatAgeMs };
+  }
+
+  const now = new Date();
+  const hhmmss = [now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()].map((n) => String(n).padStart(2, '0')).join('');
+  const deviceId = String(device.unique_id).replace(/[^a-zA-Z0-9_:-]/g, '').slice(0, 80);
+  const ascii = `*KW,${deviceId},019,${hhmmss},${powerSave ? 0 : 1}#`;
+
+  try {
+    const baseUrl = String(Deno.env.get('TRACCAR_BASE_URL') || '').replace(/\/+$/, '');
+    const username = Deno.env.get('TRACCAR_USERNAME');
+    const password = Deno.env.get('TRACCAR_PASSWORD');
+    if (!baseUrl || !username || !password) throw new Error('Traccar credentials not configured');
+    const res = await fetch(`${baseUrl}/api/commands/send`, {
+      method: 'POST',
+      headers: { Authorization: 'Basic ' + btoa(`${username}:${password}`), 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ deviceId: Number(device.traccar_device_id), type: 'custom', attributes: { data: buildMt20WrappedPacket(ascii) } }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`Traccar rejected 019 (${res.status}): ${text.slice(0, 160)}`);
+
+    await logEvent(base44, {
+      event_type: 'gps.device_config_traccar_sent',
+      target_entity: 'TelematicsDevice',
+      target_id: device.id,
+      host_id: device.host_id || '',
+      vehicle_id: device.vehicle_id || '',
+      summary: `Relay power-save ${powerSave ? 'ENABLED (019,0)' : 'DISABLED (019,1)'} on ${device.unique_id} — ${context}`,
+      metadata: { source: 'processGracePeriod', context, ascii, power_save_mode: powerSave, heartbeat_fresh: true },
+      event_status: 'success',
+    });
+    return { ok: true, power_save_mode: powerSave, ascii };
+  } catch (error) {
+    await logEvent(base44, {
+      event_type: 'gps.command_failed',
+      target_entity: 'TelematicsDevice',
+      target_id: device.id,
+      host_id: device.host_id || '',
+      vehicle_id: device.vehicle_id || '',
+      summary: `Relay power-save ${powerSave ? 'ENABLE' : 'DISABLE'} FAILED on ${device.unique_id} — ${context}: ${error.message}`,
+      metadata: { source: 'processGracePeriod', context, ascii, error: error.message },
+      event_status: 'error',
+    });
+    return { ok: false, error: error.message };
+  }
+}
+
 async function resolveTelematicsDeviceForBooking(base44, vehicleId) {
   if (!vehicleId) return null;
   const devices = await base44.asServiceRole.entities.TelematicsDevice.filter({ vehicle_id: vehicleId });
@@ -265,6 +337,10 @@ async function starterInterrupt(base44, booking, disable) {
   if (!device) {
     return { ok: false, error: 'no_device_found', message: 'No telematics device linked to this vehicle.' };
   }
+
+  // A kill behind a relay that releases itself at the next ACC-on is not a kill:
+  // power-save is turned OFF before the kill, and back ON after a restore.
+  const powerSave = disable ? await setRelayPowerSave(base44, device, false, 'payment_kill') : null;
 
   const response = await base44.asServiceRole.functions.invoke('sendTelematicsCommand', {
     telematics_device_id: device.id,
@@ -285,7 +361,10 @@ async function starterInterrupt(base44, booking, disable) {
     return { ok: false, error: data.error || 'command_failed', heartbeat_stale: isHeartbeatStale, response: data };
   }
 
-  return { ok: true, response: data };
+  // Restore is done — re-arm power-save so a parked relay stops draining the battery.
+  const rearmedPowerSave = disable ? null : await setRelayPowerSave(base44, device, true, 'payment_restore');
+
+  return { ok: true, response: data, power_save: disable ? powerSave : rearmedPowerSave };
 }
 
 async function getVehicleDevice(base44, vehicleId) {
@@ -444,11 +523,9 @@ async function restoreAfterPayment(base44, booking, paymentIntent, grossedAmount
     if (starterRestoreOk) {
       bookingUpdate.starter_disabled = false;
       bookingUpdate.moovetrax_kill_active = false;
-      bookingUpdate.starter_disable_pending = false;
     } else {
       bookingUpdate.starter_disabled = true;
       bookingUpdate.moovetrax_kill_active = true;
-      bookingUpdate.starter_disable_pending = false;
     }
   } else {
     // Past-due weeks remain — keep suspended, set payment_status to failed for next retry
@@ -790,12 +867,12 @@ async function disableStarterAfterWindow(base44, booking, now) {
   const safetyCheck = await checkVehicleSafeForStarterDisable(base44, booking.vehicle_id);
 
   if (!safetyCheck.safe) {
-    // Vehicle appears running/moving — set pending flag, do NOT send command
     await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
       booking_status: 'suspended',
       suspension_triggered_at: now.toISOString(),
       suspended_at: now.toISOString(),
-      starter_disable_pending: true,
+      // suspended + not proven = pending. starter_disabled stays false until the
+      // relay is read open by verifyStarterKillEnforcement, so this alone re-arms retry.
       starter_disabled: false,
       moovetrax_kill_active: false,
     });
@@ -846,7 +923,6 @@ async function disableStarterAfterWindow(base44, booking, now) {
       suspended_at: now.toISOString(),
       starter_disabled: false,
       moovetrax_kill_active: false,
-      starter_disable_pending: true,
     });
 
     await createPaymentAlert(base44, {
@@ -898,7 +974,6 @@ async function disableStarterAfterWindow(base44, booking, now) {
       suspended_at: now.toISOString(),
       starter_disabled: false,
       moovetrax_kill_active: false,
-      starter_disable_pending: true,
     });
 
     await createPaymentAlert(base44, {
@@ -944,7 +1019,6 @@ async function disableStarterAfterWindow(base44, booking, now) {
     // Enforcement is REQUESTED here, not proven. starter_disabled is promoted only
     // by verifyStarterKillEnforcement once the relay reads open with no movement.
     moovetrax_kill_active: true,
-    starter_disable_pending: booking.starter_disabled !== true,
   });
 
   await createPaymentAlert(base44, {
@@ -1131,8 +1205,11 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Retry starter disable for pending-disable bookings (vehicle was running or heartbeat was stale when grace expired)
-      if (booking.booking_status === "suspended" && booking.starter_disable_pending && !booking.starter_disabled) {
+      // Retry starter disable for pending-disable bookings: the vehicle was moving or the
+      // heartbeat was stale when grace expired, so the kill was never actually sent.
+      // "pending" is derived (suspended, kill not proven) — the old flag was a field the
+      // schema does not have, so it never persisted and this retry never ran.
+      if (booking.booking_status === "suspended" && booking.starter_disabled !== true && booking.vehicle_id) {
         const safetyCheck = await checkVehicleSafeForStarterDisable(base44, booking.vehicle_id);
         const deviceId = await getVehicleDevice(base44, booking.vehicle_id);
         if (safetyCheck.safe && deviceId) {
@@ -1140,7 +1217,6 @@ Deno.serve(async (req) => {
           if (retryResult.ok) {
             await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
               moovetrax_kill_active: true,
-              starter_disable_pending: booking.starter_disabled !== true,
             });
             await logEvent(base44, {
               event_type: 'payment.starter_disabled',

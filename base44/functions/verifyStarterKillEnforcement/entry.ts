@@ -52,6 +52,21 @@ function buildDisableStarterAscii(deviceId) {
   return `*KW,${sanitizeIdentifier(deviceId)},007,${hhmmss},1,1#`;
 }
 
+// Power-save MUST be off or the firmware releases the relay at the next ACC-on,
+// which is what let a suspended vehicle through. Sent before every re-asserted kill.
+async function disableRelayPowerSave(device) {
+  const now = new Date();
+  const hhmmss = [now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()].map((n) => String(n).padStart(2, '0')).join('');
+  const ascii = `*KW,${sanitizeIdentifier(device.unique_id)},019,${hhmmss},1#`;
+  try {
+    await sendViaTraccar(device, buildMt20WrappedPacket(ascii));
+    return { ok: true, ascii };
+  } catch (e) {
+    console.warn(`[KillVerify] 019,1 failed for ${device.unique_id}: ${e.message}`);
+    return { ok: false, error: e.message };
+  }
+}
+
 async function sendViaTraccar(device, hexPayload) {
   const baseUrl = envValue('TRACCAR_BASE_URL');
   const username = envValue('TRACCAR_USERNAME');
@@ -175,6 +190,7 @@ async function verifyCommand(base44, command) {
   // Re-send the kill. Idempotent, and its ACK reports the relay state held
   // immediately before this send — i.e. whether the earlier kill is holding.
   const ascii = buildDisableStarterAscii(device.unique_id);
+  const powerSaveOff = await disableRelayPowerSave(liveDevice);
   const sentAt = Date.now();
   await sendViaTraccar(liveDevice, buildMt20WrappedPacket(ascii));
   const read = await readRelayState(base44, device.id, sentAt);
@@ -203,6 +219,7 @@ async function verifyCommand(base44, command) {
     speed: Number(liveDevice.speed || 0),
     read_event_id: read.event_id,
     moved_since_kill: movement,
+    power_save_disabled: powerSaveOff.ok,
   };
 
   // Motion since the kill outranks the status bit: it means the car is being used
@@ -219,7 +236,6 @@ async function verifyCommand(base44, command) {
     if (command.booking_id) {
       await base44.asServiceRole.entities.BookingRequest.update(command.booking_id, {
         starter_disabled: false,
-        starter_disable_pending: true,
       }).catch(() => {});
     }
     await alertBypass(base44, device, { movement, source_entity_type: 'TelematicsCommand', source_entity_id: command.id, command_id: command.id });
@@ -275,8 +291,8 @@ async function verifyCommand(base44, command) {
     // Only now may the booking claim enforcement: relay open AND no movement since.
     if (command.booking_id) {
       await base44.asServiceRole.entities.BookingRequest.update(command.booking_id, bypassedBefore
-        ? { starter_disabled: false, starter_disable_pending: true }
-        : { starter_disabled: true, starter_disable_pending: false }).catch(() => {});
+        ? { starter_disabled: false }
+        : { starter_disabled: true }).catch(() => {});
     }
     return { ...base, outcome: bypassedBefore ? 'bit_open_but_device_previously_bypassed' : 'confirmed' };
   }
@@ -298,7 +314,7 @@ async function verifyCommand(base44, command) {
       provider_response: { ...(command.provider_response || {}), starter_kill_verification: { ...base, verified_at: new Date().toISOString() } },
     });
 
-    await createOnce(base44, `starter_kill_bypass_${device.id}`, {
+    const failureAlert = await createOnce(base44, `starter_kill_bypass_${device.id}`, {
       alert_type: 'command_acknowledged_not_executed',
       severity: 'critical',
       status: 'new',
@@ -323,6 +339,19 @@ async function verifyCommand(base44, command) {
       action_url: '/admin/vehicle-command-center',
       metadata: base,
     });
+
+    if (failureAlert.created) {
+      await notifyEnforcementFailure(base44, {
+        device,
+        bookingId: command.booking_id || null,
+        title: moving || ignitionOn
+          ? `Starter kill NOT holding — vehicle in use (${device.unique_id})`
+          : `Starter kill failed after ${attempts} attempts (${device.unique_id})`,
+        message: `Device ${device.unique_id} reported ignition=${liveDevice.ignition_status || 'unknown'} and speed=${Math.round(Number(liveDevice.speed || 0))} mph with the kill in force (${attempts} attempt(s)). The relay is not opening.`,
+        movement,
+        commandId: command.id,
+      });
+    }
 
     await base44.asServiceRole.entities.ActivityEvent.create({
       event_type: 'gps.kill_failed',
@@ -377,9 +406,43 @@ async function movedSinceKill(base44, deviceId, sinceIso) {
   return { movingCount, maxSpeed: Math.round(maxSpeed * 10) / 10, lastMovingAt, since: new Date(since).toISOString() };
 }
 
+// Every admin AND the host who owns the vehicle are told when enforcement fails.
+// The renter is deliberately not notified — this is an operator decision, not a nudge.
+async function notifyEnforcementFailure(base44, { device, bookingId, title, message, movement, commandId }) {
+  const hostTitle = `Enforcement failed on your vehicle (${device.unique_id})`;
+  const hostMessage = movement?.movingCount
+    ? `Your vehicle ${device.unique_id} has moved ${movement.movingCount} times since uRide's starter restriction went active (max ${movement.maxSpeed || 0} km/h). The restriction is not physically holding. uRide has been alerted and is treating this as a retrieval case. No action is needed from you right now.`
+    : `The starter restriction on your vehicle ${device.unique_id} could not be confirmed by the device. uRide has been alerted and is checking the relay wiring and installation. No action is needed from you right now.`;
+  try {
+    await base44.asServiceRole.functions.invoke('routePlatformNotification', {
+      event_type: 'starter_kill_bypass',
+      severity: 'critical',
+      category: 'payments',
+      title,
+      message,
+      title_by_role: { hosts: hostTitle, admins: title },
+      message_by_role: { hosts: hostMessage, admins: message },
+      booking_id: bookingId || null,
+      host_id: device.host_id || null,
+      vehicle_id: device.vehicle_id || null,
+      action_url: '/admin/vehicle-command-center',
+      metadata: {
+        device_unique_id: device.unique_id,
+        command_id: commandId || null,
+        moving_points: movement?.movingCount || 0,
+        max_speed: movement?.maxSpeed || 0,
+        last_moving_at: movement?.lastMovingAt || null,
+      },
+      source_function: 'verifyStarterKillEnforcement',
+    });
+  } catch (e) {
+    console.error('[KillVerify] bypass notification failed:', e.message);
+  }
+}
+
 async function alertBypass(base44, device, meta) {
   const movement = meta.movement || {};
-  return createOnce(base44, `starter_kill_bypass_${device.id}`, {
+  const result = await createOnce(base44, `starter_kill_bypass_${device.id}`, {
     alert_type: 'command_acknowledged_not_executed',
     severity: 'critical',
     status: 'new',
@@ -397,6 +460,20 @@ async function alertBypass(base44, device, meta) {
     action_url: '/admin/vehicle-command-center',
     metadata: movement,
   });
+
+  // Notify once per new bypass (createOnce dedupes), so nobody gets repeat spam.
+  if (result.created) {
+    await notifyEnforcementFailure(base44, {
+      device,
+      bookingId: meta.booking_id || null,
+      title: `Starter kill NOT holding — vehicle driven (${device.unique_id})`,
+      message: `Vehicle ${device.unique_id} recorded ${movement.movingCount || 0} moving GPS points since the kill was issued (max ${movement.maxSpeed || 0} km/h, most recently ${movement.lastMovingAt || 'unknown'}). The kill is not preventing use of the vehicle.`,
+      movement,
+      commandId: meta.command_id,
+    });
+  }
+
+  return result;
 }
 
 // Sweeps bookings that still read as "enforced" but whose vehicle has driven
@@ -428,7 +505,6 @@ async function sweepEnforcedBookings(base44, lookbackDays) {
     // Demote: the kill is requested but not effective. No badge may say enforced.
     await base44.asServiceRole.entities.BookingRequest.update(bk.id, {
       starter_disabled: false,
-      starter_disable_pending: true,
     }).catch(() => {});
     await base44.asServiceRole.entities.TelematicsDevice.update(device.id, { starter_disabled: false }).catch(() => {});
     await alertBypass(base44, device, { movement, source_entity_type: 'BookingRequest', source_entity_id: bk.id });
