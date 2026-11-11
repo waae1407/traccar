@@ -1068,13 +1068,10 @@ async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
   const vehicle = booking.vehicle_name || 'the vehicle';
   const renter = booking.customer_full_name || booking.user_email || 'The renter';
 
-  // Renter wording — written to the person whose access was restricted
-  const title = isPending ? '⚠️ Account Suspended — Vehicle Access Pending Restriction' : hasDevice ? '🔒 Account Suspended — Vehicle Access Restricted' : '🔒 Account Suspended — Payment Required';
-  const body = isPending
-    ? `Your payment for ${booking.vehicle_name} remains unresolved. Your account is suspended. Vehicle access will be restricted as soon as the vehicle is parked.`
-    : hasDevice
-      ? `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Vehicle starter access has been interrupted (starter-interrupt only, no engine shutdown).`
-      : `Your payment for ${booking.vehicle_name} remains unresolved after ${RECOVERY_WINDOW_HOURS} hours. Your account has been suspended.`;
+  // Renter wording — never announces a restriction. It points the renter at the
+  // payment they can still make themselves, in their own UI.
+  const title = `Payment needed for ${vehicle}`;
+  const body = `We haven't been able to collect your payment for ${vehicle} after ${RECOVERY_WINDOW_HOURS} hours of automatic retries. You can settle it yourself from the app: open My Bookings, choose this rental, and tap Pay Now. We'll keep retrying your saved card in the background either way.`;
 
   // Host wording — about their rental, not their own account
   const hostTitle = isPending ? `⚠️ Rental Suspended — ${vehicle}` : `🔒 Rental Suspended — ${vehicle}`;
@@ -1108,7 +1105,7 @@ async function notifyGraceExpired(base44, booking, hasDevice, isPending) {
       customer_id: booking.user_id,
       host_id: booking.host_id,
       action_url: '/my-bookings',
-      metadata: { recovery_window_hours: RECOVERY_WINDOW_HOURS, has_device: hasDevice, pending_restriction: isPending, starter_interrupt_only: true },
+      metadata: { recovery_window_hours: RECOVERY_WINDOW_HOURS, has_device: hasDevice, pending_restriction: isPending, starter_interrupt_only: true, vehicle_name: booking.vehicle_name || '', amount: booking.weekly_rate || null },
     });
     // A hand-off that returns without handling anyone must not pass silently: that
     // is how Mohamed's Week 12 suspension notice reached nobody. Any outcome other
