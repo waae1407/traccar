@@ -941,9 +941,10 @@ async function disableStarterAfterWindow(base44, booking, now) {
     booking_status: 'suspended',
     suspension_triggered_at: now.toISOString(),
     suspended_at: now.toISOString(),
-    starter_disabled: true,
+    // Enforcement is REQUESTED here, not proven. starter_disabled is promoted only
+    // by verifyStarterKillEnforcement once the relay reads open with no movement.
     moovetrax_kill_active: true,
-    starter_disable_pending: false,
+    starter_disable_pending: booking.starter_disabled !== true,
   });
 
   await createPaymentAlert(base44, {
@@ -1138,9 +1139,8 @@ Deno.serve(async (req) => {
           const retryResult = await starterInterrupt(base44, booking, true);
           if (retryResult.ok) {
             await base44.asServiceRole.entities.BookingRequest.update(booking.id, {
-              starter_disabled: true,
               moovetrax_kill_active: true,
-              starter_disable_pending: false,
+              starter_disable_pending: booking.starter_disabled !== true,
             });
             await logEvent(base44, {
               event_type: 'payment.starter_disabled',

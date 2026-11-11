@@ -191,6 +191,7 @@ async function verifyCommand(base44, command) {
   const moving = Number(liveDevice.speed || 0) > 3;
   const ignitionOn = liveDevice.ignition_status === 'on';
   const enteredThisSend = read.starter_killed === true;
+  const movement = await movedSinceKill(base44, device.id, command.created_date || command.created_at);
 
   const base = {
     command_id: command.id,
@@ -201,7 +202,42 @@ async function verifyCommand(base44, command) {
     ignition_on: ignitionOn,
     speed: Number(liveDevice.speed || 0),
     read_event_id: read.event_id,
+    moved_since_kill: movement,
   };
+
+  // Motion since the kill outranks the status bit: it means the car is being used
+  // while the relay claims to be open.
+  if (movement.movingCount > 0) {
+    await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
+      status: 'failed',
+      queue_status: 'failed',
+      confirmation_status: 'failed',
+      failed_at: new Date().toISOString(),
+      failure_reason: 'vehicle_moved_after_kill',
+      provider_response: { ...(command.provider_response || {}), starter_kill_verification: { ...base, verified_at: new Date().toISOString() } },
+    });
+    if (command.booking_id) {
+      await base44.asServiceRole.entities.BookingRequest.update(command.booking_id, {
+        starter_disabled: false,
+        starter_disable_pending: true,
+      }).catch(() => {});
+    }
+    await alertBypass(base44, device, { movement, source_entity_type: 'TelematicsCommand', source_entity_id: command.id, command_id: command.id });
+    await base44.asServiceRole.entities.ActivityEvent.create({
+      event_type: 'gps.kill_failed',
+      actor_role: 'system',
+      target_entity: 'TelematicsDevice',
+      target_id: device.id,
+      vehicle_id: device.vehicle_id || '',
+      host_id: device.host_id || '',
+      booking_id: command.booking_id || null,
+      summary: `Starter kill NOT holding on ${device.unique_id} — vehicle covered ${movement.movingCount} moving points (max ${movement.maxSpeed} km/h) after the kill.`,
+      metadata: base,
+      source: 'system',
+      event_status: 'error',
+    }).catch(() => {});
+    return { ...base, outcome: 'bypassed_movement' };
+  }
 
   if (enteredThisSend) {
     await base44.asServiceRole.entities.TelematicsCommand.update(command.id, {
@@ -228,6 +264,13 @@ async function verifyCommand(base44, command) {
       source: 'system',
       event_status: 'success',
     }).catch(() => {});
+    // Only now may the booking claim enforcement: relay open AND no movement since.
+    if (command.booking_id) {
+      await base44.asServiceRole.entities.BookingRequest.update(command.booking_id, {
+        starter_disabled: true,
+        starter_disable_pending: false,
+      }).catch(() => {});
+    }
     return { ...base, outcome: 'confirmed' };
   }
 
@@ -300,6 +343,94 @@ async function verifyCommand(base44, command) {
   return { ...base, outcome: 'not_holding', attempts };
 }
 
+// Did the vehicle MOVE after this kill was issued? A relay status bit is not
+// proof the car cannot start: this fleet has vehicles reporting starterKilled=true
+// while covering miles. Motion after a kill means enforcement failed on the road,
+// whatever the device claims.
+async function movedSinceKill(base44, deviceId, sinceIso) {
+  const since = new Date(sinceIso || 0).getTime();
+  if (!since) return { movingCount: 0, maxSpeed: 0, lastMovingAt: null };
+  // TelematicsPositionHistory links by device_id. Reading the wrong field here
+  // throws and, if swallowed, reports "no movement" — a silent false negative.
+  const positions = await base44.asServiceRole.entities.TelematicsPositionHistory
+    .filter({ device_id: deviceId }, '-created_date', 80)
+    .catch(() => []);
+  let movingCount = 0;
+  let maxSpeed = 0;
+  let lastMovingAt = null;
+  for (const p of positions) {
+    const t = new Date(p.created_date || 0).getTime();
+    if (!t || t < since) continue;
+    const speed = Number(p.speed || 0);
+    if (speed <= 2) continue;
+    movingCount++;
+    if (speed > maxSpeed) maxSpeed = speed;
+    if (!lastMovingAt || t > new Date(lastMovingAt).getTime()) lastMovingAt = p.created_date;
+  }
+  return { movingCount, maxSpeed: Math.round(maxSpeed * 10) / 10, lastMovingAt, since: new Date(since).toISOString() };
+}
+
+async function alertBypass(base44, device, meta) {
+  const movement = meta.movement || {};
+  return createOnce(base44, `starter_kill_bypass_${device.id}`, {
+    alert_type: 'command_acknowledged_not_executed',
+    severity: 'critical',
+    status: 'new',
+    domain: 'payments',
+    title: `Starter kill NOT holding — vehicle driven (${device.unique_id})`,
+    message: `Vehicle ${device.unique_id} recorded ${movement.movingCount || 0} moving GPS points since the kill was issued, max ${movement.maxSpeed || 0} km/h, most recently ${movement.lastMovingAt || 'unknown'}. The kill is not physically preventing use of the vehicle.`,
+    recommended_action: 'Relay is not blocking the starter. Inspect wiring/bypass and treat as a retrieval case, not a payment nudge.',
+    source_entity_type: meta.source_entity_type,
+    source_entity_id: meta.source_entity_id,
+    telematics_device_id: device.id,
+    vehicle_id: device.vehicle_id || null,
+    host_id: device.host_id || null,
+    command_id: meta.command_id || null,
+    provider_key: PROVIDER_KEY,
+    action_url: '/admin/vehicle-command-center',
+    metadata: movement,
+  });
+}
+
+// Sweeps bookings that still read as "enforced" but whose vehicle has driven
+// since the kill, and demotes them so no badge claims enforcement that failed.
+async function sweepEnforcedBookings(base44, lookbackDays) {
+  const sinceMs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
+  const suspended = await base44.asServiceRole.entities.BookingRequest
+    .filter({ booking_status: 'suspended' }, '-created_date', 200)
+    .catch(() => []);
+
+  const enforced = suspended
+    .filter((b) => (b.starter_disabled === true || b.moovetrax_kill_active === true) && b.vehicle_id)
+    .slice(0, 30);
+
+  const out = [];
+  for (const bk of enforced) {
+    const anchor = bk.starter_disable_scheduled_at || bk.suspended_at || bk.updated_date || bk.created_date;
+    if (new Date(anchor || 0).getTime() < sinceMs) continue;
+
+    const device = (await base44.asServiceRole.entities.TelematicsDevice.filter({ vehicle_id: bk.vehicle_id }))[0];
+    if (!device) continue;
+
+    const movement = await movedSinceKill(base44, device.id, anchor);
+    if (movement.movingCount === 0) {
+      out.push({ booking_id: bk.id, device_unique_id: device.unique_id, outcome: 'holding' });
+      continue;
+    }
+
+    // Demote: the kill is requested but not effective. No badge may say enforced.
+    await base44.asServiceRole.entities.BookingRequest.update(bk.id, {
+      starter_disabled: false,
+      starter_disable_pending: true,
+    }).catch(() => {});
+    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, { starter_disabled: false }).catch(() => {});
+    await alertBypass(base44, device, { movement, source_entity_type: 'BookingRequest', source_entity_id: bk.id });
+
+    out.push({ booking_id: bk.id, device_unique_id: device.unique_id, outcome: 'bypassed', movement });
+  }
+  return out;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -339,10 +470,6 @@ Deno.serve(async (req) => {
       return true;
     });
 
-    if (candidates.length === 0) {
-      return Response.json({ ok: true, checked: 0, message: 'No unconfirmed enforcement kills to verify.' });
-    }
-
     const results = [];
     for (let i = 0; i < candidates.length; i += 4) {
       const batch = candidates.slice(i, i + 4);
@@ -355,12 +482,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    const sweep = await sweepEnforcedBookings(base44, lookbackDays);
+
     const summary = results.reduce((acc, r) => {
       acc[r.outcome] = (acc[r.outcome] || 0) + 1;
       return acc;
     }, {});
 
-    return Response.json({ ok: true, checked: results.length, summary, results });
+    return Response.json({ ok: true, checked: results.length, summary, results, sweep });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
