@@ -204,50 +204,95 @@ function buildSmsText(role, copy, ctx) {
   return `uRide: ${core} ${link} ${SIGN_OFF}`;
 }
 
+// ── Email layout ─────────────────────────────────────────────────────────
+// One plain, professional layout: centered logo, a thin brand rule, the
+// headline and message, a light-gray details grid, then how to act on it and
+// who to contact. White background, no dark panels or decorative chrome.
+const SUPPORT_EMAIL = 'support@uridehub.com';
+
+const MAIL = {
+  ink: '#1d1d1d',
+  body: '#4a4a4a',
+  label: '#7a7a7a',
+  rule: '#d1d1d1',
+  accent: '#f42a74',
+  link: '#0056b3',
+  font: 'Helvetica,Arial,sans-serif',
+};
+
+function detailCell(label, value, fullWidth) {
+  const span = fullWidth ? ' colspan="2"' : ' width="50%"';
+  return '<td' + span + ' style="border:1px solid ' + MAIL.rule + ';padding:12px 14px;vertical-align:top;text-align:left;">' +
+    '<div style="font-family:' + MAIL.font + ';font-size:11px;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase;color:' + MAIL.label + ';">' + escapeHtml(label) + '</div>' +
+    '<div style="font-family:' + MAIL.font + ';font-size:15px;font-weight:bold;color:' + MAIL.ink + ';padding-top:5px;">' + escapeHtml(value) + '</div>' +
+    '</td>';
+}
+
+function buildDetailsGrid(rows) {
+  let html = '';
+  for (let i = 0; i < rows.length; i += 2) {
+    const left = rows[i];
+    const right = rows[i + 1];
+    html += '<tr>' + (right
+      ? detailCell(left[0], left[1], false) + detailCell(right[0], right[1], false)
+      : detailCell(left[0], left[1], true)) + '</tr>';
+  }
+  return html;
+}
+
 function buildEmailHtml(role, copy, ctx) {
-  const kicker = kickerFor(ctx.severity, ctx.category);
   const headline = escapeHtml(plainCopy(role, copy.title));
   const message = escapeHtml(plainCopy(role, copy.message));
-  const rowHtml = factsFor(ctx).map(([label, value]) =>
-    '<tr>' +
-    '<td style="padding:8px 0;font-family:Inter,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:' + BRAND.muted + ';">' + escapeHtml(label) + '</td>' +
-    '<td align="right" style="padding:8px 0;font-family:Inter,Arial,sans-serif;font-size:14px;font-weight:600;color:' + BRAND.body + ';">' + escapeHtml(value) + '</td>' +
-    '</tr>'
-  ).join('');
 
-  const guidance = role === 'customers' && ctx.category === 'payments' ? PAY_GUIDANCE : '';
-  const guidanceHtml = guidance
-    ? '<p style="margin:24px 0 0;padding:14px 16px;background:#1d2430;border-left:3px solid ' + BRAND.primary + ';border-radius:10px;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.6;color:' + BRAND.body + ';">' + escapeHtml(guidance) + '</p>'
+  const rows = factsFor(ctx);
+  const detailsHtml = rows.length
+    ? '<p style="margin:0 0 10px;font-family:' + MAIL.font + ';font-size:15px;font-weight:bold;color:' + MAIL.ink + ';">Details:</p>' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">' + buildDetailsGrid(rows) + '</table>'
+    : '';
+
+  // Payment notices tell the renter how to settle it in their own words, as a
+  // plain sentence rather than a highlighted call-out box.
+  const guidance = role === 'customers' && ctx.category === 'payments'
+    ? '<p style="margin:14px 0 0;font-family:' + MAIL.font + ';font-size:15px;line-height:1.6;color:' + MAIL.body + ';">' + escapeHtml(PAY_GUIDANCE) + '</p>'
     : '';
 
   const url = APP_URL + (ctx.action_url || '');
-  const ctaLabel = role === 'customers' && ctx.category === 'payments' ? 'Pay in the app' : 'Open uRide';
-  const cta = '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 0;"><tr><td style="background:' + BRAND.primary + ';border-radius:16px;">' +
-    '<a href="' + url + '" style="display:inline-block;padding:14px 26px;font-family:Inter,Arial,sans-serif;font-size:15px;font-weight:700;color:' + BRAND.onPrimary + ';text-decoration:none;">' + ctaLabel + '</a>' +
-    '</td></tr></table>';
-
-  const signOff = role === 'admins'
-    ? ''
-    : '<p style="margin:28px 0 0;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.7;color:' + BRAND.muted + ';">Regards,<br><span style="color:' + BRAND.body + ';font-weight:600;">uRide Support Team</span></p>';
 
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + headline + '</title></head>' +
-    '<body style="margin:0;padding:0;background:' + BRAND.pageBg + ';">' +
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + BRAND.pageBg + ';"><tr><td align="center" style="padding:24px 12px;">' +
+    '<body style="margin:0;padding:0;background:#ffffff;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;"><tr><td align="center" style="padding:36px 20px;">' +
     '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">' +
-    '<tr><td style="padding:0 0 18px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + BRAND.headerBg + ';border-radius:16px;"><tr><td style="padding:16px 24px;">' +
-    '<img src="' + BRAND.logo + '" width="26" height="26" alt="uRide" style="vertical-align:middle;border-radius:50%;display:inline-block;">' +
-    '<span style="font-family:Inter,Arial,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.02em;color:' + BRAND.headerText + ';vertical-align:middle;padding-left:10px;">uRide</span>' +
-    '</td></tr></table></td></tr>' +
-    '<tr><td style="background:' + BRAND.cardBg + ';border:1px solid ' + BRAND.border + ';border-radius:16px;padding:30px 26px;">' +
-    '<p style="margin:0 0 12px;font-family:Inter,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:' + BRAND.primary + ';">' + kicker + '</p>' +
-    '<h1 style="margin:0 0 16px;font-family:Inter,Arial,sans-serif;font-size:22px;line-height:1.3;font-weight:700;color:' + BRAND.body + ';">' + headline + '</h1>' +
-    '<p style="margin:0;font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.7;color:' + BRAND.body + ';">' + message + '</p>' +
-    (rowHtml ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;border-top:1px solid ' + BRAND.border + ';border-bottom:1px solid ' + BRAND.border + ';">' + rowHtml + '</table>' : '') +
-    guidanceHtml + cta + signOff +
+
+    // Header: centered logo lockup, then a thin brand rule.
+    '<tr><td align="center" style="padding:0 0 16px;">' +
+    '<img src="' + BRAND.logo + '" width="40" height="40" alt="uRide" style="display:inline-block;vertical-align:middle;border-radius:50%;border:0;">' +
+    '<span style="font-family:' + MAIL.font + ';font-size:20px;font-weight:bold;color:' + MAIL.ink + ';vertical-align:middle;padding-left:10px;">uRide</span>' +
     '</td></tr>' +
-    '<tr><td style="padding:18px 8px 0;text-align:center;font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.6;color:' + BRAND.muted + ';">' +
-    'uRide &middot; <a href="' + APP_URL + '" style="color:' + BRAND.muted + ';text-decoration:underline;">uridehub.com</a>' +
+    '<tr><td style="border-top:1px solid ' + MAIL.accent + ';font-size:0;line-height:0;height:0;">&nbsp;</td></tr>' +
+
+    // Headline + message
+    '<tr><td align="center" style="padding:30px 0 0;">' +
+    '<h1 style="margin:0;font-family:' + MAIL.font + ';font-size:24px;line-height:1.3;font-weight:bold;color:' + MAIL.ink + ';">' + headline + '</h1>' +
+    '<p style="margin:12px 0 0;font-family:' + MAIL.font + ';font-size:15px;line-height:1.6;color:' + MAIL.body + ';">' + message + '</p>' +
+    guidance +
     '</td></tr>' +
+
+    // Details grid
+    (detailsHtml ? '<tr><td style="padding:26px 0 0;">' + detailsHtml + '</td></tr>' : '') +
+
+    // What to do next
+    '<tr><td align="center" style="padding:30px 0 0;">' +
+    '<p style="margin:0 0 6px;font-family:' + MAIL.font + ';font-size:17px;font-weight:bold;color:' + MAIL.ink + ';">View this in uRide</p>' +
+    '<p style="margin:0;font-family:' + MAIL.font + ';font-size:15px;line-height:1.6;color:' + MAIL.body + ';">Head to <a href="' + url + '" style="color:' + MAIL.link + ';text-decoration:none;">uRide</a> to see the latest on this rental.</p>' +
+    '</td></tr>' +
+
+    // Support
+    '<tr><td align="center" style="padding:26px 0 0;">' +
+    '<p style="margin:0 0 6px;font-family:' + MAIL.font + ';font-size:17px;font-weight:bold;color:' + MAIL.ink + ';">Questions?</p>' +
+    '<p style="margin:0;font-family:' + MAIL.font + ';font-size:15px;line-height:1.6;color:' + MAIL.body + ';">Send an email to <a href="mailto:' + SUPPORT_EMAIL + '" style="color:' + MAIL.link + ';text-decoration:none;">' + SUPPORT_EMAIL + '</a> to speak with a uRide representative.</p>' +
+    '</td></tr>' +
+
+    '<tr><td style="padding:32px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>' +
     '</table></td></tr></table></body></html>';
 }
 
