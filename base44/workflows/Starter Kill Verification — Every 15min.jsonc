@@ -1,0 +1,47 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/15 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Los_Angeles",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "starter_kill_verification",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "verify_kills": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "verifyStarterKillEnforcement",
+            "args": {
+              "lookback_days": 21
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Verify starter kills",
+            "description": "Confirm relay state, alert on bypass"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Starter Kill Verification \u2014 Every 15min",
+  "description": "Verifies that payment-enforcement starter kills actually landed by reading the device's relay status bit, and raises a critical alert when a vehicle with an active kill is being driven."
+}
