@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
         // Send reminder 14 days before trial ends
         if (daysUntilTrialEnd <= TRIAL_REMINDER_DAYS_BEFORE && daysUntilTrialEnd > 0 && !sub.trial_reminder_sent_at) {
           try {
-            await base44.asServiceRole.integrations.Core.SendEmail({
+            await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
               to: sub.customer_email,
               subject: `⏰ Your free trial ends in ${daysUntilTrialEnd} days`,
               body: `Hi ${sub.customer_name || 'Customer'},\n\nYour Contactless360 free trial ends in ${daysUntilTrialEnd} days, on ${trialEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.\n\nHere's what happens:\n• Your subscription of $${MONTHLY_PRICE}/mo will start automatically on that date\n• No action needed if you want to continue — just enjoy your GPS!\n• To cancel: open your app and tap "Cancel Subscription"\n• If you cancel, return the device within ${RETURN_WINDOW_DAYS} days (prepaid label provided) or a $${DEVICE_FEE} device fee applies\n\nYou're in full control.\n\nThe Contactless360 Team`,
@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
           const daysRemaining = Math.max(0, RETURN_WINDOW_DAYS - daysIntoReturnWindow);
 
           try {
-            await base44.asServiceRole.integrations.Core.SendEmail({
+            await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
               to: sub.customer_email,
               subject: `⚠️ We haven't received your device — ${daysRemaining} day(s) left`,
               body: `Hi ${sub.customer_name || 'Customer'},\n\nWe haven't received your GPS device yet. You have ${daysRemaining} day(s) left to return it before the $${DEVICE_FEE} device fee is charged to your card on file.\n\nReturn instructions:\n1. Pack the device in its original packaging (or any sturdy box)\n2. Reply to this email to request your prepaid return label\n3. Drop off the package at any USPS or UPS location\n\nReturn by: ${returnWindowEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}\n\nThe Contactless360 Team`,
@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
               });
 
               try {
-                await base44.asServiceRole.integrations.Core.SendEmail({
+                await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
                   to: sub.customer_email,
                   subject: `$${DEVICE_FEE} device fee charged`,
                   body: `Hi ${sub.customer_name || 'Customer'},\n\nYour GPS device was not returned within the ${RETURN_WINDOW_DAYS}-day return window. A $${DEVICE_FEE} device fee has been charged to your card on file.\n\nIf you believe this is an error, or if you've already shipped the device, please reply to this email with your tracking number and we'll review it immediately.\n\nThe Contactless360 Team`,

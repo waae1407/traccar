@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     // ── 3. Notify customer ──
     try {
-      await base44.asServiceRole.integrations.Core.SendEmail({
+      await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
         to: sub.customer_email,
         subject: '✅ Device received — account closed',
         body: `Hi ${sub.customer_name || 'Customer'},\n\nWe've received your GPS device and confirmed its condition. Your account has been fully closed with no charges.\n\nThank you for trying Contactless360!\n\nThe Contactless360 Team`,

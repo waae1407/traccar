@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
 
     // Direct email to host
     try {
-      await base44.asServiceRole.integrations.Core.SendEmail({
+      await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
         to: host.email,
         subject: `Support request from ${user.full_name || user.email}`,
         body: `${user.full_name || 'A customer'} escalated a support issue from the AI chat about ${activeBooking.vehicle_name || 'their rental'}.\n\nTheir message: "${message.trim()}"\n\nPlease respond in your uRide Messages to help them.`,

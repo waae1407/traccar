@@ -735,7 +735,7 @@ async function notifyHostOfBillingOutcome(base44, { booking, host, outcome, week
 
   // 2. Direct email to host (routePlatformNotification only emails for critical severity)
   try {
-    await base44.asServiceRole.integrations.Core.SendEmail({
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
       to: host.email,
       subject: title,
       body: message,

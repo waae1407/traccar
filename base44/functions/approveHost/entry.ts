@@ -1,13 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+// Every email leaves in the one uRide layout — see sendBrandedEmail.
+let mailer = null;
 async function sendEmail(to, subject, html, fromName = "uRide") {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: `${fromName} <noreply@uridehub.com>`, to: [to], subject, html }),
-  });
-  if (!res.ok) { const d = await res.json(); throw new Error(d.message || "Email failed"); }
+  if (!mailer || !to) return;
+  await mailer.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject, body: html, from_name: fromName });
 }
 
 const APP_URL = "https://uridehub.com";
@@ -38,6 +36,7 @@ async function logEvent(base44, data) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    mailer = base44;
     const user = await base44.auth.me();
     if (user?.role !== 'admin') return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     const { host_id, host_email, host_name } = await req.json();

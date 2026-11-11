@@ -40,7 +40,7 @@ async function authorizeEscalationRun(base44, body, req) {
 
 async function sendEmail(base44, to, subject, body) {
   try {
-    await base44.asServiceRole.integrations.Core.SendEmail({ to, subject, body, from_name: "uRide Operations" });
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject, body, from_name: "uRide Operations" });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };

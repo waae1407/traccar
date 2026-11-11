@@ -65,14 +65,14 @@ Deno.serve(async (req) => {
     }
 
     // 5. Notify both parties
-    await base44.asServiceRole.integrations.Core.SendEmail({
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
       to: referral.referrer_email,
       subject: "🎉 You earned $25 — Your referral just booked!",
       body: `Hi ${referral.referrer_name || "there"}!\n\nGreat news — ${referral.referee_name || "your friend"} just activated their uRide rental using your referral link!\n\nYour $25 "Rent for Free" credit has been applied and will automatically reduce your next weekly payment.\n\nKeep sharing your link to stack more credits. Drive for free!\n\nThe uRide Team 🚗`,
       from_name: "uRide",
     }).catch(() => {});
 
-    await base44.asServiceRole.integrations.Core.SendEmail({
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
       to: booking.user_email,
       subject: "🎁 Your $25 referral discount is active!",
       body: `Hi ${booking.customer_full_name?.split(" ")[0] || "there"}!\n\nYour $25 referral discount has been applied and will automatically reduce your next weekly payment.\n\nWelcome to the uRide family — and don't forget, you can now earn credits too by sharing your own referral link!\n\nThe uRide Team 🚗`,

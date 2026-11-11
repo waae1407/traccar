@@ -432,7 +432,7 @@ Deno.serve(async (req) => {
         }).catch(e => console.error('[retryBookingPayment] host notification failed:', e.message));
 
         try {
-          await base44.asServiceRole.integrations.Core.SendEmail({
+          await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
             to: host.email,
             subject: hostTitle,
             body: hostMessage,

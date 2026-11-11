@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
         // ── Notify customer ──
         const isFallback = startSource === 'fallback_ship_date';
         try {
-          await base44.asServiceRole.integrations.Core.SendEmail({
+          await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
             to: sub.customer_email,
             subject: isFallback
               ? 'Your Contactless360 Trial Has Started'

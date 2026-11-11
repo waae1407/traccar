@@ -85,7 +85,7 @@ Be strict about document validity. If you cannot read an expiry date with reason
             const hosts = await base44.asServiceRole.entities.Host.filter({ id: host_id });
             const host = hosts[0];
             if (host) {
-              await base44.asServiceRole.integrations.Core.SendEmail({
+              await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
                 to: host.email,
                 subject: `✅ Vehicle Documents Verified — ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
                 body: `Great news! Insurance and registration documents for your ${vehicle.year} ${vehicle.make} ${vehicle.model} have been verified.\n\nuRide Host Team`,

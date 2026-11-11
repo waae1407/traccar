@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
     try {
       if (isPendingActivation) {
         // Trial never started — no fee, no return deadline
-        await base44.asServiceRole.integrations.Core.SendEmail({
+        await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
           to: sub.customer_email,
           subject: 'Your Contactless360 Trial Has Been Cancelled',
           body: wasShipped
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
         });
       } else {
         // Active trial cancellation — 14-day return window, $100 fee
-        await base44.asServiceRole.integrations.Core.SendEmail({
+        await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
           to: sub.customer_email,
           subject: '📦 Your GPS Trial Has Been Cancelled — Return Instructions',
           body: `Hi ${sub.customer_name || 'Customer'},\n\nYour Contactless360 GPS subscription has been cancelled. All services have been halted.\n\nTo avoid the $${DEVICE_FEE} device fee, please return your device within ${RETURN_WINDOW_DAYS} days (by ${returnWindowEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}).\n\nReturn instructions:\n1. Pack the device in its original packaging (or any sturdy box)\n2. Reply to this email to request your prepaid return label\n3. Drop off the package at any USPS or UPS location\n\nOnce we receive and verify the device, your account will be fully closed with no charges.\n\nIf we don't receive the device by ${returnWindowEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}, a $${DEVICE_FEE} device fee will be charged to your card on file.\n\nThe Contactless360 Team`,

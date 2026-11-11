@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       </div>
       <p style="margin: 0; font-size: 13px; color: #374151; font-weight: 600;">— The uRide Team</p>
     `);
-    await base44.asServiceRole.integrations.Core.SendEmail({ to, subject: "[TEST] Your perfect ride is waiting, Dan", body: leadBody, from_name: "uRide" });
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject: "[TEST] Your perfect ride is waiting, Dan", body: leadBody, from_name: "uRide" });
     results.push("lead_followup: sent");
 
     // 2. Abandoned Checkout Email
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
       </div>
       <p style="margin: 0; font-size: 13px; color: #374151; font-weight: 600;">— The uRide Team</p>
     `);
-    await base44.asServiceRole.integrations.Core.SendEmail({ to, subject: "[TEST] You're almost there — complete your uRide booking", body: abandonedBody, from_name: "uRide" });
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject: "[TEST] You're almost there — complete your uRide booking", body: abandonedBody, from_name: "uRide" });
     results.push("abandoned_checkout: sent");
 
     // 3. Payment Receipt Email
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       </div>
       <p style="margin: 20px 0 0; font-size: 13px; color: #374151; font-weight: 600;">— The uRide Team</p>
     `);
-    await base44.asServiceRole.integrations.Core.SendEmail({ to, subject: "[TEST] Payment Confirmed — $299 · 2023 Toyota Camry", body: receiptBody, from_name: "uRide" });
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject: "[TEST] Payment Confirmed — $299 · 2023 Toyota Camry", body: receiptBody, from_name: "uRide" });
     results.push("payment_receipt: sent");
 
     // 4. Pre-Charge Warning Email
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
       </div>
       <p style="margin: 0; font-size: 13px; color: #374151; font-weight: 600;">— The uRide Team</p>
     `);
-    await base44.asServiceRole.integrations.Core.SendEmail({ to, subject: "[TEST] Upcoming charge tomorrow: $299 — 2023 Toyota Camry", body: prechargeBody, from_name: "uRide" });
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject: "[TEST] Upcoming charge tomorrow: $299 — 2023 Toyota Camry", body: prechargeBody, from_name: "uRide" });
     results.push("pre_charge_warning: sent");
 
     console.log(`[TestEmails] Sent 4 test emails to ${to}`);

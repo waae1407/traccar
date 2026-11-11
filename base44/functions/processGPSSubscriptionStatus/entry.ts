@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
             : `Your GPS subscription payment failed. You have a ${GRACE_CONTROL_DISABLE_DAYS}-day grace period before remote controls are disabled. Tracking remains active. Please update your payment method.`;
 
           try {
-            await base44.asServiceRole.integrations.Core.SendEmail({
+            await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
               to: sub.customer_email,
               subject,
               body,
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
           // Notify owner of full deactivation
           try {
-            await base44.asServiceRole.integrations.Core.SendEmail({
+            await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
               to: sub.customer_email,
               subject: 'Your GPS device has been deactivated',
               body: `Your GPS subscription has been past due for ${daysPastDue} days and your device has been deactivated. Tracking and remote controls are no longer available. To reactivate, update your payment method and contact support.`,
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
         }
 
         try {
-          await base44.asServiceRole.integrations.Core.SendEmail({
+          await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
             to: sub.customer_email,
             subject: 'Your GPS controls are active again',
             body: 'Your payment has been processed successfully. All remote controls and tracking features have been restored.',

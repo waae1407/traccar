@@ -25,15 +25,13 @@ const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
 
 const REMINDER_COOLDOWN_HOURS = 24;
 
+// Every email leaves in the one uRide layout — see sendBrandedEmail.
+let mailer: any = null;
 async function sendEmailDirect(to: string, subject: string, html: string) {
-  if (!RESEND_API_KEY) { console.error("[sendStripeConnectReminders] No RESEND_API_KEY"); return false; }
+  if (!mailer || !to) { console.error("[sendStripeConnectReminders] Mailer unavailable"); return false; }
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: DEFAULT_FROM, to: [to], subject, html }),
-    });
-    if (!res.ok) { const d = await res.json(); console.error("[sendStripeConnectReminders] Email failed:", d.message); return false; }
+    const res = await mailer.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject, body: html });
+    if (!res?.data?.success) { console.error("[sendStripeConnectReminders] Email failed:", res?.data?.error); return false; }
     return true;
   } catch (e) { console.error("[sendStripeConnectReminders] Email error:", e.message); return false; }
 }
@@ -53,6 +51,7 @@ async function sendSmsDirect(to: string, body: string) {
 
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
+  mailer = base44;
 
   // Auth: allow admin or scheduled automation
   const user = await base44.auth.me().catch(() => null);

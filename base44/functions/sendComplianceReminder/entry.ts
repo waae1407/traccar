@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     const statusText = isExpired ? 'has expired' : `expires on ${expiry_date}`;
 
     // Send reminder email
-    await base44.asServiceRole.integrations.Core.SendEmail({
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
       to: host.email,
       subject: `⚠️ Action Required: ${docLabel} for ${vehicle_name || 'your vehicle'}`,
       body: `Hi ${host.full_name || host.business_name || ''},\n\nThis is a reminder that your ${docLabel} for ${vehicle_name || 'your vehicle'} ${statusText}.\n\n${isExpired ? '🚨 Your vehicle is currently on Compliance Hold.' : '⚠️ Your vehicle will be placed on Compliance Hold if not renewed before the expiry date.'}\n\nTo resolve:\n1. Renew your ${docLabel}\n2. Upload the new document at: https://uridehub.com/host/compliance\n3. Our team will verify and reinstate your vehicle automatically\n\nIf you have already uploaded a renewal, please allow 24 hours for verification.\n\nuRide Compliance Team`,

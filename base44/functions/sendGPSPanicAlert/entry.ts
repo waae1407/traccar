@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       // Email
       if (contact.receive_email && contact.contact_email) {
         try {
-          await base44.asServiceRole.integrations.Core.SendEmail({
+          await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
             to: contact.contact_email,
             subject: `🚨 PANIC ALERT from ${ownerName}`,
             body: `${ownerName} triggered a PANIC/SOS alert from their vehicle.\n\nVehicle location: ${mapsUrl}\n\nMessage: ${message}\n\nThis is an automated emergency alert from Contactless360 GPS.`,

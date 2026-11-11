@@ -247,7 +247,7 @@ async function sendSMS(to, message) {
 
 async function sendEmail(base44, to, subject, body) {
   if (!to) return false;
-  await base44.asServiceRole.integrations.Core.SendEmail({ to, subject, body, from_name: "uRide Operations" });
+  await base44.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject, body, from_name: "uRide Operations" });
   return true;
 }
 
@@ -456,7 +456,7 @@ async function notifyHostOfPaymentRecovery(base44, { booking, outcome, weekNum, 
 
   // Direct email to host
   try {
-    await base44.asServiceRole.integrations.Core.SendEmail({
+    await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
       to: host.email,
       subject: title,
       body: message,
@@ -1418,7 +1418,7 @@ Deno.serve(async (req) => {
             }).catch(e => console.error('[GracePeriod] host retry-fail notification failed:', e.message));
 
             try {
-              await base44.asServiceRole.integrations.Core.SendEmail({
+              await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
                 to: retryHost.email,
                 subject: hostTitle,
                 body: hostMessage,

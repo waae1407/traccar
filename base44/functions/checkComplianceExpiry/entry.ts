@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
           if (newStatus === "expiring_soon") {
             const daysLeft = Math.ceil((new Date(doc.expiry_date) - today) / (1000 * 60 * 60 * 24));
-            await base44.asServiceRole.integrations.Core.SendEmail({
+            await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
               to: host.email,
               subject: `⚠️ ${label} Expiring in ${daysLeft} Days — ${doc.vehicle_name}`,
               body: `Your ${label} for ${doc.vehicle_name} expires on ${doc.expiry_date} (${daysLeft} days from now).\n\n${isRequired ? "This is a REQUIRED document. If not renewed before expiry, your vehicle will automatically be taken out of service." : "Please upload a renewal at your earliest convenience."}\n\nLog in to upload a renewal: https://uridehub.com/host/compliance\n\nuRide Compliance Team`,
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
                 console.log(`[ComplianceCheck] BOOKING AFFECTED: ${affectedBooking.id} — ${label} expired for ${doc.vehicle_name}`);
               }
 
-              await base44.asServiceRole.integrations.Core.SendEmail({
+              await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
                 to: host.email,
                 subject: `🚨 Vehicle Suspended — ${doc.vehicle_name} (${label} Expired)`,
                 body: `Your ${doc.vehicle_name} has been automatically placed on Compliance Hold because its ${label} expired on ${doc.expiry_date}.\n\nTo reinstate the vehicle:\n1. Renew your ${label}\n2. Upload the new document at https://uridehub.com/host/compliance\n3. Our AI will verify the document and automatically reinstate your vehicle\n\nWe apologize for any inconvenience.\n\nuRide Compliance Team`,
@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
             const hosts = await base44.asServiceRole.entities.Host.filter({ id: vehicleDomain.host_id });
             const host = hosts[0];
             if (host) {
-              await base44.asServiceRole.integrations.Core.SendEmail({
+              await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
                 to: host.email,
                 subject: `✅ Vehicle Reinstated — ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
                 body: `Great news! Your ${vehicle.year} ${vehicle.make} ${vehicle.model} has been automatically reinstated and is now available for booking.\n\nAll required compliance documents (insurance and registration) are up to date.\n\nuRide Compliance Team`,

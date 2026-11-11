@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
     // Email customer with tracking
     try {
-      await base44.asServiceRole.integrations.Core.SendEmail({
+      await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
         to: order.customer_email,
         subject: `📦 Your Contactless360 GPS Device Has Shipped!`,
         body: `Hi ${order.customer_name || 'Customer'},\n\nGreat news — your Contactless360 GPS order (${order.order_number}) has shipped!\n\nCarrier: ${carrier || 'N/A'}\nTracking Number: ${tracking_number}\n\nYou can track your package with the carrier.\n\nImportant: Your 30-day free trial starts automatically the moment your device goes online for the first time after you install it. No action needed — just plug it in and we'll detect it.\n\nIf we don't see your device come online within ${ACTIVATION_DEADLINE_DAYS} days, your trial will start from today as a fallback so you don't miss out.\n\nThe Contactless360 Team`,

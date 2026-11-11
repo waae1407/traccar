@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
     // ── 6. Welcome email ──
     const shippingTimeframe = isBackordered ? 'approximately 2 weeks (backorder)' : '1-2 business days';
     try {
-      await base44.asServiceRole.integrations.Core.SendEmail({
+      await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
         to: customer_email.toLowerCase().trim(),
         subject: '🎉 Your Contactless360 Trial Is Confirmed!',
         body: `Hi ${customer_name},\n\nWelcome to Contactless360! Your free trial is confirmed.\n\nHere's what happens next:\n• Your GPS device ships FREE within ${shippingTimeframe}\n• Your 30-day free trial starts automatically the moment your device goes online for the first time\n• Full GPS tracking, alerts, and remote controls — all included\n• After your 30-day trial, your subscription of $${MONTHLY_PRICE}/mo starts automatically\n• Cancel anytime — if you cancel, return the device within ${RETURN_WINDOW_DAYS} days (prepaid label provided) or a $${DEVICE_FEE} device fee applies\n\nNo charges during your trial. You're in control.\n\nQuestions? Just reply to this email.\n\nThe Contactless360 Team`,
@@ -277,7 +277,7 @@ Deno.serve(async (req) => {
           related_entity_id: order.id,
           metadata: { order_id: order.id, subscription_id: sub.id, customer_email, is_backordered: isBackordered },
         }).catch(() => {});
-        await base44.asServiceRole.integrations.Core.SendEmail({
+        await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
           to: admin.email,
           subject: `🎉 New GPS Trial Signup — ${orderNum}${isBackordered ? ' [BACKORDER]' : ''}`,
           body: `A new 30-day free trial signup needs a device shipment.\n\nOrder: ${orderNum}\nCustomer: ${customer_name} (${customer_email})\nShip to: ${shipping_address || 'N/A'}\n${isBackordered ? 'STATUS: BACKORDERED — ship when inventory is restocked.\n' : 'STATUS: In stock — ship within 1-2 business days.\n'}Trial starts when device goes online. $${MONTHLY_PRICE}/mo after 30-day trial.\n\nMark it shipped in the admin GPS Store once dispatched.`,

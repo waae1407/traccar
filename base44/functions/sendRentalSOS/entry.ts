@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
     for (const contact of contacts) {
       if (contact.receive_email && contact.contact_email) {
         try {
-          await base44.asServiceRole.integrations.Core.SendEmail({
+          await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
             to: contact.contact_email,
             subject: `🚨 EMERGENCY SOS from ${ownerName}`,
             body: `${ownerName} triggered an SOS alert from their ${vehicleName}.\n\nVehicle location: ${mapsUrl}\n\nThis is an automated emergency alert. Please call them or contact emergency services immediately.\n\n— Sent from the uRide app`,

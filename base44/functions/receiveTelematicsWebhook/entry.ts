@@ -286,10 +286,11 @@ async function getActiveBookingForVehicle(base44, vehicleId) {
   return bookings.find(isActivePaidRental) || null;
 }
 
+// Every email leaves in the one uRide layout — see sendBrandedEmail.
+let mailer = null;
 async function sendEmailIfConfigured(to, subject, body) {
-  const apiKey = String(Deno.env.get('RESEND_API_KEY') || '');
-  if (!apiKey || !to) return;
-  await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'uRideHub <alerts@uridehub.com>', to, subject, text: body }) }).catch(() => null);
+  if (!mailer || !to) return;
+  await mailer.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject, body }).catch(() => null);
 }
 
 async function sendSmsIfConfigured(to, body) {
@@ -538,6 +539,7 @@ Deno.serve(async (req) => {
     }
 
     const base44 = createClientFromRequest(req);
+    mailer = base44;
     const body = await req.json().catch(() => null);
     const validation = await validateWebhookRequest(base44, req, body);
     if (!validation.ok) return validation.response;

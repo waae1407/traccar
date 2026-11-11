@@ -351,7 +351,7 @@ async function handleGPSOrderPaid(base44, pi) {
         related_entity_id: orderId,
         metadata: { order_id: orderId, customer_email: order.customer_email },
       }).catch(() => {});
-      await base44.asServiceRole.integrations.Core.SendEmail({
+      await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
         to: admin.email,
         subject: `📦 New GPS Order Paid — ${order.order_number}`,
         body: `A new GPS order has been paid and needs to be shipped.\n\nOrder: ${order.order_number}\nCustomer: ${order.customer_name} (${order.customer_email})\nPackage: ${order.package_type}\nQuantity: ${orderQty}\nShip to: ${order.shipping_address || 'N/A'}\n\nMark it shipped in the admin GPS Store once dispatched.`,
