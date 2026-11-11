@@ -288,8 +288,8 @@ function buildEmailHtml(role, copy, ctx) {
 
     // Support
     '<tr><td align="center" style="padding:26px 0 0;">' +
-    '<p style="margin:0 0 6px;font-family:' + MAIL.font + ';font-size:17px;font-weight:bold;color:' + MAIL.ink + ';">Questions?</p>' +
-    '<p style="margin:0;font-family:' + MAIL.font + ';font-size:15px;line-height:1.6;color:' + MAIL.body + ';">Send an email to <a href="mailto:' + SUPPORT_EMAIL + '" style="color:' + MAIL.link + ';text-decoration:none;">' + SUPPORT_EMAIL + '</a> to speak with a uRide representative.</p>' +
+    '<p style="margin:0 0 6px;font-family:' + MAIL.font + ';font-size:17px;font-weight:bold;color:' + MAIL.ink + ';">Need help?</p>' +
+    '<p style="margin:0;font-family:' + MAIL.font + ';font-size:15px;line-height:1.6;color:' + MAIL.body + ';">Reply to this email or write to <a href="mailto:' + SUPPORT_EMAIL + '" style="color:' + MAIL.link + ';text-decoration:none;">' + SUPPORT_EMAIL + '</a> and our support team will get back to you.</p>' +
     '</td></tr>' +
 
     '<tr><td style="padding:32px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>' +
@@ -334,16 +334,28 @@ Deno.serve(async (req) => {
         title: 'Your payment for the 2012 Prius is due',
         message: 'We were not able to collect your weekly payment for the 2012 Prius. Your rental stays on hold until the payment goes through.',
       };
-      const html = buildEmailHtml('customers', sample, {
+      const ctx = {
         severity: 'critical',
         category: 'payments',
         metadata: { vehicle_name: '2012 Prius', amount: 285 },
         now: new Date().toISOString(),
         action_url: '/my-bookings',
         booking_id: 'preview000123456',
-      });
+      };
+
+      // Text preview — same skeleton, compressed.
+      if (body.channel === 'sms') {
+        const hosts = await base44.asServiceRole.entities.Host.filter({ user_id: me.id }).catch(() => []);
+        const phone = hosts[0]?.phone;
+        if (!phone) return Response.json({ error: 'No phone number on file for this account' }, { status: 400 });
+        const text = buildSmsText('customers', sample, ctx);
+        const sent = await sendSMS(phone, text);
+        return Response.json({ ok: sent.ok === true, channel: 'sms', text, ...sent });
+      }
+
+      const html = buildEmailHtml('customers', sample, ctx);
       const sent = await sendEmail(base44, me.email, `[uRide] ${sample.title}`, html);
-      return Response.json({ ok: sent.ok === true, sent_to: me.email, ...sent });
+      return Response.json({ ok: sent.ok === true, channel: 'email', sent_to: me.email, ...sent });
     }
 
     if (!event_type || !title) {
