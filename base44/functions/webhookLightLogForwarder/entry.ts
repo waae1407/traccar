@@ -847,21 +847,23 @@ async function resolveAlarmRecipients(base44, payload) {
   return [{ email: payload.recipient_email || payload.user_email || '', phone: payload.recipient_phone || '' }].filter((recipient) => recipient.email || recipient.phone);
 }
 
+// Every email leaves in the one uRide layout — see sendBrandedEmail.
+let mailer = null;
 async function sendAlarmEmail(recipientEmail, payload) {
-  const apiKey = Deno.env.get('RESEND_API_KEY');
-  if (!apiKey || !recipientEmail) return false;
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: 'uRide Alerts <alerts@uridehub.com>',
-      to: [recipientEmail],
+  if (!mailer || !recipientEmail) return false;
+  try {
+    await mailer.asServiceRole.functions.invoke('sendBrandedEmail', {
+      to: recipientEmail,
       subject: payload.title,
-      text: `${payload.message || payload.body || ''}\n\nOpen: ${payload.action_url || '/'}`
-    })
-  });
-  if (!response.ok) console.warn('Alarm email failed:', recipientEmail, await response.text());
-  return response.ok;
+      body: payload.message || payload.body || '',
+      action_url: payload.action_url || '/',
+      from_name: 'uRide Alerts',
+    });
+    return true;
+  } catch (e) {
+    console.warn('Alarm email failed:', recipientEmail, e.message);
+    return false;
+  }
 }
 
 async function sendAlarmSms(recipientPhone, payload) {
@@ -1002,6 +1004,7 @@ Deno.serve(async (req) => {
     }
 
     const base44 = createWebhookClient(req);
+    mailer = base44;
     const now = new Date().toISOString();
     
     // ── NO-CRASH GUARD: Wrap all parsing/processing in try-catch ──

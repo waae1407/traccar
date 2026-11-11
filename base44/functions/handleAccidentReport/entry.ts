@@ -27,16 +27,14 @@ function toE164(phone) {
   return digits.startsWith("1") && digits.length === 11 ? `+${digits}` : `+1${digits}`;
 }
 
+// Every email leaves in the one uRide layout — see sendBrandedEmail.
+let mailer = null;
 async function sendEmail(to, subject, html) {
-  if (!RESEND_API_KEY || !to) return { ok: false, error: "NO_API_KEY_OR_RECIPIENT" };
+  if (!mailer || !to) return { ok: false, error: "NO_MAILER_OR_RECIPIENT" };
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: "uRide <alerts@uridehub.com>", to: [to], subject, html }),
-    });
-    const data = await res.json();
-    return res.ok ? { ok: true, message_id: data.id } : { ok: false, error: data.message || "EMAIL_FAILED" };
+    const res = await mailer.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject, body: html });
+    const data = res?.data || {};
+    return data.success ? { ok: true, message_id: data.id } : { ok: false, error: data.error || "EMAIL_FAILED" };
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -69,6 +67,7 @@ function googleMapsLink(lat, lon) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    mailer = base44;
     const body = await req.json();
 
     const {

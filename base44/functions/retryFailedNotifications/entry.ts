@@ -44,15 +44,13 @@ async function retrySMS(to, body) {
   return res.ok ? { ok: true, sid: data.sid } : { ok: false, error: data.message || "SMS_FAILED" };
 }
 
+// Every email leaves in the one uRide layout — see sendBrandedEmail.
+let mailer = null;
 async function retryEmail(to, subject, html) {
-  if (!RESEND_API_KEY || !to) return { ok: false, error: "NO_CONFIG" };
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: "uRide <noreply@uridehub.com>", to: [to], subject, html }),
-  });
-  const data = await res.json();
-  return res.ok ? { ok: true, message_id: data.id } : { ok: false, error: data.message || "EMAIL_FAILED" };
+  if (!mailer || !to) return { ok: false, error: "NO_CONFIG" };
+  const res = await mailer.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject, body: html });
+  const data = res?.data || {};
+  return data.success ? { ok: true, message_id: data.id } : { ok: false, error: data.error || "EMAIL_FAILED" };
 }
 
 function nextRetryAt(retryCount) {
@@ -65,6 +63,7 @@ function nextRetryAt(retryCount) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    mailer = base44;
 
     // Allow scheduled (no user), admin-triggered, or external cron-secret calls
     const isCron = !!(Deno.env.get('CRON_SECRET') && req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET'));

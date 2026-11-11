@@ -91,25 +91,18 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-    // Send the email via Resend
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: DEFAULT_FROM,
-        to: [recipient_email],
-        subject: `uRide Insurance360 — ${evidence.title}`,
-        html,
-      }),
+    // Sent in the one uRide layout — see sendBrandedEmail
+    const res = await base44.asServiceRole.functions.invoke('sendBrandedEmail', {
+      to: recipient_email,
+      subject: `uRide Insurance360 — ${evidence.title}`,
+      body: html,
+      from_name: 'uRide',
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      console.error("[transmitInsuranceReport] Resend error:", JSON.stringify(data));
-      return Response.json({ error: data.message || "Email delivery failed" }, { status: res.status });
+    const data = res.data || {};
+    if (!data.success) {
+      console.error("[transmitInsuranceReport] Email error:", data.error);
+      return Response.json({ error: data.error || "Email delivery failed" }, { status: 502 });
     }
 
     // Update evidence record to transmitted

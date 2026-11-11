@@ -37,15 +37,13 @@ function toE164(phone) {
   return normalized;
 }
 
+// Every email leaves in the one uRide layout — see sendBrandedEmail.
+let mailer = null;
 async function sendEmail(to, subject, html) {
-  if (!RESEND_API_KEY || !to) return { ok: false, error: "NO_API_KEY_OR_RECIPIENT" };
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: "uRide <noreply@uridehub.com>", to: [to], subject, html }),
-  });
-  const data = await res.json();
-  if (!res.ok) return { ok: false, error: data.message || "EMAIL_FAILED", message_id: null };
+  if (!mailer || !to) return { ok: false, error: "NO_MAILER_OR_RECIPIENT" };
+  const res = await mailer.asServiceRole.functions.invoke('sendBrandedEmail', { to, subject, body: html });
+  const data = res?.data || {};
+  if (!data.success) return { ok: false, error: data.error || "EMAIL_FAILED", message_id: null };
   return { ok: true, message_id: data.id };
 }
 
@@ -744,6 +742,7 @@ async function handleStripeAccountRestricted(base44, { host, stripe_account_id, 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+    mailer = base44;
     const body = await req.json();
     const { event_type } = body;
 
