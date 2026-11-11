@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     const [paymentLogs, alerts, notifications, customers] = await Promise.all([
       base44.asServiceRole.entities.PaymentLog.filter({ customer_email: customerEmail }),
       base44.asServiceRole.entities.PaymentOperationalAlert.filter({ renter_email: customerEmail }),
-      base44.asServiceRole.entities.Notification.filter({ user_email: customerEmail }, '-created_date', 50),
+      base44.asServiceRole.entities.Notification.filter({ recipient_email: customerEmail }, '-created_date', 50),
       base44.asServiceRole.entities.Customer.filter({ email: customerEmail }),
     ]);
 
