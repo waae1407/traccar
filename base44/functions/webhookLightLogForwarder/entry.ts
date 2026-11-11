@@ -145,6 +145,49 @@ function decodeStatusBits(byteValue = 0) {
   };
 }
 
+// ── Door-input evidence ───────────────────────────────────────────────────
+// Bit 4 of bEnable is the door sensor. Routine 0x0032 packets are fast-pathed
+// and never stored, so a door-bit FLIP is the one case we persist: flips are
+// rare, and they are the only proof the wire is actually connected. A device
+// that has never reported both states cannot be trusted to raise "door opened
+// while locked" — that trigger would be blind.
+// 0x8009 ACK bits are the pre-command snapshot and are excluded on purpose:
+// they would inject stale values and poison the evidence.
+async function recordDoorTransition(base44, device, parsed, timestamp) {
+  if (!device?.id) return null;
+  if (parsed.packet_type === '0x8009') return null;
+  const bits = parsed.status_bits;
+  if (!bits || typeof bits.doorOpen !== 'boolean') return null;
+
+  const previous = typeof device.door_open === 'boolean' ? device.door_open : null;
+  if (previous === bits.doorOpen) return null;
+
+  const change = previous === null ? 'first_reading' : (bits.doorOpen ? 'opened' : 'closed');
+
+  await base44.asServiceRole.entities.TelematicsEvent.create({
+    company_id: device.company_id || '',
+    telematics_device_id: device.id,
+    provider_key: PROVIDER_KEY,
+    vehicle_id: device.vehicle_id || '',
+    event_type: 'mt20_door_input_change',
+    source: 'webhook',
+    ignition: typeof bits.accOn === 'boolean' ? bits.accOn : undefined,
+    raw_payload: {
+      change,
+      door_open: bits.doorOpen,
+      previous_door_open: previous,
+      lock_state_at_change: device.lock_state || 'unknown',
+      trunk_open: bits.trunkOpen,
+      bEnable: parsed.bEnable,
+      packet_type: parsed.packet_type,
+      raw_packet_hex: String(parsed.raw_packet_hex || '').slice(0, 120),
+    },
+    created_at: timestamp,
+  }).catch((error) => console.warn('[door-input] transition not stored:', error.message));
+
+  return change;
+}
+
 function asciiFromBytes(bytes) {
   return bytes
     .filter((byte) => byte >= 32 && byte <= 126)
@@ -1110,6 +1153,9 @@ Deno.serve(async (req) => {
       const sourcePort = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':').pop() : null;
       const sourceIpOnly = sourceIpRaw && sourceIpRaw.includes(':') ? sourceIpRaw.split(':')[0] : sourceIpRaw;
 
+      // Read the door bit BEFORE the device update overwrites the previous value
+      await recordDoorTransition(base44, device, parsed, timestamp).catch(() => null);
+
       // Single combined device update: voltage + session tracking + position
       await base44.asServiceRole.entities.TelematicsDevice.update(device.id, {
         ...parsed.device_updates,
@@ -1188,6 +1234,9 @@ Deno.serve(async (req) => {
       // is set by the command-type override in processCommandResponse for
       // lock/unlock commands, and by position/heartbeat packets for physical
       // key-fob/Bluetooth changes.
+      // Read the door bit BEFORE the update below overwrites the previous value
+      await recordDoorTransition(base44, device, parsed, timestamp).catch(() => null);
+
       const isAckPacket = parsed.packet_type === '0x8009';
       const deviceUpdates = isAckPacket
         ? { ...parsed.device_updates, lock_state: undefined }

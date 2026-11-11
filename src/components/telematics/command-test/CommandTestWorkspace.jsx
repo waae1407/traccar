@@ -8,6 +8,7 @@ import CommandHistoryPanel from '@/components/telematics/command-test/CommandHis
 import RawCommandInput from '@/components/telematics/command-test/RawCommandInput';
 import RebootDeviceCard from '@/components/telematics/command-test/RebootDeviceCard';
 import RelayPowerSaveCard from '@/components/telematics/command-test/RelayPowerSaveCard';
+import DoorInputVerificationCard from '@/components/telematics/command-test/DoorInputVerificationCard';
 import TraccarDeviceLogsPanel from '@/components/telematics/command-test/TraccarDeviceLogsPanel';
 import TelematicsAlarmControls from '@/components/telematics/TelematicsAlarmControls';
 import { useCommandProgress, PHASES } from '@/hooks/useCommandProgress';
@@ -145,6 +146,7 @@ export default function CommandTestWorkspace({ showHeader = true, mode = 'admin'
 
       {lookupData?.device && (
         <>
+          <DoorInputVerificationCard uniqueId={lookupData.device?.unique_id || ''} />
           <CommandButtonGrid commands={lookupData.supported_commands} execution={lookupData.execution} onSend={sendCommand} sending={sending} session={lookupData.session} sentCommands={sentCommands} commandHistory={history.data} activePhase={progress.phase} activePhaseCommand={progress.commandType} />
           <CommandProgressOverlay phase={progress.phase} elapsed={progress.elapsed} phaseElapsed={progress.phaseElapsed} commandType={progress.commandType} errorMessage={progress.errorMessage} />
           {lookupData.vehicle?.id && (
