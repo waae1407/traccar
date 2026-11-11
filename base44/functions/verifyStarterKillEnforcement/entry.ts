@@ -250,7 +250,15 @@ async function verifyCommand(base44, command) {
       failure_reason: null,
       provider_response: { ...(command.provider_response || {}), starter_kill_verification: { ...base, verified_at: new Date().toISOString() } },
     });
-    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, { starter_disabled: true });
+    // A device that has already been caught driving through a kill does not get
+    // the benefit of the bit while parked. Proven-bad stays unenforced until a
+    // human physically confirms the starter is blocked.
+    const bypassedBefore = await base44.asServiceRole.entities.OperationalAlert
+      .filter({ dedupe_key: `starter_kill_bypass_${device.id}` })
+      .then((r) => r.length > 0)
+      .catch(() => false);
+
+    await base44.asServiceRole.entities.TelematicsDevice.update(device.id, { starter_disabled: !bypassedBefore });
     await base44.asServiceRole.entities.ActivityEvent.create({
       event_type: 'gps.kill_confirmed',
       actor_role: 'system',
@@ -266,12 +274,11 @@ async function verifyCommand(base44, command) {
     }).catch(() => {});
     // Only now may the booking claim enforcement: relay open AND no movement since.
     if (command.booking_id) {
-      await base44.asServiceRole.entities.BookingRequest.update(command.booking_id, {
-        starter_disabled: true,
-        starter_disable_pending: false,
-      }).catch(() => {});
+      await base44.asServiceRole.entities.BookingRequest.update(command.booking_id, bypassedBefore
+        ? { starter_disabled: false, starter_disable_pending: true }
+        : { starter_disabled: true, starter_disable_pending: false }).catch(() => {});
     }
-    return { ...base, outcome: 'confirmed' };
+    return { ...base, outcome: bypassedBefore ? 'bit_open_but_device_previously_bypassed' : 'confirmed' };
   }
 
   // Relay is NOT open: the kill never engaged or it released.
@@ -462,9 +469,11 @@ Deno.serve(async (req) => {
     candidates = candidates.filter((c) => {
       const created = new Date(c.created_date || c.created_at || 0).getTime();
       if (created < sinceMs) return false;
+      // An explicit command_id is re-verified on purpose: ACK/executed means the
+      // packet landed, never that the relay opened. That gap is the whole point.
+      if (commandId) return c.id === commandId;
       if (c.confirmation_status === 'executed' || c.confirmed_at) return false;
       if (['failed', 'expired', 'blocked', 'cancelled'].includes(c.queue_status)) return false;
-      if (commandId) return c.id === commandId;
       if (bookingId) return c.booking_id === bookingId;
       if (deviceId) return c.telematics_device_id === deviceId;
       return true;
