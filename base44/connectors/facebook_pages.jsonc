@@ -1,0 +1,8 @@
+{
+  "type": "facebook_pages",
+  "scopes": [
+    "business_management",
+    "pages_manage_posts",
+    "pages_show_list"
+  ]
+}
