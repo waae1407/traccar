@@ -266,7 +266,15 @@ Deno.serve(async (req) => {
     const existingPubs = await base44.asServiceRole.entities.CampaignPublication.filter({ campaign_id: campaign.id });
     const publications = [];
 
-    for (const platform of PLATFORMS) {
+    // Only queue platforms that are actually connected for publishing; a
+    // disconnected account would otherwise sit in the queue as a dead slot.
+    const accounts = await base44.asServiceRole.entities.SocialAccount.list('-created_date', 20);
+    const live = accounts
+      .filter((item) => item.connection_status === 'connected' && item.can_publish && item.publishing_enabled !== false)
+      .map((item) => item.platform);
+    const targets = live.length ? PLATFORMS.filter((platform) => live.includes(platform)) : PLATFORMS;
+
+    for (const platform of targets) {
       const { caption, hashtags } = captionFor(campaign, platform);
       const asset = (campaign.assets || {})[platform] || null;
       const current = existingPubs.find((item) => item.platform === platform);
