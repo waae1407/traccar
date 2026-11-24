@@ -118,6 +118,58 @@
     "reviewed_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "publish_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "generated",
+        "quality_check_failed",
+        "awaiting_approval",
+        "approved",
+        "scheduled",
+        "publishing",
+        "published",
+        "failed",
+        "cancelled"
+      ],
+      "default": "draft",
+      "enumColors": [
+        "gray",
+        "blue",
+        "red",
+        "yellow",
+        "green",
+        "purple",
+        "blue",
+        "green",
+        "red",
+        "gray"
+      ],
+      "description": "Publishing lifecycle for the campaign as a whole"
+    },
+    "operating_mode": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "approval",
+        "autonomous"
+      ],
+      "default": "approval"
+    },
+    "assets": {
+      "type": "object",
+      "description": "Rendered flyer per platform: { instagram: {url,width,height}, facebook: {...}, x: {...} }"
+    },
+    "quality_report": {
+      "type": "object"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generated_by": {
+      "type": "string"
     }
   },
   "required": [

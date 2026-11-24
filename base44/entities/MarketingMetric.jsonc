@@ -1,0 +1,128 @@
+{
+  "name": "MarketingMetric",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string"
+    },
+    "publication_id": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook_pages",
+        "x"
+      ]
+    },
+    "captured_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "feature_key": {
+      "type": "string"
+    },
+    "angle_key": {
+      "type": "string"
+    },
+    "headline": {
+      "type": "string"
+    },
+    "audience": {
+      "type": "string"
+    },
+    "cta_keyword": {
+      "type": "string"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reach": {
+      "type": "number"
+    },
+    "impressions": {
+      "type": "number"
+    },
+    "likes": {
+      "type": "number"
+    },
+    "comments": {
+      "type": "number"
+    },
+    "shares": {
+      "type": "number"
+    },
+    "saves": {
+      "type": "number"
+    },
+    "follower_growth": {
+      "type": "number"
+    },
+    "profile_visits": {
+      "type": "number"
+    },
+    "website_clicks": {
+      "type": "number"
+    },
+    "dm_inquiries": {
+      "type": "number"
+    },
+    "qualified_leads": {
+      "type": "number"
+    },
+    "conversions": {
+      "type": "number"
+    },
+    "utm_campaign": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "platform_api",
+        "manual",
+        "unavailable"
+      ],
+      "default": "platform_api"
+    },
+    "unavailable_metrics": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Metrics the platform did not return; never filled with estimates"
+    },
+    "raw": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "platform",
+    "captured_at"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

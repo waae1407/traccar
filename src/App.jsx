@@ -137,6 +137,7 @@ import Insurance360 from '@/pages/admin/Insurance360.jsx';
 import FlyerStudio from '@/pages/admin/FlyerStudio.jsx';
 import FlyerSample from '@/pages/admin/FlyerSample.jsx';
 import MarketingCalendar from '@/pages/admin/MarketingCalendar.jsx';
+import MarketingCommandCenter from '@/pages/admin/MarketingCommandCenter.jsx';
 import HostSubscriptions from '@/pages/host/HostSubscriptions.jsx';
 import HostNotifications from '@/pages/host/HostNotifications.jsx';
 import CustomerNotifications from '@/pages/customer/CustomerNotifications.jsx';
@@ -386,6 +387,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/insurance360" element={<Insurance360 />} />
         <Route path="/admin/flyer-studio" element={<FlyerStudio />} />
         <Route path="/admin/marketing-calendar" element={<MarketingCalendar />} />
+        <Route path="/admin/marketing-command-center" element={<MarketingCommandCenter />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

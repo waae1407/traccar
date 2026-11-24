@@ -1,0 +1,132 @@
+{
+  "name": "MarketingFeature",
+  "type": "object",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Stable identifier, e.g. payment-guard"
+    },
+    "label": {
+      "type": "string",
+      "description": "Flyer badge label, e.g. PAYMENT GUARD"
+    },
+    "kicker": {
+      "type": "string"
+    },
+    "claim": {
+      "type": "string",
+      "description": "Single approved claim, taken from the feature audit"
+    },
+    "pain": {
+      "type": "string",
+      "description": "Customer pain this feature removes"
+    },
+    "cta": {
+      "type": "string",
+      "description": "DM / comment keyword"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "screen": {
+      "type": "string",
+      "description": "Live app screen rendered inside the phone, or empty for the placeholder panel"
+    },
+    "body": {
+      "type": "string",
+      "description": "Flyer copy, three short lines"
+    },
+    "audience": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "benefits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "icon": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "payments",
+        "protection",
+        "operations",
+        "access",
+        "compliance",
+        "growth"
+      ],
+      "default": "operations"
+    },
+    "verified": {
+      "type": "boolean",
+      "default": true,
+      "description": "Claim confirmed against shipped functionality"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Eligible for campaign selection"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "audit",
+        "discovered",
+        "manual"
+      ],
+      "default": "audit"
+    },
+    "use_count": {
+      "type": "number",
+      "default": 0
+    },
+    "last_used_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "last_angle_key": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "key",
+    "label",
+    "claim"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "name": "SocialAccount",
+  "type": "object",
+  "properties": {
+    "platform": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook_pages",
+        "x"
+      ],
+      "enumColors": [
+        "pink",
+        "blue",
+        "gray"
+      ]
+    },
+    "platform_label": {
+      "type": "string"
+    },
+    "account_name": {
+      "type": "string",
+      "description": "Page or account display name returned by the platform"
+    },
+    "account_handle": {
+      "type": "string"
+    },
+    "account_id": {
+      "type": "string",
+      "description": "External account / page id used for publishing"
+    },
+    "profile_image_url": {
+      "type": "string"
+    },
+    "connection_status": {
+      "type": "string",
+      "enum": [
+        "not_connected",
+        "connected",
+        "expired",
+        "error"
+      ],
+      "default": "not_connected",
+      "enumColors": [
+        "gray",
+        "green",
+        "yellow",
+        "red"
+      ]
+    },
+    "authorization_status": {
+      "type": "string",
+      "enum": [
+        "not_authorized",
+        "authorized",
+        "needs_reconnect"
+      ],
+      "default": "not_authorized",
+      "enumColors": [
+        "gray",
+        "green",
+        "yellow"
+      ]
+    },
+    "can_publish": {
+      "type": "boolean",
+      "default": false
+    },
+    "can_read_analytics": {
+      "type": "boolean",
+      "default": false
+    },
+    "granted_scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_scopes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "token_expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_error": {
+      "type": "string"
+    },
+    "character_limit": {
+      "type": "number",
+      "description": "Caption limit reported or configured for this platform"
+    },
+    "image_spec": {
+      "type": "object",
+      "description": "Width, height and format expected by the platform"
+    },
+    "publishing_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Admin switch; publishing is skipped when false"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "platform"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

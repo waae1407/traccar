@@ -1,0 +1,149 @@
+{
+  "name": "CampaignPublication",
+  "type": "object",
+  "properties": {
+    "campaign_id": {
+      "type": "string"
+    },
+    "campaign_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "instagram",
+        "facebook_pages",
+        "x"
+      ],
+      "enumColors": [
+        "pink",
+        "blue",
+        "gray"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "generated",
+        "quality_check_failed",
+        "awaiting_approval",
+        "approved",
+        "scheduled",
+        "publishing",
+        "published",
+        "failed",
+        "cancelled"
+      ],
+      "default": "draft",
+      "enumColors": [
+        "gray",
+        "blue",
+        "red",
+        "yellow",
+        "green",
+        "purple",
+        "blue",
+        "green",
+        "red",
+        "gray"
+      ]
+    },
+    "caption": {
+      "type": "string"
+    },
+    "hashtags": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "image_width": {
+      "type": "number"
+    },
+    "image_height": {
+      "type": "number"
+    },
+    "scheduled_for": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "published_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "external_post_id": {
+      "type": "string"
+    },
+    "post_url": {
+      "type": "string"
+    },
+    "attempt_count": {
+      "type": "number",
+      "default": 0
+    },
+    "last_attempt_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_error": {
+      "type": "string"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "description": "campaignId:platform \u2014 one publication record per platform per campaign"
+    },
+    "quality_report": {
+      "type": "object"
+    },
+    "mode_at_generation": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "approval",
+        "autonomous"
+      ]
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rejected_reason": {
+      "type": "string"
+    },
+    "utm_campaign": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "platform",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/15 * * * *",
+      "one_time_date": null,
+      "timezone": "America/Los_Angeles",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Marketing Scheduler \u2014 Every 15min",
+  "description": "Runs the uRide marketing pipeline: reviews the feature catalog, generates the daily campaign, validates it, publishes to Instagram, Facebook and X at their configured times, then collects performance metrics. Honours the operating mode, pause switch and emergency stop.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "marketing_scheduler_every_15min",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_marketing_pipeline": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "marketingSchedulerTick",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Marketing pipeline tick",
+            "description": "Generate, validate, publish, collect"
+          }
+        }
+      }
+    ]
+  }
+}
