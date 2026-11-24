@@ -1,6 +1,7 @@
 import React from "react";
 import Flyer from "@/components/marketing/flyer/Flyer";
 import FeatureAuditPanel from "@/components/marketing/flyer/FeatureAuditPanel";
+import FlyerDownloadButton from "@/components/marketing/flyer/FlyerDownloadButton";
 import { FLYER_PRESETS, REFERENCE_PRESET } from "@/lib/marketing/flyerPresets";
 import { FLYER_W, FLYER_H } from "@/lib/marketing/flyerAssets";
 
@@ -38,15 +39,21 @@ export default function FlyerStudio() {
               key={preset.id}
               className="overflow-hidden rounded-2xl border border-border bg-card"
             >
-              <Flyer preset={preset} />
+              <Flyer preset={preset} stageId={`flyer-${preset.id}`} />
               <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
                 <div className="min-w-0">
                   <p className="font-syne text-sm font-bold leading-tight">{preset.feature}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">{preset.kicker}</p>
                 </div>
-                <span className="shrink-0 rounded-full border border-primary/40 bg-primary/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">
-                  DM “{preset.cta}”
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-full border border-primary/40 bg-primary/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">
+                    DM “{preset.cta}”
+                  </span>
+                  <FlyerDownloadButton
+                    stageId={`flyer-${preset.id}`}
+                    fileName={`uride-flyer-${preset.id}.png`}
+                  />
+                </div>
               </div>
             </article>
           ))}
