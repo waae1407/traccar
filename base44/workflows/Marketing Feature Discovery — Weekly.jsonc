@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 6 * * 1",
+      "one_time_date": null,
+      "timezone": "America/Los_Angeles",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Marketing Feature Discovery \u2014 Weekly",
+  "description": "Reconciles the marketable feature catalog against live platform telemetry every Monday. New capabilities are proposed as unverified and disabled records for administrator review; nothing is advertised until it is verified.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "marketing_feature_discovery_weekly",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "discover_features": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "marketingFeatureDiscovery",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Discover marketable features",
+            "description": "Proposes telemetry-evidenced capabilities for review"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -152,6 +152,16 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     if (user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
+    // An emergency stop blocks any new publishing operation from starting.
+    const stopRows = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'marketing_emergency_stopped' });
+    if (stopRows[0]?.value_boolean === true) {
+      return Response.json({ error: 'Emergency stop is active. Publishing is blocked.', status: 'blocked' }, { status: 423 });
+    }
+    const pauseRows = await base44.asServiceRole.entities.PlatformSetting.filter({ key: 'marketing_automation_paused' });
+    if (pauseRows[0]?.value_boolean === true) {
+      return Response.json({ error: 'Marketing automation is paused. Publishing is blocked.', status: 'blocked' }, { status: 423 });
+    }
+
     const body = await req.json().catch(() => ({}));
     const publicationId = body.publication_id;
     if (!publicationId) return Response.json({ error: 'publication_id is required' }, { status: 400 });

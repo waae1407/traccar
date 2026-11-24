@@ -17,7 +17,59 @@ const ANGLES = [
   { key: "traditional_vs_automated", label: "Traditional vs automated", kicker: "MANUAL VS. AUTOMATED", objective: "Compare the old operation with the platform", headlines: ["Manual vs.\nAutomated.", "Two Ways\nTo Run\nA Fleet.", "Same Job.\nHalf The\nMoving Parts."] },
   { key: "feature_discovery", label: "Feature discovery", kicker: "INSIDE THE PLATFORM", objective: "Reveal a capability operators already own", headlines: ["You Already\nHave This.", "It Is\nAlready\nOn.", "Hidden In\nPlain\nSight."] },
   { key: "growth", label: "Business growth", kicker: "BUILT TO SCALE", objective: "Connect the feature to adding vehicles", headlines: ["Grow Without\nMore Admin.", "More Cars.\nSame Team.", "Scale The\nFleet, Not\nThe Chaos."] },
+  { key: "myth_busting", label: "Myth busting", kicker: "WHAT OPERATORS GET WRONG", objective: "Correct a common assumption, then show what actually happens", headlines: ["That Is\nNot How\nIt Works.", "Myth, Then\nThe Reality.", "What People\nGet Wrong."] },
+  { key: "operator_checklist", label: "Operator checklist", kicker: "A SHORT WEEKLY CHECK", objective: "Give operators something practical to check, not a pitch", headlines: ["Three Things\nTo Check\nWeekly.", "The Weekly\nChecklist.", "Check These\nThree."] },
+  { key: "operator_poll", label: "Operator poll", kicker: "A QUESTION FOR THE FLEET", objective: "Invite a reply instead of pushing a sale", headlines: ["How Many\nVehicles\nToday?", "One Question\nFor\nOperators.", "Pick One."] },
 ];
+
+/**
+ * Campaign mix targets. Every angle belongs to one bucket, and the picker
+ * closes the widest gap against these shares instead of walking a fixed
+ * rotation, so the feed stays a mix of teaching, proof and discussion rather
+ * than a run of sales posts.
+ */
+const CATEGORY_BY_KEY = {
+  pain_point: "problem_solution",
+  problem_solution: "problem_solution",
+  benefit: "awareness",
+  revenue_protection: "awareness",
+  vehicle_protection: "awareness",
+  educational: "education",
+  time_savings: "education",
+  automation: "education",
+  traditional_vs_automated: "education",
+  myth_busting: "education",
+  operator_checklist: "education",
+  engagement_question: "engagement",
+  operator_poll: "engagement",
+  feature_discovery: "discovery",
+  growth: "discovery",
+};
+
+const MIX = { awareness: 0.3, education: 0.25, problem_solution: 0.2, engagement: 0.15, discovery: 0.1 };
+
+function targetCategory(history) {
+  const recent = history.slice(0, 20);
+  const counts = {};
+  Object.values(CATEGORY_BY_KEY).forEach((category) => {
+    counts[category] = 0;
+  });
+  recent.forEach((item) => {
+    const category = CATEGORY_BY_KEY[item.angle_key];
+    if (category) counts[category] += 1;
+  });
+  let best = "awareness";
+  let widest = -Infinity;
+  Object.entries(MIX).forEach(([category, target]) => {
+    const share = recent.length ? counts[category] / recent.length : 0;
+    const gap = target - share;
+    if (gap > widest) {
+      widest = gap;
+      best = category;
+    }
+  });
+  return best;
+}
 
 const headlineText = (value) => String(value || "").replace(/\n/g, " ");
 
@@ -34,9 +86,18 @@ function similarity(a, b) {
   return shared / (setA.size + setB.size - shared);
 }
 
-function buildHashtags(feature) {
+/** Segment tags rotate by day so the reach broadens beyond one audience. */
+const HASHTAG_SEGMENTS = [
+  ["#TuroHost", "#TuroHosts", "#CarSharing"],
+  ["#P2PRental", "#RentalFleet", "#FleetOwner"],
+  ["#IndependentOperator", "#RideshareFleet", "#SmallBusiness"],
+];
+
+function buildHashtags(feature, date) {
   const tag = `#${String(feature.label || feature.key).toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
-  return [...HASHTAG_BASE, tag].join(" ");
+  const seed = Math.floor(new Date(`${date}T12:00:00Z`).getTime() / 86400000);
+  const segment = HASHTAG_SEGMENTS[seed % HASHTAG_SEGMENTS.length];
+  return [...HASHTAG_BASE, ...segment, tag].join(" ");
 }
 
 function fitX(body, hashtags, limit = X_LIMIT) {
@@ -48,7 +109,7 @@ function fitX(body, hashtags, limit = X_LIMIT) {
 function composeCampaign(feature, angle, variant, date) {
   const headline = angle.headlines[variant % angle.headlines.length];
   const flat = headlineText(headline);
-  const hashtags = buildHashtags(feature);
+  const hashtags = buildHashtags(feature, date);
   const shape = new Date(`${date}T12:00:00Z`).getUTCDate() % 3;
 
   const instagram = [
@@ -152,7 +213,12 @@ function validateCampaign(campaign, feature, history) {
 function pickCandidate(features, history, date) {
   const previous = history[0];
   const seed = Math.floor(new Date(`${date}T12:00:00Z`).getTime() / 86400000);
-  const angleOrder = [...ANGLES.slice(seed % ANGLES.length), ...ANGLES.slice(0, seed % ANGLES.length)];
+  const seeded = [...ANGLES.slice(seed % ANGLES.length), ...ANGLES.slice(0, seed % ANGLES.length)];
+  const preferred = targetCategory(history);
+  const angleOrder = [
+    ...seeded.filter((angle) => CATEGORY_BY_KEY[angle.key] === preferred),
+    ...seeded.filter((angle) => CATEGORY_BY_KEY[angle.key] !== preferred),
+  ];
   const usedHeadlines = new Set(history.map((item) => headlineText(item.headline)));
   const recent14 = history.filter((item) => {
     const gap = Math.abs(new Date(`${item.campaign_date}T12:00:00Z`) - new Date(`${date}T12:00:00Z`)) / 86400000;

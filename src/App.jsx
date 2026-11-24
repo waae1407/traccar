@@ -17,6 +17,7 @@ import { AdminGuard, HostGuard, AdminOrInstallerGuard } from '@/components/layou
 import PublicHome from '@/pages/PublicHome.jsx';
 import PrivacyPolicy from '@/pages/PrivacyPolicy.jsx';
 import TermsOfService from '@/pages/TermsOfService.jsx';
+import FlyerRenderPage from '@/pages/FlyerRenderPage.jsx';
 
 // Customer-facing pages
 import BookNow from '@/pages/BookNow.jsx';
@@ -195,7 +196,7 @@ const AuthenticatedApp = () => {
     // auth_required means the PLATFORM requires login — respect that
     // But allow public pages through even without auth
     if (authError.type === 'auth_required') {
-      const publicPaths = ['/', '/privacy', '/terms', '/become-a-host', '/operator-questionnaire', '/marketplace', '/swap', '/installers', '/installer/telematics'];
+      const publicPaths = ['/', '/privacy', '/terms', '/become-a-host', '/operator-questionnaire', '/marketplace', '/swap', '/installers', '/installer/telematics', '/flyer-render'];
       if (!publicPaths.includes(window.location.pathname)) {
         navigateToLogin(); return null;
       }
@@ -213,6 +214,8 @@ const AuthenticatedApp = () => {
       <Route path="/" element={<PublicHome />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
+      {/* Deterministic flyer surface for the backend renderer */}
+      <Route path="/flyer-render" element={<FlyerRenderPage />} />
 
       {/* ── GPS PUBLIC PAGES ── */}
       <Route path="/gps" element={<GPSLanding />} />

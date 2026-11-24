@@ -1,21 +1,7 @@
 import React, { useRef } from "react";
-import FlyerArtwork from "./FlyerArtwork";
-import PhoneScreenFrame from "./PhoneScreenFrame";
+import FlyerPlate from "./FlyerPlate";
 import useFitScale from "@/hooks/useFitScale";
 import { FLYER_W, FLYER_H, INK } from "@/lib/marketing/flyerAssets";
-import PaymentGuardScreen from "./screens/PaymentGuardScreen";
-import SafetyMonitorScreen from "./screens/SafetyMonitorScreen";
-import KeylessAccessScreen from "./screens/KeylessAccessScreen";
-import GpsTrackingScreen from "./screens/GpsTrackingScreen";
-import AiInspectionScreen from "./screens/AiInspectionScreen";
-
-const SCREENS = {
-  payment: PaymentGuardScreen,
-  safety: SafetyMonitorScreen,
-  keyless: KeylessAccessScreen,
-  gps: GpsTrackingScreen,
-  inspection: AiInspectionScreen,
-};
 
 /**
  * One rendering path for preview and export: the SVG artwork, then the live
@@ -25,7 +11,6 @@ const SCREENS = {
 export default function Flyer({ preset, className = "", fitHeight = false }) {
   const stageRef = useRef(null);
   const scale = useFitScale(stageRef, FLYER_W, fitHeight ? FLYER_H : null);
-  const Screen = preset.screen ? SCREENS[preset.screen] : null;
 
   const frameStyle = fitHeight
     ? { width: FLYER_W * scale, height: FLYER_H * scale }
@@ -54,12 +39,7 @@ export default function Flyer({ preset, className = "", fitHeight = false }) {
           transformOrigin: "top left",
         }}
       >
-        <FlyerArtwork preset={preset} />
-        {Screen && (
-          <PhoneScreenFrame>
-            <Screen />
-          </PhoneScreenFrame>
-        )}
+        <FlyerPlate preset={preset} />
       </div>
     </div>
   );
