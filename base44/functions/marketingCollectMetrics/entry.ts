@@ -20,18 +20,18 @@ async function instagramMetrics(base44: any, mediaId: string, accountId: string)
   const media = await mediaRes.json();
   if (!mediaRes.ok) throw new Error(media.error?.message || 'Instagram post metrics unavailable');
 
-  // Everything below needs instagram_business_manage_insights.
+  // Reach, views, saves, shares and profile views all need
+  // instagram_business_manage_insights. Try, and report honestly when absent.
   let reach: number | null = null;
   let views: number | null = null;
   let saves: number | null = null;
   let shares: number | null = null;
   let profileVisits: number | null = null;
-  let followers: number | null = null;
   let insights: any = null;
   let permissionError: string | null = null;
 
   try {
-    const insightRes = await fetch(`https://graph.instagram.com/${mediaId}/insights?metric=reach,saved,shares,views,total_interactions&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+    const insightRes = await fetch(`https://graph.instagram.com/${mediaId}/insights?metric=reach,saved,shares,views&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
     const data = await insightRes.json();
     if (insightRes.ok) {
       insights = data;
@@ -46,14 +46,17 @@ async function instagramMetrics(base44: any, mediaId: string, accountId: string)
     permissionError = error.message;
   }
 
-  try {
-    const accountRes = await fetch(`https://graph.instagram.com/${accountId}/insights?metric=profile_views&period=day&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
-    const accountData = await accountRes.json();
-    if (accountRes.ok) profileVisits = pick(accountData, 'profile_views');
-  } catch (_error) {
-    profileVisits = null;
+  if (accountId && !permissionError) {
+    try {
+      const accountRes = await fetch(`https://graph.instagram.com/${accountId}/insights?metric=profile_views&period=day&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+      const accountData = await accountRes.json();
+      if (accountRes.ok) profileVisits = pick(accountData, 'profile_views');
+    } catch (_error) {
+      profileVisits = null;
+    }
   }
 
+  let followers: number | null = null;
   try {
     const meRes = await fetch(`https://graph.instagram.com/me?fields=followers_count&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
     const me = await meRes.json();
@@ -89,56 +92,97 @@ async function instagramMetrics(base44: any, mediaId: string, accountId: string)
   };
 }
 
+/** Page access token, including Pages owned by a Business Manager. */
+async function resolvePageToken(accessToken: string, pageId: string) {
+  const base = 'https://graph.facebook.com/v25.0';
+  const accountsRes = await fetch(`${base}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+  const accounts = await accountsRes.json();
+  const direct = (accounts.data || []).find((page: any) => page.id === pageId);
+  if (direct?.access_token) return direct.access_token;
+
+  try {
+    const bizRes = await fetch(`${base}/me/businesses?fields=id,name&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+    const businesses = await bizRes.json();
+    for (const business of businesses.data || []) {
+      for (const edge of ['client_pages', 'owned_pages']) {
+        const edgeRes = await fetch(`${base}/${business.id}/${edge}?fields=id,name,access_token&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+        const edgeData = await edgeRes.json();
+        const match = (edgeData.data || []).find((page: any) => page.id === pageId);
+        if (match?.access_token) return match.access_token;
+      }
+    }
+  } catch (_error) {
+    // business_management is optional
+  }
+  return accessToken;
+}
+
 async function facebookMetrics(base44: any, postId: string, pageId: string) {
   const { accessToken } = await base44.asServiceRole.connectors.getConnection('facebook_pages');
+  const pageToken = pageId ? await resolvePageToken(accessToken, pageId) : accessToken;
+
   const fields = 'reactions.summary(total_count),comments.summary(total_count),shares';
-  const res = await fetch(`https://graph.facebook.com/v25.0/${postId}?fields=${fields}&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+  const res = await fetch(`https://graph.facebook.com/v25.0/${postId}?fields=${fields}&access_token=${encodeURIComponent(pageToken)}`, { signal: AbortSignal.timeout(20000) });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || 'Facebook post metrics unavailable');
 
   let impressions: number | null = null;
-  let clicks: number | null = null;
+  let reach: number | null = null;
+  let profileVisits: number | null = null;
   let permissionError: string | null = null;
+
   try {
-    const insightRes = await fetch(`https://graph.facebook.com/v25.0/${postId}/insights?metric=post_media_view,post_clicks&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
-    const insight = await insightRes.json();
-    if (insightRes.ok) {
-      impressions = pick(insight, 'post_media_view');
-      clicks = pick(insight, 'post_clicks');
-    } else {
-      permissionError = insight.error?.message || 'Facebook post insights unavailable';
-    }
+    const postRes = await fetch(`https://graph.facebook.com/v25.0/${postId}/insights?metric=post_media_view&access_token=${encodeURIComponent(pageToken)}`, { signal: AbortSignal.timeout(20000) });
+    const postInsight = await postRes.json();
+    if (postRes.ok) impressions = pick(postInsight, 'post_media_view');
+    else permissionError = postInsight.error?.message || 'Facebook post insights unavailable';
   } catch (error: any) {
     permissionError = error.message;
+  }
+
+  if (pageId && !permissionError) {
+    try {
+      const pageRes = await fetch(`https://graph.facebook.com/v25.0/${pageId}/insights?metric=page_total_media_view_unique,page_views_total,page_post_engagements&period=day&access_token=${encodeURIComponent(pageToken)}`, { signal: AbortSignal.timeout(20000) });
+      const pageInsight = await pageRes.json();
+      if (pageRes.ok) {
+        reach = pick(pageInsight, 'page_total_media_view_unique');
+        profileVisits = pick(pageInsight, 'page_views_total');
+      } else {
+        permissionError = pageInsight.error?.message || 'Facebook Page insights unavailable';
+      }
+    } catch (_error) {
+      permissionError = 'Facebook Page insights unavailable';
+    }
   }
 
   let followers: number | null = null;
   if (pageId) {
     try {
-      const pageRes = await fetch(`https://graph.facebook.com/v25.0/${pageId}?fields=followers_count,fan_count&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
-      const page = await pageRes.json();
-      if (pageRes.ok) followers = page.followers_count ?? page.fan_count ?? null;
+      const followerRes = await fetch(`https://graph.facebook.com/v25.0/${pageId}?fields=followers_count,fan_count&access_token=${encodeURIComponent(pageToken)}`, { signal: AbortSignal.timeout(20000) });
+      const page = await followerRes.json();
+      if (followerRes.ok) followers = page.followers_count ?? page.fan_count ?? null;
     } catch (_error) {
       followers = null;
     }
   }
 
   return {
+    reach,
     impressions,
     likes: data.reactions?.summary?.total_count ?? null,
     comments: data.comments?.summary?.total_count ?? null,
     shares: data.shares?.count ?? null,
-    website_clicks: clicks,
+    profile_visits: profileVisits,
     followers_count: followers,
     unavailable: [
-      'reach',
       'saves',
-      'profile_visits',
+      'website_clicks',
       'dm_inquiries',
       'qualified_leads',
       'conversions',
+      ...(reach === null ? ['reach'] : []),
       ...(impressions === null ? ['impressions'] : []),
-      ...(clicks === null ? ['website_clicks'] : []),
+      ...(profileVisits === null ? ['profile_visits'] : []),
       ...(followers === null ? ['follower_growth'] : []),
     ],
     permission_error: permissionError,
@@ -169,9 +213,8 @@ Deno.serve(async (req) => {
       .slice()
       .sort((a: any, b: any) => String(b.captured_at || '').localeCompare(String(a.captured_at || '')))
       .forEach((item: any) => {
-        const platform = item.platform;
         const count = item.raw?.followers_count;
-        if (previousFollowers[platform] === undefined && typeof count === 'number') previousFollowers[platform] = count;
+        if (previousFollowers[item.platform] === undefined && typeof count === 'number') previousFollowers[item.platform] = count;
       });
 
     const accounts = await base44.asServiceRole.entities.SocialAccount.list('-created_date', 20);

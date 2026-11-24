@@ -17,7 +17,7 @@
     }
   },
   "name": "Marketing Scheduler \u2014 Every 15min",
-  "description": "Runs the uRide marketing pipeline: reviews the feature catalog, generates the daily campaign, validates it, publishes to Instagram, Facebook and X at their configured times, then collects performance metrics. Honours the operating mode, pause switch and emergency stop.",
+  "description": "Runs the uRide marketing pipeline: reviews the verified feature catalog, generates the daily campaign, validates it, renders the Instagram and Facebook flyers server-side, publishes at the configured times, retries failures and collects performance metrics. X is excluded. Honours the operating mode, pause switch and emergency stop.",
   "definition": {
     "document": {
       "dsl": "1.0.0",

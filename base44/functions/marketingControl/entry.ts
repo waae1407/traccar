@@ -11,10 +11,26 @@ const DEFAULT_SCHEDULE = {
   select: '05:15',
   generate: '05:30',
   validate: '05:45',
+  render: '07:30',
   instagram: '08:00',
+  render_late: '09:30',
   facebook: '10:00',
-  x: '12:00',
+  retry_failed: '15:00',
   metrics: '20:00',
+};
+
+/** X stays excluded from every marketing operation until it is authorized again. */
+const EXCLUDED_PLATFORMS = ['x'];
+
+const ANALYTICS_SCOPES = {
+  instagram: {
+    granted: ['instagram_business_basic', 'instagram_business_content_publish', 'instagram_business_manage_messages'],
+    missing: ['instagram_business_manage_insights'],
+  },
+  facebook_pages: {
+    granted: ['business_management', 'pages_manage_posts', 'pages_show_list'],
+    missing: ['read_insights', 'pages_read_engagement'],
+  },
 };
 
 const SETTING_KEYS = {
@@ -166,12 +182,15 @@ async function syncAccount(base44, req, platform) {
       connection_status: 'connected',
       authorization_status: 'authorized',
       can_publish: true,
-      can_read_analytics: platform === 'x',
+      can_read_analytics: false,
       last_error: null,
-      missing_scopes: [],
+      granted_scopes: ANALYTICS_SCOPES[platform]?.granted || [],
+      missing_scopes: ANALYTICS_SCOPES[platform]?.missing || [],
       notes: platform === 'instagram'
-        ? 'Instagram insights are read through the Instagram connector; metrics the platform does not return are left blank.'
-        : null,
+        ? 'Instagram insights need instagram_business_manage_insights; metrics the platform does not return are left blank.'
+        : platform === 'facebook_pages'
+          ? 'Facebook post insights need read_insights and pages_read_engagement; metrics the platform does not return are left blank.'
+          : null,
     };
     return existing
       ? await base44.asServiceRole.entities.SocialAccount.update(existing.id, payload)
@@ -255,9 +274,30 @@ Deno.serve(async (req) => {
         failed_publications: publications.filter((item) => item.status === 'failed'),
         next_scheduled: nextScheduled,
         recent_metrics: metrics,
-        opportunities: features.filter((item) => !item.use_count).slice(0, 8),
+        opportunities: features.filter((item) => item.verified === true && !item.use_count).slice(0, 8),
+        pending_discoveries: features.filter((item) => item.verified !== true && item.source === 'discovered').slice(0, 6),
         feature_counts: { total: features.length, unused: features.filter((item) => !item.use_count).length },
       });
+    }
+
+    if (action === 'review_feature') {
+      const featureId = body.feature_id;
+      const decision = body.decision;
+      if (!featureId || !['verify', 'discard'].includes(decision)) {
+        return Response.json({ error: 'feature_id and decision (verify|discard) are required' }, { status: 400 });
+      }
+      if (decision === 'discard') {
+        await base44.asServiceRole.entities.MarketingFeature.delete(featureId);
+        return Response.json({ ok: true, deleted: featureId });
+      }
+      const existing = await base44.asServiceRole.entities.MarketingFeature.get(featureId).catch(() => null);
+      if (!existing) return Response.json({ error: 'Feature not found' }, { status: 404 });
+      const updated = await base44.asServiceRole.entities.MarketingFeature.update(featureId, {
+        verified: true,
+        enabled: true,
+        notes: `${existing.notes || ''} Verified by ${user.email || 'admin'} on ${new Date().toISOString().slice(0, 10)}.`.trim(),
+      });
+      return Response.json({ ok: true, feature: updated });
     }
 
     if (action === 'set_mode') {
@@ -311,7 +351,11 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'sync_accounts' || action === 'test_connection') {
-      const targets = action === 'test_connection' ? [body.platform] : PLATFORMS.map((item) => item.key);
+      const requested = action === 'test_connection' ? [body.platform] : PLATFORMS.map((item) => item.key);
+      const targets = requested.filter((platform) => platform && (!EXCLUDED_PLATFORMS.includes(platform) || body.include_excluded === true));
+      if (!targets.length) {
+        return Response.json({ ok: true, results: [], note: 'X is excluded from the marketing engine until it is authorized again.' });
+      }
       const results = [];
       for (const platform of targets) {
         if (!platform) continue;

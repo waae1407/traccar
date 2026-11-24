@@ -10,6 +10,7 @@ import CampaignSlotCard from "@/components/marketing/command/CampaignSlotCard";
 import PublicationQueue from "@/components/marketing/command/PublicationQueue";
 import PublicationDrawer from "@/components/marketing/command/PublicationDrawer";
 import PerformanceStrip from "@/components/marketing/command/PerformanceStrip";
+import DiscoveryReviewPanel from "@/components/marketing/command/DiscoveryReviewPanel";
 
 export default function MarketingCommandCenter() {
   const [state, setState] = useState(null);
@@ -93,6 +94,7 @@ export default function MarketingCommandCenter() {
         <div className="space-y-4">
           <ModeControlCard state={state} onChanged={load} />
           <SocialAccountsPanel accounts={state.accounts} onChanged={load} />
+          <DiscoveryReviewPanel features={state.pending_discoveries || []} onChanged={load} />
           <PerformanceStrip metrics={state.recent_metrics || []} />
           {state.opportunities?.length > 0 && (
             <div className="glass rounded-2xl p-5">
