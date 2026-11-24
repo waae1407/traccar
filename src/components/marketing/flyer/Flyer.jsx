@@ -1,0 +1,63 @@
+import React, { useRef } from "react";
+import FlyerArtwork from "./FlyerArtwork";
+import PhoneScreenFrame from "./PhoneScreenFrame";
+import useFitScale from "@/hooks/useFitScale";
+import { FLYER_W, FLYER_H, INK } from "@/lib/marketing/flyerAssets";
+import PaymentGuardScreen from "./screens/PaymentGuardScreen";
+import SafetyMonitorScreen from "./screens/SafetyMonitorScreen";
+import KeylessAccessScreen from "./screens/KeylessAccessScreen";
+import GpsTrackingScreen from "./screens/GpsTrackingScreen";
+import AiInspectionScreen from "./screens/AiInspectionScreen";
+
+const SCREENS = {
+  payment: PaymentGuardScreen,
+  safety: SafetyMonitorScreen,
+  keyless: KeylessAccessScreen,
+  gps: GpsTrackingScreen,
+  inspection: AiInspectionScreen,
+};
+
+/**
+ * One rendering path for preview and export: the SVG artwork, then the live
+ * app screen composited into the phone window, scaled from the fixed 1199x1312
+ * artboard.
+ */
+export default function Flyer({ preset, className = "" }) {
+  const stageRef = useRef(null);
+  const scale = useFitScale(stageRef, FLYER_W);
+  const Screen = preset.screen ? SCREENS[preset.screen] : null;
+
+  return (
+    <div
+      ref={stageRef}
+      className={className}
+      style={{
+        position: "relative",
+        width: "100%",
+        aspectRatio: `${FLYER_W} / ${FLYER_H}`,
+        overflow: "hidden",
+        borderRadius: 14,
+        background: INK,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: FLYER_W,
+          height: FLYER_H,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
+      >
+        <FlyerArtwork preset={preset} />
+        {Screen && (
+          <PhoneScreenFrame>
+            <Screen />
+          </PhoneScreenFrame>
+        )}
+      </div>
+    </div>
+  );
+}
