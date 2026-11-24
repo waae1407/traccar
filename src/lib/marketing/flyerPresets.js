@@ -46,7 +46,7 @@ export const FLYER_PRESETS = [
     feature: "SAFETY MONITOR",
     kicker: "DRIVING BEHAVIOR MONITORING",
     headline: "Your Car.\nTheir Driving.\nYour Risk.",
-    copy: "Five reckless patterns checked\non every trip, with a pass or\nfail verdict on the vehicle.",
+    copy: "Five reckless patterns checked\nacross recent trips, with a\npass or fail on the vehicle.",
     benefits: [
       { icon: "gauge", label: "Speed Patterns" },
       { icon: "zap", label: "Acceleration" },

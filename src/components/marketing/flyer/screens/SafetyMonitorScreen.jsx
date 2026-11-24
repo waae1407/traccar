@@ -44,7 +44,7 @@ export default function SafetyMonitorScreen() {
             PASS — Safe Driving
           </p>
           <p style={{ margin: "2px 0 0", fontSize: 9.5, color: "#8E8E93" }}>
-            Trip 4 of 4 · 38.2 mi monitored
+            Last 24h · 38.2 mi analysed
           </p>
         </div>
       </div>
@@ -94,7 +94,7 @@ export default function SafetyMonitorScreen() {
           paddingLeft: 2,
         }}
       >
-        Every trip is checked and stamped with a verdict.
+        Recent trips are checked for five reckless patterns.
       </div>
     </ScreenChrome>
   );

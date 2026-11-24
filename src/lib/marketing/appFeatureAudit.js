@@ -44,7 +44,7 @@ export const APP_FEATURE_AUDIT = [
   {
     name: "Driving monitoring",
     status: "partial",
-    note: "Five reckless patterns with a pass/fail verdict per trip. No numeric score yet.",
+    note: "Five reckless patterns analysed from the last 24h of trips, pass/fail only. No numeric score yet.",
   },
   {
     name: "AI photo inspection",
