@@ -65,13 +65,41 @@ async function probeInstagram(base44) {
   };
 }
 
+async function listFacebookPages(accessToken) {
+  const base = 'https://graph.facebook.com/v25.0';
+  const pages = new Map();
+  const add = (page) => {
+    if (page?.id && page.access_token && !pages.has(page.id)) pages.set(page.id, page);
+  };
+
+  const accountsRes = await fetch(`${base}/me/accounts?fields=id,name,access_token,picture&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+  const accounts = await accountsRes.json();
+  if (!accountsRes.ok) throw new Error(accounts.error?.message || 'Facebook Pages could not be read');
+  (accounts.data || []).forEach(add);
+
+  // Business Manager pages never appear in /me/accounts — they need both edges.
+  try {
+    const bizRes = await fetch(`${base}/me/businesses?fields=id,name&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+    const businesses = await bizRes.json();
+    for (const business of businesses.data || []) {
+      for (const edge of ['client_pages', 'owned_pages']) {
+        const edgeRes = await fetch(`${base}/${business.id}/${edge}?fields=id,name,access_token,picture&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+        const edgeData = await edgeRes.json();
+        (edgeData.data || []).forEach((page) => add({ ...page, business_id: business.id }));
+      }
+    }
+  } catch (_error) {
+    // business_management is optional; directly managed pages still work
+  }
+
+  return [...pages.values()];
+}
+
 async function probeFacebook(base44) {
   const { accessToken } = await base44.asServiceRole.connectors.getConnection("facebook_pages");
-  const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=id,name,access_token,picture&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || 'Facebook Pages could not be read');
-  const page = (data.data || [])[0];
-  if (!page) throw new Error('No Facebook Page is available for this connection');
+  const pages = await listFacebookPages(accessToken);
+  const page = pages[0];
+  if (!page) throw new Error('No Facebook Page is available for this connection. Select a Page when reconnecting.');
   return {
     account_id: page.id,
     account_name: page.name,
@@ -80,10 +108,19 @@ async function probeFacebook(base44) {
   };
 }
 
+// The X proxy answers { success, status_code, data, credits_charged }, so the
+// provider body sits one level deeper than a direct X response.
+function unwrapXProxy(json) {
+  if (!json || typeof json !== 'object') return {};
+  const wrapped = json.success !== undefined || json.status_code !== undefined;
+  return wrapped ? (json.data || {}) : json;
+}
+
 async function probeX(req) {
   const appId = Deno.env.get("BASE44_APP_ID");
   const apiUrl = req.headers.get("Base44-Api-Url");
   const serviceAuth = req.headers.get("Base44-Service-Authorization");
+  if (!apiUrl || !serviceAuth) throw new Error('X connector proxy is unavailable');
   const res = await fetch(`${apiUrl}/api/apps/${appId}/connectors/x/call`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: serviceAuth },
@@ -91,12 +128,17 @@ async function probeX(req) {
     signal: AbortSignal.timeout(30000),
   });
   const json = await res.json().catch(() => ({}));
-  if (!json?.data?.id) throw new Error(json?.error || 'X account could not be read');
+  const body = unwrapXProxy(json);
+  const account = body.data || body;
+  if (!account?.id) {
+    const reason = body.detail || body.title || body.errors?.[0]?.detail || json?.error || `status ${res.status}`;
+    throw new Error(`X account could not be read: ${reason}`);
+  }
   return {
-    account_id: json.data.id,
-    account_name: json.data.name || `@${json.data.username}`,
-    account_handle: json.data.username ? `@${json.data.username}` : null,
-    profile_image_url: json.data.profile_image_url || null,
+    account_id: account.id,
+    account_name: account.name || `@${account.username}`,
+    account_handle: account.username ? `@${account.username}` : null,
+    profile_image_url: account.profile_image_url || null,
   };
 }
 
@@ -124,7 +166,7 @@ async function syncAccount(base44, req, platform) {
       connection_status: 'connected',
       authorization_status: 'authorized',
       can_publish: true,
-      can_read_analytics: platform !== 'instagram',
+      can_read_analytics: platform === 'x',
       last_error: null,
       missing_scopes: [],
       notes: platform === 'instagram'

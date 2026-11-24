@@ -45,14 +45,41 @@ async function publishInstagram(base44, caption, imageUrl) {
   return { id: published.id, url: permalink, account: me.username ? `@${me.username}` : null, accountId: me.id };
 }
 
-async function publishFacebook(base44, caption, imageUrl, preferredPageId) {
-  const { accessToken } = await base44.asServiceRole.connectors.getConnection("facebook_pages");
-  const accountsRes = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+async function listFacebookPages(accessToken) {
+  const base = "https://graph.facebook.com/v25.0";
+  const pages = new Map();
+  const add = (page) => {
+    if (page?.id && page.access_token && !pages.has(page.id)) pages.set(page.id, page);
+  };
+
+  const accountsRes = await fetch(`${base}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
   const accounts = await accountsRes.json();
   if (!accountsRes.ok) throw new Error(accounts.error?.message || "Facebook Page list failed");
-  const pages = accounts.data || [];
+  (accounts.data || []).forEach(add);
+
+  // Pages owned by a Business Manager are not returned by /me/accounts.
+  try {
+    const bizRes = await fetch(`${base}/me/businesses?fields=id,name&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+    const businesses = await bizRes.json();
+    for (const business of businesses.data || []) {
+      for (const edge of ["client_pages", "owned_pages"]) {
+        const edgeRes = await fetch(`${base}/${business.id}/${edge}?fields=id,name,access_token&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+        const edgeData = await edgeRes.json();
+        (edgeData.data || []).forEach(add);
+      }
+    }
+  } catch (_error) {
+    // business_management is optional
+  }
+
+  return [...pages.values()];
+}
+
+async function publishFacebook(base44, caption, imageUrl, preferredPageId) {
+  const { accessToken } = await base44.asServiceRole.connectors.getConnection("facebook_pages");
+  const pages = await listFacebookPages(accessToken);
   const page = pages.find((item) => item.id === preferredPageId) || pages[0];
-  if (!page) throw new Error("No Facebook Page is available for this connection");
+  if (!page) throw new Error("No Facebook Page is available for this connection. Select a Page when reconnecting.");
   const pageToken = page.access_token || accessToken;
 
   const res = await fetch(`https://graph.facebook.com/v25.0/${page.id}/photos`, {
@@ -65,6 +92,14 @@ async function publishFacebook(base44, caption, imageUrl, preferredPageId) {
   if (!res.ok) throw new Error(data.error?.message || "Facebook Page publish failed");
   const postId = data.post_id || data.id;
   return { id: postId, url: postId ? `https://www.facebook.com/${postId}` : null, account: page.name, accountId: page.id };
+}
+
+// The X proxy answers { success, status_code, data, credits_charged }, so the
+// provider body sits one level deeper than a direct X response.
+function unwrapXProxy(json) {
+  if (!json || typeof json !== "object") return {};
+  const wrapped = json.success !== undefined || json.status_code !== undefined;
+  return wrapped ? (json.data || {}) : json;
 }
 
 async function publishX(req, caption, imageUrl) {
@@ -90,12 +125,14 @@ async function publishX(req, caption, imageUrl) {
   if (bytes.length > 5 * 1024 * 1024) throw new Error("Flyer image exceeds the X 5MB limit");
 
   const media = await call("/2/media/upload", { media: toBase64(bytes), media_category: "tweet_image", media_type: "image/png" });
-  const mediaId = media.json?.data?.id || media.json?.data?.media_id_string;
-  if (!mediaId) throw new Error(media.json?.error || "X media upload failed");
+  const mediaBody = unwrapXProxy(media.json);
+  const mediaId = mediaBody.data?.id || mediaBody.media_id_string || mediaBody.id;
+  if (!mediaId) throw new Error(mediaBody.detail || mediaBody.title || `X media upload failed (status ${media.status})`);
 
   const tweet = await call("/2/tweets", { text: caption, media: { media_ids: [String(mediaId)] } });
-  const id = tweet.json?.data?.id;
-  if (!id) throw new Error(tweet.json?.error || `X rejected the post (status ${tweet.status})`);
+  const tweetBody = unwrapXProxy(tweet.json);
+  const id = tweetBody.data?.id;
+  if (!id) throw new Error(tweetBody.detail || tweetBody.title || `X rejected the post (status ${tweet.status})`);
 
   const meRes = await fetch(`${apiUrl}/api/apps/${appId}/connectors/x/call`, {
     method: "POST",
@@ -103,8 +140,9 @@ async function publishX(req, caption, imageUrl) {
     body: JSON.stringify({ method: "GET", path: "/2/users/me" }),
     signal: AbortSignal.timeout(30000),
   });
-  const me = await meRes.json().catch(() => ({}));
-  return { id, url: `https://x.com/i/web/status/${id}`, account: me?.data?.username ? `@${me.data.username}` : null, accountId: me?.data?.id || null };
+  const me = unwrapXProxy(await meRes.json().catch(() => ({})));
+  const meAccount = me.data || me;
+  return { id, url: `https://x.com/i/web/status/${id}`, account: meAccount.username ? `@${meAccount.username}` : null, accountId: meAccount.id || null };
 }
 
 Deno.serve(async (req) => {

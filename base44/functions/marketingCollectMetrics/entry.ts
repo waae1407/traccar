@@ -9,22 +9,49 @@ function startOfToday() {
 
 async function instagramMetrics(base44, mediaId) {
   const { accessToken } = await base44.asServiceRole.connectors.getConnection("instagram");
-  const url = `https://graph.instagram.com/${mediaId}/insights?metric=reach,likes,comments,shares,saved&access_token=${encodeURIComponent(accessToken)}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message || "Instagram insights unavailable");
-  const values = {};
-  (data.data || []).forEach((item) => {
-    values[item.name] = item.values?.[0]?.value ?? null;
-  });
+
+  // like_count and comments_count ship with instagram_business_basic.
+  const mediaRes = await fetch(`https://graph.instagram.com/${mediaId}?fields=like_count,comments_count&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+  const media = await mediaRes.json();
+  if (!mediaRes.ok) throw new Error(media.error?.message || "Instagram post metrics unavailable");
+
+  // Insights need instagram_business_manage_insights; leave them blank without it.
+  let reach = null;
+  let saves = null;
+  let shares = null;
+  let insights = null;
+  try {
+    const insightRes = await fetch(`https://graph.instagram.com/${mediaId}/insights?metric=reach,saved,shares&access_token=${encodeURIComponent(accessToken)}`, { signal: AbortSignal.timeout(20000) });
+    const data = await insightRes.json();
+    if (insightRes.ok) {
+      insights = data;
+      (data.data || []).forEach((item) => {
+        const value = item.values?.[0]?.value ?? null;
+        if (item.name === "reach") reach = value;
+        if (item.name === "saved") saves = value;
+        if (item.name === "shares") shares = value;
+      });
+    }
+  } catch (_error) {
+    insights = null;
+  }
+
   return {
-    reach: values.reach ?? null,
-    likes: values.likes ?? null,
-    comments: values.comments ?? null,
-    shares: values.shares ?? null,
-    saves: values.saved ?? null,
-    unavailable: ["impressions", "profile_visits", "website_clicks", "follower_growth", "dm_inquiries"],
-    raw: data,
+    reach,
+    likes: media.like_count ?? null,
+    comments: media.comments_count ?? null,
+    shares,
+    saves,
+    unavailable: [
+      "impressions",
+      "profile_visits",
+      "website_clicks",
+      "follower_growth",
+      "dm_inquiries",
+      ...(reach === null ? ["reach"] : []),
+      ...(saves === null ? ["saves"] : []),
+    ],
+    raw: { media, insights },
   };
 }
 
@@ -65,9 +92,11 @@ async function xMetrics(req, postId) {
     signal: AbortSignal.timeout(30000),
   });
   const json = await res.json().catch(() => ({}));
-  const metrics = json?.data?.public_metrics || null;
-  if (!metrics) throw new Error(json?.error || "X post metrics unavailable");
-  const nonPublic = json?.data?.non_public_metrics || {};
+  // The proxy wraps the provider body in { success, status_code, data }.
+  const body = json && (json.success !== undefined || json.status_code !== undefined) ? (json.data || {}) : json;
+  const metrics = body.data?.public_metrics || null;
+  if (!metrics) throw new Error(body.detail || body.title || json?.error || "X post metrics unavailable");
+  const nonPublic = body.data?.non_public_metrics || {};
   return {
     impressions: metrics.impression_count ?? null,
     likes: metrics.like_count ?? null,
