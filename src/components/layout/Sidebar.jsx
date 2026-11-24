@@ -68,6 +68,7 @@ const menuSections = [
       { label: "Referrals", icon: Gift, path: "/referrals" },
       { label: "Installers", icon: Wrench, path: "/admin/installers" },
       { label: "Communications", icon: MessageSquare, path: "/admin/communications" },
+      { label: "Flyer Studio", icon: Camera, path: "/admin/flyer-studio" },
       { label: "AI Oracle", icon: Zap, path: "/admin/ai-chat" },
       { label: "Companies", icon: Building2, path: "/companies", superadminOnly: true },
     ],
