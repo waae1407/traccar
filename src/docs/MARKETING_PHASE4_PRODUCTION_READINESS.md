@@ -24,12 +24,17 @@ Currently granted:
 - Instagram: `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_messages`
 - Facebook Page: `business_management`, `pages_manage_posts`, `pages_show_list`
 
-Required for metrics:
+Available today:
 
-- Instagram: add `instagram_business_manage_insights` — post reach, views/impressions, saves, shares, profile views, follower count.
-- Facebook Page: add `read_insights` and `pages_read_engagement` — post media views, post clicks, page followers.
+- Instagram: likes, comments, follower count (all covered by `instagram_business_basic`).
+- Facebook Page: reactions, comments, shares, follower count (`pages_show_list` + `pages_read_engagement`).
 
-Both need re-authorization from Integrations > Instagram / Facebook Pages after the scopes are added to the Meta app. Until then publishing works and insights stay blank. The collector never writes a zero for a metric the platform did not return: missing values are `null` and listed in `unavailable_metrics`, with the API message kept in `raw.permission_error`.
+Required for the remaining metrics:
+
+- Facebook Page: add `read_insights` and `pages_read_engagement` — post media views, unique page reach, page views, post engagements. Requested in this session; the Page connection needs re-authorization from Integrations > Facebook Pages.
+- Instagram: `instagram_business_manage_insights` would unlock reach, views, saves, shares and profile views, but the Base44 Meta app's approved Instagram scope set does not include it (approved: basic, content publish, manage comments, manage messages). Those Instagram metrics are therefore unavailable until the platform app adds the permission. The collector attempts the call and records the API message rather than inventing a number.
+
+The collector never writes a zero for a metric the platform did not return: missing values are `null` and listed in `unavailable_metrics`, with the API message kept in `raw.permission_error`. Facebook Page insights use the Page access token and the current metric names (`post_media_view`, `page_total_media_view_unique`, `page_views_total`, `page_post_engagements`), never the retired impressions family.
 
 ## 3. Feature discovery
 

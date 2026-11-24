@@ -201,10 +201,12 @@ Deno.serve(async (req) => {
     const days = Math.min(Math.max(Number(body.days) || 3, 1), 30);
     const since = new Date(Date.now() - days * DAY).toISOString().slice(0, 10);
 
-    const publications = await base44.asServiceRole.entities.CampaignPublication.filter({ status: 'published' }, { limit: 100 });
+    const publicationPage = await base44.asServiceRole.entities.CampaignPublication.filter({ status: 'published' }, { limit: 100 });
+    const publications = publicationPage.items || publicationPage;
     const eligible = publications.filter((item: any) => item.external_post_id && item.campaign_date >= since);
 
-    const existing = await base44.asServiceRole.entities.MarketingMetric.filter({}, { limit: 200 });
+    const metricPage = await base44.asServiceRole.entities.MarketingMetric.filter({}, { limit: 200 });
+    const existing = metricPage.items || metricPage;
     const capturedToday = new Set(
       existing.filter((item: any) => item.captured_at && item.captured_at >= startOfToday()).map((item: any) => item.publication_id),
     );
