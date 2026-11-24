@@ -136,6 +136,7 @@ import AdminBatteryHealth from '@/pages/admin/AdminBatteryHealth.jsx';
 import Insurance360 from '@/pages/admin/Insurance360.jsx';
 import FlyerStudio from '@/pages/admin/FlyerStudio.jsx';
 import FlyerSample from '@/pages/admin/FlyerSample.jsx';
+import MarketingCalendar from '@/pages/admin/MarketingCalendar.jsx';
 import HostSubscriptions from '@/pages/host/HostSubscriptions.jsx';
 import HostNotifications from '@/pages/host/HostNotifications.jsx';
 import CustomerNotifications from '@/pages/customer/CustomerNotifications.jsx';
@@ -384,6 +385,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/battery-health" element={<AdminBatteryHealth />} />
         <Route path="/admin/insurance360" element={<Insurance360 />} />
         <Route path="/admin/flyer-studio" element={<FlyerStudio />} />
+        <Route path="/admin/marketing-calendar" element={<MarketingCalendar />} />
       </Route>
 
       {/* Legacy /bookings redirect for admin */}

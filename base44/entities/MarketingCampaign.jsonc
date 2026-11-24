@@ -1,0 +1,150 @@
+{
+  "name": "MarketingCampaign",
+  "type": "object",
+  "properties": {
+    "campaign_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "day_index": {
+      "type": "number"
+    },
+    "feature_key": {
+      "type": "string"
+    },
+    "feature_label": {
+      "type": "string"
+    },
+    "feature_icon": {
+      "type": "string"
+    },
+    "kicker": {
+      "type": "string"
+    },
+    "headline": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "benefits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "icon": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cta_keyword": {
+      "type": "string"
+    },
+    "screen": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "detail": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "audience": {
+      "type": "string"
+    },
+    "objective": {
+      "type": "string"
+    },
+    "pain_point": {
+      "type": "string"
+    },
+    "angle_key": {
+      "type": "string"
+    },
+    "angle_label": {
+      "type": "string"
+    },
+    "caption_instagram": {
+      "type": "string"
+    },
+    "hashtags_instagram": {
+      "type": "string"
+    },
+    "caption_facebook": {
+      "type": "string"
+    },
+    "hashtags_facebook": {
+      "type": "string"
+    },
+    "caption_x": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "approved",
+        "rejected"
+      ],
+      "default": "proposed",
+      "enumColors": [
+        "blue",
+        "green",
+        "red"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "engine",
+        "ai",
+        "edited"
+      ],
+      "default": "engine"
+    },
+    "review_note": {
+      "type": "string"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "campaign_date",
+    "feature_key",
+    "headline"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
