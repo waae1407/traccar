@@ -21,6 +21,8 @@ export default function PhoneScreenFrame({ children }) {
         transform: `rotate(${PHONE.rotate}deg)`,
         transformOrigin: "center",
         background: "#0a0b0f",
+        boxShadow:
+          "inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 26px 48px -22px rgba(255,255,255,0.16), inset 0 -20px 40px -24px rgba(0,0,0,0.9)",
       }}
     >
       {children}

@@ -19,6 +19,7 @@ export const REFERENCE_PRESET = {
     { icon: "shieldCheck", label: "Theft Deterrence" },
   ],
   cta: "TOAST",
+  featureIcon: "bell",
   screen: null,
   phone: "TOAST Alert",
   detail: "Unauthorized Access Detected",
@@ -39,6 +40,7 @@ export const FLYER_PRESETS = [
       { icon: "shieldCheck", label: "Fleet Control" },
     ],
     cta: "GUARD",
+    featureIcon: "creditCard",
     screen: "payment",
   },
   {
@@ -54,6 +56,7 @@ export const FLYER_PRESETS = [
       { icon: "shieldCheck", label: "Trip Verdicts" },
     ],
     cta: "SAFETY",
+    featureIcon: "gauge",
     screen: "safety",
   },
   {
@@ -69,6 +72,7 @@ export const FLYER_PRESETS = [
       { icon: "shieldCheck", label: "No Key Handoff" },
     ],
     cta: "KEYLESS",
+    featureIcon: "unlock",
     screen: "keyless",
   },
   {
@@ -84,6 +88,7 @@ export const FLYER_PRESETS = [
       { icon: "shieldCheck", label: "SOS Alerts" },
     ],
     cta: "TRACK",
+    featureIcon: "mapPin",
     screen: "gps",
   },
   {
@@ -99,6 +104,7 @@ export const FLYER_PRESETS = [
       { icon: "shieldCheck", label: "Evidence Vault" },
     ],
     cta: "INSPECT",
+    featureIcon: "scan",
     screen: "inspection",
   },
 ];

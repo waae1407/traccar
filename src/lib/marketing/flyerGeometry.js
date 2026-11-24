@@ -10,8 +10,9 @@ export function headlineSize(headline) {
   return Math.min(83, Math.floor((1100 / longest) * 0.85));
 }
 
-export function featureSize(feature) {
-  return Math.min(82, Math.floor(680 / Math.max(1, String(feature || "").length)));
+/** Feature name sizing. `available` shrinks the run when an icon sits beside it. */
+export function featureSize(feature, available = 680) {
+  return Math.min(82, Math.floor(available / Math.max(1, String(feature || "").length)));
 }
 
 export function toLines(text) {
