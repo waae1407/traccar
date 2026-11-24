@@ -135,6 +135,7 @@ import AdminTelematicsReconciliation from '@/pages/admin/AdminTelematicsReconcil
 import AdminBatteryHealth from '@/pages/admin/AdminBatteryHealth.jsx';
 import Insurance360 from '@/pages/admin/Insurance360.jsx';
 import FlyerStudio from '@/pages/admin/FlyerStudio.jsx';
+import FlyerSample from '@/pages/admin/FlyerSample.jsx';
 import HostSubscriptions from '@/pages/host/HostSubscriptions.jsx';
 import HostNotifications from '@/pages/host/HostNotifications.jsx';
 import CustomerNotifications from '@/pages/customer/CustomerNotifications.jsx';
@@ -311,6 +312,9 @@ const AuthenticatedApp = () => {
 
       {/* ── ADMIN FLEET MAP (standalone, no sidebar — like host fleet map) ── */}
       <Route path="/dashboard" element={<AdminGuard><AdminFleetMap /></AdminGuard>} />
+
+      {/* Standalone full-size flyer sample — no sidebar, nothing but the flyer */}
+      <Route path="/admin/flyer-sample" element={<AdminGuard><FlyerSample /></AdminGuard>} />
 
       {/* ── ADMIN ROUTES (admin-only, uses dark CRM layout) ── */}
       <Route element={<AdminGuard><AppLayout /></AdminGuard>}>

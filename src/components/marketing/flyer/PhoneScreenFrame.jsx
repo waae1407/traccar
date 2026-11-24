@@ -10,7 +10,6 @@ import { PHONE } from "@/lib/marketing/flyerAssets";
 export default function PhoneScreenFrame({ children }) {
   return (
     <div
-      data-flyer-phone
       style={{
         position: "absolute",
         left: PHONE.x,

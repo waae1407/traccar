@@ -22,7 +22,7 @@ const SCREENS = {
  * app screen composited into the phone window, scaled from the fixed 1199x1312
  * artboard.
  */
-export default function Flyer({ preset, className = "", stageId }) {
+export default function Flyer({ preset, className = "" }) {
   const stageRef = useRef(null);
   const scale = useFitScale(stageRef, FLYER_W);
   const Screen = preset.screen ? SCREENS[preset.screen] : null;
@@ -30,7 +30,6 @@ export default function Flyer({ preset, className = "", stageId }) {
   return (
     <div
       ref={stageRef}
-      id={stageId}
       className={className}
       style={{
         position: "relative",
